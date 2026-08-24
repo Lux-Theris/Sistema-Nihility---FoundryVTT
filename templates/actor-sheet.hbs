@@ -140,7 +140,11 @@
         <ol class="item-list">
           {{#each (lookup ../skillsByTier tier) as |skill|}}
           <li class="item-row" data-item-id="{{skill.id}}">
+            {{#if skill.system.isItemGranted}}
+            <span class="item-granted-badge" title="Concedida por Item/Módulo — não pode ser fundida">⚙</span>
+            {{else}}
             <input type="checkbox" class="skill-fuse-checkbox" data-item-id="{{skill.id}}"/>
+            {{/if}}
             <img src="{{skill.img}}" width="24" height="24"/>
             <span class="item-name">{{skill.name}}</span>
             <span class="item-cost">Custo: {{skill.system.cost}}</span>

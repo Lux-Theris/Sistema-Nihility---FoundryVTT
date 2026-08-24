@@ -17,7 +17,8 @@ import {
   AIHelper,
   ensureSystemCompendiums,
   approveSkillCreationRequest,
-  rejectSkillCreationRequest
+  rejectSkillCreationRequest,
+  removeGrantedSkill
 } from "./ai-helper.js";
 import { NihilityActorSheet } from "./sheets/actor-sheet.js";
 import { NihilityStarshipSheet, NihilityVehicleSheet } from "./sheets/starship-sheet.js";
@@ -139,6 +140,14 @@ Hooks.on("preUpdateActor", (actor, changes) => {
 
   const currentNormal = actor.system.skillPoints.normal ?? 0;
   foundry.utils.setProperty(changes, "system.skillPoints.normal", currentNormal + gained);
+});
+
+// Limpa a Habilidade Concedida (ver ai-helper.js) quando o Item Geral ou Módulo de
+// Nave que a concedeu é excluído — evita skill "órfã" sobrando na ficha.
+Hooks.on("preDeleteItem", item => {
+  if (!["item", "starship_module"].includes(item.type)) return;
+  if (!item.parent) return;
+  removeGrantedSkill(item.parent, item.id);
 });
 
 // Botões de Aprovar/Rejeitar nos pedidos de criação de Skill via Pontos de Habilidade.

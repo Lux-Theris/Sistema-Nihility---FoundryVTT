@@ -48,6 +48,14 @@ export class StarshipDataModel extends foundry.abstract.TypeDataModel {
     return this.parent.items.filter(i => i.type === "starship_module");
   }
 
+  /**
+   * Habilidades Especiais da Nave (Items type "skill"), sempre concedidas por
+   * Módulos online — sem economia de pontos nem fusão, só exibição.
+   */
+  get skills() {
+    return this.parent.items.filter(i => i.type === "skill");
+  }
+
   /** Soma do consumo de todos os módulos atualmente online. */
   get totalConsumption() {
     return this.modules

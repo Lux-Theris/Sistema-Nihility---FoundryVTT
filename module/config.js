@@ -66,6 +66,13 @@ export const MEU_SISTEMA = {
     normalToUnique: 3 // 3 Normal <-> 1 Único
   },
 
+  /**
+   * Tiers que um Item Geral/Modificação de Parte do Corpo/Módulo de Nave pode
+   * conceder como Habilidade (padrão "normal"; o Mestre pode liberar até aqui,
+   * nunca Único/Ultimate — essas só nascem de fusão/narrativa, nunca de loot).
+   */
+  ITEM_GRANTABLE_SKILL_TIERS: ["extra", "normal", "racial"],
+
   /** Estados possíveis de uma Parte do Corpo. */
   BODY_PART_STATUS: ["intact", "damaged", "destroyed"],
 

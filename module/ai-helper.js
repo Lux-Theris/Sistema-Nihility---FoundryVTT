@@ -70,6 +70,53 @@ export async function registerItemInCompendium(itemData) {
 }
 
 /* -------------------------------------------- */
+/*  Habilidades concedidas por Item/Módulo       */
+/* -------------------------------------------- */
+
+/**
+ * Cria uma Skill de verdade no Ator a partir de um `grantsSkill` (Item Geral,
+ * Modificação de Parte do Corpo ou Módulo de Nave), marcada como concedida por
+ * item — nunca entra em fusão, e é removida junto quando a fonte é revogada.
+ * @param {Actor} actor
+ * @param {{name:string, description?:string, cost?:number, tier?:string}} grantsSkill
+ * @param {string} sourceKey - identifica a fonte (ex: `${itemId}` ou `${itemId}:${modIndex}`)
+ * @returns {Promise<Item|null>} a Skill criada, ou null se `grantsSkill.name` estiver vazio
+ */
+export async function createGrantedSkill(actor, grantsSkill, sourceKey) {
+  if (!grantsSkill?.name?.trim()) return null;
+
+  const data = {
+    name: grantsSkill.name.trim(),
+    type: "skill",
+    system: {
+      tier: MEU_SISTEMA.ITEM_GRANTABLE_SKILL_TIERS.includes(grantsSkill.tier) ? grantsSkill.tier : "normal",
+      level: 1,
+      cost: Number(grantsSkill.cost) || 0,
+      description: grantsSkill.description || "",
+      isItemGranted: true
+    },
+    flags: { [SYSTEM_ID]: { grantedBySource: sourceKey } }
+  };
+
+  const [created] = await actor.createEmbeddedDocuments("Item", [data]);
+  return created;
+}
+
+/**
+ * Remove a(s) Skill(s) concedida(s) por uma fonte específica (ver `createGrantedSkill`).
+ * @param {Actor} actor
+ * @param {string} sourceKey
+ */
+export async function removeGrantedSkill(actor, sourceKey) {
+  const toRemove = actor.items.filter(
+    i => i.type === "skill" && i.flags?.[SYSTEM_ID]?.grantedBySource === sourceKey
+  );
+  if (toRemove.length) {
+    await actor.deleteEmbeddedDocuments("Item", toRemove.map(i => i.id));
+  }
+}
+
+/* -------------------------------------------- */
 /*  Fusão de Skills                              */
 /* -------------------------------------------- */
 
@@ -161,6 +208,12 @@ export async function fuseSkills(actor, sourceItemIds, options = {}) {
   const sources = sourceItemIds.map(id => actor.items.get(id)).filter(Boolean);
   if (sources.length < 2) {
     throw new Error("Selecione ao menos duas habilidades para fundir.");
+  }
+
+  const grantedSource = sources.find(s => s.system.isItemGranted);
+  if (grantedSource) {
+    ui.notifications?.error(`"${grantedSource.name}" foi concedida por um item/módulo e não pode ser fundida.`);
+    throw new Error("Regra violada: skill concedida por item não pode entrar em fusão.");
   }
 
   const invalidSource = sources.find(s => !canConsumeTier(tier, s.system.tier));
@@ -861,6 +914,8 @@ export async function announceLevelUp(actor, newLevel) {
 export const AIHelper = {
   ensureSystemCompendiums,
   registerItemInCompendium,
+  createGrantedSkill,
+  removeGrantedSkill,
   fuseSkills,
   requestAISpecialSkill,
   ingestExternalSkillJSON,

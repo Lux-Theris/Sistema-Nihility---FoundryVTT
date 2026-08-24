@@ -1,4 +1,5 @@
 import { SYSTEM_ID, MEU_SISTEMA } from "../config.js";
+import { createGrantedSkill, removeGrantedSkill } from "../ai-helper.js";
 
 /**
  * Ficha genérica de Item, adaptável por `item.type`
@@ -43,10 +44,29 @@ export class NihilityItemSheet extends ItemSheet {
     // Modificações/Próteses instaladas (type "body_part")
     html.find(".mod-add").on("click", this._onInstalledModAdd.bind(this));
     html.find(".mod-delete").on("click", this._onInstalledModDelete.bind(this));
+    html.find(".mod-grant-toggle").on("click", this._onModGrantToggle.bind(this));
 
     // Bônus permanentes (type "title")
     html.find(".title-bonus-add").on("click", this._onTitleBonusAdd.bind(this));
     html.find(".title-bonus-delete").on("click", this._onTitleBonusDelete.bind(this));
+
+    // Habilidade Concedida ao equipar (type "item")
+    html.find(".item-equip-toggle").on("change", this._onEquipToggle.bind(this));
+  }
+
+  /* -------------------------------------------- */
+  /*  Habilidade Concedida (Item Geral / equipar)  */
+  /* -------------------------------------------- */
+
+  async _onEquipToggle(event) {
+    const actor = this.item.parent;
+    if (!actor) return; // Item ainda não está numa ficha — nada a conceder/revogar.
+
+    if (event.currentTarget.checked) {
+      await createGrantedSkill(actor, this.item.system.grantsSkill, this.item.id);
+    } else {
+      await removeGrantedSkill(actor, this.item.id);
+    }
   }
 
   async _onSubSkillAdd(event) {
@@ -75,7 +95,43 @@ export class NihilityItemSheet extends ItemSheet {
     event.preventDefault();
     const index = Number(event.currentTarget.closest("[data-index]").dataset.index);
     const mods = foundry.utils.deepClone(this.item.system.installedMods ?? []);
+
+    const actor = this.item.parent;
+    if (actor && mods[index]?.skillGranted) {
+      await removeGrantedSkill(actor, `${this.item.id}:${index}`);
+    }
+
     mods.splice(index, 1);
+    await this.item.update({ "system.installedMods": mods });
+  }
+
+  /** Concede (ou revoga) a Habilidade de uma Modificação instalada em Parte do Corpo. */
+  async _onModGrantToggle(event) {
+    event.preventDefault();
+    const actor = this.item.parent;
+    if (!actor) {
+      ui.notifications?.warn("A Parte do Corpo precisa estar numa ficha de Ator para conceder a Habilidade.");
+      return;
+    }
+
+    const index = Number(event.currentTarget.closest("[data-index]").dataset.index);
+    const mods = foundry.utils.deepClone(this.item.system.installedMods ?? []);
+    const mod = mods[index];
+    if (!mod) return;
+
+    const sourceKey = `${this.item.id}:${index}`;
+    if (mod.skillGranted) {
+      await removeGrantedSkill(actor, sourceKey);
+      mod.skillGranted = false;
+    } else {
+      const created = await createGrantedSkill(actor, mod.grantsSkill, sourceKey);
+      if (!created) {
+        ui.notifications?.warn("Preencha o nome da Habilidade Concedida antes de conceder.");
+        return;
+      }
+      mod.skillGranted = true;
+    }
+
     await this.item.update({ "system.installedMods": mods });
   }
 

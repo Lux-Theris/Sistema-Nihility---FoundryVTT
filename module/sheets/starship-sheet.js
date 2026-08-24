@@ -1,5 +1,5 @@
 import { SYSTEM_ID, MEU_SISTEMA, getStarshipEnergyLabel } from "../config.js";
-import { registerItemInCompendium } from "../ai-helper.js";
+import { registerItemInCompendium, createGrantedSkill, removeGrantedSkill } from "../ai-helper.js";
 
 /**
  * Ficha de Naves Espaciais (type "starship"): Casco, Escudos, Manobra e o
@@ -25,6 +25,7 @@ export class NihilityStarshipSheet extends ActorSheet {
     context.config = MEU_SISTEMA;
     context.energyLabel = getStarshipEnergyLabel();
     context.modules = actor.items.filter(i => i.type === "starship_module");
+    context.skills = actor.system.skills;
     context.totalConsumption = actor.system.totalConsumption;
     context.availableEnergy = actor.system.availableEnergy;
     context.isOverloaded = actor.system.powerGrid.isOverloaded;
@@ -72,6 +73,12 @@ export class NihilityStarshipSheet extends ActorSheet {
     if (!module) return;
     const next = module.system.status === "online" ? "offline" : "online";
     await module.update({ "system.status": next });
+
+    if (next === "online") {
+      await createGrantedSkill(this.actor, module.system.grantsSkill, module.id);
+    } else {
+      await removeGrantedSkill(this.actor, module.id);
+    }
   }
 
   /** Recalcula o Grid de Energia: excedente carrega os capacitores, déficit os drena. */

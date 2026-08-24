@@ -726,3 +726,55 @@ form.nihility-config-app {
 .nihility-skill-request.status-approved { border-color: var(--nihility-ok); }
 .nihility-skill-request.status-rejected,
 .nihility-skill-request.status-insufficient { border-color: var(--nihility-danger); }
+
+/* ==========================================================================
+   Habilidades concedidas por Item/Módulo (v3)
+   ========================================================================== */
+
+.nihility-sheet .item-granted-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  color: var(--nihility-gold);
+  cursor: help;
+}
+
+.nihility-sheet .mod-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 4px;
+  border-bottom: 1px solid rgba(58, 65, 102, 0.4);
+}
+.nihility-sheet .mod-row-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.nihility-sheet .mod-grant-fields {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 12px;
+}
+.nihility-sheet .mod-grant-fields input,
+.nihility-sheet .mod-grant-fields select {
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+.nihility-sheet .mod-grant-toggle {
+  background: rgba(110, 231, 255, 0.08);
+  border: 1px solid var(--nihility-accent);
+  color: var(--nihility-accent);
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.nihility-sheet .mod-grant-toggle:hover {
+  background: rgba(110, 231, 255, 0.2);
+}

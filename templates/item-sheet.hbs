@@ -32,6 +32,13 @@
       <label>Nível <input type="number" name="system.level" value="{{system.level}}"/></label>
       <label>Custo <input type="number" name="system.cost" value="{{system.cost}}"/></label>
       <label>Gatilho Emocional <input type="text" name="system.emotionTrigger" value="{{system.emotionTrigger}}"/></label>
+      <label>Requer Item <span class="hint-inline">(livre, só pra RP — ex: "Revólver das Transmutações")</span>
+        <input type="text" name="system.requiredItem" value="{{system.requiredItem}}"/>
+      </label>
+
+      {{#if system.isItemGranted}}
+      <p class="hint-inline">⚙ Concedida automaticamente por um Item/Módulo — não pode ser fundida, e some se a fonte for desequipada/removida.</p>
+      {{/if}}
 
       <h3>Sub-Skills</h3>
       <ol class="sub-list">
@@ -62,12 +69,26 @@
       <label>Protética? <input type="checkbox" name="system.isProsthetic" {{#if system.isProsthetic}}checked{{/if}}/></label>
 
       <h3>Modificações Instaladas</h3>
-      <ol class="sub-list">
+      <ol class="sub-list mod-list">
         {{#each system.installedMods as |mod index|}}
-        <li data-index="{{index}}">
-          <input type="text" name="system.installedMods.{{index}}.name" value="{{mod.name}}"/>
-          <input type="text" name="system.installedMods.{{index}}.description" value="{{mod.description}}"/>
-          <a class="mod-delete" title="Remover"><i class="fas fa-trash"></i></a>
+        <li data-index="{{index}}" class="mod-row">
+          <div class="mod-row-main">
+            <input type="text" name="system.installedMods.{{index}}.name" value="{{mod.name}}" placeholder="Nome da modificação"/>
+            <input type="text" name="system.installedMods.{{index}}.description" value="{{mod.description}}" placeholder="Descrição"/>
+            <a class="mod-delete" title="Remover"><i class="fas fa-trash"></i></a>
+          </div>
+          <div class="mod-grant-fields">
+            <input type="text" name="system.installedMods.{{index}}.grantsSkill.name" value="{{mod.grantsSkill.name}}" placeholder="Habilidade Concedida (nome)"/>
+            <input type="number" name="system.installedMods.{{index}}.grantsSkill.cost" value="{{mod.grantsSkill.cost}}" placeholder="Custo"/>
+            <select name="system.installedMods.{{index}}.grantsSkill.tier">
+              {{#each ../config.ITEM_GRANTABLE_SKILL_TIERS as |t|}}
+              <option value="{{t}}" {{#if (eq t mod.grantsSkill.tier)}}selected{{/if}}>{{lookup ../../config.SKILL_TIER_LABELS t}}</option>
+              {{/each}}
+            </select>
+            <button type="button" class="mod-grant-toggle" data-index="{{index}}">
+              {{#if mod.skillGranted}}Remover Habilidade{{else}}Conceder Habilidade{{/if}}
+            </button>
+          </div>
         </li>
         {{/each}}
       </ol>
@@ -106,16 +127,42 @@
       </label>
       <label>Consumo de Energia <input type="number" name="system.powerConsumption" value="{{system.powerConsumption}}"/></label>
       <label>Slot <input type="text" name="system.slot" value="{{system.slot}}"/></label>
+
+      <h3>Habilidade Concedida <span class="hint-inline">(à Nave, enquanto o módulo estiver "online")</span></h3>
+      <label>Nome <input type="text" name="system.grantsSkill.name" value="{{system.grantsSkill.name}}"/></label>
+      <label>Descrição <input type="text" name="system.grantsSkill.description" value="{{system.grantsSkill.description}}"/></label>
+      <label>Custo <input type="number" name="system.grantsSkill.cost" value="{{system.grantsSkill.cost}}"/></label>
+      <label>Tier
+        <select name="system.grantsSkill.tier">
+          {{#each config.ITEM_GRANTABLE_SKILL_TIERS as |t|}}
+          <option value="{{t}}" {{#if (eq t system.grantsSkill.tier)}}selected{{/if}}>{{lookup ../config.SKILL_TIER_LABELS t}}</option>
+          {{/each}}
+        </select>
+      </label>
+      <p class="hint-inline">Ligar/desligar o módulo na ficha da Nave concede/remove essa Habilidade automaticamente.</p>
       {{/if}}
 
       {{#if (eq itemType "item")}}
       <label>Quantidade <input type="number" name="system.quantity" value="{{system.quantity}}"/></label>
       <label>Peso <input type="number" name="system.weight" value="{{system.weight}}"/></label>
-      <label>Equipado? <input type="checkbox" name="system.equipped" {{#if system.equipped}}checked{{/if}}/></label>
+      <label>Equipado? <input type="checkbox" class="item-equip-toggle" name="system.equipped" {{#if system.equipped}}checked{{/if}}/></label>
       <label>Valor
         <input type="number" name="system.value.amount" value="{{system.value.amount}}"/>
         <input type="text" name="system.value.currency" value="{{system.value.currency}}"/>
       </label>
+
+      <h3>Habilidade Concedida <span class="hint-inline">(ao dono, enquanto o item estiver equipado)</span></h3>
+      <label>Nome <input type="text" name="system.grantsSkill.name" value="{{system.grantsSkill.name}}"/></label>
+      <label>Descrição <input type="text" name="system.grantsSkill.description" value="{{system.grantsSkill.description}}"/></label>
+      <label>Custo <input type="number" name="system.grantsSkill.cost" value="{{system.grantsSkill.cost}}"/></label>
+      <label>Tier
+        <select name="system.grantsSkill.tier">
+          {{#each config.ITEM_GRANTABLE_SKILL_TIERS as |t|}}
+          <option value="{{t}}" {{#if (eq t system.grantsSkill.tier)}}selected{{/if}}>{{lookup ../config.SKILL_TIER_LABELS t}}</option>
+          {{/each}}
+        </select>
+      </label>
+      <p class="hint-inline">Marcar/desmarcar "Equipado" concede/remove essa Habilidade automaticamente.</p>
       {{/if}}
 
     </div>

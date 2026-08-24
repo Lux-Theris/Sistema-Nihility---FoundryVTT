@@ -17,6 +17,8 @@ import { AIHelper, ensureSystemCompendiums } from "./ai-helper.js";
 import { NihilityActorSheet } from "./sheets/actor-sheet.js";
 import { NihilityStarshipSheet, NihilityVehicleSheet } from "./sheets/starship-sheet.js";
 import { NihilityItemSheet } from "./sheets/item-sheet.js";
+import { CurrencyConfigApp } from "./apps/currency-config.js";
+import { SpeciesConfigApp } from "./apps/species-config.js";
 
 Hooks.once("init", () => {
   console.log(`${SYSTEM_ID} | Inicializando sistema...`);
@@ -29,6 +31,25 @@ Hooks.once("init", () => {
   };
 
   registerSystemSettings();
+
+  // Editores visuais (Settings Menu) para as settings de config:false acima.
+  game.settings.registerMenu(SYSTEM_ID, "currencyConfigMenu", {
+    name: "Configurar Moedas",
+    label: "Configurar Moedas",
+    hint: "Adicione, edite ou remova as moedas usadas nas fichas.",
+    icon: "fas fa-coins",
+    type: CurrencyConfigApp,
+    restricted: true
+  });
+
+  game.settings.registerMenu(SYSTEM_ID, "speciesConfigMenu", {
+    name: "Configurar Presets de Espécie",
+    label: "Configurar Presets de Espécie",
+    hint: "Adicione, edite ou remova espécies e suas Partes do Corpo padrão.",
+    icon: "fas fa-dna",
+    type: SpeciesConfigApp,
+    restricted: true
+  });
 
   // Registro dos Data Models por tipo de documento (substitui template.json).
   CONFIG.Actor.dataModels.character = CharacterDataModel;

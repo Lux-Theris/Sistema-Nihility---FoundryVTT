@@ -1,0 +1,44 @@
+<form class="nihility-config-app species-config-app" autocomplete="off">
+  <p class="hint">
+    Cada Espécie tem um nome e uma lista de Partes do Corpo. Ao trocar a espécie de um
+    personagem, essas partes são aplicadas automaticamente na ficha (HP, slot e tags).
+    Tags são separadas por vírgula (ex: <code>vital, mechanical</code>).
+  </p>
+
+  <div class="species-list">
+    {{#each species as |sp key|}}
+    <fieldset class="species-block">
+      <legend>
+        <input type="text" class="species-key-input" value="{{key}}" placeholder="chave (ex: humano)"/>
+        <input type="text" class="species-label-input" value="{{sp.label}}" placeholder="Nome exibido"/>
+        <a class="species-delete" title="Remover Espécie"><i class="fas fa-trash"></i></a>
+      </legend>
+
+      <div class="config-list-header part-header">
+        <span>Chave</span><span>Nome</span><span>Slot</span><span>HP</span><span>Tags</span><span></span>
+      </div>
+
+      <div class="part-list">
+        {{#each sp.parts as |part|}}
+        <div class="part-row">
+          <input type="text" data-field="key" value="{{part.key}}" placeholder="chave"/>
+          <input type="text" data-field="label" value="{{part.label}}" placeholder="Nome"/>
+          <input type="text" data-field="slot" value="{{part.slot}}" placeholder="slot"/>
+          <input type="number" data-field="hpMax" value="{{part.hpMax}}" placeholder="HP"/>
+          <input type="text" data-field="tags" value="{{part.tagsText}}" placeholder="tags (vírgula)"/>
+          <a class="part-delete" title="Remover Parte"><i class="fas fa-trash"></i></a>
+        </div>
+        {{/each}}
+      </div>
+
+      <a class="config-add-row part-add">+ Nova Parte do Corpo</a>
+    </fieldset>
+    {{/each}}
+  </div>
+
+  <a class="config-add-row species-add">+ Nova Espécie</a>
+
+  <footer class="sheet-footer">
+    <button type="submit"><i class="fas fa-save"></i> Salvar Espécies</button>
+  </footer>
+</form>

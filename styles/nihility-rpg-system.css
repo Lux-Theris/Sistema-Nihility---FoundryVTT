@@ -309,3 +309,146 @@
   font-size: 0.7rem;
   color: var(--nihility-text-dim);
 }
+
+/* ==========================================================================
+   Editores visuais de Settings (Moedas / Presets de Espécie)
+   ========================================================================== */
+
+.nihility-config-app.window-app,
+.window-app .nihility-config-app {
+  background: var(--nihility-bg-panel);
+  color: var(--nihility-text);
+}
+
+.nihility-config-app form,
+form.nihility-config-app {
+  font-family: var(--nihility-font);
+  color: var(--nihility-text);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nihility-config-app .hint {
+  color: var(--nihility-text-dim);
+  font-size: 0.85rem;
+  margin: 0 0 4px;
+}
+
+.nihility-config-app input {
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+  border-radius: 4px;
+  padding: 2px 6px;
+  width: 100%;
+}
+
+.nihility-config-app input:focus {
+  outline: none;
+  border-color: var(--nihility-accent);
+  box-shadow: 0 0 4px var(--nihility-accent);
+}
+
+.nihility-config-app .config-list-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 24px 60px 24px;
+  gap: 4px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: var(--nihility-text-dim);
+  padding: 0 2px;
+}
+
+.nihility-config-app .currency-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 24px 60px 24px;
+  gap: 4px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.nihility-config-app .part-header {
+  grid-template-columns: 1fr 1fr 1fr 50px 1fr 24px;
+}
+
+.nihility-config-app .part-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 50px 1fr 24px;
+  gap: 4px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.nihility-config-app .currency-icon-pick,
+.nihility-config-app .currency-delete,
+.nihility-config-app .part-delete,
+.nihility-config-app .species-delete {
+  text-align: center;
+  color: var(--nihility-text-dim);
+  cursor: pointer;
+}
+.nihility-config-app .currency-icon-pick:hover,
+.nihility-config-app .currency-delete:hover,
+.nihility-config-app .part-delete:hover,
+.nihility-config-app .species-delete:hover {
+  color: var(--nihility-danger);
+}
+
+.nihility-config-app .config-add-row {
+  display: inline-block;
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 3px 10px;
+  border: 1px solid var(--nihility-accent-2);
+  border-radius: 4px;
+  color: var(--nihility-accent-2);
+  background: rgba(192, 132, 252, 0.08);
+  cursor: pointer;
+}
+.nihility-config-app .config-add-row:hover {
+  background: rgba(192, 132, 252, 0.2);
+}
+
+.nihility-config-app .species-block {
+  border: 1px solid var(--nihility-border);
+  border-radius: 6px;
+  margin-bottom: 10px;
+  padding: 6px 8px;
+}
+
+.nihility-config-app .species-block legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 0 4px;
+}
+
+.nihility-config-app .species-key-input {
+  max-width: 160px;
+  color: var(--nihility-accent-2);
+}
+
+.nihility-config-app .species-label-input {
+  flex: 1;
+}
+
+.nihility-config-app .sheet-footer {
+  margin-top: 8px;
+  border-top: 1px solid var(--nihility-border);
+  padding-top: 8px;
+}
+
+.nihility-config-app .sheet-footer button {
+  background: rgba(110, 231, 255, 0.1);
+  border: 1px solid var(--nihility-accent);
+  color: var(--nihility-accent);
+  border-radius: 4px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.nihility-config-app .sheet-footer button:hover {
+  background: rgba(110, 231, 255, 0.25);
+}

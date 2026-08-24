@@ -128,21 +128,22 @@ export function getActiveCurrencies() {
 }
 
 /**
- * Lê o dicionário de presets de espécie atualmente ativo (setting mesclada > default).
+ * Lê o dicionário de presets de espécie atualmente ativo.
+ * Assim que o GM salva algo pelo editor visual (Configurar Presets de Espécie),
+ * o resultado completo passa a ser a única fonte da verdade; até lá, usa os padrões.
  * @returns {Record<string, {label:string, parts:Array}>}
  */
 export function getActiveSpeciesPresets() {
-  let custom = {};
   try {
     const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.speciesPresetsData);
     if (raw) {
       const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-      if (parsed && typeof parsed === "object") custom = parsed;
+      if (parsed && typeof parsed === "object" && Object.keys(parsed).length) return parsed;
     }
   } catch (err) {
-    console.warn(`${SYSTEM_ID} | JSON de presets de espécie inválido, ignorando overrides.`, err);
+    console.warn(`${SYSTEM_ID} | JSON de presets de espécie inválido, usando padrão.`, err);
   }
-  return foundry.utils.mergeObject(MEU_SISTEMA.DEFAULT_SPECIES_PRESETS, custom, { inplace: false });
+  return MEU_SISTEMA.DEFAULT_SPECIES_PRESETS;
 }
 
 /** Rótulo atual do sistema de energia (setting > default). */
@@ -212,20 +213,18 @@ export function registerSystemSettings() {
     default: MEU_SISTEMA.DEFAULT_ENERGY_LABEL
   });
 
+  // Armazenamento cru (sem UI própria na lista de settings): editados pelos
+  // FormApplications dedicados registrados como Settings Menu em nihility-rpg-system.js.
   game.settings.register(SYSTEM_ID, S.currenciesData, {
-    name: "Moedas Dinâmicas (JSON)",
-    hint: "Lista de moedas em JSON: [{\"id\":\"gold\",\"label\":\"Ouro\",\"icon\":\"...\",\"weight\":0.02}, ...]",
     scope: "world",
-    config: true,
+    config: false,
     type: String,
     default: JSON.stringify(MEU_SISTEMA.DEFAULT_CURRENCIES, null, 2)
   });
 
   game.settings.register(SYSTEM_ID, S.speciesPresetsData, {
-    name: "Presets de Anatomia por Espécie (JSON, overrides)",
-    hint: "Objeto JSON mesclado sobre os presets padrão para adicionar/sobrescrever espécies.",
     scope: "world",
-    config: true,
+    config: false,
     type: String,
     default: "{}"
   });

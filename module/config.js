@@ -235,14 +235,19 @@ export function registerSystemSettings() {
     default: "{}"
   });
 
+  // scope:"client" (não "world"): fica só no navegador de quem configura, nunca
+  // sincroniza pros outros clientes conectados. Como só o GM usa o Assistente de
+  // IA, isso mantém a chave/token fora do alcance dos jogadores sem precisar de
+  // nenhuma infraestrutura extra. Efeito colateral: precisa reconfigurar por
+  // navegador/dispositivo se o GM trocar de máquina.
   game.settings.register(SYSTEM_ID, S.aiProvider, {
     name: "Provedor de IA",
-    hint: "Relay Seguro chama seu próprio Worker (Cloudflare) e nunca expõe a chave real ao Foundry — recomendado. Os outros dois enviam a chave direto do navegador, visível a jogadores (ver aviso no campo Chave de API).",
-    scope: "world",
+    hint: "Fica salvo só neste navegador (não sincroniza com jogadores). Relay Seguro é útil se você quiser um teto de uso ou compartilhar uma chave entre co-Mestres; os provedores diretos falam direto com o provedor escolhido.",
+    scope: "client",
     config: true,
     type: String,
     choices: {
-      relay: "Relay Seguro (Cloudflare) — recomendado",
+      relay: "Relay Seguro (Cloudflare)",
       openai: "OpenAI-compatível (Chat Completions) — direto",
       anthropic: "Anthropic (Claude) — direto"
     },
@@ -252,7 +257,7 @@ export function registerSystemSettings() {
   game.settings.register(SYSTEM_ID, S.aiRelayUrl, {
     name: "URL do Relay (só para provedor Relay Seguro)",
     hint: "URL do seu Worker do Cloudflare, ex: https://nihility-ai-relay.SEU-USUARIO.workers.dev. Veja tools/ai-relay/README.md no repositório do sistema para configurar.",
-    scope: "world",
+    scope: "client",
     config: true,
     type: String,
     default: ""
@@ -260,8 +265,8 @@ export function registerSystemSettings() {
 
   game.settings.register(SYSTEM_ID, S.aiRelayToken, {
     name: "Token do Relay (só para provedor Relay Seguro)",
-    hint: "O mesmo valor configurado como RELAY_SHARED_SECRET no Worker. Também é visível a jogadores (setting de mundo), mas não é a chave real de IA — pode ser trocado livremente.",
-    scope: "world",
+    hint: "O mesmo valor configurado como RELAY_SHARED_SECRET no Worker.",
+    scope: "client",
     config: true,
     type: String,
     default: ""
@@ -270,7 +275,7 @@ export function registerSystemSettings() {
   game.settings.register(SYSTEM_ID, S.aiEndpointUrl, {
     name: "Endpoint de IA (só para provedor OpenAI-compatível direto)",
     hint: "URL do endpoint Chat Completions. Ignorado nos provedores Anthropic e Relay Seguro.",
-    scope: "world",
+    scope: "client",
     config: true,
     type: String,
     default: "https://api.openai.com/v1/chat/completions"
@@ -279,7 +284,7 @@ export function registerSystemSettings() {
   game.settings.register(SYSTEM_ID, S.aiModel, {
     name: "Modelo de IA (só para provedores diretos)",
     hint: "Nome do modelo. Ex OpenAI-compatível: gpt-4o-mini, llama-3.1-70b. Ex Anthropic: claude-sonnet-4-5, claude-haiku-4-5. Ignorado no Relay Seguro (o modelo é definido lá no Worker).",
-    scope: "world",
+    scope: "client",
     config: true,
     type: String,
     default: "gpt-4o-mini"
@@ -287,8 +292,8 @@ export function registerSystemSettings() {
 
   game.settings.register(SYSTEM_ID, S.aiApiKey, {
     name: "Chave de API de IA (só para provedores diretos)",
-    hint: "Chave do provedor escolhido acima. Ignorada no Relay Seguro. ATENÇÃO nos provedores diretos: settings de mundo são sincronizadas para todos os clientes conectados (incluindo jogadores), não só o GM — qualquer jogador consegue ler esta chave pelo Console do navegador (F12). Prefira o Relay Seguro se isso for uma preocupação.",
-    scope: "world",
+    hint: "Chave do provedor escolhido acima. Ignorada no Relay Seguro. Fica salva só neste navegador (scope: client) — nunca sincroniza pros jogadores.",
+    scope: "client",
     config: true,
     type: String,
     default: ""

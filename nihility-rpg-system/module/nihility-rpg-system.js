@@ -1,7 +1,7 @@
 /**
  * Ponto de entrada do sistema "Nihility RPG System".
- * Registra Data Models, Game Settings e (nas próximas fases) Sheets,
- * o AI Helper e a criação automática de Compêndios de World.
+ * Registra Data Models, Game Settings, Sheets, o AI Helper e a criação
+ * automática de Compêndios de World.
  */
 import { SYSTEM_ID, MEU_SISTEMA, registerSystemSettings } from "./config.js";
 import { CharacterDataModel } from "./data/character-model.js";
@@ -14,6 +14,9 @@ import {
   GenericItemDataModel
 } from "./data/item-models.js";
 import { AIHelper, ensureSystemCompendiums } from "./ai-helper.js";
+import { NihilityActorSheet } from "./sheets/actor-sheet.js";
+import { NihilityStarshipSheet, NihilityVehicleSheet } from "./sheets/starship-sheet.js";
+import { NihilityItemSheet } from "./sheets/item-sheet.js";
 
 Hooks.once("init", () => {
   console.log(`${SYSTEM_ID} | Inicializando sistema...`);
@@ -40,6 +43,18 @@ Hooks.once("init", () => {
 
   // NPCs/monstros usam o tipo "character" com isPlayerCharacter=false (ver CreatureDataModel
   // em data/character-model.js, reservado para uso direto via API/macros quando necessário).
+
+  // Registro das Sheets customizadas, substituindo as fichas padrão do core.
+  Actors.unregisterSheet("core", ActorSheet);
+  Actors.registerSheet(SYSTEM_ID, NihilityActorSheet, { types: ["character"], makeDefault: true });
+  Actors.registerSheet(SYSTEM_ID, NihilityStarshipSheet, { types: ["starship"], makeDefault: true });
+  Actors.registerSheet(SYSTEM_ID, NihilityVehicleSheet, { types: ["vehicle"], makeDefault: true });
+
+  Items.unregisterSheet("core", ItemSheet);
+  Items.registerSheet(SYSTEM_ID, NihilityItemSheet, {
+    types: ["skill", "body_part", "title", "starship_module", "item"],
+    makeDefault: true
+  });
 });
 
 Hooks.once("ready", async () => {

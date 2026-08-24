@@ -1,0 +1,150 @@
+<form class="{{cssClass}} nihility-sheet actor-sheet" autocomplete="off">
+
+  <header class="sheet-header">
+    <img class="profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}"/>
+    <div class="header-fields">
+      <input name="name" type="text" value="{{actor.name}}" placeholder="Nome"/>
+
+      <div class="header-row">
+        <label>Espécie
+          <select class="species-select" name="system.species">
+            {{#each speciesPresets as |preset key|}}
+              <option value="{{key}}" {{#if (eq key system.species)}}selected{{/if}}>{{preset.label}}</option>
+            {{/each}}
+          </select>
+        </label>
+
+        <label>Nível
+          <input type="number" name="system.attributes.level" value="{{system.attributes.level}}"/>
+        </label>
+
+        {{#if titlesEnabled}}
+        <label>Título Ativo
+          <select name="system.activeTitleId">
+            <option value="">—</option>
+            {{#each titles as |title|}}
+              <option value="{{title.id}}" {{#if (eq title.id system.activeTitleId)}}selected{{/if}}>{{title.name}}</option>
+            {{/each}}
+          </select>
+        </label>
+        {{/if}}
+      </div>
+
+      <div class="header-row resources">
+        <div class="resource hp">
+          <label>HP</label>
+          <input type="number" name="system.attributes.hp.value" value="{{system.attributes.hp.value}}"/>
+          <span>/</span>
+          <input type="number" name="system.attributes.hp.max" value="{{system.attributes.hp.max}}"/>
+        </div>
+        <div class="resource energy">
+          <label>{{energyLabel}}</label>
+          <input type="number" name="system.attributes.energy.value" value="{{system.attributes.energy.value}}"/>
+          <span>/</span>
+          <input type="number" name="system.attributes.energy.max" value="{{system.attributes.energy.max}}"/>
+        </div>
+        <div class="resource xp">
+          <label>XP</label>
+          <input type="number" name="system.attributes.xp" value="{{system.attributes.xp}}"/>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <nav class="sheet-tabs tabs" data-group="primary">
+    <a class="item" data-tab="main">Principal</a>
+    <a class="item" data-tab="skills">Habilidades</a>
+    {{#if anatomyEnabled}}<a class="item" data-tab="anatomy">Anatomia</a>{{/if}}
+    {{#if economyEnabled}}<a class="item" data-tab="economy">Economia</a>{{/if}}
+    <a class="item" data-tab="biography">Biografia</a>
+  </nav>
+
+  <section class="sheet-body">
+
+    <div class="tab" data-group="primary" data-tab="main">
+      <h3>Personalidade (insumo para Skills Únicas)</h3>
+      <label>Traços
+        <input type="text" name="system.personality.traits" value="{{system.personality.traits}}"/>
+      </label>
+      <label>Desejos
+        <input type="text" name="system.personality.desires" value="{{system.personality.desires}}"/>
+      </label>
+      <label>Estado Emocional
+        <input type="text" name="system.personality.emotionalState" value="{{system.personality.emotionalState}}"/>
+      </label>
+
+      <h3>Itens Gerais</h3>
+      <ol class="item-list">
+        {{#each gear as |item|}}
+        <li class="item-row" data-item-id="{{item.id}}">
+          <img src="{{item.img}}" width="24" height="24"/>
+          <span class="item-name">{{item.name}}</span>
+          <span class="item-qty">x{{item.system.quantity}}</span>
+          <a class="item-edit" title="Editar"><i class="fas fa-edit"></i></a>
+          <a class="item-delete" title="Excluir"><i class="fas fa-trash"></i></a>
+        </li>
+        {{/each}}
+      </ol>
+      <a class="item-create" data-type="item">+ Novo Item</a>
+    </div>
+
+    <div class="tab" data-group="primary" data-tab="skills">
+      <button type="button" class="skill-fuse-button">Fundir Habilidades Selecionadas</button>
+
+      {{#each config.SKILL_TIERS as |tier|}}
+      <fieldset class="skill-tier-group">
+        <legend>{{lookup ../tierLabels tier}}</legend>
+        <ol class="item-list">
+          {{#each (lookup ../skillsByTier tier) as |skill|}}
+          <li class="item-row" data-item-id="{{skill.id}}">
+            <input type="checkbox" class="skill-fuse-checkbox" data-item-id="{{skill.id}}"/>
+            <img src="{{skill.img}}" width="24" height="24"/>
+            <span class="item-name">{{skill.name}}</span>
+            <span class="item-cost">Custo: {{skill.system.cost}}</span>
+            <a class="item-edit" title="Editar"><i class="fas fa-edit"></i></a>
+            <a class="item-delete" title="Excluir"><i class="fas fa-trash"></i></a>
+          </li>
+          {{/each}}
+        </ol>
+      </fieldset>
+      {{/each}}
+      <a class="item-create" data-type="skill">+ Nova Habilidade</a>
+    </div>
+
+    {{#if anatomyEnabled}}
+    <div class="tab" data-group="primary" data-tab="anatomy">
+      <ol class="item-list body-parts-list">
+        {{#each bodyParts as |part|}}
+        <li class="item-row body-part {{part.system.status}}" data-item-id="{{part.id}}">
+          <span class="item-name">{{part.name}}</span>
+          <span class="item-hp">{{part.system.hp.value}} / {{part.system.hp.max}} HP</span>
+          <span class="item-status">{{lookup ../statusLabels part.system.status}}</span>
+          <a class="item-edit" title="Editar"><i class="fas fa-edit"></i></a>
+          <a class="item-delete" title="Excluir"><i class="fas fa-trash"></i></a>
+        </li>
+        {{/each}}
+      </ol>
+      <a class="item-create" data-type="body_part">+ Nova Parte do Corpo</a>
+    </div>
+    {{/if}}
+
+    {{#if economyEnabled}}
+    <div class="tab" data-group="primary" data-tab="economy">
+      <ol class="currency-list">
+        {{#each currencies as |currency|}}
+        <li class="currency-row">
+          <img src="{{currency.icon}}" width="20" height="20"/>
+          <label>{{currency.label}}</label>
+          <input type="number" name="system.currencies.{{currency.id}}" value="{{lookup ../system.currencies currency.id}}"/>
+        </li>
+        {{/each}}
+      </ol>
+    </div>
+    {{/if}}
+
+    <div class="tab" data-group="primary" data-tab="biography">
+      {{editor system.biography target="system.biography" button=true engine="prosemirror" owner=owner}}
+    </div>
+
+  </section>
+</form>

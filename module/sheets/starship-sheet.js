@@ -1,4 +1,4 @@
-import { SYSTEM_ID, MEU_SISTEMA, getEnergyLabel } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getStarshipEnergyLabel } from "../config.js";
 import { registerItemInCompendium } from "../ai-helper.js";
 
 /**
@@ -23,7 +23,7 @@ export class NihilityStarshipSheet extends ActorSheet {
 
     context.system = actor.system;
     context.config = MEU_SISTEMA;
-    context.energyLabel = getEnergyLabel();
+    context.energyLabel = getStarshipEnergyLabel();
     context.modules = actor.items.filter(i => i.type === "starship_module");
     context.totalConsumption = actor.system.totalConsumption;
     context.availableEnergy = actor.system.availableEnergy;

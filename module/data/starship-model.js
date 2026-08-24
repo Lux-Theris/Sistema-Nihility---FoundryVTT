@@ -1,4 +1,4 @@
-import { getEnergyLabel } from "../config.js";
+import { getStarshipEnergyLabel } from "../config.js";
 
 const fields = foundry.data.fields;
 
@@ -38,9 +38,9 @@ export class StarshipDataModel extends foundry.abstract.TypeDataModel {
     };
   }
 
-  /** Rótulo de energia atual (respeita a Game Setting "energyLabel"). */
+  /** Rótulo de energia atual (setting específica de Naves Espaciais). */
   get energyLabel() {
-    return getEnergyLabel();
+    return getStarshipEnergyLabel();
   }
 
   /** Módulos instalados (Items type "starship_module"). */

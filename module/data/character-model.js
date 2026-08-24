@@ -1,4 +1,4 @@
-import { getEnergyLabel } from "../config.js";
+import { getCharacterEnergyLabel } from "../config.js";
 
 const fields = foundry.data.fields;
 
@@ -55,9 +55,9 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
     };
   }
 
-  /** Rótulo de energia atual (respeita a Game Setting "energyLabel"). */
+  /** Rótulo de energia atual (setting específica de Personagens/Criaturas). */
   get energyLabel() {
-    return getEnergyLabel();
+    return getCharacterEnergyLabel();
   }
 
   /** Partes do corpo pertencentes a este ator (Items embutidos do tipo body_part). */
@@ -94,7 +94,7 @@ export class CreatureDataModel extends foundry.abstract.TypeDataModel {
   }
 
   get energyLabel() {
-    return getEnergyLabel();
+    return getCharacterEnergyLabel();
   }
 
   get bodyParts() {

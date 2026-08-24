@@ -14,7 +14,11 @@ export const MEU_SISTEMA = {
     titlesEnabled: "titlesEnabled",
     anatomyEnabled: "anatomyEnabled",
     currenciesData: "currenciesData",
-    energyLabel: "energyLabel",
+    // Mantém a chave de storage "energyLabel" (não "characterEnergyLabel") de propósito:
+    // é a setting original de rótulo de energia, e assim quem já tinha customizado o
+    // valor (ex: "Fluxo Quântico") não perde a configuração ao atualizar o sistema.
+    characterEnergyLabel: "energyLabel",
+    starshipEnergyLabel: "starshipEnergyLabel",
     speciesPresetsData: "speciesPresetsData",
     aiProvider: "aiProvider",
     aiEndpointUrl: "aiEndpointUrl",
@@ -53,8 +57,9 @@ export const MEU_SISTEMA = {
     destroyed: "Destruído"
   },
 
-  /** Valor padrão (fallback) do rótulo de energia, sobrescrito pela setting `energyLabel`. */
-  DEFAULT_ENERGY_LABEL: "Sistema Eletro-Plasmático (EPS)",
+  /** Valores padrão (fallback) dos rótulos de energia — Personagens e Naves usam energias diferentes. */
+  DEFAULT_CHARACTER_ENERGY_LABEL: "Mana",
+  DEFAULT_STARSHIP_ENERGY_LABEL: "Sistema Eletro-Plasmático (EPS)",
 
   /** Conjunto padrão de moedas, sobrescrito pela setting `currenciesData` (JSON). */
   DEFAULT_CURRENCIES: [
@@ -150,15 +155,26 @@ export function getActiveSpeciesPresets() {
   return MEU_SISTEMA.DEFAULT_SPECIES_PRESETS;
 }
 
-/** Rótulo atual do sistema de energia (setting > default). */
-export function getEnergyLabel() {
+/** Rótulo atual do sistema de energia de Personagens/Criaturas (setting > default). */
+export function getCharacterEnergyLabel() {
   try {
-    const label = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.energyLabel);
+    const label = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.characterEnergyLabel);
     if (label && String(label).trim().length) return label;
   } catch (err) {
     /* settings ainda não registradas (fora do hook init/ready) */
   }
-  return MEU_SISTEMA.DEFAULT_ENERGY_LABEL;
+  return MEU_SISTEMA.DEFAULT_CHARACTER_ENERGY_LABEL;
+}
+
+/** Rótulo atual do sistema de energia de Naves Espaciais (setting > default). */
+export function getStarshipEnergyLabel() {
+  try {
+    const label = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.starshipEnergyLabel);
+    if (label && String(label).trim().length) return label;
+  } catch (err) {
+    /* settings ainda não registradas (fora do hook init/ready) */
+  }
+  return MEU_SISTEMA.DEFAULT_STARSHIP_ENERGY_LABEL;
 }
 
 /** Atalhos de leitura para os três toggles principais. */
@@ -208,13 +224,22 @@ export function registerSystemSettings() {
     requiresReload: true
   });
 
-  game.settings.register(SYSTEM_ID, S.energyLabel, {
-    name: "Rótulo do Sistema de Energia",
-    hint: "Nome customizado da energia usada por personagens e naves (ex: Mana, EPS, Ki).",
+  game.settings.register(SYSTEM_ID, S.characterEnergyLabel, {
+    name: "Rótulo de Energia — Personagens/Criaturas",
+    hint: "Nome customizado da energia usada por Personagens e Criaturas (ex: Mana, Ki, Fluxo Quântico).",
     scope: "world",
     config: true,
     type: String,
-    default: MEU_SISTEMA.DEFAULT_ENERGY_LABEL
+    default: MEU_SISTEMA.DEFAULT_CHARACTER_ENERGY_LABEL
+  });
+
+  game.settings.register(SYSTEM_ID, S.starshipEnergyLabel, {
+    name: "Rótulo de Energia — Naves Espaciais",
+    hint: "Nome customizado da energia usada por Naves Espaciais (ex: Sistema Eletro-Plasmático (EPS)).",
+    scope: "world",
+    config: true,
+    type: String,
+    default: MEU_SISTEMA.DEFAULT_STARSHIP_ENERGY_LABEL
   });
 
   // Armazenamento cru (sem UI própria na lista de settings): editados pelos

@@ -1,7 +1,7 @@
 import {
   SYSTEM_ID,
   MEU_SISTEMA,
-  getEnergyLabel,
+  getCharacterEnergyLabel,
   getActiveCurrencies,
   getActiveSpeciesPresets,
   isEconomyEnabled,
@@ -36,7 +36,7 @@ export class NihilityActorSheet extends ActorSheet {
 
     context.system = actor.system;
     context.config = MEU_SISTEMA;
-    context.energyLabel = getEnergyLabel();
+    context.energyLabel = getCharacterEnergyLabel();
     context.economyEnabled = isEconomyEnabled();
     context.titlesEnabled = isTitlesEnabled();
     context.anatomyEnabled = isAnatomyEnabled();

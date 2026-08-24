@@ -87,11 +87,17 @@ Hooks.once("ready", async () => {
   console.log(`${SYSTEM_ID} | Sistema pronto.`);
 });
 
-// Botão do Assistente de IA no rodapé do diretório de Atores (só para o GM).
-// Se o Foundry mudar essa estrutura de DOM em alguma versão futura, use
-// game.nihility.openAssistant() num macro como alternativa.
+// Botão do Assistente de IA no diretório de Atores (só para o GM).
+// Se o Foundry mudar essa estrutura de DOM em alguma versão futura e nenhum dos
+// seletores abaixo bater, use game.nihility.openAssistant() num macro.
+const AI_BUTTON_CONTAINER_SELECTORS = [".directory-footer", ".header-actions", ".directory-header", ".action-buttons"];
+
 Hooks.on("renderActorDirectory", (app, html) => {
   if (!game.user.isGM) return;
+
+  // Applications V2 (Foundry V13+) passam um HTMLElement puro, não um objeto jQuery.
+  const $html = html instanceof jQuery ? html : $(html);
+  if ($html.find(".nihility-ai-assistant-button").length) return;
 
   const button = $(`
     <button type="button" class="nihility-ai-assistant-button">
@@ -100,7 +106,13 @@ Hooks.on("renderActorDirectory", (app, html) => {
   `);
   button.on("click", () => new AIAssistantApp().render(true));
 
-  const footer = html.find(".directory-footer");
-  if (footer.length) footer.append(button);
-  else html.find(".header-actions").first().append(button);
+  let container = null;
+  for (const selector of AI_BUTTON_CONTAINER_SELECTORS) {
+    const found = $html.find(selector).first();
+    if (found.length) {
+      container = found;
+      break;
+    }
+  }
+  (container ?? $html).append(button);
 });

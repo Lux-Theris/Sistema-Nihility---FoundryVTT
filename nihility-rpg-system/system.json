@@ -1,0 +1,59 @@
+{
+  "id": "nihility-rpg-system",
+  "title": "Nihility RPG System",
+  "description": "Sistema customizado modular para Foundry VTT, compatível com Fantasia/Isekai e Sci-Fi Arcano. Suporta economia dinâmica, títulos, anatomia detalhada por espécie, fusão avançada de habilidades e automações via IA.",
+  "version": "1.0.0",
+  "compatibility": {
+    "minimum": "12",
+    "verified": "13",
+    "maximum": "13"
+  },
+  "authors": [
+    {
+      "name": "Autor do Sistema",
+      "flags": {}
+    }
+  ],
+  "esmodules": [
+    "module/nihility-rpg-system.js"
+  ],
+  "styles": [
+    "styles/nihility-rpg-system.css"
+  ],
+  "languages": [
+    {
+      "lang": "pt-BR",
+      "name": "Português (Brasil)",
+      "path": "lang/pt-BR.json"
+    },
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    }
+  ],
+  "documentTypes": {
+    "Actor": {
+      "character": {},
+      "starship": {},
+      "vehicle": {}
+    },
+    "Item": {
+      "skill": {},
+      "body_part": {},
+      "title": {},
+      "starship_module": {},
+      "item": {}
+    }
+  },
+  "packs": [],
+  "gridDistance": 1,
+  "gridUnits": "m",
+  "primaryTokenAttribute": "attributes.hp",
+  "url": "",
+  "manifest": "",
+  "download": "",
+  "license": "LICENSE.txt",
+  "readme": "README.md",
+  "socket": true
+}

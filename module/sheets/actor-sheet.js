@@ -69,16 +69,18 @@ export class NihilityActorSheet extends ActorSheet {
     context.hpPercent = percentOf(actor.system.attributes.hp.value, actor.system.attributes.hp.max);
     context.energyPercent = percentOf(actor.system.attributes.energy.value, actor.system.attributes.energy.max);
 
-    const hasUltimate = actor.system.hasUltimateSkill;
+    // "Ultimate" só fica escondida do jogador — o Mestre sempre vê/pode escolher,
+    // já que às vezes precisa conceder ou ajustar uma na mão.
+    const ultimateVisible = actor.system.hasUltimateSkill || game.user.isGM;
     const skills = actor.items.filter(i => i.type === "skill");
     context.skillsByTier = {};
-    context.visibleTiers = MEU_SISTEMA.SKILL_TIERS.filter(t => t !== "ultimate" || hasUltimate);
+    context.visibleTiers = MEU_SISTEMA.SKILL_TIERS.filter(t => t !== "ultimate" || ultimateVisible);
     for (const tier of MEU_SISTEMA.SKILL_TIERS) {
       context.skillsByTier[tier] = skills.filter(s => s.system.tier === tier);
     }
     context.tierLabels = MEU_SISTEMA.SKILL_TIER_LABELS;
-    context.fusableTiers = FUSABLE_TARGET_TIERS.filter(t => t !== "ultimate" || hasUltimate);
-    context.hasUltimateSkill = hasUltimate;
+    context.fusableTiers = FUSABLE_TARGET_TIERS.filter(t => t !== "ultimate" || ultimateVisible);
+    context.hasUltimateSkill = actor.system.hasUltimateSkill;
 
     context.bodyParts = actor.items.filter(i => i.type === "body_part");
     context.statusLabels = MEU_SISTEMA.BODY_PART_STATUS_LABELS;
@@ -266,7 +268,7 @@ export class NihilityActorSheet extends ActorSheet {
     if (!data) return;
     try {
       const received = await convertActorCurrency(this.actor, data.fromId, data.toId, data.amount);
-      ui.notifications.info(`Convertido. Recebido: ${received.toFixed(2)}.`);
+      ui.notifications.info(`Convertido. Recebido: ${received} (resto, se houver, caiu pra moeda de baixo).`);
     } catch (err) {
       console.error(`${SYSTEM_ID} | Falha ao converter moeda.`, err);
     }
@@ -416,8 +418,8 @@ export class NihilityActorSheet extends ActorSheet {
   }
 
   async _promptFusionTier() {
-    const hasUltimate = this.actor.system.hasUltimateSkill;
-    const tiers = FUSABLE_TARGET_TIERS.filter(t => t !== "ultimate" || hasUltimate);
+    const ultimateVisible = this.actor.system.hasUltimateSkill || game.user.isGM;
+    const tiers = FUSABLE_TARGET_TIERS.filter(t => t !== "ultimate" || ultimateVisible);
     const options = tiers
       .map(t => `<option value="${t}">${MEU_SISTEMA.SKILL_TIER_LABELS[t]}</option>`)
       .join("");

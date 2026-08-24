@@ -27,7 +27,7 @@
         </select>
       </label>
       {{#unless (eq system.tier "ultimate")}}
-      <p class="hint-inline">"Ultimate" só aparece nesta lista se o Ator já possuir uma Skill Ultimate.</p>
+      <p class="hint-inline">"Ultimate" só aparece pro jogador se o Ator já possuir uma Skill Ultimate — o Mestre sempre vê essa opção.</p>
       {{/unless}}
       <label>Nível <input type="number" name="system.level" value="{{system.level}}"/></label>
       <label>Custo <input type="number" name="system.cost" value="{{system.cost}}"/></label>

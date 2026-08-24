@@ -181,8 +181,10 @@ function deriveCombatAttributes(dataModel) {
 /**
  * HP Máximo = Força.Total × Defesa.Total × 10; Mana Máxima = Magia.Total × Defesa
  * Mágica.Total × 10 — usando só a base PERMANENTE dos atributos (buffs temporários
- * de atributo nunca entram aqui). Modificadores permanentes (Título/Skill/Item/
- * Modificação) e o buffDelta temporário de HP/Mana somam por cima do resultado.
+ * de atributo nunca entram aqui). A fórmula em si nunca fica abaixo de
+ * MIN_BASE_VITAL_STAT (mesmo com os 7 atributos zerados) — modificadores
+ * permanentes (Título/Skill/Item/Modificação) e o buffDelta temporário de HP/Mana
+ * somam por cima desse piso, sem limite próprio.
  * Precisa rodar DEPOIS de deriveCombatAttributes (usa combat.X.total já calculado).
  */
 function deriveVitalStats(dataModel) {
@@ -190,9 +192,10 @@ function deriveVitalStats(dataModel) {
   const combat = dataModel.attributes.combat;
   const hp = dataModel.attributes.hp;
   const energy = dataModel.attributes.energy;
+  const minBase = MEU_SISTEMA.MIN_BASE_VITAL_STAT;
 
-  const baseHpMax = Math.round(combat.strength.total * combat.defense.total * 10);
-  const baseEnergyMax = Math.round(combat.magic.total * combat.magicalDefense.total * 10);
+  const baseHpMax = Math.max(minBase, Math.round(combat.strength.total * combat.defense.total * 10));
+  const baseEnergyMax = Math.max(minBase, Math.round(combat.magic.total * combat.magicalDefense.total * 10));
 
   hp.max = Math.max(1, baseHpMax + sumPermanentStatModifier(actor, "hp") + (hp.buffDelta || 0));
   energy.max = Math.max(0, baseEnergyMax + sumPermanentStatModifier(actor, "energy") + (energy.buffDelta || 0));

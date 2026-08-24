@@ -90,6 +90,14 @@ export const MEU_SISTEMA = {
    */
   COMBAT_ATTRIBUTES: ["strength", "defense", "magic", "magicalDefense", "dexterity", "stealth", "precision"],
 
+  /**
+   * Piso da fórmula de HP/Mana Máximo (Força.Total x Defesa.Total x 10, etc.):
+   * mesmo com os atributos zerados, o resultado da fórmula nunca fica abaixo
+   * disso. Modificadores permanentes (Título/Skill/Item/Modificação) e o
+   * buffDelta temporário de HP/Mana somam por cima, sem piso.
+   */
+  MIN_BASE_VITAL_STAT: 50,
+
   COMBAT_ATTRIBUTE_LABELS: {
     strength: "Força",
     defense: "Defesa",

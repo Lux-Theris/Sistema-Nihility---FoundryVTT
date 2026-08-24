@@ -24,8 +24,6 @@ No Foundry VTT, aba **Game Systems → Install System**, cole esta URL de manife
 https://raw.githubusercontent.com/Lux-Theris/Sistema-Nihility---FoundryVTT/main/system.json
 ```
 
-> **O repositório precisa estar público** para isso funcionar — o Foundry busca essa URL sem autenticação. Com o repositório privado, a instalação por link falha (404).
-
 ### Manual (upload direto)
 
 1. Copie todo o conteúdo deste repositório (system.json, module/, templates/, styles/, lang/) para `Data/systems/nihility-rpg-system/` na instalação do seu Foundry VTT.

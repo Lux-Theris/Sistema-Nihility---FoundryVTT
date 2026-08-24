@@ -81,8 +81,11 @@
               <tr data-attribute="{{attr.key}}">
                 <td>{{attr.label}}</td>
                 <td><input type="number" name="system.attributes.combat.{{attr.key}}.points" value="{{attr.data.points}}"/></td>
-                <td class="attr-bonus">+{{attr.data.bonus}}</td>
-                <td><button type="button" class="attribute-roll" title="Rolar">🎲</button></td>
+                <td class="attr-bonus">
+                  +{{attr.data.bonus}}
+                  {{#if attr.data.itemBonus}}<span class="attr-item-bonus" title="Bônus de Item/Modificação — soma por fora na rolagem, não entra no Pool de d20">+{{attr.data.itemBonus}} item</span>{{/if}}
+                </td>
+                <td><button type="button" class="attribute-roll" title="Rolar (Bônus de Item incluso como número fixo)">🎲</button></td>
               </tr>
               {{/each}}
             </table>

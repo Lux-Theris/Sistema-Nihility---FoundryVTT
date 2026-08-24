@@ -35,6 +35,23 @@ function statModifiersSchema() {
 }
 
 /**
+ * Bônus PERMANENTE em Atributos de Combate concedido por um Item equipado ou uma
+ * Modificação instalada: [{ attribute, amount }]. Ao contrário do bônus de Título,
+ * NUNCA entra no cálculo de HP/Mana Máximo (que usa só `points` do jogador + Título)
+ * — soma apenas em `effectiveTotal`/rolagem, junto com buffs temporários de Skill.
+ * Reaproveitado por GenericItemDataModel e cada entrada de installedMods do BodyPart.
+ */
+function attributeBonusesSchema() {
+  return new fields.ArrayField(
+    new fields.SchemaField({
+      attribute: new fields.StringField({ required: true, choices: MEU_SISTEMA.COMBAT_ATTRIBUTES }),
+      amount: new fields.NumberField({ required: true, integer: true, initial: 0 })
+    }),
+    { required: false, initial: [] }
+  );
+}
+
+/**
  * Habilidade (Skill). Suporta Tiers, sub-skills dinâmicas e a linhagem de fusão
  * (quais skills foram consumidas para gerá-la), usada pelo AI Helper e pela
  * regra geral de consumo por tier (uma skill só funde fontes de tier ≤ o dela).
@@ -147,7 +164,9 @@ export class BodyPartDataModel extends foundry.abstract.TypeDataModel {
           grantsSkill: grantedSkillSchema(),
           skillGranted: new fields.BooleanField({ required: false, initial: false }),
           /** Modificador PERMANENTE de HP/Mana enquanto esta modificação estiver instalada. */
-          statModifiers: statModifiersSchema()
+          statModifiers: statModifiersSchema(),
+          /** Bônus PERMANENTE de Atributo (rolagem) enquanto esta modificação estiver instalada — nunca entra no HP/Mana. */
+          attributeBonuses: attributeBonusesSchema()
         }),
         { required: false, initial: [] }
       )
@@ -226,7 +245,10 @@ export class GenericItemDataModel extends foundry.abstract.TypeDataModel {
       grantsSkill: grantedSkillSchema(),
 
       /** Modificador PERMANENTE de HP/Mana enquanto o item estiver "equipado". */
-      statModifiers: statModifiersSchema()
+      statModifiers: statModifiersSchema(),
+
+      /** Bônus PERMANENTE de Atributo (rolagem) enquanto o item estiver "equipado" — nunca entra no HP/Mana. */
+      attributeBonuses: attributeBonusesSchema()
     };
   }
 }

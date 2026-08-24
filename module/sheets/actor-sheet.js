@@ -190,7 +190,9 @@ export class NihilityActorSheet extends ActorSheet {
   async _onRollAttribute(event) {
     event.preventDefault();
     const key = event.currentTarget.closest("[data-attribute]").dataset.attribute;
-    await rollAttribute(this.actor, key);
+    const attr = this.actor.system.attributes.combat[key];
+    // Bônus de Item/Modificação nunca entra no Pool de d20 — soma por fora, como número fixo.
+    await rollAttribute(this.actor, key, { extraFlat: attr?.itemBonus ?? 0 });
   }
 
   /* -------------------------------------------- */

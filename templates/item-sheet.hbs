@@ -146,6 +146,23 @@
               <input type="number" name="system.installedMods.{{index}}.statModifiers.energy" value="{{mod.statModifiers.energy}}"/>
             </label>
           </div>
+          <div class="mod-attr-bonuses">
+            <span class="hint-inline">Bônus de Atributo (rolagem — nunca entra no HP/Mana)</span>
+            <ol class="sub-list mod-attr-bonus-list">
+              {{#each mod.attributeBonuses as |bonus bIndex|}}
+              <li data-index="{{index}}" data-bonus-index="{{bIndex}}" class="effect-row">
+                <select name="system.installedMods.{{index}}.attributeBonuses.{{bIndex}}.attribute">
+                  {{#each ../../config.COMBAT_ATTRIBUTES as |attrKey|}}
+                  <option value="{{attrKey}}" {{#if (eq attrKey bonus.attribute)}}selected{{/if}}>{{lookup ../../../config.COMBAT_ATTRIBUTE_LABELS attrKey}}</option>
+                  {{/each}}
+                </select>
+                <input type="number" name="system.installedMods.{{index}}.attributeBonuses.{{bIndex}}.amount" value="{{bonus.amount}}"/>
+                <a class="mod-attr-bonus-delete" title="Remover"><i class="fas fa-trash"></i></a>
+              </li>
+              {{/each}}
+            </ol>
+            <a class="mod-attr-bonus-add" data-index="{{index}}">+ Bônus de Atributo</a>
+          </div>
         </li>
         {{/each}}
       </ol>
@@ -224,6 +241,22 @@
       <h3>Modificador Permanente <span class="hint-inline">(soma direto no HP/Mana Máximo enquanto o item estiver equipado)</span></h3>
       <label>HP <input type="number" name="system.statModifiers.hp" value="{{system.statModifiers.hp}}"/></label>
       <label>Mana/Energia <input type="number" name="system.statModifiers.energy" value="{{system.statModifiers.energy}}"/></label>
+
+      <h3>Bônus de Atributo <span class="hint-inline">(afeta a rolagem enquanto equipado — nunca entra no cálculo de HP/Mana)</span></h3>
+      <ol class="sub-list">
+        {{#each system.attributeBonuses as |bonus index|}}
+        <li data-index="{{index}}" class="effect-row">
+          <select name="system.attributeBonuses.{{index}}.attribute">
+            {{#each ../config.COMBAT_ATTRIBUTES as |attrKey|}}
+            <option value="{{attrKey}}" {{#if (eq attrKey bonus.attribute)}}selected{{/if}}>{{lookup ../../config.COMBAT_ATTRIBUTE_LABELS attrKey}}</option>
+            {{/each}}
+          </select>
+          <input type="number" name="system.attributeBonuses.{{index}}.amount" value="{{bonus.amount}}"/>
+          <a class="item-attr-bonus-delete" title="Remover"><i class="fas fa-trash"></i></a>
+        </li>
+        {{/each}}
+      </ol>
+      <a class="item-attr-bonus-add">+ Bônus de Atributo</a>
       {{/if}}
 
     </div>

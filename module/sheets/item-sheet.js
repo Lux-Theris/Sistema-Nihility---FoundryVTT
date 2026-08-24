@@ -58,6 +58,14 @@ export class NihilityItemSheet extends ItemSheet {
 
     // Habilidade Concedida ao equipar (type "item")
     html.find(".item-equip-toggle").on("change", this._onEquipToggle.bind(this));
+
+    // Bônus de Atributo (type "item")
+    html.find(".item-attr-bonus-add").on("click", this._onItemAttrBonusAdd.bind(this));
+    html.find(".item-attr-bonus-delete").on("click", this._onItemAttrBonusDelete.bind(this));
+
+    // Bônus de Atributo das Modificações instaladas (type "body_part")
+    html.find(".mod-attr-bonus-add").on("click", this._onModAttrBonusAdd.bind(this));
+    html.find(".mod-attr-bonus-delete").on("click", this._onModAttrBonusDelete.bind(this));
   }
 
   /* -------------------------------------------- */
@@ -153,6 +161,44 @@ export class NihilityItemSheet extends ItemSheet {
       mod.skillGranted = true;
     }
 
+    await this.item.update({ "system.installedMods": mods });
+  }
+
+  async _onItemAttrBonusAdd(event) {
+    event.preventDefault();
+    const bonuses = foundry.utils.deepClone(this.item.system.attributeBonuses ?? []);
+    bonuses.push({ attribute: MEU_SISTEMA.COMBAT_ATTRIBUTES[0], amount: 1 });
+    await this.item.update({ "system.attributeBonuses": bonuses });
+  }
+
+  async _onItemAttrBonusDelete(event) {
+    event.preventDefault();
+    const index = Number(event.currentTarget.closest("[data-index]").dataset.index);
+    const bonuses = foundry.utils.deepClone(this.item.system.attributeBonuses ?? []);
+    bonuses.splice(index, 1);
+    await this.item.update({ "system.attributeBonuses": bonuses });
+  }
+
+  async _onModAttrBonusAdd(event) {
+    event.preventDefault();
+    const modIndex = Number(event.currentTarget.dataset.index);
+    const mods = foundry.utils.deepClone(this.item.system.installedMods ?? []);
+    const mod = mods[modIndex];
+    if (!mod) return;
+    mod.attributeBonuses = mod.attributeBonuses ?? [];
+    mod.attributeBonuses.push({ attribute: MEU_SISTEMA.COMBAT_ATTRIBUTES[0], amount: 1 });
+    await this.item.update({ "system.installedMods": mods });
+  }
+
+  async _onModAttrBonusDelete(event) {
+    event.preventDefault();
+    const li = event.currentTarget.closest("[data-bonus-index]");
+    const modIndex = Number(li.dataset.index);
+    const bonusIndex = Number(li.dataset.bonusIndex);
+    const mods = foundry.utils.deepClone(this.item.system.installedMods ?? []);
+    const mod = mods[modIndex];
+    if (!mod?.attributeBonuses) return;
+    mod.attributeBonuses.splice(bonusIndex, 1);
     await this.item.update({ "system.installedMods": mods });
   }
 

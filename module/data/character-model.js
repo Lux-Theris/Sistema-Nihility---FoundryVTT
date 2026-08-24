@@ -101,6 +101,30 @@ function sumTitleBonuses(actor, target) {
 }
 
 /**
+ * Soma bônus PERMANENTES de Atributo concedidos por Itens equipados e Modificações
+ * instaladas (attributeBonuses). Ao contrário do bônus de Título, isso NUNCA entra
+ * em `attr.total` (a base que alimenta HP/Mana) — só em `effectiveTotal`, junto com
+ * buffDelta, ou seja, afeta a rolagem mas nunca o HP/Mana Máximo.
+ */
+function sumItemAttributeBonus(actor, key) {
+  let sum = 0;
+  for (const item of actor.items) {
+    if (item.type === "item" && item.system.equipped) {
+      for (const entry of item.system.attributeBonuses ?? []) {
+        if (entry.attribute === key) sum += Number(entry.amount) || 0;
+      }
+    } else if (item.type === "body_part") {
+      for (const mod of item.system.installedMods ?? []) {
+        for (const entry of mod.attributeBonuses ?? []) {
+          if (entry.attribute === key) sum += Number(entry.amount) || 0;
+        }
+      }
+    }
+  }
+  return sum;
+}
+
+/**
  * Soma modificadores PERMANENTES de HP/Mana (não os temporários de buff): Títulos,
  * Skills (statModifiers, sempre ativo enquanto possuída), Item Geral (statModifiers,
  * só enquanto equipado) e Modificações de Parte do Corpo (statModifiers, sempre
@@ -126,8 +150,13 @@ function sumPermanentStatModifier(actor, stat) {
 
 /**
  * Calcula `total`/`effectiveTotal`/`bonus` de cada atributo de combate. `total`
- * (pontos + Título) é a base permanente usada pra fórmula de HP/Mana. `effectiveTotal`
- * soma também `buffDelta` (Active Effects temporários) e é o que vira `bonus` de rolagem.
+ * (pontos + Título) é a base permanente usada pra fórmula de HP/Mana — Itens
+ * equipados/Modificações instaladas NUNCA entram aqui, só Título conta como bônus
+ * permanente "de verdade". `effectiveTotal` soma por cima só `buffDelta` (Active
+ * Effects temporários de Skill) e vira `bonus`, que decide o Pool de d20 (ver
+ * dice.js: a cada +10 de Bônus, +1d20). `itemBonus` (Itens equipados/Modificações)
+ * fica DE FORA tanto do HP/Mana quanto do Pool de dados — some por fora, na hora
+ * da rolagem, como número fixo (ver `rollAttribute`/`extraFlat` em dice.js).
  */
 function deriveCombatAttributes(dataModel) {
   const combat = dataModel.attributes.combat;
@@ -136,6 +165,7 @@ function deriveCombatAttributes(dataModel) {
     const attr = combat[key];
     const titleBonus = sumTitleBonuses(dataModel.parent, key);
     attr.total = attr.points + titleBonus;
+    attr.itemBonus = sumItemAttributeBonus(dataModel.parent, key);
     attr.effectiveTotal = attr.total + (attr.buffDelta || 0);
     attr.bonus = Math.floor(attr.effectiveTotal / 3);
     spent += attr.points;

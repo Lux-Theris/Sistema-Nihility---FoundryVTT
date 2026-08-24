@@ -968,6 +968,12 @@ form.nihility-config-app {
 .nihility-sheet .mod-grant-toggle:hover {
   background: rgba(110, 231, 255, 0.2);
 }
+.nihility-sheet .mod-attr-bonuses {
+  padding-left: 12px;
+}
+.nihility-sheet .mod-attr-bonus-list {
+  margin: 4px 0;
+}
 
 /* ==========================================================================
    Módulos de Nave: pill de categoria (v4 — visual do mockup portado)
@@ -1004,6 +1010,14 @@ form.nihility-config-app {
 }
 .nihility-sheet .skill-use-button:hover {
   background: rgba(110, 231, 255, 0.2);
+}
+
+.nihility-sheet .attr-item-bonus {
+  display: inline-block;
+  margin-left: 3px;
+  font-size: 0.62rem;
+  color: var(--nihility-gold);
+  cursor: help;
 }
 
 .nihility-sheet .shield-row .vital-label { color: var(--nihility-accent-2); }

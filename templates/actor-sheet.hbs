@@ -19,14 +19,7 @@
         </label>
 
         {{#if titlesEnabled}}
-        <label>Título Ativo
-          <select name="system.activeTitleId">
-            <option value="">—</option>
-            {{#each titles as |title|}}
-              <option value="{{title.id}}" {{#if (eq title.id system.activeTitleId)}}selected{{/if}}>{{title.name}}</option>
-            {{/each}}
-          </select>
-        </label>
+        <span class="chip-inline">{{titles.length}} Título(s) sempre ativo(s)</span>
         {{/if}}
       </div>
 
@@ -53,6 +46,7 @@
 
   <nav class="sheet-tabs tabs" data-group="primary">
     <a class="item" data-tab="main">Principal</a>
+    <a class="item" data-tab="attributes">Atributos</a>
     <a class="item" data-tab="skills">Habilidades</a>
     {{#if anatomyEnabled}}<a class="item" data-tab="anatomy">Anatomia</a>{{/if}}
     {{#if economyEnabled}}<a class="item" data-tab="economy">Economia</a>{{/if}}
@@ -73,6 +67,22 @@
         <input type="text" name="system.personality.emotionalState" value="{{system.personality.emotionalState}}"/>
       </label>
 
+      {{#if titlesEnabled}}
+      <h3>Títulos <span class="hint-inline">(todos sempre ativos — sem seleção)</span></h3>
+      <ol class="item-list title-list">
+        {{#each titles as |title|}}
+        <li class="item-row" data-item-id="{{title.id}}">
+          <img src="{{title.img}}" width="24" height="24"/>
+          <span class="item-name">{{title.name}}</span>
+          <span class="item-rarity">{{title.system.rarity}}</span>
+          <a class="item-edit" title="Editar"><i class="fas fa-edit"></i></a>
+          <a class="item-delete" title="Excluir"><i class="fas fa-trash"></i></a>
+        </li>
+        {{/each}}
+      </ol>
+      <a class="item-create" data-type="title">+ Novo Título</a>
+      {{/if}}
+
       <h3>Itens Gerais</h3>
       <ol class="item-list">
         {{#each gear as |item|}}
@@ -88,10 +98,43 @@
       <a class="item-create" data-type="item">+ Novo Item</a>
     </div>
 
-    <div class="tab" data-group="primary" data-tab="skills">
-      <button type="button" class="skill-fuse-button">Fundir Habilidades Selecionadas</button>
+    <div class="tab" data-group="primary" data-tab="attributes">
+      <p class="hint-inline">
+        A cada +10 de Bônus a rolagem ganha +1d20 (todos os dados são somados). Bônus de
+        arma/equipamento não entram nessa conta — some por fora, na hora da rolagem.
+      </p>
+      <p class="chip-inline">Pontos: {{system.attributePointsPool.spent}} / {{system.attributePointsPool.total}} investidos ({{system.attributePointsPool.remaining}} livres)</p>
+      <table class="attr-table">
+        <tr><th>Atributo</th><th>Pontos</th><th>Bônus</th><th></th></tr>
+        {{#each attributeLabels as |attr|}}
+        <tr data-attribute="{{attr.key}}">
+          <td>{{attr.label}}</td>
+          <td><input type="number" name="system.attributes.combat.{{attr.key}}.points" value="{{attr.data.points}}"/></td>
+          <td class="attr-bonus">+{{attr.data.bonus}}</td>
+          <td><button type="button" class="attribute-roll" title="Rolar">🎲</button></td>
+        </tr>
+        {{/each}}
+      </table>
+    </div>
 
-      {{#each config.SKILL_TIERS as |tier|}}
+    <div class="tab" data-group="primary" data-tab="skills">
+      <h3>Pontos de Habilidade</h3>
+      <div class="sp-ledger">
+        {{#each config.SKILL_POINT_TIERS as |tier|}}
+        <div class="sp-item" data-tier="{{tier}}">
+          <span class="sp-label">{{lookup ../tierLabels tier}}</span>
+          <span class="sp-value">{{lookup ../system.skillPoints tier}}</span>
+          <div class="sp-actions">
+            <button type="button" class="sp-break" title="Quebrar 1 em 3 do tier abaixo">▼</button>
+            <button type="button" class="sp-merge" title="Fundir 3 em 1 do tier acima">▲</button>
+          </div>
+        </div>
+        {{/each}}
+      </div>
+
+      <button type="button" class="skill-fuse-button">⚡ Fundir Habilidades Selecionadas</button>
+
+      {{#each visibleTiers as |tier|}}
       <fieldset class="skill-tier-group">
         <legend>{{lookup ../tierLabels tier}}</legend>
         <ol class="item-list">
@@ -108,7 +151,9 @@
         </ol>
       </fieldset>
       {{/each}}
-      <a class="item-create" data-type="skill">+ Nova Habilidade</a>
+
+      <a class="item-create" data-type="skill">+ Nova Habilidade (direto)</a>
+      <button type="button" class="skill-request-button">+ Pedir Criação com Pontos de Habilidade</button>
     </div>
 
     {{#if anatomyEnabled}}
@@ -135,10 +180,13 @@
         <li class="currency-row">
           <img src="{{currency.icon}}" width="20" height="20"/>
           <label>{{currency.label}}</label>
-          <input type="number" name="system.currencies.{{currency.id}}" value="{{lookup ../system.currencies currency.id}}"/>
+          <input type="number" name="system.currencies.{{currency.id}}" value="{{lookup ../system.currencies currency.id}}" {{#unless ../isGM}}readonly{{/unless}}/>
         </li>
         {{/each}}
       </ol>
+      <button type="button" class="currency-convert">🔄 Converter</button>
+      <button type="button" class="currency-send">📤 Enviar Dinheiro</button>
+      {{#unless isGM}}<p class="hint-inline">Valores só editáveis pelo Mestre — use Converter/Enviar.</p>{{/unless}}
     </div>
     {{/if}}
 

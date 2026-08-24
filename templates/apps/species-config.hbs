@@ -1,8 +1,10 @@
 <form class="nihility-config-app species-config-app" autocomplete="off">
   <p class="hint">
-    Cada Espécie tem um nome e uma lista de Partes do Corpo. Ao trocar a espécie de um
-    personagem, essas partes são aplicadas automaticamente na ficha (HP, slot e tags).
-    Tags são separadas por vírgula (ex: <code>vital, mechanical</code>).
+    Cada Espécie tem um nome, uma lista de Partes do Corpo e uma lista de Skills Raciais.
+    Ao trocar a espécie de um personagem, ambas são aplicadas automaticamente na ficha —
+    todo ser vivo (e alguns não-vivos) que usar essa espécie ganha essas skills de graça,
+    fora da economia normal de Pontos de Habilidade. Tags são separadas por vírgula
+    (ex: <code>vital, mechanical</code>).
   </p>
 
   <div class="species-list">
@@ -32,6 +34,23 @@
       </div>
 
       <a class="config-add-row part-add">+ Nova Parte do Corpo</a>
+
+      <p class="species-block-subtitle">Skills Raciais (concedidas ao selecionar a espécie)</p>
+      <div class="config-list-header racial-skill-header">
+        <span>Nome</span><span>Nível</span><span>Custo</span><span>Descrição</span><span></span>
+      </div>
+      <div class="racial-skill-list">
+        {{#each sp.skills as |skill|}}
+        <div class="racial-skill-row">
+          <input type="text" data-field="name" value="{{skill.name}}" placeholder="Nome"/>
+          <input type="number" data-field="level" value="{{skill.level}}" placeholder="Nível"/>
+          <input type="number" data-field="cost" value="{{skill.cost}}" placeholder="Custo"/>
+          <input type="text" data-field="description" value="{{skill.description}}" placeholder="Descrição"/>
+          <a class="racial-skill-delete" title="Remover"><i class="fas fa-trash"></i></a>
+        </div>
+        {{/each}}
+      </div>
+      <a class="config-add-row racial-skill-add">+ Nova Skill Racial</a>
     </fieldset>
     {{/each}}
   </div>

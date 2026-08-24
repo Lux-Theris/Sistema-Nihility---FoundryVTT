@@ -21,6 +21,13 @@ export class NihilityItemSheet extends ItemSheet {
     context.system = this.item.system;
     context.config = MEU_SISTEMA;
     context.itemType = this.item.type;
+
+    if (this.item.type === "skill") {
+      const owner = this.item.parent;
+      const hasUltimate = owner?.system?.hasUltimateSkill ?? this.item.system.tier === "ultimate";
+      context.visibleSkillTiers = MEU_SISTEMA.SKILL_TIERS.filter(t => t !== "ultimate" || hasUltimate);
+    }
+
     return context;
   }
 
@@ -36,6 +43,10 @@ export class NihilityItemSheet extends ItemSheet {
     // Modificações/Próteses instaladas (type "body_part")
     html.find(".mod-add").on("click", this._onInstalledModAdd.bind(this));
     html.find(".mod-delete").on("click", this._onInstalledModDelete.bind(this));
+
+    // Bônus permanentes (type "title")
+    html.find(".title-bonus-add").on("click", this._onTitleBonusAdd.bind(this));
+    html.find(".title-bonus-delete").on("click", this._onTitleBonusDelete.bind(this));
   }
 
   async _onSubSkillAdd(event) {
@@ -66,5 +77,20 @@ export class NihilityItemSheet extends ItemSheet {
     const mods = foundry.utils.deepClone(this.item.system.installedMods ?? []);
     mods.splice(index, 1);
     await this.item.update({ "system.installedMods": mods });
+  }
+
+  async _onTitleBonusAdd(event) {
+    event.preventDefault();
+    const bonuses = foundry.utils.deepClone(this.item.system.bonuses ?? []);
+    bonuses.push({ attribute: MEU_SISTEMA.COMBAT_ATTRIBUTES[0], amount: 1 });
+    await this.item.update({ "system.bonuses": bonuses });
+  }
+
+  async _onTitleBonusDelete(event) {
+    event.preventDefault();
+    const index = Number(event.currentTarget.closest("[data-index]").dataset.index);
+    const bonuses = foundry.utils.deepClone(this.item.system.bonuses ?? []);
+    bonuses.splice(index, 1);
+    await this.item.update({ "system.bonuses": bonuses });
   }
 }

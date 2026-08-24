@@ -21,11 +21,14 @@
       {{#if (eq itemType "skill")}}
       <label>Tier
         <select name="system.tier">
-          {{#each config.SKILL_TIERS as |tier|}}
+          {{#each visibleSkillTiers as |tier|}}
           <option value="{{tier}}" {{#if (eq tier system.tier)}}selected{{/if}}>{{lookup ../config.SKILL_TIER_LABELS tier}}</option>
           {{/each}}
         </select>
       </label>
+      {{#unless (eq system.tier "ultimate")}}
+      <p class="hint-inline">"Ultimate" só aparece nesta lista se o Ator já possuir uma Skill Ultimate.</p>
+      {{/unless}}
       <label>Nível <input type="number" name="system.level" value="{{system.level}}"/></label>
       <label>Custo <input type="number" name="system.cost" value="{{system.cost}}"/></label>
       <label>Gatilho Emocional <input type="text" name="system.emotionTrigger" value="{{system.emotionTrigger}}"/></label>
@@ -74,6 +77,22 @@
       {{#if (eq itemType "title")}}
       <label>Concedido por <input type="text" name="system.grantedBy" value="{{system.grantedBy}}"/></label>
       <label>Raridade <input type="text" name="system.rarity" value="{{system.rarity}}"/></label>
+
+      <h3>Bônus Permanentes <span class="hint-inline">(sempre ativos enquanto o Título estiver na ficha)</span></h3>
+      <ol class="sub-list">
+        {{#each system.bonuses as |bonus index|}}
+        <li data-index="{{index}}">
+          <select name="system.bonuses.{{index}}.attribute">
+            {{#each ../config.COMBAT_ATTRIBUTES as |attrKey|}}
+            <option value="{{attrKey}}" {{#if (eq attrKey bonus.attribute)}}selected{{/if}}>{{lookup ../../config.COMBAT_ATTRIBUTE_LABELS attrKey}}</option>
+            {{/each}}
+          </select>
+          <input type="number" name="system.bonuses.{{index}}.amount" value="{{bonus.amount}}"/>
+          <a class="title-bonus-delete" title="Remover"><i class="fas fa-trash"></i></a>
+        </li>
+        {{/each}}
+      </ol>
+      <a class="title-bonus-add">+ Bônus</a>
       {{/if}}
 
       {{#if (eq itemType "starship_module")}}

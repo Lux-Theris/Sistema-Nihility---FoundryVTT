@@ -3,7 +3,7 @@
  * Registra Data Models, Game Settings, Sheets, o AI Helper e a criação
  * automática de Compêndios de World.
  */
-import { SYSTEM_ID, MEU_SISTEMA, registerSystemSettings } from "./config.js";
+import { SYSTEM_ID, MEU_SISTEMA, registerSystemSettings, getSkillPointsPerLevel } from "./config.js";
 import { CharacterDataModel } from "./data/character-model.js";
 import { StarshipDataModel, VehicleDataModel } from "./data/starship-model.js";
 import {
@@ -13,7 +13,12 @@ import {
   StarshipModuleDataModel,
   GenericItemDataModel
 } from "./data/item-models.js";
-import { AIHelper, ensureSystemCompendiums } from "./ai-helper.js";
+import {
+  AIHelper,
+  ensureSystemCompendiums,
+  approveSkillCreationRequest,
+  rejectSkillCreationRequest
+} from "./ai-helper.js";
 import { NihilityActorSheet } from "./sheets/actor-sheet.js";
 import { NihilityStarshipSheet, NihilityVehicleSheet } from "./sheets/starship-sheet.js";
 import { NihilityItemSheet } from "./sheets/item-sheet.js";
@@ -84,7 +89,63 @@ Hooks.once("init", () => {
 
 Hooks.once("ready", async () => {
   await ensureSystemCompendiums();
+  await migrateCommonTierToNormal();
   console.log(`${SYSTEM_ID} | Sistema pronto.`);
+});
+
+/**
+ * Migração única: o tier de Skill "common" foi renomeado para "normal" quando
+ * os tiers foram reordenados (Extra < Normal < Racial < Único < Ultimate).
+ * Corrige Items já salvos em Atores e no Compêndio de Habilidades.
+ */
+async function migrateCommonTierToNormal() {
+  if (!game.user.isGM) return;
+
+  for (const actor of game.actors) {
+    const toFix = actor.items.filter(i => i.type === "skill" && i.system.tier === "common");
+    if (!toFix.length) continue;
+    await actor.updateEmbeddedDocuments(
+      "Item",
+      toFix.map(i => ({ _id: i.id, "system.tier": "normal" }))
+    );
+  }
+
+  const pack = game.packs.get(`world.${MEU_SISTEMA.COMPENDIUM.skills.key}`);
+  if (!pack) return;
+  const index = await pack.getIndex({ fields: ["system.tier"] });
+  const toFixInPack = index.filter(e => e.system?.tier === "common");
+  for (const entry of toFixInPack) {
+    const doc = await pack.getDocument(entry._id);
+    await doc.update({ "system.tier": "normal" });
+  }
+}
+
+// Concede Pontos de Habilidade Normais automaticamente quando o Nível sobe
+// (a quantidade por nível é a setting "Pontos de Habilidade Normais — Por Nível").
+// Usa preUpdate (não updateActor) pra mesclar o ganho na mesma escrita, em vez de
+// disparar um segundo update — e assim funciona também quando é o próprio jogador
+// quem sobe o nível na ficha, não só o GM.
+Hooks.on("preUpdateActor", (actor, changes) => {
+  if (actor.type !== "character") return;
+
+  const newLevel = foundry.utils.getProperty(changes, "system.attributes.level");
+  if (newLevel === undefined) return;
+
+  const oldLevel = actor.system.attributes.level;
+  if (newLevel <= oldLevel) return;
+
+  const gained = (newLevel - oldLevel) * getSkillPointsPerLevel();
+  if (gained <= 0) return;
+
+  const currentNormal = actor.system.skillPoints.normal ?? 0;
+  foundry.utils.setProperty(changes, "system.skillPoints.normal", currentNormal + gained);
+});
+
+// Botões de Aprovar/Rejeitar nos pedidos de criação de Skill via Pontos de Habilidade.
+Hooks.on("renderChatMessage", (message, html) => {
+  const $html = html instanceof jQuery ? html : $(html);
+  $html.find(".skill-request-approve").on("click", () => approveSkillCreationRequest(message));
+  $html.find(".skill-request-reject").on("click", () => rejectSkillCreationRequest(message));
 });
 
 // Botão do Assistente de IA no diretório de Atores (só para o GM).

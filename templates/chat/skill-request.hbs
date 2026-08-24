@@ -1,0 +1,23 @@
+<div class="nihility-skill-request status-{{status}}">
+  <header class="votw-header">
+    <i class="fas fa-hand-sparkles"></i>
+    <span class="votw-label">Pedido de Skill</span>
+  </header>
+
+  <p class="sr-actor"><strong>{{actorName}}</strong> quer criar uma habilidade <strong>{{tierLabel}}</strong>:</p>
+  <h4 class="sr-name">{{name}}</h4>
+  {{#if description}}<div class="sr-description">{{{description}}}</div>{{/if}}
+  {{#if cost}}<p class="sr-cost">Custo de energia para usar: {{cost}}</p>{{/if}}
+
+  {{#if (eq status "pending")}}
+  <div class="sr-actions">
+    <button type="button" class="skill-request-approve"><i class="fas fa-check"></i> Aprovar</button>
+    <button type="button" class="skill-request-reject"><i class="fas fa-times"></i> Rejeitar</button>
+  </div>
+  <p class="sr-hint">Custa 1 Ponto de Habilidade {{tierLabel}} — só descontado se aprovado.</p>
+  {{/if}}
+
+  {{#if (eq status "approved")}}<p class="sr-status sr-approved">✅ Aprovado — habilidade criada.</p>{{/if}}
+  {{#if (eq status "rejected")}}<p class="sr-status sr-rejected">❌ Rejeitado.</p>{{/if}}
+  {{#if (eq status "insufficient")}}<p class="sr-status sr-rejected">⚠ Pontos insuficientes no momento da aprovação.</p>{{/if}}
+</div>

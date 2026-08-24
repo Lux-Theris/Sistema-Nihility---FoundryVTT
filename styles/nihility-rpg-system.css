@@ -515,3 +515,214 @@ form.nihility-config-app {
 .ai-assistant-app .ai-results-list a:hover {
   text-decoration: underline;
 }
+
+/* ==========================================================================
+   Atributos, Pontos de Habilidade, Títulos sempre-ativos, Economia (v2)
+   ========================================================================== */
+
+.nihility-sheet .chip-inline,
+.nihility-sheet .hint-inline {
+  font-size: 0.72rem;
+  color: var(--nihility-text-dim);
+}
+.nihility-sheet .chip-inline {
+  padding: 3px 8px;
+  border: 1px solid var(--nihility-accent-2);
+  border-radius: 999px;
+  color: var(--nihility-accent-2);
+}
+.nihility-sheet .hint-inline {
+  display: block;
+  margin: 4px 0 8px;
+  font-style: italic;
+}
+
+.nihility-sheet .attr-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.nihility-sheet .attr-table th {
+  text-align: left;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  color: var(--nihility-text-dim);
+  padding: 0 4px 6px;
+}
+.nihility-sheet .attr-table td {
+  padding: 4px;
+  border-top: 1px solid rgba(58, 65, 102, 0.4);
+}
+.nihility-sheet .attr-table input[type="number"] {
+  width: 70px;
+}
+.nihility-sheet .attr-table .attr-bonus {
+  color: var(--nihility-accent);
+  font-weight: 600;
+}
+.nihility-sheet .attribute-roll {
+  background: transparent;
+  border: 1px solid var(--nihility-accent-2);
+  border-radius: 5px;
+  cursor: pointer;
+  padding: 2px 8px;
+}
+.nihility-sheet .attribute-roll:hover {
+  background: rgba(192, 132, 252, 0.15);
+}
+
+.nihility-sheet .sp-ledger {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.nihility-sheet .sp-item {
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  text-align: center;
+}
+.nihility-sheet .sp-label {
+  display: block;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  color: var(--nihility-text-dim);
+}
+.nihility-sheet .sp-value {
+  font-size: 1.1rem;
+  color: var(--nihility-accent);
+}
+.nihility-sheet .sp-actions {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+.nihility-sheet .sp-actions button {
+  background: transparent;
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text-dim);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.7rem;
+  padding: 1px 6px;
+}
+.nihility-sheet .sp-actions button:hover {
+  border-color: var(--nihility-accent);
+  color: var(--nihility-accent);
+}
+
+.nihility-sheet .skill-request-button,
+.nihility-sheet .currency-convert,
+.nihility-sheet .currency-send {
+  display: inline-block;
+  margin: 6px 6px 0 0;
+  padding: 4px 10px;
+  border: 1px solid var(--nihility-accent);
+  border-radius: 4px;
+  background: rgba(110, 231, 255, 0.08);
+  color: var(--nihility-accent);
+  cursor: pointer;
+}
+.nihility-sheet .skill-request-button:hover,
+.nihility-sheet .currency-convert:hover,
+.nihility-sheet .currency-send:hover {
+  background: rgba(110, 231, 255, 0.2);
+}
+
+.nihility-sheet .title-list .item-rarity {
+  font-size: 0.7rem;
+  color: var(--nihility-gold);
+  text-transform: uppercase;
+}
+
+/* Editor de Espécie: subtítulo de Skills Raciais + grid de linhas */
+.nihility-config-app .species-block-subtitle {
+  margin: 14px 0 6px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--nihility-accent-2);
+}
+.nihility-config-app .racial-skill-header,
+.nihility-config-app .racial-skill-row {
+  display: grid;
+  grid-template-columns: 1fr 60px 60px 2fr 24px;
+  gap: 4px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+/* Editor de Moedas: coluna extra de Valor-Base */
+.nihility-config-app .currency-header,
+.nihility-config-app .currency-row {
+  grid-template-columns: 1fr 1fr 1fr 24px 60px 70px 24px;
+}
+
+/* ==========================================================================
+   Chat: Pedido de Skill (aprovação do Mestre)
+   ========================================================================== */
+
+.nihility-skill-request {
+  font-family: var(--nihility-font);
+  background: linear-gradient(160deg, var(--nihility-bg-dark), var(--nihility-bg-panel));
+  border: 1px solid var(--nihility-accent);
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: var(--nihility-text);
+}
+.nihility-skill-request .sr-actor {
+  margin: 0 0 4px;
+  font-size: 0.82rem;
+  color: var(--nihility-text-dim);
+}
+.nihility-skill-request .sr-name {
+  margin: 0 0 4px;
+  color: var(--nihility-accent);
+}
+.nihility-skill-request .sr-description {
+  font-size: 0.82rem;
+  color: var(--nihility-text-dim);
+  margin-bottom: 4px;
+}
+.nihility-skill-request .sr-cost {
+  font-size: 0.76rem;
+  color: var(--nihility-text-faint, var(--nihility-text-dim));
+}
+.nihility-skill-request .sr-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.nihility-skill-request .sr-actions button {
+  flex: 1;
+  border: 1px solid var(--nihility-border);
+  border-radius: 4px;
+  padding: 5px;
+  cursor: pointer;
+  background: var(--nihility-bg-panel-alt);
+  color: var(--nihility-text);
+}
+.nihility-skill-request .skill-request-approve {
+  border-color: var(--nihility-ok);
+  color: var(--nihility-ok);
+}
+.nihility-skill-request .skill-request-reject {
+  border-color: var(--nihility-danger);
+  color: var(--nihility-danger);
+}
+.nihility-skill-request .sr-hint {
+  margin: 6px 0 0;
+  font-size: 0.68rem;
+  color: var(--nihility-text-dim);
+}
+.nihility-skill-request .sr-status {
+  margin: 8px 0 0;
+  font-weight: 600;
+}
+.nihility-skill-request .sr-approved { color: var(--nihility-ok); }
+.nihility-skill-request .sr-rejected { color: var(--nihility-danger); }
+.nihility-skill-request.status-approved { border-color: var(--nihility-ok); }
+.nihility-skill-request.status-rejected,
+.nihility-skill-request.status-insufficient { border-color: var(--nihility-danger); }

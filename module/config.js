@@ -20,6 +20,10 @@ export const MEU_SISTEMA = {
     characterEnergyLabel: "energyLabel",
     starshipEnergyLabel: "starshipEnergyLabel",
     speciesPresetsData: "speciesPresetsData",
+    attributePointsStarting: "attributePointsStarting",
+    attributePointsPerLevel: "attributePointsPerLevel",
+    skillPointsStarting: "skillPointsStarting",
+    skillPointsPerLevel: "skillPointsPerLevel",
     aiProvider: "aiProvider",
     aiEndpointUrl: "aiEndpointUrl",
     aiModel: "aiModel",
@@ -37,15 +41,29 @@ export const MEU_SISTEMA = {
     starshipModules: { key: "meu-sistema-starship-modules", label: "Compêndio de Módulos de Naves", type: "Item" }
   },
 
-  /** Tiers de habilidade, na ordem de força relativa. */
-  SKILL_TIERS: ["common", "extra", "unique", "ultimate", "racial"],
+  /**
+   * Tiers de habilidade, na ordem de força relativa (do mais fraco pro mais forte).
+   * Uma skill de tier T só pode consumir/fundir fontes de tier ≤ T (nunca acima).
+   * Racial nunca é comprada com Pontos de Habilidade (vem só da Espécie). Ultimate
+   * nunca é comprada (só surge por fusão) e fica oculta na UI até o Ator possuir uma.
+   */
+  SKILL_TIERS: ["extra", "normal", "racial", "unique", "ultimate"],
 
   SKILL_TIER_LABELS: {
-    common: "Comum",
     extra: "Extra",
-    unique: "Única",
-    ultimate: "Ultimate",
-    racial: "Racial"
+    normal: "Normal",
+    racial: "Racial",
+    unique: "Único",
+    ultimate: "Ultimate"
+  },
+
+  /** Tiers que participam da economia de Pontos de Habilidade (Racial e Ultimate ficam de fora). */
+  SKILL_POINT_TIERS: ["extra", "normal", "unique"],
+
+  /** Taxas de conversão fixas entre Pontos de Habilidade (nos dois sentidos). */
+  SKILL_POINT_CONVERSION: {
+    extraToNormal: 3, // 3 Extra <-> 1 Normal
+    normalToUnique: 3 // 3 Normal <-> 1 Único
   },
 
   /** Estados possíveis de uma Parte do Corpo. */
@@ -57,22 +75,45 @@ export const MEU_SISTEMA = {
     destroyed: "Destruído"
   },
 
+  /**
+   * Atributos de combate. `bonus = floor(pontos / 3)`; a cada +10 de bônus a
+   * rolagem ganha +1d20 (todos os dados são somados). Bônus de arma/equipamento
+   * NUNCA contam pra essa conta — somam por fora, sempre como número fixo.
+   */
+  COMBAT_ATTRIBUTES: ["strength", "defense", "magic", "magicalDefense", "dexterity", "stealth", "precision"],
+
+  COMBAT_ATTRIBUTE_LABELS: {
+    strength: "Força",
+    defense: "Defesa",
+    magic: "Magia",
+    magicalDefense: "Defesa Mágica",
+    dexterity: "Destreza",
+    stealth: "Furtividade",
+    precision: "Precisão"
+  },
+
   /** Valores padrão (fallback) dos rótulos de energia — Personagens e Naves usam energias diferentes. */
   DEFAULT_CHARACTER_ENERGY_LABEL: "Mana",
   DEFAULT_STARSHIP_ENERGY_LABEL: "Sistema Eletro-Plasmático (EPS)",
 
-  /** Conjunto padrão de moedas, sobrescrito pela setting `currenciesData` (JSON). */
+  /**
+   * Conjunto padrão de moedas, sobrescrito pela setting `currenciesData` (JSON).
+   * `baseValue`: quantas "unidades-base" 1 unidade dessa moeda vale — permite
+   * converter automaticamente entre quaisquer duas moedas da lista, mesmo com
+   * hierarquias arbitrárias definidas pelo Mestre (ex: Moeda/Fita/Barra por metal).
+   */
   DEFAULT_CURRENCIES: [
-    { id: "gold", label: "Ouro", icon: "icons/commodities/currency/coins-plain-gold.webp", weight: 0.02 },
-    { id: "silver", label: "Prata", icon: "icons/commodities/currency/coin-embossed-crown-silver.webp", weight: 0.02 },
-    { id: "copper", label: "Cobre", icon: "icons/commodities/currency/coins-copper-various.webp", weight: 0.02 }
+    { id: "gold", label: "Ouro", icon: "icons/commodities/currency/coins-plain-gold.webp", weight: 0.02, baseValue: 100 },
+    { id: "silver", label: "Prata", icon: "icons/commodities/currency/coin-embossed-crown-silver.webp", weight: 0.02, baseValue: 10 },
+    { id: "copper", label: "Cobre", icon: "icons/commodities/currency/coins-copper-various.webp", weight: 0.02, baseValue: 1 }
   ],
 
   /**
-   * Presets de Partes do Corpo por Espécie.
+   * Presets de Partes do Corpo E Skills Raciais por Espécie.
    * Sobrescrito/estendido pela setting `speciesPresetsData` (JSON) para permitir
    * espécies customizadas sem editar código.
    * Cada parte: { key, label, slot, hpMax, tags[] }
+   * Cada skill racial: { name, description, level, cost }
    */
   DEFAULT_SPECIES_PRESETS: {
     humano: {
@@ -84,6 +125,9 @@ export const MEU_SISTEMA = {
         { key: "right_arm", label: "Braço Direito", slot: "arm", hpMax: 8, tags: ["limb"] },
         { key: "left_leg", label: "Perna Esquerda", slot: "leg", hpMax: 10, tags: ["limb"] },
         { key: "right_leg", label: "Perna Direita", slot: "leg", hpMax: 10, tags: ["limb"] }
+      ],
+      skills: [
+        { name: "Adaptabilidade", description: "Aprende habilidades comuns com mais facilidade que as demais espécies.", level: 1, cost: 0 }
       ]
     },
     elfo: {
@@ -96,6 +140,9 @@ export const MEU_SISTEMA = {
         { key: "left_leg", label: "Perna Esquerda", slot: "leg", hpMax: 8, tags: ["limb"] },
         { key: "right_leg", label: "Perna Direita", slot: "leg", hpMax: 8, tags: ["limb"] },
         { key: "ears", label: "Orelhas Élficas", slot: "cosmetic", hpMax: 4, tags: ["sensory"] }
+      ],
+      skills: [
+        { name: "Visão Élfica", description: "Enxerga com clareza mesmo em pouca luz; bônus em Precisão à distância.", level: 1, cost: 0 }
       ]
     },
     slime: {
@@ -103,6 +150,9 @@ export const MEU_SISTEMA = {
       parts: [
         { key: "core", label: "Núcleo", slot: "core", hpMax: 30, tags: ["vital", "regenerative"] },
         { key: "mass", label: "Massa Gelatinosa", slot: "body", hpMax: 40, tags: ["amorphous", "regenerative"] }
+      ],
+      skills: [
+        { name: "Regeneração Amorfa", description: "Recupera uma fração do HP máximo por turno enquanto o Núcleo estiver intacto.", level: 1, cost: 0 }
       ]
     },
     ciborgue: {
@@ -114,6 +164,9 @@ export const MEU_SISTEMA = {
         { key: "right_arm", label: "Braço Direito (Protético)", slot: "arm", hpMax: 14, tags: ["limb", "mechanical", "prosthetic"] },
         { key: "left_leg", label: "Perna Esquerda (Protética)", slot: "leg", hpMax: 14, tags: ["limb", "mechanical", "prosthetic"] },
         { key: "right_leg", label: "Perna Direita (Protética)", slot: "leg", hpMax: 14, tags: ["limb", "mechanical", "prosthetic"] }
+      ],
+      skills: [
+        { name: "Blindagem Sintética", description: "Membros protéticos absorvem parte do dano físico recebido.", level: 1, cost: 0 }
       ]
     }
   }
@@ -121,7 +174,7 @@ export const MEU_SISTEMA = {
 
 /**
  * Lê a lista de moedas atualmente ativa (setting > default).
- * @returns {Array<{id:string,label:string,icon:string,weight:number}>}
+ * @returns {Array<{id:string,label:string,icon:string,weight:number,baseValue:number}>}
  */
 export function getActiveCurrencies() {
   try {
@@ -137,10 +190,23 @@ export function getActiveCurrencies() {
 }
 
 /**
+ * Converte uma quantidade de uma moeda para outra usando a razão de `baseValue`
+ * das duas (funciona pra qualquer hierarquia de moedas que o Mestre definir).
+ * @returns {number} quantidade equivalente na moeda de destino (pode ser fracionária)
+ */
+export function convertCurrencyAmount(fromId, toId, amount) {
+  const currencies = getActiveCurrencies();
+  const from = currencies.find(c => c.id === fromId);
+  const to = currencies.find(c => c.id === toId);
+  if (!from || !to || !to.baseValue) return 0;
+  return (amount * (from.baseValue ?? 1)) / to.baseValue;
+}
+
+/**
  * Lê o dicionário de presets de espécie atualmente ativo.
  * Assim que o GM salva algo pelo editor visual (Configurar Presets de Espécie),
  * o resultado completo passa a ser a única fonte da verdade; até lá, usa os padrões.
- * @returns {Record<string, {label:string, parts:Array}>}
+ * @returns {Record<string, {label:string, parts:Array, skills:Array}>}
  */
 export function getActiveSpeciesPresets() {
   try {
@@ -186,6 +252,20 @@ export function isTitlesEnabled() {
 }
 export function isAnatomyEnabled() {
   return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.anatomyEnabled);
+}
+
+/** Pontos de Atributo/Habilidade concedidos na criação e por nível (settings do Mestre). */
+export function getAttributePointsStarting() {
+  return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.attributePointsStarting);
+}
+export function getAttributePointsPerLevel() {
+  return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.attributePointsPerLevel);
+}
+export function getSkillPointsStarting() {
+  return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.skillPointsStarting);
+}
+export function getSkillPointsPerLevel() {
+  return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.skillPointsPerLevel);
 }
 
 /**
@@ -240,6 +320,42 @@ export function registerSystemSettings() {
     config: true,
     type: String,
     default: MEU_SISTEMA.DEFAULT_STARSHIP_ENERGY_LABEL
+  });
+
+  game.settings.register(SYSTEM_ID, S.attributePointsStarting, {
+    name: "Pontos de Atributo — Criação (Nível 1)",
+    hint: "Quantos pontos o jogador tem pra distribuir entre os 7 atributos ao criar o personagem.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 35
+  });
+
+  game.settings.register(SYSTEM_ID, S.attributePointsPerLevel, {
+    name: "Pontos de Atributo — Por Nível",
+    hint: "Quantos pontos de atributo adicionais o personagem ganha a cada nível acima do 1.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 5
+  });
+
+  game.settings.register(SYSTEM_ID, S.skillPointsStarting, {
+    name: "Pontos de Habilidade Normais — Criação (Nível 1)",
+    hint: "Quantos Pontos de Habilidade Normais o personagem começa tendo no nível 1.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 3
+  });
+
+  game.settings.register(SYSTEM_ID, S.skillPointsPerLevel, {
+    name: "Pontos de Habilidade Normais — Por Nível",
+    hint: "Quantos Pontos de Habilidade Normais o personagem ganha a cada nível acima do 1.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 2
   });
 
   // Armazenamento cru (sem UI própria na lista de settings): editados pelos

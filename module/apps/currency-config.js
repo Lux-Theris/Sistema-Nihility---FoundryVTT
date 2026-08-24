@@ -2,7 +2,9 @@ import { SYSTEM_ID, MEU_SISTEMA, getActiveCurrencies } from "../config.js";
 
 /**
  * Editor visual das Moedas Dinâmicas (substitui o campo de JSON cru).
- * Cada linha é uma moeda: id interno, nome exibido, ícone (com FilePicker) e peso.
+ * Cada linha é uma moeda: id interno, nome exibido, ícone (com FilePicker), peso e
+ * Valor-Base (usado para converter automaticamente entre quaisquer duas moedas —
+ * ex: Cobre=1, Prata=10, Ouro=100 já dá conversão correta em qualquer direção).
  */
 export class CurrencyConfigApp extends FormApplication {
   static get defaultOptions() {
@@ -43,6 +45,7 @@ export class CurrencyConfigApp extends FormApplication {
         <input type="text" data-field="icon" value="icons/commodities/currency/coins-plain-various.webp" placeholder="Caminho do ícone"/>
         <a class="currency-icon-pick" title="Escolher ícone"><i class="fas fa-image"></i></a>
         <input type="number" step="0.01" data-field="weight" value="0.02" placeholder="Peso"/>
+        <input type="number" step="0.01" data-field="baseValue" value="1" placeholder="Valor-Base"/>
         <a class="currency-delete" title="Remover"><i class="fas fa-trash"></i></a>
       </div>
     `);
@@ -79,7 +82,8 @@ export class CurrencyConfigApp extends FormApplication {
         id,
         label: $row.find('[data-field="label"]').val()?.trim() || id,
         icon: $row.find('[data-field="icon"]').val()?.trim() || "",
-        weight: Number($row.find('[data-field="weight"]').val()) || 0
+        weight: Number($row.find('[data-field="weight"]').val()) || 0,
+        baseValue: Number($row.find('[data-field="baseValue"]').val()) || 1
       });
     });
 

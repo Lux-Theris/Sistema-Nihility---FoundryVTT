@@ -12,7 +12,7 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
     return {
       tier: new fields.StringField({
         required: true,
-        initial: "common",
+        initial: "normal",
         choices: MEU_SISTEMA.SKILL_TIERS
       }),
       level: new fields.NumberField({ required: true, integer: true, initial: 1, min: 1 }),
@@ -78,14 +78,25 @@ export class BodyPartDataModel extends foundry.abstract.TypeDataModel {
   }
 }
 
-/** Título concedido a um personagem. */
+/**
+ * Título concedido a um personagem. Não existe "título ativo": todo Título que o
+ * Ator possuir aplica seus bônus permanentemente (somados nos atributos de combate).
+ */
 export class TitleDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
       description: new fields.HTMLField({ required: false, initial: "" }),
       grantedBy: new fields.StringField({ required: false, initial: "" }),
       rarity: new fields.StringField({ required: false, initial: "comum" }),
-      bonuses: new fields.ObjectField({ required: false, initial: {} })
+
+      /** Bônus permanentes concedidos: [{ attribute, amount }], attribute em MEU_SISTEMA.COMBAT_ATTRIBUTES. */
+      bonuses: new fields.ArrayField(
+        new fields.SchemaField({
+          attribute: new fields.StringField({ required: true, choices: MEU_SISTEMA.COMBAT_ATTRIBUTES }),
+          amount: new fields.NumberField({ required: true, integer: true, initial: 0 })
+        }),
+        { required: false, initial: [] }
+      )
     };
   }
 }

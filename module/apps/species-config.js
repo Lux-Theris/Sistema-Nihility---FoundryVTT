@@ -1,10 +1,12 @@
 import { SYSTEM_ID, MEU_SISTEMA, getActiveSpeciesPresets } from "../config.js";
 
 /**
- * Editor visual dos Presets de Anatomia por Espécie (substitui o campo de JSON cru).
- * Cada Espécie é um bloco com nome + lista de Partes do Corpo (chave, nome, slot, HP, tags).
- * Salvar grava o conjunto completo exibido na tela, que passa a ser a fonte da verdade
- * (ver `getActiveSpeciesPresets` em config.js).
+ * Editor visual dos Presets de Anatomia E Skills Raciais por Espécie (substitui
+ * o campo de JSON cru). Cada Espécie é um bloco com nome + lista de Partes do
+ * Corpo (chave, nome, slot, HP, tags) + lista de Skills Raciais (nome, nível,
+ * custo, descrição) concedidas automaticamente ao selecionar a espécie.
+ * Salvar grava o conjunto completo exibido na tela, que passa a ser a fonte da
+ * verdade (ver `getActiveSpeciesPresets` em config.js).
  */
 export class SpeciesConfigApp extends FormApplication {
   static get defaultOptions() {
@@ -13,8 +15,8 @@ export class SpeciesConfigApp extends FormApplication {
       title: "Configurar Presets de Anatomia por Espécie",
       template: `systems/${SYSTEM_ID}/templates/apps/species-config.hbs`,
       classes: [SYSTEM_ID, "nihility-config-app"],
-      width: 680,
-      height: 640,
+      width: 720,
+      height: 700,
       resizable: true,
       closeOnSubmit: true
     });
@@ -27,7 +29,8 @@ export class SpeciesConfigApp extends FormApplication {
     for (const [key, def] of Object.entries(presets)) {
       species[key] = {
         label: def.label ?? key,
-        parts: (def.parts ?? []).map(p => ({ ...p, tagsText: (p.tags ?? []).join(", ") }))
+        parts: (def.parts ?? []).map(p => ({ ...p, tagsText: (p.tags ?? []).join(", ") })),
+        skills: def.skills ?? []
       };
     }
     return { species };
@@ -44,6 +47,8 @@ export class SpeciesConfigApp extends FormApplication {
     blocks.find(".species-delete").on("click", this._onDeleteSpecies.bind(this));
     blocks.find(".part-add").on("click", this._onAddPart.bind(this));
     blocks.find(".part-delete").on("click", this._onDeletePart.bind(this));
+    blocks.find(".racial-skill-add").on("click", this._onAddRacialSkill.bind(this));
+    blocks.find(".racial-skill-delete").on("click", this._onDeleteRacialSkill.bind(this));
   }
 
   _onAddSpecies(event) {
@@ -61,6 +66,13 @@ export class SpeciesConfigApp extends FormApplication {
         </div>
         <div class="part-list"></div>
         <a class="config-add-row part-add">+ Nova Parte do Corpo</a>
+
+        <p class="species-block-subtitle">Skills Raciais (concedidas ao selecionar a espécie)</p>
+        <div class="config-list-header racial-skill-header">
+          <span>Nome</span><span>Nível</span><span>Custo</span><span>Descrição</span><span></span>
+        </div>
+        <div class="racial-skill-list"></div>
+        <a class="config-add-row racial-skill-add">+ Nova Skill Racial</a>
       </fieldset>
     `);
     this._bindSpeciesBlock(block);
@@ -93,6 +105,26 @@ export class SpeciesConfigApp extends FormApplication {
     $(event.currentTarget).closest(".part-row").remove();
   }
 
+  _onAddRacialSkill(event) {
+    event.preventDefault();
+    const row = $(`
+      <div class="racial-skill-row">
+        <input type="text" data-field="name" value="" placeholder="Nome"/>
+        <input type="number" data-field="level" value="1" placeholder="Nível"/>
+        <input type="number" data-field="cost" value="0" placeholder="Custo"/>
+        <input type="text" data-field="description" value="" placeholder="Descrição"/>
+        <a class="racial-skill-delete" title="Remover"><i class="fas fa-trash"></i></a>
+      </div>
+    `);
+    row.find(".racial-skill-delete").on("click", this._onDeleteRacialSkill.bind(this));
+    $(event.currentTarget).closest(".species-block").find(".racial-skill-list").append(row);
+  }
+
+  _onDeleteRacialSkill(event) {
+    event.preventDefault();
+    $(event.currentTarget).closest(".racial-skill-row").remove();
+  }
+
   /** @override */
   async _updateObject() {
     const result = {};
@@ -120,7 +152,20 @@ export class SpeciesConfigApp extends FormApplication {
         });
       });
 
-      result[key] = { label, parts };
+      const skills = [];
+      $block.find(".racial-skill-row").each((__, row) => {
+        const $row = $(row);
+        const name = $row.find('[data-field="name"]').val()?.trim();
+        if (!name) return;
+        skills.push({
+          name,
+          level: Number($row.find('[data-field="level"]').val()) || 1,
+          cost: Number($row.find('[data-field="cost"]').val()) || 0,
+          description: $row.find('[data-field="description"]').val()?.trim() || ""
+        });
+      });
+
+      result[key] = { label, parts, skills };
     });
 
     await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.speciesPresetsData, JSON.stringify(result, null, 2));

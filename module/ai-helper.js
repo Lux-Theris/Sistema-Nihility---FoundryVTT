@@ -4,7 +4,14 @@
  * Perguntas Livres), notificações privadas "Voz do Mundo" e criação/gestão
  * automática dos Compêndios de World. Exposto publicamente em `game.nihility.ai`.
  */
-import { SYSTEM_ID, MEU_SISTEMA, isAnatomyEnabled, getActiveSpeciesPresets } from "./config.js";
+import {
+  SYSTEM_ID,
+  MEU_SISTEMA,
+  isAnatomyEnabled,
+  getActiveSpeciesPresets,
+  getActiveCurrencies,
+  convertCurrencyAmount
+} from "./config.js";
 import { callAIProvider } from "./ai/providers.js";
 
 const COMPENDIUM_TYPE_MAP = {
@@ -96,12 +103,13 @@ function buildGenericFusionData(sources, tier) {
   };
 }
 
-function buildManualUniqueSkillData(sources, manualData) {
+function buildManualSpecialSkillData(sources, tier, manualData) {
+  const tierLabel = MEU_SISTEMA.SKILL_TIER_LABELS[tier] ?? tier;
   return {
-    name: manualData?.name || `Habilidade Única de ${sources[0]?.parent?.name ?? "?"}`,
+    name: manualData?.name || `Habilidade ${tierLabel} de ${sources[0]?.parent?.name ?? "?"}`,
     type: "skill",
     system: {
-      tier: "unique",
+      tier,
       level: 1,
       cost: sources.reduce((sum, s) => sum + (s.system.cost ?? 0), 0),
       description: manualData?.effect ? `<p>${manualData.effect}</p>` : "",
@@ -114,38 +122,52 @@ function buildManualUniqueSkillData(sources, manualData) {
 }
 
 /**
+ * Verdadeiro se `sourceTier` puder ser consumido/fundido por uma skill de `targetTier`,
+ * segundo a ordem de força em MEU_SISTEMA.SKILL_TIERS (uma skill só consome fontes do
+ * seu próprio tier ou de tiers abaixo — nunca de um tier acima).
+ */
+function canConsumeTier(targetTier, sourceTier) {
+  const order = MEU_SISTEMA.SKILL_TIERS;
+  return order.indexOf(sourceTier) <= order.indexOf(targetTier);
+}
+
+/**
  * Funde 2+ skills da ficha de um Ator em uma nova skill (ou reutiliza uma já
- * existente no Compêndio, no caso de tiers common/extra).
+ * existente no Compêndio, no caso de tiers extra/normal).
  *
  * Regras:
  *  - As skills originais são removidas do Ator, mas antes disso são garantidas
  *    no Compêndio (nunca são perdidas).
- *  - tier "common"/"extra": verifica reutilização por assinatura de fusão antes
+ *  - tier "extra"/"normal": verifica reutilização por assinatura de fusão antes
  *    de criar um item novo.
- *  - tier "unique": consome skills common/extra da ficha; NÃO pode consumir
- *    skills tier "ultimate" (regra de negócio explícita).
- *  - tier "ultimate": sem restrição de consumo (pode devorar outras Ultimates).
+ *  - Regra geral de consumo: uma skill de tier T só pode consumir fontes de tier
+ *    ≤ T na ordem de MEU_SISTEMA.SKILL_TIERS (ex: Única consome Única-e-abaixo;
+ *    Ultimate consome tudo, inclusive outras Ultimates).
+ *  - "ultimate" nunca é escolhido como resultado aqui — só surge por fusão quando
+ *    as próprias fontes já somam poder suficiente (ver `mode` "auto"/"manual" abaixo).
  *
  * @param {Actor} actor
  * @param {string[]} sourceItemIds - ids dos Items (type "skill") a fundir
  * @param {object} [options]
- * @param {"common"|"extra"|"unique"|"ultimate"} [options.tier="extra"]
- * @param {"auto"|"manual"} [options.mode="manual"] - só relevante para tier "unique"
+ * @param {string} [options.tier="normal"] - um valor de MEU_SISTEMA.SKILL_TIERS
+ * @param {"auto"|"manual"} [options.mode="manual"] - só relevante para tier "unique"/"ultimate"
  * @param {{name?:string, effect?:string, emotion?:string}} [options.manualData]
  * @param {string} [options.emotionPrompt] - prompt de emoção para o modo "auto" (IA)
  * @returns {Promise<Item>} o Item criado/reaproveitado na ficha do Ator
  */
 export async function fuseSkills(actor, sourceItemIds, options = {}) {
-  const { tier = "extra", mode = "manual", manualData = null, emotionPrompt = "" } = options;
+  const { tier = "normal", mode = "manual", manualData = null, emotionPrompt = "" } = options;
 
   const sources = sourceItemIds.map(id => actor.items.get(id)).filter(Boolean);
   if (sources.length < 2) {
     throw new Error("Selecione ao menos duas habilidades para fundir.");
   }
 
-  if (tier === "unique" && sources.some(s => s.system.tier === "ultimate")) {
-    ui.notifications?.error("Skills Únicas não podem consumir/devorar Skills Ultimate.");
-    throw new Error("Regra violada: uma Skill Única não pode consumir uma Skill Ultimate.");
+  const invalidSource = sources.find(s => !canConsumeTier(tier, s.system.tier));
+  if (invalidSource) {
+    const tierLabel = MEU_SISTEMA.SKILL_TIER_LABELS[tier] ?? tier;
+    ui.notifications?.error(`Uma Skill ${tierLabel} não pode consumir "${invalidSource.name}" (tier acima).`);
+    throw new Error(`Regra violada: tier "${tier}" não pode consumir tier "${invalidSource.system.tier}".`);
   }
 
   await ensureSystemCompendiums();
@@ -159,7 +181,7 @@ export async function fuseSkills(actor, sourceItemIds, options = {}) {
   let fusedItemData = null;
   let reused = false;
 
-  if (tier === "common" || tier === "extra") {
+  if (tier === "extra" || tier === "normal") {
     const signature = fusionSignature(sources.map(s => s.name));
     const existing = skillsPack ? await findExistingFusion(skillsPack, signature) : null;
     if (existing) {
@@ -169,11 +191,11 @@ export async function fuseSkills(actor, sourceItemIds, options = {}) {
   }
 
   if (!fusedItemData) {
-    if (tier === "unique") {
+    if (tier === "unique" || tier === "ultimate") {
       fusedItemData =
         mode === "auto"
-          ? await requestAIUniqueSkill(actor, sources, emotionPrompt)
-          : buildManualUniqueSkillData(sources, manualData);
+          ? await requestAISpecialSkill(actor, sources, tier, emotionPrompt)
+          : buildManualSpecialSkillData(sources, tier, manualData);
     } else {
       fusedItemData = buildGenericFusionData(sources, tier);
     }
@@ -263,7 +285,7 @@ const UNIQUE_SKILL_SYSTEM_PROMPT =
 
 const STANDALONE_SKILL_SYSTEM_PROMPT =
   "Você é o motor de regras de um RPG de Foundry VTT. Responda SEMPRE com um único objeto JSON " +
-  'estrito, sem markdown, no formato: {"name": string, "tier": "common"|"extra"|"racial", ' +
+  'estrito, sem markdown, no formato: {"name": string, "tier": "extra"|"normal", ' +
   '"level": number, "cost": number, "description": string (HTML curto), ' +
   '"subSkills": [{"name": string, "description": string}]}.';
 
@@ -276,12 +298,12 @@ function buildUniqueSkillPrompt({ consumedNames, emotionPrompt, personality }) {
   ].join("\n");
 }
 
-function normalizeAISkillData(parsed, sources) {
+function normalizeAISkillData(parsed, sources, tier = "unique") {
   return {
     name: parsed?.name || "Habilidade Sem Nome",
     type: "skill",
     system: {
-      tier: "unique",
+      tier,
       level: 1,
       cost: sources.reduce((sum, s) => sum + (s.system?.cost ?? 0), 0),
       description: parsed?.description || "",
@@ -296,16 +318,17 @@ function normalizeAISkillData(parsed, sources) {
 }
 
 /**
- * Gera o JSON de uma Unique Skill a partir da emoção/personalidade e das
- * skills consumidas, usando o provedor de IA configurado.
+ * Gera o JSON de uma Skill Única ou Ultimate a partir da emoção/personalidade e
+ * das skills consumidas, usando o provedor de IA configurado.
+ * @param {"unique"|"ultimate"} tier
  * @returns {Promise<object>} dados de Item prontos para createEmbeddedDocuments
  */
-export async function requestAIUniqueSkill(actor, sources, emotionPrompt = "") {
+export async function requestAISpecialSkill(actor, sources, tier, emotionPrompt = "") {
   const consumedNames = sources.map(s => s.name).join(", ");
   const personality = actor.system?.personality ?? {};
   const userPrompt = buildUniqueSkillPrompt({ consumedNames, emotionPrompt, personality });
   const parsed = await generateJSON(UNIQUE_SKILL_SYSTEM_PROMPT, userPrompt);
-  return normalizeAISkillData(parsed, sources);
+  return normalizeAISkillData(parsed, sources, tier);
 }
 
 /**
@@ -320,7 +343,7 @@ export async function generateSkillFromAI(prompt) {
     name: parsed?.name || "Habilidade Sem Nome",
     type: "skill",
     system: {
-      tier: MEU_SISTEMA.SKILL_TIERS.includes(parsed?.tier) ? parsed.tier : "common",
+      tier: ["extra", "normal"].includes(parsed?.tier) ? parsed.tier : "normal",
       level: Number(parsed?.level) || 1,
       cost: Number(parsed?.cost) || 0,
       description: parsed?.description || "",
@@ -343,14 +366,16 @@ const NPC_SYSTEM_PROMPT =
   "Você é o motor de regras de um RPG de Foundry VTT. Responda SEMPRE com um único objeto JSON " +
   'estrito, sem markdown, no formato: {"name": string, "species": string, "level": number, ' +
   '"hp": number, "energy": number, "biography": string (HTML curto), "personalityTraits": string, ' +
-  '"skills": [{"name": string, "tier": "common"|"extra"|"racial", "level": number, "cost": number, "description": string}]}.';
+  '"skills": [{"name": string, "tier": "extra"|"normal", "level": number, "cost": number, "description": string}]}. ' +
+  "Não inclua skills de tier racial ou superior — essas vêm automaticamente da Espécie.";
 
 const MOUNT_SYSTEM_PROMPT =
   "Você é o motor de regras de um RPG de Foundry VTT. Gere uma Montaria (besta de carga ou de combate). " +
   'Responda SEMPRE com um único objeto JSON estrito, sem markdown, no formato: {"name": string, ' +
   '"species": string, "level": number, "hp": number, "energy": number, ' +
   '"biography": string (HTML curto, mencione velocidade e capacidade de carga), ' +
-  '"skills": [{"name": string, "tier": "common"|"racial", "level": number, "cost": number, "description": string}]}.';
+  '"skills": [{"name": string, "tier": "extra"|"normal", "level": number, "cost": number, "description": string}]}. ' +
+  "Não inclua skills de tier racial ou superior — essas vêm automaticamente da Espécie.";
 
 /**
  * Gera um NPC/Criatura (ou Montaria) completo via IA: cria o Actor, aplica o
@@ -384,25 +409,40 @@ export async function generateActorFromAI(prompt, options = {}) {
     }
   });
 
-  if (isAnatomyEnabled()) {
-    const preset = getActiveSpeciesPresets()[species];
-    if (preset) {
-      const partsData = preset.parts.map(part => ({
-        name: part.label,
-        type: "body_part",
-        system: {
-          slot: part.slot,
-          speciesOrigin: species,
-          hp: { value: part.hpMax, max: part.hpMax },
-          status: "intact",
-          isProsthetic: false,
-          installedMods: []
-        }
-      }));
-      const createdParts = await created.createEmbeddedDocuments("Item", partsData);
-      for (const p of createdParts) await registerItemInCompendium(p.toObject());
-      await created.update({ "system.lastAppliedSpeciesPreset": species });
-    }
+  const preset = getActiveSpeciesPresets()[species];
+
+  if (isAnatomyEnabled() && preset) {
+    const partsData = preset.parts.map(part => ({
+      name: part.label,
+      type: "body_part",
+      system: {
+        slot: part.slot,
+        speciesOrigin: species,
+        hp: { value: part.hpMax, max: part.hpMax },
+        status: "intact",
+        isProsthetic: false,
+        installedMods: []
+      }
+    }));
+    const createdParts = await created.createEmbeddedDocuments("Item", partsData);
+    for (const p of createdParts) await registerItemInCompendium(p.toObject());
+    await created.update({ "system.lastAppliedSpeciesPreset": species });
+  }
+
+  // Skills Raciais concedidas automaticamente pela Espécie (nunca compradas/geradas via IA).
+  if (preset?.skills?.length) {
+    const racialSkillsData = preset.skills.map(s => ({
+      name: s.name,
+      type: "skill",
+      system: {
+        tier: "racial",
+        level: Number(s.level) || 1,
+        cost: Number(s.cost) || 0,
+        description: s.description || ""
+      }
+    }));
+    const createdRacial = await created.createEmbeddedDocuments("Item", racialSkillsData);
+    for (const s of createdRacial) await registerItemInCompendium(s.toObject());
   }
 
   const skillsData = Array.isArray(parsed?.skills)
@@ -410,7 +450,7 @@ export async function generateActorFromAI(prompt, options = {}) {
         name: s?.name || "Habilidade",
         type: "skill",
         system: {
-          tier: MEU_SISTEMA.SKILL_TIERS.includes(s?.tier) ? s.tier : "common",
+          tier: ["extra", "normal"].includes(s?.tier) ? s.tier : "normal",
           level: Number(s?.level) || 1,
           cost: Number(s?.cost) || 0,
           description: s?.description || ""
@@ -559,6 +599,213 @@ export async function ingestExternalSkillJSON(actor, json, options = {}) {
 }
 
 /* -------------------------------------------- */
+/*  Pontos de Habilidade: conversão e criação    */
+/* -------------------------------------------- */
+
+const SKILL_POINT_CONVERSION_RATE = 3;
+
+/** Quebra 1 Ponto de Habilidade de `tier` em SKILL_POINT_CONVERSION_RATE pontos do tier abaixo. */
+export async function breakSkillPoints(actor, tier) {
+  const order = MEU_SISTEMA.SKILL_POINT_TIERS; // ["extra", "normal", "unique"]
+  const idx = order.indexOf(tier);
+  if (idx <= 0) throw new Error("Não há tier abaixo para quebrar esse Ponto de Habilidade.");
+  const lowerTier = order[idx - 1];
+
+  const current = actor.system.skillPoints[tier] ?? 0;
+  if (current < 1) {
+    ui.notifications?.warn(`Sem Pontos ${MEU_SISTEMA.SKILL_TIER_LABELS[tier]} para quebrar.`);
+    throw new Error("Pontos insuficientes.");
+  }
+
+  await actor.update({
+    [`system.skillPoints.${tier}`]: current - 1,
+    [`system.skillPoints.${lowerTier}`]: (actor.system.skillPoints[lowerTier] ?? 0) + SKILL_POINT_CONVERSION_RATE
+  });
+}
+
+/** Funde SKILL_POINT_CONVERSION_RATE Pontos de Habilidade de `tier` em 1 ponto do tier acima. */
+export async function mergeSkillPoints(actor, tier) {
+  const order = MEU_SISTEMA.SKILL_POINT_TIERS;
+  const idx = order.indexOf(tier);
+  if (idx < 0 || idx >= order.length - 1) throw new Error("Não há tier acima para fundir esses Pontos de Habilidade.");
+  const upperTier = order[idx + 1];
+
+  const current = actor.system.skillPoints[tier] ?? 0;
+  if (current < SKILL_POINT_CONVERSION_RATE) {
+    ui.notifications?.warn(`Precisa de ${SKILL_POINT_CONVERSION_RATE} Pontos ${MEU_SISTEMA.SKILL_TIER_LABELS[tier]} para fundir.`);
+    throw new Error("Pontos insuficientes.");
+  }
+
+  await actor.update({
+    [`system.skillPoints.${tier}`]: current - SKILL_POINT_CONVERSION_RATE,
+    [`system.skillPoints.${upperTier}`]: (actor.system.skillPoints[upperTier] ?? 0) + 1
+  });
+}
+
+/**
+ * Jogador pede pra criar uma nova Skill gastando 1 Ponto de Habilidade do tier
+ * escolhido (Extra/Normal/Único — Racial vem da Espécie, Ultimate só por fusão).
+ * NÃO cria a skill direto: manda um pedido pro Mestre aprovar via chat privado.
+ * O ponto só é descontado quando o Mestre aprova.
+ * @param {Actor} actor
+ * @param {{tier:"extra"|"normal"|"unique", name:string, description?:string, cost?:number}} data
+ */
+export async function requestSkillCreation(actor, data) {
+  const { tier, name, description = "", cost = 0 } = data;
+  if (!MEU_SISTEMA.SKILL_POINT_TIERS.includes(tier)) {
+    throw new Error("Tier inválido para criação via Pontos de Habilidade.");
+  }
+  if (!name?.trim()) throw new Error("Dê um nome para a habilidade.");
+
+  const available = actor.system.skillPoints[tier] ?? 0;
+  if (available < 1) {
+    ui.notifications?.warn(`Sem Pontos ${MEU_SISTEMA.SKILL_TIER_LABELS[tier]} suficientes.`);
+    throw new Error("Pontos de Habilidade insuficientes.");
+  }
+
+  return createSkillRequestMessage(actor, { tier, name: name.trim(), description, cost, status: "pending" });
+}
+
+async function createSkillRequestMessage(actor, req) {
+  const content = await renderTemplate(`systems/${SYSTEM_ID}/templates/chat/skill-request.hbs`, {
+    actorName: actor.name,
+    tierLabel: MEU_SISTEMA.SKILL_TIER_LABELS[req.tier],
+    ...req
+  });
+
+  const gmIds = game.users.filter(u => u.isGM).map(u => u.id);
+  const ownerIds = game.users.filter(u => !u.isGM && actor.testUserPermission(u, "OWNER")).map(u => u.id);
+  const whisper = Array.from(new Set([...gmIds, ...ownerIds]));
+
+  return ChatMessage.create({
+    content,
+    whisper,
+    speaker: ChatMessage.getSpeaker({ actor }),
+    flags: { [SYSTEM_ID]: { skillRequest: { actorId: actor.id, ...req } } }
+  });
+}
+
+async function updateSkillRequestMessage(message, status) {
+  const req = { ...message.flags[SYSTEM_ID].skillRequest, status };
+  const content = await renderTemplate(`systems/${SYSTEM_ID}/templates/chat/skill-request.hbs`, {
+    actorName: game.actors.get(req.actorId)?.name ?? "?",
+    tierLabel: MEU_SISTEMA.SKILL_TIER_LABELS[req.tier],
+    ...req
+  });
+  await message.update({ content, [`flags.${SYSTEM_ID}.skillRequest.status`]: status });
+}
+
+/**
+ * Chamado pelo listener de clique no chat quando o Mestre aprova um pedido de
+ * criação de Skill: desconta o ponto, cria a Skill na ficha e no Compêndio.
+ * @param {ChatMessage} message
+ */
+export async function approveSkillCreationRequest(message) {
+  if (!game.user.isGM) {
+    ui.notifications?.warn("Só o Mestre pode aprovar pedidos de Skill.");
+    return;
+  }
+  const req = message.flags?.[SYSTEM_ID]?.skillRequest;
+  if (!req || req.status !== "pending") return;
+
+  const actor = game.actors.get(req.actorId);
+  if (!actor) return;
+
+  const available = actor.system.skillPoints[req.tier] ?? 0;
+  if (available < 1) {
+    ui.notifications?.warn(`${actor.name} não tem mais Pontos ${MEU_SISTEMA.SKILL_TIER_LABELS[req.tier]} suficientes.`);
+    return updateSkillRequestMessage(message, "insufficient");
+  }
+
+  await actor.update({ [`system.skillPoints.${req.tier}`]: available - 1 });
+
+  const skillData = {
+    name: req.name,
+    type: "skill",
+    system: { tier: req.tier, level: 1, cost: Number(req.cost) || 0, description: req.description || "" }
+  };
+  await ensureSystemCompendiums();
+  const [created] = await actor.createEmbeddedDocuments("Item", [skillData]);
+  await registerItemInCompendium(created.toObject());
+
+  await announceVoiceOfTheWorld(actor, {
+    kind: "new-skill",
+    title: `Habilidade Aprovada: ${created.name}`,
+    body: `O Mestre aprovou "${created.name}" (custou 1 Ponto ${MEU_SISTEMA.SKILL_TIER_LABELS[req.tier]}).`
+  });
+
+  await updateSkillRequestMessage(message, "approved");
+}
+
+/**
+ * Chamado pelo listener de clique no chat quando o Mestre rejeita um pedido
+ * de criação de Skill. Nenhum ponto é gasto (só era descontado na aprovação).
+ * @param {ChatMessage} message
+ */
+export async function rejectSkillCreationRequest(message) {
+  if (!game.user.isGM) {
+    ui.notifications?.warn("Só o Mestre pode rejeitar pedidos de Skill.");
+    return;
+  }
+  const req = message.flags?.[SYSTEM_ID]?.skillRequest;
+  if (!req || req.status !== "pending") return;
+  await updateSkillRequestMessage(message, "rejected");
+}
+
+/* -------------------------------------------- */
+/*  Economia: conversão e transferência          */
+/* -------------------------------------------- */
+
+/**
+ * Converte uma quantidade de uma moeda da ficha do Ator para outra, usando a
+ * razão de Valor-Base das duas (funciona pra qualquer hierarquia de moedas
+ * que o Mestre tiver configurado no editor visual).
+ * @returns {Promise<number>} quantidade recebida na moeda de destino
+ */
+export async function convertActorCurrency(actor, fromId, toId, amount) {
+  const currentFrom = actor.system.currencies?.[fromId] ?? 0;
+  if (amount <= 0 || currentFrom < amount) {
+    ui.notifications?.warn("Saldo insuficiente para converter.");
+    throw new Error("Saldo insuficiente.");
+  }
+
+  const converted = convertCurrencyAmount(fromId, toId, amount);
+  if (!converted) {
+    ui.notifications?.warn("Conversão inválida (confira o Valor-Base das moedas em Configurar Moedas).");
+    throw new Error("Conversão inválida.");
+  }
+
+  const currentTo = actor.system.currencies?.[toId] ?? 0;
+  await actor.update({
+    [`system.currencies.${fromId}`]: currentFrom - amount,
+    [`system.currencies.${toId}`]: currentTo + converted
+  });
+  return converted;
+}
+
+/**
+ * Transfere uma quantidade de uma moeda da ficha de um Ator pra outro, e
+ * publica um recibo privado (Voz do Mundo) pros dois donos + Mestre.
+ */
+export async function transferCurrency(fromActor, toActor, currencyId, amount) {
+  const currentFrom = fromActor.system.currencies?.[currencyId] ?? 0;
+  if (amount <= 0 || currentFrom < amount) {
+    ui.notifications?.warn("Saldo insuficiente para enviar.");
+    throw new Error("Saldo insuficiente.");
+  }
+
+  const currentTo = toActor.system.currencies?.[currencyId] ?? 0;
+  await fromActor.update({ [`system.currencies.${currencyId}`]: currentFrom - amount });
+  await toActor.update({ [`system.currencies.${currencyId}`]: currentTo + amount });
+
+  const label = getActiveCurrencies().find(c => c.id === currencyId)?.label ?? currencyId;
+  const receiptBody = `${fromActor.name} enviou ${amount} ${label} para ${toActor.name}.`;
+
+  await announceVoiceOfTheWorld(fromActor, { kind: "transfer", title: "Transferência Enviada", body: receiptBody });
+  await announceVoiceOfTheWorld(toActor, { kind: "transfer", title: "Transferência Recebida", body: receiptBody });
+}
+
+/* -------------------------------------------- */
 /*  Voz do Mundo (privado: GMs + dono do Ator)   */
 /* -------------------------------------------- */
 
@@ -615,7 +862,7 @@ export const AIHelper = {
   ensureSystemCompendiums,
   registerItemInCompendium,
   fuseSkills,
-  requestAIUniqueSkill,
+  requestAISpecialSkill,
   ingestExternalSkillJSON,
   announceVoiceOfTheWorld,
   announceLevelUp,
@@ -624,5 +871,12 @@ export const AIHelper = {
   generateActorFromAI,
   generateVesselFromAI,
   generateNoteFromAI,
-  getAIGeneratedFolder
+  getAIGeneratedFolder,
+  breakSkillPoints,
+  mergeSkillPoints,
+  requestSkillCreation,
+  approveSkillCreationRequest,
+  rejectSkillCreationRequest,
+  convertActorCurrency,
+  transferCurrency
 };

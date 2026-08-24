@@ -16,10 +16,14 @@ export const MEU_SISTEMA = {
     currenciesData: "currenciesData",
     energyLabel: "energyLabel",
     speciesPresetsData: "speciesPresetsData",
+    aiProvider: "aiProvider",
     aiEndpointUrl: "aiEndpointUrl",
     aiModel: "aiModel",
     aiApiKey: "aiApiKey"
   },
+
+  /** Nome da pasta usada para organizar Atores/Notas criados pelo Assistente de IA. */
+  AI_GENERATED_FOLDER_NAME: "IA — Gerado",
 
   /** Nomes (chaves) dos Compêndios de World auto-geridos pelo sistema. */
   COMPENDIUM: {
@@ -229,9 +233,22 @@ export function registerSystemSettings() {
     default: "{}"
   });
 
+  game.settings.register(SYSTEM_ID, S.aiProvider, {
+    name: "Provedor de IA",
+    hint: "OpenAI-compatível cobre OpenAI, OpenRouter, Groq, Together, LM Studio, Ollama /v1, etc. Anthropic fala direto com a API da Claude.",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: {
+      openai: "OpenAI-compatível (Chat Completions)",
+      anthropic: "Anthropic (Claude)"
+    },
+    default: "openai"
+  });
+
   game.settings.register(SYSTEM_ID, S.aiEndpointUrl, {
-    name: "Endpoint de IA (compatível com Chat Completions)",
-    hint: "URL do endpoint usado para gerar Unique/Ultimate Skills. Aceita qualquer provedor compatível com o formato OpenAI Chat Completions (OpenAI, OpenRouter, Groq, Together, LM Studio, Ollama em modo /v1, etc).",
+    name: "Endpoint de IA (só para provedor OpenAI-compatível)",
+    hint: "URL do endpoint Chat Completions. Ignorado quando o Provedor é Anthropic (usa endpoint fixo da Anthropic).",
     scope: "world",
     config: true,
     type: String,
@@ -240,7 +257,7 @@ export function registerSystemSettings() {
 
   game.settings.register(SYSTEM_ID, S.aiModel, {
     name: "Modelo de IA",
-    hint: "Nome do modelo a ser usado no endpoint configurado acima (ex: gpt-4o-mini, llama-3.1-70b).",
+    hint: "Nome do modelo. Ex OpenAI-compatível: gpt-4o-mini, llama-3.1-70b. Ex Anthropic: claude-sonnet-4-5, claude-haiku-4-5.",
     scope: "world",
     config: true,
     type: String,
@@ -249,7 +266,7 @@ export function registerSystemSettings() {
 
   game.settings.register(SYSTEM_ID, S.aiApiKey, {
     name: "Chave de API de IA",
-    hint: "Chave de autenticação (Bearer token) do provedor de IA configurado acima. Fica salva apenas neste mundo.",
+    hint: "Chave do provedor escolhido acima. ATENÇÃO: settings de mundo são sincronizadas para todos os clientes conectados (incluindo jogadores), não só o GM — qualquer jogador consegue ler esta chave pelo Console do navegador (F12). Use apenas com jogadores de confiança.",
     scope: "world",
     config: true,
     type: String,

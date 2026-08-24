@@ -11,7 +11,8 @@ Sistema customizado para [Foundry VTT](https://foundryvtt.com/) (compatível com
 - **Compêndios auto-geridos**: Skills, Partes do Corpo, Títulos e Módulos de Nave são registrados automaticamente em Compêndios do Mundo assim que criados — nada se perde ao remover um item de uma ficha.
 - **Naves Espaciais**: Casco, Escudos, Manobra e um Grid de Energia (Reator + Capacitores) com alerta automático de sobrecarga.
 - **Veículos Terrestres**: Integridade, Velocidade, Combustível/Bateria e Peças.
-- **Integração com IA**: `game.nihility.ai` expõe métodos para gerar Skills Únicas/Ultimate via qualquer provedor compatível com o formato *Chat Completions* (OpenAI, OpenRouter, Groq, Together, LM Studio, Ollama `/v1`, etc.) usando uma chave de API, ou para ingerir JSON gerado externamente.
+- **Editores visuais de Moedas e Presets de Espécie**: sem JSON à mão — telas dedicadas com linhas de add/remover (nas Configurações do Mundo).
+- **Assistente de IA (GM)**: janela com botão próprio no diretório de Atores para gerar NPCs, Montarias, Naves Espaciais, Veículos, Notas/Journal e Skills avulsas a partir de um prompt em texto livre, com geração em lote (até 10 de uma vez) e suporte nativo a múltiplos provedores (OpenAI-compatível ou Anthropic/Claude).
 - **Voz do Mundo**: anúncios de nível, fusão e novas habilidades são sempre enviados por *whisper* — nunca publicamente — apenas para o Mestre e o(s) jogador(es) dono(s) do personagem.
 
 ## Instalação
@@ -65,11 +66,38 @@ Nas **Configurações do Mundo → Configurar Configurações → Nihility RPG S
 | Sistema de Títulos | Liga/desliga Títulos |
 | Sistema de Anatomia/Modificação Corporal | Liga/desliga Partes do Corpo e presets por espécie |
 | Rótulo do Sistema de Energia | Nome customizado da energia (ex: Mana, EPS, Ki) |
-| Moedas Dinâmicas (JSON) | Lista de moedas customizadas |
-| Presets de Anatomia por Espécie (JSON) | Overrides/adições aos presets padrão (Humano, Elfo, Slime, Ciborgue) |
-| Endpoint de IA | URL compatível com Chat Completions |
-| Modelo de IA | Nome do modelo (ex: `gpt-4o-mini`) |
-| Chave de API de IA | Bearer token do provedor escolhido |
+| **Configurar Moedas** (botão) | Abre o editor visual de moedas (id, nome, ícone, peso) |
+| **Configurar Presets de Espécie** (botão) | Abre o editor visual de espécies e suas Partes do Corpo |
+| Provedor de IA | `OpenAI-compatível` (OpenAI, OpenRouter, Groq, Together, LM Studio, Ollama `/v1`...) ou `Anthropic (Claude)` |
+| Endpoint de IA | URL Chat Completions — só usado no provedor OpenAI-compatível |
+| Modelo de IA | Nome do modelo (ex: `gpt-4o-mini`, ou `claude-sonnet-4-5` no provedor Anthropic) |
+| Chave de API de IA | Chave do provedor escolhido — ⚠️ ver aviso de segurança abaixo |
+
+> **Configurando o Claude**: escolha `Anthropic (Claude)` em Provedor de IA, coloque o nome do modelo (ex: `claude-sonnet-4-5`) e sua chave de `console.anthropic.com` em Chave de API. O Endpoint de IA é ignorado nesse modo.
+>
+> ⚠️ **Segurança da chave de API**: settings de mundo (`scope: "world"`) são sincronizadas para **todos os clientes conectados**, não só o Mestre — qualquer jogador consegue ler a chave pelo Console do navegador (F12). Por isso o Assistente de IA só é exibido/utilizável para o GM, mas a chave em si não fica tecnicamente oculta dos jogadores. Use apenas com jogadores de confiança, ou troque a chave periodicamente.
+
+## Assistente de IA (GM)
+
+Botão **🤖 Assistente de IA** no rodapé do diretório de Atores (visível só para o Mestre). Se não aparecer em alguma versão do Foundry, abra via macro:
+
+```js
+game.nihility.openAssistant();
+```
+
+Escolha a tarefa, escreva um prompt em texto livre e clique em Gerar:
+
+| Tarefa | O que cria |
+|---|---|
+| NPC (Personagem/Criatura) | Actor `character`, com espécie, atributos, biografia e 2–3 skills; aplica o preset de anatomia da espécie automaticamente |
+| Montaria | Igual ao NPC, com prompt focado em bestas/montarias |
+| Nave Espacial | Actor `starship` (Casco, Escudos, Grid de Energia) |
+| Veículo Terrestre | Actor `vehicle` (Integridade, Velocidade, Combustível/Bateria) |
+| Nota / Journal | Uma `JournalEntry` com título e conteúdo |
+| Habilidade (Skill avulsa) | Um Item `skill` direto no Compêndio de Habilidades |
+| Pergunta Livre | Resposta em texto solto, nada é criado |
+
+O campo **Quantidade** (1–10) gera múltiplos itens da mesma tarefa em sequência — cada um é criado direto (sem prévia individual) e listado no final com um link "Abrir". Atores e Notas gerados vão para uma pasta **IA — Gerado**, mantendo o restante do diretório organizado.
 
 ## API pública
 
@@ -77,6 +105,13 @@ Nas **Configurações do Mundo → Configurar Configurações → Nihility RPG S
 game.nihility.ai.fuseSkills(actor, [itemId1, itemId2], { tier: "unique", mode: "manual", manualData: {...} });
 game.nihility.ai.ingestExternalSkillJSON(actor, jsonFromExternalSource);
 game.nihility.ai.announceVoiceOfTheWorld(actor, { kind: "info", title: "...", body: "..." });
+
+// Geração via IA (usadas internamente pelo Assistente, também chamáveis via macro)
+game.nihility.ai.generateActorFromAI("um mercador anão desconfiado...", { isMount: false });
+game.nihility.ai.generateVesselFromAI("uma corveta de reconhecimento rápida...", "starship");
+game.nihility.ai.generateNoteFromAI("um evento estranho na vila de Ashcroft...");
+game.nihility.ai.generateSkillFromAI("uma habilidade de cura baseada em luz estelar...");
+game.nihility.ai.generateFreeform("sugira 5 nomes para uma guilda de mercenários...");
 ```
 
 ## Status

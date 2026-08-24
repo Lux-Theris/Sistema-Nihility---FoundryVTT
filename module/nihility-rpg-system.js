@@ -19,15 +19,19 @@ import { NihilityStarshipSheet, NihilityVehicleSheet } from "./sheets/starship-s
 import { NihilityItemSheet } from "./sheets/item-sheet.js";
 import { CurrencyConfigApp } from "./apps/currency-config.js";
 import { SpeciesConfigApp } from "./apps/species-config.js";
+import { AIAssistantApp } from "./apps/ai-assistant.js";
 
 Hooks.once("init", () => {
   console.log(`${SYSTEM_ID} | Inicializando sistema...`);
 
   // Namespace público para macros, módulos externos e o AI Helper (game.nihility.ai).
+  // openAssistant() é o atalho de macro para o Assistente de IA, caso o botão
+  // injetado no diretório de Atores não apareça em alguma versão do Foundry.
   game.nihility = {
     id: SYSTEM_ID,
     config: MEU_SISTEMA,
-    ai: AIHelper
+    ai: AIHelper,
+    openAssistant: () => new AIAssistantApp().render(true)
   };
 
   registerSystemSettings();
@@ -81,4 +85,22 @@ Hooks.once("init", () => {
 Hooks.once("ready", async () => {
   await ensureSystemCompendiums();
   console.log(`${SYSTEM_ID} | Sistema pronto.`);
+});
+
+// Botão do Assistente de IA no rodapé do diretório de Atores (só para o GM).
+// Se o Foundry mudar essa estrutura de DOM em alguma versão futura, use
+// game.nihility.openAssistant() num macro como alternativa.
+Hooks.on("renderActorDirectory", (app, html) => {
+  if (!game.user.isGM) return;
+
+  const button = $(`
+    <button type="button" class="nihility-ai-assistant-button">
+      <i class="fas fa-robot"></i> Assistente de IA
+    </button>
+  `);
+  button.on("click", () => new AIAssistantApp().render(true));
+
+  const footer = html.find(".directory-footer");
+  if (footer.length) footer.append(button);
+  else html.find(".header-actions").first().append(button);
 });

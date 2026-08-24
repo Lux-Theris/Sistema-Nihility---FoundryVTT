@@ -452,3 +452,66 @@ form.nihility-config-app {
 .nihility-config-app .sheet-footer button:hover {
   background: rgba(110, 231, 255, 0.25);
 }
+
+/* ==========================================================================
+   Assistente de IA
+   ========================================================================== */
+
+.nihility-ai-assistant-button {
+  width: 100%;
+  margin-top: 4px;
+  background: rgba(192, 132, 252, 0.12);
+  border: 1px solid var(--nihility-accent-2);
+  color: var(--nihility-accent-2);
+  border-radius: 4px;
+  padding: 4px 0;
+  cursor: pointer;
+}
+.nihility-ai-assistant-button:hover {
+  background: rgba(192, 132, 252, 0.25);
+}
+
+.ai-assistant-app .ai-generate {
+  align-self: flex-start;
+  background: rgba(110, 231, 255, 0.1);
+  border: 1px solid var(--nihility-accent);
+  color: var(--nihility-accent);
+  border-radius: 4px;
+  padding: 5px 14px;
+  cursor: pointer;
+}
+.ai-assistant-app .ai-generate:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.ai-assistant-app .ai-freeform-answer {
+  border: 1px solid var(--nihility-border);
+  border-radius: 4px;
+  padding: 8px;
+  background: var(--nihility-bg-panel-alt);
+  white-space: pre-wrap;
+}
+
+.ai-assistant-app .ai-results-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ai-assistant-app .ai-results-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid rgba(58, 65, 102, 0.4);
+  padding: 2px 0;
+}
+.ai-assistant-app .ai-results-list a {
+  color: var(--nihility-accent);
+  cursor: pointer;
+}
+.ai-assistant-app .ai-results-list a:hover {
+  text-decoration: underline;
+}

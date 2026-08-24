@@ -1,10 +1,11 @@
 /**
  * AI Helper: fusão de skills, verificação de reutilização no Compêndio,
- * geração de Unique/Ultimate Skills via IA externa (Ollama/LLM) ou JSON manual,
- * notificações privadas "Voz do Mundo" e criação/gestão automática dos
- * Compêndios de World. Exposto publicamente em `game.nihility.ai`.
+ * geração de conteúdo via IA (Skills, NPCs, Montarias, Naves/Veículos, Notas,
+ * Perguntas Livres), notificações privadas "Voz do Mundo" e criação/gestão
+ * automática dos Compêndios de World. Exposto publicamente em `game.nihility.ai`.
  */
-import { SYSTEM_ID, MEU_SISTEMA } from "./config.js";
+import { SYSTEM_ID, MEU_SISTEMA, isAnatomyEnabled, getActiveSpeciesPresets } from "./config.js";
+import { callAIProvider } from "./ai/providers.js";
 
 const COMPENDIUM_TYPE_MAP = {
   skill: MEU_SISTEMA.COMPENDIUM.skills,
@@ -195,13 +196,75 @@ export async function fuseSkills(actor, sourceItemIds, options = {}) {
 }
 
 /* -------------------------------------------- */
-/*  Integração com IA externa (Ollama/LLM)       */
+/*  Núcleo genérico de geração via IA            */
 /* -------------------------------------------- */
 
-const AI_SYSTEM_PROMPT =
+/** Lê as settings de IA atualmente configuradas. */
+function getAISettingsValues() {
+  return {
+    provider: game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.aiProvider),
+    endpoint: game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.aiEndpointUrl),
+    model: game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.aiModel),
+    apiKey: game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.aiApiKey)
+  };
+}
+
+/**
+ * Chama a IA configurada (qualquer tarefa) esperando um único objeto JSON de volta.
+ * Ponto único usado por todos os geradores abaixo (Skill, NPC, Montaria, Nave, Nota...).
+ */
+async function generateJSON(systemPrompt, userPrompt) {
+  const settings = getAISettingsValues();
+  if (!settings.apiKey) {
+    ui.notifications?.warn("Nenhuma chave de API de IA configurada (Configurações do Sistema).");
+    throw new Error("Chave de API de IA ausente.");
+  }
+
+  try {
+    const raw = await callAIProvider({ ...settings, systemPrompt, userPrompt, expectJSON: true });
+    return typeof raw === "string" ? JSON.parse(raw) : raw;
+  } catch (err) {
+    console.error(`${SYSTEM_ID} | Falha ao gerar conteúdo via IA.`, err);
+    ui.notifications?.warn("Falha ao contatar o serviço de IA. Confira Provedor/Modelo/Chave nas Configurações.");
+    throw err;
+  }
+}
+
+/** Pergunta livre: resposta em texto corrido, sem criar nenhum documento. */
+export async function generateFreeform(prompt) {
+  const settings = getAISettingsValues();
+  if (!settings.apiKey) {
+    ui.notifications?.warn("Nenhuma chave de API de IA configurada (Configurações do Sistema).");
+    throw new Error("Chave de API de IA ausente.");
+  }
+  try {
+    return await callAIProvider({
+      ...settings,
+      systemPrompt: "Você é um assistente criativo para um Mestre de RPG de mesa. Responda em texto corrido, sem markdown.",
+      userPrompt: prompt,
+      expectJSON: false
+    });
+  } catch (err) {
+    console.error(`${SYSTEM_ID} | Falha na pergunta livre via IA.`, err);
+    ui.notifications?.warn("Falha ao contatar o serviço de IA.");
+    throw err;
+  }
+}
+
+/* -------------------------------------------- */
+/*  Geração de Skills via IA                     */
+/* -------------------------------------------- */
+
+const UNIQUE_SKILL_SYSTEM_PROMPT =
   "Você é o motor de regras de um RPG de Foundry VTT. Responda SEMPRE com um único objeto JSON " +
   'estrito, sem markdown e sem texto fora do JSON, no formato: {"name": string, ' +
   '"description": string (HTML curto), "emotionTrigger": string, ' +
+  '"subSkills": [{"name": string, "description": string}]}.';
+
+const STANDALONE_SKILL_SYSTEM_PROMPT =
+  "Você é o motor de regras de um RPG de Foundry VTT. Responda SEMPRE com um único objeto JSON " +
+  'estrito, sem markdown, no formato: {"name": string, "tier": "common"|"extra"|"racial", ' +
+  '"level": number, "cost": number, "description": string (HTML curto), ' +
   '"subSkills": [{"name": string, "description": string}]}.';
 
 function buildUniqueSkillPrompt({ consumedNames, emotionPrompt, personality }) {
@@ -233,51 +296,241 @@ function normalizeAISkillData(parsed, sources) {
 }
 
 /**
- * Chama o endpoint de IA configurado (qualquer provedor compatível com o formato
- * OpenAI Chat Completions, autenticado via chave de API/Bearer token) para gerar
- * o JSON de uma Unique Skill a partir da emoção/personalidade e das skills consumidas.
+ * Gera o JSON de uma Unique Skill a partir da emoção/personalidade e das
+ * skills consumidas, usando o provedor de IA configurado.
  * @returns {Promise<object>} dados de Item prontos para createEmbeddedDocuments
  */
 export async function requestAIUniqueSkill(actor, sources, emotionPrompt = "") {
-  const endpoint = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.aiEndpointUrl);
-  const model = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.aiModel);
-  const apiKey = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.aiApiKey);
   const consumedNames = sources.map(s => s.name).join(", ");
   const personality = actor.system?.personality ?? {};
   const userPrompt = buildUniqueSkillPrompt({ consumedNames, emotionPrompt, personality });
+  const parsed = await generateJSON(UNIQUE_SKILL_SYSTEM_PROMPT, userPrompt);
+  return normalizeAISkillData(parsed, sources);
+}
 
-  if (!apiKey) {
-    ui.notifications?.warn("Nenhuma chave de API de IA configurada (Configurações do Sistema). Use o modo manual.");
-    throw new Error("Chave de API de IA ausente.");
-  }
+/**
+ * Gera uma Skill avulsa (não ligada a nenhuma fusão) e registra direto no
+ * Compêndio de Habilidades — útil para o GM montar um acervo de skills prontas.
+ * @param {string} prompt
+ * @returns {Promise<Item>} o Item criado no Compêndio
+ */
+export async function generateSkillFromAI(prompt) {
+  const parsed = await generateJSON(STANDALONE_SKILL_SYSTEM_PROMPT, prompt);
+  const data = {
+    name: parsed?.name || "Habilidade Sem Nome",
+    type: "skill",
+    system: {
+      tier: MEU_SISTEMA.SKILL_TIERS.includes(parsed?.tier) ? parsed.tier : "common",
+      level: Number(parsed?.level) || 1,
+      cost: Number(parsed?.cost) || 0,
+      description: parsed?.description || "",
+      subSkills: Array.isArray(parsed?.subSkills)
+        ? parsed.subSkills.map(s => ({ name: s?.name ?? "", description: s?.description ?? "" }))
+        : [],
+      fusionSources: [],
+      isFused: false
+    }
+  };
+  await ensureSystemCompendiums();
+  return registerItemInCompendium(data);
+}
 
-  try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`
+/* -------------------------------------------- */
+/*  Geração de NPCs e Montarias via IA           */
+/* -------------------------------------------- */
+
+const NPC_SYSTEM_PROMPT =
+  "Você é o motor de regras de um RPG de Foundry VTT. Responda SEMPRE com um único objeto JSON " +
+  'estrito, sem markdown, no formato: {"name": string, "species": string, "level": number, ' +
+  '"hp": number, "energy": number, "biography": string (HTML curto), "personalityTraits": string, ' +
+  '"skills": [{"name": string, "tier": "common"|"extra"|"racial", "level": number, "cost": number, "description": string}]}.';
+
+const MOUNT_SYSTEM_PROMPT =
+  "Você é o motor de regras de um RPG de Foundry VTT. Gere uma Montaria (besta de carga ou de combate). " +
+  'Responda SEMPRE com um único objeto JSON estrito, sem markdown, no formato: {"name": string, ' +
+  '"species": string, "level": number, "hp": number, "energy": number, ' +
+  '"biography": string (HTML curto, mencione velocidade e capacidade de carga), ' +
+  '"skills": [{"name": string, "tier": "common"|"racial", "level": number, "cost": number, "description": string}]}.';
+
+/**
+ * Gera um NPC/Criatura (ou Montaria) completo via IA: cria o Actor, aplica o
+ * preset de anatomia da espécie (se existir) e cria as skills geradas.
+ * @param {string} prompt
+ * @param {{isMount?:boolean, folder?:Folder|null}} [options]
+ * @returns {Promise<Actor>}
+ */
+export async function generateActorFromAI(prompt, options = {}) {
+  const { isMount = false, folder = null } = options;
+  const parsed = await generateJSON(isMount ? MOUNT_SYSTEM_PROMPT : NPC_SYSTEM_PROMPT, prompt);
+
+  const species = parsed?.species || "humano";
+  const hp = Number(parsed?.hp) || 10;
+  const energy = Number(parsed?.energy) || 0;
+
+  const created = await Actor.create({
+    name: parsed?.name || (isMount ? "Montaria Sem Nome" : "NPC Sem Nome"),
+    type: "character",
+    folder: folder?.id ?? null,
+    system: {
+      species,
+      isPlayerCharacter: false,
+      attributes: {
+        level: Number(parsed?.level) || 1,
+        hp: { value: hp, max: hp },
+        energy: { value: energy, max: energy }
       },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: AI_SYSTEM_PROMPT },
-          { role: "user", content: userPrompt }
-        ],
-        response_format: { type: "json_object" }
-      })
-    });
-    if (!response.ok) throw new Error(`Endpoint de IA retornou HTTP ${response.status}`);
+      biography: parsed?.biography || "",
+      personality: { traits: parsed?.personalityTraits || "", desires: "", emotionalState: "" }
+    }
+  });
 
-    const payload = await response.json();
-    const raw = payload?.choices?.[0]?.message?.content ?? payload;
-    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-    return normalizeAISkillData(parsed, sources);
-  } catch (err) {
-    console.error(`${SYSTEM_ID} | Falha ao gerar Unique Skill via IA.`, err);
-    ui.notifications?.warn("Falha ao contatar o serviço de IA. Use o modo manual para esta Skill Única.");
-    throw err;
+  if (isAnatomyEnabled()) {
+    const preset = getActiveSpeciesPresets()[species];
+    if (preset) {
+      const partsData = preset.parts.map(part => ({
+        name: part.label,
+        type: "body_part",
+        system: {
+          slot: part.slot,
+          speciesOrigin: species,
+          hp: { value: part.hpMax, max: part.hpMax },
+          status: "intact",
+          isProsthetic: false,
+          installedMods: []
+        }
+      }));
+      const createdParts = await created.createEmbeddedDocuments("Item", partsData);
+      for (const p of createdParts) await registerItemInCompendium(p.toObject());
+      await created.update({ "system.lastAppliedSpeciesPreset": species });
+    }
   }
+
+  const skillsData = Array.isArray(parsed?.skills)
+    ? parsed.skills.map(s => ({
+        name: s?.name || "Habilidade",
+        type: "skill",
+        system: {
+          tier: MEU_SISTEMA.SKILL_TIERS.includes(s?.tier) ? s.tier : "common",
+          level: Number(s?.level) || 1,
+          cost: Number(s?.cost) || 0,
+          description: s?.description || ""
+        }
+      }))
+    : [];
+  if (skillsData.length) {
+    const createdSkills = await created.createEmbeddedDocuments("Item", skillsData);
+    for (const s of createdSkills) await registerItemInCompendium(s.toObject());
+  }
+
+  return created;
+}
+
+/* -------------------------------------------- */
+/*  Geração de Naves/Veículos via IA             */
+/* -------------------------------------------- */
+
+const STARSHIP_SYSTEM_PROMPT =
+  "Você é o motor de regras de um RPG de Foundry VTT (Sci-Fi Arcano). Gere uma Nave Espacial. " +
+  'Responda SEMPRE com um único objeto JSON estrito, sem markdown, no formato: {"name": string, ' +
+  '"hull": number, "shields": number, "maneuverability": number, "reactorOutput": number, ' +
+  '"capacitorMax": number, "biography": string (HTML curto)}.';
+
+const VEHICLE_SYSTEM_PROMPT =
+  "Você é o motor de regras de um RPG de Foundry VTT. Gere um Veículo terrestre. " +
+  'Responda SEMPRE com um único objeto JSON estrito, sem markdown, no formato: {"name": string, ' +
+  '"integrity": number, "speed": number, "fuelType": "fuel"|"battery", "fuelMax": number, ' +
+  '"biography": string (HTML curto)}.';
+
+/**
+ * Gera uma Nave Espacial ou Veículo Terrestre via IA e cria o Actor correspondente.
+ * @param {string} prompt
+ * @param {"starship"|"vehicle"} vesselType
+ * @param {{folder?:Folder|null}} [options]
+ * @returns {Promise<Actor>}
+ */
+export async function generateVesselFromAI(prompt, vesselType, options = {}) {
+  const { folder = null } = options;
+  const isStarship = vesselType === "starship";
+  const parsed = await generateJSON(isStarship ? STARSHIP_SYSTEM_PROMPT : VEHICLE_SYSTEM_PROMPT, prompt);
+
+  const system = isStarship
+    ? {
+        hull: { value: Number(parsed?.hull) || 50, max: Number(parsed?.hull) || 50 },
+        shields: {
+          value: Number(parsed?.shields) || 20,
+          max: Number(parsed?.shields) || 20,
+          regenRate: 5
+        },
+        maneuverability: Number(parsed?.maneuverability) || 0,
+        powerGrid: {
+          reactorOutput: Number(parsed?.reactorOutput) || 50,
+          capacitor: {
+            value: Number(parsed?.capacitorMax) || 25,
+            max: Number(parsed?.capacitorMax) || 25
+          }
+        },
+        biography: parsed?.biography || ""
+      }
+    : {
+        integrity: { value: Number(parsed?.integrity) || 30, max: Number(parsed?.integrity) || 30 },
+        speed: Number(parsed?.speed) || 0,
+        fuel: {
+          value: Number(parsed?.fuelMax) || 50,
+          max: Number(parsed?.fuelMax) || 50,
+          type: parsed?.fuelType === "battery" ? "battery" : "fuel"
+        },
+        biography: parsed?.biography || ""
+      };
+
+  return Actor.create({
+    name: parsed?.name || (isStarship ? "Nave Sem Nome" : "Veículo Sem Nome"),
+    type: vesselType,
+    folder: folder?.id ?? null,
+    system
+  });
+}
+
+/* -------------------------------------------- */
+/*  Geração de Notas (Journal) via IA            */
+/* -------------------------------------------- */
+
+const NOTE_SYSTEM_PROMPT =
+  "Você é um assistente narrativo para um Mestre de RPG de mesa. Responda SEMPRE com um único " +
+  'objeto JSON estrito, sem markdown, no formato: {"title": string, "content": string (HTML)}.';
+
+/**
+ * Gera uma nota narrativa via IA e cria uma JournalEntry com uma página de texto.
+ * @param {string} prompt
+ * @param {{folder?:Folder|null}} [options]
+ * @returns {Promise<JournalEntry>}
+ */
+export async function generateNoteFromAI(prompt, options = {}) {
+  const { folder = null } = options;
+  const parsed = await generateJSON(NOTE_SYSTEM_PROMPT, prompt);
+  const title = parsed?.title || "Nota Sem Título";
+
+  return JournalEntry.create({
+    name: title,
+    folder: folder?.id ?? null,
+    pages: [{ name: title, type: "text", text: { content: parsed?.content || "", format: 1 } }]
+  });
+}
+
+/* -------------------------------------------- */
+/*  Pastas auto-geridas para conteúdo gerado     */
+/* -------------------------------------------- */
+
+/**
+ * Encontra (ou cria) a pasta "IA — Gerado" do tipo de documento pedido,
+ * usada para manter Atores/Notas gerados pelo Assistente de IA organizados.
+ * @param {"Actor"|"JournalEntry"} documentType
+ * @returns {Promise<Folder>}
+ */
+export async function getAIGeneratedFolder(documentType) {
+  const name = MEU_SISTEMA.AI_GENERATED_FOLDER_NAME;
+  let folder = game.folders.find(f => f.name === name && f.type === documentType);
+  if (!folder) folder = await Folder.create({ name, type: documentType, color: "#c084fc" });
+  return folder;
 }
 
 /**
@@ -365,5 +618,11 @@ export const AIHelper = {
   requestAIUniqueSkill,
   ingestExternalSkillJSON,
   announceVoiceOfTheWorld,
-  announceLevelUp
+  announceLevelUp,
+  generateFreeform,
+  generateSkillFromAI,
+  generateActorFromAI,
+  generateVesselFromAI,
+  generateNoteFromAI,
+  getAIGeneratedFolder
 };

@@ -1,0 +1,48 @@
+<form class="nihility-config-app ai-assistant-app" autocomplete="off">
+  {{#unless isGM}}
+  <p class="hint">Apenas o Mestre pode usar o Assistente de IA.</p>
+  {{else}}
+
+  <p class="hint">
+    Escolha uma tarefa, descreva o que você quer em texto livre e clique em Gerar.
+    Os itens são criados automaticamente — edite depois na própria ficha se precisar ajustar algo.
+  </p>
+
+  <label>Tarefa
+    <select class="task-select">
+      {{#each tasks as |t key|}}
+      <option value="{{key}}">{{t.label}}</option>
+      {{/each}}
+    </select>
+  </label>
+
+  <label>Prompt
+    <textarea class="ai-prompt" rows="4" placeholder="Ex: um mercador anão desconfiado, especialista em armas encantadas..."></textarea>
+  </label>
+
+  <label class="quantity-row">Quantidade (máx. 10 — não se aplica à Pergunta Livre)
+    <input type="number" class="ai-quantity" min="1" max="10" value="1"/>
+  </label>
+
+  <button type="button" class="ai-generate" {{#if busy}}disabled{{/if}}>
+    {{#if busy}}
+      <i class="fas fa-spinner fa-spin"></i> {{statusText}}
+    {{else}}
+      <i class="fas fa-robot"></i> Gerar
+    {{/if}}
+  </button>
+
+  {{#if freeformAnswer}}
+  <div class="ai-freeform-answer">{{freeformAnswer}}</div>
+  {{/if}}
+
+  {{#if results.length}}
+  <ul class="ai-results-list">
+    {{#each results as |r|}}
+    <li><i class="fas {{r.icon}}"></i> <a class="result-open" data-uuid="{{r.uuid}}">{{r.name}}</a></li>
+    {{/each}}
+  </ul>
+  {{/if}}
+
+  {{/unless}}
+</form>

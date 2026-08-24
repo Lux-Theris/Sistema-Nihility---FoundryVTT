@@ -1,6 +1,12 @@
 import { SYSTEM_ID, MEU_SISTEMA, getStarshipEnergyLabel } from "../config.js";
 import { registerItemInCompendium, createGrantedSkill, removeGrantedSkill } from "../ai-helper.js";
 
+/** Percentual (0-100) usado para desenhar as barras de Casco/Escudos/Integridade/Combustível. */
+function percentOf(value, max) {
+  if (!max) return 0;
+  return Math.round(Math.clamp((value / max) * 100, 0, 100));
+}
+
 /**
  * Ficha de Naves Espaciais (type "starship"): Casco, Escudos, Manobra e o
  * Grid de Energia (Reator + Baterias - Consumo), com alerta de sobrecarga.
@@ -29,6 +35,8 @@ export class NihilityStarshipSheet extends ActorSheet {
     context.totalConsumption = actor.system.totalConsumption;
     context.availableEnergy = actor.system.availableEnergy;
     context.isOverloaded = actor.system.powerGrid.isOverloaded;
+    context.primaryPercent = percentOf(actor.system.hull.value, actor.system.hull.max);
+    context.secondaryPercent = percentOf(actor.system.shields.value, actor.system.shields.max);
 
     return context;
   }
@@ -119,6 +127,8 @@ export class NihilityVehicleSheet extends ActorSheet {
     context.config = MEU_SISTEMA;
     context.isVehicle = true;
     context.parts = actor.system.parts;
+    context.primaryPercent = percentOf(actor.system.integrity.value, actor.system.integrity.max);
+    context.secondaryPercent = percentOf(actor.system.fuel.value, actor.system.fuel.max);
 
     return context;
   }

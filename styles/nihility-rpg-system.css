@@ -2,22 +2,27 @@
    Nihility RPG System — tema Sci-Fi Arcano / Fantasia Isekai
    ========================================================================== */
 
+@import url('https://fonts.googleapis.com/css2?family=Signika:wght@400;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 :root {
   --nihility-bg-dark: #10121a;
   --nihility-bg-panel: #181b26;
   --nihility-bg-panel-alt: #1f2333;
   --nihility-border: #3a4166;
+  --nihility-border-soft: rgba(58, 65, 102, 0.4);
   --nihility-accent: #6ee7ff;
   --nihility-accent-2: #c084fc;
   --nihility-gold: #e8c170;
   --nihility-text: #e6e9f5;
   --nihility-text-dim: #9aa1c2;
+  --nihility-text-faint: #6b7294;
   --nihility-hp: #ef5350;
   --nihility-energy: #6ee7ff;
   --nihility-danger: #ff5c5c;
   --nihility-ok: #6ee7a0;
   --nihility-warn: #ffcf5c;
   --nihility-font: "Signika", "Segoe UI", sans-serif;
+  --nihility-font-data: "JetBrains Mono", ui-monospace, "Courier New", monospace;
 }
 
 .nihility-sheet {
@@ -47,60 +52,137 @@
 
 .nihility-sheet .sheet-header {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 8px;
+  align-items: center;
+  gap: 16px;
+  padding: 14px;
+  background: linear-gradient(120deg, rgba(192, 132, 252, 0.08), transparent 60%), var(--nihility-bg-panel);
   border-bottom: 1px solid var(--nihility-border);
 }
 
 .nihility-sheet .profile-img {
   width: 84px;
   height: 84px;
+  flex-shrink: 0;
   border: 2px solid var(--nihility-accent-2);
-  border-radius: 6px;
-  box-shadow: 0 0 10px rgba(192, 132, 252, 0.4);
+  border-radius: 10px;
+  box-shadow: 0 0 0 4px rgba(192, 132, 252, 0.08), 0 10px 20px -6px rgba(0, 0, 0, 0.6);
 }
 
 .nihility-sheet .header-fields {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  min-width: 0;
 }
 
 .nihility-sheet .header-fields > input[name="name"] {
-  font-size: 1.3rem;
-  font-weight: bold;
+  font-size: 1.35rem;
+  font-weight: 700;
   background: transparent;
   border: none;
-  border-bottom: 1px solid var(--nihility-border);
+  border-bottom: 1px solid transparent;
+  padding: 0;
+}
+.nihility-sheet .header-fields > input[name="name"]:focus {
+  border-bottom-color: var(--nihility-border);
+  box-shadow: none;
 }
 
 .nihility-sheet .header-row {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
   align-items: center;
 }
 
-.nihility-sheet .resource {
+.nihility-sheet .header-row label {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 8px;
-  border: 1px solid var(--nihility-border);
-  border-radius: 4px;
-  background: var(--nihility-bg-panel-alt);
-}
-
-.nihility-sheet .resource label {
-  font-size: 0.75rem;
-  color: var(--nihility-text-dim);
+  font-size: 0.72rem;
+  color: var(--nihility-text-faint);
   text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.nihility-sheet .header-row select,
+.nihility-sheet .header-row > label > input {
+  font-size: 0.85rem;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
-.nihility-sheet .resource.hp input { color: var(--nihility-hp); }
-.nihility-sheet .resource.energy input { color: var(--nihility-energy); }
+.nihility-sheet .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--nihility-border);
+  background: var(--nihility-bg-panel-alt);
+  font-size: 0.76rem;
+  color: var(--nihility-text-dim);
+}
+.nihility-sheet .chip-inline.chip-violet,
+.nihility-sheet .chip.violet {
+  border-color: var(--nihility-accent-2);
+  color: var(--nihility-accent-2);
+}
+
+.nihility-sheet .resources {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 220px;
+}
+.nihility-sheet .vital-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.nihility-sheet .vital-label {
+  width: 70px;
+  flex-shrink: 0;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--nihility-text-faint);
+  text-align: right;
+}
+.nihility-sheet .vital-track {
+  flex: 1;
+  height: 9px;
+  border-radius: 5px;
+  background: var(--nihility-bg-dark);
+  border: 1px solid var(--nihility-border-soft);
+  overflow: hidden;
+  position: relative;
+}
+.nihility-sheet .vital-fill {
+  display: block;
+  height: 100%;
+  border-radius: 5px 0 0 5px;
+  transition: width 0.2s ease;
+}
+.nihility-sheet .vital-fill.hp { background: linear-gradient(90deg, #b3352f, var(--nihility-hp)); }
+.nihility-sheet .vital-fill.energy { background: linear-gradient(90deg, #2f8fa3, var(--nihility-energy)); }
+.nihility-sheet .vital-fill.xp { background: linear-gradient(90deg, #8a733f, var(--nihility-gold)); }
+.nihility-sheet .vital-value {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--nihility-font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
+  color: var(--nihility-text-dim);
+  flex-shrink: 0;
+}
+.nihility-sheet .vital-value input {
+  width: 46px;
+  padding: 1px 4px;
+  text-align: right;
+}
+.nihility-sheet .vital-value input:first-child { color: var(--nihility-text); }
 
 .nihility-sheet .sheet-tabs {
   display: flex;
@@ -133,11 +215,67 @@
 }
 
 .nihility-sheet fieldset.skill-tier-group legend {
-  color: var(--nihility-accent-2);
   padding: 0 6px;
   text-transform: uppercase;
-  font-size: 0.8rem;
-  letter-spacing: 1px;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  border-radius: 999px;
+}
+.nihility-sheet fieldset.skill-tier-group.tier-extra legend { color: var(--nihility-accent); }
+.nihility-sheet fieldset.skill-tier-group.tier-normal legend { color: var(--nihility-text-dim); }
+.nihility-sheet fieldset.skill-tier-group.tier-racial legend { color: var(--nihility-gold); }
+.nihility-sheet fieldset.skill-tier-group.tier-unique legend { color: var(--nihility-accent-2); }
+.nihility-sheet fieldset.skill-tier-group.tier-ultimate legend { color: var(--nihility-hp); }
+
+/* Layout denso da aba "Ficha": rail à esquerda (Atributos/Títulos), coluna à direita */
+.nihility-sheet .ficha-grid {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 18px;
+  align-items: start;
+}
+.nihility-sheet .rail,
+.nihility-sheet .col-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.nihility-sheet .block {
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border-soft);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.nihility-sheet .block-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 10px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--nihility-text-faint);
+}
+.nihility-sheet .row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+@media (max-width: 720px) {
+  .nihility-sheet .ficha-grid { grid-template-columns: 1fr; }
+}
+
+/* Títulos: linha em formato de chip, sempre "ativa" (não existe seleção) */
+.nihility-sheet .title-list .item-row {
+  border: 1px solid var(--nihility-accent-2);
+  border-radius: 7px;
+  background: rgba(192, 132, 252, 0.05);
+  margin-bottom: 6px;
+  padding: 6px 8px;
 }
 
 .nihility-sheet .item-list {
@@ -778,3 +916,21 @@ form.nihility-config-app {
 .nihility-sheet .mod-grant-toggle:hover {
   background: rgba(110, 231, 255, 0.2);
 }
+
+/* ==========================================================================
+   Módulos de Nave: pill de categoria (v4 — visual do mockup portado)
+   ========================================================================== */
+
+.nihility-sheet .cat-pill {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.nihility-sheet .cat-weapon { background: rgba(239, 83, 80, 0.18); color: var(--nihility-hp); }
+.nihility-sheet .cat-shield { background: rgba(110, 231, 255, 0.15); color: var(--nihility-accent); }
+.nihility-sheet .cat-engine { background: rgba(154, 161, 194, 0.15); color: var(--nihility-text-dim); }
+.nihility-sheet .cat-utility { background: rgba(232, 193, 112, 0.18); color: var(--nihility-gold); }

@@ -25,6 +25,12 @@ const COMPENDIUM_MANAGED_TYPES = ["skill", "body_part", "title", "starship_modul
 /** Tiers que fazem sentido como *resultado* de uma fusão (Racial nunca — só vem da Espécie). */
 const FUSABLE_TARGET_TIERS = ["extra", "normal", "unique", "ultimate"];
 
+/** Percentual (0-100) usado para desenhar as barras de HP/Energia no cabeçalho. */
+function percentOf(value, max) {
+  if (!max) return 0;
+  return Math.round(Math.clamp((value / max) * 100, 0, 100));
+}
+
 /**
  * Ficha de Personagens e Criaturas (type "character") — cobre também Montarias
  * e qualquer outro ser vivo/não-vivo gerado como "character": todos têm acesso
@@ -37,7 +43,7 @@ export class NihilityActorSheet extends ActorSheet {
       template: `systems/${SYSTEM_ID}/templates/actor-sheet.hbs`,
       width: 780,
       height: 860,
-      tabs: [{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "main" }]
+      tabs: [{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "ficha" }]
     });
   }
 
@@ -60,6 +66,8 @@ export class NihilityActorSheet extends ActorSheet {
       label: MEU_SISTEMA.COMBAT_ATTRIBUTE_LABELS[key],
       data: actor.system.attributes.combat[key]
     }));
+    context.hpPercent = percentOf(actor.system.attributes.hp.value, actor.system.attributes.hp.max);
+    context.energyPercent = percentOf(actor.system.attributes.energy.value, actor.system.attributes.energy.max);
 
     const hasUltimate = actor.system.hasUltimateSkill;
     const skills = actor.items.filter(i => i.type === "skill");

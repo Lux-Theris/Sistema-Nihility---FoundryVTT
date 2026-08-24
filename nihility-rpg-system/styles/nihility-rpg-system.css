@@ -1,0 +1,311 @@
+/* ==========================================================================
+   Nihility RPG System — tema Sci-Fi Arcano / Fantasia Isekai
+   ========================================================================== */
+
+:root {
+  --nihility-bg-dark: #10121a;
+  --nihility-bg-panel: #181b26;
+  --nihility-bg-panel-alt: #1f2333;
+  --nihility-border: #3a4166;
+  --nihility-accent: #6ee7ff;
+  --nihility-accent-2: #c084fc;
+  --nihility-gold: #e8c170;
+  --nihility-text: #e6e9f5;
+  --nihility-text-dim: #9aa1c2;
+  --nihility-hp: #ef5350;
+  --nihility-energy: #6ee7ff;
+  --nihility-danger: #ff5c5c;
+  --nihility-ok: #6ee7a0;
+  --nihility-warn: #ffcf5c;
+  --nihility-font: "Signika", "Segoe UI", sans-serif;
+}
+
+.nihility-sheet {
+  font-family: var(--nihility-font);
+  color: var(--nihility-text);
+  background: linear-gradient(160deg, var(--nihility-bg-dark), var(--nihility-bg-panel));
+  border-radius: 6px;
+}
+
+.nihility-sheet input,
+.nihility-sheet select,
+.nihility-sheet textarea {
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+.nihility-sheet input:focus,
+.nihility-sheet select:focus,
+.nihility-sheet textarea:focus {
+  outline: none;
+  border-color: var(--nihility-accent);
+  box-shadow: 0 0 4px var(--nihility-accent);
+}
+
+.nihility-sheet .sheet-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px;
+  border-bottom: 1px solid var(--nihility-border);
+}
+
+.nihility-sheet .profile-img {
+  width: 84px;
+  height: 84px;
+  border: 2px solid var(--nihility-accent-2);
+  border-radius: 6px;
+  box-shadow: 0 0 10px rgba(192, 132, 252, 0.4);
+}
+
+.nihility-sheet .header-fields {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nihility-sheet .header-fields > input[name="name"] {
+  font-size: 1.3rem;
+  font-weight: bold;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--nihility-border);
+}
+
+.nihility-sheet .header-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.nihility-sheet .resource {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--nihility-border);
+  border-radius: 4px;
+  background: var(--nihility-bg-panel-alt);
+}
+
+.nihility-sheet .resource label {
+  font-size: 0.75rem;
+  color: var(--nihility-text-dim);
+  text-transform: uppercase;
+}
+
+.nihility-sheet .resource.hp input { color: var(--nihility-hp); }
+.nihility-sheet .resource.energy input { color: var(--nihility-energy); }
+
+.nihility-sheet .sheet-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--nihility-border);
+}
+
+.nihility-sheet .sheet-tabs .item {
+  padding: 4px 10px;
+  border-radius: 4px 4px 0 0;
+  color: var(--nihility-text-dim);
+}
+
+.nihility-sheet .sheet-tabs .item.active {
+  color: var(--nihility-accent);
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  border-bottom: none;
+}
+
+.nihility-sheet .sheet-body {
+  padding: 10px;
+}
+
+.nihility-sheet fieldset.skill-tier-group {
+  border: 1px solid var(--nihility-border);
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.nihility-sheet fieldset.skill-tier-group legend {
+  color: var(--nihility-accent-2);
+  padding: 0 6px;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+}
+
+.nihility-sheet .item-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.nihility-sheet .item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 4px;
+  border-bottom: 1px solid rgba(58, 65, 102, 0.4);
+}
+
+.nihility-sheet .item-row:hover {
+  background: rgba(110, 231, 255, 0.06);
+}
+
+.nihility-sheet .item-row .item-name {
+  flex: 1;
+}
+
+.nihility-sheet .item-row img {
+  border-radius: 3px;
+  border: 1px solid var(--nihility-border);
+}
+
+.nihility-sheet .item-row a {
+  color: var(--nihility-text-dim);
+}
+.nihility-sheet .item-row a:hover {
+  color: var(--nihility-accent);
+}
+
+.nihility-sheet .item-create,
+.nihility-sheet .skill-fuse-button,
+.nihility-sheet .power-grid-tick {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--nihility-accent-2);
+  border-radius: 4px;
+  color: var(--nihility-accent-2);
+  background: rgba(192, 132, 252, 0.08);
+  cursor: pointer;
+}
+
+.nihility-sheet .item-create:hover,
+.nihility-sheet .skill-fuse-button:hover,
+.nihility-sheet .power-grid-tick:hover {
+  background: rgba(192, 132, 252, 0.2);
+}
+
+/* Anatomia / Partes do Corpo */
+.nihility-sheet .body-part.intact { border-left: 3px solid var(--nihility-ok); }
+.nihility-sheet .body-part.damaged { border-left: 3px solid var(--nihility-warn); }
+.nihility-sheet .body-part.destroyed {
+  border-left: 3px solid var(--nihility-danger);
+  opacity: 0.6;
+  text-decoration: line-through;
+}
+
+/* Economia */
+.nihility-sheet .currency-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.nihility-sheet .currency-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.nihility-sheet .currency-row label {
+  min-width: 90px;
+  color: var(--nihility-gold);
+}
+
+/* Grid de Energia (Naves) */
+.nihility-sheet .power-grid-summary {
+  border: 1px solid var(--nihility-border);
+  border-radius: 6px;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.nihility-sheet .power-grid-summary.overloaded {
+  border-color: var(--nihility-danger);
+  box-shadow: 0 0 10px rgba(255, 92, 92, 0.5);
+}
+.nihility-sheet .power-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.nihility-sheet .overload-alert {
+  grid-column: span 2;
+  color: var(--nihility-danger);
+  font-weight: bold;
+  text-align: center;
+  animation: nihility-pulse 1.2s infinite;
+}
+
+.nihility-sheet .module-online { border-left: 3px solid var(--nihility-ok); }
+.nihility-sheet .module-offline { border-left: 3px solid var(--nihility-text-dim); opacity: 0.7; }
+.nihility-sheet .module-damaged { border-left: 3px solid var(--nihility-danger); }
+
+@keyframes nihility-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ==========================================================================
+   Chat — Voz do Mundo
+   ========================================================================== */
+
+.nihility-voice-of-the-world {
+  font-family: var(--nihility-font);
+  background: linear-gradient(160deg, var(--nihility-bg-dark), var(--nihility-bg-panel));
+  border: 1px solid var(--nihility-accent-2);
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: var(--nihility-text);
+  box-shadow: 0 0 8px rgba(192, 132, 252, 0.35);
+}
+
+.nihility-voice-of-the-world .votw-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--nihility-accent-2);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 1.5px;
+  border-bottom: 1px solid var(--nihility-border);
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+}
+
+.nihility-voice-of-the-world .votw-timestamp {
+  margin-left: auto;
+  color: var(--nihility-text-dim);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.nihility-voice-of-the-world .votw-actor {
+  margin: 0 0 2px;
+  font-size: 0.8rem;
+  color: var(--nihility-text-dim);
+}
+
+.nihility-voice-of-the-world .votw-title {
+  margin: 0 0 4px;
+  color: var(--nihility-accent);
+}
+
+.nihility-voice-of-the-world.kind-fusion { border-color: var(--nihility-accent-2); }
+.nihility-voice-of-the-world.kind-level-up { border-color: var(--nihility-gold); }
+.nihility-voice-of-the-world.kind-new-skill { border-color: var(--nihility-accent); }
+
+.nihility-voice-of-the-world .votw-footer {
+  margin-top: 6px;
+  font-size: 0.7rem;
+  color: var(--nihility-text-dim);
+}

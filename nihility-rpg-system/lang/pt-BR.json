@@ -1,0 +1,50 @@
+{
+  "NIHILITY.SheetTab.Main": "Principal",
+  "NIHILITY.SheetTab.Skills": "Habilidades",
+  "NIHILITY.SheetTab.Anatomy": "Anatomia",
+  "NIHILITY.SheetTab.Economy": "Economia",
+  "NIHILITY.SheetTab.Biography": "Biografia",
+  "NIHILITY.SheetTab.Power": "Grid de Energia",
+  "NIHILITY.SheetTab.Description": "Descrição",
+  "NIHILITY.SheetTab.Details": "Detalhes",
+
+  "NIHILITY.Actor.HP": "HP",
+  "NIHILITY.Actor.XP": "XP",
+  "NIHILITY.Actor.Level": "Nível",
+  "NIHILITY.Actor.Species": "Espécie",
+  "NIHILITY.Actor.ActiveTitle": "Título Ativo",
+
+  "NIHILITY.Skill.Tier": "Tier",
+  "NIHILITY.Skill.Tier.common": "Comum",
+  "NIHILITY.Skill.Tier.extra": "Extra",
+  "NIHILITY.Skill.Tier.unique": "Única",
+  "NIHILITY.Skill.Tier.ultimate": "Ultimate",
+  "NIHILITY.Skill.Tier.racial": "Racial",
+  "NIHILITY.Skill.Fuse": "Fundir Habilidades Selecionadas",
+  "NIHILITY.Skill.EmotionTrigger": "Gatilho Emocional",
+
+  "NIHILITY.BodyPart.Status.intact": "Intacto",
+  "NIHILITY.BodyPart.Status.damaged": "Danificado",
+  "NIHILITY.BodyPart.Status.destroyed": "Destruído",
+
+  "NIHILITY.Starship.Hull": "Casco",
+  "NIHILITY.Starship.Shields": "Escudos",
+  "NIHILITY.Starship.Maneuverability": "Manobra",
+  "NIHILITY.Starship.Reactor": "Reator",
+  "NIHILITY.Starship.Capacitor": "Capacitores",
+  "NIHILITY.Starship.AvailableEnergy": "Energia Disponível",
+  "NIHILITY.Starship.Overloaded": "GRID SOBRECARREGADO",
+
+  "NIHILITY.Vehicle.Integrity": "Integridade",
+  "NIHILITY.Vehicle.Speed": "Velocidade",
+  "NIHILITY.Vehicle.Fuel": "Combustível",
+  "NIHILITY.Vehicle.Battery": "Bateria",
+
+  "NIHILITY.VoiceOfTheWorld.Label": "Voz do Mundo",
+  "NIHILITY.VoiceOfTheWorld.Private": "Mensagem privada — visível apenas para o Mestre e o(s) dono(s) deste personagem.",
+
+  "NIHILITY.Settings.EconomyEnabled.Name": "Sistema de Moedas/Economia",
+  "NIHILITY.Settings.TitlesEnabled.Name": "Sistema de Títulos",
+  "NIHILITY.Settings.AnatomyEnabled.Name": "Sistema de Anatomia/Modificação Corporal",
+  "NIHILITY.Settings.EnergyLabel.Name": "Rótulo do Sistema de Energia"
+}

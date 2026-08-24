@@ -1,0 +1,50 @@
+{
+  "NIHILITY.SheetTab.Main": "Main",
+  "NIHILITY.SheetTab.Skills": "Skills",
+  "NIHILITY.SheetTab.Anatomy": "Anatomy",
+  "NIHILITY.SheetTab.Economy": "Economy",
+  "NIHILITY.SheetTab.Biography": "Biography",
+  "NIHILITY.SheetTab.Power": "Power Grid",
+  "NIHILITY.SheetTab.Description": "Description",
+  "NIHILITY.SheetTab.Details": "Details",
+
+  "NIHILITY.Actor.HP": "HP",
+  "NIHILITY.Actor.XP": "XP",
+  "NIHILITY.Actor.Level": "Level",
+  "NIHILITY.Actor.Species": "Species",
+  "NIHILITY.Actor.ActiveTitle": "Active Title",
+
+  "NIHILITY.Skill.Tier": "Tier",
+  "NIHILITY.Skill.Tier.common": "Common",
+  "NIHILITY.Skill.Tier.extra": "Extra",
+  "NIHILITY.Skill.Tier.unique": "Unique",
+  "NIHILITY.Skill.Tier.ultimate": "Ultimate",
+  "NIHILITY.Skill.Tier.racial": "Racial",
+  "NIHILITY.Skill.Fuse": "Fuse Selected Skills",
+  "NIHILITY.Skill.EmotionTrigger": "Emotion Trigger",
+
+  "NIHILITY.BodyPart.Status.intact": "Intact",
+  "NIHILITY.BodyPart.Status.damaged": "Damaged",
+  "NIHILITY.BodyPart.Status.destroyed": "Destroyed",
+
+  "NIHILITY.Starship.Hull": "Hull",
+  "NIHILITY.Starship.Shields": "Shields",
+  "NIHILITY.Starship.Maneuverability": "Maneuverability",
+  "NIHILITY.Starship.Reactor": "Reactor",
+  "NIHILITY.Starship.Capacitor": "Capacitors",
+  "NIHILITY.Starship.AvailableEnergy": "Available Energy",
+  "NIHILITY.Starship.Overloaded": "POWER GRID OVERLOADED",
+
+  "NIHILITY.Vehicle.Integrity": "Integrity",
+  "NIHILITY.Vehicle.Speed": "Speed",
+  "NIHILITY.Vehicle.Fuel": "Fuel",
+  "NIHILITY.Vehicle.Battery": "Battery",
+
+  "NIHILITY.VoiceOfTheWorld.Label": "Voice of the World",
+  "NIHILITY.VoiceOfTheWorld.Private": "Private message — visible only to the GM and this character's owner(s).",
+
+  "NIHILITY.Settings.EconomyEnabled.Name": "Currency/Economy System",
+  "NIHILITY.Settings.TitlesEnabled.Name": "Titles System",
+  "NIHILITY.Settings.AnatomyEnabled.Name": "Anatomy/Body Modification System",
+  "NIHILITY.Settings.EnergyLabel.Name": "Energy System Label"
+}

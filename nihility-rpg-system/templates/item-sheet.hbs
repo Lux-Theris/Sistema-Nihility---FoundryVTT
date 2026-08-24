@@ -1,0 +1,104 @@
+<form class="{{cssClass}} nihility-sheet item-sheet type-{{itemType}}" autocomplete="off">
+
+  <header class="sheet-header">
+    <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}"/>
+    <input name="name" type="text" value="{{item.name}}" placeholder="Nome"/>
+  </header>
+
+  <nav class="sheet-tabs tabs" data-group="primary">
+    <a class="item" data-tab="description">Descrição</a>
+    <a class="item" data-tab="details">Detalhes</a>
+  </nav>
+
+  <section class="sheet-body">
+
+    <div class="tab" data-group="primary" data-tab="description">
+      {{editor system.description target="system.description" button=true engine="prosemirror" owner=owner}}
+    </div>
+
+    <div class="tab" data-group="primary" data-tab="details">
+
+      {{#if (eq itemType "skill")}}
+      <label>Tier
+        <select name="system.tier">
+          {{#each config.SKILL_TIERS as |tier|}}
+          <option value="{{tier}}" {{#if (eq tier system.tier)}}selected{{/if}}>{{lookup ../config.SKILL_TIER_LABELS tier}}</option>
+          {{/each}}
+        </select>
+      </label>
+      <label>Nível <input type="number" name="system.level" value="{{system.level}}"/></label>
+      <label>Custo <input type="number" name="system.cost" value="{{system.cost}}"/></label>
+      <label>Gatilho Emocional <input type="text" name="system.emotionTrigger" value="{{system.emotionTrigger}}"/></label>
+
+      <h3>Sub-Skills</h3>
+      <ol class="sub-list">
+        {{#each system.subSkills as |sub index|}}
+        <li data-index="{{index}}">
+          <input type="text" name="system.subSkills.{{index}}.name" value="{{sub.name}}"/>
+          <input type="text" name="system.subSkills.{{index}}.description" value="{{sub.description}}"/>
+          <a class="sub-skill-delete" title="Remover"><i class="fas fa-trash"></i></a>
+        </li>
+        {{/each}}
+      </ol>
+      <a class="sub-skill-add">+ Sub-Skill</a>
+
+      {{#if system.fusionSources.length}}
+      <h3>Linhagem de Fusão</h3>
+      <p>{{#each system.fusionSources}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</p>
+      {{/if}}
+      {{/if}}
+
+      {{#if (eq itemType "body_part")}}
+      <label>Slot <input type="text" name="system.slot" value="{{system.slot}}"/></label>
+      <label>Origem (Espécie) <input type="text" name="system.speciesOrigin" value="{{system.speciesOrigin}}"/></label>
+      <label>HP
+        <input type="number" name="system.hp.value" value="{{system.hp.value}}"/>
+        <span>/</span>
+        <input type="number" name="system.hp.max" value="{{system.hp.max}}"/>
+      </label>
+      <label>Protética? <input type="checkbox" name="system.isProsthetic" {{#if system.isProsthetic}}checked{{/if}}/></label>
+
+      <h3>Modificações Instaladas</h3>
+      <ol class="sub-list">
+        {{#each system.installedMods as |mod index|}}
+        <li data-index="{{index}}">
+          <input type="text" name="system.installedMods.{{index}}.name" value="{{mod.name}}"/>
+          <input type="text" name="system.installedMods.{{index}}.description" value="{{mod.description}}"/>
+          <a class="mod-delete" title="Remover"><i class="fas fa-trash"></i></a>
+        </li>
+        {{/each}}
+      </ol>
+      <a class="mod-add">+ Modificação/Prótese</a>
+      {{/if}}
+
+      {{#if (eq itemType "title")}}
+      <label>Concedido por <input type="text" name="system.grantedBy" value="{{system.grantedBy}}"/></label>
+      <label>Raridade <input type="text" name="system.rarity" value="{{system.rarity}}"/></label>
+      {{/if}}
+
+      {{#if (eq itemType "starship_module")}}
+      <label>Categoria
+        <select name="system.category">
+          <option value="weapon" {{#if (eq system.category "weapon")}}selected{{/if}}>Arma</option>
+          <option value="shield" {{#if (eq system.category "shield")}}selected{{/if}}>Escudo</option>
+          <option value="engine" {{#if (eq system.category "engine")}}selected{{/if}}>Motor</option>
+          <option value="utility" {{#if (eq system.category "utility")}}selected{{/if}}>Utilidade</option>
+        </select>
+      </label>
+      <label>Consumo de Energia <input type="number" name="system.powerConsumption" value="{{system.powerConsumption}}"/></label>
+      <label>Slot <input type="text" name="system.slot" value="{{system.slot}}"/></label>
+      {{/if}}
+
+      {{#if (eq itemType "item")}}
+      <label>Quantidade <input type="number" name="system.quantity" value="{{system.quantity}}"/></label>
+      <label>Peso <input type="number" name="system.weight" value="{{system.weight}}"/></label>
+      <label>Equipado? <input type="checkbox" name="system.equipped" {{#if system.equipped}}checked{{/if}}/></label>
+      <label>Valor
+        <input type="number" name="system.value.amount" value="{{system.value.amount}}"/>
+        <input type="text" name="system.value.currency" value="{{system.value.currency}}"/>
+      </label>
+      {{/if}}
+
+    </div>
+  </section>
+</form>

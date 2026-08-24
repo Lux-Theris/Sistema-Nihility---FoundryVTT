@@ -1,0 +1,121 @@
+<form class="{{cssClass}} nihility-sheet starship-sheet" autocomplete="off">
+
+  <header class="sheet-header">
+    <img class="profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}"/>
+    <div class="header-fields">
+      <input name="name" type="text" value="{{actor.name}}" placeholder="Nome"/>
+
+      {{#if isVehicle}}
+      <div class="header-row resources">
+        <div class="resource">
+          <label>Integridade</label>
+          <input type="number" name="system.integrity.value" value="{{system.integrity.value}}"/>
+          <span>/</span>
+          <input type="number" name="system.integrity.max" value="{{system.integrity.max}}"/>
+        </div>
+        <div class="resource">
+          <label>Velocidade</label>
+          <input type="number" name="system.speed" value="{{system.speed}}"/>
+        </div>
+        <div class="resource">
+          <label>{{#if (eq system.fuel.type "battery")}}Bateria{{else}}Combustível{{/if}}</label>
+          <input type="number" name="system.fuel.value" value="{{system.fuel.value}}"/>
+          <span>/</span>
+          <input type="number" name="system.fuel.max" value="{{system.fuel.max}}"/>
+        </div>
+      </div>
+      {{else}}
+      <div class="header-row resources">
+        <div class="resource">
+          <label>Casco</label>
+          <input type="number" name="system.hull.value" value="{{system.hull.value}}"/>
+          <span>/</span>
+          <input type="number" name="system.hull.max" value="{{system.hull.max}}"/>
+        </div>
+        <div class="resource">
+          <label>Escudos</label>
+          <input type="number" name="system.shields.value" value="{{system.shields.value}}"/>
+          <span>/</span>
+          <input type="number" name="system.shields.max" value="{{system.shields.max}}"/>
+        </div>
+        <div class="resource">
+          <label>Manobra</label>
+          <input type="number" name="system.maneuverability" value="{{system.maneuverability}}"/>
+        </div>
+      </div>
+      {{/if}}
+    </div>
+  </header>
+
+  <nav class="sheet-tabs tabs" data-group="primary">
+    <a class="item" data-tab="main">Principal</a>
+    {{#unless isVehicle}}<a class="item" data-tab="power">Grid de Energia</a>{{/unless}}
+    <a class="item" data-tab="biography">Registro</a>
+  </nav>
+
+  <section class="sheet-body">
+
+    <div class="tab" data-group="primary" data-tab="main">
+      <h3>{{#if isVehicle}}Peças Instaladas{{else}}Módulos Instalados{{/if}}</h3>
+      <ol class="item-list">
+        {{#if isVehicle}}
+          {{#each parts as |part|}}
+          <li class="item-row" data-item-id="{{part.id}}">
+            <img src="{{part.img}}" width="24" height="24"/>
+            <span class="item-name">{{part.name}}</span>
+            <a class="item-edit" title="Editar"><i class="fas fa-edit"></i></a>
+            <a class="item-delete" title="Excluir"><i class="fas fa-trash"></i></a>
+          </li>
+          {{/each}}
+        {{else}}
+          {{#each modules as |module|}}
+          <li class="item-row module-{{module.system.status}}" data-item-id="{{module.id}}">
+            <img src="{{module.img}}" width="24" height="24"/>
+            <span class="item-name">{{module.name}}</span>
+            <span class="item-category">{{module.system.category}}</span>
+            <span class="item-consumption">{{module.system.powerConsumption}} EPS</span>
+            <a class="module-toggle-power" title="Ligar/Desligar"><i class="fas fa-power-off"></i></a>
+            <a class="item-edit" title="Editar"><i class="fas fa-edit"></i></a>
+            <a class="item-delete" title="Excluir"><i class="fas fa-trash"></i></a>
+          </li>
+          {{/each}}
+        {{/if}}
+      </ol>
+      <a class="item-create" data-type="{{#if isVehicle}}item{{else}}starship_module{{/if}}">
+        + {{#if isVehicle}}Nova Peça{{else}}Novo Módulo{{/if}}
+      </a>
+    </div>
+
+    {{#unless isVehicle}}
+    <div class="tab" data-group="primary" data-tab="power">
+      <div class="power-grid-summary {{#if isOverloaded}}overloaded{{/if}}">
+        <div class="power-stat">
+          <label>Reator</label>
+          <input type="number" name="system.powerGrid.reactorOutput" value="{{system.powerGrid.reactorOutput}}"/>
+        </div>
+        <div class="power-stat">
+          <label>Capacitores</label>
+          <input type="number" name="system.powerGrid.capacitor.value" value="{{system.powerGrid.capacitor.value}}"/>
+          <span>/</span>
+          <input type="number" name="system.powerGrid.capacitor.max" value="{{system.powerGrid.capacitor.max}}"/>
+        </div>
+        <div class="power-stat">
+          <label>Consumo Total</label>
+          <span>{{totalConsumption}} EPS</span>
+        </div>
+        <div class="power-stat">
+          <label>Energia Disponível</label>
+          <span>{{availableEnergy}} EPS</span>
+        </div>
+        {{#if isOverloaded}}<p class="overload-alert">⚠ GRID SOBRECARREGADO</p>{{/if}}
+      </div>
+      <button type="button" class="power-grid-tick">Recalcular Grid de Energia</button>
+    </div>
+    {{/unless}}
+
+    <div class="tab" data-group="primary" data-tab="biography">
+      {{editor system.biography target="system.biography" button=true engine="prosemirror" owner=owner}}
+    </div>
+
+  </section>
+</form>

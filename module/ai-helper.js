@@ -412,6 +412,63 @@ export async function generateSkillFromAI(prompt) {
 }
 
 /* -------------------------------------------- */
+/*  Edição de documento existente via IA         */
+/* -------------------------------------------- */
+
+const EDIT_DOCUMENT_SYSTEM_PROMPT =
+  "Você é o motor de regras de um RPG de Foundry VTT, editando um documento JÁ EXISTENTE " +
+  "(nunca crie um novo). Você recebe o estado ATUAL do documento em JSON e uma instrução em " +
+  "linguagem natural do Mestre. Responda SEMPRE com um único objeto JSON estrito, sem markdown, " +
+  'contendo APENAS os campos que devem mudar, no mesmo formato aceito por Document#update() do ' +
+  'Foundry VTT: {"name"?: string, "img"?: string, "system.<caminho>"?: valor, ...}. Use chaves ' +
+  'com ponto pra caminhos aninhados dentro de "system" (ex: "system.attributes.level", ' +
+  '"system.attributes.combat.strength.points"). NUNCA inclua _id, ownership, permission ou ' +
+  "qualquer campo fora de name/img/system. Não repita campos que não mudam.";
+
+/** Remove qualquer chave fora de name/img/system.* — nunca deixa a IA tocar em _id/ownership/etc. */
+function sanitizeDocumentPatch(patch) {
+  const clean = {};
+  for (const [key, value] of Object.entries(patch ?? {})) {
+    if (key === "name" || key === "img" || key === "system" || key.startsWith("system.")) {
+      clean[key] = value;
+    }
+  }
+  return clean;
+}
+
+/**
+ * Edita um Actor ou Item JÁ EXISTENTE via IA: envia o estado atual + uma instrução em
+ * texto livre, e aplica só os campos que a IA devolver como alterados (nunca cria um
+ * documento novo). Usado pelo Assistente de IA no modo "Editar Existente".
+ * @param {Actor|Item} doc
+ * @param {string} instruction
+ * @returns {Promise<{doc: Actor|Item, patch: object}>}
+ */
+export async function editDocumentWithAI(doc, instruction) {
+  if (!["Actor", "Item"].includes(doc.documentName)) {
+    throw new Error("Só é possível editar Atores ou Itens via IA.");
+  }
+
+  const snapshot = { name: doc.name, type: doc.type, system: doc.toObject().system };
+  const userPrompt = [
+    `Documento atual (${doc.documentName}, tipo "${doc.type}"):`,
+    JSON.stringify(snapshot, null, 2),
+    "",
+    `Instrução do Mestre: ${instruction}`
+  ].join("\n");
+
+  const parsed = await generateJSON(EDIT_DOCUMENT_SYSTEM_PROMPT, userPrompt);
+  const patch = sanitizeDocumentPatch(parsed);
+  if (!Object.keys(patch).length) {
+    ui.notifications?.warn("A IA não retornou nenhuma alteração válida.");
+    throw new Error("Patch vazio.");
+  }
+
+  await doc.update(patch);
+  return { doc, patch };
+}
+
+/* -------------------------------------------- */
 /*  Geração de NPCs e Montarias via IA           */
 /* -------------------------------------------- */
 
@@ -959,6 +1016,7 @@ export const AIHelper = {
   fuseSkills,
   requestAISpecialSkill,
   ingestExternalSkillJSON,
+  editDocumentWithAI,
   announceVoiceOfTheWorld,
   announceLevelUp,
   generateFreeform,

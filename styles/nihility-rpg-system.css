@@ -609,6 +609,58 @@ form.nihility-config-app {
   background: rgba(192, 132, 252, 0.25);
 }
 
+.ai-assistant-app .mode-toggle {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.ai-assistant-app .mode-btn {
+  flex: 1;
+  padding: 5px 0;
+  border-radius: 4px;
+  border: 1px solid var(--nihility-border);
+  background: var(--nihility-bg-panel-alt);
+  color: var(--nihility-text-dim);
+  cursor: pointer;
+}
+.ai-assistant-app .mode-btn.active {
+  border-color: var(--nihility-accent-2);
+  color: var(--nihility-accent-2);
+  background: rgba(192, 132, 252, 0.12);
+}
+
+.ai-assistant-app .ai-edit-dropzone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  margin-bottom: 8px;
+  border: 1px dashed var(--nihility-border);
+  border-radius: 6px;
+  background: var(--nihility-bg-dark);
+}
+.ai-assistant-app .ai-edit-target {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 10px;
+}
+.ai-assistant-app .ai-edit-target img {
+  border-radius: 3px;
+  border: 1px solid var(--nihility-border);
+}
+.ai-assistant-app .ai-edit-target-name {
+  flex: 1;
+}
+.ai-assistant-app .ai-edit-clear {
+  color: var(--nihility-text-dim);
+  cursor: pointer;
+}
+.ai-assistant-app .ai-edit-clear:hover {
+  color: var(--nihility-danger);
+}
+
 .ai-assistant-app .ai-generate {
   align-self: flex-start;
   background: rgba(110, 231, 255, 0.1);

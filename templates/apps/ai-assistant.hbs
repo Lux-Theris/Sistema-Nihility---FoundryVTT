@@ -3,6 +3,12 @@
   <p class="hint">Apenas o Mestre pode usar o Assistente de IA.</p>
   {{else}}
 
+  <div class="mode-toggle">
+    <button type="button" class="mode-btn {{#if isCreateMode}}active{{/if}}" data-mode="create">+ Criar Novo</button>
+    <button type="button" class="mode-btn {{#if isEditMode}}active{{/if}}" data-mode="edit">✎ Editar Existente</button>
+  </div>
+
+  {{#if isCreateMode}}
   <p class="hint">
     Escolha uma tarefa, descreva o que você quer em texto livre e clique em Gerar.
     Os itens são criados automaticamente — edite depois na própria ficha se precisar ajustar algo.
@@ -15,18 +21,43 @@
       {{/each}}
     </select>
   </label>
+  {{/if}}
+
+  {{#if isEditMode}}
+  <p class="hint">
+    Arraste um Ator ou Item (da barra lateral ou de uma ficha) pro campo abaixo, descreva a
+    alteração em texto livre e clique em Aplicar. A IA só muda o que você pedir — nada de
+    documento novo.
+  </p>
+
+  <div class="ai-edit-dropzone">
+    {{#if editTarget}}
+    <div class="ai-edit-target">
+      <img src="{{editTarget.img}}" width="28" height="28"/>
+      <span class="ai-edit-target-name">{{editTarget.name}} <span class="hint-inline">({{editTarget.documentName}})</span></span>
+      <a class="ai-edit-clear" title="Trocar"><i class="fas fa-times"></i></a>
+    </div>
+    {{else}}
+    <p class="hint-inline">Arraste um Ator ou Item pra cá.</p>
+    {{/if}}
+  </div>
+  {{/if}}
 
   <label>Prompt
-    <textarea class="ai-prompt" rows="4" placeholder="Ex: um mercador anão desconfiado, especialista em armas encantadas..."></textarea>
+    <textarea class="ai-prompt" rows="4" placeholder="{{#if isEditMode}}Ex: aumente o nível pra 5 e dê +10 em Força{{else}}Ex: um mercador anão desconfiado, especialista em armas encantadas...{{/if}}"></textarea>
   </label>
 
+  {{#if isCreateMode}}
   <label class="quantity-row">Quantidade (máx. 10 — não se aplica à Pergunta Livre)
     <input type="number" class="ai-quantity" min="1" max="10" value="1"/>
   </label>
+  {{/if}}
 
   <button type="button" class="ai-generate" {{#if busy}}disabled{{/if}}>
     {{#if busy}}
       <i class="fas fa-spinner fa-spin"></i> {{statusText}}
+    {{else if isEditMode}}
+      <i class="fas fa-pen"></i> Aplicar Alteração
     {{else}}
       <i class="fas fa-robot"></i> Gerar
     {{/if}}
@@ -39,7 +70,10 @@
   {{#if results.length}}
   <ul class="ai-results-list">
     {{#each results as |r|}}
-    <li><i class="fas {{r.icon}}"></i> <a class="result-open" data-uuid="{{r.uuid}}">{{r.name}}</a></li>
+    <li>
+      <i class="fas {{r.icon}}"></i> <a class="result-open" data-uuid="{{r.uuid}}">{{r.name}}</a>
+      {{#if r.changedKeys}}<span class="hint-inline">— alterado: {{r.changedKeys}}</span>{{/if}}
+    </li>
     {{/each}}
   </ul>
   {{/if}}

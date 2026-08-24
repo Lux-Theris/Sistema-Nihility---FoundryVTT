@@ -44,6 +44,14 @@
         <span class="vital-track"><span class="vital-fill xp" style="width:100%"></span></span>
         <span class="vital-value"><input type="number" name="system.attributes.xp" value="{{system.attributes.xp}}"/></span>
       </div>
+      {{#if shieldValue}}
+      <div class="vital-row shield-row">
+        <span class="vital-label">🛡 Escudo</span>
+        <span class="vital-value shield-value">
+          <input type="number" name="system.attributes.shield.value" value="{{system.attributes.shield.value}}"/>
+        </span>
+      </div>
+      {{/if}}
     </div>
   </header>
 
@@ -138,6 +146,11 @@
                   <img src="{{skill.img}}" width="24" height="24"/>
                   <span class="item-name">{{skill.name}}</span>
                   <span class="item-cost">Custo: {{skill.system.cost}}</span>
+                  {{#unless (eq skill.system.effectType "none")}}
+                  <button type="button" class="skill-use-button" title="Usar Habilidade">
+                    {{#if (eq skill.system.effectType "damage")}}🎲 Usar{{else}}✨ Usar{{/if}}
+                  </button>
+                  {{/unless}}
                   <a class="item-edit" title="Editar"><i class="fas fa-edit"></i></a>
                   <a class="item-delete" title="Excluir"><i class="fas fa-trash"></i></a>
                 </li>

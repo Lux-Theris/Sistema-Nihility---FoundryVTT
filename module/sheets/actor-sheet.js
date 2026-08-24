@@ -18,6 +18,7 @@ import {
   transferCurrency
 } from "../ai-helper.js";
 import { rollAttribute } from "../dice.js";
+import { useSkillEffect } from "../skill-effects.js";
 
 const CREATABLE_ITEM_TYPES = ["skill", "body_part", "title", "item"];
 const COMPENDIUM_MANAGED_TYPES = ["skill", "body_part", "title", "starship_module"];
@@ -68,6 +69,7 @@ export class NihilityActorSheet extends ActorSheet {
     }));
     context.hpPercent = percentOf(actor.system.attributes.hp.value, actor.system.attributes.hp.max);
     context.energyPercent = percentOf(actor.system.attributes.energy.value, actor.system.attributes.energy.max);
+    context.shieldValue = actor.system.attributes.shield.value;
 
     // "Ultimate" só fica escondida do jogador — o Mestre sempre vê/pode escolher,
     // já que às vezes precisa conceder ou ajustar uma na mão.
@@ -100,6 +102,7 @@ export class NihilityActorSheet extends ActorSheet {
     html.find(".item-edit").on("click", this._onItemEdit.bind(this));
     html.find(".item-delete").on("click", this._onItemDelete.bind(this));
     html.find(".skill-fuse-button").on("click", this._onFuseSkills.bind(this));
+    html.find(".skill-use-button").on("click", this._onUseSkill.bind(this));
     html.find(".skill-request-button").on("click", this._onRequestSkillCreation.bind(this));
     html.find(".attribute-roll").on("click", this._onRollAttribute.bind(this));
     html.find(".sp-break").on("click", this._onBreakSkillPoints.bind(this));
@@ -383,6 +386,53 @@ export class NihilityActorSheet extends ActorSheet {
     event.preventDefault();
     const itemId = event.currentTarget.closest(".item-row").dataset.itemId;
     await this.actor.deleteEmbeddedDocuments("Item", [itemId]);
+  }
+
+  /* -------------------------------------------- */
+  /*  Usar Habilidade (dano / efeito temporário)   */
+  /* -------------------------------------------- */
+
+  async _onUseSkill(event) {
+    event.preventDefault();
+    const itemId = event.currentTarget.closest(".item-row").dataset.itemId;
+    const skill = this.actor.items.get(itemId);
+    if (!skill) return;
+
+    let targetActor = this.actor;
+    if (skill.system.effectType === "temporary") {
+      targetActor = await this._promptSkillTarget();
+      if (!targetActor) return;
+    }
+
+    try {
+      await useSkillEffect(this.actor, itemId, { targetActor });
+    } catch (err) {
+      console.error(`${SYSTEM_ID} | Falha ao usar habilidade.`, err);
+    }
+  }
+
+  /** Escolhe o alvo de um Efeito Temporário (buff/debuff/escudo) — padrão: o próprio dono. */
+  async _promptSkillTarget() {
+    const candidates = game.actors.filter(a => a.testUserPermission(game.user, "OBSERVER"));
+    const opts = candidates
+      .map(a => `<option value="${a.id}" ${a.id === this.actor.id ? "selected" : ""}>${a.name}${a.id === this.actor.id ? " (você mesmo)" : ""}</option>`)
+      .join("");
+
+    const targetId = await Dialog.wait({
+      title: "Escolher Alvo",
+      content: `
+        <form>
+          <div class="form-group"><label>Alvo</label><select name="targetId">${opts}</select></div>
+        </form>`,
+      buttons: {
+        confirm: { label: "Usar Habilidade", callback: html => html.find("[name=targetId]").val() },
+        cancel: { label: "Cancelar", callback: () => null }
+      },
+      default: "confirm",
+      close: () => null
+    });
+    if (!targetId) return null;
+    return game.actors.get(targetId) ?? null;
   }
 
   /* -------------------------------------------- */

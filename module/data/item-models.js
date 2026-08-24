@@ -22,6 +22,19 @@ function grantedSkillSchema() {
 }
 
 /**
+ * Modificador PERMANENTE de HP/Mana (não usa duração/Active Effect — soma direto
+ * na fórmula sempre que a fonte estiver ativa: Skill possuída, Item equipado,
+ * Modificação instalada). Reaproveitado por SkillDataModel, GenericItemDataModel
+ * e cada entrada de installedMods do BodyPartDataModel.
+ */
+function statModifiersSchema() {
+  return new fields.SchemaField({
+    hp: new fields.NumberField({ required: true, integer: true, initial: 0 }),
+    energy: new fields.NumberField({ required: true, integer: true, initial: 0 })
+  });
+}
+
+/**
  * Habilidade (Skill). Suporta Tiers, sub-skills dinâmicas e a linhagem de fusão
  * (quais skills foram consumidas para gerá-la), usada pelo AI Helper e pela
  * regra geral de consumo por tier (uma skill só funde fontes de tier ≤ o dela).
@@ -68,7 +81,37 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
        * (ex: uma Skill Ultimate que transforma balas exige uma arma pra dispará-las).
        * Não é um vínculo mecânico — só um lembrete de RP.
        */
-      requiredItem: new fields.StringField({ required: false, initial: "" })
+      requiredItem: new fields.StringField({ required: false, initial: "" }),
+
+      /**
+       * Mecânica ao "Usar" a skill — ver MEU_SISTEMA.SKILL_EFFECT_TYPES:
+       * "none" (padrão, só descritiva), "damage" (rola damageFormula e posta no
+       * chat público, com elemento opcional) ou "temporary" (aplica cada entrada
+       * de `effects` — buffs/debuffs/drawbacks somam nos 7 Atributos ou em HP/Mana
+       * via Active Effect com duração; "shield" é somado direto, sem duração).
+       */
+      effectType: new fields.StringField({
+        required: true,
+        initial: "none",
+        choices: MEU_SISTEMA.SKILL_EFFECT_TYPES
+      }),
+
+      damageFormula: new fields.StringField({ required: false, initial: "" }),
+      isElementalDamage: new fields.BooleanField({ required: false, initial: false }),
+      damageElement: new fields.StringField({ required: false, initial: "" }),
+
+      /** [{ target, amount, durationRounds }] — target em MEU_SISTEMA.EFFECT_TARGETS. */
+      effects: new fields.ArrayField(
+        new fields.SchemaField({
+          target: new fields.StringField({ required: true, choices: MEU_SISTEMA.EFFECT_TARGETS }),
+          amount: new fields.NumberField({ required: true, integer: true, initial: 1 }),
+          durationRounds: new fields.NumberField({ required: true, integer: true, initial: 1, min: 0 })
+        }),
+        { required: false, initial: [] }
+      ),
+
+      /** Modificador PERMANENTE de HP/Mana, sempre ativo enquanto a skill estiver na ficha. */
+      statModifiers: statModifiersSchema()
     };
   }
 }
@@ -102,7 +145,9 @@ export class BodyPartDataModel extends foundry.abstract.TypeDataModel {
           name: new fields.StringField({ required: true, initial: "" }),
           description: new fields.HTMLField({ required: false, initial: "" }),
           grantsSkill: grantedSkillSchema(),
-          skillGranted: new fields.BooleanField({ required: false, initial: false })
+          skillGranted: new fields.BooleanField({ required: false, initial: false }),
+          /** Modificador PERMANENTE de HP/Mana enquanto esta modificação estiver instalada. */
+          statModifiers: statModifiersSchema()
         }),
         { required: false, initial: [] }
       )
@@ -128,10 +173,10 @@ export class TitleDataModel extends foundry.abstract.TypeDataModel {
       grantedBy: new fields.StringField({ required: false, initial: "" }),
       rarity: new fields.StringField({ required: false, initial: "comum" }),
 
-      /** Bônus permanentes concedidos: [{ attribute, amount }], attribute em MEU_SISTEMA.COMBAT_ATTRIBUTES. */
+      /** Bônus permanentes concedidos: [{ attribute, amount }], attribute em MEU_SISTEMA.TITLE_BONUS_TARGETS (os 7 atributos + hp/energy diretos). */
       bonuses: new fields.ArrayField(
         new fields.SchemaField({
-          attribute: new fields.StringField({ required: true, choices: MEU_SISTEMA.COMBAT_ATTRIBUTES }),
+          attribute: new fields.StringField({ required: true, choices: MEU_SISTEMA.TITLE_BONUS_TARGETS }),
           amount: new fields.NumberField({ required: true, integer: true, initial: 0 })
         }),
         { required: false, initial: [] }
@@ -178,7 +223,10 @@ export class GenericItemDataModel extends foundry.abstract.TypeDataModel {
       }),
 
       /** Habilidade opcional concedida ao dono enquanto o item estiver "equipado" (ver grantedSkillSchema). */
-      grantsSkill: grantedSkillSchema()
+      grantsSkill: grantedSkillSchema(),
+
+      /** Modificador PERMANENTE de HP/Mana enquanto o item estiver "equipado". */
+      statModifiers: statModifiersSchema()
     };
   }
 }

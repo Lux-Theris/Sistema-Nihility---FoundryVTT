@@ -1,4 +1,4 @@
-import { SYSTEM_ID, MEU_SISTEMA } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getActiveDamageElements } from "../config.js";
 import { createGrantedSkill, removeGrantedSkill } from "../ai-helper.js";
 
 /**
@@ -28,6 +28,7 @@ export class NihilityItemSheet extends ItemSheet {
       const hasUltimate = owner?.system?.hasUltimateSkill ?? this.item.system.tier === "ultimate";
       const ultimateVisible = hasUltimate || game.user.isGM;
       context.visibleSkillTiers = MEU_SISTEMA.SKILL_TIERS.filter(t => t !== "ultimate" || ultimateVisible);
+      context.damageElements = getActiveDamageElements();
     }
 
     return context;
@@ -41,6 +42,10 @@ export class NihilityItemSheet extends ItemSheet {
     // Sub-Skills (type "skill")
     html.find(".sub-skill-add").on("click", this._onSubSkillAdd.bind(this));
     html.find(".sub-skill-delete").on("click", this._onSubSkillDelete.bind(this));
+
+    // Efeitos (type "skill", effectType "temporary")
+    html.find(".effect-add").on("click", this._onEffectAdd.bind(this));
+    html.find(".effect-delete").on("click", this._onEffectDelete.bind(this));
 
     // Modificações/Próteses instaladas (type "body_part")
     html.find(".mod-add").on("click", this._onInstalledModAdd.bind(this));
@@ -83,6 +88,21 @@ export class NihilityItemSheet extends ItemSheet {
     const subSkills = foundry.utils.deepClone(this.item.system.subSkills ?? []);
     subSkills.splice(index, 1);
     await this.item.update({ "system.subSkills": subSkills });
+  }
+
+  async _onEffectAdd(event) {
+    event.preventDefault();
+    const effects = foundry.utils.deepClone(this.item.system.effects ?? []);
+    effects.push({ target: MEU_SISTEMA.EFFECT_TARGETS[0], amount: 1, durationRounds: 1 });
+    await this.item.update({ "system.effects": effects });
+  }
+
+  async _onEffectDelete(event) {
+    event.preventDefault();
+    const index = Number(event.currentTarget.closest("[data-index]").dataset.index);
+    const effects = foundry.utils.deepClone(this.item.system.effects ?? []);
+    effects.splice(index, 1);
+    await this.item.update({ "system.effects": effects });
   }
 
   async _onInstalledModAdd(event) {

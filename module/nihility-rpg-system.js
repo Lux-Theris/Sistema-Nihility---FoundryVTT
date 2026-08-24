@@ -25,6 +25,7 @@ import { NihilityStarshipSheet, NihilityVehicleSheet } from "./sheets/starship-s
 import { NihilityItemSheet } from "./sheets/item-sheet.js";
 import { CurrencyConfigApp } from "./apps/currency-config.js";
 import { SpeciesConfigApp } from "./apps/species-config.js";
+import { DamageElementsConfigApp } from "./apps/damage-elements-config.js";
 import { AIAssistantApp } from "./apps/ai-assistant.js";
 
 Hooks.once("init", () => {
@@ -58,6 +59,15 @@ Hooks.once("init", () => {
     hint: "Adicione, edite ou remova espécies e suas Partes do Corpo padrão.",
     icon: "fas fa-dna",
     type: SpeciesConfigApp,
+    restricted: true
+  });
+
+  game.settings.registerMenu(SYSTEM_ID, "damageElementsConfigMenu", {
+    name: "Configurar Tipos de Dano",
+    label: "Configurar Tipos de Dano",
+    hint: "Adicione, edite ou remova os tipos de dano elemental disponíveis para Skills.",
+    icon: "fas fa-fire",
+    type: DamageElementsConfigApp,
     restricted: true
   });
 

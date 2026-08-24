@@ -24,6 +24,7 @@ export const MEU_SISTEMA = {
     attributePointsPerLevel: "attributePointsPerLevel",
     skillPointsStarting: "skillPointsStarting",
     skillPointsPerLevel: "skillPointsPerLevel",
+    damageElementsData: "damageElementsData",
     aiProvider: "aiProvider",
     aiEndpointUrl: "aiEndpointUrl",
     aiModel: "aiModel",
@@ -98,6 +99,59 @@ export const MEU_SISTEMA = {
     stealth: "Furtividade",
     precision: "Precisão"
   },
+
+  /**
+   * Tipos de Efeito de uma Skill. "damage" cobre dano físico e elemental (o
+   * elemento é um sub-campo); "temporary" cobre buffs/debuffs/escudos/drawbacks
+   * como uma lista de Efeitos (ver EFFECT_TARGETS).
+   */
+  SKILL_EFFECT_TYPES: ["none", "damage", "temporary"],
+
+  SKILL_EFFECT_TYPE_LABELS: {
+    none: "Descritiva (sem mecânica)",
+    damage: "Dano",
+    temporary: "Efeito Temporário (buff/debrawback/escudo)"
+  },
+
+  /**
+   * Alvos possíveis de um Efeito Temporário: os 7 atributos de combate (afetam
+   * a rolagem via Active Effect, mas NUNCA o cálculo de HP/Mana — só a base
+   * permanente do atributo conta pra isso), "hp"/"energy" (HP/Mana atuais,
+   * também via Active Effect temporário) e "shield" (Escudo — tratado à parte,
+   * é somado direto e gasto na mão, sem Active Effect/duração).
+   */
+  EFFECT_TARGETS: ["strength", "defense", "magic", "magicalDefense", "dexterity", "stealth", "precision", "hp", "energy", "shield"],
+
+  EFFECT_TARGET_LABELS: {
+    strength: "Força",
+    defense: "Defesa",
+    magic: "Magia",
+    magicalDefense: "Defesa Mágica",
+    dexterity: "Destreza",
+    stealth: "Furtividade",
+    precision: "Precisão",
+    hp: "HP",
+    energy: "Mana/Energia",
+    shield: "Escudo"
+  },
+
+  /**
+   * Alvos possíveis de um bônus de Título: os 7 atributos de combate + HP/Mana
+   * diretamente (sem passar pela fórmula — soma como um modificador permanente,
+   * igual statModifiers de Skill/Item). Reaproveita EFFECT_TARGET_LABELS pros rótulos.
+   */
+  TITLE_BONUS_TARGETS: ["strength", "defense", "magic", "magicalDefense", "dexterity", "stealth", "precision", "hp", "energy"],
+
+  /** Tipos de dano elemental padrão, sobrescritos pela setting `damageElementsData` (editor visual). */
+  DEFAULT_DAMAGE_ELEMENTS: [
+    { id: "physical", label: "Físico", color: "#9aa1c2" },
+    { id: "fire", label: "Fogo", color: "#ff7043" },
+    { id: "ice", label: "Gelo", color: "#6ee7ff" },
+    { id: "lightning", label: "Elétrico", color: "#ffe066" },
+    { id: "acid", label: "Ácido", color: "#8bc34a" },
+    { id: "dark", label: "Sombrio", color: "#7b5ea7" },
+    { id: "holy", label: "Sagrado", color: "#e8c170" }
+  ],
 
   /** Valores padrão (fallback) dos rótulos de energia — Personagens e Naves usam energias diferentes. */
   DEFAULT_CHARACTER_ENERGY_LABEL: "Mana",
@@ -207,6 +261,23 @@ export function convertCurrencyAmount(fromId, toId, amount) {
   const to = currencies.find(c => c.id === toId);
   if (!from || !to || !to.baseValue) return 0;
   return (amount * (from.baseValue ?? 1)) / to.baseValue;
+}
+
+/**
+ * Lê a lista de Tipos de Dano Elemental atualmente ativa (setting > default).
+ * @returns {Array<{id:string,label:string,color:string}>}
+ */
+export function getActiveDamageElements() {
+  try {
+    const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.damageElementsData);
+    if (raw) {
+      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+      if (Array.isArray(parsed) && parsed.length) return parsed;
+    }
+  } catch (err) {
+    console.warn(`${SYSTEM_ID} | JSON de elementos de dano inválido, usando padrão.`, err);
+  }
+  return MEU_SISTEMA.DEFAULT_DAMAGE_ELEMENTS;
 }
 
 /**
@@ -379,6 +450,13 @@ export function registerSystemSettings() {
     config: false,
     type: String,
     default: "{}"
+  });
+
+  game.settings.register(SYSTEM_ID, S.damageElementsData, {
+    scope: "world",
+    config: false,
+    type: String,
+    default: JSON.stringify(MEU_SISTEMA.DEFAULT_DAMAGE_ELEMENTS, null, 2)
   });
 
   // scope:"client" (não "world"): fica só no navegador de quem configura, nunca

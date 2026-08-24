@@ -15,7 +15,9 @@ function baseActorSchema() {
   const combatAttributeFields = {};
   for (const key of MEU_SISTEMA.COMBAT_ATTRIBUTES) {
     combatAttributeFields[key] = new fields.SchemaField({
-      points: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 })
+      points: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
+      /** Alvo de Active Effects de Skills "temporary" (buff/debuff). NUNCA conta pra HP/Mana. */
+      buffDelta: new fields.NumberField({ required: true, integer: true, initial: 0 })
     });
   }
 
@@ -23,19 +25,32 @@ function baseActorSchema() {
     attributes: new fields.SchemaField({
       hp: new fields.SchemaField({
         value: new fields.NumberField({ required: true, integer: true, initial: 10, min: 0 }),
-        max: new fields.NumberField({ required: true, integer: true, initial: 10, min: 0 })
+        max: new fields.NumberField({ required: true, integer: true, initial: 10, min: 0 }),
+        /** Alvo de Active Effects de Skills "temporary" que afetam HP diretamente. */
+        buffDelta: new fields.NumberField({ required: true, integer: true, initial: 0 })
       }),
       energy: new fields.SchemaField({
         value: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
-        max: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 })
+        max: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
+        buffDelta: new fields.NumberField({ required: true, integer: true, initial: 0 })
+      }),
+      /**
+       * Escudo: HP extra temporário concedido por Skills. Diferente de HP/Mana,
+       * NÃO usa Active Effect/duração — é somado direto e gasto na mão pelo
+       * jogador conforme absorve dano (mesma lógica manual do resto do combate).
+       */
+      shield: new fields.SchemaField({
+        value: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 })
       }),
       level: new fields.NumberField({ required: true, integer: true, initial: 1, min: 0 }),
       xp: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
 
       /**
        * Atributos de combate: `points` é editável (pontos investidos na criação/level-up).
-       * `total` (points + bônus permanentes de Títulos) e `bonus` (floor(total/3)) são
-       * calculados em prepareDerivedData() — não fazem parte do schema salvo.
+       * `total` (points + bônus permanentes de Títulos) é o que entra na fórmula de HP/Mana.
+       * `effectiveTotal` (total + buffDelta temporário) e `bonus` (floor(effectiveTotal/3))
+       * são o que entra nas rolagens — buffs temporários mudam a rolagem, nunca o HP/Mana.
+       * Tudo calculado em prepareDerivedData() — não faz parte do schema salvo.
        */
       combat: new fields.SchemaField(combatAttributeFields)
     }),
@@ -73,19 +88,47 @@ function baseActorSchema() {
   };
 }
 
-/** Soma os bônus permanentes de Títulos (sempre ativos) para um atributo específico. */
-function sumTitleBonuses(actor, attributeKey) {
+/** Soma os bônus permanentes de Títulos (sempre ativos) para um alvo (atributo, "hp" ou "energy"). */
+function sumTitleBonuses(actor, target) {
   let sum = 0;
   for (const item of actor.items) {
     if (item.type !== "title") continue;
     for (const entry of item.system.bonuses ?? []) {
-      if (entry.attribute === attributeKey) sum += Number(entry.amount) || 0;
+      if (entry.attribute === target) sum += Number(entry.amount) || 0;
     }
   }
   return sum;
 }
 
-/** Calcula `total`/`bonus` de cada atributo de combate a partir dos pontos investidos + Títulos. */
+/**
+ * Soma modificadores PERMANENTES de HP/Mana (não os temporários de buff): Títulos,
+ * Skills (statModifiers, sempre ativo enquanto possuída), Item Geral (statModifiers,
+ * só enquanto equipado) e Modificações de Parte do Corpo (statModifiers, sempre
+ * ativo enquanto instalada).
+ * @param {Actor} actor
+ * @param {"hp"|"energy"} stat
+ */
+function sumPermanentStatModifier(actor, stat) {
+  let sum = sumTitleBonuses(actor, stat);
+  for (const item of actor.items) {
+    if (item.type === "skill") {
+      sum += Number(item.system.statModifiers?.[stat]) || 0;
+    } else if (item.type === "item" && item.system.equipped) {
+      sum += Number(item.system.statModifiers?.[stat]) || 0;
+    } else if (item.type === "body_part") {
+      for (const mod of item.system.installedMods ?? []) {
+        sum += Number(mod.statModifiers?.[stat]) || 0;
+      }
+    }
+  }
+  return sum;
+}
+
+/**
+ * Calcula `total`/`effectiveTotal`/`bonus` de cada atributo de combate. `total`
+ * (pontos + Título) é a base permanente usada pra fórmula de HP/Mana. `effectiveTotal`
+ * soma também `buffDelta` (Active Effects temporários) e é o que vira `bonus` de rolagem.
+ */
 function deriveCombatAttributes(dataModel) {
   const combat = dataModel.attributes.combat;
   let spent = 0;
@@ -93,7 +136,8 @@ function deriveCombatAttributes(dataModel) {
     const attr = combat[key];
     const titleBonus = sumTitleBonuses(dataModel.parent, key);
     attr.total = attr.points + titleBonus;
-    attr.bonus = Math.floor(attr.total / 3);
+    attr.effectiveTotal = attr.total + (attr.buffDelta || 0);
+    attr.bonus = Math.floor(attr.effectiveTotal / 3);
     spent += attr.points;
   }
 
@@ -102,6 +146,29 @@ function deriveCombatAttributes(dataModel) {
   const level = dataModel.attributes.level;
   const total = getAttributePointsStarting() + Math.max(0, level - 1) * getAttributePointsPerLevel();
   dataModel.attributePointsPool = { total, spent, remaining: total - spent };
+}
+
+/**
+ * HP Máximo = Força.Total × Defesa.Total × 10; Mana Máxima = Magia.Total × Defesa
+ * Mágica.Total × 10 — usando só a base PERMANENTE dos atributos (buffs temporários
+ * de atributo nunca entram aqui). Modificadores permanentes (Título/Skill/Item/
+ * Modificação) e o buffDelta temporário de HP/Mana somam por cima do resultado.
+ * Precisa rodar DEPOIS de deriveCombatAttributes (usa combat.X.total já calculado).
+ */
+function deriveVitalStats(dataModel) {
+  const actor = dataModel.parent;
+  const combat = dataModel.attributes.combat;
+  const hp = dataModel.attributes.hp;
+  const energy = dataModel.attributes.energy;
+
+  const baseHpMax = Math.round(combat.strength.total * combat.defense.total * 10);
+  const baseEnergyMax = Math.round(combat.magic.total * combat.magicalDefense.total * 10);
+
+  hp.max = Math.max(1, baseHpMax + sumPermanentStatModifier(actor, "hp") + (hp.buffDelta || 0));
+  energy.max = Math.max(0, baseEnergyMax + sumPermanentStatModifier(actor, "energy") + (energy.buffDelta || 0));
+
+  hp.value = Math.clamp(hp.value, 0, hp.max);
+  energy.value = Math.clamp(energy.value, 0, energy.max);
 }
 
 export class CharacterDataModel extends foundry.abstract.TypeDataModel {
@@ -144,11 +211,8 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
   }
 
   prepareDerivedData() {
-    const hp = this.attributes.hp;
-    hp.value = Math.clamp(hp.value, 0, hp.max);
-    const en = this.attributes.energy;
-    en.value = Math.clamp(en.value, 0, en.max);
     deriveCombatAttributes(this);
+    deriveVitalStats(this);
   }
 }
 
@@ -178,10 +242,7 @@ export class CreatureDataModel extends foundry.abstract.TypeDataModel {
   }
 
   prepareDerivedData() {
-    const hp = this.attributes.hp;
-    hp.value = Math.clamp(hp.value, 0, hp.max);
-    const en = this.attributes.energy;
-    en.value = Math.clamp(en.value, 0, en.max);
     deriveCombatAttributes(this);
+    deriveVitalStats(this);
   }
 }

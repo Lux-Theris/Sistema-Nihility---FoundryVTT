@@ -934,3 +934,89 @@ form.nihility-config-app {
 .nihility-sheet .cat-shield { background: rgba(110, 231, 255, 0.15); color: var(--nihility-accent); }
 .nihility-sheet .cat-engine { background: rgba(154, 161, 194, 0.15); color: var(--nihility-text-dim); }
 .nihility-sheet .cat-utility { background: rgba(232, 193, 112, 0.18); color: var(--nihility-gold); }
+
+/* ==========================================================================
+   Sistema de Dano/Efeitos: botão "Usar", Escudo, editor de Efeitos (v5)
+   ========================================================================== */
+
+.nihility-sheet .skill-use-button {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--nihility-accent);
+  background: rgba(110, 231, 255, 0.08);
+  color: var(--nihility-accent);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.nihility-sheet .skill-use-button:hover {
+  background: rgba(110, 231, 255, 0.2);
+}
+
+.nihility-sheet .shield-row .vital-label { color: var(--nihility-accent-2); }
+.nihility-sheet .shield-value input {
+  width: 46px;
+  padding: 1px 4px;
+  text-align: right;
+  border: 1px solid var(--nihility-accent-2);
+  color: var(--nihility-accent-2);
+}
+
+.nihility-sheet .effect-list,
+.nihility-sheet .sub-list {
+  list-style: none;
+  margin: 6px 0;
+  padding: 0;
+}
+.nihility-sheet .effect-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.nihility-sheet .effect-row select { flex: 2; }
+.nihility-sheet .effect-row input[type="number"] { flex: 1; width: 0; }
+.nihility-sheet .effect-add,
+.nihility-sheet .sub-skill-add,
+.nihility-sheet .title-bonus-add,
+.nihility-sheet .mod-add {
+  display: inline-block;
+  margin-top: 4px;
+  color: var(--nihility-accent-2);
+  cursor: pointer;
+}
+.nihility-sheet .effect-add:hover,
+.nihility-sheet .sub-skill-add:hover,
+.nihility-sheet .title-bonus-add:hover,
+.nihility-sheet .mod-add:hover {
+  color: var(--nihility-accent);
+}
+
+/* Editor visual de Tipos de Dano (Settings Menu) */
+.nihility-config-app .element-header,
+.nihility-config-app .element-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 60px 24px;
+  gap: 4px;
+  align-items: center;
+}
+.nihility-config-app .element-header {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: var(--nihility-text-dim);
+  padding: 0 2px;
+}
+.nihility-config-app .element-row { margin-bottom: 4px; }
+.nihility-config-app .element-row input[type="color"] {
+  padding: 0;
+  height: 24px;
+  border: 1px solid var(--nihility-border);
+  background: var(--nihility-bg-panel-alt);
+}
+.nihility-config-app .element-delete {
+  text-align: center;
+  color: var(--nihility-text-dim);
+  cursor: pointer;
+}
+.nihility-config-app .element-delete:hover { color: var(--nihility-danger); }

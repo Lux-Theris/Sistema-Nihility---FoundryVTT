@@ -1,0 +1,31 @@
+<form class="nihility-config-app damage-elements-config-app" autocomplete="off">
+  <p class="hint">
+    Configure os Tipos de Dano disponíveis para Skills de Dano Elemental. O <strong>id</strong> é a
+    chave interna (sem espaços, ex: <code>fire</code>). A <strong>cor</strong> é usada como destaque
+    no chat quando uma Skill desse elemento é usada.
+  </p>
+
+  <div class="config-list-header element-header">
+    <span>ID</span>
+    <span>Nome</span>
+    <span>Cor</span>
+    <span></span>
+  </div>
+
+  <div class="element-list">
+    {{#each elements as |e|}}
+    <div class="element-row">
+      <input type="text" data-field="id" value="{{e.id}}" placeholder="id (ex: fire)"/>
+      <input type="text" data-field="label" value="{{e.label}}" placeholder="Nome exibido"/>
+      <input type="color" data-field="color" value="{{e.color}}"/>
+      <a class="element-delete" title="Remover"><i class="fas fa-trash"></i></a>
+    </div>
+    {{/each}}
+  </div>
+
+  <a class="config-add-row element-add">+ Novo Tipo de Dano</a>
+
+  <footer class="sheet-footer">
+    <button type="submit"><i class="fas fa-save"></i> Salvar Tipos de Dano</button>
+  </footer>
+</form>

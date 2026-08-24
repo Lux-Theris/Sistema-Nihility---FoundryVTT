@@ -68,14 +68,24 @@ Nas **Configurações do Mundo → Configurar Configurações → Nihility RPG S
 | Rótulo do Sistema de Energia | Nome customizado da energia (ex: Mana, EPS, Ki) |
 | **Configurar Moedas** (botão) | Abre o editor visual de moedas (id, nome, ícone, peso) |
 | **Configurar Presets de Espécie** (botão) | Abre o editor visual de espécies e suas Partes do Corpo |
-| Provedor de IA | `OpenAI-compatível` (OpenAI, OpenRouter, Groq, Together, LM Studio, Ollama `/v1`...) ou `Anthropic (Claude)` |
-| Endpoint de IA | URL Chat Completions — só usado no provedor OpenAI-compatível |
-| Modelo de IA | Nome do modelo (ex: `gpt-4o-mini`, ou `claude-sonnet-4-5` no provedor Anthropic) |
-| Chave de API de IA | Chave do provedor escolhido — ⚠️ ver aviso de segurança abaixo |
+| Provedor de IA | `Relay Seguro (Cloudflare)` — recomendado — ou `OpenAI-compatível`/`Anthropic (Claude)` diretos |
+| URL do Relay / Token do Relay | Só para o provedor Relay Seguro — ver seção abaixo |
+| Endpoint de IA | URL Chat Completions — só usado no provedor OpenAI-compatível direto |
+| Modelo de IA | Nome do modelo — só usado nos provedores diretos (o Relay define o modelo do lado dele) |
+| Chave de API de IA | Chave do provedor escolhido — só usada nos provedores diretos, ⚠️ ver aviso abaixo |
 
-> **Configurando o Claude**: escolha `Anthropic (Claude)` em Provedor de IA, coloque o nome do modelo (ex: `claude-sonnet-4-5`) e sua chave de `console.anthropic.com` em Chave de API. O Endpoint de IA é ignorado nesse modo.
+> **Configurando o Claude direto** (sem Relay): escolha `Anthropic (Claude)` em Provedor de IA, coloque o nome do modelo (ex: `claude-sonnet-4-5`) e sua chave de `console.anthropic.com` em Chave de API.
 >
-> ⚠️ **Segurança da chave de API**: settings de mundo (`scope: "world"`) são sincronizadas para **todos os clientes conectados**, não só o Mestre — qualquer jogador consegue ler a chave pelo Console do navegador (F12). Por isso o Assistente de IA só é exibido/utilizável para o GM, mas a chave em si não fica tecnicamente oculta dos jogadores. Use apenas com jogadores de confiança, ou troque a chave periodicamente.
+> ⚠️ **Segurança da chave de API nos provedores diretos**: settings de mundo (`scope: "world"`) são sincronizadas para **todos os clientes conectados**, não só o Mestre — qualquer jogador consegue ler a chave pelo Console do navegador (F12), mesmo com o Assistente de IA restrito ao GM na interface. Use o **Relay Seguro** para evitar isso, ou só use os provedores diretos com jogadores de confiança / chave com limite de gasto.
+
+### Relay Seguro (recomendado)
+
+Um pequeno Worker do Cloudflare guarda a chave real do provedor de IA fora do
+Foundry — o mundo só guarda um token trocável, não a chave de verdade. Gratuito
+(plano free da Cloudflare cobre bem mais que o uso de uma mesa de RPG) e sem precisar
+manter servidor nenhum ligado. Passo a passo completo em
+[`tools/ai-relay/README.md`](tools/ai-relay/README.md) — o código do Worker está em
+[`tools/ai-relay/cloudflare-worker.js`](tools/ai-relay/cloudflare-worker.js).
 
 ## Assistente de IA (GM)
 

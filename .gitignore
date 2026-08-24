@@ -1,0 +1,8 @@
+# Segredos / config local
+.env
+.env.*
+*.local
+
+# SO / editor
+.DS_Store
+Thumbs.db

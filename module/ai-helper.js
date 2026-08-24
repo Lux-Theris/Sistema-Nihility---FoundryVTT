@@ -205,8 +205,15 @@ function getAISettingsValues() {
     provider: game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.aiProvider),
     endpoint: game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.aiEndpointUrl),
     model: game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.aiModel),
-    apiKey: game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.aiApiKey)
+    apiKey: game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.aiApiKey),
+    relayUrl: game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.aiRelayUrl),
+    relayToken: game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.aiRelayToken)
   };
+}
+
+/** true se as credenciais necessárias para o provedor atual estão presentes. */
+function hasRequiredAICredentials(settings) {
+  return settings.provider === "relay" ? Boolean(settings.relayUrl) : Boolean(settings.apiKey);
 }
 
 /**
@@ -215,9 +222,9 @@ function getAISettingsValues() {
  */
 async function generateJSON(systemPrompt, userPrompt) {
   const settings = getAISettingsValues();
-  if (!settings.apiKey) {
-    ui.notifications?.warn("Nenhuma chave de API de IA configurada (Configurações do Sistema).");
-    throw new Error("Chave de API de IA ausente.");
+  if (!hasRequiredAICredentials(settings)) {
+    ui.notifications?.warn("IA não configurada (Provedor/URL do Relay/Chave) nas Configurações do Sistema.");
+    throw new Error("Credenciais de IA ausentes.");
   }
 
   try {
@@ -233,9 +240,9 @@ async function generateJSON(systemPrompt, userPrompt) {
 /** Pergunta livre: resposta em texto corrido, sem criar nenhum documento. */
 export async function generateFreeform(prompt) {
   const settings = getAISettingsValues();
-  if (!settings.apiKey) {
-    ui.notifications?.warn("Nenhuma chave de API de IA configurada (Configurações do Sistema).");
-    throw new Error("Chave de API de IA ausente.");
+  if (!hasRequiredAICredentials(settings)) {
+    ui.notifications?.warn("IA não configurada (Provedor/URL do Relay/Chave) nas Configurações do Sistema.");
+    throw new Error("Credenciais de IA ausentes.");
   }
   try {
     return await callAIProvider({

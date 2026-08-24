@@ -55,36 +55,11 @@ async function callAnthropic({ apiKey, model, systemPrompt, userPrompt }) {
 }
 
 /**
- * Chama o Relay Seguro (Worker do Cloudflare, ou equivalente): a chave real
- * do provedor de IA fica só lá, nunca sincronizada com o Foundry. O Foundry
- * autentica com um token trocável (X-Relay-Token), não com a chave real.
- */
-async function callRelay({ relayUrl, relayToken, systemPrompt, userPrompt, expectJSON }) {
-  if (!relayUrl) throw new Error("URL do Relay ausente.");
-
-  const response = await fetch(relayUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Relay-Token": relayToken || ""
-    },
-    body: JSON.stringify({ systemPrompt, userPrompt, expectJSON })
-  });
-  if (!response.ok) throw new Error(`Relay retornou HTTP ${response.status}`);
-
-  const payload = await response.json();
-  if (payload?.error) throw new Error(payload.error);
-  return payload?.text ?? "";
-}
-
-/**
  * Ponto único de chamada à IA, roteando para o adaptador do provedor configurado.
  * @param {object} opts
- * @param {"relay"|"openai"|"anthropic"} opts.provider
+ * @param {"openai"|"anthropic"} opts.provider
  * @param {string} [opts.endpoint] - usado apenas pelo adaptador "openai"
- * @param {string} [opts.apiKey] - usado pelos adaptadores "openai"/"anthropic"
- * @param {string} [opts.relayUrl] - usado apenas pelo adaptador "relay"
- * @param {string} [opts.relayToken] - usado apenas pelo adaptador "relay"
+ * @param {string} opts.apiKey
  * @param {string} opts.model
  * @param {string} opts.systemPrompt
  * @param {string} opts.userPrompt
@@ -95,17 +70,11 @@ export async function callAIProvider({
   provider,
   endpoint,
   apiKey,
-  relayUrl,
-  relayToken,
   model,
   systemPrompt,
   userPrompt,
   expectJSON = true
 }) {
-  if (provider === "relay") {
-    return callRelay({ relayUrl, relayToken, systemPrompt, userPrompt, expectJSON });
-  }
-
   if (!apiKey) throw new Error("Chave de API de IA ausente.");
 
   if (provider === "anthropic") {

@@ -198,13 +198,14 @@ export async function fuseSkills(actor, sourceItemIds, options = {}) {
 /*  Integração com IA externa (Ollama/LLM)       */
 /* -------------------------------------------- */
 
+const AI_SYSTEM_PROMPT =
+  "Você é o motor de regras de um RPG de Foundry VTT. Responda SEMPRE com um único objeto JSON " +
+  'estrito, sem markdown e sem texto fora do JSON, no formato: {"name": string, ' +
+  '"description": string (HTML curto), "emotionTrigger": string, ' +
+  '"subSkills": [{"name": string, "description": string}]}.';
+
 function buildUniqueSkillPrompt({ consumedNames, emotionPrompt, personality }) {
   return [
-    "Você é o narrador/motor de regras de um RPG. Gere uma Skill Única em JSON estrito,",
-    "sem comentários e sem texto fora do JSON, com os campos:",
-    '{"name": string, "description": string (HTML curto), "emotionTrigger": string,',
-    ' "subSkills": [{"name": string, "description": string}]}',
-    "",
     `Skills consumidas na fusão: ${consumedNames}`,
     `Gatilho emocional informado: ${emotionPrompt || "(nenhum informado)"}`,
     `Personalidade do personagem: traços="${personality?.traits ?? ""}", `,
@@ -232,27 +233,44 @@ function normalizeAISkillData(parsed, sources) {
 }
 
 /**
- * Chama o endpoint de IA configurado (padrão: Ollama local) para gerar o JSON
- * de uma Unique Skill a partir da emoção/personalidade e das skills consumidas.
+ * Chama o endpoint de IA configurado (qualquer provedor compatível com o formato
+ * OpenAI Chat Completions, autenticado via chave de API/Bearer token) para gerar
+ * o JSON de uma Unique Skill a partir da emoção/personalidade e das skills consumidas.
  * @returns {Promise<object>} dados de Item prontos para createEmbeddedDocuments
  */
 export async function requestAIUniqueSkill(actor, sources, emotionPrompt = "") {
   const endpoint = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.aiEndpointUrl);
   const model = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.aiModel);
+  const apiKey = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.aiApiKey);
   const consumedNames = sources.map(s => s.name).join(", ");
   const personality = actor.system?.personality ?? {};
-  const prompt = buildUniqueSkillPrompt({ consumedNames, emotionPrompt, personality });
+  const userPrompt = buildUniqueSkillPrompt({ consumedNames, emotionPrompt, personality });
+
+  if (!apiKey) {
+    ui.notifications?.warn("Nenhuma chave de API de IA configurada (Configurações do Sistema). Use o modo manual.");
+    throw new Error("Chave de API de IA ausente.");
+  }
 
   try {
     const response = await fetch(endpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model, prompt, stream: false, format: "json" })
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: AI_SYSTEM_PROMPT },
+          { role: "user", content: userPrompt }
+        ],
+        response_format: { type: "json_object" }
+      })
     });
     if (!response.ok) throw new Error(`Endpoint de IA retornou HTTP ${response.status}`);
 
     const payload = await response.json();
-    const raw = payload.response ?? payload;
+    const raw = payload?.choices?.[0]?.message?.content ?? payload;
     const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
     return normalizeAISkillData(parsed, sources);
   } catch (err) {

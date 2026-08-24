@@ -17,7 +17,8 @@ export const MEU_SISTEMA = {
     energyLabel: "energyLabel",
     speciesPresetsData: "speciesPresetsData",
     aiEndpointUrl: "aiEndpointUrl",
-    aiModel: "aiModel"
+    aiModel: "aiModel",
+    aiApiKey: "aiApiKey"
   },
 
   /** Nomes (chaves) dos Compêndios de World auto-geridos pelo sistema. */
@@ -227,5 +228,32 @@ export function registerSystemSettings() {
     config: true,
     type: String,
     default: "{}"
+  });
+
+  game.settings.register(SYSTEM_ID, S.aiEndpointUrl, {
+    name: "Endpoint de IA (compatível com Chat Completions)",
+    hint: "URL do endpoint usado para gerar Unique/Ultimate Skills. Aceita qualquer provedor compatível com o formato OpenAI Chat Completions (OpenAI, OpenRouter, Groq, Together, LM Studio, Ollama em modo /v1, etc).",
+    scope: "world",
+    config: true,
+    type: String,
+    default: "https://api.openai.com/v1/chat/completions"
+  });
+
+  game.settings.register(SYSTEM_ID, S.aiModel, {
+    name: "Modelo de IA",
+    hint: "Nome do modelo a ser usado no endpoint configurado acima (ex: gpt-4o-mini, llama-3.1-70b).",
+    scope: "world",
+    config: true,
+    type: String,
+    default: "gpt-4o-mini"
+  });
+
+  game.settings.register(SYSTEM_ID, S.aiApiKey, {
+    name: "Chave de API de IA",
+    hint: "Chave de autenticação (Bearer token) do provedor de IA configurado acima. Fica salva apenas neste mundo.",
+    scope: "world",
+    config: true,
+    type: String,
+    default: ""
   });
 }

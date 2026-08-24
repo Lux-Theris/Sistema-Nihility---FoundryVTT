@@ -46,8 +46,10 @@
     }
   },
   "packs": [],
-  "gridDistance": 1,
-  "gridUnits": "m",
+  "grid": {
+    "distance": 1,
+    "units": "m"
+  },
   "primaryTokenAttribute": "attributes.hp",
   "url": "https://github.com/Lux-Theris/Sistema-Nihility---FoundryVTT",
   "manifest": "https://raw.githubusercontent.com/Lux-Theris/Sistema-Nihility---FoundryVTT/main/system.json",

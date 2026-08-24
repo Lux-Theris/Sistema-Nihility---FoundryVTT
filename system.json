@@ -50,9 +50,9 @@
   "gridDistance": 1,
   "gridUnits": "m",
   "primaryTokenAttribute": "attributes.hp",
-  "url": "",
-  "manifest": "",
-  "download": "",
+  "url": "https://github.com/Lux-Theris/Sistema-Nihility---FoundryVTT",
+  "manifest": "https://raw.githubusercontent.com/Lux-Theris/Sistema-Nihility---FoundryVTT/main/system.json",
+  "download": "https://github.com/Lux-Theris/Sistema-Nihility---FoundryVTT/archive/refs/heads/main.zip",
   "readme": "README.md",
   "socket": true
 }

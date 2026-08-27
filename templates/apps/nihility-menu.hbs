@@ -1,0 +1,148 @@
+<div class="nihility-menu">
+  <div class="tabs">
+    {{#each systemFeatures as |feature|}}
+    <a class="tab-button" data-tab="{{feature.id}}"
+       data-action="{{#if (eq feature.id "ai")}}open-ai-assistant{{/if}}">
+      <i class="{{feature.icon}}"></i> {{feature.label}}
+    </a>
+    {{/each}}
+  </div>
+
+  <div class="tab-content">
+    <!-- Conteúdo da aba System -->
+    <div class="tab-pane {{#unless (eq activeTab "system")}}hidden{{/unless}}" id="system-tab">
+      <h3>Configurações Gerais</h3>
+      <div class="settings-grid">
+        <div class="setting-card">
+          <i class="fas fa-coins"></i>
+          <h4>Sistema de Economia</h4>
+          <p>Gerenciar moedas e transações</p>
+          <button class="action-button" data-action="economy-config">Configurar</button>
+        </div>
+
+        <div class="setting-card">
+          <i class="fas fa-crown"></i>
+          <h4>Sistema de Títulos</h4>
+          <p>Gerenciar títulos e honras</p>
+          <button class="action-button" data-action="titles-config">Configurar</button>
+        </div>
+
+        <div class="setting-card">
+          <i class="fas fa-dna"></i>
+          <h4>Sistema de Anatomia</h4>
+          <p>Gerenciar partes do corpo e modificações</p>
+          <button class="action-button" data-action="anatomy-config">Configurar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Conteúdo da aba AI -->
+    <div class="tab-pane {{#unless (eq activeTab "ai")}}hidden{{/unless}}" id="ai-tab">
+      <h3>Assistente de IA</h3>
+      <div class="ai-tools">
+        <div class="ai-tool-card">
+          <i class="fas fa-user"></i>
+          <h4>Geração de NPC</h4>
+          <p>Criar personagens com base em descrições</p>
+          <button class="action-button" data-action="generate-npc">Gerar</button>
+        </div>
+
+        <div class="ai-tool-card">
+          <i class="fas fa-horse"></i>
+          <h4>Montarias</h4>
+          <p>Criar montarias e bestas de carga</p>
+          <button class="action-button" data-action="generate-mount">Gerar</button>
+        </div>
+
+        <div class="ai-tool-card">
+          <i class="fas fa-rocket"></i>
+          <h4>Naves Espaciais</h4>
+          <p>Criar naves e veículos espaciais</p>
+          <button class="action-button" data-action="generate-starship">Gerar</button>
+        </div>
+
+        <div class="ai-tool-card">
+          <i class="fas fa-car"></i>
+          <h4>Veículos Terrestres</h4>
+          <p>Criar veículos terrestres</p>
+          <button class="action-button" data-action="generate-vehicle">Gerar</button>
+        </div>
+
+        <div class="ai-tool-card">
+          <i class="fas fa-bolt"></i>
+          <h4>Habilidades</h4>
+          <p>Criar habilidades avulsas</p>
+          <button class="action-button" data-action="generate-skill">Gerar</button>
+        </div>
+
+        <div class="ai-tool-card">
+          <i class="fas fa-comment-dots"></i>
+          <h4>Perguntas Livres</h4>
+          <p>Consultas livres à IA</p>
+          <button class="action-button" data-action="freeform">Perguntar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Conteúdo da aba Generation -->
+    <div class="tab-pane {{#unless (eq activeTab "generation")}}hidden{{/unless}}" id="generation-tab">
+      <h3>Geração Automática</h3>
+      <div class="generation-tools">
+        <div class="tool-card">
+          <i class="fas fa-users"></i>
+          <h4>Personagens</h4>
+          <p>Criar personagens completos</p>
+          <button class="action-button" data-action="generate-character">Gerar</button>
+        </div>
+
+        <div class="tool-card">
+          <i class="fas fa-book"></i>
+          <h4>Notas/Journal</h4>
+          <p>Criar notas narrativas</p>
+          <button class="action-button" data-action="generate-note">Gerar</button>
+        </div>
+
+        <div class="tool-card">
+          <i class="fas fa-shield-alt"></i>
+          <h4>Itens</h4>
+          <p>Criar itens e equipamentos</p>
+          <button class="action-button" data-action="generate-item">Gerar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Conteúdo da aba Tools -->
+    <div class="tab-pane {{#unless (eq activeTab "tools")}}hidden{{/unless}}" id="tools-tab">
+      <h3>Ferramentas de Administração</h3>
+      <div class="admin-tools">
+        <div class="tool-card">
+          <i class="fas fa-database"></i>
+          <h4>Backup/Restauração</h4>
+          <p>Gerenciar backups do sistema</p>
+          <button class="action-button" data-action="backup-manager">Gerenciar</button>
+        </div>
+
+        <div class="tool-card">
+          <i class="fas fa-sync-alt"></i>
+          <h4>Sincronização</h4>
+          <p>Sincronizar dados do sistema</p>
+          <button class="action-button" data-action="sync-data">Sincronizar</button>
+        </div>
+
+        <div class="tool-card">
+          <i class="fas fa-file-import"></i>
+          <h4>Importação</h4>
+          <p>Importar dados do sistema</p>
+          <button class="action-button" data-action="import-data">Importar</button>
+        </div>
+
+        <div class="tool-card">
+          <i class="fas fa-file-export"></i>
+          <h4>Exportação</h4>
+          <p>Exportar dados do sistema</p>
+          <button class="action-button" data-action="export-data">Exportar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

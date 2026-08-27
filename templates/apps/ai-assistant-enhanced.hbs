@@ -1,0 +1,83 @@
+<div class="ai-assistant">
+  <h2>Assistente de IA - Nihility RPG System</h2>
+
+  {{#if isGM}}
+  <div class="ai-controls">
+    <button class="action-button" data-action="open-backup-manager">
+      <i class="fas fa-database"></i> Gerenciar Backups
+    </button>
+    <button class="action-button" data-action="toggle-ai-mode">
+      <i class="fas fa-toggle-on"></i> Modo Avançado
+    </button>
+    <button class="action-button" data-action="clear-chat">
+      <i class="fas fa-trash"></i> Limpar Chat
+    </button>
+  </div>
+  {{/if}}
+
+  <!-- Interface de Chat -->
+  <div class="ai-chat-container">
+    <div id="ai-chat-messages" class="chat-messages">
+      {{#each messages as |message|}}
+      <div class="chat-message {{message.role}}">
+        <div class="message-header">
+          <span class="message-role">{{#if (eq message.role "user")}}Você{{else if (eq message.role "ai")}}IA{{else if (eq message.role "system")}}Sistema{{else}}Erro{{/if}}</span>
+          <span class="message-time">{{formatDate message.timestamp}}</span>
+        </div>
+        <div class="message-content">
+          {{{message.content}}}
+        </div>
+        {{#if message.actionRequired}}
+        <div class="message-actions">
+          <button class="approve-button" data-message-id="{{message.id}}">
+            <i class="fas fa-check"></i> Aprovar
+          </button>
+          <button class="reject-button" data-message-id="{{message.id}}">
+            <i class="fas fa-times"></i> Rejeitar
+          </button>
+        </div>
+        {{/if}}
+      </div>
+      {{/each}}
+    </div>
+
+    <form id="ai-chat-form" class="chat-form">
+      <input type="text" name="message" placeholder="Pergunte algo à IA..." required>
+      <button type="submit"><i class="fas fa-paper-plane"></i> Enviar</button>
+    </form>
+  </div>
+
+  <!-- Interface de Geração -->
+  <div class="ai-generation">
+    <h3>Geração Automática</h3>
+    <form id="ai-generate-form" class="generate-form">
+      <div class="form-group">
+        <label for="type">Tipo:</label>
+        <select name="type" id="type" required>
+          <option value="">Selecione um tipo</option>
+          <option value="npc">NPC</option>
+          <option value="skill">Habilidade</option>
+          <option value="item">Item</option>
+          <option value="starship">Nave Espacial</option>
+          <option value="vehicle">Veículo</option>
+          <option value="note">Nota</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="description">Descrição:</label>
+        <textarea name="description" id="description" placeholder="Descreva o que você gostaria de gerar..." required></textarea>
+      </div>
+
+      <button type="submit"><i class="fas fa-magic"></i> Gerar</button>
+    </form>
+  </div>
+
+  <!-- Informações do Sistema -->
+  <div class="ai-info">
+    <h3>Configurações da IA</h3>
+    <p><strong>Provedor:</strong> {{aiProvider}}</p>
+    <p><strong>Modelo:</strong> {{aiModel}}</p>
+    <p><strong>Status:</strong> {{#if isProcessing}}Processando...{{else}}Pronto{{/if}}</p>
+  </div>
+</div>

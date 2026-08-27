@@ -1,0 +1,60 @@
+<div class="fusion-assistant-dialog">
+  <header class="dialog-header">
+    <h2>Fusão de Habilidades</h2>
+    <button type="button" class="close-button">&times;</button>
+  </header>
+
+  <div class="fusion-steps">
+    <div class="step active" data-step="select">
+      <h3>1. Selecione as Habilidades</h3>
+      <p>Escolha as habilidades que deseja fundir:</p>
+      <div class="skills-selection">
+        <!-- Skills will be populated by JavaScript -->
+      </div>
+      <button type="button" class="next-step">Próximo →</button>
+    </div>
+
+    <div class="step" data-step="configure">
+      <h3>2. Configuração da Fusão</h3>
+      <div class="fusion-settings">
+        <label>Tier Alvo:
+          <select name="targetTier">
+            {{#each config.SKILL_TIERS as |tier|}}
+            <option value="{{tier}}" {{#if (eq tier system.tier)}}selected{{/if}}>{{lookup ../config.SKILL_TIER_LABELS tier}}</option>
+            {{/each}}
+          </select>
+        </label>
+
+        <label>Modo de Geração:
+          <select name="mode">
+            <option value="auto">Automático (IA)</option>
+            <option value="manual">Manual</option>
+          </select>
+        </label>
+
+        <div class="emotion-prompt" style="display: none;">
+          <label>Gatilho Emocional:
+            <input type="text" name="emotionPrompt" placeholder="Descreva o estado emocional da fusão..."/>
+          </label>
+        </div>
+      </div>
+      <button type="button" class="next-step">Próximo →</button>
+    </div>
+
+    <div class="step" data-step="preview">
+      <h3>3. Pré-visualização</h3>
+      <div class="fusion-preview-result">
+        <h4><span class="result-name">Nova Habilidade</span></h4>
+        <div class="result-description">
+          <!-- Description will be populated -->
+        </div>
+        <div class="result-stats">
+          <span class="cost">Custo: <span class="cost-value">0</span> pontos</span>
+          <span class="level">Nível: <span class="level-value">1</span></span>
+          <span class="tier">Tier: <span class="tier-value">normal</span></span>
+        </div>
+      </div>
+      <button type="button" class="create-fusion">Criar Fusão!</button>
+    </div>
+  </div>
+</div>

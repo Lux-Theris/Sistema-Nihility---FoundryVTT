@@ -27,6 +27,8 @@ import { CurrencyConfigApp } from "./apps/currency-config.js";
 import { SpeciesConfigApp } from "./apps/species-config.js";
 import { DamageElementsConfigApp } from "./apps/damage-elements-config.js";
 import { AIAssistantApp } from "./apps/ai-assistant.js";
+import { NihilityMenuApp } from "./apps/nihility-menu.js";
+import { AIAssistantEnhancedApp } from "./apps/ai-assistant-enhanced.js";
 
 Hooks.once("init", () => {
   console.log(`${SYSTEM_ID} | Inicializando sistema...`);
@@ -175,24 +177,36 @@ const AI_BUTTON_CONTAINER_SELECTORS = [".directory-footer", ".header-actions", "
 Hooks.on("renderActorDirectory", (app, html) => {
   if (!game.user.isGM) return;
 
-  // Applications V2 (Foundry V13+) passam um HTMLElement puro, não um objeto jQuery.
-  const $html = html instanceof jQuery ? html : $(html);
-  if ($html.find(".nihility-ai-assistant-button").length) return;
+  // Verifica se o botão já existe
+  if (html.querySelector(".nihility-ai-assistant-button")) return;
 
-  const button = $(`
-    <button type="button" class="nihility-ai-assistant-button">
-      <i class="fas fa-robot"></i> Assistente de IA
-    </button>
-  `);
-  button.on("click", () => new AIAssistantApp().render(true));
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "nihility-ai-assistant-button";
+  button.innerHTML = '<i class="fas fa-robot"></i> Assistente de IA';
+
+  // Adiciona evento de clique
+  button.addEventListener("click", () => new AIAssistantEnhancedApp().render(true));
 
   let container = null;
   for (const selector of AI_BUTTON_CONTAINER_SELECTORS) {
-    const found = $html.find(selector).first();
-    if (found.length) {
+    const found = html.querySelector(selector);
+    if (found) {
       container = found;
       break;
     }
   }
-  (container ?? $html).append(button);
+
+  // Se não encontrou um container específico, usa o próprio html
+  (container ?? html).appendChild(button);
+});
+
+// Registro do menu principal do sistema
+game.settings.registerMenu(SYSTEM_ID, "nihilityMainMenu", {
+  name: "Menu Principal Nihility",
+  label: "Menu Principal",
+  hint: "Interface centralizada para todas as funcionalidades do sistema.",
+  icon: "fas fa-th-large",
+  type: NihilityMenuApp,
+  restricted: true
 });

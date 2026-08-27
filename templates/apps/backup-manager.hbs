@@ -1,0 +1,75 @@
+<div class="backup-manager">
+  <h2>Gerenciador de Backup</h2>
+
+  {{#if isGM}}
+  <div class="backup-controls">
+    <button class="backup-button" data-action="create-actor-backup">
+      <i class="fas fa-user"></i> Criar Backup de Personagem
+    </button>
+    <button class="backup-button" data-action="create-item-backup">
+      <i class="fas fa-box"></i> Criar Backup de Item
+    </button>
+    <button class="backup-button" data-action="cleanup-backups">
+      <i class="fas fa-trash-alt"></i> Limpar Backups Antigos
+    </button>
+    <button class="backup-button" data-action="refresh">
+      <i class="fas fa-sync-alt"></i> Atualizar
+    </button>
+  </div>
+  {{/if}}
+
+  <div class="backup-stats">
+    <p>Total de Backups: {{totalBackups}}</p>
+  </div>
+
+  {{#if hasBackups}}
+  <div class="backups-list">
+    <h3>Backups Recentes</h3>
+    {{#each backups as |backup|}}
+    <div class="backup-item">
+      <div class="backup-header">
+        <span class="backup-id">{{backup.id}}</span>
+        <span class="backup-date">{{formatDate backup.timestamp}}</span>
+        <span class="backup-type">{{backup.type}}</span>
+      </div>
+
+      {{#if backup.actorData}}
+      <div class="backup-content">
+        <i class="fas fa-user"></i> Personagem: {{backup.actorData.name}} (Nível {{backup.actorData.level}})
+      </div>
+      {{/if}}
+
+      {{#if backup.itemData}}
+      <div class="backup-content">
+        <i class="fas fa-box"></i> Item: {{backup.itemData.name}} (Tier {{backup.itemData.tier}})
+      </div>
+      {{/if}}
+
+      <div class="backup-actions">
+        <button class="restore-button" data-backup-id="{{backup.id}}">
+          <i class="fas fa-undo"></i> Restaurar
+        </button>
+        <button class="view-details-button" data-backup-id="{{backup.id}}">
+          <i class="fas fa-info-circle"></i> Detalhes
+        </button>
+        <button class="delete-button" data-backup-id="{{backup.id}}">
+          <i class="fas fa-trash"></i> Excluir
+        </button>
+      </div>
+    </div>
+    {{/each}}
+  </div>
+  {{else}}
+  <div class="no-backups">
+    <p>Nenhum backup encontrado.</p>
+    <p>Crie backups usando os botões acima ou automaticamente antes de fazer alterações importantes.</p>
+  </div>
+  {{/if}}
+
+  <div class="backup-info">
+    <h3>Informações</h3>
+    <p>Os backups são criados automaticamente antes de qualquer modificação importante.</p>
+    <p>Você pode restaurar backups para reverter alterações indesejadas.</p>
+    <p>Backups antigos são automaticamente limpos após 30 dias.</p>
+  </div>
+</div>

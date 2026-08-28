@@ -667,13 +667,52 @@ export async function generateNoteFromAI(prompt, options = {}) {
 }
 
 /* -------------------------------------------- */
+/*  Geração de Itens Genéricos via IA            */
+/* -------------------------------------------- */
+
+const ITEM_SYSTEM_PROMPT =
+  "Você é o motor de regras de um RPG de Foundry VTT. Gere um Item genérico (equipamento, " +
+  'consumível, tesouro...). Responda SEMPRE com um único objeto JSON estrito, sem markdown, ' +
+  'no formato: {"name": string, "description": string (HTML curto), "quantity": number, ' +
+  '"weight": number, "valueAmount": number, "valueCurrency": string}.';
+
+/**
+ * Gera um Item genérico avulso via IA (não ligado a nenhum Ator) e cria o documento no
+ * mundo. Só preenche os campos "de criação" de GenericItemDataModel (descrição/quantidade/
+ * peso/valor) — Habilidade Concedida, modificador de HP/Mana e bônus de Atributo ficam pra
+ * edição manual depois, mesmo espírito de `generateSkillFromAI`.
+ * @param {string} prompt
+ * @param {{folder?:Folder|null}} [options]
+ * @returns {Promise<Item>}
+ */
+export async function generateItemFromAI(prompt, options = {}) {
+  const { folder = null } = options;
+  const parsed = await generateJSON(ITEM_SYSTEM_PROMPT, prompt);
+
+  return Item.create({
+    name: parsed?.name || "Item Sem Nome",
+    type: "item",
+    folder: folder?.id ?? null,
+    system: {
+      description: parsed?.description || "",
+      quantity: Number(parsed?.quantity) || 1,
+      weight: Number(parsed?.weight) || 0,
+      value: {
+        amount: Number(parsed?.valueAmount) || 0,
+        currency: parsed?.valueCurrency || "gold"
+      }
+    }
+  });
+}
+
+/* -------------------------------------------- */
 /*  Pastas auto-geridas para conteúdo gerado     */
 /* -------------------------------------------- */
 
 /**
  * Encontra (ou cria) a pasta "IA — Gerado" do tipo de documento pedido,
- * usada para manter Atores/Notas gerados pelo Assistente de IA organizados.
- * @param {"Actor"|"JournalEntry"} documentType
+ * usada para manter Atores/Notas/Itens gerados pelo Assistente de IA organizados.
+ * @param {"Actor"|"JournalEntry"|"Item"} documentType
  * @returns {Promise<Folder>}
  */
 export async function getAIGeneratedFolder(documentType) {

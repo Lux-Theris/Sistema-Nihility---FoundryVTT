@@ -4,6 +4,7 @@ import {
   generateVesselFromAI,
   generateNoteFromAI,
   generateSkillFromAI,
+  generateItemFromAI,
   generateFreeform,
   getAIGeneratedFolder,
   editDocumentWithAI,
@@ -21,6 +22,7 @@ const TASKS = {
   starship: { label: "Nave Espacial", icon: "fa-rocket" },
   vehicle: { label: "Veículo Terrestre", icon: "fa-car" },
   note: { label: "Nota / Journal", icon: "fa-book" },
+  item: { label: "Item Genérico", icon: "fa-box" },
   skill: { label: "Habilidade (Skill avulsa)", icon: "fa-bolt" },
   freeform: { label: "Pergunta Livre", icon: "fa-comment-dots" }
 };
@@ -251,6 +253,8 @@ export class AIAssistantApp extends HandlebarsApplicationMixin(ApplicationV2) {
         return generateVesselFromAI(variedPrompt, "vehicle", { folder: await getAIGeneratedFolder("Actor") });
       case "note":
         return generateNoteFromAI(variedPrompt, { folder: await getAIGeneratedFolder("JournalEntry") });
+      case "item":
+        return generateItemFromAI(variedPrompt, { folder: await getAIGeneratedFolder("Item") });
       case "skill":
         return generateSkillFromAI(variedPrompt);
       default:

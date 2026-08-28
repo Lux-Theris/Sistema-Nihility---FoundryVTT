@@ -32,7 +32,7 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
   if (!skill) return null;
 
   if (skill.system.effectType === "damage") {
-    return rollSkillDamage(sourceActor, skill);
+    return rollSkillDamage(sourceActor, skill, options.targetActor ?? null);
   }
   if (skill.system.effectType === "temporary") {
     const targetActor = options.targetActor ?? sourceActor;
@@ -43,7 +43,17 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
   return null;
 }
 
-async function rollSkillDamage(actor, skill) {
+/**
+ * Percentual (0-1) de redução aplicado sobre dano mágico/elemental, com base na Defesa
+ * Mágica.Total do alvo. Ver MEU_SISTEMA.MAGIC_DEFENSE_REDUCTION_PER_POINT/_CAP em config.js.
+ */
+function magicDefenseReduction(targetActor) {
+  const total = targetActor?.system?.attributes?.combat?.magicalDefense?.total ?? 0;
+  const raw = total * MEU_SISTEMA.MAGIC_DEFENSE_REDUCTION_PER_POINT;
+  return Math.clamp(raw, 0, MEU_SISTEMA.MAGIC_DEFENSE_REDUCTION_CAP);
+}
+
+async function rollSkillDamage(actor, skill, targetActor = null) {
   const formula = skill.system.damageFormula?.trim();
   if (!formula) {
     ui.notifications?.warn("Essa skill não tem uma Fórmula de Dano configurada.");
@@ -53,17 +63,25 @@ async function rollSkillDamage(actor, skill) {
   const roll = new Roll(formula);
   await roll.evaluate();
 
-  let flavor = `${skill.name} — Dano`;
-  if (skill.system.isElementalDamage) {
-    const element = getActiveDamageElements().find(e => e.id === skill.system.damageElement);
-    if (element) flavor = `${skill.name} — Dano ${element.label}`;
+  const elementLabels = (skill.system.damageElements ?? [])
+    .map(id => getActiveDamageElements().find(e => e.id === id)?.label)
+    .filter(Boolean);
+  let flavor = elementLabels.length ? `${skill.name} — Dano ${elementLabels.join("+")}` : `${skill.name} — Dano`;
+
+  let finalDamage = roll.total;
+  if (skill.system.isMagicDamage && targetActor) {
+    const reduction = magicDefenseReduction(targetActor);
+    if (reduction > 0) {
+      finalDamage = Math.floor(roll.total * (1 - reduction));
+      flavor += ` — reduzido em ${Math.round(reduction * 100)}% pela Defesa Mágica de ${targetActor.name} (${roll.total} → ${finalDamage})`;
+    }
   }
 
   await roll.toMessage({
     speaker: ChatMessage.getSpeaker({ actor }),
     flavor
   });
-  return roll;
+  return { roll, finalDamage };
 }
 
 async function applySkillEffects(sourceActor, skill, targetActor) {

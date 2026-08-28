@@ -56,7 +56,11 @@ Separately, permanent `statModifiers.{hp,energy}` (present on Skill, equipped It
 
 These are two separate files with two separate concerns — don't conflate them:
 - `ai-helper.js` handles Skill **creation/lifecycle**: fusion (`fuseSkills`, tier-consumption rule via `canConsumeTier` — a skill can only consume sources of its own tier or lower), the Skill Point economy (break/merge/request/approve/reject, gated behind GM chat-message approval buttons), Item/Module-granted skills (`createGrantedSkill`/`removeGrantedSkill`, marked `isItemGranted: true` so they can never be fused and vanish automatically when their source is removed), and Compendium auto-registration.
-- `skill-effects.js` handles **using** an already-created Skill (`useSkillEffect`): `effectType: "damage"` rolls the skill's free-form `damageFormula` (any Foundry dice syntax) and posts publicly, optionally tagging it with an element from `getActiveDamageElements()`; `effectType: "temporary"` applies each entry in `effects` as either a duration-bound `ActiveEffect` (targeting the `buffDelta` schema paths — this is how temporary buffs/debuffs/drawbacks are implemented) or a direct Shield add (no duration).
+- `skill-effects.js` handles **using** an already-created Skill (`useSkillEffect`): `effectType: "damage"` rolls the skill's free-form `damageFormula` (any Foundry dice syntax) and posts publicly, tagged with 0+ `damageElements` (flavor only); `effectType: "temporary"` applies each entry in `effects` as either a duration-bound `ActiveEffect` (targeting the `buffDelta` schema paths — this is how temporary buffs/debuffs/drawbacks are implemented) or a direct Shield add (no duration).
+
+`isMagicDamage` (boolean) is independent of `damageElements` (array) — a skill can be magical with no element (pure arcane force), elemental with no magic tag (e.g. a flaming sword dealing physical damage), or both. Only `isMagicDamage` gates the Defesa Mágica reduction below; elements are pure chat flavor.
+
+**Magic damage reduction**: when a damage Skill has `isMagicDamage: true` and is used against a target (target selection is only prompted for magic-damage or `"temporary"` skills — plain physical damage skips it), `rollSkillDamage` reduces the roll by `clamp(target.system.attributes.combat.magicalDefense.total × MEU_SISTEMA.MAGIC_DEFENSE_REDUCTION_PER_POINT, 0, MEU_SISTEMA.MAGIC_DEFENSE_REDUCTION_CAP)` — a percentage (not a flat number), so it stays relevant at every level range the same way the HP/Mana formula's multiplicative scaling does. Tune the two constants in `config.js`, not the formula shape, if this needs rebalancing.
 
 Racial-tier skills only ever come from a Species preset (never bought with Skill Points); Ultimate-tier only ever comes from fusion (never bought directly) and is hidden from players in tier dropdowns/lists until they own one — but always visible to the GM (every tier-visibility filter in the sheets is `tier !== "ultimate" || game.user.isGM` or equivalent, deliberately).
 
@@ -79,10 +83,13 @@ Currency conversion (`convertActorCurrency`) never leaves a fractional amount on
 
 Templates lean on Foundry's `eq`/`lookup`/`editor` helpers and nested `{{#each}}` blocks reading from `config.*`. Handlebars `{{#if}}`/`{{#unless}}` do **not** push a new context, but `{{#each}}` does — when adding a `../config.X` or `{{lookup ../../config.Y ...}}` reference, count the actual `{{#each}}` nesting depth from that point, not the visual indentation; getting this off by one silently renders an empty dropdown.
 
-### AI Prompt Engineering
+### Agent mode: tool-calling AI assistant
 
-The system includes a `PromptEngine` class in `module/ai/prompt-engine.js` that handles:
-- Fusion prompts for combining skills
-- Skill generation prompts for creating new abilities
-- Unique skill prompts tailored to character personalities
-- Support for both OpenAI-compatible and Anthropic (Claude) API providers
+`module/apps/ai-assistant.js`'s third mode ("Agente", alongside the pre-existing "Criar"/"Editar") lets the GM ask for a *mix* of content in one prompt (e.g. "crie 3 skills e 2 personagens") and have the AI ground itself in the actual system state before proposing anything:
+- `module/ai/providers.js` — `callAIProviderWithTools`/`appendAssistantAndToolResults` extend the existing single-shot `callAIProvider` with multi-turn tool-calling for both wire formats (Anthropic `tool_use`/`tool_result` blocks vs. OpenAI-compatible `tool_calls`/`role:"tool"` messages) — still the only place that knows either format.
+- `module/ai/agent-runner.js` — `runAgentTask` drives the loop: calls the provider, executes whichever tool the model asks for, feeds the result back, repeats until the model stops or `maxTurns` is hit. Never touches the world directly.
+- `module/ai/agent-tools.js` — `createAgentTools()` returns the actual tools: read-only ones for grounding (`list_skills`, `list_actors`, `get_system_rules`) and `propose_skill`/`propose_character`/`propose_edit`, which only push an already-normalized, schema-correct document into a `proposals` array — nothing is created yet.
+- The app renders `proposals` as a review checklist; only on "Aplicar selecionados" do documents actually get created/edited (via the same `registerItemInCompendium`/`Actor.create`/`sanitizeDocumentPatch` primitives the other AI paths already use).
+- Every apply records one entry in `module/helpers/world-backup.js` (a hidden World Compendium of `JournalEntry`, `recordBatchOperation`/`undoBatchOperation`/`listRecentBatchOperations`) so a whole batch — not just one document — can be undone from the same app. This replaced an earlier `localStorage`-based backup helper that didn't sync between GM/players and only tracked one document at a time; don't reintroduce that pattern.
+
+`module/apps/nihility-menu.js` (the GM's single entry point — reachable from `game.nihility.openAssistant()` and the Actor Directory button) is where most of these modes get opened from; only its "Assistente de IA" tab and "backup-manager"/`generate-*` actions are wired to real functionality today — several of its other buttons (economy/titles/anatomy config shortcuts, sync/import/export data, generate-character/generate-item) are still inert placeholders left over from its initial scaffold.

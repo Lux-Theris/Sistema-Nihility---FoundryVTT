@@ -98,6 +98,15 @@ export const MEU_SISTEMA = {
    */
   MIN_BASE_VITAL_STAT: 50,
 
+  /**
+   * Redução de dano mágico/elemental (skill.system.isMagicDamage) pela Defesa Mágica do alvo:
+   * reduçãoPercentual = clamp(magicalDefense.total x PER_POINT, 0, CAP). Percentual em vez de
+   * fixo pra continuar relevante em qualquer faixa de nível (HP/Mana escalam multiplicando
+   * Total x Total x 10, então um número fixo de redução vira irrelevante cedo).
+   */
+  MAGIC_DEFENSE_REDUCTION_PER_POINT: 0.02,
+  MAGIC_DEFENSE_REDUCTION_CAP: 0.6,
+
   COMBAT_ATTRIBUTE_LABELS: {
     strength: "Força",
     defense: "Defesa",

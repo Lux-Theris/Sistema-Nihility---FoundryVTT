@@ -28,7 +28,11 @@ export class NihilityItemSheet extends ItemSheet {
       const hasUltimate = owner?.system?.hasUltimateSkill ?? this.item.system.tier === "ultimate";
       const ultimateVisible = hasUltimate || game.user.isGM;
       context.visibleSkillTiers = MEU_SISTEMA.SKILL_TIERS.filter(t => t !== "ultimate" || ultimateVisible);
-      context.damageElements = getActiveDamageElements();
+      const selectedElements = this.item.system.damageElements ?? [];
+      context.damageElements = getActiveDamageElements().map(el => ({
+        ...el,
+        selected: selectedElements.includes(el.id)
+      }));
     }
 
     return context;

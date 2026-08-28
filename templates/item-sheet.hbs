@@ -70,16 +70,20 @@
       <label>Fórmula de Dano <span class="hint-inline">(sintaxe de rolagem do Foundry, ex: "2d6+3")</span>
         <input type="text" name="system.damageFormula" value="{{system.damageFormula}}" placeholder="2d6+3"/>
       </label>
-      <label>Dano Elemental? <input type="checkbox" class="skill-elemental-toggle" name="system.isElementalDamage" {{#if system.isElementalDamage}}checked{{/if}}/></label>
-      {{#if system.isElementalDamage}}
-      <label>Elemento
-        <select name="system.damageElement">
-          {{#each damageElements as |el|}}
-          <option value="{{el.id}}" {{#if (eq el.id system.damageElement)}}selected{{/if}}>{{el.label}}</option>
-          {{/each}}
-        </select>
+      <label>Dano Mágico? <span class="hint-inline">(reduzido pela Defesa Mágica do alvo — independente dos elementos abaixo)</span>
+        <input type="checkbox" name="system.isMagicDamage" {{#if system.isMagicDamage}}checked{{/if}}/>
       </label>
-      {{/if}}
+      <label>Elemento(s) <span class="hint-inline">(só flavor no chat — pode marcar vários ao mesmo tempo)</span></label>
+      <ol class="damage-elements-list">
+        {{#each damageElements as |el|}}
+        <li>
+          <label>
+            <input type="checkbox" name="system.damageElements" value="{{el.id}}" {{#if el.selected}}checked{{/if}}/>
+            {{el.label}}
+          </label>
+        </li>
+        {{/each}}
+      </ol>
       {{/if}}
 
       {{#if (eq system.effectType "temporary")}}

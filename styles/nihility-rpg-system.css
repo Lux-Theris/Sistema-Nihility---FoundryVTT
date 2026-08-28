@@ -474,7 +474,9 @@ form.nihility-config-app {
   margin: 0 0 4px;
 }
 
-.nihility-config-app input {
+.nihility-config-app input,
+.nihility-config-app select,
+.nihility-config-app textarea {
   background: var(--nihility-bg-panel-alt);
   border: 1px solid var(--nihility-border);
   color: var(--nihility-text);
@@ -483,7 +485,9 @@ form.nihility-config-app {
   width: 100%;
 }
 
-.nihility-config-app input:focus {
+.nihility-config-app input:focus,
+.nihility-config-app select:focus,
+.nihility-config-app textarea:focus {
   outline: none;
   border-color: var(--nihility-accent);
   box-shadow: 0 0 4px var(--nihility-accent);
@@ -703,6 +707,49 @@ form.nihility-config-app {
   cursor: pointer;
 }
 .ai-assistant-app .ai-results-list a:hover {
+  text-decoration: underline;
+}
+
+.ai-assistant-app .ai-agent-run,
+.ai-assistant-app .ai-agent-apply {
+  align-self: flex-start;
+  background: rgba(110, 231, 255, 0.1);
+  border: 1px solid var(--nihility-accent);
+  color: var(--nihility-accent);
+  border-radius: 4px;
+  padding: 5px 14px;
+  cursor: pointer;
+}
+.ai-assistant-app .ai-agent-run:disabled,
+.ai-assistant-app .ai-agent-apply:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.ai-assistant-app .ai-proposal-list,
+.ai-assistant-app .ai-operations-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ai-assistant-app .ai-proposal-list li,
+.ai-assistant-app .ai-operations-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  border-bottom: 1px solid rgba(58, 65, 102, 0.4);
+  padding: 2px 0;
+}
+.ai-assistant-app .ai-undo-operation {
+  color: var(--nihility-accent-2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ai-assistant-app .ai-undo-operation:hover {
   text-decoration: underline;
 }
 
@@ -1030,10 +1077,16 @@ form.nihility-config-app {
 }
 
 .nihility-sheet .effect-list,
-.nihility-sheet .sub-list {
+.nihility-sheet .sub-list,
+.nihility-sheet .damage-elements-list {
   list-style: none;
   margin: 6px 0;
   padding: 0;
+}
+.nihility-sheet .damage-elements-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
 }
 .nihility-sheet .effect-row {
   display: flex;

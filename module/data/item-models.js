@@ -103,9 +103,9 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
       /**
        * Mecânica ao "Usar" a skill — ver MEU_SISTEMA.SKILL_EFFECT_TYPES:
        * "none" (padrão, só descritiva), "damage" (rola damageFormula e posta no
-       * chat público, com elemento opcional) ou "temporary" (aplica cada entrada
-       * de `effects` — buffs/debuffs/drawbacks somam nos 7 Atributos ou em HP/Mana
-       * via Active Effect com duração; "shield" é somado direto, sem duração).
+       * chat público, com elemento(s) opcional(is)) ou "temporary" (aplica cada
+       * entrada de `effects` — buffs/debuffs/drawbacks somam nos 7 Atributos ou em
+       * HP/Mana via Active Effect com duração; "shield" é somado direto, sem duração).
        */
       effectType: new fields.StringField({
         required: true,
@@ -114,8 +114,17 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
       }),
 
       damageFormula: new fields.StringField({ required: false, initial: "" }),
-      isElementalDamage: new fields.BooleanField({ required: false, initial: false }),
-      damageElement: new fields.StringField({ required: false, initial: "" }),
+
+      /**
+       * Independente dos elementos abaixo: só essa flag decide se o dano é reduzido pela
+       * Defesa Mágica do alvo (ver `rollSkillDamage` em skill-effects.js). Uma skill pode ser
+       * mágica sem elemento (ex: força arcana pura), elemental sem ser mágica (ex: espada em
+       * chamas — dano físico com flavor de fogo, não reduzido), ou os dois ao mesmo tempo.
+       */
+      isMagicDamage: new fields.BooleanField({ required: false, initial: false }),
+
+      /** 0+ ids de MEU_SISTEMA/getActiveDamageElements() — só flavor no chat (pode ter vários ao mesmo tempo). */
+      damageElements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
 
       /** [{ target, amount, durationRounds }] — target em MEU_SISTEMA.EFFECT_TARGETS. */
       effects: new fields.ArrayField(

@@ -45,7 +45,7 @@ export async function ensureSystemCompendiums() {
   }
 }
 
-function getCompendiumForItemType(itemType) {
+export function getCompendiumForItemType(itemType) {
   const def = COMPENDIUM_TYPE_MAP[itemType];
   if (!def) return null;
   return game.packs.get(`world.${def.key}`) ?? null;
@@ -275,7 +275,7 @@ export async function fuseSkills(actor, sourceItemIds, options = {}) {
 /* -------------------------------------------- */
 
 /** Lê as settings de IA atualmente configuradas. */
-function getAISettingsValues() {
+export function getAISettingsValues() {
   return {
     provider: game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.aiProvider),
     endpoint: game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.aiEndpointUrl),
@@ -426,7 +426,7 @@ const EDIT_DOCUMENT_SYSTEM_PROMPT =
   "qualquer campo fora de name/img/system. Não repita campos que não mudam.";
 
 /** Remove qualquer chave fora de name/img/system.* — nunca deixa a IA tocar em _id/ownership/etc. */
-function sanitizeDocumentPatch(patch) {
+export function sanitizeDocumentPatch(patch) {
   const clean = {};
   for (const [key, value] of Object.entries(patch ?? {})) {
     if (key === "name" || key === "img" || key === "system" || key.startsWith("system.")) {

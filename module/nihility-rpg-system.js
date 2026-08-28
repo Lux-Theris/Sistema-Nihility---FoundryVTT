@@ -26,9 +26,7 @@ import { NihilityItemSheet } from "./sheets/item-sheet.js";
 import { CurrencyConfigApp } from "./apps/currency-config.js";
 import { SpeciesConfigApp } from "./apps/species-config.js";
 import { DamageElementsConfigApp } from "./apps/damage-elements-config.js";
-import { AIAssistantApp } from "./apps/ai-assistant.js";
 import { NihilityMenuApp } from "./apps/nihility-menu.js";
-import { AIAssistantEnhancedApp } from "./apps/ai-assistant-enhanced.js";
 
 Hooks.once("init", () => {
   console.log(`${SYSTEM_ID} | Inicializando sistema...`);
@@ -40,7 +38,7 @@ Hooks.once("init", () => {
     id: SYSTEM_ID,
     config: MEU_SISTEMA,
     ai: AIHelper,
-    openAssistant: () => new AIAssistantApp().render(true)
+    openAssistant: () => new NihilityMenuApp().render(true)
   };
 
   registerSystemSettings();
@@ -103,6 +101,7 @@ Hooks.once("init", () => {
 Hooks.once("ready", async () => {
   await ensureSystemCompendiums();
   await migrateCommonTierToNormal();
+  await migrateElementalDamageToMagicTag();
   console.log(`${SYSTEM_ID} | Sistema pronto.`);
 });
 
@@ -130,6 +129,45 @@ async function migrateCommonTierToNormal() {
   for (const entry of toFixInPack) {
     const doc = await pack.getDocument(entry._id);
     await doc.update({ "system.tier": "normal" });
+  }
+}
+
+/**
+ * Migração única: `isElementalDamage` (booleano) + `damageElement` (string única) viraram
+ * `isMagicDamage` (independente) + `damageElements` (lista). Lê de `_source` (dado bruto
+ * salvo) porque esses dois campos antigos já saíram do schema — `item.system` não os
+ * exporia mais depois de limpo pelo DataModel novo. Assume que todo dano elemental antigo
+ * já era mágico (o toggle antigo conflava os dois conceitos).
+ */
+async function migrateElementalDamageToMagicTag() {
+  if (!game.user.isGM) return;
+
+  function buildPatch(rawSystem) {
+    if (!rawSystem || rawSystem.isElementalDamage === undefined) return null;
+    return {
+      "system.isMagicDamage": Boolean(rawSystem.isElementalDamage),
+      "system.damageElements": rawSystem.damageElement ? [rawSystem.damageElement] : [],
+      "system.-=isElementalDamage": null,
+      "system.-=damageElement": null
+    };
+  }
+
+  for (const actor of game.actors) {
+    const updates = [];
+    for (const item of actor.items) {
+      if (item.type !== "skill") continue;
+      const patch = buildPatch(item._source.system);
+      if (patch) updates.push({ _id: item.id, ...patch });
+    }
+    if (updates.length) await actor.updateEmbeddedDocuments("Item", updates);
+  }
+
+  const pack = game.packs.get(`world.${MEU_SISTEMA.COMPENDIUM.skills.key}`);
+  if (!pack) return;
+  const documents = await pack.getDocuments();
+  for (const doc of documents) {
+    const patch = buildPatch(doc._source.system);
+    if (patch) await doc.update(patch);
   }
 }
 
@@ -169,7 +207,8 @@ Hooks.on("renderChatMessage", (message, html) => {
   $html.find(".skill-request-reject").on("click", () => rejectSkillCreationRequest(message));
 });
 
-// Botão do Assistente de IA no diretório de Atores (só para o GM).
+// Botão do Menu Principal no diretório de Atores (só para o GM) — ponto de entrada único
+// pro sistema (config, Assistente de IA, backups), em vez de espalhar por várias abas.
 // Se o Foundry mudar essa estrutura de DOM em alguma versão futura e nenhum dos
 // seletores abaixo bater, use game.nihility.openAssistant() num macro.
 const AI_BUTTON_CONTAINER_SELECTORS = [".directory-footer", ".header-actions", ".directory-header", ".action-buttons"];
@@ -183,10 +222,10 @@ Hooks.on("renderActorDirectory", (app, html) => {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "nihility-ai-assistant-button";
-  button.innerHTML = '<i class="fas fa-robot"></i> Assistente de IA';
+  button.innerHTML = '<i class="fas fa-th-large"></i> Nihility RPG System';
 
   // Adiciona evento de clique
-  button.addEventListener("click", () => new AIAssistantEnhancedApp().render(true));
+  button.addEventListener("click", () => new NihilityMenuApp().render(true));
 
   let container = null;
   for (const selector of AI_BUTTON_CONTAINER_SELECTORS) {

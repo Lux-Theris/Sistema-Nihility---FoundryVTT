@@ -400,8 +400,12 @@ export class NihilityActorSheet extends ActorSheet {
     const skill = this.actor.items.get(itemId);
     if (!skill) return;
 
+    // Dano físico sem tag de magia não precisa de alvo pra calcular nada — só pede alvo
+    // quando o resultado realmente muda (buff/debuff sempre; dano só se puder ser reduzido
+    // pela Defesa Mágica do alvo).
     let targetActor = this.actor;
-    if (skill.system.effectType === "temporary") {
+    const needsTarget = skill.system.effectType === "temporary" || (skill.system.effectType === "damage" && skill.system.isMagicDamage);
+    if (needsTarget) {
       targetActor = await this._promptSkillTarget();
       if (!targetActor) return;
     }

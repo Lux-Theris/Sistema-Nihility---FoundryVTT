@@ -3,6 +3,16 @@
  */
 import { SYSTEM_ID } from "../config.js";
 
+/** Ações da aba "Assistente de IA" que abrem o AIAssistantApp já no modo "Criar" com a tarefa certa. */
+const AI_TASK_ACTIONS = {
+  "generate-npc": "npc",
+  "generate-mount": "mount",
+  "generate-starship": "starship",
+  "generate-vehicle": "vehicle",
+  "generate-skill": "skill",
+  freeform: "freeform"
+};
+
 export class NihilityMenuApp extends Application {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
@@ -66,30 +76,27 @@ export class NihilityMenuApp extends Application {
     event.preventDefault();
     const action = event.currentTarget.dataset.action;
 
-    switch (action) {
-      case "open-ai-assistant":
-        // Abre o assistente de IA existente
-        new (await import("./ai-assistant-enhanced.js")).AIAssistantEnhancedApp().render(true);
-        break;
-      case "backup-manager":
-        // Abre o gerenciador de backup
-        this._openBackupManager();
-        break;
-      case "generate-npc":
-        // Gera um NPC via IA
-        this._generateNPC();
-        break;
-      // Adicionar mais ações conforme necessário
+    if (action in AI_TASK_ACTIONS) {
+      const { AIAssistantApp } = await import("./ai-assistant.js");
+      new AIAssistantApp({ initialMode: "create", initialTask: AI_TASK_ACTIONS[action] }).render(true);
+      return;
     }
-  }
 
-  async _openBackupManager() {
-    // Implementar gerenciador de backup
-    ui.notifications.info("Gerenciador de Backup em desenvolvimento");
-  }
-
-  async _generateNPC() {
-    // Implementar geração automática de NPC
-    ui.notifications.info("Geração de NPC em desenvolvimento");
+    switch (action) {
+      case "open-ai-assistant": {
+        const { AIAssistantApp } = await import("./ai-assistant.js");
+        new AIAssistantApp().render(true);
+        break;
+      }
+      case "backup-manager": {
+        // O gerenciador de backup/desfazer vive no modo "Agente" do Assistente de IA.
+        const { AIAssistantApp } = await import("./ai-assistant.js");
+        new AIAssistantApp({ initialMode: "agent" }).render(true);
+        break;
+      }
+      // "generate-character"/"generate-item"/"sync-data"/"import-data"/"export-data"/
+      // "economy-config"/"titles-config"/"anatomy-config" ainda não têm nenhuma
+      // funcionalidade real por trás — ficam sem ação até serem implementados.
+    }
   }
 }

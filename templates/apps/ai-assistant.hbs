@@ -6,7 +6,57 @@
   <div class="mode-toggle">
     <button type="button" class="mode-btn {{#if isCreateMode}}active{{/if}}" data-mode="create">+ Criar Novo</button>
     <button type="button" class="mode-btn {{#if isEditMode}}active{{/if}}" data-mode="edit">✎ Editar Existente</button>
+    <button type="button" class="mode-btn {{#if isAgentMode}}active{{/if}}" data-mode="agent"><i class="fas fa-robot"></i> Agente</button>
   </div>
+
+  {{#if isAgentMode}}
+  <p class="hint">
+    Descreva o que você quer em texto livre — pode pedir uma mistura de coisas (ex: "crie 3
+    skills elementais e 2 personagens de apoio"). O assistente consulta o sistema antes de
+    propor, mas <strong>nada é criado até você revisar e clicar em Aplicar</strong>.
+  </p>
+
+  <label>Pedido
+    <textarea class="ai-agent-prompt" rows="4" placeholder="Ex: crie 3 skills e 2 personagens de apoio para um grupo nível 5..."></textarea>
+  </label>
+
+  <button type="button" class="ai-agent-run" {{#if busy}}disabled{{/if}}>
+    {{#if busy}}<i class="fas fa-spinner fa-spin"></i> {{statusText}}{{else}}<i class="fas fa-robot"></i> Executar{{/if}}
+  </button>
+
+  {{#if agentTranscriptText}}
+  <div class="ai-freeform-answer">{{agentTranscriptText}}</div>
+  {{/if}}
+
+  {{#if agentHasProposals}}
+  <h4>Propostas <span class="hint-inline">(desmarque o que não quiser antes de aplicar)</span></h4>
+  <ul class="ai-proposal-list">
+    {{#each agentProposals as |p index|}}
+    <li>
+      <label>
+        <input type="checkbox" class="proposal-toggle" data-index="{{index}}" {{#if p.include}}checked{{/if}}/>
+        <strong>{{p.type}}</strong> — {{#if p.data.name}}{{p.data.name}}{{else}}{{p.data.uuid}}{{/if}}
+      </label>
+    </li>
+    {{/each}}
+  </ul>
+  <button type="button" class="ai-agent-apply" {{#if busy}}disabled{{/if}}>
+    <i class="fas fa-check"></i> Aplicar selecionados
+  </button>
+  {{/if}}
+
+  {{#if recentOperations.length}}
+  <h4>Operações recentes</h4>
+  <ul class="ai-operations-list">
+    {{#each recentOperations as |op|}}
+    <li>
+      {{op.name}}
+      <a class="ai-undo-operation" data-operation-id="{{op.id}}" title="Desfazer"><i class="fas fa-undo"></i> Desfazer</a>
+    </li>
+    {{/each}}
+  </ul>
+  {{/if}}
+  {{/if}}
 
   {{#if isCreateMode}}
   <p class="hint">
@@ -17,7 +67,7 @@
   <label>Tarefa
     <select class="task-select">
       {{#each tasks as |t key|}}
-      <option value="{{key}}">{{t.label}}</option>
+      <option value="{{key}}" {{#if (eq key ../initialTask)}}selected{{/if}}>{{t.label}}</option>
       {{/each}}
     </select>
   </label>
@@ -43,6 +93,7 @@
   </div>
   {{/if}}
 
+  {{#unless isAgentMode}}
   <label>Prompt
     <textarea class="ai-prompt" rows="4" placeholder="{{#if isEditMode}}Ex: aumente o nível pra 5 e dê +10 em Força{{else}}Ex: um mercador anão desconfiado, especialista em armas encantadas...{{/if}}"></textarea>
   </label>
@@ -66,6 +117,7 @@
   {{#if freeformAnswer}}
   <div class="ai-freeform-answer">{{freeformAnswer}}</div>
   {{/if}}
+  {{/unless}}
 
   {{#if results.length}}
   <ul class="ai-results-list">

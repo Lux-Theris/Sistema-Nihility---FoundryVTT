@@ -52,9 +52,50 @@ function attributeBonusesSchema() {
 }
 
 /**
- * Habilidade (Skill). Suporta Tiers, sub-skills dinâmicas e a linhagem de fusão
- * (quais skills foram consumidas para gerá-la), usada pelo AI Helper e pela
- * regra geral de consumo por tier (uma skill só funde fontes de tier ≤ o dela).
+ * Snapshot mecânico completo de UM componente consumido numa Fusão — os mesmos campos de
+ * mecânica que uma Skill de verdade tem (Tier/Nível/Custo/Descrição/Resistência/Mecânica ao
+ * Usar/Dano/Efeitos/Alcance), só que congelados no momento da Fusão: editar a Sub-Skill aqui
+ * não muda a Skill original (se ainda existir em algum Compêndio) nem vice-versa. "Usar
+ * Habilidade" numa Skill com Sub-Skills deixa escolher qual componente disparar — cada um
+ * rola/aplica com os próprios campos daqui (ver `useSkillEffect` em skill-effects.js), igual
+ * as Skills Únicas do Tensura, que têm várias sub-habilidades nomeadas dentro de uma só Skill
+ * "guarda-chuva". Nunca aninha: se um componente já era ele mesmo uma Fusão, os Sub-Skills
+ * DELE entram achatados aqui direto (ver `buildGenericFusionData` em ai-helper.js) — a lista
+ * final é sempre plana, nunca uma árvore.
+ */
+function subSkillSchema() {
+  return new fields.SchemaField({
+    name: new fields.StringField({ required: true, initial: "" }),
+    tier: new fields.StringField({ required: false, initial: "normal", choices: MEU_SISTEMA.SKILL_TIERS }),
+    level: new fields.NumberField({ required: false, integer: true, initial: 1, min: 1 }),
+    cost: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+    description: new fields.HTMLField({ required: false, initial: "" }),
+    resistanceTarget: new fields.StringField({ required: false, initial: "" }),
+    effectType: new fields.StringField({ required: false, initial: "none", choices: MEU_SISTEMA.SKILL_EFFECT_TYPES }),
+    damageFormula: new fields.StringField({ required: false, initial: "" }),
+    isMagicDamage: new fields.BooleanField({ required: false, initial: false }),
+    damageElements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
+    effects: new fields.ArrayField(
+      new fields.SchemaField({
+        target: new fields.StringField({ required: true, choices: MEU_SISTEMA.EFFECT_TARGETS }),
+        amount: new fields.NumberField({ required: true, integer: true, initial: 1 }),
+        durationRounds: new fields.NumberField({ required: true, integer: true, initial: 1, min: 0 })
+      }),
+      { required: false, initial: [] }
+    ),
+    targetType: new fields.StringField({ required: false, initial: "targeted", choices: ["targeted", "emission"] }),
+    areaShape: new fields.StringField({ required: false, initial: "", choices: ["", "circle", "cone", "ray"] }),
+    areaDistance: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+    areaAngle: new fields.NumberField({ required: false, integer: true, initial: 53, min: 1, max: 360 })
+  });
+}
+
+/**
+ * Habilidade (Skill). Suporta Tiers, Sub-Skills (só existem em Skills Fundidas — snapshot dos
+ * componentes consumidos, ver `subSkillSchema`) e a linhagem de fusão (só os NOMES, pra
+ * auditoria/exibição — quem quiser o efeito de um componente usa o snapshot em `subSkills`,
+ * não `fusionSources`), usada pelo AI Helper e pela regra geral de consumo por tier (uma
+ * skill só funde fontes de tier ≤ o dela).
  */
 export class SkillDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
@@ -68,17 +109,18 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
       cost: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
       description: new fields.HTMLField({ required: false, initial: "" }),
 
-      /** Lista dinâmica de Sub-Skills: [{ name, description }] */
-      subSkills: new fields.ArrayField(
-        new fields.SchemaField({
-          name: new fields.StringField({ required: true, initial: "" }),
-          description: new fields.HTMLField({ required: false, initial: "" })
-        }),
-        { required: false, initial: [] }
-      ),
+      /** Sub-Skills — só existem em Skills Fundidas, ver `subSkillSchema()` acima. */
+      subSkills: new fields.ArrayField(subSkillSchema(), { required: false, initial: [] }),
 
       /** Nomes/uuids das skills consumidas em uma fusão (linhagem), para auditoria e regras de consumo. */
       fusionSources: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
+
+      /**
+       * Nome da Skill que esta substituiu ao Evoluir — diferente de Fusão (2+ fontes viram
+       * Sub-Skills usáveis dentro do resultado), Evolução é 1-pra-1: a Skill antiga não
+       * sobrevive como componente algum, só fica esse registro histórico. "" = nunca evoluiu.
+       */
+      evolvedFrom: new fields.StringField({ required: false, initial: "" }),
 
       /** Gatilho emocional que originou uma Skill Única (preenchido manual ou via IA). */
       emotionTrigger: new fields.StringField({ required: false, initial: "" }),

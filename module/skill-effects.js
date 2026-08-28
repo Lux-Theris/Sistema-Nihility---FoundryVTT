@@ -27,25 +27,41 @@ const EFFECT_TARGET_PATHS = {
  *    dropdown em actor-sheet.js) — comportamento de sempre.
  *  - `targetType: "emission"`: usa `options.targetActors` (lista já resolvida pela forma
  *    posicionada no canvas via module/area-effects.js) — sem alvo único envolvido.
+ *  - `options.subSkillIndex`: quando a Skill tem Sub-Skills (só existe em Skills Fundidas —
+ *    ver ai-helper.js#fuseSkills), a mecânica usada é a daquele componente específico
+ *    (`system.subSkills[i]`, que carrega seu próprio effectType/damageFormula/effects/
+ *    targetType/etc.) em vez da mecânica própria da Skill — igual as Skills Únicas do
+ *    Tensura, que têm várias sub-habilidades nomeadas dentro de uma só Skill "guarda-chuva".
+ *    `actor-sheet.js` já resolve qual índice antes de chamar isto (ver `_promptSubSkillChoice`).
  * @param {Actor} sourceActor - dono da skill
  * @param {string} skillId
- * @param {{targetActor?: Actor, targetActors?: Actor[]}} [options]
+ * @param {{targetActor?: Actor, targetActors?: Actor[], subSkillIndex?: number}} [options]
  */
 export async function useSkillEffect(sourceActor, skillId, options = {}) {
   const skill = sourceActor.items.get(skillId);
   if (!skill) return null;
 
-  const isEmission = skill.system.targetType === "emission";
-
-  if (skill.system.effectType === "damage") {
-    return isEmission
-      ? rollSkillDamageArea(sourceActor, skill, options.targetActors ?? [])
-      : rollSkillDamage(sourceActor, skill, options.targetActor ?? null);
+  let mech = skill.system;
+  let label = skill.name;
+  if (options.subSkillIndex != null) {
+    const sub = (skill.system.subSkills ?? [])[options.subSkillIndex];
+    if (sub) {
+      mech = sub;
+      label = `${skill.name} — ${sub.name}`;
+    }
   }
-  if (skill.system.effectType === "temporary") {
+
+  const isEmission = mech.targetType === "emission";
+
+  if (mech.effectType === "damage") {
     return isEmission
-      ? applySkillEffectsArea(sourceActor, skill, options.targetActors ?? [])
-      : applySkillEffects(sourceActor, skill, options.targetActor ?? sourceActor);
+      ? rollSkillDamageArea(sourceActor, mech, label, options.targetActors ?? [])
+      : rollSkillDamage(sourceActor, mech, label, options.targetActor ?? null);
+  }
+  if (mech.effectType === "temporary") {
+    return isEmission
+      ? applySkillEffectsArea(sourceActor, skill, mech, label, options.targetActors ?? [])
+      : applySkillEffects(sourceActor, skill, mech, label, options.targetActor ?? sourceActor);
   }
 
   ui.notifications?.info("Essa skill é só descritiva — sem mecânica pra ativar.");
@@ -121,12 +137,14 @@ function actorResistanceFor(targetActor, resistanceTarget) {
  * Aplica Defesa Mágica + Resistência (Geral/Elemental) sobre um dano bruto já rolado, pra um
  * alvo específico. Compartilhado entre o caminho de alvo único e o de Emissão (área) — o roll
  * em si acontece uma vez só, mas cada alvo aplica sua própria redução em cima do mesmo total.
+ * `mech` é `skill.system` OU o snapshot de uma Sub-Skill (`skill.system.subSkills[i]`) — mesmo
+ * formato de campos (isMagicDamage/damageElements) nos dois casos.
  */
-function applyDamageReductions(rawTotal, skill, targetActor) {
+function applyDamageReductions(rawTotal, mech, targetActor) {
   let remaining = rawTotal;
   const appliedReductions = [];
 
-  if (skill.system.isMagicDamage && targetActor) {
+  if (mech.isMagicDamage && targetActor) {
     const reduction = magicDefenseReduction(targetActor);
     if (reduction > 0) {
       remaining *= 1 - reduction;
@@ -141,7 +159,7 @@ function applyDamageReductions(rawTotal, skill, targetActor) {
       appliedReductions.push(`Resistência Geral ${Math.round(generalReduction * 100)}%`);
     }
 
-    for (const elementId of skill.system.damageElements ?? []) {
+    for (const elementId of mech.damageElements ?? []) {
       const elementReduction = actorResistanceFor(targetActor, elementId);
       if (elementReduction > 0) {
         remaining *= 1 - elementReduction;
@@ -154,15 +172,16 @@ function applyDamageReductions(rawTotal, skill, targetActor) {
   return { finalDamage: Math.max(0, Math.floor(remaining)), appliedReductions };
 }
 
-function damageFlavorPrefix(skill) {
-  const elementLabels = (skill.system.damageElements ?? [])
+/** `label` já vem pronto de `useSkillEffect` (nome da Skill, ou "Skill — Sub-Skill" quando aplicável). */
+function damageFlavorPrefix(mech, label) {
+  const elementLabels = (mech.damageElements ?? [])
     .map(id => getActiveDamageElements().find(e => e.id === id)?.label)
     .filter(Boolean);
-  return elementLabels.length ? `${skill.name} — Dano ${elementLabels.join("+")}` : `${skill.name} — Dano`;
+  return elementLabels.length ? `${label} — Dano ${elementLabels.join("+")}` : `${label} — Dano`;
 }
 
-async function rollSkillDamage(actor, skill, targetActor = null) {
-  const formula = skill.system.damageFormula?.trim();
+async function rollSkillDamage(actor, mech, label, targetActor = null) {
+  const formula = mech.damageFormula?.trim();
   if (!formula) {
     ui.notifications?.warn("Essa skill não tem uma Fórmula de Dano configurada.");
     return null;
@@ -171,8 +190,8 @@ async function rollSkillDamage(actor, skill, targetActor = null) {
   const roll = new Roll(formula);
   await roll.evaluate();
 
-  let flavor = damageFlavorPrefix(skill);
-  const { finalDamage, appliedReductions } = applyDamageReductions(roll.total, skill, targetActor);
+  let flavor = damageFlavorPrefix(mech, label);
+  const { finalDamage, appliedReductions } = applyDamageReductions(roll.total, mech, targetActor);
   if (appliedReductions.length) {
     flavor += ` — reduzido por ${appliedReductions.join(", ")} (${roll.total} → ${finalDamage})`;
   }
@@ -189,11 +208,12 @@ async function rollSkillDamage(actor, skill, targetActor = null) {
  * pra todo mundo pego na área), mas cada Ator aplica sua própria redução em cima desse mesmo
  * total — tudo numa única mensagem de chat consolidada, não uma por alvo.
  * @param {Actor} actor - quem usou a skill
- * @param {Item} skill
+ * @param {object} mech - `skill.system` ou o snapshot de uma Sub-Skill
+ * @param {string} label
  * @param {Actor[]} targetActors - Atores encontrados dentro da forma posicionada no canvas
  */
-async function rollSkillDamageArea(actor, skill, targetActors) {
-  const formula = skill.system.damageFormula?.trim();
+async function rollSkillDamageArea(actor, mech, label, targetActors) {
+  const formula = mech.damageFormula?.trim();
   if (!formula) {
     ui.notifications?.warn("Essa skill não tem uma Fórmula de Dano configurada.");
     return null;
@@ -206,9 +226,9 @@ async function rollSkillDamageArea(actor, skill, targetActors) {
   const roll = new Roll(formula);
   await roll.evaluate();
 
-  const title = `${damageFlavorPrefix(skill)} (Emissão)`;
+  const title = `${damageFlavorPrefix(mech, label)} (Emissão)`;
   const rows = targetActors.map(targetActor => {
-    const { finalDamage, appliedReductions } = applyDamageReductions(roll.total, skill, targetActor);
+    const { finalDamage, appliedReductions } = applyDamageReductions(roll.total, mech, targetActor);
     const reductionText = appliedReductions.length ? ` <span class="hint-inline">(${appliedReductions.join(", ")})</span>` : "";
     return `<li><strong>${targetActor.name}</strong>: ${finalDamage}${reductionText}</li>`;
   });
@@ -223,13 +243,17 @@ async function rollSkillDamageArea(actor, skill, targetActors) {
   return { roll };
 }
 
-/** Aplica cada entrada de `effects` num único Ator e devolve o resumo textual (sem postar chat) — compartilhado entre alvo único e Emissão. */
-async function applyEffectsToActor(skill, targetActor) {
-  const entries = skill.system.effects ?? [];
+/**
+ * Aplica cada entrada de `mech.effects` num único Ator e devolve o resumo textual (sem postar
+ * chat) — compartilhado entre alvo único e Emissão. `originSkill` só empresta `img`/`uuid` pro
+ * Active Effect criado (mesmo quando `mech` é o snapshot de uma Sub-Skill).
+ */
+async function applyEffectsToActor(mech, label, originSkill, targetActor) {
+  const entries = mech.effects ?? [];
   const summary = [];
 
   for (const entry of entries) {
-    const label = MEU_SISTEMA.EFFECT_TARGET_LABELS[entry.target] ?? entry.target;
+    const targetLabel = MEU_SISTEMA.EFFECT_TARGET_LABELS[entry.target] ?? entry.target;
     const sign = entry.amount >= 0 ? "+" : "";
 
     if (entry.target === "shield") {
@@ -246,31 +270,31 @@ async function applyEffectsToActor(skill, targetActor) {
 
     await targetActor.createEmbeddedDocuments("ActiveEffect", [
       {
-        name: `${skill.name}: ${label} ${sign}${entry.amount}`,
-        img: skill.img,
-        origin: skill.uuid,
+        name: `${label}: ${targetLabel} ${sign}${entry.amount}`,
+        img: originSkill.img,
+        origin: originSkill.uuid,
         duration: entry.durationRounds > 0 ? { rounds: entry.durationRounds } : {},
         changes: [{ key: path, mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: String(entry.amount) }],
         flags: { [SYSTEM_ID]: { skillEffect: true } }
       }
     ]);
-    summary.push(`${label} ${sign}${entry.amount}${entry.durationRounds > 0 ? ` (${entry.durationRounds} rounds)` : ""}`);
+    summary.push(`${targetLabel} ${sign}${entry.amount}${entry.durationRounds > 0 ? ` (${entry.durationRounds} rounds)` : ""}`);
   }
 
   return summary;
 }
 
-async function applySkillEffects(sourceActor, skill, targetActor) {
-  if (!(skill.system.effects ?? []).length) {
+async function applySkillEffects(sourceActor, skill, mech, label, targetActor) {
+  if (!(mech.effects ?? []).length) {
     ui.notifications?.warn("Essa skill não tem nenhum Efeito configurado.");
     return null;
   }
 
-  const summary = await applyEffectsToActor(skill, targetActor);
+  const summary = await applyEffectsToActor(mech, label, skill, targetActor);
 
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
-    content: `<p><strong>${sourceActor.name}</strong> usou <strong>${skill.name}</strong> em <strong>${targetActor.name}</strong>: ${summary.join(", ")}.</p>`
+    content: `<p><strong>${sourceActor.name}</strong> usou <strong>${label}</strong> em <strong>${targetActor.name}</strong>: ${summary.join(", ")}.</p>`
   });
 
   return true;
@@ -281,10 +305,12 @@ async function applySkillEffects(sourceActor, skill, targetActor) {
  * Ator encontrado na área, numa única mensagem de chat consolidada.
  * @param {Actor} sourceActor
  * @param {Item} skill
+ * @param {object} mech
+ * @param {string} label
  * @param {Actor[]} targetActors
  */
-async function applySkillEffectsArea(sourceActor, skill, targetActors) {
-  if (!(skill.system.effects ?? []).length) {
+async function applySkillEffectsArea(sourceActor, skill, mech, label, targetActors) {
+  if (!(mech.effects ?? []).length) {
     ui.notifications?.warn("Essa skill não tem nenhum Efeito configurado.");
     return null;
   }
@@ -295,13 +321,13 @@ async function applySkillEffectsArea(sourceActor, skill, targetActors) {
 
   const rows = [];
   for (const targetActor of targetActors) {
-    const summary = await applyEffectsToActor(skill, targetActor);
+    const summary = await applyEffectsToActor(mech, label, skill, targetActor);
     rows.push(`<li><strong>${targetActor.name}</strong>: ${summary.join(", ")}</li>`);
   }
 
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
-    content: `<p><strong>${sourceActor.name}</strong> usou <strong>${skill.name}</strong> (Emissão) em ${targetActors.length} alvo(s):</p><ul>${rows.join("")}</ul>`
+    content: `<p><strong>${sourceActor.name}</strong> usou <strong>${label}</strong> (Emissão) em ${targetActors.length} alvo(s):</p><ul>${rows.join("")}</ul>`
   });
 
   return true;

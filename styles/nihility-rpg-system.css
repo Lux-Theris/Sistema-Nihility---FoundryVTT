@@ -25,11 +25,24 @@
   --nihility-font-data: "JetBrains Mono", ui-monospace, "Courier New", monospace;
 }
 
+/* .window-content precisa ser flex column pra .nihility-sheet esticar até a altura da janela;
+   sem isso, .sheet-body não tem uma altura real pra estourar e nunca fica com barra de rolagem
+   (mesma causa do corte sem scroll já corrigido nos editores de Settings). */
+.sheet.item .window-content,
+.sheet.actor .window-content {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
 .nihility-sheet {
   font-family: var(--nihility-font);
   color: var(--nihility-text);
   background: linear-gradient(160deg, var(--nihility-bg-dark), var(--nihility-bg-panel));
   border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .nihility-sheet input,
@@ -66,7 +79,10 @@
   border: 2px solid var(--nihility-accent-2);
   border-radius: 10px;
   box-shadow: 0 0 0 4px rgba(192, 132, 252, 0.08), 0 10px 20px -6px rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+  transition: filter 0.15s ease;
 }
+.nihility-sheet .profile-img:hover { filter: brightness(1.15); }
 
 .nihility-sheet .header-fields {
   flex: 1;
@@ -206,6 +222,9 @@
 
 .nihility-sheet .sheet-body {
   padding: 10px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .nihility-sheet fieldset.skill-tier-group {
@@ -441,6 +460,7 @@
 .nihility-voice-of-the-world.kind-fusion { border-color: var(--nihility-accent-2); }
 .nihility-voice-of-the-world.kind-level-up { border-color: var(--nihility-gold); }
 .nihility-voice-of-the-world.kind-new-skill { border-color: var(--nihility-accent); }
+.nihility-voice-of-the-world.kind-skill-evolution { border-color: var(--nihility-accent-2); }
 
 .nihility-voice-of-the-world .votw-footer {
   margin-top: 6px;
@@ -1279,6 +1299,7 @@ form.nihility-config-app {
 .skill-summary-mechanic,
 .skill-summary-resist { font-size: 0.78rem; color: var(--nihility-text-dim); margin: 0; }
 .skill-summary-resist { color: var(--nihility-gold); }
+.skill-summary-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .skill-edit-button {
   align-self: flex-start;
   display: flex;
@@ -1295,6 +1316,22 @@ form.nihility-config-app {
   cursor: pointer;
 }
 .skill-edit-button:hover { filter: brightness(1.08); }
+.skill-evolve-button {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--nihility-font);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--nihility-accent-2);
+  background: transparent;
+  border: 1px solid rgba(192, 132, 252, 0.4);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.skill-evolve-button:hover { background: rgba(192, 132, 252, 0.1); }
 
 .nihility-sheet .effect-add,
 .nihility-sheet .sub-skill-add,
@@ -1390,6 +1427,70 @@ form.nihility-config-app {
 }
 .skill-editor-form .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .skill-editor-form hr { border: none; border-top: 1px solid var(--nihility-border-soft); margin: 2px 0; }
+.skill-editor-form .se-range-section { flex-direction: column; gap: 8px; }
+.skill-editor-form prose-mirror { min-height: 110px; display: block; }
+
+/* Sub-Skills (só existem em Skill Fundida), Linhagem de Fusão e "Evoluiu de" — sempre
+   só-leitura, compartilhado entre o modal de Skill e (se algum dia precisar) a ficha. */
+.evolved-lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--nihility-font-data);
+  font-size: 0.7rem;
+  color: var(--nihility-accent-2);
+  background: rgba(192, 132, 252, 0.1);
+  border: 1px solid rgba(192, 132, 252, 0.3);
+  border-radius: 999px;
+  padding: 4px 10px;
+  width: fit-content;
+}
+.fusion-lineage {
+  padding: 8px 10px;
+  border-radius: 7px;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border-soft);
+}
+.subskill-mini-list { display: flex; flex-direction: column; gap: 6px; }
+.subskill-mini-item {
+  border-radius: 7px;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border-soft);
+  overflow: hidden;
+}
+.subskill-mini-row { display: flex; align-items: center; gap: 9px; padding: 7px 9px; font-size: 0.82rem; cursor: pointer; }
+.subskill-mini-row:hover { background: rgba(110, 231, 255, 0.05); }
+.subskill-tier-chip {
+  font-family: var(--nihility-font-data);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text-dim);
+  flex-shrink: 0;
+}
+.subskill-tier-chip.tier-extra { color: var(--nihility-accent); border-color: rgba(110, 231, 255, 0.3); }
+.subskill-tier-chip.tier-normal { color: var(--nihility-text-dim); }
+.subskill-tier-chip.tier-unique { color: var(--nihility-accent-2); border-color: rgba(192, 132, 252, 0.3); }
+.subskill-tier-chip.tier-ultimate { color: var(--nihility-hp); border-color: rgba(239, 83, 80, 0.3); }
+.subskill-mini-name { font-weight: 600; color: var(--nihility-text); flex-shrink: 0; }
+.subskill-mini-name:hover { text-decoration: underline; text-decoration-color: var(--nihility-accent); }
+.subskill-mini-mechanic { color: var(--nihility-text-faint); font-size: 0.76rem; }
+.subskill-chevron { margin-left: auto; color: var(--nihility-text-faint); flex-shrink: 0; transition: transform 0.15s ease; }
+.subskill-mini-row.open .subskill-chevron { transform: rotate(180deg); }
+.subskill-mini-desc {
+  display: none;
+  padding: 9px 11px;
+  border-top: 1px solid var(--nihility-border-soft);
+  background: var(--nihility-bg-panel);
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--nihility-text-dim);
+}
+.subskill-mini-desc.open { display: block; }
+.subskill-mini-desc ul { margin: 4px 0 0; padding-left: 18px; }
 .skill-editor-form .sub-list,
 .skill-editor-form .effect-list { list-style: none; margin: 6px 0; padding: 0; }
 .skill-editor-form .effect-row {

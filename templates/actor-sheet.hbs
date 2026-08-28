@@ -1,7 +1,7 @@
 <div class="nihility-sheet actor-sheet">
 
   <header class="sheet-header">
-    <img class="profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}"/>
+    <img class="profile-img" src="{{actor.img}}" data-edit="img" data-action="editImage" title="{{actor.name}}"/>
     <div class="header-fields">
       <input name="name" type="text" value="{{actor.name}}" placeholder="Nome"/>
 
@@ -163,12 +163,15 @@
                   <img src="{{skill.img}}" width="24" height="24"/>
                   <span class="item-name">{{skill.name}}</span>
                   <span class="item-cost">Custo: {{skill.system.cost}}</span>
-                  {{#unless (eq skill.system.effectType "none")}}
-                  <button type="button" class="skill-use-button" data-action="useSkill" title="Usar Habilidade">
-                    {{#if (eq skill.system.effectType "damage")}}🎲 Usar{{else}}✨ Usar{{/if}}
+                  {{#if (or (not (eq skill.system.effectType "none")) skill.system.subSkills.length)}}
+                  <button type="button" class="skill-use-button" data-action="useSkill" title="Usar Habilidade{{#if skill.system.subSkills.length}} (escolhe qual Sub-Skill disparar){{/if}}">
+                    {{#if skill.system.subSkills.length}}🧩 Usar{{else if (eq skill.system.effectType "damage")}}🎲 Usar{{else}}✨ Usar{{/if}}
                   </button>
-                  {{/unless}}
+                  {{/if}}
                   <a class="item-edit" data-action="editItem" title="Editar"><i class="fas fa-edit"></i></a>
+                  {{#unless skill.system.isItemGranted}}
+                  <a class="item-evolve" data-action="evolveSkill" data-item-id="{{skill.id}}" title="Evoluir (vira uma Skill nova, mantém só o registro histórico)"><i class="fas fa-arrow-up"></i></a>
+                  {{/unless}}
                   <a class="item-delete" data-action="deleteItem" title="Excluir"><i class="fas fa-trash"></i></a>
                 </li>
                 {{/each}}

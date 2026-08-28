@@ -1,12 +1,14 @@
 <div class="nihility-sheet item-sheet type-{{itemType}}">
 
   <header class="sheet-header">
-    <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}"/>
+    <img class="profile-img" src="{{item.img}}" data-edit="img" data-action="editImage" title="{{item.name}}"/>
     <input name="name" type="text" value="{{item.name}}" placeholder="Nome"/>
   </header>
 
   <nav class="sheet-tabs tabs">
+    {{#unless (eq itemType "skill")}}
     <a class="item {{#if (eq activeTab "description")}}active{{/if}}" data-action="selectTab" data-tab="description">Descrição</a>
+    {{/unless}}
     <a class="item {{#if (eq activeTab "details")}}active{{/if}}" data-action="selectTab" data-tab="details">Detalhes</a>
   </nav>
 
@@ -32,7 +34,18 @@
         {{#if isResistanceSkill}}
         <p class="skill-summary-resist">{{skillResistanceSummary}}</p>
         {{/if}}
-        <button type="button" class="skill-edit-button" data-action="openSkillEditor"><i class="fas fa-edit"></i> Editar Skill</button>
+        {{#if system.subSkills.length}}
+        <p class="skill-summary-resist">Fusão: {{system.subSkills.length}} componente(s) — ver Sub-Skills em "Editar Skill"</p>
+        {{/if}}
+        {{#if system.evolvedFrom}}
+        <p class="skill-summary-resist">Evoluiu de: {{system.evolvedFrom}}</p>
+        {{/if}}
+        <div class="skill-summary-actions">
+          <button type="button" class="skill-edit-button" data-action="openSkillEditor"><i class="fas fa-edit"></i> Editar Skill</button>
+          {{#if item.parent}}
+          <button type="button" class="skill-evolve-button" data-action="evolveSkill" title="Vira uma Skill nova, mantém só o registro histórico"><i class="fas fa-level-up-alt"></i> Evoluir</button>
+          {{/if}}
+        </div>
       </div>
       {{#unless (eq system.tier "ultimate")}}
       <p class="hint-inline">"Ultimate" só aparece pro jogador se o Ator já possuir uma Skill Ultimate — o Mestre sempre vê essa opção.</p>

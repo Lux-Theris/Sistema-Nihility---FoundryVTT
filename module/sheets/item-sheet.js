@@ -1,5 +1,5 @@
 import { SYSTEM_ID, MEU_SISTEMA, getActiveDamageElements } from "../config.js";
-import { createGrantedSkill, removeGrantedSkill, announceVoiceOfTheWorld } from "../ai-helper.js";
+import { createGrantedSkill, removeGrantedSkill, announceVoiceOfTheWorld, evolveSkill } from "../ai-helper.js";
 import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../skill-effects.js";
 import { openSkillEditorDialog } from "../apps/skill-editor-dialog.js";
 
@@ -30,6 +30,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       addSubSkill: NihilityItemSheet.#onSubSkillAdd,
       deleteSubSkill: NihilityItemSheet.#onSubSkillDelete,
       openSkillEditor: NihilityItemSheet.#onOpenSkillEditor,
+      evolveSkill: NihilityItemSheet.#onEvolveSkill,
       addInstalledMod: NihilityItemSheet.#onInstalledModAdd,
       deleteInstalledMod: NihilityItemSheet.#onInstalledModDelete,
       toggleModGrant: NihilityItemSheet.#onModGrantToggle,
@@ -42,12 +43,13 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       selectTab: NihilityItemSheet.#onSelectTab,
       levelUpSkill: NihilityItemSheet.#onLevelUpSkill,
       addTitleResistance: NihilityItemSheet.#onTitleResistanceAdd,
-      deleteTitleResistance: NihilityItemSheet.#onTitleResistanceDelete
+      deleteTitleResistance: NihilityItemSheet.#onTitleResistanceDelete,
+      editImage: NihilityItemSheet.#onEditImage
     }
   };
 
   static PARTS = {
-    body: { template: `systems/${SYSTEM_ID}/templates/item-sheet.hbs` }
+    body: { template: `systems/${SYSTEM_ID}/templates/item-sheet.hbs`, scrollable: [".sheet-body"] }
   };
 
   constructor(options = {}) {
@@ -55,13 +57,37 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     // ApplicationV2 não herda o mixin de abas do AppV1 — mesmo padrão manual já usado em
     // NihilityMenuApp (activeTab + ação "selectTab"), em vez de depender da config de
     // tabs nova (ainda não validada neste sistema).
-    this.activeTab = "description";
+    // Skill não tem a aba "Descrição" (esse campo agora só é editado dentro do modal
+    // "Editar Skill", num <prose-mirror> — ter os dois ao mesmo tempo seria uma segunda
+    // fonte de verdade pro mesmo campo).
+    this.activeTab = this.item?.type === "skill" ? "details" : "description";
+  }
+
+  /**
+   * @override
+   * Sem isso o título da janela cai no formato padrão do Foundry ("TYPES.Item.skill: nome"),
+   * que mostra a chave de tradução crua quando ninguém registrou esse label em lang/*.json.
+   */
+  get title() {
+    return this.item.name;
   }
 
   static #onSelectTab(event, target) {
     event.preventDefault();
     this.activeTab = target.dataset.tab;
     this.render();
+  }
+
+  /** Clique no retrato abre o FilePicker de imagem — precisa de action explícita no ApplicationV2. */
+  static async #onEditImage(event, target) {
+    const field = target.dataset.edit || "img";
+    const current = foundry.utils.getProperty(this.item, field);
+    const fp = new FilePicker({
+      type: "image",
+      current,
+      callback: path => this.item.update({ [field]: path })
+    });
+    fp.render(true);
   }
 
   /** @override */
@@ -144,9 +170,9 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
    * Abre o editor único de Skill (mesmo modal usado pra Skills Raciais e "+ Nova Habilidade
    * (direto)") pré-preenchido com os dados atuais do Item, e aplica o resultado de volta nele.
    * Tier trava em "Racial" se já for Racial (nunca escolhido à mão); Nível trava pro jogador
-   * (só o Mestre sobe nível — mesma regra do botão de Level Up, que continua fora do modal);
-   * Descrição fica de fora — quem edita isso é a aba "Descrição" (editor rico em HTML), não o
-   * textarea simples do modal, pra nunca sobrescrever formatação por engano.
+   * (só o Mestre sobe nível — mesma regra do botão de Level Up, que continua fora do modal).
+   * Sub-Skills/Linhagem de Fusão/"Evoluiu de" vão junto só pra exibição (o modal nunca deixa
+   * editá-los) — por isso não entram nem são lidos de volta em `updates`.
    */
   static async #onOpenSkillEditor(event, target) {
     event.preventDefault();
@@ -163,30 +189,66 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         tier: sys.tier,
         level: sys.level,
         cost: sys.cost,
+        description: sys.description,
         resistanceTarget: sys.resistanceTarget,
         effectType: sys.effectType,
         damageFormula: sys.damageFormula,
         isMagicDamage: sys.isMagicDamage,
         damageElements: sys.damageElements,
-        effects: sys.effects
+        effects: sys.effects,
+        targetType: sys.targetType,
+        areaShape: sys.areaShape,
+        areaDistance: sys.areaDistance,
+        areaAngle: sys.areaAngle,
+        subSkills: sys.subSkills,
+        fusionSources: sys.fusionSources,
+        evolvedFrom: sys.evolvedFrom
       },
-      { lockTier: isRacial ? "racial" : null, tierChoices, hideDescription: true, levelReadonly: !game.user.isGM }
+      { lockTier: isRacial ? "racial" : null, tierChoices, levelReadonly: !game.user.isGM }
     );
     if (!result) return;
 
     const updates = {
       name: result.name,
       "system.cost": result.cost,
+      "system.description": result.description,
       "system.resistanceTarget": result.resistanceTarget,
       "system.effectType": result.effectType,
       "system.damageFormula": result.damageFormula,
       "system.isMagicDamage": result.isMagicDamage,
       "system.damageElements": result.damageElements,
-      "system.effects": result.effects
+      "system.effects": result.effects,
+      "system.targetType": result.targetType,
+      "system.areaShape": result.areaShape,
+      "system.areaDistance": result.areaDistance,
+      "system.areaAngle": result.areaAngle
     };
     if (!isRacial) updates["system.tier"] = result.tier;
     if (game.user.isGM) updates["system.level"] = result.level;
     await this.item.update(updates);
+  }
+
+  /**
+   * Evolução: 1 Skill vira uma Skill NOVA e diferente (não uma fusão — nada de Sub-Skills
+   * aqui), só ficando o registro histórico "Evoluiu de: X". A Skill antiga é preservada no
+   * Compêndio e removida do Ator, igual `fuseSkills` já faz — ver `evolveSkill` em ai-helper.js.
+   */
+  static async #onEvolveSkill(event, target) {
+    event.preventDefault();
+    const actor = this.item.parent;
+    if (!actor) {
+      ui.notifications?.warn("Só é possível Evoluir uma Skill que já está numa ficha de Ator.");
+      return;
+    }
+
+    const hasUltimate = actor.system?.hasUltimateSkill;
+    const ultimateVisible = hasUltimate || game.user.isGM;
+    const tierChoices = MEU_SISTEMA.SKILL_TIERS.filter(t => t !== "racial" && (t !== "ultimate" || ultimateVisible));
+
+    const data = await openSkillEditorDialog({}, { tierChoices, levelReadonly: !game.user.isGM });
+    if (!data) return;
+
+    await evolveSkill(actor, this.item.id, data);
   }
 
   /* -------------------------------------------- */

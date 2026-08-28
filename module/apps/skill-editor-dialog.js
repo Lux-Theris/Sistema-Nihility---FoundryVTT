@@ -25,8 +25,23 @@ function buildEffectRowHtml(entry) {
   `;
 }
 
+/** Resumo de uma linha de mecânica (Sub-Skill ou Skill inteira) pra mostrar na lista só-leitura. */
+function mechanicSummaryFor(mech) {
+  if (mech.effectType === "damage") {
+    const elLabels = (mech.damageElements ?? [])
+      .map(id => getActiveDamageElements().find(el => el.id === id)?.label)
+      .filter(Boolean);
+    return `Dano: ${mech.damageFormula || "(sem fórmula)"}${mech.isMagicDamage ? " · Mágico" : ""}${elLabels.length ? ` · ${elLabels.join("+")}` : ""}`;
+  }
+  if (mech.effectType === "temporary") {
+    const count = (mech.effects ?? []).length;
+    return `Efeito Temporário: ${count} efeito${count === 1 ? "" : "s"}`;
+  }
+  return "Descritiva (sem mecânica)";
+}
+
 /**
- * Editor ÚNICO de Skill (Nome/Tier/Nível/Custo/Descrição/Resistência/Mecânica ao Usar),
+ * Editor ÚNICO de Skill (Nome/Tier/Nível/Custo/Descrição/Resistência/Mecânica ao Usar/Alcance),
  * reaproveitado em todo lugar onde uma Skill precisa ser criada ou ter sua mecânica editada,
  * fora da manual/automática por IA:
  *  - Skills Raciais de um Preset de Espécie (species-config.js) — dados "soltos", sem Item.
@@ -34,28 +49,26 @@ function buildEffectRowHtml(entry) {
  *    criar o Item, em vez de nascer em branco e forçar preencher campo a campo na ficha.
  *  - Botão "Editar Skill" na aba Detalhes da ficha de Item (item-sheet.js) — mesmo editor,
  *    populado com os dados atuais, grava de volta com `item.update()`.
- * Não inclui Sub-Skills nem linhagem de fusão (não fazem sentido fora de um Item de verdade)
- * nem a Descrição rica em HTML de uma Skill já existente (isso mora na aba própria da ficha,
- * ver `hideDescription`). Os painéis de Dano/Efeito Temporário/Resistência só aparecem quando
- * escolhidos, e trocar de opção antes de Salvar apaga de verdade os dados do modo anterior
- * (nunca fica "fantasma" no documento salvo).
+ * Sub-Skills, Linhagem de Fusão e "Evoluiu de" são sempre só-leitura aqui (nunca digitados à
+ * mão): só existem quando `initialData` já os traz — vêm de uma Fusão/Evolução de verdade
+ * (ai-helper.js), não de algo definido neste modal. Os painéis de Dano/Efeito Temporário/
+ * Resistência/Alcance só aparecem quando escolhidos, e trocar de opção antes de Salvar apaga
+ * de verdade os dados do modo anterior (nunca fica "fantasma" no documento salvo).
  *
  * @param {object} [initialData] - dados atuais (name, level, cost, description, effectType,
- *   damageFormula, isMagicDamage, damageElements, effects, resistanceTarget)
+ *   damageFormula, isMagicDamage, damageElements, effects, resistanceTarget, targetType,
+ *   areaShape, areaDistance, areaAngle, subSkills?, fusionSources?, evolvedFrom?)
  * @param {object} [options]
  * @param {string} [options.lockTier] - se informado, esconde o seletor de Tier e sempre usa
  *   esse valor (ex: "racial", já que Skills Raciais nunca têm outro tier).
  * @param {string[]} [options.tierChoices] - lista de Tiers selecionáveis quando `lockTier` não
  *   é usado (default: todo SKILL_TIERS exceto "racial" — Racial só entra via `lockTier`).
- * @param {boolean} [options.hideDescription] - esconde o campo Descrição (usado ao editar uma
- *   Skill que já é um Item de verdade — a Descrição rica em HTML vive na aba própria da ficha,
- *   e reaproveitar o textarea simples daqui por cima dela destruiria a formatação).
  * @param {boolean} [options.levelReadonly] - trava o campo Nível (mesma regra da ficha: só o
  *   Mestre sobe nível à mão — jogador usa o botão de Level Up, GM-only, fora deste modal).
  * @returns {Promise<object|null>} os dados editados, ou null se cancelado
  */
 export async function openSkillEditorDialog(initialData = {}, options = {}) {
-  const { lockTier = null, tierChoices = null, hideDescription = false, levelReadonly = false } = options;
+  const { lockTier = null, tierChoices = null, levelReadonly = false } = options;
   const data = {
     name: initialData.name ?? "",
     tier: initialData.tier ?? lockTier ?? MEU_SISTEMA.SKILL_TIERS[0],
@@ -67,7 +80,14 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     damageFormula: initialData.damageFormula ?? "",
     isMagicDamage: Boolean(initialData.isMagicDamage),
     damageElements: Array.isArray(initialData.damageElements) ? initialData.damageElements : [],
-    effects: Array.isArray(initialData.effects) ? foundry.utils.deepClone(initialData.effects) : []
+    effects: Array.isArray(initialData.effects) ? foundry.utils.deepClone(initialData.effects) : [],
+    targetType: initialData.targetType ?? "targeted",
+    areaShape: initialData.areaShape ?? "",
+    areaDistance: initialData.areaDistance ?? 0,
+    areaAngle: initialData.areaAngle ?? 53,
+    subSkills: Array.isArray(initialData.subSkills) ? initialData.subSkills : [],
+    fusionSources: Array.isArray(initialData.fusionSources) ? initialData.fusionSources : [],
+    evolvedFrom: initialData.evolvedFrom ?? ""
   };
 
   const tierField = lockTier
@@ -78,12 +98,22 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
           .join("")}
       </select></div>`;
 
-  const descriptionField = hideDescription
-    ? ""
-    : `<div class="form-group"><label>Descrição</label><textarea name="description" rows="3">${escapeHtml(data.description)}</textarea></div>`;
+  const evolvedField = data.evolvedFrom
+    ? `<div class="evolved-lock"><i class="fas fa-level-up-alt"></i> Evoluiu de: ${escapeHtml(data.evolvedFrom)}
+        <span class="hint-inline">(só um vínculo histórico — a skill antiga não existe mais, essa aqui foi definida do zero)</span>
+      </div>`
+    : "";
 
   const effectTypeOptions = MEU_SISTEMA.SKILL_EFFECT_TYPES.map(
     t => `<option value="${t}" ${t === data.effectType ? "selected" : ""}>${MEU_SISTEMA.SKILL_EFFECT_TYPE_LABELS[t]}</option>`
+  ).join("");
+
+  const targetTypeOptions = MEU_SISTEMA.SKILL_TARGET_TYPES.map(
+    t => `<option value="${t}" ${t === data.targetType ? "selected" : ""}>${MEU_SISTEMA.SKILL_TARGET_TYPE_LABELS[t]}</option>`
+  ).join("");
+
+  const areaShapeOptions = MEU_SISTEMA.SKILL_AREA_SHAPES.map(
+    s => `<option value="${s}" ${s === data.areaShape ? "selected" : ""}>${MEU_SISTEMA.SKILL_AREA_SHAPE_LABELS[s]}</option>`
   ).join("");
 
   const elementChips = getActiveDamageElements()
@@ -105,15 +135,51 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     )
     .join("");
 
+  const subSkillsField = data.subSkills.length
+    ? `<div class="form-group sub-skills-block">
+        <label>Sub-Skills <span class="hint-inline" style="display:inline;">(componentes desta Fusão — cada um com o efeito que ele mesmo tinha; clique pra ver a Descrição original)</span></label>
+        <div class="subskill-mini-list">
+          ${data.subSkills
+            .map(
+              (sub, i) => `
+            <div class="subskill-mini-item">
+              <div class="subskill-mini-row" data-i="${i}">
+                <span class="subskill-tier-chip tier-${sub.tier}">${MEU_SISTEMA.SKILL_TIER_LABELS[sub.tier] ?? sub.tier}</span>
+                <span class="subskill-mini-name">${escapeHtml(sub.name)}</span>
+                <span class="subskill-mini-mechanic">${mechanicSummaryFor(sub)}</span>
+                <svg class="subskill-chevron" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 9 6 6 6-6"/></svg>
+              </div>
+              <div class="subskill-mini-desc">${sub.description || "<i>Sem descrição.</i>"}</div>
+            </div>`
+            )
+            .join("")}
+        </div>
+      </div>`
+    : "";
+
+  const fusionLineageField = data.fusionSources.length
+    ? `<div class="form-group fusion-lineage">
+        <label>Linhagem de Fusão <span class="hint-inline" style="display:inline;">(só leitura — quais Skills foram consumidas pra gerar esta)</span></label>
+        <p class="hint-inline" style="margin:0;">${data.fusionSources.map(escapeHtml).join(" · ")}</p>
+      </div>`
+    : "";
+
   const content = `
     <form class="skill-editor-form">
       <div class="form-group"><label>Nome</label><input type="text" name="name" value="${escapeHtml(data.name)}"/></div>
       ${tierField}
+      ${evolvedField}
       <div class="row-2">
         <div class="form-group"><label>Nível</label><input type="number" name="level" value="${data.level}" min="1" ${levelReadonly ? "readonly" : ""}/></div>
         <div class="form-group"><label>Custo</label><input type="number" name="cost" value="${data.cost}" min="0"/></div>
       </div>
-      ${descriptionField}
+      <div class="form-group">
+        <label>Descrição</label>
+        <prose-mirror name="description" value="${escapeHtml(data.description)}"></prose-mirror>
+      </div>
+
+      ${subSkillsField}
+      ${fusionLineageField}
 
       <label class="checkbox-line">
         <input type="checkbox" name="resistEnable" ${data.resistanceTarget ? "checked" : ""}/>
@@ -129,6 +195,17 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
       <hr/>
 
       <div class="form-group"><label>Mecânica ao Usar</label><select name="effectType">${effectTypeOptions}</select></div>
+
+      <div class="se-range-section">
+        <div class="form-group"><label>Tipo de Alvo</label><select name="targetType">${targetTypeOptions}</select></div>
+        <div class="mechanic-panel se-emission-panel">
+          <div class="form-group"><label>Formato de Área</label><select name="areaShape">${areaShapeOptions}</select></div>
+          <div class="row-2">
+            <div class="form-group"><label>Distância <span class="hint-inline" style="display:inline;">(unidades de grid)</span></label><input type="number" name="areaDistance" value="${data.areaDistance}" min="0"/></div>
+            <div class="form-group se-area-angle-field"><label>Ângulo <span class="hint-inline" style="display:inline;">(graus)</span></label><input type="number" name="areaAngle" value="${data.areaAngle}" min="1" max="360"/></div>
+          </div>
+        </div>
+      </div>
 
       <div class="mechanic-panel se-damage-panel">
         <div class="form-group"><label>Fórmula de Dano</label><input type="text" name="damageFormula" value="${escapeHtml(data.damageFormula)}" placeholder="2d6+3"/></div>
@@ -147,7 +224,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
 
   return DialogV2.wait({
     window: { title: initialData.name ? `Editar Skill: ${initialData.name}` : "Nova Skill" },
-    position: { width: 500 },
+    position: { width: 520 },
     content,
     render: (event, dialog) => setupSkillEditorInteractivity(dialog.element, data),
     buttons: [
@@ -163,9 +240,10 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
   });
 }
 
-/** Liga a interatividade do modal: mostrar/esconder painéis, linhas de Efeito, e o resumo de Resistência. */
+/** Liga a interatividade do modal: mostrar/esconder painéis, linhas de Efeito, Sub-Skills expansíveis e o resumo de Resistência. */
 function setupSkillEditorInteractivity(root, data) {
   const mechanicSelect = root.querySelector('[name="effectType"]');
+  const rangeSection = root.querySelector(".se-range-section");
   const damagePanel = root.querySelector(".se-damage-panel");
   const tempPanel = root.querySelector(".se-temp-panel");
   const resistEnable = root.querySelector('[name="resistEnable"]');
@@ -175,11 +253,28 @@ function setupSkillEditorInteractivity(root, data) {
 
   function applyMechanic() {
     const value = mechanicSelect.value;
+    rangeSection.style.display = value === "none" ? "none" : "flex";
     damagePanel.style.display = value === "damage" ? "flex" : "none";
     tempPanel.style.display = value === "temporary" ? "flex" : "none";
   }
   mechanicSelect.addEventListener("change", applyMechanic);
   applyMechanic();
+
+  const targetTypeSelect = root.querySelector('[name="targetType"]');
+  const emissionPanel = root.querySelector(".se-emission-panel");
+  const areaShapeSelect = root.querySelector('[name="areaShape"]');
+  const angleField = root.querySelector(".se-area-angle-field");
+
+  function applyTargetType() {
+    emissionPanel.style.display = targetTypeSelect.value === "emission" ? "flex" : "none";
+  }
+  function applyAreaShape() {
+    angleField.style.display = areaShapeSelect.value === "cone" ? "flex" : "none";
+  }
+  targetTypeSelect.addEventListener("change", applyTargetType);
+  areaShapeSelect.addEventListener("change", applyAreaShape);
+  applyTargetType();
+  applyAreaShape();
 
   function applyResistEnable() {
     resistPanel.style.display = resistEnable.checked ? "flex" : "none";
@@ -213,6 +308,16 @@ function setupSkillEditorInteractivity(root, data) {
     cb.addEventListener("change", () => cb.closest(".element-chip")?.classList.toggle("checked", cb.checked));
   });
 
+  // Sub-Skills: clicar no nome/linha abre a Descrição rica original daquele componente (só leitura).
+  root.querySelectorAll(".subskill-mini-row").forEach(row => {
+    row.addEventListener("click", () => {
+      const desc = row.nextElementSibling;
+      const opening = !desc.classList.contains("open");
+      desc.classList.toggle("open", opening);
+      row.classList.toggle("open", opening);
+    });
+  });
+
   function addEffectRow(entry = { target: MEU_SISTEMA.EFFECT_TARGETS[0], amount: 1, durationRounds: 1 }) {
     const li = document.createElement("li");
     li.className = "effect-row";
@@ -232,23 +337,30 @@ function setupSkillEditorInteractivity(root, data) {
 
 /**
  * Lê o estado atual do formulário — só devolve os campos do modo de Mecânica/Resistência que
- * estão ativos no momento do Salvar. `description` vem `null` quando `hideDescription` escondeu
- * o campo (editando uma Skill que já é Item — quem chama sabe que deve ignorar essa chave).
+ * estão ativos no momento do Salvar. Sub-Skills/Linhagem de Fusão/"Evoluiu de" não estão aqui
+ * porque são só-leitura (o modal nunca os cria/edita — quem chama já os tinha em `initialData`
+ * e não precisa deles de volta).
  */
 function readSkillEditorForm(root, lockTier) {
   const effectType = root.querySelector('[name="effectType"]').value;
   const resistEnabled = root.querySelector('[name="resistEnable"]').checked;
   const resistChecked = root.querySelector('[name="resistTarget"]:checked');
-  const descriptionEl = root.querySelector('[name="description"]');
+  const hasRange = effectType !== "none";
+  const targetType = hasRange ? root.querySelector('[name="targetType"]').value : "targeted";
+  const isEmission = hasRange && targetType === "emission";
 
   return {
     name: root.querySelector('[name="name"]').value.trim() || "Skill Sem Nome",
     tier: lockTier ?? root.querySelector('[name="tier"]').value,
     level: Number(root.querySelector('[name="level"]').value) || 1,
     cost: Number(root.querySelector('[name="cost"]').value) || 0,
-    description: descriptionEl ? descriptionEl.value.trim() : null,
+    description: root.querySelector('prose-mirror[name="description"]').value,
     resistanceTarget: resistEnabled ? resistChecked?.value ?? "general" : "",
     effectType,
+    targetType,
+    areaShape: isEmission ? root.querySelector('[name="areaShape"]').value : "",
+    areaDistance: isEmission ? Number(root.querySelector('[name="areaDistance"]').value) || 0 : 0,
+    areaAngle: isEmission ? Number(root.querySelector('[name="areaAngle"]').value) || 53 : 53,
     damageFormula: effectType === "damage" ? root.querySelector('[name="damageFormula"]').value.trim() : "",
     isMagicDamage: effectType === "damage" && root.querySelector('[name="isMagicDamage"]').checked,
     damageElements:

@@ -10,6 +10,7 @@ import {
 } from "../config.js";
 import {
   fuseSkills,
+  evolveSkill,
   registerItemInCompendium,
   breakSkillPoints,
   mergeSkillPoints,
@@ -76,6 +77,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       deleteItem: NihilityActorSheet.#onItemDelete,
       fuseSkills: NihilityActorSheet.#onFuseSkills,
       useSkill: NihilityActorSheet.#onUseSkill,
+      evolveSkill: NihilityActorSheet.#onEvolveSkill,
       requestSkillCreation: NihilityActorSheet.#onRequestSkillCreation,
       rollAttribute: NihilityActorSheet.#onRollAttribute,
       breakSkillPoints: NihilityActorSheet.#onBreakSkillPoints,
@@ -85,12 +87,13 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       levelUpActor: NihilityActorSheet.#onLevelUpActor,
       toggleVitalAdjust: NihilityActorSheet.#onToggleVitalAdjust,
       adjustVital: NihilityActorSheet.#onAdjustVital,
-      restActor: NihilityActorSheet.#onRest
+      restActor: NihilityActorSheet.#onRest,
+      editImage: NihilityActorSheet.#onEditImage
     }
   };
 
   static PARTS = {
-    body: { template: `systems/${SYSTEM_ID}/templates/actor-sheet.hbs` }
+    body: { template: `systems/${SYSTEM_ID}/templates/actor-sheet.hbs`, scrollable: [".sheet-body"] }
   };
 
   constructor(options = {}) {
@@ -98,6 +101,31 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     // ApplicationV2 não herda o mixin de abas do AppV1 — mesmo padrão manual usado nas
     // outras Sheets/Apps já migradas (activeTab + ação "selectTab").
     this.activeTab = "ficha";
+  }
+
+  /**
+   * @override
+   * Sem isso o título da janela cai no formato padrão do Foundry ("TYPES.Actor.character:
+   * nome"), que mostra a chave de tradução crua quando ninguém registrou esse label em
+   * lang/*.json — o nome sozinho já é suficiente, igual o resto das fichas deste sistema.
+   */
+  get title() {
+    return this.actor.name;
+  }
+
+  /**
+   * Clique no retrato abre o FilePicker de imagem — no ApplicationV2 isso não é mais
+   * automático só por causa do atributo `data-edit`; precisa de uma action de verdade.
+   */
+  static async #onEditImage(event, target) {
+    const field = target.dataset.edit || "img";
+    const current = foundry.utils.getProperty(this.actor, field);
+    const fp = new FilePicker({
+      type: "image",
+      current,
+      callback: path => this.actor.update({ [field]: path })
+    });
+    fp.render(true);
   }
 
   /** @override */
@@ -233,7 +261,11 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         isMagicDamage: Boolean(s.isMagicDamage),
         damageElements: Array.isArray(s.damageElements) ? s.damageElements : [],
         effects: Array.isArray(s.effects) ? s.effects : [],
-        resistanceTarget: s.resistanceTarget || ""
+        resistanceTarget: s.resistanceTarget || "",
+        targetType: s.targetType === "emission" ? "emission" : "targeted",
+        areaShape: s.areaShape || "",
+        areaDistance: Number(s.areaDistance) || 0,
+        areaAngle: Number(s.areaAngle) || 53
       }
     }));
     if (newSkillsData.length) {
@@ -484,7 +516,11 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             damageFormula: data.damageFormula,
             isMagicDamage: data.isMagicDamage,
             damageElements: data.damageElements,
-            effects: data.effects
+            effects: data.effects,
+            targetType: data.targetType,
+            areaShape: data.areaShape,
+            areaDistance: data.areaDistance,
+            areaAngle: data.areaAngle
           }
         }
       ]);
@@ -514,6 +550,29 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     await this.actor.deleteEmbeddedDocuments("Item", [itemId]);
   }
 
+  /**
+   * Evolução: 1 Skill vira uma Skill NOVA e diferente (definida do zero no editor único) — só
+   * fica o registro histórico "Evoluiu de: X". Diferente de Fundir Selecionadas (2+ fontes),
+   * essa ação parte de uma única linha da lista.
+   */
+  static async #onEvolveSkill(event, target) {
+    event.preventDefault();
+    const itemId = target.closest(".item-row").dataset.itemId;
+
+    const hasUltimate = this.actor.system.hasUltimateSkill;
+    const ultimateVisible = hasUltimate || game.user.isGM;
+    const tierChoices = MEU_SISTEMA.SKILL_TIERS.filter(t => t !== "racial" && (t !== "ultimate" || ultimateVisible));
+
+    const data = await openSkillEditorDialog({}, { tierChoices, levelReadonly: !game.user.isGM });
+    if (!data) return;
+
+    try {
+      await evolveSkill(this.actor, itemId, data);
+    } catch (err) {
+      console.error(`${SYSTEM_ID} | Falha ao Evoluir habilidade.`, err);
+    }
+  }
+
   /* -------------------------------------------- */
   /*  Usar Habilidade (dano / efeito temporário)   */
   /* -------------------------------------------- */
@@ -524,10 +583,20 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     const skill = this.actor.items.get(itemId);
     if (!skill) return;
 
-    const usesMechanic = skill.system.effectType === "temporary" || skill.system.effectType === "damage";
+    const subSkills = skill.system.subSkills ?? [];
+    let subSkillIndex = null;
+    let mech = skill.system;
+
+    if (subSkills.length) {
+      subSkillIndex = await this._promptSubSkillChoice(skill, subSkills);
+      if (subSkillIndex === null) return; // cancelou o picker
+      mech = subSkills[subSkillIndex];
+    }
+
+    const usesMechanic = mech.effectType === "temporary" || mech.effectType === "damage";
     if (!usesMechanic) {
       try {
-        await useSkillEffect(this.actor, itemId, {});
+        await useSkillEffect(this.actor, itemId, { subSkillIndex });
       } catch (err) {
         console.error(`${SYSTEM_ID} | Falha ao usar habilidade.`, err);
       }
@@ -535,26 +604,48 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     }
 
     try {
-      if (skill.system.targetType === "emission") {
+      if (mech.targetType === "emission") {
         // Sem alvo manual — o usuário posiciona a forma no canvas e a Skill afeta quem
         // estiver dentro dela, sem etapa de revisão (decisão explícita: aplica direto).
         if (!areaEffectsSupported()) {
           ui.notifications.warn("Skills de Emissão precisam de Foundry V14 (Scene Regions).");
           return;
         }
-        const targetActors = await pickAreaTargets(skill);
-        await useSkillEffect(this.actor, itemId, { targetActors });
+        const targetActors = await pickAreaTargets({ system: mech });
+        await useSkillEffect(this.actor, itemId, { targetActors, subSkillIndex });
       } else {
         // Todo dano pode ser reduzido (Defesa Mágica, e/ou Resistência Geral/Elemental do
         // alvo — inclusive dano puramente físico, se o alvo tiver Resistência Física) — então
         // "damage" sempre pede alvo, igual "temporary" (buff/debuff) já pedia.
         const targetActor = await this._promptSkillTarget();
         if (!targetActor) return;
-        await useSkillEffect(this.actor, itemId, { targetActor });
+        await useSkillEffect(this.actor, itemId, { targetActor, subSkillIndex });
       }
     } catch (err) {
       console.error(`${SYSTEM_ID} | Falha ao usar habilidade.`, err);
     }
+  }
+
+  /**
+   * Skill Fundida: deixa escolher QUAL componente disparar (cada um com seu próprio efeito) —
+   * igual as Skills Únicas do Tensura, várias sub-habilidades nomeadas dentro de uma só Skill
+   * "guarda-chuva". Devolve o índice escolhido em `subSkills`, ou `null` se cancelado.
+   */
+  async _promptSubSkillChoice(skill, subSkills) {
+    const options = subSkills
+      .map((sub, i) => `<option value="${i}">${sub.name} — ${sub.effectType === "damage" ? "Dano" : sub.effectType === "temporary" ? "Efeito Temporário" : "Descritiva"}</option>`)
+      .join("");
+
+    const index = await promptDialog({
+      title: `Usar ${skill.name}`,
+      confirmLabel: "Usar",
+      content: `
+        <form>
+          <div class="form-group"><label>Qual componente disparar?</label><select name="subSkillIndex">${options}</select></div>
+        </form>`,
+      onConfirm: form => Number(form.querySelector("[name=subSkillIndex]").value)
+    });
+    return index === undefined || index === null ? null : index;
   }
 
   /** Escolhe o alvo de um Efeito Temporário (buff/debuff/escudo) ou de dano mágico — padrão: o próprio dono. */

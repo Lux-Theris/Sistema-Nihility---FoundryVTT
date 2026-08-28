@@ -1,4 +1,13 @@
 {
+  "TYPES.Actor.character": "Personagem",
+  "TYPES.Actor.starship": "Nave",
+  "TYPES.Actor.vehicle": "Veículo",
+  "TYPES.Item.skill": "Habilidade",
+  "TYPES.Item.body_part": "Parte do Corpo",
+  "TYPES.Item.title": "Título",
+  "TYPES.Item.starship_module": "Módulo de Nave",
+  "TYPES.Item.item": "Item",
+
   "NIHILITY.SheetTab.Main": "Principal",
   "NIHILITY.SheetTab.Skills": "Habilidades",
   "NIHILITY.SheetTab.Anatomy": "Anatomia",

@@ -134,6 +134,42 @@ async function findExistingFusion(pack, signature) {
   return null;
 }
 
+/**
+ * Constrói a lista de Sub-Skills de uma nova Skill Fundida a partir das fontes consumidas —
+ * sempre achatada (nunca aninhada): se uma fonte já era ela mesma uma Fusão (tinha suas
+ * próprias Sub-Skills), entram só OS COMPONENTES DELA, não a fonte em si; senão, a própria
+ * fonte vira um snapshot congelado do estado mecânico dela nesse momento (ver `subSkillSchema`
+ * em data/item-models.js — mesmos campos, editar aqui depois não muda a Skill original).
+ * @param {Item[]} sources
+ * @returns {object[]}
+ */
+function buildSubSkillsFromSources(sources) {
+  return sources.flatMap(source => {
+    if ((source.system.subSkills ?? []).length) {
+      return source.system.subSkills.map(sub => foundry.utils.deepClone(sub));
+    }
+    return [
+      {
+        name: source.name,
+        tier: source.system.tier,
+        level: source.system.level,
+        cost: source.system.cost,
+        description: source.system.description,
+        resistanceTarget: source.system.resistanceTarget,
+        effectType: source.system.effectType,
+        damageFormula: source.system.damageFormula,
+        isMagicDamage: source.system.isMagicDamage,
+        damageElements: foundry.utils.deepClone(source.system.damageElements ?? []),
+        effects: foundry.utils.deepClone(source.system.effects ?? []),
+        targetType: source.system.targetType,
+        areaShape: source.system.areaShape,
+        areaDistance: source.system.areaDistance,
+        areaAngle: source.system.areaAngle
+      }
+    ];
+  });
+}
+
 function buildGenericFusionData(sources, tier) {
   return {
     name: `Fusão: ${sources.map(s => s.name).join(" + ")}`,
@@ -143,7 +179,7 @@ function buildGenericFusionData(sources, tier) {
       level: Math.max(1, ...sources.map(s => s.system.level ?? 1)),
       cost: sources.reduce((sum, s) => sum + (s.system.cost ?? 0), 0),
       description: `<p>Habilidade resultante da fusão de: ${sources.map(s => s.name).join(", ")}.</p>`,
-      subSkills: sources.flatMap(s => s.system.subSkills ?? []),
+      subSkills: buildSubSkillsFromSources(sources),
       fusionSources: sources.map(s => s.name),
       isFused: true
     }
@@ -160,7 +196,7 @@ function buildManualSpecialSkillData(sources, tier, manualData) {
       level: 1,
       cost: sources.reduce((sum, s) => sum + (s.system.cost ?? 0), 0),
       description: manualData?.effect ? `<p>${manualData.effect}</p>` : "",
-      subSkills: [],
+      subSkills: buildSubSkillsFromSources(sources),
       fusionSources: sources.map(s => s.name),
       emotionTrigger: manualData?.emotion ?? "",
       isFused: true
@@ -271,6 +307,67 @@ export async function fuseSkills(actor, sourceItemIds, options = {}) {
 }
 
 /* -------------------------------------------- */
+/*  Evolução de Skill                            */
+/* -------------------------------------------- */
+
+/**
+ * Evolução: 1 Skill vira uma Skill NOVA e diferente (definida do zero no editor único), sem
+ * virar sub-componente de nada — diferente de Fusão (2+ fontes viram Sub-Skills usáveis dentro
+ * do resultado), aqui a Skill antiga não sobrevive como efeito algum, só fica o registro
+ * histórico `evolvedFrom`. A Skill antiga é preservada no Compêndio antes de ser removida do
+ * Ator, igual `fuseSkills` já faz com as fontes de uma fusão.
+ * @param {Actor} actor
+ * @param {string} sourceItemId - id do Item (type "skill") que está evoluindo
+ * @param {object} newSkillData - dados já coletados via `openSkillEditorDialog`
+ * @returns {Promise<Item>} o Item criado na ficha do Ator
+ */
+export async function evolveSkill(actor, sourceItemId, newSkillData) {
+  const source = actor.items.get(sourceItemId);
+  if (!source) throw new Error("Skill de origem não encontrada.");
+  if (source.system.isItemGranted) {
+    ui.notifications?.error(`"${source.name}" foi concedida por um item/módulo e não pode Evoluir.`);
+    throw new Error("Regra violada: skill concedida por item não pode Evoluir.");
+  }
+
+  await ensureSystemCompendiums();
+  await registerItemInCompendium(source.toObject());
+
+  const evolvedItemData = {
+    name: newSkillData.name,
+    type: "skill",
+    system: {
+      tier: newSkillData.tier,
+      level: newSkillData.level,
+      cost: newSkillData.cost,
+      description: newSkillData.description,
+      resistanceTarget: newSkillData.resistanceTarget,
+      effectType: newSkillData.effectType,
+      damageFormula: newSkillData.damageFormula,
+      isMagicDamage: newSkillData.isMagicDamage,
+      damageElements: newSkillData.damageElements,
+      effects: newSkillData.effects,
+      targetType: newSkillData.targetType,
+      areaShape: newSkillData.areaShape,
+      areaDistance: newSkillData.areaDistance,
+      areaAngle: newSkillData.areaAngle,
+      evolvedFrom: source.name
+    }
+  };
+
+  await actor.deleteEmbeddedDocuments("Item", [source.id]);
+  const [createdOnActor] = await actor.createEmbeddedDocuments("Item", [evolvedItemData]);
+  await registerItemInCompendium(createdOnActor.toObject());
+
+  await announceVoiceOfTheWorld(actor, {
+    kind: "skill-evolution",
+    title: `Evolução de Habilidade: ${createdOnActor.name}`,
+    body: `${source.name} evoluiu para ${createdOnActor.name}.`
+  });
+
+  return createdOnActor;
+}
+
+/* -------------------------------------------- */
 /*  Núcleo genérico de geração via IA            */
 /* -------------------------------------------- */
 
@@ -333,14 +430,14 @@ export async function generateFreeform(prompt) {
 const UNIQUE_SKILL_SYSTEM_PROMPT =
   "Você é o motor de regras de um RPG de Foundry VTT. Responda SEMPRE com um único objeto JSON " +
   'estrito, sem markdown e sem texto fora do JSON, no formato: {"name": string, ' +
-  '"description": string (HTML curto), "emotionTrigger": string, ' +
-  '"subSkills": [{"name": string, "description": string}]}.';
+  '"description": string (HTML curto), "emotionTrigger": string}. Não invente Sub-Skills — ' +
+  "elas são preenchidas automaticamente a partir das Skills consumidas na fusão, não pela IA.";
 
 const STANDALONE_SKILL_SYSTEM_PROMPT =
   "Você é o motor de regras de um RPG de Foundry VTT. Responda SEMPRE com um único objeto JSON " +
   'estrito, sem markdown, no formato: {"name": string, "tier": "extra"|"normal", ' +
-  '"level": number, "cost": number, "description": string (HTML curto), ' +
-  '"subSkills": [{"name": string, "description": string}]}.';
+  '"level": number, "cost": number, "description": string (HTML curto)}. Essa Skill nunca tem ' +
+  "Sub-Skills — elas só existem em Skills Fundidas.";
 
 function buildUniqueSkillPrompt({ consumedNames, emotionPrompt, personality }) {
   return [
@@ -360,9 +457,7 @@ function normalizeAISkillData(parsed, sources, tier = "unique") {
       level: 1,
       cost: sources.reduce((sum, s) => sum + (s.system?.cost ?? 0), 0),
       description: parsed?.description || "",
-      subSkills: Array.isArray(parsed?.subSkills)
-        ? parsed.subSkills.map(s => ({ name: s?.name ?? "", description: s?.description ?? "" }))
-        : [],
+      subSkills: buildSubSkillsFromSources(sources),
       fusionSources: sources.map(s => s.name),
       emotionTrigger: parsed?.emotionTrigger || "",
       isFused: sources.length > 0
@@ -400,10 +495,6 @@ export async function generateSkillFromAI(prompt) {
       level: Number(parsed?.level) || 1,
       cost: Number(parsed?.cost) || 0,
       description: parsed?.description || "",
-      subSkills: Array.isArray(parsed?.subSkills)
-        ? parsed.subSkills.map(s => ({ name: s?.name ?? "", description: s?.description ?? "" }))
-        : [],
-      fusionSources: [],
       isFused: false
     }
   };
@@ -1053,6 +1144,7 @@ export const AIHelper = {
   createGrantedSkill,
   removeGrantedSkill,
   fuseSkills,
+  evolveSkill,
   requestAISpecialSkill,
   ingestExternalSkillJSON,
   editDocumentWithAI,

@@ -17,10 +17,27 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     this.activeTab = "main";
   }
 
+  /** @override — só o nome, sem o "TYPES.Actor.starship: nome" cru quando falta tradução do label. */
+  get title() {
+    return this.actor.name;
+  }
+
   static onSelectTab(event, target) {
     event.preventDefault();
     this.activeTab = target.dataset.tab;
     this.render();
+  }
+
+  /** Clique no retrato abre o FilePicker de imagem — precisa de action explícita no ApplicationV2. */
+  static async onEditImage(event, target) {
+    const field = target.dataset.edit || "img";
+    const current = foundry.utils.getProperty(this.actor, field);
+    const fp = new FilePicker({
+      type: "image",
+      current,
+      callback: path => this.actor.update({ [field]: path })
+    });
+    fp.render(true);
   }
 }
 
@@ -38,12 +55,13 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
       editItem: NihilityStarshipSheet.#onItemEdit,
       deleteItem: NihilityStarshipSheet.#onItemDelete,
       toggleModulePower: NihilityStarshipSheet.#onToggleModulePower,
-      powerGridTick: NihilityStarshipSheet.#onPowerGridTick
+      powerGridTick: NihilityStarshipSheet.#onPowerGridTick,
+      editImage: TabbedActorSheetV2.onEditImage
     }
   };
 
   static PARTS = {
-    body: { template: `systems/${SYSTEM_ID}/templates/starship-sheet.hbs` }
+    body: { template: `systems/${SYSTEM_ID}/templates/starship-sheet.hbs`, scrollable: [".sheet-body"] }
   };
 
   /** @override */
@@ -131,12 +149,13 @@ export class NihilityVehicleSheet extends TabbedActorSheetV2 {
       selectTab: TabbedActorSheetV2.onSelectTab,
       createItem: NihilityVehicleSheet.#onItemCreate,
       editItem: NihilityVehicleSheet.#onItemEdit,
-      deleteItem: NihilityVehicleSheet.#onItemDelete
+      deleteItem: NihilityVehicleSheet.#onItemDelete,
+      editImage: TabbedActorSheetV2.onEditImage
     }
   };
 
   static PARTS = {
-    body: { template: `systems/${SYSTEM_ID}/templates/starship-sheet.hbs` }
+    body: { template: `systems/${SYSTEM_ID}/templates/starship-sheet.hbs`, scrollable: [".sheet-body"] }
   };
 
   /** @override */

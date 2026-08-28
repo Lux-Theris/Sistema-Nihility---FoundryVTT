@@ -20,6 +20,9 @@ import {
 import { rollAttribute } from "../dice.js";
 import { useSkillEffect } from "../skill-effects.js";
 
+const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
+const { ActorSheetV2 } = foundry.applications.sheets;
+
 const CREATABLE_ITEM_TYPES = ["skill", "body_part", "title", "item"];
 const COMPENDIUM_MANAGED_TYPES = ["skill", "body_part", "title", "starship_module"];
 
@@ -33,26 +36,72 @@ function percentOf(value, max) {
 }
 
 /**
+ * Diálogo simples de confirmar/cancelar com um `<form>` livre no conteúdo — substitui o
+ * padrão `Dialog.wait({buttons:{confirm,cancel}})` do AppV1. `onConfirm(formElement)` lê os
+ * campos via DOM puro (não mais jQuery `.val()`) e devolve o valor que a Promise resolve.
+ */
+async function promptDialog({ title, content, confirmLabel = "Confirmar", onConfirm }) {
+  return DialogV2.wait({
+    window: { title },
+    content,
+    buttons: [
+      {
+        action: "confirm",
+        label: confirmLabel,
+        default: true,
+        callback: (event, button, dialog) => onConfirm(dialog.element)
+      },
+      { action: "cancel", label: "Cancelar", callback: () => null }
+    ],
+    rejectClose: false
+  });
+}
+
+/**
  * Ficha de Personagens e Criaturas (type "character") — cobre também Montarias
  * e qualquer outro ser vivo/não-vivo gerado como "character": todos têm acesso
  * total ao mesmo sistema de Atributos, Pontos de Habilidade e Fusão de Skills.
+ * Migrado pra ApplicationV2 (ActorSheetV2) — ver plano de migração.
  */
-export class NihilityActorSheet extends ActorSheet {
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      classes: [SYSTEM_ID, "sheet", "actor"],
-      template: `systems/${SYSTEM_ID}/templates/actor-sheet.hbs`,
-      width: 780,
-      height: 860,
-      tabs: [{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "ficha" }]
-    });
+export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
+  static DEFAULT_OPTIONS = {
+    classes: [SYSTEM_ID, "sheet", "actor"],
+    position: { width: 780, height: 860 },
+    actions: {
+      selectTab: NihilityActorSheet.#onSelectTab,
+      createItem: NihilityActorSheet.#onItemCreate,
+      editItem: NihilityActorSheet.#onItemEdit,
+      deleteItem: NihilityActorSheet.#onItemDelete,
+      fuseSkills: NihilityActorSheet.#onFuseSkills,
+      useSkill: NihilityActorSheet.#onUseSkill,
+      requestSkillCreation: NihilityActorSheet.#onRequestSkillCreation,
+      rollAttribute: NihilityActorSheet.#onRollAttribute,
+      breakSkillPoints: NihilityActorSheet.#onBreakSkillPoints,
+      mergeSkillPoints: NihilityActorSheet.#onMergeSkillPoints,
+      convertCurrency: NihilityActorSheet.#onConvertCurrency,
+      sendCurrency: NihilityActorSheet.#onSendCurrency
+    }
+  };
+
+  static PARTS = {
+    body: { template: `systems/${SYSTEM_ID}/templates/actor-sheet.hbs` }
+  };
+
+  constructor(options = {}) {
+    super(options);
+    // ApplicationV2 não herda o mixin de abas do AppV1 — mesmo padrão manual usado nas
+    // outras Sheets/Apps já migradas (activeTab + ação "selectTab").
+    this.activeTab = "ficha";
   }
 
   /** @override */
-  async getData(options) {
-    const context = await super.getData(options);
+  async _prepareContext(options) {
+    const context = await super._prepareContext(options);
     const actor = this.actor;
 
+    context.actor = actor;
+    context.owner = actor.isOwner;
+    context.activeTab = this.activeTab;
     context.system = actor.system;
     context.config = MEU_SISTEMA;
     context.energyLabel = getCharacterEnergyLabel();
@@ -89,26 +138,26 @@ export class NihilityActorSheet extends ActorSheet {
     context.titles = actor.system.titles;
     context.gear = actor.items.filter(i => i.type === "item");
 
+    console.log(`${SYSTEM_ID} | NihilityActorSheet._prepareContext:`, actor.name);
     return context;
   }
 
-  /** @override */
-  activateListeners(html) {
-    super.activateListeners(html);
+  /**
+   * @override
+   * O select de Espécie dispara em "change", não em clique — fora da API de `actions`
+   * (clique-only), então é ligado manualmente aqui, a cada render.
+   */
+  _onRender(context, options) {
+    super._onRender(context, options);
     if (!this.isEditable) return;
 
-    html.find(".species-select").on("change", this._onSpeciesChange.bind(this));
-    html.find(".item-create").on("click", this._onItemCreate.bind(this));
-    html.find(".item-edit").on("click", this._onItemEdit.bind(this));
-    html.find(".item-delete").on("click", this._onItemDelete.bind(this));
-    html.find(".skill-fuse-button").on("click", this._onFuseSkills.bind(this));
-    html.find(".skill-use-button").on("click", this._onUseSkill.bind(this));
-    html.find(".skill-request-button").on("click", this._onRequestSkillCreation.bind(this));
-    html.find(".attribute-roll").on("click", this._onRollAttribute.bind(this));
-    html.find(".sp-break").on("click", this._onBreakSkillPoints.bind(this));
-    html.find(".sp-merge").on("click", this._onMergeSkillPoints.bind(this));
-    html.find(".currency-convert").on("click", this._onConvertCurrency.bind(this));
-    html.find(".currency-send").on("click", this._onSendCurrency.bind(this));
+    this.element.querySelector(".species-select")?.addEventListener("change", this._onSpeciesChange.bind(this));
+  }
+
+  static #onSelectTab(event, target) {
+    event.preventDefault();
+    this.activeTab = target.dataset.tab;
+    this.render();
   }
 
   /* -------------------------------------------- */
@@ -134,8 +183,8 @@ export class NihilityActorSheet extends ActorSheet {
     const preset = presets[speciesKey];
     if (!preset) return;
 
-    const confirmed = await Dialog.confirm({
-      title: "Aplicar Preset de Espécie",
+    const confirmed = await DialogV2.confirm({
+      window: { title: "Aplicar Preset de Espécie" },
       content: `<p>Substituir Partes do Corpo e Skills Raciais atuais pelo preset de <strong>${preset.label}</strong>?</p>`
     });
     if (!confirmed) return;
@@ -172,7 +221,11 @@ export class NihilityActorSheet extends ActorSheet {
         tier: "racial",
         level: Number(s.level) || 1,
         cost: Number(s.cost) || 0,
-        description: s.description || ""
+        description: s.description || "",
+        effectType: MEU_SISTEMA.SKILL_EFFECT_TYPES.includes(s.effectType) ? s.effectType : "none",
+        damageFormula: s.damageFormula || "",
+        isMagicDamage: Boolean(s.isMagicDamage),
+        damageElements: Array.isArray(s.damageElements) ? s.damageElements : []
       }
     }));
     if (newSkillsData.length) {
@@ -187,9 +240,9 @@ export class NihilityActorSheet extends ActorSheet {
   /*  Atributos                                    */
   /* -------------------------------------------- */
 
-  async _onRollAttribute(event) {
+  static async #onRollAttribute(event, target) {
     event.preventDefault();
-    const key = event.currentTarget.closest("[data-attribute]").dataset.attribute;
+    const key = target.closest("[data-attribute]").dataset.attribute;
     const attr = this.actor.system.attributes.combat[key];
     // Bônus de Item/Modificação nunca entra no Pool de d20 — soma por fora, como número fixo.
     await rollAttribute(this.actor, key, { extraFlat: attr?.itemBonus ?? 0 });
@@ -199,9 +252,9 @@ export class NihilityActorSheet extends ActorSheet {
   /*  Pontos de Habilidade                         */
   /* -------------------------------------------- */
 
-  async _onBreakSkillPoints(event) {
+  static async #onBreakSkillPoints(event, target) {
     event.preventDefault();
-    const tier = event.currentTarget.closest("[data-tier]").dataset.tier;
+    const tier = target.closest("[data-tier]").dataset.tier;
     try {
       await breakSkillPoints(this.actor, tier);
     } catch (err) {
@@ -209,9 +262,9 @@ export class NihilityActorSheet extends ActorSheet {
     }
   }
 
-  async _onMergeSkillPoints(event) {
+  static async #onMergeSkillPoints(event, target) {
     event.preventDefault();
-    const tier = event.currentTarget.closest("[data-tier]").dataset.tier;
+    const tier = target.closest("[data-tier]").dataset.tier;
     try {
       await mergeSkillPoints(this.actor, tier);
     } catch (err) {
@@ -220,7 +273,7 @@ export class NihilityActorSheet extends ActorSheet {
   }
 
   /** Jogador pede pra criar uma skill gastando 1 Ponto de Habilidade — precisa de aprovação do Mestre. */
-  async _onRequestSkillCreation(event) {
+  static async #onRequestSkillCreation(event, target) {
     event.preventDefault();
     const data = await this._promptSkillRequest();
     if (!data) return;
@@ -237,8 +290,9 @@ export class NihilityActorSheet extends ActorSheet {
       t => `<option value="${t}">${MEU_SISTEMA.SKILL_TIER_LABELS[t]} (${this.actor.system.skillPoints[t] ?? 0} disponíveis)</option>`
     ).join("");
 
-    return Dialog.wait({
+    return promptDialog({
       title: "Pedir Criação de Skill (gasta 1 Ponto de Habilidade)",
+      confirmLabel: "Enviar Pedido",
       content: `
         <form>
           <div class="form-group"><label>Tier</label><select name="tier">${options}</select></div>
@@ -246,20 +300,12 @@ export class NihilityActorSheet extends ActorSheet {
           <div class="form-group"><label>Efeito</label><textarea name="description" rows="4"></textarea></div>
           <div class="form-group"><label>Custo de Energia (pra usar)</label><input type="number" name="cost" value="0"/></div>
         </form>`,
-      buttons: {
-        confirm: {
-          label: "Enviar Pedido",
-          callback: html => ({
-            tier: html.find("[name=tier]").val(),
-            name: html.find("[name=name]").val(),
-            description: html.find("[name=description]").val(),
-            cost: Number(html.find("[name=cost]").val()) || 0
-          })
-        },
-        cancel: { label: "Cancelar", callback: () => null }
-      },
-      default: "confirm",
-      close: () => null
+      onConfirm: form => ({
+        tier: form.querySelector("[name=tier]").value,
+        name: form.querySelector("[name=name]").value,
+        description: form.querySelector("[name=description]").value,
+        cost: Number(form.querySelector("[name=cost]").value) || 0
+      })
     });
   }
 
@@ -267,7 +313,7 @@ export class NihilityActorSheet extends ActorSheet {
   /*  Economia: conversão e transferência          */
   /* -------------------------------------------- */
 
-  async _onConvertCurrency(event) {
+  static async #onConvertCurrency(event, target) {
     event.preventDefault();
     const data = await this._promptCurrencyConversion();
     if (!data) return;
@@ -282,31 +328,24 @@ export class NihilityActorSheet extends ActorSheet {
   async _promptCurrencyConversion() {
     const currencies = getActiveCurrencies();
     const opts = currencies.map(c => `<option value="${c.id}">${c.label}</option>`).join("");
-    return Dialog.wait({
+    return promptDialog({
       title: "Converter Moeda",
+      confirmLabel: "Converter",
       content: `
         <form>
           <div class="form-group"><label>De</label><select name="fromId">${opts}</select></div>
           <div class="form-group"><label>Para</label><select name="toId">${opts}</select></div>
           <div class="form-group"><label>Quantidade</label><input type="number" name="amount" value="1" min="1"/></div>
         </form>`,
-      buttons: {
-        confirm: {
-          label: "Converter",
-          callback: html => ({
-            fromId: html.find("[name=fromId]").val(),
-            toId: html.find("[name=toId]").val(),
-            amount: Number(html.find("[name=amount]").val()) || 0
-          })
-        },
-        cancel: { label: "Cancelar", callback: () => null }
-      },
-      default: "confirm",
-      close: () => null
+      onConfirm: form => ({
+        fromId: form.querySelector("[name=fromId]").value,
+        toId: form.querySelector("[name=toId]").value,
+        amount: Number(form.querySelector("[name=amount]").value) || 0
+      })
     });
   }
 
-  async _onSendCurrency(event) {
+  static async #onSendCurrency(event, target) {
     event.preventDefault();
     const data = await this._promptCurrencyTransfer();
     if (!data) return;
@@ -336,27 +375,20 @@ export class NihilityActorSheet extends ActorSheet {
       return null;
     }
 
-    return Dialog.wait({
+    return promptDialog({
       title: "Enviar Dinheiro",
+      confirmLabel: "Enviar",
       content: `
         <form>
           <div class="form-group"><label>Destinatário</label><select name="toActorId">${recipientOpts}</select></div>
           <div class="form-group"><label>Moeda</label><select name="currencyId">${currencyOpts}</select></div>
           <div class="form-group"><label>Quantidade</label><input type="number" name="amount" value="1" min="1"/></div>
         </form>`,
-      buttons: {
-        confirm: {
-          label: "Enviar",
-          callback: html => ({
-            toActorId: html.find("[name=toActorId]").val(),
-            currencyId: html.find("[name=currencyId]").val(),
-            amount: Number(html.find("[name=amount]").val()) || 0
-          })
-        },
-        cancel: { label: "Cancelar", callback: () => null }
-      },
-      default: "confirm",
-      close: () => null
+      onConfirm: form => ({
+        toActorId: form.querySelector("[name=toActorId]").value,
+        currencyId: form.querySelector("[name=currencyId]").value,
+        amount: Number(form.querySelector("[name=amount]").value) || 0
+      })
     });
   }
 
@@ -364,9 +396,9 @@ export class NihilityActorSheet extends ActorSheet {
   /*  CRUD de Items embutidos                      */
   /* -------------------------------------------- */
 
-  async _onItemCreate(event) {
+  static async #onItemCreate(event, target) {
     event.preventDefault();
-    const type = event.currentTarget.dataset.type;
+    const type = target.dataset.type;
     if (!CREATABLE_ITEM_TYPES.includes(type)) return;
 
     const [created] = await this.actor.createEmbeddedDocuments("Item", [
@@ -378,15 +410,15 @@ export class NihilityActorSheet extends ActorSheet {
     created.sheet.render(true);
   }
 
-  _onItemEdit(event) {
+  static #onItemEdit(event, target) {
     event.preventDefault();
-    const itemId = event.currentTarget.closest(".item-row").dataset.itemId;
+    const itemId = target.closest(".item-row").dataset.itemId;
     this.actor.items.get(itemId)?.sheet.render(true);
   }
 
-  async _onItemDelete(event) {
+  static async #onItemDelete(event, target) {
     event.preventDefault();
-    const itemId = event.currentTarget.closest(".item-row").dataset.itemId;
+    const itemId = target.closest(".item-row").dataset.itemId;
     await this.actor.deleteEmbeddedDocuments("Item", [itemId]);
   }
 
@@ -394,9 +426,9 @@ export class NihilityActorSheet extends ActorSheet {
   /*  Usar Habilidade (dano / efeito temporário)   */
   /* -------------------------------------------- */
 
-  async _onUseSkill(event) {
+  static async #onUseSkill(event, target) {
     event.preventDefault();
-    const itemId = event.currentTarget.closest(".item-row").dataset.itemId;
+    const itemId = target.closest(".item-row").dataset.itemId;
     const skill = this.actor.items.get(itemId);
     if (!skill) return;
 
@@ -417,25 +449,21 @@ export class NihilityActorSheet extends ActorSheet {
     }
   }
 
-  /** Escolhe o alvo de um Efeito Temporário (buff/debuff/escudo) — padrão: o próprio dono. */
+  /** Escolhe o alvo de um Efeito Temporário (buff/debuff/escudo) ou de dano mágico — padrão: o próprio dono. */
   async _promptSkillTarget() {
     const candidates = game.actors.filter(a => a.testUserPermission(game.user, "OBSERVER"));
     const opts = candidates
       .map(a => `<option value="${a.id}" ${a.id === this.actor.id ? "selected" : ""}>${a.name}${a.id === this.actor.id ? " (você mesmo)" : ""}</option>`)
       .join("");
 
-    const targetId = await Dialog.wait({
+    const targetId = await promptDialog({
       title: "Escolher Alvo",
+      confirmLabel: "Usar Habilidade",
       content: `
         <form>
           <div class="form-group"><label>Alvo</label><select name="targetId">${opts}</select></div>
         </form>`,
-      buttons: {
-        confirm: { label: "Usar Habilidade", callback: html => html.find("[name=targetId]").val() },
-        cancel: { label: "Cancelar", callback: () => null }
-      },
-      default: "confirm",
-      close: () => null
+      onConfirm: form => form.querySelector("[name=targetId]").value
     });
     if (!targetId) return null;
     return game.actors.get(targetId) ?? null;
@@ -445,12 +473,9 @@ export class NihilityActorSheet extends ActorSheet {
   /*  Fusão de Skills                              */
   /* -------------------------------------------- */
 
-  async _onFuseSkills(event) {
+  static async #onFuseSkills(event, target) {
     event.preventDefault();
-    const ids = this.element
-      .find(".skill-fuse-checkbox:checked")
-      .map((_, el) => el.dataset.itemId)
-      .get();
+    const ids = Array.from(this.element.querySelectorAll(".skill-fuse-checkbox:checked")).map(el => el.dataset.itemId);
 
     if (ids.length < 2) {
       ui.notifications.warn("Selecione ao menos duas habilidades para fundir.");
@@ -480,8 +505,9 @@ export class NihilityActorSheet extends ActorSheet {
       .map(t => `<option value="${t}">${MEU_SISTEMA.SKILL_TIER_LABELS[t]}</option>`)
       .join("");
 
-    return Dialog.wait({
+    return promptDialog({
       title: "Fundir Habilidades",
+      confirmLabel: "Continuar",
       content: `
         <form>
           <div class="form-group">
@@ -489,39 +515,27 @@ export class NihilityActorSheet extends ActorSheet {
             <select name="tier">${options}</select>
           </div>
         </form>`,
-      buttons: {
-        confirm: { label: "Continuar", callback: html => html.find("select[name=tier]").val() },
-        cancel: { label: "Cancelar", callback: () => null }
-      },
-      default: "confirm",
-      close: () => null
+      onConfirm: form => form.querySelector("select[name=tier]").value
     });
   }
 
   /** Modo Manual: o Mestre insere/aprova o efeito e a emoção da Skill Única/Ultimate. */
   async _promptManualSpecialData(tier) {
     const tierLabel = MEU_SISTEMA.SKILL_TIER_LABELS[tier];
-    return Dialog.wait({
+    return promptDialog({
       title: `Skill ${tierLabel} — Aprovação do Mestre`,
+      confirmLabel: `Criar Skill ${tierLabel}`,
       content: `
         <form>
           <div class="form-group"><label>Nome</label><input type="text" name="name"/></div>
           <div class="form-group"><label>Efeito</label><textarea name="effect" rows="4"></textarea></div>
           <div class="form-group"><label>Emoção / Gatilho</label><input type="text" name="emotion"/></div>
         </form>`,
-      buttons: {
-        confirm: {
-          label: `Criar Skill ${tierLabel}`,
-          callback: html => ({
-            name: html.find("[name=name]").val(),
-            effect: html.find("[name=effect]").val(),
-            emotion: html.find("[name=emotion]").val()
-          })
-        },
-        cancel: { label: "Cancelar", callback: () => null }
-      },
-      default: "confirm",
-      close: () => null
+      onConfirm: form => ({
+        name: form.querySelector("[name=name]").value,
+        effect: form.querySelector("[name=effect]").value,
+        emotion: form.querySelector("[name=emotion]").value
+      })
     });
   }
 }

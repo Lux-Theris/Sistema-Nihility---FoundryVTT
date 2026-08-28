@@ -1,27 +1,67 @@
 import { SYSTEM_ID, MEU_SISTEMA, getActiveDamageElements } from "../config.js";
 import { createGrantedSkill, removeGrantedSkill } from "../ai-helper.js";
 
+const { HandlebarsApplicationMixin } = foundry.applications.api;
+const { ItemSheetV2 } = foundry.applications.sheets;
+
 /**
  * Ficha genérica de Item, adaptável por `item.type`
  * (skill, body_part, title, starship_module, item).
+ * Migrado pra ApplicationV2 (ItemSheetV2) — `form.submitOnChange` mantém o auto-save por
+ * campo que a ficha sempre teve; sem `form.handler` explícito, o DocumentSheetV2 aplica o
+ * default (grava direto no Item) — se algum campo parar de salvar sozinho ao editar, esse é
+ * o primeiro lugar a olhar.
  */
-export class NihilityItemSheet extends ItemSheet {
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      classes: [SYSTEM_ID, "sheet", "item"],
-      template: `systems/${SYSTEM_ID}/templates/item-sheet.hbs`,
-      width: 560,
-      height: 560,
-      tabs: [{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "description" }]
-    });
+export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
+  static DEFAULT_OPTIONS = {
+    classes: [SYSTEM_ID, "sheet", "item"],
+    position: { width: 560, height: 560 },
+    form: { submitOnChange: true, closeOnSubmit: false },
+    actions: {
+      addSubSkill: NihilityItemSheet.#onSubSkillAdd,
+      deleteSubSkill: NihilityItemSheet.#onSubSkillDelete,
+      addEffect: NihilityItemSheet.#onEffectAdd,
+      deleteEffect: NihilityItemSheet.#onEffectDelete,
+      addInstalledMod: NihilityItemSheet.#onInstalledModAdd,
+      deleteInstalledMod: NihilityItemSheet.#onInstalledModDelete,
+      toggleModGrant: NihilityItemSheet.#onModGrantToggle,
+      addTitleBonus: NihilityItemSheet.#onTitleBonusAdd,
+      deleteTitleBonus: NihilityItemSheet.#onTitleBonusDelete,
+      addItemAttrBonus: NihilityItemSheet.#onItemAttrBonusAdd,
+      deleteItemAttrBonus: NihilityItemSheet.#onItemAttrBonusDelete,
+      addModAttrBonus: NihilityItemSheet.#onModAttrBonusAdd,
+      deleteModAttrBonus: NihilityItemSheet.#onModAttrBonusDelete,
+      selectTab: NihilityItemSheet.#onSelectTab
+    }
+  };
+
+  static PARTS = {
+    body: { template: `systems/${SYSTEM_ID}/templates/item-sheet.hbs` }
+  };
+
+  constructor(options = {}) {
+    super(options);
+    // ApplicationV2 não herda o mixin de abas do AppV1 — mesmo padrão manual já usado em
+    // NihilityMenuApp (activeTab + ação "selectTab"), em vez de depender da config de
+    // tabs nova (ainda não validada neste sistema).
+    this.activeTab = "description";
+  }
+
+  static #onSelectTab(event, target) {
+    event.preventDefault();
+    this.activeTab = target.dataset.tab;
+    this.render();
   }
 
   /** @override */
-  async getData(options) {
-    const context = await super.getData(options);
+  async _prepareContext(options) {
+    const context = await super._prepareContext(options);
     context.system = this.item.system;
     context.config = MEU_SISTEMA;
     context.itemType = this.item.type;
+    context.activeTab = this.activeTab;
+    context.item = this.item;
+    context.owner = this.item.isOwner;
 
     if (this.item.type === "skill") {
       const owner = this.item.parent;
@@ -35,41 +75,22 @@ export class NihilityItemSheet extends ItemSheet {
       }));
     }
 
+    console.log(`${SYSTEM_ID} | NihilityItemSheet._prepareContext (${this.item.type}):`, this.item.name);
     return context;
   }
 
-  /** @override */
-  activateListeners(html) {
-    super.activateListeners(html);
+  /**
+   * @override
+   * O toggle de equipar (type "item") dispara em "change", não em clique — a API de
+   * `actions` só cobre clique, então esse listener é ligado manualmente aqui.
+   */
+  _onRender(context, options) {
+    super._onRender(context, options);
     if (!this.isEditable) return;
 
-    // Sub-Skills (type "skill")
-    html.find(".sub-skill-add").on("click", this._onSubSkillAdd.bind(this));
-    html.find(".sub-skill-delete").on("click", this._onSubSkillDelete.bind(this));
-
-    // Efeitos (type "skill", effectType "temporary")
-    html.find(".effect-add").on("click", this._onEffectAdd.bind(this));
-    html.find(".effect-delete").on("click", this._onEffectDelete.bind(this));
-
-    // Modificações/Próteses instaladas (type "body_part")
-    html.find(".mod-add").on("click", this._onInstalledModAdd.bind(this));
-    html.find(".mod-delete").on("click", this._onInstalledModDelete.bind(this));
-    html.find(".mod-grant-toggle").on("click", this._onModGrantToggle.bind(this));
-
-    // Bônus permanentes (type "title")
-    html.find(".title-bonus-add").on("click", this._onTitleBonusAdd.bind(this));
-    html.find(".title-bonus-delete").on("click", this._onTitleBonusDelete.bind(this));
-
-    // Habilidade Concedida ao equipar (type "item")
-    html.find(".item-equip-toggle").on("change", this._onEquipToggle.bind(this));
-
-    // Bônus de Atributo (type "item")
-    html.find(".item-attr-bonus-add").on("click", this._onItemAttrBonusAdd.bind(this));
-    html.find(".item-attr-bonus-delete").on("click", this._onItemAttrBonusDelete.bind(this));
-
-    // Bônus de Atributo das Modificações instaladas (type "body_part")
-    html.find(".mod-attr-bonus-add").on("click", this._onModAttrBonusAdd.bind(this));
-    html.find(".mod-attr-bonus-delete").on("click", this._onModAttrBonusDelete.bind(this));
+    this.element.querySelectorAll(".item-equip-toggle").forEach(checkbox => {
+      checkbox.addEventListener("change", this._onEquipToggle.bind(this));
+    });
   }
 
   /* -------------------------------------------- */
@@ -87,46 +108,46 @@ export class NihilityItemSheet extends ItemSheet {
     }
   }
 
-  async _onSubSkillAdd(event) {
+  static async #onSubSkillAdd(event, target) {
     event.preventDefault();
     const subSkills = foundry.utils.deepClone(this.item.system.subSkills ?? []);
     subSkills.push({ name: "Nova Sub-Skill", description: "" });
     await this.item.update({ "system.subSkills": subSkills });
   }
 
-  async _onSubSkillDelete(event) {
+  static async #onSubSkillDelete(event, target) {
     event.preventDefault();
-    const index = Number(event.currentTarget.closest("[data-index]").dataset.index);
+    const index = Number(target.closest("[data-index]").dataset.index);
     const subSkills = foundry.utils.deepClone(this.item.system.subSkills ?? []);
     subSkills.splice(index, 1);
     await this.item.update({ "system.subSkills": subSkills });
   }
 
-  async _onEffectAdd(event) {
+  static async #onEffectAdd(event, target) {
     event.preventDefault();
     const effects = foundry.utils.deepClone(this.item.system.effects ?? []);
     effects.push({ target: MEU_SISTEMA.EFFECT_TARGETS[0], amount: 1, durationRounds: 1 });
     await this.item.update({ "system.effects": effects });
   }
 
-  async _onEffectDelete(event) {
+  static async #onEffectDelete(event, target) {
     event.preventDefault();
-    const index = Number(event.currentTarget.closest("[data-index]").dataset.index);
+    const index = Number(target.closest("[data-index]").dataset.index);
     const effects = foundry.utils.deepClone(this.item.system.effects ?? []);
     effects.splice(index, 1);
     await this.item.update({ "system.effects": effects });
   }
 
-  async _onInstalledModAdd(event) {
+  static async #onInstalledModAdd(event, target) {
     event.preventDefault();
     const mods = foundry.utils.deepClone(this.item.system.installedMods ?? []);
     mods.push({ name: "Nova Modificação", description: "" });
     await this.item.update({ "system.installedMods": mods });
   }
 
-  async _onInstalledModDelete(event) {
+  static async #onInstalledModDelete(event, target) {
     event.preventDefault();
-    const index = Number(event.currentTarget.closest("[data-index]").dataset.index);
+    const index = Number(target.closest("[data-index]").dataset.index);
     const mods = foundry.utils.deepClone(this.item.system.installedMods ?? []);
 
     const actor = this.item.parent;
@@ -139,7 +160,7 @@ export class NihilityItemSheet extends ItemSheet {
   }
 
   /** Concede (ou revoga) a Habilidade de uma Modificação instalada em Parte do Corpo. */
-  async _onModGrantToggle(event) {
+  static async #onModGrantToggle(event, target) {
     event.preventDefault();
     const actor = this.item.parent;
     if (!actor) {
@@ -147,7 +168,7 @@ export class NihilityItemSheet extends ItemSheet {
       return;
     }
 
-    const index = Number(event.currentTarget.closest("[data-index]").dataset.index);
+    const index = Number(target.closest("[data-index]").dataset.index);
     const mods = foundry.utils.deepClone(this.item.system.installedMods ?? []);
     const mod = mods[index];
     if (!mod) return;
@@ -168,24 +189,24 @@ export class NihilityItemSheet extends ItemSheet {
     await this.item.update({ "system.installedMods": mods });
   }
 
-  async _onItemAttrBonusAdd(event) {
+  static async #onItemAttrBonusAdd(event, target) {
     event.preventDefault();
     const bonuses = foundry.utils.deepClone(this.item.system.attributeBonuses ?? []);
     bonuses.push({ attribute: MEU_SISTEMA.COMBAT_ATTRIBUTES[0], amount: 1 });
     await this.item.update({ "system.attributeBonuses": bonuses });
   }
 
-  async _onItemAttrBonusDelete(event) {
+  static async #onItemAttrBonusDelete(event, target) {
     event.preventDefault();
-    const index = Number(event.currentTarget.closest("[data-index]").dataset.index);
+    const index = Number(target.closest("[data-index]").dataset.index);
     const bonuses = foundry.utils.deepClone(this.item.system.attributeBonuses ?? []);
     bonuses.splice(index, 1);
     await this.item.update({ "system.attributeBonuses": bonuses });
   }
 
-  async _onModAttrBonusAdd(event) {
+  static async #onModAttrBonusAdd(event, target) {
     event.preventDefault();
-    const modIndex = Number(event.currentTarget.dataset.index);
+    const modIndex = Number(target.dataset.index);
     const mods = foundry.utils.deepClone(this.item.system.installedMods ?? []);
     const mod = mods[modIndex];
     if (!mod) return;
@@ -194,9 +215,9 @@ export class NihilityItemSheet extends ItemSheet {
     await this.item.update({ "system.installedMods": mods });
   }
 
-  async _onModAttrBonusDelete(event) {
+  static async #onModAttrBonusDelete(event, target) {
     event.preventDefault();
-    const li = event.currentTarget.closest("[data-bonus-index]");
+    const li = target.closest("[data-bonus-index]");
     const modIndex = Number(li.dataset.index);
     const bonusIndex = Number(li.dataset.bonusIndex);
     const mods = foundry.utils.deepClone(this.item.system.installedMods ?? []);
@@ -206,16 +227,16 @@ export class NihilityItemSheet extends ItemSheet {
     await this.item.update({ "system.installedMods": mods });
   }
 
-  async _onTitleBonusAdd(event) {
+  static async #onTitleBonusAdd(event, target) {
     event.preventDefault();
     const bonuses = foundry.utils.deepClone(this.item.system.bonuses ?? []);
     bonuses.push({ attribute: MEU_SISTEMA.COMBAT_ATTRIBUTES[0], amount: 1 });
     await this.item.update({ "system.bonuses": bonuses });
   }
 
-  async _onTitleBonusDelete(event) {
+  static async #onTitleBonusDelete(event, target) {
     event.preventDefault();
-    const index = Number(event.currentTarget.closest("[data-index]").dataset.index);
+    const index = Number(target.closest("[data-index]").dataset.index);
     const bonuses = foundry.utils.deepClone(this.item.system.bonuses ?? []);
     bonuses.splice(index, 1);
     await this.item.update({ "system.bonuses": bonuses });

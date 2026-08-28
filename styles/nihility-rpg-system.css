@@ -453,7 +453,9 @@
    ========================================================================== */
 
 .nihility-config-app.window-app,
-.window-app .nihility-config-app {
+.window-app .nihility-config-app,
+.nihility-config-app.application,
+.application .nihility-config-app {
   background: var(--nihility-bg-panel);
   color: var(--nihility-text);
 }
@@ -882,14 +884,24 @@ form.nihility-config-app {
   letter-spacing: 0.06em;
   color: var(--nihility-accent-2);
 }
-.nihility-config-app .racial-skill-header,
 .nihility-config-app .racial-skill-row {
-  display: grid;
-  grid-template-columns: 1fr 60px 60px 2fr 24px;
-  gap: 4px;
+  display: flex;
   align-items: center;
-  margin-bottom: 4px;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--nihility-border-soft);
 }
+.nihility-config-app .racial-skill-summary {
+  flex: 1;
+}
+.nihility-config-app .racial-skill-edit,
+.nihility-config-app .racial-skill-delete {
+  color: var(--nihility-text-dim);
+  cursor: pointer;
+}
+.nihility-config-app .racial-skill-edit:hover { color: var(--nihility-accent); }
+.nihility-config-app .racial-skill-delete:hover { color: var(--nihility-danger); }
 
 /* Editor de Moedas: coluna extra de Valor-Base */
 .nihility-config-app .currency-header,

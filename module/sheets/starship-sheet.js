@@ -1,32 +1,59 @@
 import { SYSTEM_ID, MEU_SISTEMA, getStarshipEnergyLabel } from "../config.js";
 import { registerItemInCompendium, createGrantedSkill, removeGrantedSkill } from "../ai-helper.js";
 
+const { HandlebarsApplicationMixin } = foundry.applications.api;
+const { ActorSheetV2 } = foundry.applications.sheets;
+
 /** Percentual (0-100) usado para desenhar as barras de Casco/Escudos/Integridade/Combustível. */
 function percentOf(value, max) {
   if (!max) return 0;
   return Math.round(Math.clamp((value / max) * 100, 0, 100));
 }
 
+/** Mesmo padrão manual de abas usado em NihilityItemSheet/NihilityMenuApp (ApplicationV2 não herda o mixin de abas do AppV1). */
+class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
+  constructor(options = {}) {
+    super(options);
+    this.activeTab = "main";
+  }
+
+  static onSelectTab(event, target) {
+    event.preventDefault();
+    this.activeTab = target.dataset.tab;
+    this.render();
+  }
+}
+
 /**
  * Ficha de Naves Espaciais (type "starship"): Casco, Escudos, Manobra e o
  * Grid de Energia (Reator + Baterias - Consumo), com alerta de sobrecarga.
  */
-export class NihilityStarshipSheet extends ActorSheet {
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      classes: [SYSTEM_ID, "sheet", "actor", "starship"],
-      template: `systems/${SYSTEM_ID}/templates/starship-sheet.hbs`,
-      width: 700,
-      height: 760,
-      tabs: [{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "main" }]
-    });
-  }
+export class NihilityStarshipSheet extends TabbedActorSheetV2 {
+  static DEFAULT_OPTIONS = {
+    classes: [SYSTEM_ID, "sheet", "actor", "starship"],
+    position: { width: 700, height: 760 },
+    actions: {
+      selectTab: TabbedActorSheetV2.onSelectTab,
+      createItem: NihilityStarshipSheet.#onItemCreate,
+      editItem: NihilityStarshipSheet.#onItemEdit,
+      deleteItem: NihilityStarshipSheet.#onItemDelete,
+      toggleModulePower: NihilityStarshipSheet.#onToggleModulePower,
+      powerGridTick: NihilityStarshipSheet.#onPowerGridTick
+    }
+  };
+
+  static PARTS = {
+    body: { template: `systems/${SYSTEM_ID}/templates/starship-sheet.hbs` }
+  };
 
   /** @override */
-  async getData(options) {
-    const context = await super.getData(options);
+  async _prepareContext(options) {
+    const context = await super._prepareContext(options);
     const actor = this.actor;
 
+    context.actor = actor;
+    context.owner = actor.isOwner;
+    context.activeTab = this.activeTab;
     context.system = actor.system;
     context.config = MEU_SISTEMA;
     context.energyLabel = getStarshipEnergyLabel();
@@ -38,22 +65,11 @@ export class NihilityStarshipSheet extends ActorSheet {
     context.primaryPercent = percentOf(actor.system.hull.value, actor.system.hull.max);
     context.secondaryPercent = percentOf(actor.system.shields.value, actor.system.shields.max);
 
+    console.log(`${SYSTEM_ID} | NihilityStarshipSheet._prepareContext:`, actor.name);
     return context;
   }
 
-  /** @override */
-  activateListeners(html) {
-    super.activateListeners(html);
-    if (!this.isEditable) return;
-
-    html.find(".item-create").on("click", this._onItemCreate.bind(this));
-    html.find(".item-edit").on("click", this._onItemEdit.bind(this));
-    html.find(".item-delete").on("click", this._onItemDelete.bind(this));
-    html.find(".module-toggle-power").on("click", this._onToggleModulePower.bind(this));
-    html.find(".power-grid-tick").on("click", this._onPowerGridTick.bind(this));
-  }
-
-  async _onItemCreate(event) {
+  static async #onItemCreate(event, target) {
     event.preventDefault();
     const [created] = await this.actor.createEmbeddedDocuments("Item", [
       { name: "Novo Módulo", type: "starship_module" }
@@ -62,21 +78,21 @@ export class NihilityStarshipSheet extends ActorSheet {
     created.sheet.render(true);
   }
 
-  _onItemEdit(event) {
+  static #onItemEdit(event, target) {
     event.preventDefault();
-    const itemId = event.currentTarget.closest(".item-row").dataset.itemId;
+    const itemId = target.closest(".item-row").dataset.itemId;
     this.actor.items.get(itemId)?.sheet.render(true);
   }
 
-  async _onItemDelete(event) {
+  static async #onItemDelete(event, target) {
     event.preventDefault();
-    const itemId = event.currentTarget.closest(".item-row").dataset.itemId;
+    const itemId = target.closest(".item-row").dataset.itemId;
     await this.actor.deleteEmbeddedDocuments("Item", [itemId]);
   }
 
-  async _onToggleModulePower(event) {
+  static async #onToggleModulePower(event, target) {
     event.preventDefault();
-    const itemId = event.currentTarget.closest(".item-row").dataset.itemId;
+    const itemId = target.closest(".item-row").dataset.itemId;
     const module = this.actor.items.get(itemId);
     if (!module) return;
     const next = module.system.status === "online" ? "offline" : "online";
@@ -90,7 +106,7 @@ export class NihilityStarshipSheet extends ActorSheet {
   }
 
   /** Recalcula o Grid de Energia: excedente carrega os capacitores, déficit os drena. */
-  async _onPowerGridTick(event) {
+  static async #onPowerGridTick(event, target) {
     event.preventDefault();
     const { available, overloaded } = await this.actor.system.applyPowerGridTick();
     if (overloaded) {
@@ -107,22 +123,30 @@ export class NihilityStarshipSheet extends ActorSheet {
  * Ficha de Veículos Terrestres (type "vehicle"): Integridade, Velocidade,
  * Combustível/Bateria e Peças instaladas.
  */
-export class NihilityVehicleSheet extends ActorSheet {
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      classes: [SYSTEM_ID, "sheet", "actor", "vehicle"],
-      template: `systems/${SYSTEM_ID}/templates/starship-sheet.hbs`,
-      width: 640,
-      height: 680,
-      tabs: [{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "main" }]
-    });
-  }
+export class NihilityVehicleSheet extends TabbedActorSheetV2 {
+  static DEFAULT_OPTIONS = {
+    classes: [SYSTEM_ID, "sheet", "actor", "vehicle"],
+    position: { width: 640, height: 680 },
+    actions: {
+      selectTab: TabbedActorSheetV2.onSelectTab,
+      createItem: NihilityVehicleSheet.#onItemCreate,
+      editItem: NihilityVehicleSheet.#onItemEdit,
+      deleteItem: NihilityVehicleSheet.#onItemDelete
+    }
+  };
+
+  static PARTS = {
+    body: { template: `systems/${SYSTEM_ID}/templates/starship-sheet.hbs` }
+  };
 
   /** @override */
-  async getData(options) {
-    const context = await super.getData(options);
+  async _prepareContext(options) {
+    const context = await super._prepareContext(options);
     const actor = this.actor;
 
+    context.actor = actor;
+    context.owner = actor.isOwner;
+    context.activeTab = this.activeTab;
     context.system = actor.system;
     context.config = MEU_SISTEMA;
     context.isVehicle = true;
@@ -130,34 +154,25 @@ export class NihilityVehicleSheet extends ActorSheet {
     context.primaryPercent = percentOf(actor.system.integrity.value, actor.system.integrity.max);
     context.secondaryPercent = percentOf(actor.system.fuel.value, actor.system.fuel.max);
 
+    console.log(`${SYSTEM_ID} | NihilityVehicleSheet._prepareContext:`, actor.name);
     return context;
   }
 
-  /** @override */
-  activateListeners(html) {
-    super.activateListeners(html);
-    if (!this.isEditable) return;
-
-    html.find(".item-create").on("click", this._onItemCreate.bind(this));
-    html.find(".item-edit").on("click", this._onItemEdit.bind(this));
-    html.find(".item-delete").on("click", this._onItemDelete.bind(this));
-  }
-
-  async _onItemCreate(event) {
+  static async #onItemCreate(event, target) {
     event.preventDefault();
     const [created] = await this.actor.createEmbeddedDocuments("Item", [{ name: "Nova Peça", type: "item" }]);
     created.sheet.render(true);
   }
 
-  _onItemEdit(event) {
+  static #onItemEdit(event, target) {
     event.preventDefault();
-    const itemId = event.currentTarget.closest(".item-row").dataset.itemId;
+    const itemId = target.closest(".item-row").dataset.itemId;
     this.actor.items.get(itemId)?.sheet.render(true);
   }
 
-  async _onItemDelete(event) {
+  static async #onItemDelete(event, target) {
     event.preventDefault();
-    const itemId = event.currentTarget.closest(".item-row").dataset.itemId;
+    const itemId = target.closest(".item-row").dataset.itemId;
     await this.actor.deleteEmbeddedDocuments("Item", [itemId]);
   }
 }

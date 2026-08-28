@@ -1,63 +1,56 @@
-<form class="nihility-config-app species-config-app" autocomplete="off">
-  <p class="hint">
-    Cada Espécie tem um nome, uma lista de Partes do Corpo e uma lista de Skills Raciais.
-    Ao trocar a espécie de um personagem, ambas são aplicadas automaticamente na ficha —
-    todo ser vivo (e alguns não-vivos) que usar essa espécie ganha essas skills de graça,
-    fora da economia normal de Pontos de Habilidade. Tags são separadas por vírgula
-    (ex: <code>vital, mechanical</code>).
-  </p>
+<p class="hint">
+  Cada Espécie tem um nome, uma lista de Partes do Corpo e uma lista de Skills Raciais.
+  Ao trocar a espécie de um personagem, ambas são aplicadas automaticamente na ficha —
+  todo ser vivo (e alguns não-vivos) que usar essa espécie ganha essas skills de graça,
+  fora da economia normal de Pontos de Habilidade. Tags são separadas por vírgula
+  (ex: <code>vital, mechanical</code>).
+</p>
 
-  <div class="species-list">
-    {{#each species as |sp key|}}
-    <fieldset class="species-block">
-      <legend>
-        <input type="text" class="species-key-input" value="{{key}}" placeholder="chave (ex: humano)"/>
-        <input type="text" class="species-label-input" value="{{sp.label}}" placeholder="Nome exibido"/>
-        <a class="species-delete" title="Remover Espécie"><i class="fas fa-trash"></i></a>
-      </legend>
+<div class="species-list">
+  {{#each species as |sp key|}}
+  <fieldset class="species-block">
+    <legend>
+      <input type="text" class="species-key-input" value="{{key}}" placeholder="chave (ex: humano)"/>
+      <input type="text" class="species-label-input" value="{{sp.label}}" placeholder="Nome exibido"/>
+      <a class="species-delete" data-action="deleteSpecies" title="Remover Espécie"><i class="fas fa-trash"></i></a>
+    </legend>
 
-      <div class="config-list-header part-header">
-        <span>Chave</span><span>Nome</span><span>Slot</span><span>HP</span><span>Tags</span><span></span>
+    <div class="config-list-header part-header">
+      <span>Chave</span><span>Nome</span><span>Slot</span><span>HP</span><span>Tags</span><span></span>
+    </div>
+
+    <div class="part-list">
+      {{#each sp.parts as |part|}}
+      <div class="part-row">
+        <input type="text" data-field="key" value="{{part.key}}" placeholder="chave"/>
+        <input type="text" data-field="label" value="{{part.label}}" placeholder="Nome"/>
+        <input type="text" data-field="slot" value="{{part.slot}}" placeholder="slot"/>
+        <input type="number" data-field="hpMax" value="{{part.hpMax}}" placeholder="HP"/>
+        <input type="text" data-field="tags" value="{{part.tagsText}}" placeholder="tags (vírgula)"/>
+        <a class="part-delete" data-action="deletePart" title="Remover Parte"><i class="fas fa-trash"></i></a>
       </div>
+      {{/each}}
+    </div>
 
-      <div class="part-list">
-        {{#each sp.parts as |part|}}
-        <div class="part-row">
-          <input type="text" data-field="key" value="{{part.key}}" placeholder="chave"/>
-          <input type="text" data-field="label" value="{{part.label}}" placeholder="Nome"/>
-          <input type="text" data-field="slot" value="{{part.slot}}" placeholder="slot"/>
-          <input type="number" data-field="hpMax" value="{{part.hpMax}}" placeholder="HP"/>
-          <input type="text" data-field="tags" value="{{part.tagsText}}" placeholder="tags (vírgula)"/>
-          <a class="part-delete" title="Remover Parte"><i class="fas fa-trash"></i></a>
-        </div>
-        {{/each}}
+    <a class="config-add-row" data-action="addPart">+ Nova Parte do Corpo</a>
+
+    <p class="species-block-subtitle">Skills Raciais (concedidas ao selecionar a espécie) <span class="hint-inline">— mesmos campos de uma Skill de verdade (tier fixo "Racial"), editados num modal</span></p>
+    <div class="racial-skill-list">
+      {{#each sp.skills as |skill|}}
+      <div class="racial-skill-row" data-skill="{{skill.dataJson}}">
+        <span class="racial-skill-summary">{{skill.name}} <span class="hint-inline">(nível {{skill.level}} · custo {{skill.cost}}{{#if (eq skill.effectType "damage")}} · dano{{/if}}{{#if (eq skill.effectType "temporary")}} · efeito temporário{{/if}})</span></span>
+        <a class="racial-skill-edit" data-action="editRacialSkill" title="Editar"><i class="fas fa-edit"></i></a>
+        <a class="racial-skill-delete" data-action="deleteRacialSkill" title="Remover"><i class="fas fa-trash"></i></a>
       </div>
+      {{/each}}
+    </div>
+    <a class="config-add-row" data-action="addRacialSkill">+ Nova Skill Racial</a>
+  </fieldset>
+  {{/each}}
+</div>
 
-      <a class="config-add-row part-add">+ Nova Parte do Corpo</a>
+<a class="config-add-row" data-action="addSpecies">+ Nova Espécie</a>
 
-      <p class="species-block-subtitle">Skills Raciais (concedidas ao selecionar a espécie)</p>
-      <div class="config-list-header racial-skill-header">
-        <span>Nome</span><span>Nível</span><span>Custo</span><span>Descrição</span><span></span>
-      </div>
-      <div class="racial-skill-list">
-        {{#each sp.skills as |skill|}}
-        <div class="racial-skill-row">
-          <input type="text" data-field="name" value="{{skill.name}}" placeholder="Nome"/>
-          <input type="number" data-field="level" value="{{skill.level}}" placeholder="Nível"/>
-          <input type="number" data-field="cost" value="{{skill.cost}}" placeholder="Custo"/>
-          <input type="text" data-field="description" value="{{skill.description}}" placeholder="Descrição"/>
-          <a class="racial-skill-delete" title="Remover"><i class="fas fa-trash"></i></a>
-        </div>
-        {{/each}}
-      </div>
-      <a class="config-add-row racial-skill-add">+ Nova Skill Racial</a>
-    </fieldset>
-    {{/each}}
-  </div>
-
-  <a class="config-add-row species-add">+ Nova Espécie</a>
-
-  <footer class="sheet-footer">
-    <button type="submit"><i class="fas fa-save"></i> Salvar Espécies</button>
-  </footer>
-</form>
+<footer class="sheet-footer">
+  <button type="submit"><i class="fas fa-save"></i> Salvar Espécies</button>
+</footer>

@@ -1,8 +1,7 @@
 <div class="nihility-menu">
   <div class="tabs">
     {{#each systemFeatures as |feature|}}
-    <a class="tab-button" data-tab="{{feature.id}}"
-       data-action="{{#if (eq feature.id "ai")}}open-ai-assistant{{/if}}">
+    <a class="tab-button" data-action="selectTab" data-tab="{{feature.id}}">
       <i class="{{feature.icon}}"></i> {{feature.label}}
     </a>
     {{/each}}
@@ -17,21 +16,21 @@
           <i class="fas fa-coins"></i>
           <h4>Sistema de Economia</h4>
           <p>Gerenciar moedas e transações</p>
-          <button class="action-button" data-action="economy-config">Configurar</button>
+          <button class="action-button" data-action="runAction" data-menu-action="economy-config">Configurar</button>
         </div>
 
         <div class="setting-card">
           <i class="fas fa-crown"></i>
           <h4>Sistema de Títulos</h4>
           <p>Gerenciar títulos e honras</p>
-          <button class="action-button" data-action="titles-config">Configurar</button>
+          <button class="action-button" data-action="runAction" data-menu-action="titles-config">Configurar</button>
         </div>
 
         <div class="setting-card">
           <i class="fas fa-dna"></i>
           <h4>Sistema de Anatomia</h4>
           <p>Gerenciar partes do corpo e modificações</p>
-          <button class="action-button" data-action="anatomy-config">Configurar</button>
+          <button class="action-button" data-action="runAction" data-menu-action="anatomy-config">Configurar</button>
         </div>
       </div>
     </div>
@@ -44,42 +43,42 @@
           <i class="fas fa-user"></i>
           <h4>Geração de NPC</h4>
           <p>Criar personagens com base em descrições</p>
-          <button class="action-button" data-action="generate-npc">Gerar</button>
+          <button class="action-button" data-action="runAction" data-menu-action="generate-npc">Gerar</button>
         </div>
 
         <div class="ai-tool-card">
           <i class="fas fa-horse"></i>
           <h4>Montarias</h4>
           <p>Criar montarias e bestas de carga</p>
-          <button class="action-button" data-action="generate-mount">Gerar</button>
+          <button class="action-button" data-action="runAction" data-menu-action="generate-mount">Gerar</button>
         </div>
 
         <div class="ai-tool-card">
           <i class="fas fa-rocket"></i>
           <h4>Naves Espaciais</h4>
           <p>Criar naves e veículos espaciais</p>
-          <button class="action-button" data-action="generate-starship">Gerar</button>
+          <button class="action-button" data-action="runAction" data-menu-action="generate-starship">Gerar</button>
         </div>
 
         <div class="ai-tool-card">
           <i class="fas fa-car"></i>
           <h4>Veículos Terrestres</h4>
           <p>Criar veículos terrestres</p>
-          <button class="action-button" data-action="generate-vehicle">Gerar</button>
+          <button class="action-button" data-action="runAction" data-menu-action="generate-vehicle">Gerar</button>
         </div>
 
         <div class="ai-tool-card">
           <i class="fas fa-bolt"></i>
           <h4>Habilidades</h4>
           <p>Criar habilidades avulsas</p>
-          <button class="action-button" data-action="generate-skill">Gerar</button>
+          <button class="action-button" data-action="runAction" data-menu-action="generate-skill">Gerar</button>
         </div>
 
         <div class="ai-tool-card">
           <i class="fas fa-comment-dots"></i>
           <h4>Perguntas Livres</h4>
           <p>Consultas livres à IA</p>
-          <button class="action-button" data-action="freeform">Perguntar</button>
+          <button class="action-button" data-action="runAction" data-menu-action="freeform">Perguntar</button>
         </div>
       </div>
     </div>
@@ -92,21 +91,21 @@
           <i class="fas fa-users"></i>
           <h4>Personagens</h4>
           <p>Criar personagens completos</p>
-          <button class="action-button" data-action="generate-character">Gerar</button>
+          <button class="action-button" data-action="runAction" data-menu-action="generate-character">Gerar</button>
         </div>
 
         <div class="tool-card">
           <i class="fas fa-book"></i>
           <h4>Notas/Journal</h4>
           <p>Criar notas narrativas</p>
-          <button class="action-button" data-action="generate-note">Gerar</button>
+          <button class="action-button" data-action="runAction" data-menu-action="generate-note">Gerar</button>
         </div>
 
         <div class="tool-card">
           <i class="fas fa-shield-alt"></i>
           <h4>Itens</h4>
           <p>Criar itens e equipamentos</p>
-          <button class="action-button" data-action="generate-item">Gerar</button>
+          <button class="action-button" data-action="runAction" data-menu-action="generate-item">Gerar</button>
         </div>
       </div>
     </div>
@@ -119,28 +118,28 @@
           <i class="fas fa-database"></i>
           <h4>Backup/Restauração</h4>
           <p>Gerenciar backups do sistema</p>
-          <button class="action-button" data-action="backup-manager">Gerenciar</button>
+          <button class="action-button" data-action="runAction" data-menu-action="backup-manager">Gerenciar</button>
         </div>
 
         <div class="tool-card">
           <i class="fas fa-sync-alt"></i>
           <h4>Sincronização</h4>
           <p>Sincronizar dados do sistema</p>
-          <button class="action-button" data-action="sync-data">Sincronizar</button>
+          <button class="action-button" data-action="runAction" data-menu-action="sync-data">Sincronizar</button>
         </div>
 
         <div class="tool-card">
           <i class="fas fa-file-import"></i>
           <h4>Importação</h4>
           <p>Importar dados do sistema</p>
-          <button class="action-button" data-action="import-data">Importar</button>
+          <button class="action-button" data-action="runAction" data-menu-action="import-data">Importar</button>
         </div>
 
         <div class="tool-card">
           <i class="fas fa-file-export"></i>
           <h4>Exportação</h4>
           <p>Exportar dados do sistema</p>
-          <button class="action-button" data-action="export-data">Exportar</button>
+          <button class="action-button" data-action="runAction" data-menu-action="export-data">Exportar</button>
         </div>
       </div>
     </div>

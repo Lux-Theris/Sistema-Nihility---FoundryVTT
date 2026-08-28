@@ -3,6 +3,8 @@
  */
 import { SYSTEM_ID } from "../config.js";
 
+const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
+
 /** Ações da aba "Assistente de IA" que abrem o AIAssistantApp já no modo "Criar" com a tarefa certa. */
 const AI_TASK_ACTIONS = {
   "generate-npc": "npc",
@@ -13,23 +15,21 @@ const AI_TASK_ACTIONS = {
   freeform: "freeform"
 };
 
-export class NihilityMenuApp extends Application {
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      id: "nihility-menu",
-      title: "Nihility RPG System",
-      template: `systems/${SYSTEM_ID}/templates/apps/nihility-menu.hbs`,
-      classes: [SYSTEM_ID, "nihility-menu-app"],
-      width: 800,
-      height: "auto",
-      resizable: true,
-      tabs: [{
-        navSelector: ".tabs",
-        contentSelector: ".tab-content",
-        initial: "system"
-      }]
-    });
-  }
+export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
+  static DEFAULT_OPTIONS = {
+    id: "nihility-menu",
+    window: { title: "Nihility RPG System", resizable: true },
+    classes: [SYSTEM_ID, "nihility-menu-app"],
+    position: { width: 800, height: "auto" },
+    actions: {
+      selectTab: NihilityMenuApp.#onSelectTab,
+      runAction: NihilityMenuApp.#onRunAction
+    }
+  };
+
+  static PARTS = {
+    body: { template: `systems/${SYSTEM_ID}/templates/apps/nihility-menu.hbs` }
+  };
 
   constructor(options = {}) {
     super(options);
@@ -37,44 +37,32 @@ export class NihilityMenuApp extends Application {
   }
 
   /** @override */
-  getData() {
-    return {
-      isGM: game.user.isGM,
-      activeTab: this.activeTab,
-      systemFeatures: [
-        { id: "system", label: "Configurações Gerais", icon: "fas fa-cog" },
-        { id: "ai", label: "Assistente de IA", icon: "fas fa-robot" },
-        { id: "generation", label: "Geração Automática", icon: "fas fa-magic" },
-        { id: "tools", label: "Ferramentas de Admin", icon: "fas fa-tools" }
-      ]
-    };
+  async _prepareContext(options) {
+    const context = await super._prepareContext(options);
+    context.isGM = game.user.isGM;
+    context.activeTab = this.activeTab;
+    context.systemFeatures = [
+      { id: "system", label: "Configurações Gerais", icon: "fas fa-cog" },
+      { id: "ai", label: "Assistente de IA", icon: "fas fa-robot" },
+      { id: "generation", label: "Geração Automática", icon: "fas fa-magic" },
+      { id: "tools", label: "Ferramentas de Admin", icon: "fas fa-tools" }
+    ];
+    console.log(`${SYSTEM_ID} | NihilityMenuApp._prepareContext, aba ativa:`, this.activeTab);
+    return context;
   }
 
-  /** @override */
-  activateListeners(html) {
-    super.activateListeners(html);
-
-    // Navegação entre abas
-    html.querySelectorAll(".tab-button").forEach(element => {
-      element.addEventListener("click", this._onTabChange.bind(this));
-    });
-
-    // Botões de ações específicas
-    html.querySelectorAll(".action-button").forEach(element => {
-      element.addEventListener("click", this._onActionClick.bind(this));
-    });
-  }
-
-  _onTabChange(event) {
+  static #onSelectTab(event, target) {
     event.preventDefault();
-    const tabId = event.currentTarget.dataset.tab;
-    this.activeTab = tabId;
-    this.render(false);
+    this.activeTab = target.dataset.tab;
+    this.render();
   }
 
-  async _onActionClick(event) {
+  static async #onRunAction(event, target) {
     event.preventDefault();
-    const action = event.currentTarget.dataset.action;
+    // Atributo separado de `data-action` (que a própria Foundry consome pra escolher ESTE
+    // handler) — `data-menu-action` guarda qual ação específica do menu foi clicada.
+    const action = target.dataset.menuAction;
+    console.log(`${SYSTEM_ID} | NihilityMenuApp: ação clicada ->`, action);
 
     if (action in AI_TASK_ACTIONS) {
       const { AIAssistantApp } = await import("./ai-assistant.js");
@@ -97,6 +85,8 @@ export class NihilityMenuApp extends Application {
       // "generate-character"/"generate-item"/"sync-data"/"import-data"/"export-data"/
       // "economy-config"/"titles-config"/"anatomy-config" ainda não têm nenhuma
       // funcionalidade real por trás — ficam sem ação até serem implementados.
+      default:
+        console.warn(`${SYSTEM_ID} | NihilityMenuApp: ação "${action}" ainda não implementada.`);
     }
   }
 }

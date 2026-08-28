@@ -1,168 +1,175 @@
 import { SYSTEM_ID, MEU_SISTEMA, getActiveSpeciesPresets } from "../config.js";
+import { openSkillEditorDialog } from "./skill-editor-dialog.js";
+
+const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
 /**
  * Editor visual dos Presets de Anatomia E Skills Raciais por Espécie (substitui
  * o campo de JSON cru). Cada Espécie é um bloco com nome + lista de Partes do
- * Corpo (chave, nome, slot, HP, tags) + lista de Skills Raciais (nome, nível,
- * custo, descrição) concedidas automaticamente ao selecionar a espécie.
- * Salvar grava o conjunto completo exibido na tela, que passa a ser a fonte da
- * verdade (ver `getActiveSpeciesPresets` em config.js).
+ * Corpo (chave, nome, slot, HP, tags) + lista de Skills Raciais (nome, tier fixo
+ * "racial", nível, custo, descrição, mecânica de uso/dano — mesmos campos de uma
+ * Skill de verdade, editados via modal em vez de linha crua) concedidas
+ * automaticamente ao selecionar a espécie. Salvar grava o conjunto completo
+ * exibido na tela, que passa a ser a fonte da verdade (ver `getActiveSpeciesPresets`
+ * em config.js).
  */
-export class SpeciesConfigApp extends FormApplication {
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      id: "nihility-species-config",
-      title: "Configurar Presets de Anatomia por Espécie",
-      template: `systems/${SYSTEM_ID}/templates/apps/species-config.hbs`,
-      classes: [SYSTEM_ID, "nihility-config-app"],
-      width: 720,
-      height: 700,
-      resizable: true,
+export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) {
+  static DEFAULT_OPTIONS = {
+    id: "nihility-species-config",
+    tag: "form",
+    window: { title: "Configurar Presets de Anatomia por Espécie", resizable: true },
+    classes: [SYSTEM_ID, "nihility-config-app"],
+    position: { width: 720, height: 700 },
+    form: {
+      handler: SpeciesConfigApp.#onSubmit,
+      submitOnChange: false,
       closeOnSubmit: true
-    });
-  }
+    },
+    actions: {
+      addSpecies: SpeciesConfigApp.#onAddSpecies,
+      deleteSpecies: SpeciesConfigApp.#onDeleteSpecies,
+      addPart: SpeciesConfigApp.#onAddPart,
+      deletePart: SpeciesConfigApp.#onDeletePart,
+      addRacialSkill: SpeciesConfigApp.#onAddRacialSkill,
+      editRacialSkill: SpeciesConfigApp.#onEditRacialSkill,
+      deleteRacialSkill: SpeciesConfigApp.#onDeleteRacialSkill
+    }
+  };
+
+  static PARTS = {
+    body: { template: `systems/${SYSTEM_ID}/templates/apps/species-config.hbs` }
+  };
 
   /** @override */
-  getData() {
+  async _prepareContext(options) {
+    const context = await super._prepareContext(options);
     const presets = getActiveSpeciesPresets();
     const species = {};
     for (const [key, def] of Object.entries(presets)) {
       species[key] = {
         label: def.label ?? key,
         parts: (def.parts ?? []).map(p => ({ ...p, tagsText: (p.tags ?? []).join(", ") })),
-        skills: def.skills ?? []
+        skills: (def.skills ?? []).map(s => ({ ...s, dataJson: JSON.stringify(s) }))
       };
     }
-    return { species };
+    context.species = species;
+    console.log(`${SYSTEM_ID} | SpeciesConfigApp._prepareContext:`, Object.keys(species).length, "espécie(s).");
+    return context;
   }
 
-  /** @override */
-  activateListeners(html) {
-    super.activateListeners(html);
-    html.find(".species-add").on("click", this._onAddSpecies.bind(this));
-    this._bindSpeciesBlock(html.find(".species-block"));
-  }
-
-  _bindSpeciesBlock(blocks) {
-    blocks.find(".species-delete").on("click", this._onDeleteSpecies.bind(this));
-    blocks.find(".part-add").on("click", this._onAddPart.bind(this));
-    blocks.find(".part-delete").on("click", this._onDeletePart.bind(this));
-    blocks.find(".racial-skill-add").on("click", this._onAddRacialSkill.bind(this));
-    blocks.find(".racial-skill-delete").on("click", this._onDeleteRacialSkill.bind(this));
-  }
-
-  _onAddSpecies(event) {
+  static #onAddSpecies(event, target) {
     event.preventDefault();
     const key = `nova_especie_${foundry.utils.randomID(4)}`;
-    const block = $(`
-      <fieldset class="species-block">
-        <legend>
-          <input type="text" class="species-key-input" value="${key}" placeholder="chave (ex: humano)"/>
-          <input type="text" class="species-label-input" value="Nova Espécie" placeholder="Nome exibido"/>
-          <a class="species-delete" title="Remover Espécie"><i class="fas fa-trash"></i></a>
-        </legend>
-        <div class="config-list-header part-header">
-          <span>Chave</span><span>Nome</span><span>Slot</span><span>HP</span><span>Tags</span><span></span>
-        </div>
-        <div class="part-list"></div>
-        <a class="config-add-row part-add">+ Nova Parte do Corpo</a>
-
-        <p class="species-block-subtitle">Skills Raciais (concedidas ao selecionar a espécie)</p>
-        <div class="config-list-header racial-skill-header">
-          <span>Nome</span><span>Nível</span><span>Custo</span><span>Descrição</span><span></span>
-        </div>
-        <div class="racial-skill-list"></div>
-        <a class="config-add-row racial-skill-add">+ Nova Skill Racial</a>
-      </fieldset>
-    `);
-    this._bindSpeciesBlock(block);
-    this.element.find(".species-list").append(block);
-  }
-
-  _onDeleteSpecies(event) {
-    event.preventDefault();
-    $(event.currentTarget).closest(".species-block").remove();
-  }
-
-  _onAddPart(event) {
-    event.preventDefault();
-    const row = $(`
-      <div class="part-row">
-        <input type="text" data-field="key" value="" placeholder="chave"/>
-        <input type="text" data-field="label" value="" placeholder="Nome"/>
-        <input type="text" data-field="slot" value="body" placeholder="slot"/>
-        <input type="number" data-field="hpMax" value="10" placeholder="HP"/>
-        <input type="text" data-field="tags" value="" placeholder="tags (vírgula)"/>
-        <a class="part-delete" title="Remover Parte"><i class="fas fa-trash"></i></a>
+    const block = document.createElement("fieldset");
+    block.className = "species-block";
+    block.innerHTML = `
+      <legend>
+        <input type="text" class="species-key-input" value="${key}" placeholder="chave (ex: humano)"/>
+        <input type="text" class="species-label-input" value="Nova Espécie" placeholder="Nome exibido"/>
+        <a class="species-delete" data-action="deleteSpecies" title="Remover Espécie"><i class="fas fa-trash"></i></a>
+      </legend>
+      <div class="config-list-header part-header">
+        <span>Chave</span><span>Nome</span><span>Slot</span><span>HP</span><span>Tags</span><span></span>
       </div>
-    `);
-    row.find(".part-delete").on("click", this._onDeletePart.bind(this));
-    $(event.currentTarget).closest(".species-block").find(".part-list").append(row);
+      <div class="part-list"></div>
+      <a class="config-add-row" data-action="addPart">+ Nova Parte do Corpo</a>
+
+      <p class="species-block-subtitle">Skills Raciais (concedidas ao selecionar a espécie)</p>
+      <div class="racial-skill-list"></div>
+      <a class="config-add-row" data-action="addRacialSkill">+ Nova Skill Racial</a>
+    `;
+    this.element.querySelector(".species-list")?.appendChild(block);
   }
 
-  _onDeletePart(event) {
+  static #onDeleteSpecies(event, target) {
     event.preventDefault();
-    $(event.currentTarget).closest(".part-row").remove();
+    target.closest(".species-block")?.remove();
   }
 
-  _onAddRacialSkill(event) {
+  static #onAddPart(event, target) {
     event.preventDefault();
-    const row = $(`
-      <div class="racial-skill-row">
-        <input type="text" data-field="name" value="" placeholder="Nome"/>
-        <input type="number" data-field="level" value="1" placeholder="Nível"/>
-        <input type="number" data-field="cost" value="0" placeholder="Custo"/>
-        <input type="text" data-field="description" value="" placeholder="Descrição"/>
-        <a class="racial-skill-delete" title="Remover"><i class="fas fa-trash"></i></a>
-      </div>
-    `);
-    row.find(".racial-skill-delete").on("click", this._onDeleteRacialSkill.bind(this));
-    $(event.currentTarget).closest(".species-block").find(".racial-skill-list").append(row);
+    const row = document.createElement("div");
+    row.className = "part-row";
+    row.innerHTML = `
+      <input type="text" data-field="key" value="" placeholder="chave"/>
+      <input type="text" data-field="label" value="" placeholder="Nome"/>
+      <input type="text" data-field="slot" value="body" placeholder="slot"/>
+      <input type="number" data-field="hpMax" value="10" placeholder="HP"/>
+      <input type="text" data-field="tags" value="" placeholder="tags (vírgula)"/>
+      <a class="part-delete" data-action="deletePart" title="Remover Parte"><i class="fas fa-trash"></i></a>
+    `;
+    target.closest(".species-block")?.querySelector(".part-list")?.appendChild(row);
   }
 
-  _onDeleteRacialSkill(event) {
+  static #onDeletePart(event, target) {
     event.preventDefault();
-    $(event.currentTarget).closest(".racial-skill-row").remove();
+    target.closest(".part-row")?.remove();
   }
 
-  /** @override */
-  async _updateObject() {
+  /** Monta a linha-resumo (nome + nível/custo) de uma Skill Racial, guardando os dados completos em `dataset.skill`. */
+  static #buildRacialSkillRow(skill) {
+    const row = document.createElement("div");
+    row.className = "racial-skill-row";
+    row.dataset.skill = JSON.stringify(skill);
+    row.innerHTML = `
+      <span class="racial-skill-summary">${skill.name} <span class="hint-inline">(nível ${skill.level} · custo ${skill.cost}${skill.effectType && skill.effectType !== "none" ? ` · ${skill.effectType}` : ""})</span></span>
+      <a class="racial-skill-edit" data-action="editRacialSkill" title="Editar"><i class="fas fa-edit"></i></a>
+      <a class="racial-skill-delete" data-action="deleteRacialSkill" title="Remover"><i class="fas fa-trash"></i></a>
+    `;
+    return row;
+  }
+
+  static async #onAddRacialSkill(event, target) {
+    event.preventDefault();
+    const data = await openSkillEditorDialog({}, { lockTier: "racial" });
+    if (!data) return;
+    const row = SpeciesConfigApp.#buildRacialSkillRow(data);
+    target.closest(".species-block")?.querySelector(".racial-skill-list")?.appendChild(row);
+  }
+
+  static async #onEditRacialSkill(event, target) {
+    event.preventDefault();
+    const row = target.closest(".racial-skill-row");
+    const current = JSON.parse(row.dataset.skill || "{}");
+    const data = await openSkillEditorDialog(current, { lockTier: "racial" });
+    if (!data) return;
+    row.replaceWith(SpeciesConfigApp.#buildRacialSkillRow(data));
+  }
+
+  static #onDeleteRacialSkill(event, target) {
+    event.preventDefault();
+    target.closest(".racial-skill-row")?.remove();
+  }
+
+  static async #onSubmit(event, form, formData) {
     const result = {};
-    this.element.find(".species-block").each((_, block) => {
-      const $block = $(block);
-      const key = $block.find(".species-key-input").val()?.trim();
+    this.element.querySelectorAll(".species-block").forEach(block => {
+      const key = block.querySelector(".species-key-input")?.value.trim();
       if (!key) return;
-      const label = $block.find(".species-label-input").val()?.trim() || key;
+      const label = block.querySelector(".species-label-input")?.value.trim() || key;
 
       const parts = [];
-      $block.find(".part-row").each((__, row) => {
-        const $row = $(row);
-        const partKey = $row.find('[data-field="key"]').val()?.trim();
+      block.querySelectorAll(".part-row").forEach(row => {
+        const partKey = row.querySelector('[data-field="key"]')?.value.trim();
         if (!partKey) return;
-        const tags = ($row.find('[data-field="tags"]').val() || "")
+        const tags = (row.querySelector('[data-field="tags"]')?.value || "")
           .split(",")
           .map(t => t.trim())
           .filter(Boolean);
         parts.push({
           key: partKey,
-          label: $row.find('[data-field="label"]').val()?.trim() || partKey,
-          slot: $row.find('[data-field="slot"]').val()?.trim() || "body",
-          hpMax: Number($row.find('[data-field="hpMax"]').val()) || 1,
+          label: row.querySelector('[data-field="label"]')?.value.trim() || partKey,
+          slot: row.querySelector('[data-field="slot"]')?.value.trim() || "body",
+          hpMax: Number(row.querySelector('[data-field="hpMax"]')?.value) || 1,
           tags
         });
       });
 
       const skills = [];
-      $block.find(".racial-skill-row").each((__, row) => {
-        const $row = $(row);
-        const name = $row.find('[data-field="name"]').val()?.trim();
-        if (!name) return;
-        skills.push({
-          name,
-          level: Number($row.find('[data-field="level"]').val()) || 1,
-          cost: Number($row.find('[data-field="cost"]').val()) || 0,
-          description: $row.find('[data-field="description"]').val()?.trim() || ""
-        });
+      block.querySelectorAll(".racial-skill-row").forEach(row => {
+        const skill = JSON.parse(row.dataset.skill || "{}");
+        if (!skill.name) return;
+        skills.push(skill);
       });
 
       result[key] = { label, parts, skills };
@@ -170,5 +177,6 @@ export class SpeciesConfigApp extends FormApplication {
 
     await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.speciesPresetsData, JSON.stringify(result, null, 2));
     ui.notifications.info("Presets de Espécie atualizados.");
+    console.log(`${SYSTEM_ID} | SpeciesConfigApp: ${Object.keys(result).length} espécie(s) salva(s).`, result);
   }
 }

@@ -13,6 +13,8 @@ import { runAgentTask } from "../ai/agent-runner.js";
 import { createAgentTools } from "../ai/agent-tools.js";
 import { recordBatchOperation, undoBatchOperation, listRecentBatchOperations } from "../helpers/world-backup.js";
 
+const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
+
 const TASKS = {
   npc: { label: "NPC (Personagem/Criatura)", icon: "fa-user" },
   mount: { label: "Montaria", icon: "fa-horse" },
@@ -41,19 +43,28 @@ const AGENT_SYSTEM_PROMPT =
  *    Personagens/edições a partir de um único pedido (ex: "crie 3 skills e 2 personagens") —
  *    fica em revisão até o Mestre aprovar, e a aplicação vira uma operação desfazível.
  * Restrito a GM (defesa em profundidade além do botão que já só aparece pra GM).
+ * Migrado pra ApplicationV2 — sem <form> nativo (os botões leem o DOM na hora do clique).
  */
-export class AIAssistantApp extends Application {
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      id: "nihility-ai-assistant",
-      title: "Assistente de IA (GM)",
-      template: `systems/${SYSTEM_ID}/templates/apps/ai-assistant.hbs`,
-      classes: [SYSTEM_ID, "nihility-config-app", "ai-assistant"],
-      width: 560,
-      height: "auto",
-      resizable: true
-    });
-  }
+export class AIAssistantApp extends HandlebarsApplicationMixin(ApplicationV2) {
+  static DEFAULT_OPTIONS = {
+    id: "nihility-ai-assistant",
+    window: { title: "Assistente de IA (GM)", resizable: true },
+    classes: [SYSTEM_ID, "nihility-config-app", "ai-assistant"],
+    position: { width: 560, height: "auto" },
+    actions: {
+      selectMode: AIAssistantApp.#onSelectMode,
+      clearEditTarget: AIAssistantApp.#onClearEditTarget,
+      generate: AIAssistantApp.#onGenerate,
+      openResult: AIAssistantApp.#onOpenResult,
+      runAgent: AIAssistantApp.#onAgentRun,
+      applyProposals: AIAssistantApp.#onApplyProposals,
+      undoOperation: AIAssistantApp.#onUndoOperation
+    }
+  };
+
+  static PARTS = {
+    body: { template: `systems/${SYSTEM_ID}/templates/apps/ai-assistant.hbs` }
+  };
 
   constructor(options = {}) {
     super(options);
@@ -78,13 +89,14 @@ export class AIAssistantApp extends Application {
     this._agentOperationsLoaded = true;
     listRecentBatchOperations(5).then(ops => {
       this.recentOperations = ops;
-      this.render(false);
+      this.render();
     });
   }
 
   /** @override */
-  getData() {
-    return {
+  async _prepareContext(options) {
+    const context = await super._prepareContext(options);
+    Object.assign(context, {
       isGM: game.user.isGM,
       tasks: TASKS,
       isCreateMode: this.mode === "create",
@@ -100,36 +112,40 @@ export class AIAssistantApp extends Application {
       agentHasProposals: this.agentProposals.length > 0,
       agentTranscriptText: this.agentTranscriptText,
       recentOperations: this.recentOperations
-    };
+    });
+    console.log(`${SYSTEM_ID} | AIAssistantApp._prepareContext, modo:`, this.mode);
+    return context;
   }
 
-  /** @override */
-  activateListeners(html) {
-    super.activateListeners(html);
+  /**
+   * @override
+   * Eventos que não são clique-em-data-action (drag&drop do alvo de edição, checkbox de
+   * incluir/excluir proposta) precisam ser ligados manualmente a cada render.
+   */
+  _onRender(context, options) {
+    super._onRender(context, options);
     if (!game.user.isGM) return;
 
-    html.find(".mode-btn").on("click", this._onModeChange.bind(this));
-    html.find(".ai-edit-dropzone").on("dragover", event => event.preventDefault());
-    html.find(".ai-edit-dropzone").on("drop", this._onDropEditTarget.bind(this));
-    html.find(".ai-edit-clear").on("click", this._onClearEditTarget.bind(this));
-    html.find(".ai-generate").on("click", this._onGenerate.bind(this));
-    html.find(".result-open").on("click", this._onOpenResult.bind(this));
+    const dropzone = this.element.querySelector(".ai-edit-dropzone");
+    if (dropzone) {
+      dropzone.addEventListener("dragover", event => event.preventDefault());
+      dropzone.addEventListener("drop", this._onDropEditTarget.bind(this));
+    }
 
-    html.find(".ai-agent-run").on("click", this._onAgentRun.bind(this));
-    html.find(".proposal-toggle").on("change", this._onToggleProposal.bind(this));
-    html.find(".ai-agent-apply").on("click", this._onApplyProposals.bind(this));
-    html.find(".ai-undo-operation").on("click", this._onUndoOperation.bind(this));
+    this.element.querySelectorAll(".proposal-toggle").forEach(checkbox => {
+      checkbox.addEventListener("change", this._onToggleProposal.bind(this));
+    });
   }
 
-  _onModeChange(event) {
+  static #onSelectMode(event, target) {
     event.preventDefault();
-    this.mode = event.currentTarget.dataset.mode;
+    this.mode = target.dataset.mode;
     this.results = [];
     this.freeformAnswer = "";
 
     if (this.mode === "agent" && !this._agentOperationsLoaded) this._loadRecentOperations();
 
-    this.render(false);
+    this.render();
   }
 
   /** Recebe um Ator ou Item arrastado da barra lateral/ficha como alvo de edição. */
@@ -137,7 +153,7 @@ export class AIAssistantApp extends Application {
     event.preventDefault();
     let data;
     try {
-      data = TextEditor.getDragEventData(event.originalEvent ?? event);
+      data = TextEditor.getDragEventData(event);
     } catch (err) {
       return;
     }
@@ -150,20 +166,20 @@ export class AIAssistantApp extends Application {
     }
 
     this.editTarget = { uuid: doc.uuid, name: doc.name, img: doc.img, documentName: doc.documentName };
-    this.render(false);
+    this.render();
   }
 
-  _onClearEditTarget(event) {
+  static #onClearEditTarget(event, target) {
     event.preventDefault();
     this.editTarget = null;
-    this.render(false);
+    this.render();
   }
 
-  async _onGenerate(event) {
+  static async #onGenerate(event, target) {
     event.preventDefault();
     if (this.busy) return;
 
-    const prompt = this.element.find(".ai-prompt").val()?.trim();
+    const prompt = this.element.querySelector(".ai-prompt")?.value.trim();
     if (!prompt) {
       ui.notifications.warn("Escreva um prompt antes de gerar.");
       return;
@@ -174,21 +190,21 @@ export class AIAssistantApp extends Application {
       return;
     }
 
-    const task = this.element.find(".task-select").val();
+    const task = this.element.querySelector(".task-select")?.value;
     const quantity =
       this.mode === "edit" || task === "freeform"
         ? 1
-        : Math.clamp(Number(this.element.find(".ai-quantity").val()) || 1, 1, 10);
+        : Math.clamp(Number(this.element.querySelector(".ai-quantity")?.value) || 1, 1, 10);
 
     this.busy = true;
     this.results = [];
     this.freeformAnswer = "";
-    this.render(false);
+    this.render();
 
     try {
       if (this.mode === "edit") {
         this.statusText = "Aplicando alteração...";
-        this.render(false);
+        this.render();
         const doc = await fromUuid(this.editTarget.uuid);
         if (!doc) {
           ui.notifications.warn("O documento selecionado não existe mais.");
@@ -206,7 +222,7 @@ export class AIAssistantApp extends Application {
       } else {
         for (let i = 0; i < quantity; i++) {
           this.statusText = quantity > 1 ? `Gerando ${i + 1}/${quantity}...` : "Gerando...";
-          this.render(false);
+          this.render();
           const doc = await this._runTask(task, prompt, i, quantity);
           if (doc) this.results.push({ name: doc.name, uuid: doc.uuid, icon: TASKS[task].icon });
         }
@@ -216,7 +232,7 @@ export class AIAssistantApp extends Application {
     } finally {
       this.busy = false;
       this.statusText = "";
-      this.render(false);
+      this.render();
     }
   }
 
@@ -242,9 +258,9 @@ export class AIAssistantApp extends Application {
     }
   }
 
-  async _onOpenResult(event) {
+  static async #onOpenResult(event, target) {
     event.preventDefault();
-    const uuid = event.currentTarget.dataset.uuid;
+    const uuid = target.dataset.uuid;
     const doc = await fromUuid(uuid);
     doc?.sheet?.render(true);
   }
@@ -253,11 +269,11 @@ export class AIAssistantApp extends Application {
   /*  Modo "agent": tool-calling + revisão em lote */
   /* -------------------------------------------- */
 
-  async _onAgentRun(event) {
+  static async #onAgentRun(event, target) {
     event.preventDefault();
     if (this.busy) return;
 
-    const prompt = this.element.find(".ai-agent-prompt").val()?.trim();
+    const prompt = this.element.querySelector(".ai-agent-prompt")?.value.trim();
     if (!prompt) {
       ui.notifications.warn("Escreva um pedido antes de executar.");
       return;
@@ -267,7 +283,7 @@ export class AIAssistantApp extends Application {
     this.agentProposals = [];
     this.agentTranscriptText = "";
     this.statusText = "Pensando...";
-    this.render(false);
+    this.render();
 
     const { tools, proposals } = createAgentTools();
     try {
@@ -277,7 +293,7 @@ export class AIAssistantApp extends Application {
         tools,
         onProgress: ({ turn, maxTurns, toolCalls }) => {
           this.statusText = `Rodada ${turn + 1}/${maxTurns}${toolCalls.length ? ` — usando: ${toolCalls.map(t => t.name).join(", ")}` : ""}`;
-          this.render(false);
+          this.render();
         }
       });
 
@@ -285,12 +301,13 @@ export class AIAssistantApp extends Application {
         ? "O assistente atingiu o limite de rodadas antes de terminar — revise o que foi proposto até aqui."
         : finalText;
       this.agentProposals = proposals.map(p => ({ ...p, include: true }));
+      console.log(`${SYSTEM_ID} | AIAssistantApp (agente): ${this.agentProposals.length} proposta(s).`, this.agentProposals);
     } catch (err) {
       console.error(`${SYSTEM_ID} | Assistente de IA (agente) falhou.`, err);
     } finally {
       this.busy = false;
       this.statusText = "";
-      this.render(false);
+      this.render();
     }
   }
 
@@ -299,7 +316,7 @@ export class AIAssistantApp extends Application {
     if (this.agentProposals[index]) this.agentProposals[index].include = event.currentTarget.checked;
   }
 
-  async _onApplyProposals(event) {
+  static async #onApplyProposals(event, target) {
     event.preventDefault();
     const selected = this.agentProposals.filter(p => p.include);
     if (!selected.length) {
@@ -309,7 +326,7 @@ export class AIAssistantApp extends Application {
 
     this.busy = true;
     this.statusText = "Aplicando...";
-    this.render(false);
+    this.render();
 
     const backupEntries = [];
     const applied = [];
@@ -343,23 +360,24 @@ export class AIAssistantApp extends Application {
       this.agentProposals = [];
       this.recentOperations = await listRecentBatchOperations(5);
       ui.notifications.info(`${applied.length} documento(s) criado(s)/editado(s).`);
+      console.log(`${SYSTEM_ID} | AIAssistantApp: ${applied.length} proposta(s) aplicada(s).`, applied);
     } catch (err) {
       console.error(`${SYSTEM_ID} | Falha ao aplicar propostas do Assistente de IA.`, err);
       ui.notifications.error("Falha ao aplicar as propostas selecionadas.");
     } finally {
       this.busy = false;
       this.statusText = "";
-      this.render(false);
+      this.render();
     }
   }
 
-  async _onUndoOperation(event) {
+  static async #onUndoOperation(event, target) {
     event.preventDefault();
-    const operationId = event.currentTarget.dataset.operationId;
+    const operationId = target.dataset.operationId;
     if (!operationId) return;
 
-    const confirmed = await Dialog.confirm({
-      title: "Desfazer Operação",
+    const confirmed = await DialogV2.confirm({
+      window: { title: "Desfazer Operação" },
       content: "<p>Isso apaga os documentos que essa operação criou e restaura os que ela editou. Confirma?</p>"
     });
     if (!confirmed) return;
@@ -368,7 +386,7 @@ export class AIAssistantApp extends Application {
       await undoBatchOperation(operationId);
       ui.notifications.info("Operação desfeita.");
       this.recentOperations = await listRecentBatchOperations(5);
-      this.render(false);
+      this.render();
     } catch (err) {
       console.error(`${SYSTEM_ID} | Falha ao desfazer operação.`, err);
       ui.notifications.error(`Falha ao desfazer: ${err.message}`);

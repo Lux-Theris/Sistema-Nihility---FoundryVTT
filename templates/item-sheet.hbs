@@ -29,7 +29,22 @@
       {{#unless (eq system.tier "ultimate")}}
       <p class="hint-inline">"Ultimate" só aparece pro jogador se o Ator já possuir uma Skill Ultimate — o Mestre sempre vê essa opção.</p>
       {{/unless}}
-      <label>Nível <input type="number" name="system.level" value="{{system.level}}"/></label>
+      <label>Nível
+        <input type="number" name="system.level" value="{{system.level}}" {{#unless isGM}}readonly{{/unless}}/>
+        {{#if isGM}}<button type="button" class="level-up-button" data-action="levelUpSkill" title="Level Up (Voz do Mundo avisa)">+</button>{{/if}}
+      </label>
+
+      <label>Categoria de Resistência <span class="hint-inline">(passiva — reduz dano recebido enquanto o Ator tiver essa Skill; Geral trava em nível 5/50%, Elemento vira Imunidade em nível 10/100%)</span>
+        <select class="resistance-target-select" name="system.resistanceTarget">
+          {{#each resistanceOptions as |opt|}}
+          <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+          {{/each}}
+        </select>
+      </label>
+      {{#if isResistanceSkill}}
+      <p class="hint-inline">Redução atual: {{resistancePercent}}% (nível {{system.level}}/{{resistanceMaxLevel}}).</p>
+      {{/if}}
+
       <label>Custo <input type="number" name="system.cost" value="{{system.cost}}"/></label>
       <label>Gatilho Emocional <input type="text" name="system.emotionTrigger" value="{{system.emotionTrigger}}"/></label>
       <label>Requer Item <span class="hint-inline">(livre, só pra RP — ex: "Revólver das Transmutações")</span>
@@ -192,6 +207,22 @@
         {{/each}}
       </ol>
       <a class="title-bonus-add" data-action="addTitleBonus">+ Bônus</a>
+
+      <h3>Resistência a Dano <span class="hint-inline">(percentual fixo — não tem nível; soma com a Resistência de Skill do Ator pro mesmo alvo)</span></h3>
+      <ol class="sub-list">
+        {{#each titleResistances as |res index|}}
+        <li data-index="{{index}}">
+          <select name="system.resistances.{{index}}.target">
+            {{#each res.targetOptions as |opt|}}
+            <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+            {{/each}}
+          </select>
+          <input type="number" name="system.resistances.{{index}}.amount" value="{{res.amount}}" min="0" max="100"/>%
+          <a class="title-resistance-delete" data-action="deleteTitleResistance" title="Remover"><i class="fas fa-trash"></i></a>
+        </li>
+        {{/each}}
+      </ol>
+      <a class="title-resistance-add" data-action="addTitleResistance">+ Resistência</a>
       {{/if}}
 
       {{#if (eq itemType "starship_module")}}

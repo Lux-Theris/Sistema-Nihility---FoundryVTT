@@ -809,6 +809,19 @@ form.nihility-config-app {
   background: rgba(192, 132, 252, 0.15);
 }
 
+.nihility-sheet .level-up-button {
+  background: rgba(224, 183, 104, 0.12);
+  border: 1px solid var(--nihility-gold);
+  color: var(--nihility-gold);
+  border-radius: 5px;
+  cursor: pointer;
+  padding: 2px 10px;
+  margin-left: 6px;
+}
+.nihility-sheet .level-up-button:hover {
+  background: rgba(224, 183, 104, 0.25);
+}
+
 .nihility-sheet .sp-ledger {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));

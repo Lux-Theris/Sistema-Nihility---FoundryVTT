@@ -1,5 +1,6 @@
 import { SYSTEM_ID, MEU_SISTEMA, getActiveDamageElements } from "../config.js";
-import { createGrantedSkill, removeGrantedSkill } from "../ai-helper.js";
+import { createGrantedSkill, removeGrantedSkill, announceVoiceOfTheWorld } from "../ai-helper.js";
+import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../skill-effects.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -31,7 +32,10 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       deleteItemAttrBonus: NihilityItemSheet.#onItemAttrBonusDelete,
       addModAttrBonus: NihilityItemSheet.#onModAttrBonusAdd,
       deleteModAttrBonus: NihilityItemSheet.#onModAttrBonusDelete,
-      selectTab: NihilityItemSheet.#onSelectTab
+      selectTab: NihilityItemSheet.#onSelectTab,
+      levelUpSkill: NihilityItemSheet.#onLevelUpSkill,
+      addTitleResistance: NihilityItemSheet.#onTitleResistanceAdd,
+      deleteTitleResistance: NihilityItemSheet.#onTitleResistanceDelete
     }
   };
 
@@ -62,6 +66,11 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.activeTab = this.activeTab;
     context.item = this.item;
     context.owner = this.item.isOwner;
+    context.isGM = game.user.isGM;
+
+    // Alvos de Resistência (Geral + cada Elemento ativo) — usado pela Skill (com "Nenhuma"
+    // na frente) e pelo Título (uma entrada sempre tem um alvo, sem opção "Nenhuma").
+    const resistanceTargets = [{ value: "general", label: "Geral" }, ...getActiveDamageElements().map(el => ({ value: el.id, label: el.label }))];
 
     if (this.item.type === "skill") {
       const owner = this.item.parent;
@@ -72,6 +81,26 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       context.damageElements = getActiveDamageElements().map(el => ({
         ...el,
         selected: selectedElements.includes(el.id)
+      }));
+
+      // Categoria de Resistência da Skill: "" (Nenhuma) + Geral + cada Elemento ativo.
+      const resistanceTarget = this.item.system.resistanceTarget ?? "";
+      context.resistanceOptions = [{ value: "", label: "Nenhuma" }, ...resistanceTargets].map(opt => ({
+        ...opt,
+        selected: opt.value === resistanceTarget
+      }));
+      context.isResistanceSkill = resistanceTarget !== "";
+      if (context.isResistanceSkill) {
+        context.resistanceMaxLevel = resistanceMaxLevel(resistanceTarget);
+        context.resistancePercent = Math.round(computeResistancePercent(resistanceTarget, this.item.system.level) * 100);
+      }
+    }
+
+    if (this.item.type === "title") {
+      // Cada entrada de Resistência do Título já tem um alvo escolhido — sem opção "Nenhuma".
+      context.titleResistances = (this.item.system.resistances ?? []).map(entry => ({
+        ...entry,
+        targetOptions: resistanceTargets.map(opt => ({ ...opt, selected: opt.value === entry.target }))
       }));
     }
 
@@ -91,6 +120,21 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     this.element.querySelectorAll(".item-equip-toggle").forEach(checkbox => {
       checkbox.addEventListener("change", this._onEquipToggle.bind(this));
     });
+
+    this.element.querySelector(".resistance-target-select")?.addEventListener("change", this._onResistanceTargetChange.bind(this));
+  }
+
+  /**
+   * Muda a Categoria de Resistência da Skill e recalcula o nome na hora (ex: ao escolher
+   * "Fogo", o nome já vira "Resistência: Fogo" sem precisar de Level Up).
+   */
+  async _onResistanceTargetChange(event) {
+    const resistanceTarget = event.currentTarget.value;
+    const updates = { "system.resistanceTarget": resistanceTarget };
+    if (resistanceTarget) {
+      updates.name = computeResistanceName(resistanceTarget, this.item.system.level);
+    }
+    await this.item.update(updates);
   }
 
   /* -------------------------------------------- */
@@ -240,5 +284,60 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const bonuses = foundry.utils.deepClone(this.item.system.bonuses ?? []);
     bonuses.splice(index, 1);
     await this.item.update({ "system.bonuses": bonuses });
+  }
+
+  /* -------------------------------------------- */
+  /*  Level Up de Skill (só GM — campo Nível é readonly pro jogador)  */
+  /* -------------------------------------------- */
+
+  static async #onLevelUpSkill(event, target) {
+    event.preventDefault();
+    const resistanceTarget = this.item.system.resistanceTarget;
+    const currentLevel = this.item.system.level;
+
+    if (resistanceTarget) {
+      const maxLevel = resistanceMaxLevel(resistanceTarget);
+      if (currentLevel >= maxLevel) {
+        ui.notifications.warn(
+          resistanceTarget === "general"
+            ? "Resistência Geral já está no teto (nível 5, 50%) — não existe Imunidade Geral."
+            : `Essa Skill já está no nível máximo (${maxLevel}, Imunidade).`
+        );
+        return;
+      }
+    }
+
+    const newLevel = currentLevel + 1;
+    const updates = { "system.level": newLevel };
+    if (resistanceTarget) updates.name = computeResistanceName(resistanceTarget, newLevel);
+    await this.item.update(updates);
+
+    const actor = this.item.parent;
+    if (actor) {
+      await announceVoiceOfTheWorld(actor, {
+        kind: "skill-level-up",
+        title: "Habilidade Evoluiu",
+        body: `${this.item.name} de ${actor.name} subiu para o nível ${newLevel}.`
+      });
+    }
+  }
+
+  /* -------------------------------------------- */
+  /*  Resistência concedida por Título             */
+  /* -------------------------------------------- */
+
+  static async #onTitleResistanceAdd(event, target) {
+    event.preventDefault();
+    const resistances = foundry.utils.deepClone(this.item.system.resistances ?? []);
+    resistances.push({ target: "general", amount: 0 });
+    await this.item.update({ "system.resistances": resistances });
+  }
+
+  static async #onTitleResistanceDelete(event, target) {
+    event.preventDefault();
+    const index = Number(target.closest("[data-index]").dataset.index);
+    const resistances = foundry.utils.deepClone(this.item.system.resistances ?? []);
+    resistances.splice(index, 1);
+    await this.item.update({ "system.resistances": resistances });
   }
 }

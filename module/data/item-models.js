@@ -137,7 +137,19 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
       ),
 
       /** Modificador PERMANENTE de HP/Mana, sempre ativo enquanto a skill estiver na ficha. */
-      statModifiers: statModifiersSchema()
+      statModifiers: statModifiersSchema(),
+
+      /**
+       * "" = não é Skill de Resistência (a maioria das skills). "general" = reduz qualquer
+       * dano recebido. Qualquer outro valor = um id de getActiveDamageElements() (já inclui
+       * "physical" — cortes/contusões/etc.) = resistência só a esse elemento específico.
+       * Sem `choices` fixo porque a lista de elementos é configurável em runtime pela setting
+       * `damageElementsData`, não dá pra travar em tempo de definição de schema.
+       * Progressão: 10%/nível (ver `computeResistancePercent` em skill-effects.js). Resistência
+       * Geral tem teto no nível 5 (50%, nunca vira Imunidade — seria OP demais); Resistência a
+       * um Elemento específico tem teto no nível 10 (100% = Imunidade, e o nome muda sozinho).
+       */
+      resistanceTarget: new fields.StringField({ required: false, initial: "" })
     };
   }
 }
@@ -206,6 +218,21 @@ export class TitleDataModel extends foundry.abstract.TypeDataModel {
         new fields.SchemaField({
           attribute: new fields.StringField({ required: true, choices: MEU_SISTEMA.TITLE_BONUS_TARGETS }),
           amount: new fields.NumberField({ required: true, integer: true, initial: 0 })
+        }),
+        { required: false, initial: [] }
+      ),
+
+      /**
+       * Resistência a dano concedida permanentemente pelo Título: [{ target, amount }].
+       * `target` = "general" (reduz qualquer dano) ou um id de getActiveDamageElements().
+       * `amount` é um percentual fixo (0-100) digitado pelo Mestre — Títulos não têm nível,
+       * então não seguem a progressão por nível das Skills de Resistência; soma com a
+       * Resistência de Skill que o Ator já tiver pro mesmo alvo (ver skill-effects.js).
+       */
+      resistances: new fields.ArrayField(
+        new fields.SchemaField({
+          target: new fields.StringField({ required: true, initial: "general" }),
+          amount: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0, max: 100 })
         }),
         { required: false, initial: [] }
       )

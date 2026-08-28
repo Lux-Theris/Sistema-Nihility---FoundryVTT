@@ -15,7 +15,8 @@
         </label>
 
         <label>Nível
-          <input type="number" name="system.attributes.level" value="{{system.attributes.level}}"/>
+          <input type="number" name="system.attributes.level" value="{{system.attributes.level}}" {{#unless isGM}}readonly{{/unless}}/>
+          {{#if isGM}}<button type="button" class="level-up-button" data-action="levelUpActor" title="Level Up (Voz do Mundo avisa)">+</button>{{/if}}
         </label>
 
         {{#if titlesEnabled}}

@@ -79,7 +79,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       breakSkillPoints: NihilityActorSheet.#onBreakSkillPoints,
       mergeSkillPoints: NihilityActorSheet.#onMergeSkillPoints,
       convertCurrency: NihilityActorSheet.#onConvertCurrency,
-      sendCurrency: NihilityActorSheet.#onSendCurrency
+      sendCurrency: NihilityActorSheet.#onSendCurrency,
+      levelUpActor: NihilityActorSheet.#onLevelUpActor
     }
   };
 
@@ -234,6 +235,16 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     }
 
     await this.actor.update({ "system.lastAppliedSpeciesPreset": speciesKey });
+  }
+
+  /* -------------------------------------------- */
+  /*  Level Up (só GM — o campo de Nível é readonly pro jogador)  */
+  /* -------------------------------------------- */
+
+  static async #onLevelUpActor(event, target) {
+    event.preventDefault();
+    const newLevel = this.actor.system.attributes.level + 1;
+    await this.actor.update({ "system.attributes.level": newLevel });
   }
 
   /* -------------------------------------------- */
@@ -432,11 +443,11 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     const skill = this.actor.items.get(itemId);
     if (!skill) return;
 
-    // Dano físico sem tag de magia não precisa de alvo pra calcular nada — só pede alvo
-    // quando o resultado realmente muda (buff/debuff sempre; dano só se puder ser reduzido
-    // pela Defesa Mágica do alvo).
+    // Todo dano agora pode ser reduzido (Defesa Mágica, e/ou Resistência Geral/Elemental do
+    // alvo — inclusive dano puramente físico, se o alvo tiver Resistência Física) — então
+    // "damage" sempre pede alvo, igual "temporary" (buff/debuff) já pedia.
     let targetActor = this.actor;
-    const needsTarget = skill.system.effectType === "temporary" || (skill.system.effectType === "damage" && skill.system.isMagicDamage);
+    const needsTarget = skill.system.effectType === "temporary" || skill.system.effectType === "damage";
     if (needsTarget) {
       targetActor = await this._promptSkillTarget();
       if (!targetActor) return;

@@ -18,7 +18,8 @@ import {
   ensureSystemCompendiums,
   approveSkillCreationRequest,
   rejectSkillCreationRequest,
-  removeGrantedSkill
+  removeGrantedSkill,
+  announceLevelUp
 } from "./ai-helper.js";
 import { NihilityActorSheet } from "./sheets/actor-sheet.js";
 import { NihilityStarshipSheet, NihilityVehicleSheet } from "./sheets/starship-sheet.js";
@@ -172,10 +173,10 @@ async function migrateElementalDamageToMagicTag() {
 }
 
 // Concede Pontos de Habilidade Normais automaticamente quando o Nível sobe
-// (a quantidade por nível é a setting "Pontos de Habilidade Normais — Por Nível").
-// Usa preUpdate (não updateActor) pra mesclar o ganho na mesma escrita, em vez de
-// disparar um segundo update — e assim funciona também quando é o próprio jogador
-// quem sobe o nível na ficha, não só o GM.
+// (a quantidade por nível é a setting "Pontos de Habilidade Normais — Por Nível") e avisa
+// pela Voz do Mundo. Usa preUpdate (não updateActor) pra mesclar o ganho na mesma escrita,
+// em vez de disparar um segundo update — e assim funciona também quando é o próprio jogador
+// quem sobe o nível na ficha, não só pelo botão de Level Up do Mestre.
 Hooks.on("preUpdateActor", (actor, changes) => {
   if (actor.type !== "character") return;
 
@@ -184,6 +185,10 @@ Hooks.on("preUpdateActor", (actor, changes) => {
 
   const oldLevel = actor.system.attributes.level;
   if (newLevel <= oldLevel) return;
+
+  // Sempre anuncia quando o nível sobe, mesmo que a setting de Pontos por Nível esteja
+  // zerada (por isso fica ANTES do early-return de `gained <= 0` logo abaixo).
+  announceLevelUp(actor, newLevel);
 
   const gained = (newLevel - oldLevel) * getSkillPointsPerLevel();
   if (gained <= 0) return;

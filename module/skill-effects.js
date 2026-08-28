@@ -53,6 +53,61 @@ function magicDefenseReduction(targetActor) {
   return Math.clamp(raw, 0, MEU_SISTEMA.MAGIC_DEFENSE_REDUCTION_CAP);
 }
 
+/* -------------------------------------------- */
+/*  Skills/Títulos de Resistência a Dano         */
+/* -------------------------------------------- */
+
+const GENERAL_RESISTANCE_MAX_LEVEL = 5; // 50% — nunca vira "Imunidade Geral" (seria OP demais)
+const ELEMENT_RESISTANCE_MAX_LEVEL = 10; // 100% — Imunidade
+
+/** Nível máximo que uma Skill de Resistência pode alcançar, conforme o alvo (Geral vs Elemento). */
+export function resistanceMaxLevel(resistanceTarget) {
+  return resistanceTarget === "general" ? GENERAL_RESISTANCE_MAX_LEVEL : ELEMENT_RESISTANCE_MAX_LEVEL;
+}
+
+/**
+ * Nome derivado de uma Skill de Resistência a partir do alvo + nível atual. Resistência Geral
+ * nunca "vira" Imunidade (capada no nível 5); Resistência a um Elemento vira Imunidade ao
+ * cruzar o nível 10.
+ */
+export function computeResistanceName(resistanceTarget, level) {
+  if (resistanceTarget === "general") return "Resistência Geral";
+  const isImmune = level >= ELEMENT_RESISTANCE_MAX_LEVEL;
+  const label = getActiveDamageElements().find(e => e.id === resistanceTarget)?.label ?? resistanceTarget;
+  return `${isImmune ? "Imunidade" : "Resistência"}: ${label}`;
+}
+
+/** Percentual (0-1) de redução que uma Skill de Resistência dá no nível atual: 10%/nível, respeitando o teto de cada categoria. */
+export function computeResistancePercent(resistanceTarget, level) {
+  const cappedLevel = Math.min(Number(level) || 0, resistanceMaxLevel(resistanceTarget));
+  return Math.max(0, cappedLevel) * 0.1;
+}
+
+/**
+ * Maior percentual de Resistência (0-1) que `targetActor` tem pra `resistanceTarget`
+ * ("general" ou um id de elemento), somando a melhor Skill de Resistência com a melhor
+ * entrada de Título pra esse mesmo alvo (fontes diferentes somam; duplicadas da mesma
+ * fonte não somam entre si, só a melhor conta).
+ */
+function actorResistanceFor(targetActor, resistanceTarget) {
+  if (!targetActor) return 0;
+
+  let bestSkill = 0;
+  let bestTitle = 0;
+
+  for (const item of targetActor.items) {
+    if (item.type === "skill" && item.system.resistanceTarget === resistanceTarget) {
+      bestSkill = Math.max(bestSkill, computeResistancePercent(resistanceTarget, item.system.level));
+    } else if (item.type === "title") {
+      for (const entry of item.system.resistances ?? []) {
+        if (entry.target === resistanceTarget) bestTitle = Math.max(bestTitle, (Number(entry.amount) || 0) / 100);
+      }
+    }
+  }
+
+  return bestSkill + bestTitle;
+}
+
 async function rollSkillDamage(actor, skill, targetActor = null) {
   const formula = skill.system.damageFormula?.trim();
   if (!formula) {
@@ -63,18 +118,43 @@ async function rollSkillDamage(actor, skill, targetActor = null) {
   const roll = new Roll(formula);
   await roll.evaluate();
 
-  const elementLabels = (skill.system.damageElements ?? [])
+  const damageElements = skill.system.damageElements ?? [];
+  const elementLabels = damageElements
     .map(id => getActiveDamageElements().find(e => e.id === id)?.label)
     .filter(Boolean);
   let flavor = elementLabels.length ? `${skill.name} — Dano ${elementLabels.join("+")}` : `${skill.name} — Dano`;
 
-  let finalDamage = roll.total;
+  let remaining = roll.total;
+  const appliedReductions = [];
+
   if (skill.system.isMagicDamage && targetActor) {
     const reduction = magicDefenseReduction(targetActor);
     if (reduction > 0) {
-      finalDamage = Math.floor(roll.total * (1 - reduction));
-      flavor += ` — reduzido em ${Math.round(reduction * 100)}% pela Defesa Mágica de ${targetActor.name} (${roll.total} → ${finalDamage})`;
+      remaining *= 1 - reduction;
+      appliedReductions.push(`Defesa Mágica ${Math.round(reduction * 100)}%`);
     }
+  }
+
+  if (targetActor) {
+    const generalReduction = actorResistanceFor(targetActor, "general");
+    if (generalReduction > 0) {
+      remaining *= 1 - generalReduction;
+      appliedReductions.push(`Resistência Geral ${Math.round(generalReduction * 100)}%`);
+    }
+
+    for (const elementId of damageElements) {
+      const elementReduction = actorResistanceFor(targetActor, elementId);
+      if (elementReduction > 0) {
+        remaining *= 1 - elementReduction;
+        const label = getActiveDamageElements().find(e => e.id === elementId)?.label ?? elementId;
+        appliedReductions.push(`Resistência ${label} ${Math.round(elementReduction * 100)}%`);
+      }
+    }
+  }
+
+  const finalDamage = Math.max(0, Math.floor(remaining));
+  if (appliedReductions.length) {
+    flavor += ` — reduzido por ${appliedReductions.join(", ")} (${roll.total} → ${finalDamage})`;
   }
 
   await roll.toMessage({

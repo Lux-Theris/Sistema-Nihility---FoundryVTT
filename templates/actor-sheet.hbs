@@ -26,25 +26,34 @@
     </div>
 
     <div class="resources">
-      <div class="vital-row">
+      <div class="vital-row" data-vital="hp">
         <span class="vital-label">HP</span>
         <span class="vital-track"><span class="vital-fill hp" style="width:{{hpPercent}}%"></span></span>
         <span class="vital-value">
           <input type="number" name="system.attributes.hp.value" value="{{system.attributes.hp.value}}"/>/<input type="number" name="system.attributes.hp.max" value="{{system.attributes.hp.max}}"/>
         </span>
+        <a class="vital-adjust-toggle" data-action="toggleVitalAdjust" title="Ajustar HP"><i class="fas fa-plus"></i></a>
       </div>
-      <div class="vital-row">
+      <div class="vital-adjust-popover" data-vital="hp">
+        <input type="number" class="vital-adjust-input" min="0" placeholder="Valor"/>
+        <button type="button" class="vital-adjust-btn dmg" data-action="adjustVital" data-vital="hp" data-dir="-1">− Dano</button>
+        <button type="button" class="vital-adjust-btn heal" data-action="adjustVital" data-vital="hp" data-dir="1">+ Cura</button>
+      </div>
+
+      <div class="vital-row" data-vital="energy">
         <span class="vital-label">{{energyLabel}}</span>
         <span class="vital-track"><span class="vital-fill energy" style="width:{{energyPercent}}%"></span></span>
         <span class="vital-value">
           <input type="number" name="system.attributes.energy.value" value="{{system.attributes.energy.value}}"/>/<input type="number" name="system.attributes.energy.max" value="{{system.attributes.energy.max}}"/>
         </span>
+        <a class="vital-adjust-toggle" data-action="toggleVitalAdjust" title="Ajustar {{energyLabel}}"><i class="fas fa-plus"></i></a>
       </div>
-      <div class="vital-row">
-        <span class="vital-label">XP</span>
-        <span class="vital-track"><span class="vital-fill xp" style="width:100%"></span></span>
-        <span class="vital-value"><input type="number" name="system.attributes.xp" value="{{system.attributes.xp}}"/></span>
+      <div class="vital-adjust-popover" data-vital="energy">
+        <input type="number" class="vital-adjust-input" min="0" placeholder="Valor"/>
+        <button type="button" class="vital-adjust-btn dmg" data-action="adjustVital" data-vital="energy" data-dir="-1">− Gastar</button>
+        <button type="button" class="vital-adjust-btn heal" data-action="adjustVital" data-vital="energy" data-dir="1">+ Restaurar</button>
       </div>
+
       {{#if shieldValue}}
       <div class="vital-row shield-row">
         <span class="vital-label">🛡 Escudo</span>
@@ -53,6 +62,10 @@
         </span>
       </div>
       {{/if}}
+
+      <button type="button" class="rest-button" data-action="restActor">
+        <i class="fas fa-moon"></i> Descanso Completo <span class="hint-inline">(restaura HP e {{energyLabel}} ao máximo)</span>
+      </button>
     </div>
   </header>
 

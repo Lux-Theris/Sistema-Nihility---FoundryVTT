@@ -28,7 +28,7 @@ export class CurrencyConfigApp extends HandlebarsApplicationMixin(ApplicationV2)
   };
 
   static PARTS = {
-    body: { template: `systems/${SYSTEM_ID}/templates/apps/currency-config.hbs` }
+    body: { template: `systems/${SYSTEM_ID}/templates/apps/currency-config.hbs`, scrollable: [""] }
   };
 
   /** @override */

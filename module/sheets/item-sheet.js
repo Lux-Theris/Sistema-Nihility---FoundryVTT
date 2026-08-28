@@ -1,6 +1,7 @@
 import { SYSTEM_ID, MEU_SISTEMA, getActiveDamageElements } from "../config.js";
 import { createGrantedSkill, removeGrantedSkill, announceVoiceOfTheWorld } from "../ai-helper.js";
 import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../skill-effects.js";
+import { openSkillEditorDialog } from "../apps/skill-editor-dialog.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -12,6 +13,13 @@ const { ItemSheetV2 } = foundry.applications.sheets;
  * campo que a ficha sempre teve; sem `form.handler` explícito, o DocumentSheetV2 aplica o
  * default (grava direto no Item) — se algum campo parar de salvar sozinho ao editar, esse é
  * o primeiro lugar a olhar.
+ *
+ * Skill é a exceção: Tier/Nível/Custo/Resistência/Mecânica ao Usar (Dano/Efeito Temporário)
+ * NÃO são campos inline aqui — ficam atrás do botão "Editar Skill", que abre o mesmo
+ * `openSkillEditorDialog` usado pra criar uma Skill Racial (species-config.js) e pra
+ * "+ Nova Habilidade (direto)" (actor-sheet.js). Um só editor, usado nos três lugares onde
+ * uma Skill é criada/tem sua mecânica definida — só Sub-Skills/linhagem de fusão/Descrição
+ * rica (que o modal nunca cobriu) continuam editadas direto aqui na ficha.
  */
 export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   static DEFAULT_OPTIONS = {
@@ -21,8 +29,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     actions: {
       addSubSkill: NihilityItemSheet.#onSubSkillAdd,
       deleteSubSkill: NihilityItemSheet.#onSubSkillDelete,
-      addEffect: NihilityItemSheet.#onEffectAdd,
-      deleteEffect: NihilityItemSheet.#onEffectDelete,
+      openSkillEditor: NihilityItemSheet.#onOpenSkillEditor,
       addInstalledMod: NihilityItemSheet.#onInstalledModAdd,
       deleteInstalledMod: NihilityItemSheet.#onInstalledModDelete,
       toggleModGrant: NihilityItemSheet.#onModGrantToggle,
@@ -73,26 +80,37 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const resistanceTargets = [{ value: "general", label: "Geral" }, ...getActiveDamageElements().map(el => ({ value: el.id, label: el.label }))];
 
     if (this.item.type === "skill") {
+      const sys = this.item.system;
+
+      // Tier/Nível/Custo/Resistência/Mecânica não são mais campos inline — só um resumo
+      // read-only + o botão "Editar Skill" (abre openSkillEditorDialog, o mesmo editor usado
+      // em toda parte onde uma Skill é criada). O resumo ainda precisa de tudo isso pronto:
       const owner = this.item.parent;
-      const hasUltimate = owner?.system?.hasUltimateSkill ?? this.item.system.tier === "ultimate";
+      const hasUltimate = owner?.system?.hasUltimateSkill ?? sys.tier === "ultimate";
       const ultimateVisible = hasUltimate || game.user.isGM;
       context.visibleSkillTiers = MEU_SISTEMA.SKILL_TIERS.filter(t => t !== "ultimate" || ultimateVisible);
-      const selectedElements = this.item.system.damageElements ?? [];
-      context.damageElements = getActiveDamageElements().map(el => ({
-        ...el,
-        selected: selectedElements.includes(el.id)
-      }));
 
-      // Categoria de Resistência da Skill: "" (Nenhuma) + Geral + cada Elemento ativo.
-      const resistanceTarget = this.item.system.resistanceTarget ?? "";
-      context.resistanceOptions = [{ value: "", label: "Nenhuma" }, ...resistanceTargets].map(opt => ({
-        ...opt,
-        selected: opt.value === resistanceTarget
-      }));
+      if (sys.effectType === "damage") {
+        const elementLabels = (sys.damageElements ?? [])
+          .map(id => getActiveDamageElements().find(el => el.id === id)?.label)
+          .filter(Boolean);
+        context.skillMechanicSummary =
+          `Dano: ${sys.damageFormula || "(sem fórmula)"}` +
+          (sys.isMagicDamage ? " · Mágico" : "") +
+          (elementLabels.length ? ` · ${elementLabels.join("+")}` : "");
+      } else if (sys.effectType === "temporary") {
+        const count = (sys.effects ?? []).length;
+        context.skillMechanicSummary = `Efeito Temporário: ${count} efeito${count === 1 ? "" : "s"}`;
+      } else {
+        context.skillMechanicSummary = "Descritiva (sem mecânica)";
+      }
+
+      const resistanceTarget = sys.resistanceTarget ?? "";
       context.isResistanceSkill = resistanceTarget !== "";
       if (context.isResistanceSkill) {
         context.resistanceMaxLevel = resistanceMaxLevel(resistanceTarget);
-        context.resistancePercent = Math.round(computeResistancePercent(resistanceTarget, this.item.system.level) * 100);
+        context.resistancePercent = Math.round(computeResistancePercent(resistanceTarget, sys.level) * 100);
+        context.skillResistanceSummary = `${computeResistanceName(resistanceTarget, sys.level)} — ${context.resistancePercent}% (nível ${sys.level}/${context.resistanceMaxLevel})`;
       }
     }
 
@@ -120,20 +138,54 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     this.element.querySelectorAll(".item-equip-toggle").forEach(checkbox => {
       checkbox.addEventListener("change", this._onEquipToggle.bind(this));
     });
-
-    this.element.querySelector(".resistance-target-select")?.addEventListener("change", this._onResistanceTargetChange.bind(this));
   }
 
   /**
-   * Muda a Categoria de Resistência da Skill e recalcula o nome na hora (ex: ao escolher
-   * "Fogo", o nome já vira "Resistência: Fogo" sem precisar de Level Up).
+   * Abre o editor único de Skill (mesmo modal usado pra Skills Raciais e "+ Nova Habilidade
+   * (direto)") pré-preenchido com os dados atuais do Item, e aplica o resultado de volta nele.
+   * Tier trava em "Racial" se já for Racial (nunca escolhido à mão); Nível trava pro jogador
+   * (só o Mestre sobe nível — mesma regra do botão de Level Up, que continua fora do modal);
+   * Descrição fica de fora — quem edita isso é a aba "Descrição" (editor rico em HTML), não o
+   * textarea simples do modal, pra nunca sobrescrever formatação por engano.
    */
-  async _onResistanceTargetChange(event) {
-    const resistanceTarget = event.currentTarget.value;
-    const updates = { "system.resistanceTarget": resistanceTarget };
-    if (resistanceTarget) {
-      updates.name = computeResistanceName(resistanceTarget, this.item.system.level);
-    }
+  static async #onOpenSkillEditor(event, target) {
+    event.preventDefault();
+    const sys = this.item.system;
+    const isRacial = sys.tier === "racial";
+    const owner = this.item.parent;
+    const hasUltimate = owner?.system?.hasUltimateSkill ?? isRacial;
+    const ultimateVisible = hasUltimate || game.user.isGM;
+    const tierChoices = MEU_SISTEMA.SKILL_TIERS.filter(t => t !== "racial" && (t !== "ultimate" || ultimateVisible));
+
+    const result = await openSkillEditorDialog(
+      {
+        name: this.item.name,
+        tier: sys.tier,
+        level: sys.level,
+        cost: sys.cost,
+        resistanceTarget: sys.resistanceTarget,
+        effectType: sys.effectType,
+        damageFormula: sys.damageFormula,
+        isMagicDamage: sys.isMagicDamage,
+        damageElements: sys.damageElements,
+        effects: sys.effects
+      },
+      { lockTier: isRacial ? "racial" : null, tierChoices, hideDescription: true, levelReadonly: !game.user.isGM }
+    );
+    if (!result) return;
+
+    const updates = {
+      name: result.name,
+      "system.cost": result.cost,
+      "system.resistanceTarget": result.resistanceTarget,
+      "system.effectType": result.effectType,
+      "system.damageFormula": result.damageFormula,
+      "system.isMagicDamage": result.isMagicDamage,
+      "system.damageElements": result.damageElements,
+      "system.effects": result.effects
+    };
+    if (!isRacial) updates["system.tier"] = result.tier;
+    if (game.user.isGM) updates["system.level"] = result.level;
     await this.item.update(updates);
   }
 
@@ -165,21 +217,6 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const subSkills = foundry.utils.deepClone(this.item.system.subSkills ?? []);
     subSkills.splice(index, 1);
     await this.item.update({ "system.subSkills": subSkills });
-  }
-
-  static async #onEffectAdd(event, target) {
-    event.preventDefault();
-    const effects = foundry.utils.deepClone(this.item.system.effects ?? []);
-    effects.push({ target: MEU_SISTEMA.EFFECT_TARGETS[0], amount: 1, durationRounds: 1 });
-    await this.item.update({ "system.effects": effects });
-  }
-
-  static async #onEffectDelete(event, target) {
-    event.preventDefault();
-    const index = Number(target.closest("[data-index]").dataset.index);
-    const effects = foundry.utils.deepClone(this.item.system.effects ?? []);
-    effects.splice(index, 1);
-    await this.item.update({ "system.effects": effects });
   }
 
   static async #onInstalledModAdd(event, target) {

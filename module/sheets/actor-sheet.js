@@ -20,6 +20,7 @@ import {
 import { rollAttribute } from "../dice.js";
 import { useSkillEffect } from "../skill-effects.js";
 import { areaEffectsSupported, pickAreaTargets } from "../area-effects.js";
+import { openSkillEditorDialog } from "../apps/skill-editor-dialog.js";
 
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -81,7 +82,10 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       mergeSkillPoints: NihilityActorSheet.#onMergeSkillPoints,
       convertCurrency: NihilityActorSheet.#onConvertCurrency,
       sendCurrency: NihilityActorSheet.#onSendCurrency,
-      levelUpActor: NihilityActorSheet.#onLevelUpActor
+      levelUpActor: NihilityActorSheet.#onLevelUpActor,
+      toggleVitalAdjust: NihilityActorSheet.#onToggleVitalAdjust,
+      adjustVital: NihilityActorSheet.#onAdjustVital,
+      restActor: NihilityActorSheet.#onRest
     }
   };
 
@@ -227,7 +231,9 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         effectType: MEU_SISTEMA.SKILL_EFFECT_TYPES.includes(s.effectType) ? s.effectType : "none",
         damageFormula: s.damageFormula || "",
         isMagicDamage: Boolean(s.isMagicDamage),
-        damageElements: Array.isArray(s.damageElements) ? s.damageElements : []
+        damageElements: Array.isArray(s.damageElements) ? s.damageElements : [],
+        effects: Array.isArray(s.effects) ? s.effects : [],
+        resistanceTarget: s.resistanceTarget || ""
       }
     }));
     if (newSkillsData.length) {
@@ -246,6 +252,46 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     event.preventDefault();
     const newLevel = this.actor.system.attributes.level + 1;
     await this.actor.update({ "system.attributes.level": newLevel });
+  }
+
+  /* -------------------------------------------- */
+  /*  Ajuste rápido de HP/Mana (estilo D&D Beyond) */
+  /* -------------------------------------------- */
+
+  /** Abre/fecha o popover de "digite um valor + Dano/Cura" abaixo da barra de HP ou Mana clicada. */
+  static #onToggleVitalAdjust(event, target) {
+    event.preventDefault();
+    const vital = target.closest(".vital-row")?.dataset.vital;
+    if (!vital) return;
+    this.element.querySelectorAll(".vital-adjust-popover").forEach(pop => {
+      pop.classList.toggle("open", pop.dataset.vital === vital && !pop.classList.contains("open"));
+    });
+  }
+
+  /** Aplica o valor digitado no popover como Dano (-) ou Cura (+), sem passar de 0 nem do Máximo. */
+  static async #onAdjustVital(event, target) {
+    event.preventDefault();
+    const vital = target.dataset.vital;
+    const dir = Number(target.dataset.dir);
+    const popover = target.closest(".vital-adjust-popover");
+    const input = popover?.querySelector(".vital-adjust-input");
+    const amount = Math.max(0, Number(input?.value) || 0);
+    if (!amount) return;
+
+    const attr = this.actor.system.attributes[vital];
+    const newValue = Math.clamp(attr.value + dir * amount, 0, attr.max);
+    await this.actor.update({ [`system.attributes.${vital}.value`]: newValue });
+  }
+
+  /** Descanso Completo: cura HP e Mana/Energia direto pro Máximo. */
+  static async #onRest(event, target) {
+    event.preventDefault();
+    const { hp, energy } = this.actor.system.attributes;
+    await this.actor.update({
+      "system.attributes.hp.value": hp.max,
+      "system.attributes.energy.value": energy.max
+    });
+    ui.notifications.info(`${this.actor.name} descansou e recuperou HP/${getCharacterEnergyLabel()} ao máximo.`);
   }
 
   /* -------------------------------------------- */
@@ -412,6 +458,40 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     event.preventDefault();
     const type = target.dataset.type;
     if (!CREATABLE_ITEM_TYPES.includes(type)) return;
+
+    // Skill é o único tipo criado através do editor único (mesmo modal usado por Skills
+    // Raciais em species-config.js e pelo botão "Editar Skill" na ficha de Item) — os
+    // outros tipos continuam nascendo em branco e abrindo a própria ficha pra preencher.
+    if (type === "skill") {
+      const hasUltimate = this.actor.system.hasUltimateSkill;
+      const ultimateVisible = hasUltimate || game.user.isGM;
+      const tierChoices = MEU_SISTEMA.SKILL_TIERS.filter(t => t !== "racial" && (t !== "ultimate" || ultimateVisible));
+
+      const data = await openSkillEditorDialog({}, { tierChoices, levelReadonly: !game.user.isGM });
+      if (!data) return;
+
+      const [created] = await this.actor.createEmbeddedDocuments("Item", [
+        {
+          name: data.name,
+          type: "skill",
+          system: {
+            tier: data.tier,
+            level: data.level,
+            cost: data.cost,
+            description: data.description,
+            resistanceTarget: data.resistanceTarget,
+            effectType: data.effectType,
+            damageFormula: data.damageFormula,
+            isMagicDamage: data.isMagicDamage,
+            damageElements: data.damageElements,
+            effects: data.effects
+          }
+        }
+      ]);
+      await registerItemInCompendium(created.toObject());
+      created.sheet.render(true);
+      return;
+    }
 
     const [created] = await this.actor.createEmbeddedDocuments("Item", [
       { name: `Novo: ${type}`, type }

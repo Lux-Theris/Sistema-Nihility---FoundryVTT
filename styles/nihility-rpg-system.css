@@ -468,6 +468,16 @@ form.nihility-config-app {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-height: 0;
+}
+
+/* Corrige o corte sem barra de rolagem em janelas com altura fixa (ex: Presets de
+   Espécie): sem isso, o conteúdo cresce além da janela e fica inacessível. */
+.nihility-config-app .config-editor-body {
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+  padding-right: 4px;
 }
 
 .nihility-config-app .hint {
@@ -1102,16 +1112,10 @@ form.nihility-config-app {
 }
 
 .nihility-sheet .effect-list,
-.nihility-sheet .sub-list,
-.nihility-sheet .damage-elements-list {
+.nihility-sheet .sub-list {
   list-style: none;
   margin: 6px 0;
   padding: 0;
-}
-.nihility-sheet .damage-elements-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
 }
 .nihility-sheet .effect-row {
   display: flex;
@@ -1121,6 +1125,177 @@ form.nihility-config-app {
 }
 .nihility-sheet .effect-row select { flex: 2; }
 .nihility-sheet .effect-row input[type="number"] { flex: 1; width: 0; }
+.nihility-sheet .effect-list-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 2px;
+  margin-top: 4px;
+  font-family: var(--nihility-font-data);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--nihility-text-faint);
+}
+.nihility-sheet .effect-list-header span:nth-child(1) { flex: 2; }
+.nihility-sheet .effect-list-header span:nth-child(2),
+.nihility-sheet .effect-list-header span:nth-child(3) { flex: 1; }
+.nihility-sheet .effect-list-header span:nth-child(4) { width: 16px; flex-shrink: 0; }
+
+/* Mesmo cabeçalho de coluna, fora de .nihility-sheet — usado pelo modal de Skill Racial. */
+.skill-editor-form .effect-list-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 2px;
+  margin-top: 4px;
+  font-family: var(--nihility-font-data);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--nihility-text-faint);
+}
+.skill-editor-form .effect-list-header span:nth-child(1) { flex: 2; }
+.skill-editor-form .effect-list-header span:nth-child(2),
+.skill-editor-form .effect-list-header span:nth-child(3) { flex: 1; }
+.skill-editor-form .effect-list-header span:nth-child(4) { width: 16px; flex-shrink: 0; }
+
+/* ==========================================================================
+   Editor de Mecânica de Skill — compartilhado entre a ficha completa de Item
+   (aba Detalhes, dentro de .nihility-sheet) e o modal leve de Skill Racial
+   (skill-editor-dialog.js, dentro de .skill-editor-form). Não fica preso a
+   nenhum dos dois contêineres de propósito, pra nunca voltar a divergir.
+   ========================================================================== */
+
+.checkbox-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: var(--nihility-text);
+  cursor: pointer;
+  margin: 4px 0;
+}
+.checkbox-line input[type="checkbox"] { accent-color: var(--nihility-accent); }
+
+.field-hint-label {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--nihility-text-faint);
+  margin: 6px 0 4px;
+}
+
+.mechanic-panel {
+  border: 1px solid var(--nihility-border-soft);
+  background: var(--nihility-bg-panel-alt);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 4px 0 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mechanic-panel .hint-inline {
+  display: block;
+  margin: 0;
+  font-size: 0.72rem;
+  font-style: italic;
+  color: var(--nihility-text-dim);
+}
+
+.element-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.element-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--nihility-border);
+  background: var(--nihility-bg-panel);
+  color: var(--nihility-text-dim);
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.12s ease, color 0.12s ease;
+}
+.element-chip input { display: none; }
+.element-chip .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.element-chip.checked {
+  color: var(--nihility-text);
+  border-color: var(--nihility-accent-2);
+  background: rgba(192, 132, 252, 0.1);
+}
+.resist-chip.checked {
+  border-color: var(--nihility-gold);
+  background: rgba(232, 193, 112, 0.1);
+}
+
+/* Resumo compacto no topo da aba Detalhes de uma Skill — Tier/Nível/Custo/Mecânica/
+   Resistência são só leitura aqui; editar de verdade abre o modal único via "Editar Skill". */
+.skill-summary-card {
+  border: 1px solid var(--nihility-border-soft);
+  background: var(--nihility-bg-panel-alt);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0 8px;
+}
+.skill-summary-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.skill-summary-tier {
+  font-family: var(--nihility-font-data);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text-dim);
+}
+.skill-summary-tier.tier-extra { color: var(--nihility-accent); border-color: rgba(110, 231, 255, 0.3); }
+.skill-summary-tier.tier-racial { color: var(--nihility-gold); border-color: rgba(232, 193, 112, 0.3); }
+.skill-summary-tier.tier-unique { color: var(--nihility-accent-2); border-color: rgba(192, 132, 252, 0.3); }
+.skill-summary-tier.tier-ultimate { color: var(--nihility-hp); border-color: rgba(239, 83, 80, 0.3); }
+.skill-summary-level,
+.skill-summary-cost {
+  font-size: 0.82rem;
+  color: var(--nihility-text);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.skill-summary-mechanic,
+.skill-summary-resist { font-size: 0.78rem; color: var(--nihility-text-dim); margin: 0; }
+.skill-summary-resist { color: var(--nihility-gold); }
+.skill-edit-button {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--nihility-font);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--nihility-bg-dark);
+  background: var(--nihility-accent);
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.skill-edit-button:hover { filter: brightness(1.08); }
+
 .nihility-sheet .effect-add,
 .nihility-sheet .sub-skill-add,
 .nihility-sheet .title-bonus-add,
@@ -1163,4 +1338,366 @@ form.nihility-config-app {
   color: var(--nihility-text-dim);
   cursor: pointer;
 }
+
+/* ==========================================================================
+   Modal de criação/edição de Skill (skill-editor-dialog.js) — hoje usado pra
+   Skills Raciais em Presets de Espécie. Fora de .nihility-sheet (é um DialogV2,
+   não uma ficha), então estiliza .skill-editor-form diretamente; reaproveita os
+   componentes .element-chip/.mechanic-panel/.checkbox-line/.effect-list-header
+   definidos acima, que também valem dentro de .nihility-sheet.
+   ========================================================================== */
+
+.skill-editor-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: var(--nihility-font);
+  color: var(--nihility-text);
+}
+.skill-editor-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.skill-editor-form label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--nihility-text-faint); }
+.skill-editor-form input[type="text"],
+.skill-editor-form input[type="number"],
+.skill-editor-form select,
+.skill-editor-form textarea {
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-family: var(--nihility-font);
+  font-size: 0.84rem;
+  width: 100%;
+}
+.skill-editor-form input:focus,
+.skill-editor-form select:focus,
+.skill-editor-form textarea:focus {
+  outline: none;
+  border-color: var(--nihility-accent);
+  box-shadow: 0 0 0 3px rgba(110, 231, 255, 0.15);
+}
+.skill-editor-form textarea { resize: vertical; min-height: 50px; }
+.skill-editor-form .hint-inline {
+  display: block;
+  margin: 0 0 2px;
+  font-size: 0.72rem;
+  font-style: italic;
+  color: var(--nihility-text-dim);
+}
+.skill-editor-form .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.skill-editor-form hr { border: none; border-top: 1px solid var(--nihility-border-soft); margin: 2px 0; }
+.skill-editor-form .sub-list,
+.skill-editor-form .effect-list { list-style: none; margin: 6px 0; padding: 0; }
+.skill-editor-form .effect-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.skill-editor-form .effect-row select { flex: 2; }
+.skill-editor-form .effect-row input[type="number"] { flex: 1; width: 0; }
+.skill-editor-form .se-add-effect {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: var(--nihility-accent);
+  border: 1px dashed var(--nihility-border);
+  border-radius: 7px;
+  padding: 5px 10px;
+  cursor: pointer;
+  align-self: flex-start;
+  text-decoration: none;
+}
+.skill-editor-form .se-add-effect:hover { border-color: var(--nihility-accent); background: rgba(110, 231, 255, 0.06); }
+
+.skill-editor-tier-lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--nihility-font-data);
+  font-size: 0.7rem;
+  color: var(--nihility-gold);
+  background: rgba(232, 193, 112, 0.1);
+  border: 1px solid rgba(232, 193, 112, 0.3);
+  border-radius: 999px;
+  padding: 4px 10px;
+  width: fit-content;
+}
+
+/* ==========================================================================
+   Menu Principal (NihilityMenuApp) — trilha lateral + conteúdo, com a aba
+   "Fichas" acessível a jogadores e as demais travadas por CSS (opacidade +
+   cadeado) quando quem está olhando não é o Mestre.
+   ========================================================================== */
+
+.nihility-menu-app .window-content {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.nihility-menu {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  flex: 1 1 auto;
+  min-height: 0;
+  font-family: var(--nihility-font);
+  color: var(--nihility-text);
+}
+
+.nm-rail {
+  background: var(--nihility-bg-panel);
+  border-right: 1px solid var(--nihility-border);
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+.nm-rail-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  border-radius: 7px;
+  color: var(--nihility-text-dim);
+  font-size: 0.86rem;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.nm-rail-item:hover { background: var(--nihility-bg-panel-alt); color: var(--nihility-text); }
+.nm-rail-item.active {
+  background: var(--nihility-bg-panel-alt);
+  color: var(--nihility-accent);
+  border-color: var(--nihility-border-soft);
+  font-weight: 600;
+}
+.nm-rail-item.locked {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.nm-rail-item .nm-rail-lock {
+  margin-left: auto;
+  font-size: 0.7rem;
+}
+
+.nm-content {
+  padding: 18px 22px 22px;
+  overflow-y: auto;
+  min-height: 0;
+}
+.nm-content-head { margin-bottom: 14px; }
+.nm-content-head h2 { margin: 0; font-size: 1.15rem; color: var(--nihility-text); }
+.nm-content-sub { font-size: 0.78rem; color: var(--nihility-text-faint); margin: 3px 0 0; }
+
+.nm-gm-only-note {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin: 0 0 14px;
+  padding: 9px 12px;
+  border-radius: 7px;
+  background: rgba(255, 207, 92, 0.08);
+  border: 1px solid rgba(255, 207, 92, 0.28);
+  color: var(--nihility-text-dim);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+.nm-gm-only-note i { color: var(--nihility-warn); margin-top: 2px; }
+
+.nm-toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.nm-search-box { position: relative; flex: 1; min-width: 180px; }
+.nm-search-box i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 0.72rem; color: var(--nihility-text-faint); }
+.nm-search-box input {
+  width: 100%;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+  border-radius: 7px;
+  padding: 7px 10px 7px 26px;
+  font-size: 0.84rem;
+}
+.nm-search-box input:focus { outline: none; border-color: var(--nihility-accent); box-shadow: 0 0 0 3px rgba(110, 231, 255, 0.12); }
+
+.nm-type-filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.nm-type-filter {
+  font-family: var(--nihility-font-data);
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--nihility-border);
+  background: var(--nihility-bg-panel-alt);
+  color: var(--nihility-text-dim);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.nm-type-filter:hover { color: var(--nihility-text); }
+.nm-type-filter.active { background: var(--nihility-accent); color: var(--nihility-bg-dark); border-color: var(--nihility-accent); font-weight: 600; }
+
+.nm-actor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.nm-actor-card {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border-soft);
+  border-radius: 9px;
+  padding: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.nm-actor-card:hover { border-color: var(--nihility-accent-2); transform: translateY(-1px); }
+.nm-actor-card.hidden { display: none; }
+.nm-actor-portrait {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  background-size: cover;
+  background-position: center;
+  border: 1px solid var(--nihility-border-soft);
+}
+.nm-actor-meta { min-width: 0; flex: 1; }
+.nm-actor-name { font-size: 0.86rem; font-weight: 600; color: var(--nihility-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nm-actor-line2 { font-size: 0.7rem; color: var(--nihility-text-faint); margin-top: 2px; }
+.nm-type-badge {
+  display: inline-block;
+  font-family: var(--nihility-font-data);
+  font-size: 0.58rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  margin-top: 5px;
+  border: 1px solid transparent;
+}
+.nm-type-badge.pc { color: var(--nihility-accent); background: rgba(110, 231, 255, 0.1); border-color: rgba(110, 231, 255, 0.25); }
+.nm-type-badge.npc { color: var(--nihility-text-dim); background: rgba(154, 161, 194, 0.1); border-color: var(--nihility-border-soft); }
+.nm-type-badge.ship { color: var(--nihility-accent-2); background: rgba(192, 132, 252, 0.1); border-color: rgba(192, 132, 252, 0.25); }
+.nm-type-badge.vehicle { color: var(--nihility-ok); background: rgba(110, 231, 160, 0.1); border-color: rgba(110, 231, 160, 0.25); }
+
+.nm-actor-empty { color: var(--nihility-text-faint); font-size: 0.82rem; grid-column: 1 / -1; }
+.nm-actor-empty.hidden { display: none; }
+
+.nm-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.nm-feature-card {
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border-soft);
+  border-radius: 9px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.nm-icon-badge {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--nihility-bg-dark);
+  color: var(--nihility-accent);
+  border: 1px solid var(--nihility-border-soft);
+}
+.nm-icon-badge.gold { color: var(--nihility-gold); }
+.nm-icon-badge.violet { color: var(--nihility-accent-2); }
+.nm-feature-card h4 { margin: 0; font-size: 0.86rem; }
+.nm-feature-card p { font-size: 0.75rem; color: var(--nihility-text-faint); line-height: 1.4; flex: 1; margin: 0; }
+.nm-card-button {
+  align-self: flex-start;
+  font-family: var(--nihility-font);
+  font-size: 0.75rem;
+  color: var(--nihility-accent);
+  background: transparent;
+  border: 1px solid var(--nihility-border);
+  border-radius: 6px;
+  padding: 5px 11px;
+  cursor: pointer;
+}
+.nm-card-button:hover { background: rgba(110, 231, 255, 0.08); border-color: var(--nihility-accent); }
+
+/* ==========================================================================
+   Ajuste rápido de HP/Mana (estilo D&D Beyond) e Descanso Completo — cabeçalho
+   da Ficha de Ator (actor-sheet.hbs).
+   ========================================================================== */
+
+.nihility-sheet .vital-adjust-toggle {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1px solid var(--nihility-border);
+  background: var(--nihility-bg-panel-alt);
+  color: var(--nihility-text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.nihility-sheet .vital-adjust-toggle:hover { color: var(--nihility-accent); border-color: var(--nihility-accent); }
+
+.nihility-sheet .vital-adjust-popover {
+  display: none;
+  grid-template-columns: 1fr auto auto;
+  gap: 6px;
+  align-items: center;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border-soft);
+  border-radius: 7px;
+  padding: 6px 7px;
+  margin: -2px 0 2px 78px;
+}
+.nihility-sheet .vital-adjust-popover.open { display: grid; }
+.nihility-sheet .vital-adjust-popover input {
+  background: var(--nihility-bg-panel);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-family: var(--nihility-font-data);
+  font-size: 0.8rem;
+  width: 100%;
+  min-width: 0;
+}
+.nihility-sheet .vital-adjust-btn {
+  font-family: var(--nihility-font);
+  font-size: 0.74rem;
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 4px 9px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.nihility-sheet .vital-adjust-btn.dmg { color: var(--nihility-hp); background: rgba(239, 83, 80, 0.12); border-color: rgba(239, 83, 80, 0.3); }
+.nihility-sheet .vital-adjust-btn.dmg:hover { background: rgba(239, 83, 80, 0.22); }
+.nihility-sheet .vital-adjust-btn.heal { color: var(--nihility-ok); background: rgba(110, 231, 160, 0.12); border-color: rgba(110, 231, 160, 0.3); }
+.nihility-sheet .vital-adjust-btn.heal:hover { background: rgba(110, 231, 160, 0.22); }
+
+.nihility-sheet .rest-button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  align-self: flex-start;
+  margin-top: 4px;
+  font-family: var(--nihility-font);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--nihility-bg-dark);
+  background: linear-gradient(120deg, var(--nihility-gold), #f3d999);
+  border: none;
+  border-radius: 7px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.nihility-sheet .rest-button:hover { filter: brightness(1.05); }
+.nihility-sheet .rest-button .hint-inline { display: inline; margin: 0; font-weight: 400; font-size: 0.68rem; color: rgba(16, 18, 26, 0.65); font-style: normal; }
 .nihility-config-app .element-delete:hover { color: var(--nihility-danger); }

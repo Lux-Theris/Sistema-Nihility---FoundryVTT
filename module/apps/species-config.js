@@ -37,7 +37,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
   };
 
   static PARTS = {
-    body: { template: `systems/${SYSTEM_ID}/templates/apps/species-config.hbs` }
+    body: { template: `systems/${SYSTEM_ID}/templates/apps/species-config.hbs`, scrollable: [""] }
   };
 
   /** @override */
@@ -106,13 +106,18 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
     target.closest(".part-row")?.remove();
   }
 
-  /** Monta a linha-resumo (nome + nível/custo) de uma Skill Racial, guardando os dados completos em `dataset.skill`. */
+  /** Monta a linha-resumo (nome + nível/custo/mecânica) de uma Skill Racial, guardando os dados completos em `dataset.skill`. */
   static #buildRacialSkillRow(skill) {
+    const tags = [];
+    if (skill.effectType === "damage") tags.push("Dano");
+    if (skill.effectType === "temporary") tags.push("Efeito Temporário");
+    if (skill.resistanceTarget) tags.push("Resistência");
+
     const row = document.createElement("div");
     row.className = "racial-skill-row";
     row.dataset.skill = JSON.stringify(skill);
     row.innerHTML = `
-      <span class="racial-skill-summary">${skill.name} <span class="hint-inline">(nível ${skill.level} · custo ${skill.cost}${skill.effectType && skill.effectType !== "none" ? ` · ${skill.effectType}` : ""})</span></span>
+      <span class="racial-skill-summary">${skill.name} <span class="hint-inline">(nível ${skill.level} · custo ${skill.cost}${tags.length ? ` · ${tags.join(", ")}` : ""})</span></span>
       <a class="racial-skill-edit" data-action="editRacialSkill" title="Editar"><i class="fas fa-edit"></i></a>
       <a class="racial-skill-delete" data-action="deleteRacialSkill" title="Remover"><i class="fas fa-trash"></i></a>
     `;

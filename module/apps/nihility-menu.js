@@ -1,5 +1,9 @@
 /**
- * Menu principal do Nihility RPG System - organizado por abas
+ * Menu principal do Nihility RPG System — hub em duas colunas (trilha lateral + conteúdo).
+ * "Fichas" é a única aba visível/usável para jogadores (abre qualquer Ator que já possuam
+ * ou tenham permissão de Observador); Configurações/IA/Geração/Ferramentas continuam
+ * exclusivas do Mestre — a trilha mostra essas abas com cadeado pro jogador em vez de
+ * simplesmente escondê-las, pra deixar claro que existem e são intencionalmente bloqueadas.
  */
 import { SYSTEM_ID, MEU_SISTEMA } from "../config.js";
 import { ensureSystemCompendiums } from "../ai-helper.js";
@@ -18,6 +22,9 @@ const AI_TASK_ACTIONS = {
   "generate-item": "item",
   freeform: "freeform"
 };
+
+/** Abas exclusivas do Mestre — o jogador nunca consegue selecioná-las, mesmo clicando no item travado da trilha. */
+const GM_ONLY_TABS = ["system", "ai", "generation", "tools"];
 
 /** Recria os compêndios auto-geridos do sistema (Skills/Partes do Corpo/Títulos/Módulos), caso algum tenha sido apagado. */
 async function syncData() {
@@ -82,45 +89,133 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
     id: "nihility-menu",
     window: { title: "Nihility RPG System", resizable: true },
     classes: [SYSTEM_ID, "nihility-menu-app"],
-    position: { width: 800, height: "auto" },
+    position: { width: 880, height: 620 },
     actions: {
       selectTab: NihilityMenuApp.#onSelectTab,
-      runAction: NihilityMenuApp.#onRunAction
+      runAction: NihilityMenuApp.#onRunAction,
+      openActor: NihilityMenuApp.#onOpenActor
     }
   };
 
   static PARTS = {
-    body: { template: `systems/${SYSTEM_ID}/templates/apps/nihility-menu.hbs` }
+    body: { template: `systems/${SYSTEM_ID}/templates/apps/nihility-menu.hbs`, scrollable: [".nm-content"] }
   };
 
   constructor(options = {}) {
     super(options);
-    this.activeTab = "system";
+    this.activeTab = "fichas";
   }
 
   /** @override */
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
-    context.isGM = game.user.isGM;
+    const isGM = game.user.isGM;
+    context.isGM = isGM;
+
+    // Jogador nunca cai numa aba GM-only, mesmo se essa era a última aba aberta (troca de usuário/re-render).
+    if (!isGM && GM_ONLY_TABS.includes(this.activeTab)) this.activeTab = "fichas";
     context.activeTab = this.activeTab;
-    context.systemFeatures = [
-      { id: "system", label: "Configurações Gerais", icon: "fas fa-cog" },
-      { id: "ai", label: "Assistente de IA", icon: "fas fa-robot" },
-      { id: "generation", label: "Geração Automática", icon: "fas fa-magic" },
-      { id: "tools", label: "Ferramentas de Admin", icon: "fas fa-tools" }
-    ];
+
+    context.railItems = [
+      { id: "fichas", label: "Fichas", icon: "fas fa-users" },
+      { id: "system", label: "Configurações Gerais", icon: "fas fa-cog", gmOnly: true },
+      { id: "ai", label: "Assistente de IA", icon: "fas fa-robot", gmOnly: true },
+      { id: "generation", label: "Geração Automática", icon: "fas fa-magic", gmOnly: true },
+      { id: "tools", label: "Ferramentas de Admin", icon: "fas fa-tools", gmOnly: true }
+    ].map(item => ({ ...item, active: item.id === context.activeTab, locked: item.gmOnly && !isGM }));
+
+    context.actors = this._getVisibleActors();
+
     console.log(`${SYSTEM_ID} | NihilityMenuApp._prepareContext, aba ativa:`, this.activeTab);
     return context;
   }
 
+  /** Atores que este usuário pode abrir: o Mestre vê todo mundo, o jogador só quem possui/tem Observador. */
+  _getVisibleActors() {
+    const isGM = game.user.isGM;
+    return game.actors
+      .filter(actor => isGM || actor.testUserPermission(game.user, "OBSERVER"))
+      .map(actor => ({
+        id: actor.id,
+        name: actor.name,
+        nameLower: actor.name.toLowerCase(),
+        img: actor.img,
+        typeLabel: this._typeLabelFor(actor),
+        typeClass: this._typeClassFor(actor),
+        metaLine: this._metaLineFor(actor)
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  _typeLabelFor(actor) {
+    if (actor.type === "character") return actor.system.isPlayerCharacter ? "Personagem" : "NPC";
+    if (actor.type === "starship") return "Nave";
+    if (actor.type === "vehicle") return "Veículo";
+    return actor.type;
+  }
+
+  _typeClassFor(actor) {
+    if (actor.type === "character") return actor.system.isPlayerCharacter ? "pc" : "npc";
+    if (actor.type === "starship") return "ship";
+    if (actor.type === "vehicle") return "vehicle";
+    return "";
+  }
+
+  _metaLineFor(actor) {
+    if (actor.type === "character") return `Nível ${actor.system.attributes?.level ?? "?"}`;
+    if (actor.type === "starship") return `Casco ${actor.system.hull?.value ?? 0}/${actor.system.hull?.max ?? 0}`;
+    if (actor.type === "vehicle") return `Integridade ${actor.system.integrity?.value ?? 0}/${actor.system.integrity?.max ?? 0}`;
+    return "";
+  }
+
+  /** @override — busca/filtro de tipo em Fichas são só DOM (sem re-render): a lista já está toda renderizada. */
+  _onRender(context, options) {
+    super._onRender(context, options);
+
+    this.element.querySelector(".nm-actor-search")?.addEventListener("input", () => this._filterActorGrid());
+    this.element.querySelectorAll(".nm-type-filter").forEach(chip => {
+      chip.addEventListener("click", () => {
+        this.element.querySelectorAll(".nm-type-filter").forEach(c => c.classList.remove("active"));
+        chip.classList.add("active");
+        this._filterActorGrid();
+      });
+    });
+  }
+
+  _filterActorGrid() {
+    const query = (this.element.querySelector(".nm-actor-search")?.value ?? "").trim().toLowerCase();
+    const activeType = this.element.querySelector(".nm-type-filter.active")?.dataset.type ?? "all";
+    let visibleCount = 0;
+
+    this.element.querySelectorAll(".nm-actor-card").forEach(card => {
+      const matchesType = activeType === "all" || card.dataset.type === activeType;
+      const matchesQuery = !query || card.dataset.name.includes(query);
+      const show = matchesType && matchesQuery;
+      card.classList.toggle("hidden", !show);
+      if (show) visibleCount++;
+    });
+
+    this.element.querySelector(".nm-actor-empty")?.classList.toggle("hidden", visibleCount > 0);
+  }
+
   static #onSelectTab(event, target) {
     event.preventDefault();
-    this.activeTab = target.dataset.tab;
+    const tab = target.dataset.tab;
+    if (GM_ONLY_TABS.includes(tab) && !game.user.isGM) return; // trava mesmo se o cadeado da trilha for clicado direto
+    this.activeTab = tab;
     this.render();
+  }
+
+  static #onOpenActor(event, target) {
+    event.preventDefault();
+    const actorId = target.closest("[data-actor-id]")?.dataset.actorId;
+    game.actors.get(actorId)?.sheet?.render(true);
   }
 
   static async #onRunAction(event, target) {
     event.preventDefault();
+    if (!game.user.isGM) return; // toda ação de Configurações/IA/Geração/Ferramentas é GM-only
+
     // Atributo separado de `data-action` (que a própria Foundry consome pra escolher ESTE
     // handler) — `data-menu-action` guarda qual ação específica do menu foi clicada.
     const action = target.dataset.menuAction;

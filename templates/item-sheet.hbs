@@ -19,33 +19,25 @@
     <div class="tab {{#unless (eq activeTab "details")}}hidden{{/unless}}">
 
       {{#if (eq itemType "skill")}}
-      <label>Tier
-        <select name="system.tier">
-          {{#each visibleSkillTiers as |tier|}}
-          <option value="{{tier}}" {{#if (eq tier system.tier)}}selected{{/if}}>{{lookup ../config.SKILL_TIER_LABELS tier}}</option>
-          {{/each}}
-        </select>
-      </label>
+      <div class="skill-summary-card">
+        <div class="skill-summary-row">
+          <span class="skill-summary-tier tier-{{system.tier}}">{{lookup config.SKILL_TIER_LABELS system.tier}}</span>
+          <span class="skill-summary-level">
+            Nível {{system.level}}
+            {{#if isGM}}<button type="button" class="level-up-button" data-action="levelUpSkill" title="Level Up (Voz do Mundo avisa)">+</button>{{/if}}
+          </span>
+          <span class="skill-summary-cost">Custo {{system.cost}}</span>
+        </div>
+        <p class="skill-summary-mechanic">{{skillMechanicSummary}}</p>
+        {{#if isResistanceSkill}}
+        <p class="skill-summary-resist">{{skillResistanceSummary}}</p>
+        {{/if}}
+        <button type="button" class="skill-edit-button" data-action="openSkillEditor"><i class="fas fa-edit"></i> Editar Skill</button>
+      </div>
       {{#unless (eq system.tier "ultimate")}}
       <p class="hint-inline">"Ultimate" só aparece pro jogador se o Ator já possuir uma Skill Ultimate — o Mestre sempre vê essa opção.</p>
       {{/unless}}
-      <label>Nível
-        <input type="number" name="system.level" value="{{system.level}}" {{#unless isGM}}readonly{{/unless}}/>
-        {{#if isGM}}<button type="button" class="level-up-button" data-action="levelUpSkill" title="Level Up (Voz do Mundo avisa)">+</button>{{/if}}
-      </label>
 
-      <label>Categoria de Resistência <span class="hint-inline">(passiva — reduz dano recebido enquanto o Ator tiver essa Skill; Geral trava em nível 5/50%, Elemento vira Imunidade em nível 10/100%)</span>
-        <select class="resistance-target-select" name="system.resistanceTarget">
-          {{#each resistanceOptions as |opt|}}
-          <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
-          {{/each}}
-        </select>
-      </label>
-      {{#if isResistanceSkill}}
-      <p class="hint-inline">Redução atual: {{resistancePercent}}% (nível {{system.level}}/{{resistanceMaxLevel}}).</p>
-      {{/if}}
-
-      <label>Custo <input type="number" name="system.cost" value="{{system.cost}}"/></label>
       <label>Gatilho Emocional <input type="text" name="system.emotionTrigger" value="{{system.emotionTrigger}}"/></label>
       <label>Requer Item <span class="hint-inline">(livre, só pra RP — ex: "Revólver das Transmutações")</span>
         <input type="text" name="system.requiredItem" value="{{system.requiredItem}}"/>
@@ -72,15 +64,10 @@
       <p>{{#each system.fusionSources}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</p>
       {{/if}}
 
-      <h3>Mecânica ao "Usar"</h3>
-      <label>Tipo de Efeito
-        <select name="system.effectType">
-          {{#each config.SKILL_EFFECT_TYPES as |t|}}
-          <option value="{{t}}" {{#if (eq t system.effectType)}}selected{{/if}}>{{lookup ../config.SKILL_EFFECT_TYPE_LABELS t}}</option>
-          {{/each}}
-        </select>
-      </label>
-
+      <h3>Alcance <span class="hint-inline">(a mecânica em si — Dano/Efeito Temporário/Resistência — é editada em "Editar Skill", acima)</span></h3>
+      {{#if (eq system.effectType "none")}}
+      <p class="hint-inline">Mecânica atual é "Descritiva" — não há alcance pra configurar.</p>
+      {{/if}}
       {{#unless (eq system.effectType "none")}}
       <label>Tipo de Alvo
         <select name="system.targetType">
@@ -108,46 +95,6 @@
       {{/if}}
       {{/if}}
       {{/unless}}
-
-      {{#if (eq system.effectType "damage")}}
-      <label>Fórmula de Dano <span class="hint-inline">(sintaxe de rolagem do Foundry, ex: "2d6+3")</span>
-        <input type="text" name="system.damageFormula" value="{{system.damageFormula}}" placeholder="2d6+3"/>
-      </label>
-      <label>Dano Mágico? <span class="hint-inline">(reduzido pela Defesa Mágica do alvo — independente dos elementos abaixo)</span>
-        <input type="checkbox" name="system.isMagicDamage" {{#if system.isMagicDamage}}checked{{/if}}/>
-      </label>
-      <label>Elemento(s) <span class="hint-inline">(só flavor no chat — pode marcar vários ao mesmo tempo)</span></label>
-      <ol class="damage-elements-list">
-        {{#each damageElements as |el|}}
-        <li>
-          <label>
-            <input type="checkbox" name="system.damageElements" value="{{el.id}}" {{#if el.selected}}checked{{/if}}/>
-            {{el.label}}
-          </label>
-        </li>
-        {{/each}}
-      </ol>
-      {{/if}}
-
-      {{#if (eq system.effectType "temporary")}}
-      <h4>Efeitos <span class="hint-inline">(buffs, debuffs, drawbacks e escudos — cada entrada vira um Active Effect com duração, exceto Escudo)</span></h4>
-      <ol class="sub-list effect-list">
-        {{#each system.effects as |effect index|}}
-        <li data-index="{{index}}" class="effect-row">
-          <select name="system.effects.{{index}}.target">
-            {{#each ../config.EFFECT_TARGETS as |t|}}
-            <option value="{{t}}" {{#if (eq t effect.target)}}selected{{/if}}>{{lookup ../../config.EFFECT_TARGET_LABELS t}}</option>
-            {{/each}}
-          </select>
-          <input type="number" name="system.effects.{{index}}.amount" value="{{effect.amount}}" placeholder="Quantidade"/>
-          <input type="number" name="system.effects.{{index}}.durationRounds" value="{{effect.durationRounds}}" placeholder="Rounds" min="0"/>
-          <a class="effect-delete" data-action="deleteEffect" title="Remover"><i class="fas fa-trash"></i></a>
-        </li>
-        {{/each}}
-      </ol>
-      <a class="effect-add" data-action="addEffect">+ Efeito</a>
-      <p class="hint-inline">Quantidade negativa = debuff/drawback. Escudo ignora duração — some só quando gasto absorvendo dano.</p>
-      {{/if}}
 
       <h4>Modificador Permanente <span class="hint-inline">(soma direto no HP/Mana Máximo enquanto a Skill estiver na ficha, sempre — sem duração)</span></h4>
       <label>HP <input type="number" name="system.statModifiers.hp" value="{{system.statModifiers.hp}}"/></label>

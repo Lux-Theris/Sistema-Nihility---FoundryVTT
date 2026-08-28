@@ -1,147 +1,178 @@
 <div class="nihility-menu">
-  <div class="tabs">
-    {{#each systemFeatures as |feature|}}
-    <a class="tab-button" data-action="selectTab" data-tab="{{feature.id}}">
-      <i class="{{feature.icon}}"></i> {{feature.label}}
+  <nav class="nm-rail">
+    {{#each railItems as |item|}}
+    <a class="nm-rail-item {{#if item.active}}active{{/if}} {{#if item.locked}}locked{{/if}}" data-action="selectTab" data-tab="{{item.id}}" title="{{#if item.locked}}Exclusivo do Mestre{{/if}}">
+      <i class="{{item.icon}}"></i> {{item.label}}
+      {{#if item.locked}}<i class="fas fa-lock nm-rail-lock"></i>{{/if}}
     </a>
     {{/each}}
-  </div>
+  </nav>
 
-  <div class="tab-content">
-    <!-- Conteúdo da aba System -->
-    <div class="tab-pane {{#unless (eq activeTab "system")}}hidden{{/unless}}" id="system-tab">
-      <h3>Configurações Gerais</h3>
-      <div class="settings-grid">
-        <div class="setting-card">
-          <i class="fas fa-coins"></i>
+  <div class="nm-content">
+
+    <div class="nm-pane {{#unless (eq activeTab "fichas")}}hidden{{/unless}}">
+      <div class="nm-content-head">
+        <h2>Fichas</h2>
+        <p class="nm-content-sub">Abrir qualquer Ator já existente no mundo — sem passar pelo Diretório.</p>
+      </div>
+
+      {{#unless isGM}}
+      <div class="nm-gm-only-note">
+        <i class="fas fa-exclamation-triangle"></i>
+        <span>Configurações, IA, Geração e Ferramentas são exclusivas do Mestre — por isso ficam bloqueadas na trilha ao lado. Aqui você só enxerga Fichas que possui ou tem permissão de Observador.</span>
+      </div>
+      {{/unless}}
+
+      <div class="nm-toolbar">
+        <div class="nm-search-box">
+          <i class="fas fa-search"></i>
+          <input type="text" class="nm-actor-search" placeholder="Buscar por nome..."/>
+        </div>
+        <div class="nm-type-filters">
+          <span class="nm-type-filter active" data-type="all">Todos</span>
+          <span class="nm-type-filter" data-type="pc">Personagens</span>
+          <span class="nm-type-filter" data-type="npc">NPCs</span>
+          <span class="nm-type-filter" data-type="ship">Naves</span>
+          <span class="nm-type-filter" data-type="vehicle">Veículos</span>
+        </div>
+      </div>
+
+      <div class="nm-actor-grid">
+        {{#each actors as |a|}}
+        <div class="nm-actor-card" data-action="openActor" data-actor-id="{{a.id}}" data-type="{{a.typeClass}}" data-name="{{a.nameLower}}">
+          <div class="nm-actor-portrait" style="background-image:url('{{a.img}}')"></div>
+          <div class="nm-actor-meta">
+            <div class="nm-actor-name">{{a.name}}</div>
+            <div class="nm-actor-line2">{{a.metaLine}}</div>
+            <span class="nm-type-badge {{a.typeClass}}">{{a.typeLabel}}</span>
+          </div>
+        </div>
+        {{/each}}
+      </div>
+      <p class="nm-actor-empty hint {{#if actors.length}}hidden{{/if}}">Nenhuma ficha visível ainda.</p>
+    </div>
+
+    {{#if isGM}}
+    <div class="nm-pane {{#unless (eq activeTab "system")}}hidden{{/unless}}">
+      <div class="nm-content-head"><h2>Configurações Gerais</h2></div>
+      <div class="nm-card-grid">
+        <div class="nm-feature-card">
+          <div class="nm-icon-badge"><i class="fas fa-coins"></i></div>
           <h4>Sistema de Economia</h4>
-          <p>Gerenciar moedas e transações</p>
-          <button class="action-button" data-action="runAction" data-menu-action="economy-config">Configurar</button>
+          <p>Gerenciar moedas e transações.</p>
+          <button class="nm-card-button" data-action="runAction" data-menu-action="economy-config">Configurar</button>
         </div>
-
-        <div class="setting-card">
-          <i class="fas fa-crown"></i>
+        <div class="nm-feature-card">
+          <div class="nm-icon-badge gold"><i class="fas fa-crown"></i></div>
           <h4>Sistema de Títulos</h4>
-          <p>Gerenciar títulos e honras</p>
-          <button class="action-button" data-action="runAction" data-menu-action="titles-config">Configurar</button>
+          <p>Gerenciar títulos e honras.</p>
+          <button class="nm-card-button" data-action="runAction" data-menu-action="titles-config">Configurar</button>
         </div>
-
-        <div class="setting-card">
-          <i class="fas fa-dna"></i>
+        <div class="nm-feature-card">
+          <div class="nm-icon-badge violet"><i class="fas fa-dna"></i></div>
           <h4>Sistema de Anatomia</h4>
-          <p>Gerenciar partes do corpo e modificações</p>
-          <button class="action-button" data-action="runAction" data-menu-action="anatomy-config">Configurar</button>
+          <p>Gerenciar partes do corpo e modificações.</p>
+          <button class="nm-card-button" data-action="runAction" data-menu-action="anatomy-config">Configurar</button>
         </div>
       </div>
     </div>
 
-    <!-- Conteúdo da aba AI -->
-    <div class="tab-pane {{#unless (eq activeTab "ai")}}hidden{{/unless}}" id="ai-tab">
-      <h3>Assistente de IA</h3>
-      <div class="ai-tools">
-        <div class="ai-tool-card">
-          <i class="fas fa-user"></i>
+    <div class="nm-pane {{#unless (eq activeTab "ai")}}hidden{{/unless}}">
+      <div class="nm-content-head"><h2>Assistente de IA</h2></div>
+      <div class="nm-card-grid">
+        <div class="nm-feature-card">
+          <div class="nm-icon-badge"><i class="fas fa-user"></i></div>
           <h4>Geração de NPC</h4>
-          <p>Criar personagens com base em descrições</p>
-          <button class="action-button" data-action="runAction" data-menu-action="generate-npc">Gerar</button>
+          <p>Criar personagens com base em descrições.</p>
+          <button class="nm-card-button" data-action="runAction" data-menu-action="generate-npc">Gerar</button>
         </div>
-
-        <div class="ai-tool-card">
-          <i class="fas fa-horse"></i>
+        <div class="nm-feature-card">
+          <div class="nm-icon-badge"><i class="fas fa-horse"></i></div>
           <h4>Montarias</h4>
-          <p>Criar montarias e bestas de carga</p>
-          <button class="action-button" data-action="runAction" data-menu-action="generate-mount">Gerar</button>
+          <p>Criar montarias e bestas de carga.</p>
+          <button class="nm-card-button" data-action="runAction" data-menu-action="generate-mount">Gerar</button>
         </div>
-
-        <div class="ai-tool-card">
-          <i class="fas fa-rocket"></i>
+        <div class="nm-feature-card">
+          <div class="nm-icon-badge violet"><i class="fas fa-rocket"></i></div>
           <h4>Naves Espaciais</h4>
-          <p>Criar naves e veículos espaciais</p>
-          <button class="action-button" data-action="runAction" data-menu-action="generate-starship">Gerar</button>
+          <p>Criar naves e veículos espaciais.</p>
+          <button class="nm-card-button" data-action="runAction" data-menu-action="generate-starship">Gerar</button>
         </div>
-
-        <div class="ai-tool-card">
-          <i class="fas fa-car"></i>
+        <div class="nm-feature-card">
+          <div class="nm-icon-badge"><i class="fas fa-car"></i></div>
           <h4>Veículos Terrestres</h4>
-          <p>Criar veículos terrestres</p>
-          <button class="action-button" data-action="runAction" data-menu-action="generate-vehicle">Gerar</button>
+          <p>Criar veículos terrestres.</p>
+          <button class="nm-card-button" data-action="runAction" data-menu-action="generate-vehicle">Gerar</button>
         </div>
-
-        <div class="ai-tool-card">
-          <i class="fas fa-bolt"></i>
+        <div class="nm-feature-card">
+          <div class="nm-icon-badge gold"><i class="fas fa-bolt"></i></div>
           <h4>Habilidades</h4>
-          <p>Criar habilidades avulsas</p>
-          <button class="action-button" data-action="runAction" data-menu-action="generate-skill">Gerar</button>
+          <p>Criar habilidades avulsas.</p>
+          <button class="nm-card-button" data-action="runAction" data-menu-action="generate-skill">Gerar</button>
         </div>
-
-        <div class="ai-tool-card">
-          <i class="fas fa-comment-dots"></i>
+        <div class="nm-feature-card">
+          <div class="nm-icon-badge"><i class="fas fa-comment-dots"></i></div>
           <h4>Perguntas Livres</h4>
-          <p>Consultas livres à IA</p>
-          <button class="action-button" data-action="runAction" data-menu-action="freeform">Perguntar</button>
+          <p>Consultas livres à IA.</p>
+          <button class="nm-card-button" data-action="runAction" data-menu-action="freeform">Perguntar</button>
         </div>
       </div>
     </div>
 
-    <!-- Conteúdo da aba Generation -->
-    <div class="tab-pane {{#unless (eq activeTab "generation")}}hidden{{/unless}}" id="generation-tab">
-      <h3>Geração Automática</h3>
-      <div class="generation-tools">
-        <div class="tool-card">
-          <i class="fas fa-users"></i>
+    <div class="nm-pane {{#unless (eq activeTab "generation")}}hidden{{/unless}}">
+      <div class="nm-content-head"><h2>Geração Automática</h2></div>
+      <div class="nm-card-grid">
+        <div class="nm-feature-card">
+          <div class="nm-icon-badge"><i class="fas fa-users"></i></div>
           <h4>Personagens</h4>
-          <p>Criar personagens completos</p>
-          <button class="action-button" data-action="runAction" data-menu-action="generate-character">Gerar</button>
+          <p>Criar personagens completos.</p>
+          <button class="nm-card-button" data-action="runAction" data-menu-action="generate-character">Gerar</button>
         </div>
-
-        <div class="tool-card">
-          <i class="fas fa-book"></i>
+        <div class="nm-feature-card">
+          <div class="nm-icon-badge violet"><i class="fas fa-book"></i></div>
           <h4>Notas/Journal</h4>
-          <p>Criar notas narrativas</p>
-          <button class="action-button" data-action="runAction" data-menu-action="generate-note">Gerar</button>
+          <p>Criar notas narrativas.</p>
+          <button class="nm-card-button" data-action="runAction" data-menu-action="generate-note">Gerar</button>
         </div>
-
-        <div class="tool-card">
-          <i class="fas fa-shield-alt"></i>
+        <div class="nm-feature-card">
+          <div class="nm-icon-badge gold"><i class="fas fa-shield-alt"></i></div>
           <h4>Itens</h4>
-          <p>Criar itens e equipamentos</p>
-          <button class="action-button" data-action="runAction" data-menu-action="generate-item">Gerar</button>
+          <p>Criar itens e equipamentos.</p>
+          <button class="nm-card-button" data-action="runAction" data-menu-action="generate-item">Gerar</button>
         </div>
       </div>
     </div>
 
-    <!-- Conteúdo da aba Tools -->
-    <div class="tab-pane {{#unless (eq activeTab "tools")}}hidden{{/unless}}" id="tools-tab">
-      <h3>Ferramentas de Administração</h3>
-      <div class="admin-tools">
-        <div class="tool-card">
-          <i class="fas fa-database"></i>
+    <div class="nm-pane {{#unless (eq activeTab "tools")}}hidden{{/unless}}">
+      <div class="nm-content-head"><h2>Ferramentas de Administração</h2></div>
+      <div class="nm-card-grid">
+        <div class="nm-feature-card">
+          <div class="nm-icon-badge"><i class="fas fa-database"></i></div>
           <h4>Backup/Restauração</h4>
-          <p>Gerenciar backups do sistema</p>
-          <button class="action-button" data-action="runAction" data-menu-action="backup-manager">Gerenciar</button>
+          <p>Gerenciar backups do sistema.</p>
+          <button class="nm-card-button" data-action="runAction" data-menu-action="backup-manager">Gerenciar</button>
         </div>
-
-        <div class="tool-card">
-          <i class="fas fa-sync-alt"></i>
+        <div class="nm-feature-card">
+          <div class="nm-icon-badge"><i class="fas fa-sync-alt"></i></div>
           <h4>Sincronização</h4>
-          <p>Sincronizar dados do sistema</p>
-          <button class="action-button" data-action="runAction" data-menu-action="sync-data">Sincronizar</button>
+          <p>Sincronizar dados do sistema.</p>
+          <button class="nm-card-button" data-action="runAction" data-menu-action="sync-data">Sincronizar</button>
         </div>
-
-        <div class="tool-card">
-          <i class="fas fa-file-import"></i>
+        <div class="nm-feature-card">
+          <div class="nm-icon-badge"><i class="fas fa-file-import"></i></div>
           <h4>Importação</h4>
-          <p>Importar dados do sistema</p>
-          <button class="action-button" data-action="runAction" data-menu-action="import-data">Importar</button>
+          <p>Importar dados do sistema.</p>
+          <button class="nm-card-button" data-action="runAction" data-menu-action="import-data">Importar</button>
         </div>
-
-        <div class="tool-card">
-          <i class="fas fa-file-export"></i>
+        <div class="nm-feature-card">
+          <div class="nm-icon-badge"><i class="fas fa-file-export"></i></div>
           <h4>Exportação</h4>
-          <p>Exportar dados do sistema</p>
-          <button class="action-button" data-action="runAction" data-menu-action="export-data">Exportar</button>
+          <p>Exportar dados do sistema.</p>
+          <button class="nm-card-button" data-action="runAction" data-menu-action="export-data">Exportar</button>
         </div>
       </div>
     </div>
+    {{/if}}
+
   </div>
 </div>

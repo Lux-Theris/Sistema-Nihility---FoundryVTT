@@ -212,15 +212,15 @@ Hooks.on("renderChatMessage", (message, html) => {
   $html.find(".skill-request-reject").on("click", () => rejectSkillCreationRequest(message));
 });
 
-// Botão do Menu Principal no diretório de Atores (só para o GM) — ponto de entrada único
-// pro sistema (config, Assistente de IA, backups), em vez de espalhar por várias abas.
+// Botão do Menu Principal no diretório de Atores — ponto de entrada único pro sistema.
+// Visível pra todo mundo agora (não só GM): o Menu tem uma aba "Fichas" acessível a
+// jogadores (abre qualquer Ator que já possuam/tenham Observador); Configurações/IA/
+// Geração/Ferramentas continuam bloqueadas por dentro do próprio App pra quem não é GM.
 // Se o Foundry mudar essa estrutura de DOM em alguma versão futura e nenhum dos
 // seletores abaixo bater, use game.nihility.openAssistant() num macro.
 const AI_BUTTON_CONTAINER_SELECTORS = [".directory-footer", ".header-actions", ".directory-header", ".action-buttons"];
 
 Hooks.on("renderActorDirectory", (app, html) => {
-  if (!game.user.isGM) return;
-
   // Verifica se o botão já existe
   if (html.querySelector(".nihility-ai-assistant-button")) return;
 

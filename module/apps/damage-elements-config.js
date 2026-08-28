@@ -26,7 +26,7 @@ export class DamageElementsConfigApp extends HandlebarsApplicationMixin(Applicat
   };
 
   static PARTS = {
-    body: { template: `systems/${SYSTEM_ID}/templates/apps/damage-elements-config.hbs` }
+    body: { template: `systems/${SYSTEM_ID}/templates/apps/damage-elements-config.hbs`, scrollable: [""] }
   };
 
   /** @override */

@@ -39,7 +39,7 @@
     <div class="racial-skill-list">
       {{#each sp.skills as |skill|}}
       <div class="racial-skill-row" data-skill="{{skill.dataJson}}">
-        <span class="racial-skill-summary">{{skill.name}} <span class="hint-inline">(nível {{skill.level}} · custo {{skill.cost}}{{#if (eq skill.effectType "damage")}} · dano{{/if}}{{#if (eq skill.effectType "temporary")}} · efeito temporário{{/if}})</span></span>
+        <span class="racial-skill-summary">{{skill.name}} <span class="hint-inline">(nível {{skill.level}} · custo {{skill.cost}}{{#if (eq skill.effectType "damage")}} · Dano{{/if}}{{#if (eq skill.effectType "temporary")}} · Efeito Temporário{{/if}}{{#if skill.resistanceTarget}} · Resistência{{/if}})</span></span>
         <a class="racial-skill-edit" data-action="editRacialSkill" title="Editar"><i class="fas fa-edit"></i></a>
         <a class="racial-skill-delete" data-action="deleteRacialSkill" title="Remover"><i class="fas fa-trash"></i></a>
       </div>

@@ -84,7 +84,10 @@ function subSkillSchema() {
       { required: false, initial: [] }
     ),
     targetType: new fields.StringField({ required: false, initial: "targeted", choices: ["targeted", "emission"] }),
-    areaShape: new fields.StringField({ required: false, initial: "", choices: ["", "circle", "cone", "ray"] }),
+    // `blank: true` é obrigatório aqui: um StringField com `choices` some com o `blank: true`
+    // implícito que todo StringField normal tem — sem isso, o próprio "" inicial falha a
+    // validação ("may not be a blank string") assim que o campo não é setado explicitamente.
+    areaShape: new fields.StringField({ required: false, initial: "", blank: true, choices: ["", "circle", "cone", "ray"] }),
     areaDistance: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
     areaAngle: new fields.NumberField({ required: false, integer: true, initial: 53, min: 1, max: 360 })
   });
@@ -190,7 +193,10 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
       }),
 
       /** Só relevante quando targetType === "emission". "" = ainda não configurada. */
-      areaShape: new fields.StringField({ required: false, initial: "", choices: ["", "circle", "cone", "ray"] }),
+      // `blank: true` é obrigatório aqui: um StringField com `choices` some com o `blank: true`
+    // implícito que todo StringField normal tem — sem isso, o próprio "" inicial falha a
+    // validação ("may not be a blank string") assim que o campo não é setado explicitamente.
+    areaShape: new fields.StringField({ required: false, initial: "", blank: true, choices: ["", "circle", "cone", "ray"] }),
 
       /** Raio (circle) ou distância (cone/ray), na unidade de grid da cena. */
       areaDistance: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),

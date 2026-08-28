@@ -105,10 +105,6 @@ export function createAgentTools() {
             damageFormula: data?.damageFormula || "",
             isMagicDamage: Boolean(data?.isMagicDamage),
             damageElements: Array.isArray(data?.damageElements) ? data.damageElements : [],
-            subSkills: Array.isArray(data?.subSkills)
-              ? data.subSkills.map(s => ({ name: s?.name ?? "", description: s?.description ?? "" }))
-              : [],
-            fusionSources: [],
             isFused: false
           }
         };

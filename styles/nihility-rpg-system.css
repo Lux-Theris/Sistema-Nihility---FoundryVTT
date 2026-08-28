@@ -645,6 +645,20 @@ form.nihility-config-app {
   background: rgba(192, 132, 252, 0.25);
 }
 
+/* window-content flex column + .ai-assistant-body como a única região que rola — mesma causa
+   (e correção) do corte sem barra de rolagem já resolvido nos outros editores/fichas. */
+.ai-assistant-app .window-content {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ai-assistant-app .ai-assistant-body {
+  padding: 10px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .ai-assistant-app .mode-toggle {
   display: flex;
   gap: 6px;
@@ -1384,12 +1398,18 @@ form.nihility-config-app {
    definidos acima, que também valem dentro de .nihility-sheet.
    ========================================================================== */
 
+/* O modal ganhou muito conteúdo (Descrição rica, Sub-Skills, Alcance, Dano/Efeitos) — o limite
+   e a rolagem ficam no <form> em si (não em .window-content, que também abriga os botões
+   Salvar/Cancelar do DialogV2) pra eles nunca saírem da vista rolando junto com o conteúdo. */
 .skill-editor-form {
   display: flex;
   flex-direction: column;
   gap: 8px;
   font-family: var(--nihility-font);
   color: var(--nihility-text);
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 .skill-editor-form .form-group {
   display: flex;

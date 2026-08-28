@@ -51,7 +51,10 @@ export class AIAssistantApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static DEFAULT_OPTIONS = {
     id: "nihility-ai-assistant",
     window: { title: "Assistente de IA (GM)", resizable: true },
-    classes: [SYSTEM_ID, "nihility-config-app", "ai-assistant"],
+    // "ai-assistant-app" (não "ai-assistant") de propósito — é a classe que styles/*.css já
+    // usa em ~150 linhas de estilo (.ai-assistant-app .mode-toggle, .ai-generate, etc.); um
+    // nome diferente aqui faria tudo isso silenciosamente não bater com nada.
+    classes: [SYSTEM_ID, "nihility-config-app", "ai-assistant-app"],
     position: { width: 560, height: "auto" },
     actions: {
       selectMode: AIAssistantApp.#onSelectMode,
@@ -65,7 +68,7 @@ export class AIAssistantApp extends HandlebarsApplicationMixin(ApplicationV2) {
   };
 
   static PARTS = {
-    body: { template: `systems/${SYSTEM_ID}/templates/apps/ai-assistant.hbs` }
+    body: { template: `systems/${SYSTEM_ID}/templates/apps/ai-assistant.hbs`, scrollable: [".ai-assistant-body"] }
   };
 
   constructor(options = {}) {

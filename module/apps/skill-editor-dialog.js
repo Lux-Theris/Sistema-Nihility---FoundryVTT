@@ -224,7 +224,8 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
 
   return DialogV2.wait({
     window: { title: initialData.name ? `Editar Skill: ${initialData.name}` : "Nova Skill" },
-    position: { width: 520 },
+    classes: ["nihility-skill-editor-dialog"],
+    position: { width: 520, height: "auto" },
     content,
     render: (event, dialog) => setupSkillEditorInteractivity(dialog.element, data),
     buttons: [

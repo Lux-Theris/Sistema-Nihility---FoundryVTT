@@ -1,12 +1,13 @@
-<p class="hint">
-  Cada Espécie tem um nome, uma lista de Partes do Corpo e uma lista de Skills Raciais.
-  Ao trocar a espécie de um personagem, ambas são aplicadas automaticamente na ficha —
-  todo ser vivo (e alguns não-vivos) que usar essa espécie ganha essas skills de graça,
-  fora da economia normal de Pontos de Habilidade. Tags são separadas por vírgula
-  (ex: <code>vital, mechanical</code>).
-</p>
+<div class="config-editor-body">
+  <p class="hint">
+    Cada Espécie tem um nome, uma lista de Partes do Corpo e uma lista de Skills Raciais.
+    Ao trocar a espécie de um personagem, ambas são aplicadas automaticamente na ficha —
+    todo ser vivo (e alguns não-vivos) que usar essa espécie ganha essas skills de graça,
+    fora da economia normal de Pontos de Habilidade. Tags são separadas por vírgula
+    (ex: <code>vital, mechanical</code>).
+  </p>
 
-<div class="species-list">
+  <div class="species-list">
   {{#each species as |sp key|}}
   <fieldset class="species-block">
     <legend>
@@ -47,10 +48,11 @@
     <a class="config-add-row" data-action="addRacialSkill">+ Nova Skill Racial</a>
   </fieldset>
   {{/each}}
+  </div>
+
+  <a class="config-add-row" data-action="addSpecies">+ Nova Espécie</a>
+
+  <footer class="sheet-footer">
+    <button type="submit"><i class="fas fa-save"></i> Salvar Espécies</button>
+  </footer>
 </div>
-
-<a class="config-add-row" data-action="addSpecies">+ Nova Espécie</a>
-
-<footer class="sheet-footer">
-  <button type="submit"><i class="fas fa-save"></i> Salvar Espécies</button>
-</footer>

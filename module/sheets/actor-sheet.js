@@ -19,6 +19,7 @@ import {
 } from "../ai-helper.js";
 import { rollAttribute } from "../dice.js";
 import { useSkillEffect } from "../skill-effects.js";
+import { areaEffectsSupported, pickAreaTargets } from "../area-effects.js";
 
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -443,18 +444,34 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     const skill = this.actor.items.get(itemId);
     if (!skill) return;
 
-    // Todo dano agora pode ser reduzido (Defesa Mágica, e/ou Resistência Geral/Elemental do
-    // alvo — inclusive dano puramente físico, se o alvo tiver Resistência Física) — então
-    // "damage" sempre pede alvo, igual "temporary" (buff/debuff) já pedia.
-    let targetActor = this.actor;
-    const needsTarget = skill.system.effectType === "temporary" || skill.system.effectType === "damage";
-    if (needsTarget) {
-      targetActor = await this._promptSkillTarget();
-      if (!targetActor) return;
+    const usesMechanic = skill.system.effectType === "temporary" || skill.system.effectType === "damage";
+    if (!usesMechanic) {
+      try {
+        await useSkillEffect(this.actor, itemId, {});
+      } catch (err) {
+        console.error(`${SYSTEM_ID} | Falha ao usar habilidade.`, err);
+      }
+      return;
     }
 
     try {
-      await useSkillEffect(this.actor, itemId, { targetActor });
+      if (skill.system.targetType === "emission") {
+        // Sem alvo manual — o usuário posiciona a forma no canvas e a Skill afeta quem
+        // estiver dentro dela, sem etapa de revisão (decisão explícita: aplica direto).
+        if (!areaEffectsSupported()) {
+          ui.notifications.warn("Skills de Emissão precisam de Foundry V14 (Scene Regions).");
+          return;
+        }
+        const targetActors = await pickAreaTargets(skill);
+        await useSkillEffect(this.actor, itemId, { targetActors });
+      } else {
+        // Todo dano pode ser reduzido (Defesa Mágica, e/ou Resistência Geral/Elemental do
+        // alvo — inclusive dano puramente físico, se o alvo tiver Resistência Física) — então
+        // "damage" sempre pede alvo, igual "temporary" (buff/debuff) já pedia.
+        const targetActor = await this._promptSkillTarget();
+        if (!targetActor) return;
+        await useSkillEffect(this.actor, itemId, { targetActor });
+      }
     } catch (err) {
       console.error(`${SYSTEM_ID} | Falha ao usar habilidade.`, err);
     }

@@ -81,6 +81,34 @@
         </select>
       </label>
 
+      {{#unless (eq system.effectType "none")}}
+      <label>Tipo de Alvo
+        <select name="system.targetType">
+          {{#each config.SKILL_TARGET_TYPES as |t|}}
+          <option value="{{t}}" {{#if (eq t system.targetType)}}selected{{/if}}>{{lookup ../config.SKILL_TARGET_TYPE_LABELS t}}</option>
+          {{/each}}
+        </select>
+      </label>
+
+      {{#if (eq system.targetType "emission")}}
+      <label>Formato de Área
+        <select name="system.areaShape">
+          {{#each config.SKILL_AREA_SHAPES as |s|}}
+          <option value="{{s}}" {{#if (eq s system.areaShape)}}selected{{/if}}>{{lookup ../config.SKILL_AREA_SHAPE_LABELS s}}</option>
+          {{/each}}
+        </select>
+      </label>
+      <label>Distância <span class="hint-inline">(raio do Círculo ou distância do Cone/Linha, em unidades de grid)</span>
+        <input type="number" name="system.areaDistance" value="{{system.areaDistance}}" min="0"/>
+      </label>
+      {{#if (eq system.areaShape "cone")}}
+      <label>Ângulo <span class="hint-inline">(graus)</span>
+        <input type="number" name="system.areaAngle" value="{{system.areaAngle}}" min="1" max="360"/>
+      </label>
+      {{/if}}
+      {{/if}}
+      {{/unless}}
+
       {{#if (eq system.effectType "damage")}}
       <label>Fórmula de Dano <span class="hint-inline">(sintaxe de rolagem do Foundry, ex: "2d6+3")</span>
         <input type="text" name="system.damageFormula" value="{{system.damageFormula}}" placeholder="2d6+3"/>

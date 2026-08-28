@@ -130,6 +130,23 @@ export const MEU_SISTEMA = {
     temporary: "Efeito Temporário (buff/debrawback/escudo)"
   },
 
+  /** Só V14 (Scene Regions) — ver module/area-effects.js. */
+  SKILL_TARGET_TYPES: ["targeted", "emission"],
+
+  SKILL_TARGET_TYPE_LABELS: {
+    targeted: "Targetada (escolhe 1 Ator)",
+    emission: "Emissão (área no canvas — só Foundry V14)"
+  },
+
+  SKILL_AREA_SHAPES: ["", "circle", "cone", "ray"],
+
+  SKILL_AREA_SHAPE_LABELS: {
+    "": "— selecione —",
+    circle: "Círculo",
+    cone: "Cone",
+    ray: "Linha"
+  },
+
   /**
    * Alvos possíveis de um Efeito Temporário: os 7 atributos de combate (afetam
    * a rolagem via Active Effect, mas NUNCA o cálculo de HP/Mana — só a base

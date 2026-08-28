@@ -136,6 +136,26 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
         { required: false, initial: [] }
       ),
 
+      /**
+       * "targeted" (padrão — pede 1 Ator via dropdown, como sempre foi) ou "emission" (sem
+       * alvo manual — o usuário posiciona uma forma no canvas e a Skill afeta quem estiver
+       * dentro dela; só funciona em Foundry V14+, ver module/area-effects.js).
+       */
+      targetType: new fields.StringField({
+        required: true,
+        initial: "targeted",
+        choices: ["targeted", "emission"]
+      }),
+
+      /** Só relevante quando targetType === "emission". "" = ainda não configurada. */
+      areaShape: new fields.StringField({ required: false, initial: "", choices: ["", "circle", "cone", "ray"] }),
+
+      /** Raio (circle) ou distância (cone/ray), na unidade de grid da cena. */
+      areaDistance: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+
+      /** Só relevante pra areaShape "cone" — ângulo em graus. */
+      areaAngle: new fields.NumberField({ required: false, integer: true, initial: 53, min: 1, max: 360 }),
+
       /** Modificador PERMANENTE de HP/Mana, sempre ativo enquanto a skill estiver na ficha. */
       statModifiers: statModifiersSchema(),
 

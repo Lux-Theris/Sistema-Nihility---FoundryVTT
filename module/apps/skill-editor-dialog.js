@@ -1,4 +1,4 @@
-import { MEU_SISTEMA, getActiveDamageElements } from "../config.js";
+import { MEU_SISTEMA, getActiveDamageElements, getActiveStatusConditions } from "../config.js";
 import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../skill-effects.js";
 
 const { DialogV2 } = foundry.applications.api;
@@ -13,15 +13,39 @@ function resistanceTargetOptions() {
   return [{ value: "general", label: "Geral" }, ...getActiveDamageElements().map(el => ({ value: el.id, label: el.label }))];
 }
 
+/** true = alvo aceita "Periódico" (veneno/cura contínua) — só faz sentido pra HP/Energia. */
+function targetAcceptsPeriodic(target) {
+  return target === "hp" || target === "energy";
+}
+
 function buildEffectRowHtml(entry) {
   const options = MEU_SISTEMA.EFFECT_TARGETS.map(
     t => `<option value="${t}" ${t === entry.target ? "selected" : ""}>${MEU_SISTEMA.EFFECT_TARGET_LABELS[t]}</option>`
   ).join("");
+  const conditionOptions =
+    `<option value="">— sem Condição —</option>` +
+    getActiveStatusConditions()
+      .map(c => `<option value="${c.id}" ${c.id === entry.conditionId ? "selected" : ""}>${c.label}</option>`)
+      .join("");
+  const tickUnitOptions = MEU_SISTEMA.PERIODIC_TICK_UNITS.map(
+    u => `<option value="${u}" ${u === entry.tickUnit ? "selected" : ""}>${MEU_SISTEMA.PERIODIC_TICK_UNIT_LABELS[u]}</option>`
+  ).join("");
+  const periodicVisible = targetAcceptsPeriodic(entry.target);
+
   return `
-    <select class="se-effect-target">${options}</select>
-    <input type="number" class="se-effect-amount" value="${entry.amount}" placeholder="Qtd."/>
-    <input type="number" class="se-effect-duration" value="${entry.durationRounds}" min="0" placeholder="Rounds"/>
-    <a class="se-effect-delete" title="Remover"><i class="fas fa-trash"></i></a>
+    <div class="effect-row-main">
+      <select class="se-effect-target">${options}</select>
+      <input type="number" class="se-effect-amount" value="${entry.amount}" placeholder="Qtd."/>
+      <input type="number" class="se-effect-duration" value="${entry.durationRounds}" min="0" placeholder="Rounds/Ticks"/>
+      <a class="se-effect-delete" title="Remover"><i class="fas fa-trash"></i></a>
+    </div>
+    <div class="effect-row-extra">
+      <select class="se-effect-condition" title="Condição nomeada (ícone de status no token — opcional)">${conditionOptions}</select>
+      <label class="checkbox-line small se-effect-periodic-line" style="display:${periodicVisible ? "inline-flex" : "none"};">
+        <input type="checkbox" class="se-effect-periodic" ${entry.periodic ? "checked" : ""}/> Periódico
+      </label>
+      <select class="se-effect-tick-unit" style="display:${periodicVisible && entry.periodic ? "inline-block" : "none"};">${tickUnitOptions}</select>
+    </div>
   `;
 }
 
@@ -218,7 +242,12 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
         <div class="effect-list-header"><span>Alvo</span><span>Quantidade</span><span>Duração (rounds)</span><span></span></div>
         <ol class="sub-list effect-list se-effect-list"></ol>
         <a class="config-add-row se-add-effect">+ Efeito</a>
-        <p class="hint-inline">Quantidade negativa = debuff/drawback. Escudo ignora Duração (some só ao absorver dano).</p>
+        <p class="hint-inline">
+          Quantidade negativa = debuff/drawback. Escudo ignora Duração (some só ao absorver dano).
+          Condição dá ícone reconhecível no token (opcional). "Periódico" (só HP/Energia) aplica a
+          Quantidade a CADA tick em vez de uma vez só — Duração vira "quantos ticks". Reaplicar a
+          MESMA Condição em quem já a tem apenas ESTENDE a duração/ticks (soma), não duplica.
+        </p>
       </div>
     </form>`;
 
@@ -319,7 +348,7 @@ function setupSkillEditorInteractivity(root, data) {
     });
   });
 
-  function addEffectRow(entry = { target: MEU_SISTEMA.EFFECT_TARGETS[0], amount: 1, durationRounds: 1 }) {
+  function addEffectRow(entry = { target: MEU_SISTEMA.EFFECT_TARGETS[0], amount: 1, durationRounds: 1, conditionId: "", periodic: false, tickUnit: "combatRound" }) {
     const li = document.createElement("li");
     li.className = "effect-row";
     li.innerHTML = buildEffectRowHtml(entry);
@@ -327,6 +356,23 @@ function setupSkillEditorInteractivity(root, data) {
       event.preventDefault();
       li.remove();
     });
+
+    // Mostra "Periódico" só pra HP/Energia; some (e desliga) sozinho pra qualquer outro alvo —
+    // e "Unidade de Tick" só aparece quando Periódico está marcado.
+    const targetSelect = li.querySelector(".se-effect-target");
+    const periodicLine = li.querySelector(".se-effect-periodic-line");
+    const periodicCheckbox = li.querySelector(".se-effect-periodic");
+    const tickUnitSelect = li.querySelector(".se-effect-tick-unit");
+
+    function applyPeriodicVisibility() {
+      const accepts = targetAcceptsPeriodic(targetSelect.value);
+      periodicLine.style.display = accepts ? "inline-flex" : "none";
+      if (!accepts) periodicCheckbox.checked = false;
+      tickUnitSelect.style.display = accepts && periodicCheckbox.checked ? "inline-block" : "none";
+    }
+    targetSelect.addEventListener("change", applyPeriodicVisibility);
+    periodicCheckbox.addEventListener("change", applyPeriodicVisibility);
+
     effectList.appendChild(li);
   }
   root.querySelector(".se-add-effect").addEventListener("click", event => {
@@ -371,7 +417,10 @@ function readSkillEditorForm(root, lockTier) {
         ? Array.from(root.querySelectorAll(".se-effect-list .effect-row")).map(row => ({
             target: row.querySelector(".se-effect-target").value,
             amount: Number(row.querySelector(".se-effect-amount").value) || 0,
-            durationRounds: Number(row.querySelector(".se-effect-duration").value) || 0
+            durationRounds: Number(row.querySelector(".se-effect-duration").value) || 0,
+            conditionId: row.querySelector(".se-effect-condition").value || "",
+            periodic: row.querySelector(".se-effect-periodic").checked,
+            tickUnit: row.querySelector(".se-effect-tick-unit").value
           }))
         : []
   };

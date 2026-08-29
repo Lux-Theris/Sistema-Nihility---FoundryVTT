@@ -250,6 +250,11 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
         new SpeciesConfigApp().render(true);
         break;
       }
+      case "status-conditions-config": {
+        const { StatusConditionsConfigApp } = await import("./status-conditions-config.js");
+        new StatusConditionsConfigApp().render(true);
+        break;
+      }
       case "titles-config": {
         // Não existe preset global de Títulos (são só Items por Ator) — o mais útil que já
         // existe é abrir o Compêndio de Títulos do mundo pra navegar/gerenciar.

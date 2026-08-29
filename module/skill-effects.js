@@ -7,7 +7,7 @@
  *    HP/Mana Máximo mesmo quando o alvo é um atributo); "shield" é somado
  *    direto, sem duração, gasto na mão pelo jogador conforme absorve dano.
  */
-import { SYSTEM_ID, MEU_SISTEMA, getActiveDamageElements } from "./config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getActiveDamageElements, getActiveStatusConditions } from "./config.js";
 
 const EFFECT_TARGET_PATHS = {
   strength: "system.attributes.combat.strength.buffDelta",
@@ -244,9 +244,34 @@ async function rollSkillDamageArea(actor, mech, label, targetActors) {
 }
 
 /**
+ * Um efeito é "periódico" (veneno/cura contínua — bate um tick de `amount` em vez de aplicar
+ * uma vez só) apenas quando o alvo é HP ou Energia — atributos de combate não têm um "tick"
+ * que faça sentido (só buff/debuff de duração normal). Ver effectEntrySchema() em
+ * data/item-models.js.
+ */
+function isPeriodicEntry(entry) {
+  return Boolean(entry.periodic) && (entry.target === "hp" || entry.target === "energy");
+}
+
+/**
+ * Efeito já ativo no alvo com a MESMA Condição nomeada (mesmo `conditionId`, não vazio, E
+ * mesma natureza periódica/não-periódica) que este sistema criou — usado pra decidir "estender
+ * duração" em vez de "criar um segundo efeito" quando a mesma Condição é reaplicada em quem já
+ * está afetado por ela (ex: 2º ataque de Veneno em quem já está Envenenado soma a
+ * duração/ticks, não duplica o efeito). Exige a mesma "natureza" pra nunca tentar somar
+ * `ticksRemaining` num efeito que não tem motor de tick (ou vice-versa) — um GM que reusar o
+ * mesmo id de Condição ora periódico ora não simplesmente ganha dois efeitos independentes.
+ */
+function findStackableEffect(targetActor, conditionId, periodic) {
+  if (!conditionId) return null;
+  return targetActor.effects.find(e => e.flags?.[SYSTEM_ID]?.conditionId === conditionId && Boolean(e.flags[SYSTEM_ID].periodic) === periodic) ?? null;
+}
+
+/**
  * Aplica cada entrada de `mech.effects` num único Ator e devolve o resumo textual (sem postar
  * chat) — compartilhado entre alvo único e Emissão. `originSkill` só empresta `img`/`uuid` pro
- * Active Effect criado (mesmo quando `mech` é o snapshot de uma Sub-Skill).
+ * Active Effect criado (mesmo quando `mech` é o snapshot de uma Sub-Skill). Reaplicar a mesma
+ * Condição nomeada em quem já a tem estende a duração/ticks restantes em vez de duplicar.
  */
 async function applyEffectsToActor(mech, label, originSkill, targetActor) {
   const entries = mech.effects ?? [];
@@ -255,8 +280,10 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor) {
   for (const entry of entries) {
     const targetLabel = MEU_SISTEMA.EFFECT_TARGET_LABELS[entry.target] ?? entry.target;
     const sign = entry.amount >= 0 ? "+" : "";
+    const condition = entry.conditionId ? getActiveStatusConditions().find(c => c.id === entry.conditionId) : null;
 
     if (entry.target === "shield") {
+      // Escudo ignora Condição/Periódico/Duração — é sempre somado direto, gasto na mão.
       const current = targetActor.system.attributes.shield.value ?? 0;
       await targetActor.update({
         "system.attributes.shield.value": Math.max(0, current + entry.amount)
@@ -268,20 +295,118 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor) {
     const path = EFFECT_TARGET_PATHS[entry.target];
     if (!path) continue;
 
+    const periodic = isPeriodicEntry(entry);
+    const existing = findStackableEffect(targetActor, entry.conditionId, periodic);
+
+    if (existing) {
+      if (periodic) {
+        const currentTicks = existing.flags?.[SYSTEM_ID]?.ticksRemaining ?? 0;
+        const newTicks = currentTicks + Math.max(1, entry.durationRounds);
+        await existing.update({ [`flags.${SYSTEM_ID}.ticksRemaining`]: newTicks });
+        summary.push(`${condition?.label ?? targetLabel}: duração estendida (+${entry.durationRounds} tick(s), total ${newTicks})`);
+      } else {
+        const currentRounds = existing.duration?.rounds ?? 0;
+        await existing.update({ "duration.rounds": currentRounds + entry.durationRounds });
+        summary.push(`${condition?.label ?? targetLabel}: duração estendida (+${entry.durationRounds} rounds)`);
+      }
+      continue;
+    }
+
+    if (periodic) {
+      await targetActor.createEmbeddedDocuments("ActiveEffect", [
+        {
+          name: condition?.label ?? `${label}: ${targetLabel}`,
+          img: condition?.icon ?? originSkill.img,
+          origin: originSkill.uuid,
+          statuses: entry.conditionId ? [entry.conditionId] : [],
+          flags: {
+            [SYSTEM_ID]: {
+              skillEffect: true,
+              periodic: true,
+              conditionId: entry.conditionId || "",
+              tickTarget: entry.target,
+              tickAmount: entry.amount,
+              tickUnit: entry.tickUnit || "combatRound",
+              ticksRemaining: Math.max(1, entry.durationRounds)
+            }
+          }
+        }
+      ]);
+      const unitLabel = entry.tickUnit === "manual" ? "manual" : "por rodada de combate";
+      summary.push(`${condition?.label ?? targetLabel} ${sign}${entry.amount}/tick (${Math.max(1, entry.durationRounds)} tick(s), ${unitLabel})`);
+      continue;
+    }
+
     await targetActor.createEmbeddedDocuments("ActiveEffect", [
       {
-        name: `${label}: ${targetLabel} ${sign}${entry.amount}`,
-        img: originSkill.img,
+        name: condition?.label ?? `${label}: ${targetLabel} ${sign}${entry.amount}`,
+        img: condition?.icon ?? originSkill.img,
         origin: originSkill.uuid,
+        statuses: entry.conditionId ? [entry.conditionId] : [],
         duration: entry.durationRounds > 0 ? { rounds: entry.durationRounds } : {},
         changes: [{ key: path, mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: String(entry.amount) }],
-        flags: { [SYSTEM_ID]: { skillEffect: true } }
+        flags: { [SYSTEM_ID]: { skillEffect: true, conditionId: entry.conditionId || "" } }
       }
     ]);
     summary.push(`${targetLabel} ${sign}${entry.amount}${entry.durationRounds > 0 ? ` (${entry.durationRounds} rounds)` : ""}`);
   }
 
   return summary;
+}
+
+/**
+ * Bate um único tick de um Active Effect periódico (veneno/cura contínua): aplica
+ * `flags.tickAmount` direto em HP/Energia atual (clamped, sem passar pelo Máximo — igual um
+ * dano/cura de verdade, não um buffDelta), decrementa `ticksRemaining` e apaga o efeito ao
+ * chegar a 0. Compartilhado entre o hook automático de combate e o botão manual da ficha.
+ * @param {Actor} actor
+ * @param {ActiveEffect} effect
+ */
+export async function tickPeriodicEffect(actor, effect) {
+  const flags = effect.flags?.[SYSTEM_ID];
+  if (!flags?.periodic) return null;
+
+  const attrKey = flags.tickTarget === "energy" ? "energy" : "hp";
+  const attr = actor.system.attributes[attrKey];
+  const newValue = Math.clamp(attr.value + flags.tickAmount, 0, attr.max);
+  await actor.update({ [`system.attributes.${attrKey}.value`]: newValue });
+
+  const ticksRemaining = (flags.ticksRemaining ?? 1) - 1;
+  const expired = ticksRemaining <= 0;
+  if (expired) await effect.delete();
+  else await effect.update({ [`flags.${SYSTEM_ID}.ticksRemaining`]: ticksRemaining });
+
+  return { attrKey, delta: flags.tickAmount, newValue, ticksRemaining, expired, effectName: effect.name };
+}
+
+/**
+ * Tica todos os Efeitos Periódicos de `tickUnit: "combatRound"` de um Ator e posta um resumo
+ * único no chat — chamado pelo hook `updateCombat` (nihility-rpg-system.js) sempre que chega a
+ * vez desse Ator no combate. Efeitos `tickUnit: "manual"` nunca são tocados aqui (ver o botão
+ * "Aplicar Tick" da ficha, actor-sheet.js).
+ * @param {Actor} actor
+ */
+export async function tickCombatRoundEffects(actor) {
+  const effects = actor.effects.filter(e => e.flags?.[SYSTEM_ID]?.periodic && e.flags[SYSTEM_ID].tickUnit !== "manual");
+  const results = [];
+  for (const effect of effects) {
+    const result = await tickPeriodicEffect(actor, effect);
+    if (result) results.push(result);
+  }
+
+  if (results.length) {
+    const rows = results.map(r => {
+      const attrLabel = r.attrKey === "hp" ? "HP" : MEU_SISTEMA.EFFECT_TARGET_LABELS.energy;
+      const statusText = r.expired ? "encerrou" : `${r.ticksRemaining} tick(s) restante(s)`;
+      return `<li><strong>${r.effectName}</strong>: ${r.delta >= 0 ? "+" : ""}${r.delta} ${attrLabel} (${statusText})</li>`;
+    });
+    await ChatMessage.create({
+      speaker: ChatMessage.getSpeaker({ actor }),
+      content: `<p><strong>${actor.name}</strong> — início de turno, Condições ativas:</p><ul>${rows.join("")}</ul>`
+    });
+  }
+
+  return results;
 }
 
 async function applySkillEffects(sourceActor, skill, mech, label, targetActor) {

@@ -1,0 +1,34 @@
+<div class="config-editor-body">
+  <p class="hint">
+    Configure as Condições de Status disponíveis nos Efeitos Temporários de Skills (Cegueira,
+    Veneno, Atordoamento...). O <strong>id</strong> é a chave interna (sem espaços, ex:
+    <code>poison</code>). Escolher uma Condição numa entrada de Efeito dá ícone reconhecível no
+    token do alvo — o Mestre decide na mesa o que a condição impede além do número configurado.
+  </p>
+
+  <div class="config-list-header condition-header">
+    <span>ID</span>
+    <span>Nome</span>
+    <span>Ícone</span>
+    <span></span>
+    <span></span>
+  </div>
+
+  <div class="condition-list">
+    {{#each conditions as |c|}}
+    <div class="condition-row">
+      <input type="text" data-field="id" value="{{c.id}}" placeholder="id (ex: poison)"/>
+      <input type="text" data-field="label" value="{{c.label}}" placeholder="Nome exibido"/>
+      <input type="text" data-field="icon" value="{{c.icon}}" placeholder="Caminho do ícone"/>
+      <a class="condition-icon-pick" data-action="pickIcon" title="Escolher ícone"><i class="fas fa-image"></i></a>
+      <a class="condition-delete" data-action="deleteCondition" title="Remover"><i class="fas fa-trash"></i></a>
+    </div>
+    {{/each}}
+  </div>
+
+  <a class="config-add-row" data-action="addCondition">+ Nova Condição</a>
+
+  <footer class="sheet-footer">
+    <button type="submit"><i class="fas fa-save"></i> Salvar Condições</button>
+  </footer>
+</div>

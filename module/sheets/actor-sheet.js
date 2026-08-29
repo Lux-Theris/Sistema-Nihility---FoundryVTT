@@ -19,7 +19,7 @@ import {
   transferCurrency
 } from "../ai-helper.js";
 import { rollAttribute } from "../dice.js";
-import { useSkillEffect } from "../skill-effects.js";
+import { useSkillEffect, tickPeriodicEffect } from "../skill-effects.js";
 import { areaEffectsSupported, pickAreaTargets } from "../area-effects.js";
 import { openSkillEditorDialog } from "../apps/skill-editor-dialog.js";
 
@@ -88,7 +88,9 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       toggleVitalAdjust: NihilityActorSheet.#onToggleVitalAdjust,
       adjustVital: NihilityActorSheet.#onAdjustVital,
       restActor: NihilityActorSheet.#onRest,
-      editImage: NihilityActorSheet.#onEditImage
+      editImage: NihilityActorSheet.#onEditImage,
+      applyManualTick: NihilityActorSheet.#onApplyManualTick,
+      deleteCondition: NihilityActorSheet.#onDeleteCondition
     }
   };
 
@@ -153,6 +155,25 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.hpPercent = percentOf(actor.system.attributes.hp.value, actor.system.attributes.hp.max);
     context.energyPercent = percentOf(actor.system.attributes.energy.value, actor.system.attributes.energy.max);
     context.shieldValue = actor.system.attributes.shield.value;
+
+    // Condições ativas: só os Active Effects que este sistema criou (skillEffect: true) —
+    // Active Effects de outras origens (módulos, core) não entram nessa lista. Periódicas com
+    // tickUnit "manual" (cura/dano de longo prazo fora de combate) ganham o botão de tick;
+    // "combatRound" tica sozinho pelo hook updateCombat, sem precisar de botão nenhum aqui.
+    context.activeConditions = actor.effects
+      .filter(e => e.flags?.[SYSTEM_ID]?.skillEffect)
+      .map(e => {
+        const flags = e.flags[SYSTEM_ID];
+        return {
+          id: e.id,
+          name: e.name,
+          img: e.img,
+          periodic: Boolean(flags.periodic),
+          manual: flags.tickUnit === "manual",
+          ticksRemaining: flags.ticksRemaining,
+          roundsRemaining: e.duration?.rounds ?? null
+        };
+      });
 
     // "Ultimate" só fica escondida do jogador — o Mestre sempre vê/pode escolher,
     // já que às vezes precisa conceder ou ajustar uma na mão.
@@ -324,6 +345,39 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       "system.attributes.energy.value": energy.max
     });
     ui.notifications.info(`${this.actor.name} descansou e recuperou HP/${getCharacterEnergyLabel()} ao máximo.`);
+  }
+
+  /* -------------------------------------------- */
+  /*  Condições Ativas (Efeitos Periódicos/nomeados)*/
+  /* -------------------------------------------- */
+
+  /**
+   * Bate um tick manual de uma Condição Periódica com `tickUnit: "manual"` (cura/dano de longo
+   * prazo fora de combate — não tem hook de tempo/calendário, então é o jogador/Mestre quem
+   * decide quando aplicar, ex: "descansou uma hora"). Condições `tickUnit: "combatRound"` já
+   * ticam sozinhas pelo hook `updateCombat` — não aparecem com esse botão na ficha.
+   */
+  static async #onApplyManualTick(event, target) {
+    event.preventDefault();
+    const effectId = target.closest("[data-effect-id]")?.dataset.effectId;
+    const effect = this.actor.effects.get(effectId);
+    if (!effect) return;
+
+    const result = await tickPeriodicEffect(this.actor, effect);
+    if (!result) return;
+
+    const attrLabel = result.attrKey === "hp" ? "HP" : getCharacterEnergyLabel();
+    ui.notifications.info(
+      `${effect.name}: ${result.delta >= 0 ? "+" : ""}${result.delta} ${attrLabel}` +
+        (result.expired ? " (encerrou)." : ` (${result.ticksRemaining} tick(s) restante(s)).`)
+    );
+  }
+
+  /** Remove uma Condição Ativa antes do prazo (ex: curada por outra Skill/poção). */
+  static async #onDeleteCondition(event, target) {
+    event.preventDefault();
+    const effectId = target.closest("[data-effect-id]")?.dataset.effectId;
+    await this.actor.deleteEmbeddedDocuments("ActiveEffect", [effectId]);
   }
 
   /* -------------------------------------------- */

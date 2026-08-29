@@ -27,7 +27,9 @@ import { NihilityItemSheet } from "./sheets/item-sheet.js";
 import { CurrencyConfigApp } from "./apps/currency-config.js";
 import { SpeciesConfigApp } from "./apps/species-config.js";
 import { DamageElementsConfigApp } from "./apps/damage-elements-config.js";
+import { StatusConditionsConfigApp } from "./apps/status-conditions-config.js";
 import { NihilityMenuApp } from "./apps/nihility-menu.js";
+import { tickCombatRoundEffects } from "./skill-effects.js";
 
 Hooks.once("init", () => {
   console.log(`${SYSTEM_ID} | Inicializando sistema...`);
@@ -69,6 +71,15 @@ Hooks.once("init", () => {
     hint: "Adicione, edite ou remova os tipos de dano elemental disponíveis para Skills.",
     icon: "fas fa-fire",
     type: DamageElementsConfigApp,
+    restricted: true
+  });
+
+  game.settings.registerMenu(SYSTEM_ID, "statusConditionsConfigMenu", {
+    name: "Configurar Condições de Status",
+    label: "Configurar Condições de Status",
+    hint: "Adicione, edite ou remova as Condições (Cegueira, Veneno, Atordoamento...) disponíveis nos Efeitos de Skills.",
+    icon: "fas fa-skull-crossbones",
+    type: StatusConditionsConfigApp,
     restricted: true
   });
 
@@ -203,6 +214,24 @@ Hooks.on("preDeleteItem", item => {
   if (!["item", "starship_module"].includes(item.type)) return;
   if (!item.parent) return;
   removeGrantedSkill(item.parent, item.id);
+});
+
+// Tica Efeitos Periódicos (veneno/cura contínua com tickUnit "combatRound", ver
+// skill-effects.js) sempre que chega a vez de um combatente — só o dono desse turno tica,
+// uma vez por turno próprio (não uma vez por rodada global). Guardado por isGM: só o GM
+// aplica o dano/cura de verdade, senão cada cliente conectado ticaria o mesmo efeito.
+Hooks.on("updateCombat", async (combat, changed) => {
+  if (!game.user.isGM) return;
+  if (changed.turn === undefined && changed.round === undefined) return;
+
+  const actor = combat.combatant?.actor;
+  if (!actor) return;
+
+  try {
+    await tickCombatRoundEffects(actor);
+  } catch (err) {
+    console.error(`${SYSTEM_ID} | Falha ao ticar Efeitos Periódicos no início do turno.`, err);
+  }
 });
 
 // Botões de Aprovar/Rejeitar nos pedidos de criação de Skill via Pontos de Habilidade.

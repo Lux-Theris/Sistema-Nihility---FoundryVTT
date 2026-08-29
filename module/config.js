@@ -25,6 +25,7 @@ export const MEU_SISTEMA = {
     skillPointsStarting: "skillPointsStarting",
     skillPointsPerLevel: "skillPointsPerLevel",
     damageElementsData: "damageElementsData",
+    statusConditionsData: "statusConditionsData",
     aiProvider: "aiProvider",
     aiEndpointUrl: "aiEndpointUrl",
     aiModel: "aiModel",
@@ -176,6 +177,21 @@ export const MEU_SISTEMA = {
    */
   TITLE_BONUS_TARGETS: ["strength", "defense", "magic", "magicalDefense", "dexterity", "stealth", "precision", "hp", "energy"],
 
+  /**
+   * Unidade de "tick" de um Efeito Periódico (veneno/cura contínua — ver `entry.periodic`
+   * em EFFECT_TARGETS, só válido pra target "hp"/"energy"). "combatRound" bate sozinho a
+   * cada vez que chega o turno do Ator dono do efeito (hook `updateCombat` em
+   * nihility-rpg-system.js); "manual" não bate sozinho — fica esperando um clique no botão
+   * "Aplicar Tick" da ficha (cobre cura/dano de longo prazo fora de combate, tipo
+   * "Regeneração Amorfa" do Slime, sem precisar de um sistema de tempo/calendário).
+   */
+  PERIODIC_TICK_UNITS: ["combatRound", "manual"],
+
+  PERIODIC_TICK_UNIT_LABELS: {
+    combatRound: "Por rodada de combate (automático)",
+    manual: "Manual (fora de combate)"
+  },
+
   /** Tipos de dano elemental padrão, sobrescritos pela setting `damageElementsData` (editor visual). */
   DEFAULT_DAMAGE_ELEMENTS: [
     { id: "physical", label: "Físico", color: "#9aa1c2" },
@@ -185,6 +201,26 @@ export const MEU_SISTEMA = {
     { id: "acid", label: "Ácido", color: "#8bc34a" },
     { id: "dark", label: "Sombrio", color: "#7b5ea7" },
     { id: "holy", label: "Sagrado", color: "#e8c170" }
+  ],
+
+  /**
+   * Condições nomeadas padrão, sobrescritas pela setting `statusConditionsData` (editor
+   * visual, mesmo padrão de Moedas/Elementos de Dano). Puramente ícone + rótulo — dão nome
+   * reconhecível (e ícone de status no token, via `ActiveEffect.statuses`) a uma entrada de
+   * `effects[]` de uma Skill, mas NÃO bloqueiam ação nenhuma sozinhas: o Mestre arbitra o que
+   * "cego"/"atordoado" impede na mesa, o sistema só automatiza o número por trás (debuff de
+   * atributo, ou dano/cura por tick se `periodic: true`). Ícones são os SVGs já embutidos no
+   * core do Foundry (`icons/svg/*`), sem depender de asset externo.
+   */
+  DEFAULT_STATUS_CONDITIONS: [
+    { id: "blindness", label: "Cegueira", icon: "icons/svg/blind.svg" },
+    { id: "poison", label: "Veneno", icon: "icons/svg/poison.svg" },
+    { id: "stun", label: "Atordoamento", icon: "icons/svg/daze.svg" },
+    { id: "silence", label: "Silêncio", icon: "icons/svg/silenced.svg" },
+    { id: "paralysis", label: "Paralisia", icon: "icons/svg/paralysis.svg" },
+    { id: "fear", label: "Medo", icon: "icons/svg/terror.svg" },
+    { id: "bleeding", label: "Sangramento", icon: "icons/svg/blood.svg" },
+    { id: "regeneration", label: "Regeneração", icon: "icons/svg/regen.svg" }
   ],
 
   /** Valores padrão (fallback) dos rótulos de energia — Personagens e Naves usam energias diferentes. */
@@ -312,6 +348,23 @@ export function getActiveDamageElements() {
     console.warn(`${SYSTEM_ID} | JSON de elementos de dano inválido, usando padrão.`, err);
   }
   return MEU_SISTEMA.DEFAULT_DAMAGE_ELEMENTS;
+}
+
+/**
+ * Lê a lista de Condições de Status atualmente ativa (setting > default).
+ * @returns {Array<{id:string,label:string,icon:string}>}
+ */
+export function getActiveStatusConditions() {
+  try {
+    const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData);
+    if (raw) {
+      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+      if (Array.isArray(parsed) && parsed.length) return parsed;
+    }
+  } catch (err) {
+    console.warn(`${SYSTEM_ID} | JSON de condições de status inválido, usando padrão.`, err);
+  }
+  return MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS;
 }
 
 /**
@@ -491,6 +544,13 @@ export function registerSystemSettings() {
     config: false,
     type: String,
     default: JSON.stringify(MEU_SISTEMA.DEFAULT_DAMAGE_ELEMENTS, null, 2)
+  });
+
+  game.settings.register(SYSTEM_ID, S.statusConditionsData, {
+    scope: "world",
+    config: false,
+    type: String,
+    default: JSON.stringify(MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS, null, 2)
   });
 
   // scope:"client" (não "world"): fica só no navegador de quem configura, nunca

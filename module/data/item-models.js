@@ -52,6 +52,39 @@ function attributeBonusesSchema() {
 }
 
 /**
+ * Uma entrada de `effects[]` (Efeito Temporário de uma Skill/Sub-Skill) — reaproveitada por
+ * `subSkillSchema()` e `SkillDataModel.effects`.
+ *  - `conditionId`: "" = sem Condição nomeada (debuff/buff numérico genérico, como sempre foi).
+ *    Qualquer outro valor = id de getActiveStatusConditions() (config.js) — dá nome/ícone
+ *    reconhecível (ícone de status no token, via `ActiveEffect.statuses`) só pra flavor/UI;
+ *    não bloqueia nenhuma ação sozinho (ver skill-effects.js).
+ *  - `periodic`: quando true, `amount` é aplicado A CADA TICK (não uma vez só) — só faz
+ *    sentido pra target "hp"/"energy" (veneno/cura contínua); `durationRounds` vira "quantos
+ *    ticks restam" nesse caso, em vez de "quantos rounds até expirar".
+ *  - `tickUnit`: só relevante quando `periodic`. "combatRound" tica sozinho a cada turno do
+ *    Ator dono do efeito; "manual" espera um clique no botão "Aplicar Tick" da ficha (cobre
+ *    cura/dano de longo prazo fora de combate).
+ *  Reaplicar a MESMA Condição (mesmo `conditionId`, não vazio) em quem já está afetado por ela
+ *  NÃO cria um segundo Active Effect — soma `durationRounds`/ticks restantes no existente (ver
+ *  `applyEffectsToActor` em skill-effects.js).
+ */
+function effectEntrySchema() {
+  return new fields.SchemaField({
+    target: new fields.StringField({ required: true, choices: MEU_SISTEMA.EFFECT_TARGETS }),
+    amount: new fields.NumberField({ required: true, integer: true, initial: 1 }),
+    durationRounds: new fields.NumberField({ required: true, integer: true, initial: 1, min: 0 }),
+    conditionId: new fields.StringField({ required: false, initial: "", blank: true }),
+    periodic: new fields.BooleanField({ required: false, initial: false }),
+    tickUnit: new fields.StringField({
+      required: false,
+      initial: "combatRound",
+      blank: true,
+      choices: MEU_SISTEMA.PERIODIC_TICK_UNITS
+    })
+  });
+}
+
+/**
  * Snapshot mecânico completo de UM componente consumido numa Fusão — os mesmos campos de
  * mecânica que uma Skill de verdade tem (Tier/Nível/Custo/Descrição/Resistência/Mecânica ao
  * Usar/Dano/Efeitos/Alcance), só que congelados no momento da Fusão: editar a Sub-Skill aqui
@@ -75,14 +108,7 @@ function subSkillSchema() {
     damageFormula: new fields.StringField({ required: false, initial: "" }),
     isMagicDamage: new fields.BooleanField({ required: false, initial: false }),
     damageElements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
-    effects: new fields.ArrayField(
-      new fields.SchemaField({
-        target: new fields.StringField({ required: true, choices: MEU_SISTEMA.EFFECT_TARGETS }),
-        amount: new fields.NumberField({ required: true, integer: true, initial: 1 }),
-        durationRounds: new fields.NumberField({ required: true, integer: true, initial: 1, min: 0 })
-      }),
-      { required: false, initial: [] }
-    ),
+    effects: new fields.ArrayField(effectEntrySchema(), { required: false, initial: [] }),
     targetType: new fields.StringField({ required: false, initial: "targeted", choices: ["targeted", "emission"] }),
     // `blank: true` é obrigatório aqui: um StringField com `choices` some com o `blank: true`
     // implícito que todo StringField normal tem — sem isso, o próprio "" inicial falha a
@@ -171,15 +197,8 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
       /** 0+ ids de MEU_SISTEMA/getActiveDamageElements() — só flavor no chat (pode ter vários ao mesmo tempo). */
       damageElements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
 
-      /** [{ target, amount, durationRounds }] — target em MEU_SISTEMA.EFFECT_TARGETS. */
-      effects: new fields.ArrayField(
-        new fields.SchemaField({
-          target: new fields.StringField({ required: true, choices: MEU_SISTEMA.EFFECT_TARGETS }),
-          amount: new fields.NumberField({ required: true, integer: true, initial: 1 }),
-          durationRounds: new fields.NumberField({ required: true, integer: true, initial: 1, min: 0 })
-        }),
-        { required: false, initial: [] }
-      ),
+      /** [{ target, amount, durationRounds, conditionId, periodic, tickUnit }] — ver effectEntrySchema() acima. */
+      effects: new fields.ArrayField(effectEntrySchema(), { required: false, initial: [] }),
 
       /**
        * "targeted" (padrão — pede 1 Ator via dropdown, como sempre foi) ou "emission" (sem

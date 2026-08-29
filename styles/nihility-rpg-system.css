@@ -558,7 +558,9 @@ form.nihility-config-app {
 .nihility-config-app .currency-icon-pick,
 .nihility-config-app .currency-delete,
 .nihility-config-app .part-delete,
-.nihility-config-app .species-delete {
+.nihility-config-app .species-delete,
+.nihility-config-app .condition-icon-pick,
+.nihility-config-app .condition-delete {
   text-align: center;
   color: var(--nihility-text-dim);
   cursor: pointer;
@@ -566,7 +568,9 @@ form.nihility-config-app {
 .nihility-config-app .currency-icon-pick:hover,
 .nihility-config-app .currency-delete:hover,
 .nihility-config-app .part-delete:hover,
-.nihility-config-app .species-delete:hover {
+.nihility-config-app .species-delete:hover,
+.nihility-config-app .condition-icon-pick:hover,
+.nihility-config-app .condition-delete:hover {
   color: var(--nihility-danger);
 }
 
@@ -1153,12 +1157,26 @@ form.nihility-config-app {
 }
 .nihility-sheet .effect-row {
   display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 6px;
+}
+.nihility-sheet .effect-row-main {
+  display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 4px;
 }
-.nihility-sheet .effect-row select { flex: 2; }
-.nihility-sheet .effect-row input[type="number"] { flex: 1; width: 0; }
+.nihility-sheet .effect-row-main select { flex: 2; }
+.nihility-sheet .effect-row-main input[type="number"] { flex: 1; width: 0; }
+.nihility-sheet .effect-row-extra {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 4px;
+  font-size: 0.78rem;
+  color: var(--nihility-text-dim);
+}
+.nihility-sheet .effect-row-extra select { flex: 1; }
 .nihility-sheet .effect-list-header {
   display: flex;
   align-items: center;
@@ -1211,6 +1229,7 @@ form.nihility-config-app {
   margin: 4px 0;
 }
 .checkbox-line input[type="checkbox"] { accent-color: var(--nihility-accent); }
+.checkbox-line.small { margin: 0; font-size: 0.78rem; white-space: nowrap; }
 
 .field-hint-label {
   display: block;
@@ -1362,6 +1381,23 @@ form.nihility-config-app {
 .nihility-sheet .mod-add:hover {
   color: var(--nihility-accent);
 }
+
+/* Editor visual de Condições de Status (Settings Menu) — mesmo padrão de Moedas, sem peso/valor-base. */
+.nihility-config-app .condition-header,
+.nihility-config-app .condition-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 24px 24px;
+  gap: 4px;
+  align-items: center;
+}
+.nihility-config-app .condition-header {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--nihility-text-faint);
+  padding: 0 2px;
+}
+.nihility-config-app .condition-row { margin-bottom: 4px; }
 
 /* Editor visual de Tipos de Dano (Settings Menu) */
 .nihility-config-app .element-header,
@@ -1515,12 +1551,26 @@ form.nihility-config-app {
 .skill-editor-form .effect-list { list-style: none; margin: 6px 0; padding: 0; }
 .skill-editor-form .effect-row {
   display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 6px;
+}
+.skill-editor-form .effect-row-main {
+  display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 4px;
 }
-.skill-editor-form .effect-row select { flex: 2; }
-.skill-editor-form .effect-row input[type="number"] { flex: 1; width: 0; }
+.skill-editor-form .effect-row-main select { flex: 2; }
+.skill-editor-form .effect-row-main input[type="number"] { flex: 1; width: 0; }
+.skill-editor-form .effect-row-extra {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 4px;
+  font-size: 0.78rem;
+  color: var(--nihility-text-dim);
+}
+.skill-editor-form .effect-row-extra select { flex: 1; }
 .skill-editor-form .se-add-effect {
   display: inline-flex;
   align-items: center;
@@ -1821,4 +1871,33 @@ form.nihility-config-app {
 }
 .nihility-sheet .rest-button:hover { filter: brightness(1.05); }
 .nihility-sheet .rest-button .hint-inline { display: inline; margin: 0; font-weight: 400; font-size: 0.68rem; color: rgba(16, 18, 26, 0.65); font-style: normal; }
+
+/* Condições Ativas (Efeitos Periódicos/nomeados de Skills) no cabeçalho da ficha. */
+.nihility-sheet .active-conditions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.nihility-sheet .condition-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: rgba(192, 132, 252, 0.16);
+  border: 1px solid rgba(192, 132, 252, 0.35);
+  font-size: 0.72rem;
+  color: var(--nihility-text);
+}
+.nihility-sheet .condition-chip img { border: none; border-radius: 2px; }
+.nihility-sheet .condition-chip-name { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nihility-sheet .condition-chip-remaining { color: var(--nihility-text-dim); font-size: 0.68rem; }
+.nihility-sheet .condition-chip-tick,
+.nihility-sheet .condition-chip-delete {
+  color: var(--nihility-text-dim);
+  cursor: pointer;
+}
+.nihility-sheet .condition-chip-tick:hover { color: var(--nihility-accent); }
+.nihility-sheet .condition-chip-delete:hover { color: var(--nihility-danger); }
 .nihility-config-app .element-delete:hover { color: var(--nihility-danger); }

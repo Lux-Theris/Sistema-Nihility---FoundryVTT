@@ -66,6 +66,26 @@
       <button type="button" class="rest-button" data-action="restActor">
         <i class="fas fa-moon"></i> Descanso Completo <span class="hint-inline">(restaura HP e {{energyLabel}} ao máximo)</span>
       </button>
+
+      {{#if activeConditions.length}}
+      <div class="active-conditions">
+        {{#each activeConditions as |c|}}
+        <div class="condition-chip" data-effect-id="{{c.id}}" title="{{c.name}}">
+          <img src="{{c.img}}" width="18" height="18"/>
+          <span class="condition-chip-name">{{c.name}}</span>
+          {{#if c.periodic}}
+            <span class="condition-chip-remaining">{{c.ticksRemaining}} tick(s)</span>
+            {{#if c.manual}}
+            <a class="condition-chip-tick" data-action="applyManualTick" title="Aplicar Tick"><i class="fas fa-hourglass-half"></i></a>
+            {{/if}}
+          {{else if c.roundsRemaining}}
+            <span class="condition-chip-remaining">{{c.roundsRemaining}} round(s)</span>
+          {{/if}}
+          <a class="condition-chip-delete" data-action="deleteCondition" title="Remover"><i class="fas fa-times"></i></a>
+        </div>
+        {{/each}}
+      </div>
+      {{/if}}
     </div>
   </header>
 

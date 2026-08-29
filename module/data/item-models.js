@@ -64,6 +64,14 @@ function attributeBonusesSchema() {
  *  - `tickUnit`: só relevante quando `periodic`. "combatRound" tica sozinho a cada turno do
  *    Ator dono do efeito; "manual" espera um clique no botão "Aplicar Tick" da ficha (cobre
  *    cura/dano de longo prazo fora de combate).
+ *  - `damageElements`: só relevante quando `periodic` E `amount` negativo (tick de dano, tipo
+ *    Veneno) — 0+ ids de getActiveDamageElements(), usados só pra Resistência Elemental reduzir
+ *    o tick (ver `tickPeriodicEffect` em skill-effects.js). Cura periódica (`amount` positivo)
+ *    ignora esse campo e sempre aplica o valor cheio — não existe conceito de "resistir à
+ *    própria cura" neste sistema. Diferente do dano "normal" (`rollSkillDamage`), um tick nunca
+ *    passa por Defesa Mágica — só Resistência Geral/Elemental reduzem (decisão de balanceamento
+ *    deliberada: Veneno Mágico ignora Defesa Mágica de propósito), por isso não existe um
+ *    `isMagicDamage` aqui.
  *  Reaplicar a MESMA Condição (mesmo `conditionId`, não vazio) em quem já está afetado por ela
  *  NÃO cria um segundo Active Effect — soma `durationRounds`/ticks restantes no existente (ver
  *  `applyEffectsToActor` em skill-effects.js).
@@ -80,7 +88,8 @@ function effectEntrySchema() {
       initial: "combatRound",
       blank: true,
       choices: MEU_SISTEMA.PERIODIC_TICK_UNITS
-    })
+    }),
+    damageElements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] })
   });
 }
 

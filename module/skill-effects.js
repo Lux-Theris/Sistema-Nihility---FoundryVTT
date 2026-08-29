@@ -135,16 +135,21 @@ function actorResistanceFor(targetActor, resistanceTarget) {
 
 /**
  * Aplica Defesa Mágica + Resistência (Geral/Elemental) sobre um dano bruto já rolado, pra um
- * alvo específico. Compartilhado entre o caminho de alvo único e o de Emissão (área) — o roll
- * em si acontece uma vez só, mas cada alvo aplica sua própria redução em cima do mesmo total.
- * `mech` é `skill.system` OU o snapshot de uma Sub-Skill (`skill.system.subSkills[i]`) — mesmo
- * formato de campos (isMagicDamage/damageElements) nos dois casos.
+ * alvo específico. Compartilhado entre o caminho de alvo único, o de Emissão (área) e os ticks
+ * periódicos (Veneno) — o roll/tick em si acontece uma vez só, mas cada alvo aplica sua própria
+ * redução em cima do mesmo total. `mech` é `skill.system`, o snapshot de uma Sub-Skill, ou (pro
+ * caso de tick) um objeto sintético `{ damageElements }` — mesmo formato de campos
+ * (isMagicDamage/damageElements) nos três casos.
+ * @param {{skipMagicDefense?: boolean}} [options] - `skipMagicDefense: true` pula o passo de
+ *   Defesa Mágica mesmo com `mech.isMagicDamage` true — usado pelos ticks periódicos, onde
+ *   Veneno Mágico ignora Defesa Mágica de propósito (só Resistência reduz), diferente do dano
+ *   "normal" de uma Skill.
  */
-function applyDamageReductions(rawTotal, mech, targetActor) {
+function applyDamageReductions(rawTotal, mech, targetActor, options = {}) {
   let remaining = rawTotal;
   const appliedReductions = [];
 
-  if (mech.isMagicDamage && targetActor) {
+  if (mech.isMagicDamage && targetActor && !options.skipMagicDefense) {
     const reduction = magicDefenseReduction(targetActor);
     if (reduction > 0) {
       remaining *= 1 - reduction;
@@ -327,7 +332,10 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor) {
               tickTarget: entry.target,
               tickAmount: entry.amount,
               tickUnit: entry.tickUnit || "combatRound",
-              ticksRemaining: Math.max(1, entry.durationRounds)
+              ticksRemaining: Math.max(1, entry.durationRounds),
+              // Snapshot no momento da aplicação (mesma filosofia de Sub-Skill) — só usado
+              // quando o tick é dano (amount negativo); cura periódica nunca é reduzida.
+              tickDamageElements: Array.isArray(entry.damageElements) ? entry.damageElements : []
             }
           }
         }
@@ -359,6 +367,12 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor) {
  * `flags.tickAmount` direto em HP/Energia atual (clamped, sem passar pelo Máximo — igual um
  * dano/cura de verdade, não um buffDelta), decrementa `ticksRemaining` e apaga o efeito ao
  * chegar a 0. Compartilhado entre o hook automático de combate e o botão manual da ficha.
+ *
+ * Tick de DANO (`tickAmount` negativo) é reduzido por Resistência Geral + Elemental do próprio
+ * Ator (`skipMagicDefense: true` — Defesa Mágica NUNCA reduz um tick, nem quando o Veneno é
+ * mágico; decisão de balanceamento deliberada, diferente do dano "normal" de `rollSkillDamage`).
+ * Tick de CURA (`tickAmount` positivo) sempre aplica o valor cheio, sem redução nenhuma — não
+ * existe conceito de "resistir à própria cura" neste sistema.
  * @param {Actor} actor
  * @param {ActiveEffect} effect
  */
@@ -368,7 +382,17 @@ export async function tickPeriodicEffect(actor, effect) {
 
   const attrKey = flags.tickTarget === "energy" ? "energy" : "hp";
   const attr = actor.system.attributes[attrKey];
-  const newValue = Math.clamp(attr.value + flags.tickAmount, 0, attr.max);
+
+  let delta = flags.tickAmount;
+  let appliedReductions = [];
+  if (delta < 0) {
+    const mech = { damageElements: flags.tickDamageElements ?? [] };
+    const { finalDamage, appliedReductions: reductions } = applyDamageReductions(-delta, mech, actor, { skipMagicDefense: true });
+    delta = -finalDamage;
+    appliedReductions = reductions;
+  }
+
+  const newValue = Math.clamp(attr.value + delta, 0, attr.max);
   await actor.update({ [`system.attributes.${attrKey}.value`]: newValue });
 
   const ticksRemaining = (flags.ticksRemaining ?? 1) - 1;
@@ -376,7 +400,7 @@ export async function tickPeriodicEffect(actor, effect) {
   if (expired) await effect.delete();
   else await effect.update({ [`flags.${SYSTEM_ID}.ticksRemaining`]: ticksRemaining });
 
-  return { attrKey, delta: flags.tickAmount, newValue, ticksRemaining, expired, effectName: effect.name };
+  return { attrKey, delta, newValue, ticksRemaining, expired, effectName: effect.name, appliedReductions };
 }
 
 /**
@@ -398,7 +422,8 @@ export async function tickCombatRoundEffects(actor) {
     const rows = results.map(r => {
       const attrLabel = r.attrKey === "hp" ? "HP" : MEU_SISTEMA.EFFECT_TARGET_LABELS.energy;
       const statusText = r.expired ? "encerrou" : `${r.ticksRemaining} tick(s) restante(s)`;
-      return `<li><strong>${r.effectName}</strong>: ${r.delta >= 0 ? "+" : ""}${r.delta} ${attrLabel} (${statusText})</li>`;
+      const reductionText = r.appliedReductions?.length ? ` <span class="hint-inline">(reduzido por ${r.appliedReductions.join(", ")})</span>` : "";
+      return `<li><strong>${r.effectName}</strong>: ${r.delta >= 0 ? "+" : ""}${r.delta} ${attrLabel} (${statusText})${reductionText}</li>`;
     });
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor }),

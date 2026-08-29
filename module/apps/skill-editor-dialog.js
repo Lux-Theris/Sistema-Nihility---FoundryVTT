@@ -31,6 +31,16 @@ function buildEffectRowHtml(entry) {
     u => `<option value="${u}" ${u === entry.tickUnit ? "selected" : ""}>${MEU_SISTEMA.PERIODIC_TICK_UNIT_LABELS[u]}</option>`
   ).join("");
   const periodicVisible = targetAcceptsPeriodic(entry.target);
+  const entryElements = Array.isArray(entry.damageElements) ? entry.damageElements : [];
+  const elementChipsHtml = getActiveDamageElements()
+    .map(
+      el =>
+        `<label class="element-chip se-effect-element-chip ${entryElements.includes(el.id) ? "checked" : ""}">
+          <input type="checkbox" class="se-effect-element" value="${el.id}" ${entryElements.includes(el.id) ? "checked" : ""}/>
+          <span class="dot" style="background:${el.color}"></span>${el.label}
+        </label>`
+    )
+    .join("");
 
   return `
     <div class="effect-row-main">
@@ -45,6 +55,10 @@ function buildEffectRowHtml(entry) {
         <input type="checkbox" class="se-effect-periodic" ${entry.periodic ? "checked" : ""}/> Periódico
       </label>
       <select class="se-effect-tick-unit" style="display:${periodicVisible && entry.periodic ? "inline-block" : "none"};">${tickUnitOptions}</select>
+    </div>
+    <div class="effect-row-periodic-extra" style="display:${periodicVisible && entry.periodic ? "flex" : "none"};">
+      <span class="hint-inline" style="display:inline;">Elemento(s) do tick de dano (só reduzido por Resistência — nunca Defesa Mágica; ignorado se o tick for cura):</span>
+      <div class="element-grid">${elementChipsHtml || "<span class=\"hint-inline\">Nenhum elemento configurado.</span>"}</div>
     </div>
   `;
 }
@@ -245,8 +259,11 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
         <p class="hint-inline">
           Quantidade negativa = debuff/drawback. Escudo ignora Duração (some só ao absorver dano).
           Condição dá ícone reconhecível no token (opcional). "Periódico" (só HP/Energia) aplica a
-          Quantidade a CADA tick em vez de uma vez só — Duração vira "quantos ticks". Reaplicar a
-          MESMA Condição em quem já a tem apenas ESTENDE a duração/ticks (soma), não duplica.
+          Quantidade a CADA tick em vez de uma vez só — Duração vira "quantos ticks". Tick de dano
+          (Quantidade negativa) é reduzido por Resistência Geral/Elemental do alvo — NUNCA por
+          Defesa Mágica, mesmo se o Elemento for mágico; tick de cura (Quantidade positiva) sempre
+          aplica o valor cheio. Reaplicar a MESMA Condição em quem já a tem apenas ESTENDE a
+          duração/ticks (soma), não duplica.
         </p>
       </div>
     </form>`;
@@ -348,7 +365,7 @@ function setupSkillEditorInteractivity(root, data) {
     });
   });
 
-  function addEffectRow(entry = { target: MEU_SISTEMA.EFFECT_TARGETS[0], amount: 1, durationRounds: 1, conditionId: "", periodic: false, tickUnit: "combatRound" }) {
+  function addEffectRow(entry = { target: MEU_SISTEMA.EFFECT_TARGETS[0], amount: 1, durationRounds: 1, conditionId: "", periodic: false, tickUnit: "combatRound", damageElements: [] }) {
     const li = document.createElement("li");
     li.className = "effect-row";
     li.innerHTML = buildEffectRowHtml(entry);
@@ -358,20 +375,27 @@ function setupSkillEditorInteractivity(root, data) {
     });
 
     // Mostra "Periódico" só pra HP/Energia; some (e desliga) sozinho pra qualquer outro alvo —
-    // e "Unidade de Tick" só aparece quando Periódico está marcado.
+    // "Unidade de Tick" e o Elemento(s) do tick de dano só aparecem quando Periódico está marcado.
     const targetSelect = li.querySelector(".se-effect-target");
     const periodicLine = li.querySelector(".se-effect-periodic-line");
     const periodicCheckbox = li.querySelector(".se-effect-periodic");
     const tickUnitSelect = li.querySelector(".se-effect-tick-unit");
+    const periodicExtra = li.querySelector(".effect-row-periodic-extra");
 
     function applyPeriodicVisibility() {
       const accepts = targetAcceptsPeriodic(targetSelect.value);
       periodicLine.style.display = accepts ? "inline-flex" : "none";
       if (!accepts) periodicCheckbox.checked = false;
-      tickUnitSelect.style.display = accepts && periodicCheckbox.checked ? "inline-block" : "none";
+      const periodicOn = accepts && periodicCheckbox.checked;
+      tickUnitSelect.style.display = periodicOn ? "inline-block" : "none";
+      periodicExtra.style.display = periodicOn ? "flex" : "none";
     }
     targetSelect.addEventListener("change", applyPeriodicVisibility);
     periodicCheckbox.addEventListener("change", applyPeriodicVisibility);
+
+    li.querySelectorAll(".se-effect-element").forEach(cb => {
+      cb.addEventListener("change", () => cb.closest(".se-effect-element-chip")?.classList.toggle("checked", cb.checked));
+    });
 
     effectList.appendChild(li);
   }
@@ -420,7 +444,8 @@ function readSkillEditorForm(root, lockTier) {
             durationRounds: Number(row.querySelector(".se-effect-duration").value) || 0,
             conditionId: row.querySelector(".se-effect-condition").value || "",
             periodic: row.querySelector(".se-effect-periodic").checked,
-            tickUnit: row.querySelector(".se-effect-tick-unit").value
+            tickUnit: row.querySelector(".se-effect-tick-unit").value,
+            damageElements: Array.from(row.querySelectorAll(".se-effect-element:checked")).map(el => el.value)
           }))
         : []
   };

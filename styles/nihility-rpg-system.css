@@ -1177,6 +1177,14 @@ form.nihility-config-app {
   color: var(--nihility-text-dim);
 }
 .nihility-sheet .effect-row-extra select { flex: 1; }
+.nihility-sheet .effect-row-periodic-extra {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  margin-left: 4px;
+  border-left: 2px solid rgba(192, 132, 252, 0.25);
+}
 .nihility-sheet .effect-list-header {
   display: flex;
   align-items: center;
@@ -1571,6 +1579,14 @@ form.nihility-config-app {
   color: var(--nihility-text-dim);
 }
 .skill-editor-form .effect-row-extra select { flex: 1; }
+.skill-editor-form .effect-row-periodic-extra {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  margin-left: 4px;
+  border-left: 2px solid rgba(192, 132, 252, 0.25);
+}
 .skill-editor-form .se-add-effect {
   display: inline-flex;
   align-items: center;

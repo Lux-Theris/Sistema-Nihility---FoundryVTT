@@ -367,8 +367,9 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     if (!result) return;
 
     const attrLabel = result.attrKey === "hp" ? "HP" : getCharacterEnergyLabel();
+    const reductionText = result.appliedReductions?.length ? ` — reduzido por ${result.appliedReductions.join(", ")}` : "";
     ui.notifications.info(
-      `${effect.name}: ${result.delta >= 0 ? "+" : ""}${result.delta} ${attrLabel}` +
+      `${effect.name}: ${result.delta >= 0 ? "+" : ""}${result.delta} ${attrLabel}${reductionText}` +
         (result.expired ? " (encerrou)." : ` (${result.ticksRemaining} tick(s) restante(s)).`)
     );
   }

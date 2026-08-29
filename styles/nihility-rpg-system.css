@@ -535,14 +535,6 @@ form.nihility-config-app {
   padding: 0 2px;
 }
 
-.nihility-config-app .currency-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr 24px 60px 24px;
-  gap: 4px;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
 .nihility-config-app .part-header {
   grid-template-columns: 1fr 1fr 1fr 50px 1fr 24px;
 }
@@ -555,22 +547,48 @@ form.nihility-config-app {
   margin-bottom: 4px;
 }
 
-.nihility-config-app .currency-icon-pick,
-.nihility-config-app .currency-delete,
 .nihility-config-app .part-delete,
-.nihility-config-app .species-delete,
-.nihility-config-app .condition-icon-pick,
-.nihility-config-app .condition-delete {
+.nihility-config-app .species-delete {
   text-align: center;
   color: var(--nihility-text-dim);
   cursor: pointer;
 }
-.nihility-config-app .currency-icon-pick:hover,
-.nihility-config-app .currency-delete:hover,
 .nihility-config-app .part-delete:hover,
-.nihility-config-app .species-delete:hover,
-.nihility-config-app .condition-icon-pick:hover,
-.nihility-config-app .condition-delete:hover {
+.nihility-config-app .species-delete:hover {
+  color: var(--nihility-danger);
+}
+
+/* Editor genérico de listas GM-editáveis (Moedas/Elementos de Dano/Condições de Status) — ver
+   list-config-app-factory.js. Larguras de coluna vêm inline (`style="grid-template-columns"`),
+   calculadas a partir dos `fields` de cada app; aqui só o layout comum a qualquer app gerado. */
+.nihility-config-app .list-config-header,
+.nihility-config-app .list-config-row {
+  display: grid;
+  gap: 4px;
+  align-items: center;
+}
+.nihility-config-app .list-config-header {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--nihility-text-faint);
+  padding: 0 2px;
+}
+.nihility-config-app .list-config-row { margin-bottom: 4px; }
+.nihility-config-app .list-config-row input[type="color"] {
+  padding: 0;
+  height: 24px;
+  border: 1px solid var(--nihility-border);
+  background: var(--nihility-bg-panel-alt);
+}
+.nihility-config-app .list-config-icon-pick,
+.nihility-config-app .list-config-delete {
+  text-align: center;
+  color: var(--nihility-text-dim);
+  cursor: pointer;
+}
+.nihility-config-app .list-config-icon-pick:hover,
+.nihility-config-app .list-config-delete:hover {
   color: var(--nihility-danger);
 }
 
@@ -963,12 +981,6 @@ form.nihility-config-app {
 }
 .nihility-config-app .racial-skill-edit:hover { color: var(--nihility-accent); }
 .nihility-config-app .racial-skill-delete:hover { color: var(--nihility-danger); }
-
-/* Editor de Moedas: coluna extra de Valor-Base */
-.nihility-config-app .currency-header,
-.nihility-config-app .currency-row {
-  grid-template-columns: 1fr 1fr 1fr 24px 60px 70px 24px;
-}
 
 /* ==========================================================================
    Chat: Pedido de Skill (aprovação do Mestre)
@@ -1388,50 +1400,6 @@ form.nihility-config-app {
 .nihility-sheet .title-bonus-add:hover,
 .nihility-sheet .mod-add:hover {
   color: var(--nihility-accent);
-}
-
-/* Editor visual de Condições de Status (Settings Menu) — mesmo padrão de Moedas, sem peso/valor-base. */
-.nihility-config-app .condition-header,
-.nihility-config-app .condition-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr 24px 24px;
-  gap: 4px;
-  align-items: center;
-}
-.nihility-config-app .condition-header {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--nihility-text-faint);
-  padding: 0 2px;
-}
-.nihility-config-app .condition-row { margin-bottom: 4px; }
-
-/* Editor visual de Tipos de Dano (Settings Menu) */
-.nihility-config-app .element-header,
-.nihility-config-app .element-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 60px 24px;
-  gap: 4px;
-  align-items: center;
-}
-.nihility-config-app .element-header {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  color: var(--nihility-text-dim);
-  padding: 0 2px;
-}
-.nihility-config-app .element-row { margin-bottom: 4px; }
-.nihility-config-app .element-row input[type="color"] {
-  padding: 0;
-  height: 24px;
-  border: 1px solid var(--nihility-border);
-  background: var(--nihility-bg-panel-alt);
-}
-.nihility-config-app .element-delete {
-  text-align: center;
-  color: var(--nihility-text-dim);
-  cursor: pointer;
 }
 
 /* ==========================================================================
@@ -1916,4 +1884,3 @@ form.nihility-config-app {
 }
 .nihility-sheet .condition-chip-tick:hover { color: var(--nihility-accent); }
 .nihility-sheet .condition-chip-delete:hover { color: var(--nihility-danger); }
-.nihility-config-app .element-delete:hover { color: var(--nihility-danger); }

@@ -1,91 +1,26 @@
-import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions, debugLog } from "../config.js";
-
-const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
+import { getActiveStatusConditions } from "../config.js";
+import { createListConfigApp } from "./list-config-app-factory.js";
 
 /**
  * Editor visual das Condições de Status (Cegueira, Veneno, Atordoamento...) usadas pelas
  * entradas de `effects[]` de uma Skill (ver skill-editor-dialog.js). Cada linha: id interno,
- * nome exibido, ícone (com FilePicker, igual Moedas) — mesmo padrão de
- * damage-elements-config.js/currency-config.js, só trocando cor por ícone.
+ * nome exibido, ícone (com FilePicker). Gerada por createListConfigApp — ver
+ * list-config-app-factory.js.
  */
-export class StatusConditionsConfigApp extends HandlebarsApplicationMixin(ApplicationV2) {
-  static DEFAULT_OPTIONS = {
-    id: "nihility-status-conditions-config",
-    tag: "form",
-    window: { title: "Configurar Condições de Status" },
-    classes: [SYSTEM_ID, "nihility-config-app"],
-    position: { width: 520, height: "auto" },
-    form: {
-      handler: StatusConditionsConfigApp.#onSubmit,
-      submitOnChange: false,
-      closeOnSubmit: true
-    },
-    actions: {
-      addCondition: StatusConditionsConfigApp.#onAdd,
-      deleteCondition: StatusConditionsConfigApp.#onDelete,
-      pickIcon: StatusConditionsConfigApp.#onPickIcon
-    }
-  };
-
-  static PARTS = {
-    body: { template: `systems/${SYSTEM_ID}/templates/apps/status-conditions-config.hbs`, scrollable: [""] }
-  };
-
-  /** @override */
-  async _prepareContext(options) {
-    const context = await super._prepareContext(options);
-    context.conditions = getActiveStatusConditions();
-    debugLog(`${SYSTEM_ID} | StatusConditionsConfigApp._prepareContext:`, context.conditions.length, "condição(ões).");
-    return context;
-  }
-
-  static #onAdd(event, target) {
-    event.preventDefault();
-    const row = document.createElement("div");
-    row.className = "condition-row";
-    row.innerHTML = `
-      <input type="text" data-field="id" value="" placeholder="id (ex: poison)"/>
-      <input type="text" data-field="label" value="" placeholder="Nome exibido"/>
-      <input type="text" data-field="icon" value="icons/svg/aura.svg" placeholder="Caminho do ícone"/>
-      <a class="condition-icon-pick" data-action="pickIcon" title="Escolher ícone"><i class="fas fa-image"></i></a>
-      <a class="condition-delete" data-action="deleteCondition" title="Remover"><i class="fas fa-trash"></i></a>
-    `;
-    this.element.querySelector(".condition-list")?.appendChild(row);
-  }
-
-  static #onDelete(event, target) {
-    event.preventDefault();
-    target.closest(".condition-row")?.remove();
-  }
-
-  static #onPickIcon(event, target) {
-    event.preventDefault();
-    const row = target.closest(".condition-row");
-    const input = row?.querySelector('[data-field="icon"]');
-    if (!input) return;
-    new FilePicker({
-      type: "image",
-      current: input.value,
-      callback: path => {
-        input.value = path;
-      }
-    }).render(true);
-  }
-
-  static async #onSubmit(event, form, formData) {
-    const conditions = [];
-    this.element.querySelectorAll(".condition-row").forEach(row => {
-      const id = row.querySelector('[data-field="id"]')?.value.trim();
-      if (!id) return;
-      conditions.push({
-        id,
-        label: row.querySelector('[data-field="label"]')?.value.trim() || id,
-        icon: row.querySelector('[data-field="icon"]')?.value.trim() || "icons/svg/aura.svg"
-      });
-    });
-
-    await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData, JSON.stringify(conditions, null, 2));
-    ui.notifications.info("Condições de Status atualizadas.");
-    debugLog(`${SYSTEM_ID} | StatusConditionsConfigApp: ${conditions.length} condição(ões) salva(s).`, conditions);
-  }
-}
+export const StatusConditionsConfigApp = createListConfigApp({
+  id: "nihility-status-conditions-config",
+  title: "Configurar Condições de Status",
+  settingsKey: "statusConditionsData",
+  width: 520,
+  hint:
+    "Configure as Condições de Status disponíveis nos Efeitos Temporários de Skills (Cegueira, " +
+    "Veneno, Atordoamento...). O <strong>id</strong> é a chave interna (sem espaços, ex: " +
+    "<code>poison</code>). Escolher uma Condição numa entrada de Efeito dá ícone reconhecível no " +
+    "token do alvo — o Mestre decide na mesa o que a condição impede além do número configurado.",
+  fields: [
+    { key: "id", label: "ID", type: "text", placeholder: "id (ex: poison)" },
+    { key: "label", label: "Nome", type: "text", placeholder: "Nome exibido" },
+    { key: "icon", label: "Ícone", type: "icon", placeholder: "Caminho do ícone", default: "icons/svg/aura.svg" }
+  ],
+  getActiveList: getActiveStatusConditions
+});

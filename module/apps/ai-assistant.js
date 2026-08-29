@@ -1,4 +1,4 @@
-import { SYSTEM_ID } from "../config.js";
+import { SYSTEM_ID, debugLog } from "../config.js";
 import {
   generateActorFromAI,
   generateVesselFromAI,
@@ -118,7 +118,7 @@ export class AIAssistantApp extends HandlebarsApplicationMixin(ApplicationV2) {
       agentTranscriptText: this.agentTranscriptText,
       recentOperations: this.recentOperations
     });
-    console.log(`${SYSTEM_ID} | AIAssistantApp._prepareContext, modo:`, this.mode);
+    debugLog(`${SYSTEM_ID} | AIAssistantApp._prepareContext, modo:`, this.mode);
     return context;
   }
 
@@ -308,7 +308,7 @@ export class AIAssistantApp extends HandlebarsApplicationMixin(ApplicationV2) {
         ? "O assistente atingiu o limite de rodadas antes de terminar — revise o que foi proposto até aqui."
         : finalText;
       this.agentProposals = proposals.map(p => ({ ...p, include: true }));
-      console.log(`${SYSTEM_ID} | AIAssistantApp (agente): ${this.agentProposals.length} proposta(s).`, this.agentProposals);
+      debugLog(`${SYSTEM_ID} | AIAssistantApp (agente): ${this.agentProposals.length} proposta(s).`, this.agentProposals);
     } catch (err) {
       console.error(`${SYSTEM_ID} | Assistente de IA (agente) falhou.`, err);
     } finally {
@@ -367,7 +367,7 @@ export class AIAssistantApp extends HandlebarsApplicationMixin(ApplicationV2) {
       this.agentProposals = [];
       this.recentOperations = await listRecentBatchOperations(5);
       ui.notifications.info(`${applied.length} documento(s) criado(s)/editado(s).`);
-      console.log(`${SYSTEM_ID} | AIAssistantApp: ${applied.length} proposta(s) aplicada(s).`, applied);
+      debugLog(`${SYSTEM_ID} | AIAssistantApp: ${applied.length} proposta(s) aplicada(s).`, applied);
     } catch (err) {
       console.error(`${SYSTEM_ID} | Falha ao aplicar propostas do Assistente de IA.`, err);
       ui.notifications.error("Falha ao aplicar as propostas selecionadas.");

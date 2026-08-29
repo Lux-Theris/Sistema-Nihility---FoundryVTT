@@ -1,4 +1,4 @@
-import { SYSTEM_ID, MEU_SISTEMA, getActiveCurrencies } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getActiveCurrencies, debugLog } from "../config.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -35,7 +35,7 @@ export class CurrencyConfigApp extends HandlebarsApplicationMixin(ApplicationV2)
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
     context.currencies = getActiveCurrencies();
-    console.log(`${SYSTEM_ID} | CurrencyConfigApp._prepareContext:`, context.currencies.length, "moeda(s).");
+    debugLog(`${SYSTEM_ID} | CurrencyConfigApp._prepareContext:`, context.currencies.length, "moeda(s).");
     return context;
   }
 
@@ -90,6 +90,6 @@ export class CurrencyConfigApp extends HandlebarsApplicationMixin(ApplicationV2)
 
     await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.currenciesData, JSON.stringify(currencies, null, 2));
     ui.notifications.info("Moedas atualizadas.");
-    console.log(`${SYSTEM_ID} | CurrencyConfigApp: ${currencies.length} moeda(s) salva(s).`, currencies);
+    debugLog(`${SYSTEM_ID} | CurrencyConfigApp: ${currencies.length} moeda(s) salva(s).`, currencies);
   }
 }

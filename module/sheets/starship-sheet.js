@@ -1,4 +1,4 @@
-import { SYSTEM_ID, MEU_SISTEMA, getStarshipEnergyLabel } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getStarshipEnergyLabel, debugLog } from "../config.js";
 import { registerItemInCompendium, createGrantedSkill, removeGrantedSkill } from "../ai-helper.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -83,7 +83,7 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
     context.primaryPercent = percentOf(actor.system.hull.value, actor.system.hull.max);
     context.secondaryPercent = percentOf(actor.system.shields.value, actor.system.shields.max);
 
-    console.log(`${SYSTEM_ID} | NihilityStarshipSheet._prepareContext:`, actor.name);
+    debugLog(`${SYSTEM_ID} | NihilityStarshipSheet._prepareContext:`, actor.name);
     return context;
   }
 
@@ -173,7 +173,7 @@ export class NihilityVehicleSheet extends TabbedActorSheetV2 {
     context.primaryPercent = percentOf(actor.system.integrity.value, actor.system.integrity.max);
     context.secondaryPercent = percentOf(actor.system.fuel.value, actor.system.fuel.max);
 
-    console.log(`${SYSTEM_ID} | NihilityVehicleSheet._prepareContext:`, actor.name);
+    debugLog(`${SYSTEM_ID} | NihilityVehicleSheet._prepareContext:`, actor.name);
     return context;
   }
 

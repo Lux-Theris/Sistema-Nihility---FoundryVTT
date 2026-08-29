@@ -1,4 +1,4 @@
-import { MEU_SISTEMA, getActiveDamageElements, getActiveStatusConditions } from "../config.js";
+import { MEU_SISTEMA, getActiveDamageElements, getActiveStatusConditions, getResistanceTargetOptions } from "../config.js";
 import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../skill-effects.js";
 
 const { DialogV2 } = foundry.applications.api;
@@ -6,11 +6,6 @@ const { DialogV2 } = foundry.applications.api;
 /** Escapa texto pra uso seguro dentro de atributos/conteúdo HTML (nome/descrição vêm de texto livre do GM). */
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
-}
-
-/** Alvos de Resistência: Geral + cada Elemento ativo — mesma lista usada na ficha completa de Skill. */
-function resistanceTargetOptions() {
-  return [{ value: "general", label: "Geral" }, ...getActiveDamageElements().map(el => ({ value: el.id, label: el.label }))];
 }
 
 /** true = alvo aceita "Periódico" (veneno/cura contínua) — só faz sentido pra HP/Energia. */
@@ -164,7 +159,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     )
     .join("");
 
-  const resistChips = resistanceTargetOptions()
+  const resistChips = getResistanceTargetOptions()
     .map(
       opt =>
         `<label class="element-chip resist-chip ${data.resistanceTarget === opt.value ? "checked" : ""}">

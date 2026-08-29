@@ -1,4 +1,4 @@
-import { SYSTEM_ID, MEU_SISTEMA, getActiveDamageElements } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getActiveDamageElements, debugLog } from "../config.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -33,7 +33,7 @@ export class DamageElementsConfigApp extends HandlebarsApplicationMixin(Applicat
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
     context.elements = getActiveDamageElements();
-    console.log(`${SYSTEM_ID} | DamageElementsConfigApp._prepareContext:`, context.elements.length, "elemento(s).");
+    debugLog(`${SYSTEM_ID} | DamageElementsConfigApp._prepareContext:`, context.elements.length, "elemento(s).");
     return context;
   }
 
@@ -69,6 +69,6 @@ export class DamageElementsConfigApp extends HandlebarsApplicationMixin(Applicat
 
     await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.damageElementsData, JSON.stringify(elements, null, 2));
     ui.notifications.info("Tipos de Dano atualizados.");
-    console.log(`${SYSTEM_ID} | DamageElementsConfigApp: ${elements.length} tipo(s) de dano salvo(s).`, elements);
+    debugLog(`${SYSTEM_ID} | DamageElementsConfigApp: ${elements.length} tipo(s) de dano salvo(s).`, elements);
   }
 }

@@ -6,7 +6,8 @@ import {
   getActiveSpeciesPresets,
   isEconomyEnabled,
   isTitlesEnabled,
-  isAnatomyEnabled
+  isAnatomyEnabled,
+  debugLog
 } from "../config.js";
 import {
   fuseSkills,
@@ -193,7 +194,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.titles = actor.system.titles;
     context.gear = actor.items.filter(i => i.type === "item");
 
-    console.log(`${SYSTEM_ID} | NihilityActorSheet._prepareContext:`, actor.name);
+    debugLog(`${SYSTEM_ID} | NihilityActorSheet._prepareContext:`, actor.name);
     return context;
   }
 

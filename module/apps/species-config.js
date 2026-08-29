@@ -1,4 +1,4 @@
-import { SYSTEM_ID, MEU_SISTEMA, getActiveSpeciesPresets } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getActiveSpeciesPresets, debugLog } from "../config.js";
 import { openSkillEditorDialog } from "./skill-editor-dialog.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -53,7 +53,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
       };
     }
     context.species = species;
-    console.log(`${SYSTEM_ID} | SpeciesConfigApp._prepareContext:`, Object.keys(species).length, "espécie(s).");
+    debugLog(`${SYSTEM_ID} | SpeciesConfigApp._prepareContext:`, Object.keys(species).length, "espécie(s).");
     return context;
   }
 
@@ -182,6 +182,6 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
 
     await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.speciesPresetsData, JSON.stringify(result, null, 2));
     ui.notifications.info("Presets de Espécie atualizados.");
-    console.log(`${SYSTEM_ID} | SpeciesConfigApp: ${Object.keys(result).length} espécie(s) salva(s).`, result);
+    debugLog(`${SYSTEM_ID} | SpeciesConfigApp: ${Object.keys(result).length} espécie(s) salva(s).`, result);
   }
 }

@@ -1,4 +1,4 @@
-import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions, debugLog } from "../config.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -35,7 +35,7 @@ export class StatusConditionsConfigApp extends HandlebarsApplicationMixin(Applic
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
     context.conditions = getActiveStatusConditions();
-    console.log(`${SYSTEM_ID} | StatusConditionsConfigApp._prepareContext:`, context.conditions.length, "condição(ões).");
+    debugLog(`${SYSTEM_ID} | StatusConditionsConfigApp._prepareContext:`, context.conditions.length, "condição(ões).");
     return context;
   }
 
@@ -86,6 +86,6 @@ export class StatusConditionsConfigApp extends HandlebarsApplicationMixin(Applic
 
     await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData, JSON.stringify(conditions, null, 2));
     ui.notifications.info("Condições de Status atualizadas.");
-    console.log(`${SYSTEM_ID} | StatusConditionsConfigApp: ${conditions.length} condição(ões) salva(s).`, conditions);
+    debugLog(`${SYSTEM_ID} | StatusConditionsConfigApp: ${conditions.length} condição(ões) salva(s).`, conditions);
   }
 }

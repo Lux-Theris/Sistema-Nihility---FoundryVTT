@@ -1,4 +1,4 @@
-import { SYSTEM_ID, MEU_SISTEMA, getActiveDamageElements } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getActiveDamageElements, getResistanceTargetOptions, debugLog } from "../config.js";
 import { createGrantedSkill, removeGrantedSkill, announceVoiceOfTheWorld, evolveSkill } from "../ai-helper.js";
 import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../skill-effects.js";
 import { openSkillEditorDialog } from "../apps/skill-editor-dialog.js";
@@ -103,7 +103,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
     // Alvos de Resistência (Geral + cada Elemento ativo) — usado pela Skill (com "Nenhuma"
     // na frente) e pelo Título (uma entrada sempre tem um alvo, sem opção "Nenhuma").
-    const resistanceTargets = [{ value: "general", label: "Geral" }, ...getActiveDamageElements().map(el => ({ value: el.id, label: el.label }))];
+    const resistanceTargets = getResistanceTargetOptions();
 
     if (this.item.type === "skill") {
       const sys = this.item.system;
@@ -148,7 +148,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       }));
     }
 
-    console.log(`${SYSTEM_ID} | NihilityItemSheet._prepareContext (${this.item.type}):`, this.item.name);
+    debugLog(`${SYSTEM_ID} | NihilityItemSheet._prepareContext (${this.item.type}):`, this.item.name);
     return context;
   }
 

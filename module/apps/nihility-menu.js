@@ -5,7 +5,7 @@
  * exclusivas do Mestre — a trilha mostra essas abas com cadeado pro jogador em vez de
  * simplesmente escondê-las, pra deixar claro que existem e são intencionalmente bloqueadas.
  */
-import { SYSTEM_ID, MEU_SISTEMA } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, debugLog } from "../config.js";
 import { ensureSystemCompendiums } from "../ai-helper.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
@@ -126,7 +126,7 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
     context.actors = this._getVisibleActors();
 
-    console.log(`${SYSTEM_ID} | NihilityMenuApp._prepareContext, aba ativa:`, this.activeTab);
+    debugLog(`${SYSTEM_ID} | NihilityMenuApp._prepareContext, aba ativa:`, this.activeTab);
     return context;
   }
 
@@ -219,7 +219,7 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
     // Atributo separado de `data-action` (que a própria Foundry consome pra escolher ESTE
     // handler) — `data-menu-action` guarda qual ação específica do menu foi clicada.
     const action = target.dataset.menuAction;
-    console.log(`${SYSTEM_ID} | NihilityMenuApp: ação clicada ->`, action);
+    debugLog(`${SYSTEM_ID} | NihilityMenuApp: ação clicada ->`, action);
 
     if (action in AI_TASK_ACTIONS) {
       const { AIAssistantApp } = await import("./ai-assistant.js");

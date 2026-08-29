@@ -3,7 +3,14 @@
  * Registra Data Models, Game Settings, Sheets, o AI Helper e a criação
  * automática de Compêndios de World.
  */
-import { SYSTEM_ID, MEU_SISTEMA, registerSystemSettings, getSkillPointsPerLevel } from "./config.js";
+import {
+  SYSTEM_ID,
+  MEU_SISTEMA,
+  registerSystemSettings,
+  getSkillPointsPerLevel,
+  getCompletedMigrations,
+  markMigrationCompleted
+} from "./config.js";
 import { CharacterDataModel } from "./data/character-model.js";
 import { StarshipDataModel, VehicleDataModel } from "./data/starship-model.js";
 import {
@@ -112,10 +119,27 @@ Hooks.once("init", () => {
 
 Hooks.once("ready", async () => {
   await ensureSystemCompendiums();
-  await migrateCommonTierToNormal();
-  await migrateElementalDamageToMagicTag();
+  await runMigrationIfNeeded("tierCommonToNormal", migrateCommonTierToNormal);
+  await runMigrationIfNeeded("elementalDamageToMagicTag", migrateElementalDamageToMagicTag);
   console.log(`${SYSTEM_ID} | Sistema pronto.`);
 });
+
+/**
+ * Roda uma migração única (`migrationFn`) só se `key` ainda não estiver marcada como concluída
+ * em `getCompletedMigrations()` — sem isso, cada migração reescanearia todos os Atores/
+ * Compêndios em TODO hook `ready`, pra sempre, mesmo anos depois de já ter rodado com sucesso
+ * uma vez. Marca a chave como concluída ao terminar (`markMigrationCompleted`).
+ * @param {string} key - identificador estável da migração (nunca reusar pra outra migração).
+ * @param {() => Promise<void>} migrationFn
+ */
+async function runMigrationIfNeeded(key, migrationFn) {
+  if (!game.user.isGM) return;
+  if (getCompletedMigrations().includes(key)) return;
+
+  await migrationFn();
+  await markMigrationCompleted(key);
+  console.log(`${SYSTEM_ID} | Migração "${key}" concluída e marcada — não roda de novo neste mundo.`);
+}
 
 /**
  * Migração única: o tier de Skill "common" foi renomeado para "normal" quando
@@ -123,8 +147,6 @@ Hooks.once("ready", async () => {
  * Corrige Items já salvos em Atores e no Compêndio de Habilidades.
  */
 async function migrateCommonTierToNormal() {
-  if (!game.user.isGM) return;
-
   for (const actor of game.actors) {
     const toFix = actor.items.filter(i => i.type === "skill" && i.system.tier === "common");
     if (!toFix.length) continue;
@@ -152,8 +174,6 @@ async function migrateCommonTierToNormal() {
  * já era mágico (o toggle antigo conflava os dois conceitos).
  */
 async function migrateElementalDamageToMagicTag() {
-  if (!game.user.isGM) return;
-
   function buildPatch(rawSystem) {
     if (!rawSystem || rawSystem.isElementalDamage === undefined) return null;
     return {

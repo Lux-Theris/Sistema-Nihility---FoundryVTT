@@ -26,6 +26,8 @@ export const MEU_SISTEMA = {
     skillPointsPerLevel: "skillPointsPerLevel",
     damageElementsData: "damageElementsData",
     statusConditionsData: "statusConditionsData",
+    completedMigrations: "completedMigrations",
+    debugMode: "debugMode",
     aiProvider: "aiProvider",
     aiEndpointUrl: "aiEndpointUrl",
     aiModel: "aiModel",
@@ -368,6 +370,56 @@ export function getActiveStatusConditions() {
 }
 
 /**
+ * Alvos possíveis de Resistência: "Geral" (reduz qualquer dano) + cada Elemento de Dano ativo —
+ * mesma lista usada tanto pela Skill (que tem uma opção extra "Nenhuma" fora daqui, montada por
+ * quem chama) quanto pelo Título (cada entrada de Resistência sempre tem um alvo escolhido).
+ * Extraída aqui porque item-sheet.js e skill-editor-dialog.js precisavam exatamente da mesma
+ * lista.
+ * @returns {Array<{value:string,label:string}>}
+ */
+export function getResistanceTargetOptions() {
+  return [{ value: "general", label: "Geral" }, ...getActiveDamageElements().map(el => ({ value: el.id, label: el.label }))];
+}
+
+/**
+ * Chaves de migração única (ver runMigrationIfNeeded em nihility-rpg-system.js) já executadas
+ * com sucesso neste mundo.
+ * @returns {string[]}
+ */
+export function getCompletedMigrations() {
+  try {
+    const parsed = JSON.parse(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.completedMigrations) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    console.warn(`${SYSTEM_ID} | JSON de migrações concluídas inválido, tratando como nenhuma migração feita.`, err);
+    return [];
+  }
+}
+
+/** Marca uma migração única como concluída (idempotente — chamar de novo com a mesma chave não duplica). */
+export async function markMigrationCompleted(key) {
+  const current = getCompletedMigrations();
+  if (current.includes(key)) return;
+  await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.completedMigrations, JSON.stringify([...current, key]));
+}
+
+/**
+ * Log gateado pela setting "Modo Debug" (`false` por padrão) — usado pelos `_prepareContext`/
+ * handlers de toda Sheet/App do sistema, que sem isso poluíam o console de qualquer GM com um
+ * log a cada render/clique. Eventos raros de ciclo de vida (init, Compêndio criado, migração
+ * concluída) continuam em `console.log` direto, sem gate — não valem o barulho de precisar
+ * ligar Modo Debug só pra ver se o sistema carregou.
+ */
+export function debugLog(...args) {
+  try {
+    if (!game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.debugMode)) return;
+  } catch (err) {
+    return;
+  }
+  console.log(...args);
+}
+
+/**
  * Lê o dicionário de presets de espécie atualmente ativo.
  * Assim que o GM salva algo pelo editor visual (Configurar Presets de Espécie),
  * o resultado completo passa a ser a única fonte da verdade; até lá, usa os padrões.
@@ -551,6 +603,27 @@ export function registerSystemSettings() {
     config: false,
     type: String,
     default: JSON.stringify(MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS, null, 2)
+  });
+
+  // Chaves das migrações únicas (ver runMigrationIfNeeded em nihility-rpg-system.js) já
+  // executadas com sucesso neste mundo — sem isso, cada migração reescanearia todos os
+  // Atores/Compêndios em TODO hook `ready`, pra sempre, mesmo anos depois de já ter rodado.
+  game.settings.register(SYSTEM_ID, S.completedMigrations, {
+    scope: "world",
+    config: false,
+    type: String,
+    default: "[]"
+  });
+
+  // scope "client" (não "world"): cada pessoa liga o próprio log de debug sem forçar isso nos
+  // jogadores conectados.
+  game.settings.register(SYSTEM_ID, S.debugMode, {
+    name: "Modo Debug (log no console)",
+    hint: "Loga no console a cada render/ação de Sheets e Apps do sistema. Só pra investigar bug — deixa desligado no dia a dia.",
+    scope: "client",
+    config: true,
+    type: Boolean,
+    default: false
   });
 
   // scope:"client" (não "world"): fica só no navegador de quem configura, nunca

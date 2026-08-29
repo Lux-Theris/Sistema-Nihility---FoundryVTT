@@ -20,14 +20,10 @@ import {
   StarshipModuleDataModel,
   GenericItemDataModel
 } from "./data/item-models.js";
-import {
-  AIHelper,
-  ensureSystemCompendiums,
-  approveSkillCreationRequest,
-  rejectSkillCreationRequest,
-  removeGrantedSkill,
-  announceLevelUp
-} from "./ai-helper.js";
+import { AIHelper } from "./ai-helper.js";
+import { ensureSystemCompendiums } from "./compendium.js";
+import { approveSkillCreationRequest, rejectSkillCreationRequest, removeGrantedSkill } from "./skill-economy.js";
+import { announceLevelUp } from "./voice-of-the-world.js";
 import { NihilityActorSheet } from "./sheets/actor-sheet.js";
 import { NihilityStarshipSheet, NihilityVehicleSheet } from "./sheets/starship-sheet.js";
 import { NihilityItemSheet } from "./sheets/item-sheet.js";
@@ -228,7 +224,7 @@ Hooks.on("preUpdateActor", (actor, changes) => {
   foundry.utils.setProperty(changes, "system.skillPoints.normal", currentNormal + gained);
 });
 
-// Limpa a Habilidade Concedida (ver ai-helper.js) quando o Item Geral ou Módulo de
+// Limpa a Habilidade Concedida (ver skill-economy.js) quando o Item Geral ou Módulo de
 // Nave que a concedeu é excluído — evita skill "órfã" sobrando na ficha.
 Hooks.on("preDeleteItem", item => {
   if (!["item", "starship_module"].includes(item.type)) return;

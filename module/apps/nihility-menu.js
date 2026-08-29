@@ -6,7 +6,7 @@
  * simplesmente escondê-las, pra deixar claro que existem e são intencionalmente bloqueadas.
  */
 import { SYSTEM_ID, MEU_SISTEMA, debugLog } from "../config.js";
-import { ensureSystemCompendiums } from "../ai-helper.js";
+import { ensureSystemCompendiums } from "../compendium.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 
@@ -32,7 +32,7 @@ async function syncData() {
   ui.notifications.info("Compêndios do sistema sincronizados (recriados se algum estava faltando).");
 }
 
-/** Exporta as 3 configurações editáveis visualmente (Moedas/Presets de Espécie/Elementos de Dano) num único JSON. */
+/** Exporta as 4 configurações editáveis visualmente (Moedas/Presets de Espécie/Elementos de Dano/Condições de Status) num único JSON. */
 async function exportData() {
   const S = MEU_SISTEMA.SETTINGS;
   const bundle = {
@@ -40,12 +40,18 @@ async function exportData() {
     _exportedAt: new Date().toISOString(),
     currenciesData: JSON.parse(game.settings.get(SYSTEM_ID, S.currenciesData)),
     speciesPresetsData: JSON.parse(game.settings.get(SYSTEM_ID, S.speciesPresetsData)),
-    damageElementsData: JSON.parse(game.settings.get(SYSTEM_ID, S.damageElementsData))
+    damageElementsData: JSON.parse(game.settings.get(SYSTEM_ID, S.damageElementsData)),
+    statusConditionsData: JSON.parse(game.settings.get(SYSTEM_ID, S.statusConditionsData))
   };
   saveDataToFile(JSON.stringify(bundle, null, 2), "application/json", "nihility-config.json");
 }
 
-/** Importa um JSON exportado por `exportData()`, sobrescrevendo as 3 configurações após confirmação. */
+/**
+ * Importa um JSON exportado por `exportData()`, sobrescrevendo as configurações após
+ * confirmação. `statusConditionsData` é opcional na validação de formato (não no `hasExpectedShape`)
+ * pra continuar aceitando exports antigos, de antes dela existir — se não vier no arquivo, as
+ * Condições de Status atuais do mundo simplesmente não são tocadas.
+ */
 async function importData() {
   const input = document.createElement("input");
   input.type = "file";
@@ -67,7 +73,9 @@ async function importData() {
       const confirmed = await DialogV2.confirm({
         window: { title: "Importar Configurações" },
         content:
-          "<p>Isso substitui Moedas, Presets de Espécie e Elementos de Dano atuais do mundo pelos dados desse arquivo. Confirma?</p>"
+          "<p>Isso substitui Moedas, Presets de Espécie, Elementos de Dano" +
+          (bundle.statusConditionsData ? " e Condições de Status" : "") +
+          " atuais do mundo pelos dados desse arquivo. Confirma?</p>"
       });
       if (!confirmed) return;
 
@@ -75,6 +83,9 @@ async function importData() {
       await game.settings.set(SYSTEM_ID, S.currenciesData, JSON.stringify(bundle.currenciesData, null, 2));
       await game.settings.set(SYSTEM_ID, S.speciesPresetsData, JSON.stringify(bundle.speciesPresetsData, null, 2));
       await game.settings.set(SYSTEM_ID, S.damageElementsData, JSON.stringify(bundle.damageElementsData, null, 2));
+      if (bundle.statusConditionsData) {
+        await game.settings.set(SYSTEM_ID, S.statusConditionsData, JSON.stringify(bundle.statusConditionsData, null, 2));
+      }
       ui.notifications.info("Configurações importadas com sucesso.");
     } catch (err) {
       console.error(`${SYSTEM_ID} | Falha ao importar configurações.`, err);

@@ -7,9 +7,9 @@ import {
   generateItemFromAI,
   generateFreeform,
   getAIGeneratedFolder,
-  editDocumentWithAI,
-  registerItemInCompendium
-} from "../ai-helper.js";
+  editDocumentWithAI
+} from "../ai-generation.js";
+import { registerItemInCompendium } from "../compendium.js";
 import { runAgentTask } from "../ai/agent-runner.js";
 import { createAgentTools } from "../ai/agent-tools.js";
 import { recordBatchOperation, undoBatchOperation, listRecentBatchOperations } from "../helpers/world-backup.js";

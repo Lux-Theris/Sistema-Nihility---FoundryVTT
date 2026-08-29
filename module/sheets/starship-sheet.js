@@ -1,5 +1,6 @@
 import { SYSTEM_ID, MEU_SISTEMA, getStarshipEnergyLabel, debugLog } from "../config.js";
-import { registerItemInCompendium, createGrantedSkill, removeGrantedSkill } from "../ai-helper.js";
+import { registerItemInCompendium } from "../compendium.js";
+import { createGrantedSkill, removeGrantedSkill } from "../skill-economy.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;

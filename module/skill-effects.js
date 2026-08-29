@@ -28,7 +28,7 @@ const EFFECT_TARGET_PATHS = {
  *  - `targetType: "emission"`: usa `options.targetActors` (lista já resolvida pela forma
  *    posicionada no canvas via module/area-effects.js) — sem alvo único envolvido.
  *  - `options.subSkillIndex`: quando a Skill tem Sub-Skills (só existe em Skills Fundidas —
- *    ver ai-helper.js#fuseSkills), a mecânica usada é a daquele componente específico
+ *    ver skill-economy.js#fuseSkills), a mecânica usada é a daquele componente específico
  *    (`system.subSkills[i]`, que carrega seu próprio effectType/damageFormula/effects/
  *    targetType/etc.) em vez da mecânica própria da Skill — igual as Skills Únicas do
  *    Tensura, que têm várias sub-habilidades nomeadas dentro de uma só Skill "guarda-chuva".

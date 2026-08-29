@@ -84,7 +84,7 @@ function mechanicSummaryFor(mech) {
  *    populado com os dados atuais, grava de volta com `item.update()`.
  * Sub-Skills, Linhagem de Fusão e "Evoluiu de" são sempre só-leitura aqui (nunca digitados à
  * mão): só existem quando `initialData` já os traz — vêm de uma Fusão/Evolução de verdade
- * (ai-helper.js), não de algo definido neste modal. Os painéis de Dano/Efeito Temporário/
+ * (skill-economy.js), não de algo definido neste modal. Os painéis de Dano/Efeito Temporário/
  * Resistência/Alcance só aparecem quando escolhidos, e trocar de opção antes de Salvar apaga
  * de verdade os dados do modo anterior (nunca fica "fantasma" no documento salvo).
  *

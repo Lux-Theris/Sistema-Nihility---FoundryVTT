@@ -9,16 +9,9 @@ import {
   isAnatomyEnabled,
   debugLog
 } from "../config.js";
-import {
-  fuseSkills,
-  evolveSkill,
-  registerItemInCompendium,
-  breakSkillPoints,
-  mergeSkillPoints,
-  requestSkillCreation,
-  convertActorCurrency,
-  transferCurrency
-} from "../ai-helper.js";
+import { fuseSkills, evolveSkill, breakSkillPoints, mergeSkillPoints, requestSkillCreation } from "../skill-economy.js";
+import { registerItemInCompendium } from "../compendium.js";
+import { convertActorCurrency, transferCurrency } from "../currency.js";
 import { rollAttribute } from "../dice.js";
 import { useSkillEffect, tickPeriodicEffect } from "../skill-effects.js";
 import { areaEffectsSupported, pickAreaTargets } from "../area-effects.js";

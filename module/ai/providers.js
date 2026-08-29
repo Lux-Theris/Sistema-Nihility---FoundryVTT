@@ -1,7 +1,7 @@
 /**
  * Adaptadores de provedor de IA. Cada um sabe montar a requisição certa e
  * extrair o texto de resposta do seu formato; `callAIProvider` é o único
- * ponto de entrada usado pelo resto do sistema (ver ai-helper.js).
+ * ponto de entrada usado pelo resto do sistema (ver ai-generation.js).
  */
 
 const ANTHROPIC_ENDPOINT = "https://api.anthropic.com/v1/messages";

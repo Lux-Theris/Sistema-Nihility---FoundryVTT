@@ -1,5 +1,6 @@
 import { SYSTEM_ID, MEU_SISTEMA, getActiveDamageElements, getResistanceTargetOptions, debugLog } from "../config.js";
-import { createGrantedSkill, removeGrantedSkill, announceVoiceOfTheWorld, evolveSkill } from "../ai-helper.js";
+import { createGrantedSkill, removeGrantedSkill, evolveSkill } from "../skill-economy.js";
+import { announceVoiceOfTheWorld } from "../voice-of-the-world.js";
 import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../skill-effects.js";
 import { openSkillEditorDialog } from "../apps/skill-editor-dialog.js";
 
@@ -231,7 +232,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   /**
    * Evolução: 1 Skill vira uma Skill NOVA e diferente (não uma fusão — nada de Sub-Skills
    * aqui), só ficando o registro histórico "Evoluiu de: X". A Skill antiga é preservada no
-   * Compêndio e removida do Ator, igual `fuseSkills` já faz — ver `evolveSkill` em ai-helper.js.
+   * Compêndio e removida do Ator, igual `fuseSkills` já faz — ver `evolveSkill` em skill-economy.js.
    */
   static async #onEvolveSkill(event, target) {
     event.preventDefault();

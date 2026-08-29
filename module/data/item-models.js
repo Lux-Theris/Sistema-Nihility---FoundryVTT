@@ -102,7 +102,7 @@ function effectEntrySchema() {
  * rola/aplica com os próprios campos daqui (ver `useSkillEffect` em skill-effects.js), igual
  * as Skills Únicas do Tensura, que têm várias sub-habilidades nomeadas dentro de uma só Skill
  * "guarda-chuva". Nunca aninha: se um componente já era ele mesmo uma Fusão, os Sub-Skills
- * DELE entram achatados aqui direto (ver `buildGenericFusionData` em ai-helper.js) — a lista
+ * DELE entram achatados aqui direto (ver `buildGenericFusionData` em skill-economy.js) — a lista
  * final é sempre plana, nunca uma árvore.
  */
 function subSkillSchema() {

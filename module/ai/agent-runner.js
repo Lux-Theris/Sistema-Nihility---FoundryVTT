@@ -5,7 +5,7 @@
  * tool (ver agent-tools.js), que decidem o que fazer (ex: só empilhar uma proposta pra
  * revisão, ver módulo/apps/ai-assistant.js).
  */
-import { getAISettingsValues } from "../ai-helper.js";
+import { getAISettingsValues } from "../ai-generation.js";
 import { callAIProviderWithTools, appendAssistantAndToolResults } from "./providers.js";
 
 /**

@@ -460,6 +460,15 @@ export function getStarshipEnergyLabel() {
   return MEU_SISTEMA.DEFAULT_STARSHIP_ENERGY_LABEL;
 }
 
+/**
+ * Rótulo de energia certo pro TIPO do Ator em questão — nunca hardcode "Energia"/"Mana" em
+ * mensagens de chat/notificação; use isso (Personagem/Criatura usa `characterEnergyLabel`,
+ * Nave usa `starshipEnergyLabel`, cada um configurável separadamente pelo Mestre).
+ */
+export function getEnergyLabelForActor(actor) {
+  return actor?.type === "starship" ? getStarshipEnergyLabel() : getCharacterEnergyLabel();
+}
+
 /** Atalhos de leitura para os três toggles principais. */
 export function isEconomyEnabled() {
   return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.economyEnabled);

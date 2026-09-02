@@ -520,7 +520,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
           <div class="form-group"><label>Tier</label><select name="tier">${options}</select></div>
           <div class="form-group"><label>Nome</label><input type="text" name="name"/></div>
           <div class="form-group"><label>Efeito</label><textarea name="description" rows="4"></textarea></div>
-          <div class="form-group"><label>Custo de Energia (pra usar)</label><input type="number" name="cost" value="0"/></div>
+          <div class="form-group"><label>Custo de ${getCharacterEnergyLabel()} (pra usar)</label><input type="number" name="cost" value="0"/></div>
         </form>`,
       onConfirm: form => ({
         tier: form.querySelector("[name=tier]").value,

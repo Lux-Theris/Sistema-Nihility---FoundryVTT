@@ -7,7 +7,7 @@
  *    HP/Mana Máximo mesmo quando o alvo é um atributo); "shield" é somado
  *    direto, sem duração, gasto na mão pelo jogador conforme absorve dano.
  */
-import { SYSTEM_ID, MEU_SISTEMA, getActiveDamageElements, getActiveStatusConditions } from "./config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getActiveDamageElements, getActiveStatusConditions, getEnergyLabelForActor } from "./config.js";
 import { announceVoiceOfTheWorld } from "./voice-of-the-world.js";
 import { playSkillAnimation } from "./vfx.js";
 
@@ -28,13 +28,14 @@ function activeStatePath(subSkillIndex) {
   return subSkillIndex != null ? `system.subSkills.${subSkillIndex}.active` : "system.active";
 }
 
-/** Avisa só quem clicou (whisper individual) que a Energia atual não cobre o Custo de Energia. */
+/** Avisa só quem clicou (whisper individual) que a Energia (nome configurável) atual não cobre o Custo. */
 async function warnInsufficientEnergy(sourceActor, label, cost) {
   const current = sourceActor.system.attributes.energy.value ?? 0;
+  const energyLabel = getEnergyLabelForActor(sourceActor);
   await ChatMessage.create({
     whisper: [game.user.id],
     speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
-    content: `<p>Energia insuficiente pra usar <strong>${label}</strong> (precisa ${cost}, ${sourceActor.name} tem ${current}).</p>`
+    content: `<p>${energyLabel} insuficiente pra usar <strong>${label}</strong> (precisa ${cost}, ${sourceActor.name} tem ${current}).</p>`
   });
 }
 
@@ -153,7 +154,7 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
       : applySkillEffects(sourceActor, skill, mech, label, options.targetActor ?? sourceActor, options.subSkillIndex ?? null);
   }
 
-  const upkeepNote = mech.hasUpkeep ? ` (ativada — drena ${mech.upkeepCost} de Energia por rodada)` : "";
+  const upkeepNote = mech.hasUpkeep ? ` (ativada — drena ${mech.upkeepCost} de ${getEnergyLabelForActor(sourceActor)} por rodada)` : "";
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
     content: `<p><strong>${sourceActor.name}</strong> usou <strong>${label}</strong>${upkeepNote}.</p>`
@@ -672,8 +673,9 @@ export async function tickActorUpkeepSkills(actor) {
     results.push({ label: source.label, drained: drain, deactivated: insufficient });
   }
 
+  const energyLabel = getEnergyLabelForActor(actor);
   const rows = results.map(
-    r => `<li><strong>${r.label}</strong>: -${r.drained} Energia${r.deactivated ? " (desativada — Energia insuficiente)" : ""}</li>`
+    r => `<li><strong>${r.label}</strong>: -${r.drained} ${energyLabel}${r.deactivated ? ` (desativada — ${energyLabel} insuficiente)` : ""}</li>`
   );
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor }),
@@ -684,7 +686,7 @@ export async function tickActorUpkeepSkills(actor) {
     await announceVoiceOfTheWorld(actor, {
       kind: "skill-deactivated",
       title: "Habilidade Desativada",
-      body: `${r.label} foi desativada automaticamente — ${actor.name} ficou sem Energia suficiente pra mantê-la.`
+      body: `${r.label} foi desativada automaticamente — ${actor.name} ficou sem ${energyLabel} suficiente pra mantê-la.`
     });
   }
 

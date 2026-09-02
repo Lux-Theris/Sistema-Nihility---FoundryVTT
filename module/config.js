@@ -87,6 +87,69 @@ export const MEU_SISTEMA = {
   },
 
   /**
+   * Porte de Nave Espacial, do menor pro maior — só o Mestre edita (mesmo padrão de Nível).
+   * Rege compatibilidade de Módulo (SHIP_SIZE_RANK vs MODULE_SIZE_RANK) e o orçamento de
+   * espaço de Arma (WEAPON_SLOT_BUDGET_BY_SHIP_SIZE, valores a fechar na Fase 8 do overhaul).
+   */
+  SHIP_SIZES: ["mini", "pequeno", "medio", "grande", "capital"],
+
+  SHIP_SIZE_LABELS: {
+    mini: "Mini",
+    pequeno: "Pequeno",
+    medio: "Médio",
+    grande: "Grande",
+    capital: "Capital"
+  },
+
+  /** Veículo terrestre só cabe nos dois portes menores (reaproveita os mesmos labels acima). */
+  VEHICLE_SIZES: ["mini", "pequeno"],
+
+  /** Índice (0-4) de cada Porte de Nave/Veículo — usado só pra comparar "módulo cabe na nave". */
+  SHIP_SIZE_RANK: { mini: 0, pequeno: 1, medio: 2, grande: 3, capital: 4 },
+
+  /**
+   * Porte de Módulo de Nave (inclusive Arma, que reaproveita esta MESMA escala pro seu
+   * próprio Porte — não é uma terceira escala nova). Nomenclatura própria, paralela à de
+   * Nave mas com nomes diferentes (Compacto/Standard/Robusto/Industrial/Colossal).
+   */
+  MODULE_SIZES: ["compact", "standard", "reinforced", "industrial", "colossal"],
+
+  MODULE_SIZE_LABELS: {
+    compact: "Compacto",
+    standard: "Standard",
+    reinforced: "Robusto",
+    industrial: "Industrial",
+    colossal: "Colossal"
+  },
+
+  /** Índice (0-4) de cada Porte de Módulo — comparado contra SHIP_SIZE_RANK pra checar compatibilidade. */
+  MODULE_SIZE_RANK: { compact: 0, standard: 1, reinforced: 2, industrial: 3, colossal: 4 },
+
+  /**
+   * Categorias de Módulo de Nave/Veículo. Reator/Bateria/Distribuidor/Escudo/Motor/Casco/FTL
+   * são "slot único" (STARSHIP_SINGLE_SLOT_CATEGORIES — só 1 instalado por vez, ver o hook de
+   * compatibilidade em nihility-rpg-system.js); Arma e Utilidade não têm limite de contagem
+   * (Arma usa orçamento de espaço por Porte em vez disso — `weaponSlotBudget` no Data Model).
+   */
+  STARSHIP_MODULE_CATEGORIES: [
+    "weapon", "shield", "engine", "utility", "armor", "reactor", "battery", "distributor", "ftl"
+  ],
+
+  STARSHIP_MODULE_CATEGORY_LABELS: {
+    weapon: "Arma",
+    shield: "Escudo",
+    engine: "Motor",
+    utility: "Utilidade",
+    armor: "Casco (Armadura)",
+    reactor: "Reator",
+    battery: "Bateria",
+    distributor: "Distribuidor",
+    ftl: "FTL"
+  },
+
+  STARSHIP_SINGLE_SLOT_CATEGORIES: ["reactor", "battery", "distributor", "shield", "engine", "armor", "ftl"],
+
+  /**
    * Atributos de combate. `bonus = floor(pontos / 3)`; a cada +10 de bônus a
    * rolagem ganha +1d20 (todos os dados são somados). Bônus de arma/equipamento
    * NUNCA contam pra essa conta — somam por fora, sempre como número fixo.

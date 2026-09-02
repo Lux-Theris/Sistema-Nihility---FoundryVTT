@@ -175,7 +175,7 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
   _metaLineFor(actor) {
     if (actor.type === "character") return `Nível ${actor.system.attributes?.level ?? "?"}`;
     if (actor.type === "starship") return `Casco ${actor.system.hull?.value ?? 0}/${actor.system.hull?.max ?? 0}`;
-    if (actor.type === "vehicle") return `Integridade ${actor.system.integrity?.value ?? 0}/${actor.system.integrity?.max ?? 0}`;
+    if (actor.type === "vehicle") return `Integridade ${actor.system.hull?.value ?? 0}/${actor.system.hull?.max ?? 0}`;
     return "";
   }
 

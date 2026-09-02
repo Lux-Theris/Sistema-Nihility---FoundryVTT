@@ -216,14 +216,25 @@
       {{#if (eq itemType "starship_module")}}
       <label>Categoria
         <select name="system.category">
-          <option value="weapon" {{#if (eq system.category "weapon")}}selected{{/if}}>Arma</option>
-          <option value="shield" {{#if (eq system.category "shield")}}selected{{/if}}>Escudo</option>
-          <option value="engine" {{#if (eq system.category "engine")}}selected{{/if}}>Motor</option>
-          <option value="utility" {{#if (eq system.category "utility")}}selected{{/if}}>Utilidade</option>
-          <option value="armor" {{#if (eq system.category "armor")}}selected{{/if}}>Casco (Armadura)</option>
+          {{#each config.STARSHIP_MODULE_CATEGORIES as |cat|}}
+          <option value="{{cat}}" {{#if (eq cat ../system.category)}}selected{{/if}}>{{lookup ../config.STARSHIP_MODULE_CATEGORY_LABELS cat}}</option>
+          {{/each}}
+        </select>
+      </label>
+      <label>Porte do Módulo
+        <select name="system.moduleSize">
+          {{#each config.MODULE_SIZES as |size|}}
+          <option value="{{size}}" {{#if (eq size ../system.moduleSize)}}selected{{/if}}>{{lookup ../config.MODULE_SIZE_LABELS size}}</option>
+          {{/each}}
         </select>
       </label>
       <label>Consumo de Energia <input type="number" name="system.powerConsumption" value="{{system.powerConsumption}}"/></label>
+      <label>Vida Máx.
+        <input type="number" name="system.hp.max" value="{{system.hp.max}}" min="0"/>
+      </label>
+      <label>Vida Atual
+        <input type="number" name="system.hp.value" value="{{system.hp.value}}" min="0"/>
+      </label>
       <label>Slot <input type="text" name="system.slot" value="{{system.slot}}"/></label>
       {{#if (eq system.category "armor")}}
       <label>Redução de Dano (%) <span class="hint-inline" style="display:inline;">(reduz esse percentual de todo dano recebido pela Nave enquanto instalado no slot de Casco)</span>

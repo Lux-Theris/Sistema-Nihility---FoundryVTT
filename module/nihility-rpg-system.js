@@ -244,6 +244,91 @@ Hooks.on("preDeleteItem", item => {
   removeGrantedSkill(item.parent, item.id);
 });
 
+/**
+ * Overhaul de Naves (Fase 1) — compatibilidade de Porte: um Módulo só pode existir numa
+ * Nave/Veículo cujo Porte seja igual ou maior ao dele (`MODULE_SIZE_RANK` vs `SHIP_SIZE_RANK`
+ * em config.js). Bloqueia a criação/edição com um aviso em vez de deixar o Módulo instalado
+ * incompatível silenciosamente.
+ */
+function checkModuleSizeCompatibility(actor, moduleSize) {
+  if (!actor || !["starship", "vehicle"].includes(actor.type)) return true;
+  if (MEU_SISTEMA.MODULE_SIZE_RANK[moduleSize] <= MEU_SISTEMA.SHIP_SIZE_RANK[actor.system.shipSize]) return true;
+
+  ui.notifications.error(
+    `${actor.name}: Módulo de Porte "${MEU_SISTEMA.MODULE_SIZE_LABELS[moduleSize]}" não cabe num Porte "${MEU_SISTEMA.SHIP_SIZE_LABELS[actor.system.shipSize]}".`
+  );
+  return false;
+}
+
+/**
+ * Overhaul de Naves (Fase 2) — categorias de slot único (Reator/Bateria/Distribuidor/Escudo/
+ * Motor/Casco/FTL, ver MEU_SISTEMA.STARSHIP_SINGLE_SLOT_CATEGORIES) só podem ter UM Módulo
+ * instalado por vez na mesma Nave/Veículo — trocar exige remover o antigo primeiro.
+ */
+function checkSingleSlotAvailable(actor, category, excludeItemId) {
+  if (!actor || !["starship", "vehicle"].includes(actor.type)) return true;
+  if (!MEU_SISTEMA.STARSHIP_SINGLE_SLOT_CATEGORIES.includes(category)) return true;
+
+  const existing = actor.items.find(
+    i => i.type === "starship_module" && i.id !== excludeItemId && i.system.category === category
+  );
+  if (!existing) return true;
+
+  ui.notifications.error(
+    `${actor.name}: já existe um Módulo de "${MEU_SISTEMA.STARSHIP_MODULE_CATEGORY_LABELS[category]}" instalado — remova-o antes de instalar outro.`
+  );
+  return false;
+}
+
+/**
+ * Overhaul de Naves (Fase 2) — orçamento de espaço de Arma por Porte da Nave/Veículo. Inerte
+ * enquanto `MEU_SISTEMA.WEAPON_SLOT_BUDGET_BY_SHIP_SIZE` não existir: `weaponSlotBudget`
+ * (ver ShipSystemsDataModel em starship-model.js) retorna `Infinity` até a tabela ser
+ * preenchida na Fase 8 (valores a fechar com o Mestre), então esta checagem nunca bloqueia
+ * nada por enquanto — só passa a valer sozinha quando a tabela existir.
+ */
+function checkWeaponBudget(actor, category, moduleSize, excludeItemId) {
+  if (!actor || !["starship", "vehicle"].includes(actor.type)) return true;
+  if (category !== "weapon") return true;
+
+  const budget = actor.system.weaponSlotBudget;
+  if (!Number.isFinite(budget)) return true;
+
+  const usedByOthers = actor.items
+    .filter(i => i.type === "starship_module" && i.id !== excludeItemId && i.system.category === "weapon")
+    .reduce((sum, i) => sum + MEU_SISTEMA.MODULE_SIZE_RANK[i.system.moduleSize] + 1, 0);
+  const thisUnit = MEU_SISTEMA.MODULE_SIZE_RANK[moduleSize] + 1;
+  if (usedByOthers + thisUnit <= budget) return true;
+
+  ui.notifications.error(`${actor.name}: orçamento de espaço de Arma excedido (${usedByOthers + thisUnit} / ${budget}).`);
+  return false;
+}
+
+Hooks.on("preCreateItem", (item, data, options, userId) => {
+  if (item.type !== "starship_module") return;
+  const actor = item.parent;
+  const { category, moduleSize } = item.system;
+  if (!checkModuleSizeCompatibility(actor, moduleSize)) return false;
+  if (!checkSingleSlotAvailable(actor, category, item.id)) return false;
+  if (!checkWeaponBudget(actor, category, moduleSize, item.id)) return false;
+});
+
+Hooks.on("preUpdateItem", (item, changes, options, userId) => {
+  if (item.type !== "starship_module") return;
+
+  const sizeChanged = foundry.utils.getProperty(changes, "system.moduleSize") !== undefined;
+  const categoryChanged = foundry.utils.getProperty(changes, "system.category") !== undefined;
+  if (!sizeChanged && !categoryChanged) return;
+
+  const actor = item.parent;
+  const newSize = foundry.utils.getProperty(changes, "system.moduleSize") ?? item.system.moduleSize;
+  const newCategory = foundry.utils.getProperty(changes, "system.category") ?? item.system.category;
+
+  if (!checkModuleSizeCompatibility(actor, newSize)) return false;
+  if (!checkSingleSlotAvailable(actor, newCategory, item.id)) return false;
+  if (!checkWeaponBudget(actor, newCategory, newSize, item.id)) return false;
+});
+
 // Tica Efeitos Periódicos (veneno/cura contínua com tickUnit "combatRound", ver
 // skill-effects.js) sempre que chega a vez de um combatente — só o dono desse turno tica,
 // uma vez por turno próprio (não uma vez por rodada global). Guardado por isGM: só o GM

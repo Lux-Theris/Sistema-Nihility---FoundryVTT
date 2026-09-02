@@ -357,7 +357,7 @@ export async function generateVesselFromAI(prompt, vesselType, options = {}) {
         biography: parsed?.biography || ""
       }
     : {
-        integrity: { value: Number(parsed?.integrity) || 30, max: Number(parsed?.integrity) || 30 },
+        hull: { value: Number(parsed?.integrity) || 30, max: Number(parsed?.integrity) || 30 },
         speed: Number(parsed?.speed) || 0,
         fuel: {
           value: Number(parsed?.fuelMax) || 50,

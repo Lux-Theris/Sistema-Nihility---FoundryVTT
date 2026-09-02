@@ -12,6 +12,11 @@ function percentOf(value, max) {
   return Math.round(Math.clamp((value / max) * 100, 0, 100));
 }
 
+/** Opções {value,label} de Porte pro `<select>` do cabeçalho — usa MEU_SISTEMA.SHIP_SIZE_LABELS pros dois tipos. */
+function sizeOptions(sizeChoices) {
+  return sizeChoices.map(id => ({ id, label: MEU_SISTEMA.SHIP_SIZE_LABELS[id] }));
+}
+
 /**
  * Diálogo simples de confirmar/cancelar com um `<form>` livre — mesmo padrão de
  * actor-sheet.js (não compartilhado direto porque as duas Sheets não têm uma classe-base
@@ -31,11 +36,18 @@ async function promptDialog({ title, content, confirmLabel = "Confirmar", onConf
   });
 }
 
-/** Mesmo padrão manual de abas usado em NihilityItemSheet/NihilityMenuApp (ApplicationV2 não herda o mixin de abas do AppV1). */
+/**
+ * Base compartilhada por Nave Espacial e Veículo — desde o overhaul de Porte os dois tipos
+ * usam o MESMO sistema de Módulos/Grid de Energia/Habilidades concedidas (StarshipDataModel e
+ * VehicleDataModel compartilham `ShipSystemsDataModel`, ver starship-model.js), então toda a
+ * lógica de item-CRUD/toggle de energia/uso de Skill mora aqui uma vez só; as duas Sheets
+ * concretas abaixo só diferem em DEFAULT_OPTIONS e no que cada uma acrescenta ao contexto
+ * (Veículo tem Peças/Velocidade/Combustível, que não existem em Nave).
+ */
 class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
   constructor(options = {}) {
     super(options);
-    this.activeTab = "main";
+    this.activeTab = "sistemas";
   }
 
   /** @override — só o nome, sem o "TYPES.Actor.starship: nome" cru quando falta tradução do label. */
@@ -60,82 +72,30 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     });
     fp.render(true);
   }
-}
 
-/**
- * Ficha de Naves Espaciais (type "starship"): Casco, Escudos, Manobra e o
- * Grid de Energia (Reator + Baterias - Consumo), com alerta de sobrecarga.
- */
-export class NihilityStarshipSheet extends TabbedActorSheetV2 {
-  static DEFAULT_OPTIONS = {
-    classes: [SYSTEM_ID, "sheet", "actor", "starship"],
-    position: { width: 700, height: 760 },
-    // DocumentSheetV2 não liga auto-save por padrão — ver mesmo comentário em actor-sheet.js.
-    form: { submitOnChange: true, closeOnSubmit: false },
-    actions: {
-      selectTab: TabbedActorSheetV2.onSelectTab,
-      createItem: NihilityStarshipSheet.#onItemCreate,
-      editItem: NihilityStarshipSheet.#onItemEdit,
-      deleteItem: NihilityStarshipSheet.#onItemDelete,
-      toggleModulePower: NihilityStarshipSheet.#onToggleModulePower,
-      powerGridTick: NihilityStarshipSheet.#onPowerGridTick,
-      useSkill: NihilityStarshipSheet.#onUseSkill,
-      editImage: TabbedActorSheetV2.onEditImage
-    }
-  };
-
-  static PARTS = {
-    body: { template: `systems/${SYSTEM_ID}/templates/starship-sheet.hbs`, scrollable: [".sheet-body"] }
-  };
-
-  /** @override */
-  async _prepareContext(options) {
-    const context = await super._prepareContext(options);
-    const actor = this.actor;
-
-    context.actor = actor;
-    context.owner = actor.isOwner;
-    context.activeTab = this.activeTab;
-    context.system = actor.system;
-    context.config = MEU_SISTEMA;
-    context.energyLabel = getStarshipEnergyLabel();
-    // Casco (Módulo category "armor") tem slot próprio, fora da lista geral — só um por vez.
-    context.modules = actor.items.filter(i => i.type === "starship_module" && i.system.category !== "armor");
-    context.armorModule = actor.system.armorModule;
-    context.armorCandidates = actor.items.filter(i => i.type === "starship_module" && i.system.category === "armor");
-    context.skills = actor.system.skills;
-    context.totalConsumption = actor.system.totalConsumption;
-    context.availableEnergy = actor.system.availableEnergy;
-    context.isOverloaded = actor.system.powerGrid.isOverloaded;
-    context.primaryPercent = percentOf(actor.system.hull.value, actor.system.hull.max);
-    context.secondaryPercent = percentOf(actor.system.shields.value, actor.system.shields.max);
-
-    debugLog(`${SYSTEM_ID} | NihilityStarshipSheet._prepareContext:`, actor.name);
-    return context;
-  }
-
-  static async #onItemCreate(event, target) {
+  /** Cria um Módulo de Nave (`data-type="starship_module"`) ou uma Peça genérica de Veículo (`data-type="item"`). */
+  static async onItemCreate(event, target) {
     event.preventDefault();
-    const [created] = await this.actor.createEmbeddedDocuments("Item", [
-      { name: "Novo Módulo", type: "starship_module" }
-    ]);
-    await registerItemInCompendium(created.toObject());
+    const type = target.dataset.type || "item";
+    const name = type === "starship_module" ? "Novo Módulo" : "Nova Peça";
+    const [created] = await this.actor.createEmbeddedDocuments("Item", [{ name, type }]);
+    if (type === "starship_module") await registerItemInCompendium(created.toObject());
     created.sheet.render(true);
   }
 
-  static #onItemEdit(event, target) {
+  static onItemEdit(event, target) {
     event.preventDefault();
     const itemId = target.closest(".item-row").dataset.itemId;
     this.actor.items.get(itemId)?.sheet.render(true);
   }
 
-  static async #onItemDelete(event, target) {
+  static async onItemDelete(event, target) {
     event.preventDefault();
     const itemId = target.closest(".item-row").dataset.itemId;
     await this.actor.deleteEmbeddedDocuments("Item", [itemId]);
   }
 
-  static async #onToggleModulePower(event, target) {
+  static async onToggleModulePower(event, target) {
     event.preventDefault();
     const itemId = target.closest(".item-row").dataset.itemId;
     const module = this.actor.items.get(itemId);
@@ -151,7 +111,7 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
   }
 
   /** Recalcula o Grid de Energia: excedente carrega os capacitores, déficit os drena. */
-  static async #onPowerGridTick(event, target) {
+  static async onPowerGridTick(event, target) {
     event.preventDefault();
     // Clicar logo após editar Reator/Capacitores dispara o "change" (submitOnChange) e este
     // "click" quase ao mesmo tempo; como o update do actor é assíncrono, ler
@@ -170,12 +130,12 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
   }
 
   /**
-   * "Usar" uma Habilidade de Nave — mesmo `useSkillEffect` de actor-sheet.js, só que mais
-   * simples: Nave não funde Skills (sem Sub-Skills a escolher). "damage" (armas) sempre pede
-   * alvo, igual Personagem; "temporary" (aprimoramento) aplica na própria Nave por padrão —
-   * uma Skill de "melhorar a arma" faz sentido mirar em si mesma, não noutro Ator.
+   * "Usar" uma Habilidade de Nave/Veículo — mesmo `useSkillEffect` de actor-sheet.js, só que
+   * mais simples: nem Nave nem Veículo fundem Skills (sem Sub-Skills a escolher). "damage"
+   * (armas) sempre pede alvo, igual Personagem; "temporary" (aprimoramento) aplica no próprio
+   * Ator por padrão — uma Skill de "melhorar a arma" faz sentido mirar em si mesma, não noutro.
    */
-  static async #onUseSkill(event, target) {
+  static async onUseSkill(event, target) {
     event.preventDefault();
     const itemId = target.closest(".item-row")?.dataset.itemId;
     const skill = this.actor.items.get(itemId);
@@ -191,7 +151,7 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
       try {
         await useSkillEffect(this.actor, itemId, {});
       } catch (err) {
-        console.error(`${SYSTEM_ID} | Falha ao usar habilidade da Nave.`, err);
+        console.error(`${SYSTEM_ID} | Falha ao usar habilidade.`, err);
       }
       return;
     }
@@ -205,15 +165,15 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
         await useSkillEffect(this.actor, itemId, { targetActor: this.actor });
       }
     } catch (err) {
-      console.error(`${SYSTEM_ID} | Falha ao usar habilidade da Nave.`, err);
+      console.error(`${SYSTEM_ID} | Falha ao usar habilidade.`, err);
     }
   }
 
-  /** Escolhe o alvo de uma arma/efeito de Nave — padrão: a própria Nave (útil pra Escudo/testes). */
+  /** Escolhe o alvo de uma arma/efeito — padrão: o próprio Ator (útil pra Escudo/testes). */
   async _promptSkillTarget() {
     const candidates = game.actors.filter(a => a.testUserPermission(game.user, "OBSERVER"));
     const opts = candidates
-      .map(a => `<option value="${a.id}" ${a.id === this.actor.id ? "selected" : ""}>${a.name}${a.id === this.actor.id ? " (esta Nave)" : ""}</option>`)
+      .map(a => `<option value="${a.id}" ${a.id === this.actor.id ? "selected" : ""}>${a.name}${a.id === this.actor.id ? " (este Ator)" : ""}</option>`)
       .join("");
 
     const targetId = await promptDialog({
@@ -224,23 +184,104 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
     });
     return targetId ? game.actors.get(targetId) : null;
   }
+
+  /**
+   * Preenche a parte do contexto compartilhada entre Nave e Veículo (Módulos, Grid de Energia,
+   * Skills concedidas) — cada Sheet concreta chama isso e só acrescenta o que é próprio dela.
+   */
+  _prepareShipSystemsContext(context) {
+    const actor = this.actor;
+    context.isGM = game.user.isGM;
+    context.energyLabel = getStarshipEnergyLabel();
+
+    // Módulos de slot único (Reator/Bateria/Distribuidor/Escudo/Motor/Casco/FTL) ganham um
+    // bloco dedicado próprio — saem da lista genérica de Módulos pra não duplicar.
+    const specialModules = MEU_SISTEMA.STARSHIP_SINGLE_SLOT_CATEGORIES
+      .map(category => actor.system.singleSlotModule(category))
+      .filter(Boolean);
+    context.specialModules = specialModules;
+    const specialModuleIds = new Set(specialModules.map(m => m.id));
+    context.modules = actor.items.filter(i => i.type === "starship_module" && !specialModuleIds.has(i.id));
+
+    const budgetUsed = actor.system.weaponSpaceUsed;
+    const budget = actor.system.weaponSlotBudget;
+    context.weaponBudgetLabel = Number.isFinite(budget)
+      ? `${budgetUsed} / ${budget} espaço de Arma usado`
+      : `${budgetUsed} espaço de Arma usado`;
+
+    context.skills = actor.system.skills;
+    context.totalConsumption = actor.system.totalConsumption;
+    context.availableEnergy = actor.system.availableEnergy;
+    context.isOverloaded = actor.system.powerGrid.isOverloaded;
+  }
 }
 
 /**
- * Ficha de Veículos Terrestres (type "vehicle"): Integridade, Velocidade,
- * Combustível/Bateria e Peças instaladas.
+ * Ficha de Naves Espaciais (type "starship"): Casco, Escudos, Manobra e o
+ * Grid de Energia (Reator + Baterias - Consumo), com alerta de sobrecarga.
  */
-export class NihilityVehicleSheet extends TabbedActorSheetV2 {
+export class NihilityStarshipSheet extends TabbedActorSheetV2 {
   static DEFAULT_OPTIONS = {
-    classes: [SYSTEM_ID, "sheet", "actor", "vehicle"],
-    position: { width: 640, height: 680 },
+    classes: [SYSTEM_ID, "sheet", "actor", "starship"],
+    position: { width: 700, height: 760 },
     // DocumentSheetV2 não liga auto-save por padrão — ver mesmo comentário em actor-sheet.js.
     form: { submitOnChange: true, closeOnSubmit: false },
     actions: {
       selectTab: TabbedActorSheetV2.onSelectTab,
-      createItem: NihilityVehicleSheet.#onItemCreate,
-      editItem: NihilityVehicleSheet.#onItemEdit,
-      deleteItem: NihilityVehicleSheet.#onItemDelete,
+      createItem: TabbedActorSheetV2.onItemCreate,
+      editItem: TabbedActorSheetV2.onItemEdit,
+      deleteItem: TabbedActorSheetV2.onItemDelete,
+      toggleModulePower: TabbedActorSheetV2.onToggleModulePower,
+      powerGridTick: TabbedActorSheetV2.onPowerGridTick,
+      useSkill: TabbedActorSheetV2.onUseSkill,
+      editImage: TabbedActorSheetV2.onEditImage
+    }
+  };
+
+  static PARTS = {
+    body: { template: `systems/${SYSTEM_ID}/templates/starship-sheet.hbs`, scrollable: [".sheet-body"] }
+  };
+
+  /** @override */
+  async _prepareContext(options) {
+    const context = await super._prepareContext(options);
+    const actor = this.actor;
+
+    context.actor = actor;
+    context.owner = actor.isOwner;
+    context.activeTab = this.activeTab;
+    context.system = actor.system;
+    context.config = MEU_SISTEMA;
+    context.shipSizeOptions = sizeOptions(MEU_SISTEMA.SHIP_SIZES);
+    context.primaryPercent = percentOf(actor.system.hull.value, actor.system.hull.max);
+    context.secondaryPercent = percentOf(actor.system.shields.value, actor.system.shields.max);
+
+    this._prepareShipSystemsContext(context);
+
+    debugLog(`${SYSTEM_ID} | NihilityStarshipSheet._prepareContext:`, actor.name);
+    return context;
+  }
+}
+
+/**
+ * Ficha de Veículos Terrestres (type "vehicle"): Integridade, Velocidade, Combustível/Bateria e
+ * Peças instaladas — desde o overhaul de Porte, também tem o mesmo Grid de Energia/Módulos de
+ * slot único de Nave (ver `ShipSystemsDataModel` em starship-model.js).
+ */
+export class NihilityVehicleSheet extends TabbedActorSheetV2 {
+  static DEFAULT_OPTIONS = {
+    classes: [SYSTEM_ID, "sheet", "actor", "vehicle"],
+    position: { width: 700, height: 780 },
+    // DocumentSheetV2 não liga auto-save por padrão — ver mesmo comentário em actor-sheet.js.
+    form: { submitOnChange: true, closeOnSubmit: false },
+    actions: {
+      selectTab: TabbedActorSheetV2.onSelectTab,
+      createItem: TabbedActorSheetV2.onItemCreate,
+      editItem: TabbedActorSheetV2.onItemEdit,
+      deleteItem: TabbedActorSheetV2.onItemDelete,
+      toggleModulePower: TabbedActorSheetV2.onToggleModulePower,
+      powerGridTick: TabbedActorSheetV2.onPowerGridTick,
+      useSkill: TabbedActorSheetV2.onUseSkill,
       editImage: TabbedActorSheetV2.onEditImage
     }
   };
@@ -260,29 +301,14 @@ export class NihilityVehicleSheet extends TabbedActorSheetV2 {
     context.system = actor.system;
     context.config = MEU_SISTEMA;
     context.isVehicle = true;
+    context.shipSizeOptions = sizeOptions(MEU_SISTEMA.VEHICLE_SIZES);
     context.parts = actor.system.parts;
-    context.primaryPercent = percentOf(actor.system.integrity.value, actor.system.integrity.max);
+    context.primaryPercent = percentOf(actor.system.hull.value, actor.system.hull.max);
     context.secondaryPercent = percentOf(actor.system.fuel.value, actor.system.fuel.max);
+
+    this._prepareShipSystemsContext(context);
 
     debugLog(`${SYSTEM_ID} | NihilityVehicleSheet._prepareContext:`, actor.name);
     return context;
-  }
-
-  static async #onItemCreate(event, target) {
-    event.preventDefault();
-    const [created] = await this.actor.createEmbeddedDocuments("Item", [{ name: "Nova Peça", type: "item" }]);
-    created.sheet.render(true);
-  }
-
-  static #onItemEdit(event, target) {
-    event.preventDefault();
-    const itemId = target.closest(".item-row").dataset.itemId;
-    this.actor.items.get(itemId)?.sheet.render(true);
-  }
-
-  static async #onItemDelete(event, target) {
-    event.preventDefault();
-    const itemId = target.closest(".item-row").dataset.itemId;
-    await this.actor.deleteEmbeddedDocuments("Item", [itemId]);
   }
 }

@@ -379,7 +379,7 @@ export class StarshipModuleDataModel extends foundry.abstract.TypeDataModel {
       category: new fields.StringField({
         required: true,
         initial: "utility",
-        choices: ["weapon", "shield", "engine", "utility", "armor"]
+        choices: MEU_SISTEMA.STARSHIP_MODULE_CATEGORIES
       }),
       description: new fields.HTMLField({ required: false, initial: "" }),
       powerConsumption: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
@@ -391,10 +391,32 @@ export class StarshipModuleDataModel extends foundry.abstract.TypeDataModel {
       slot: new fields.StringField({ required: false, initial: "" }),
 
       /**
+       * Porte do Módulo (Compacto..Colossal, ver MEU_SISTEMA.MODULE_SIZES) — Arma reaproveita
+       * este MESMO campo pro seu próprio Porte, não é uma escala separada. Checado contra o
+       * Porte da Nave/Veículo (MEU_SISTEMA.SHIP_SIZE_RANK) na instalação: um Módulo maior que
+       * o Porte do casco não cabe.
+       */
+      moduleSize: new fields.StringField({
+        required: true,
+        initial: "standard",
+        choices: MEU_SISTEMA.MODULE_SIZES
+      }),
+
+      /**
+       * Vida estrutural do Módulo em si — todo Módulo tem (não só Casco). Alvo do dano por
+       * sobrecarga (Porte overhaul, Fase 3) e do ajuste manual do Mestre (Fase 6); ao chegar a
+       * 0 o Módulo desliga sozinho e só religa depois de reparado a 15%+ do máximo.
+       */
+      hp: new fields.SchemaField({
+        value: new fields.NumberField({ required: true, integer: true, initial: 20, min: 0 }),
+        max: new fields.NumberField({ required: true, integer: true, initial: 20, min: 0 })
+      }),
+
+      /**
        * Só relevante pra category "armor" (Casco) — percentual fixo de redução de dano
        * recebido pela Nave, igual Resistência a Dano de Título/Skill de Personagem, mas
        * comprado/trocado como Módulo (mais fácil de reequipar num estaleiro do que
-       * "comprar" resistência via Skill). Slot único: ver StarshipDataModel.armorModuleId.
+       * "comprar" resistência via Skill). Slot único: ver ShipSystemsDataModel.armorModule.
        */
       armorReduction: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0, max: 100 }),
 

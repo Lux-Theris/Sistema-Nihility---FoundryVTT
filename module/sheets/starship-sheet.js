@@ -1,14 +1,34 @@
 import { SYSTEM_ID, MEU_SISTEMA, getStarshipEnergyLabel, debugLog } from "../config.js";
 import { registerItemInCompendium } from "../compendium.js";
 import { createGrantedSkill, removeGrantedSkill } from "../skill-economy.js";
+import { useSkillEffect } from "../skill-effects.js";
 
-const { HandlebarsApplicationMixin } = foundry.applications.api;
+const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
 
 /** Percentual (0-100) usado para desenhar as barras de Casco/Escudos/Integridade/Combustível. */
 function percentOf(value, max) {
   if (!max) return 0;
   return Math.round(Math.clamp((value / max) * 100, 0, 100));
+}
+
+/**
+ * Diálogo simples de confirmar/cancelar com um `<form>` livre — mesmo padrão de
+ * actor-sheet.js (não compartilhado direto porque as duas Sheets não têm uma classe-base
+ * em comum além de ApplicationV2).
+ */
+async function promptDialog({ title, content, confirmLabel = "Confirmar", onConfirm }) {
+  return DialogV2.wait({
+    window: { title },
+    content,
+    buttons: [
+      { action: "confirm", label: confirmLabel, default: true, callback: (event, button, dialog) => onConfirm(dialog.element) },
+      // Ver comentário equivalente em actor-sheet.js: `false` sobrevive ao `??` do
+      // DialogV2.wait (só null/undefined são substituídos pela string do `action`).
+      { action: "cancel", label: "Cancelar", callback: () => false }
+    ],
+    rejectClose: false
+  });
 }
 
 /** Mesmo padrão manual de abas usado em NihilityItemSheet/NihilityMenuApp (ApplicationV2 não herda o mixin de abas do AppV1). */
@@ -59,6 +79,7 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
       deleteItem: NihilityStarshipSheet.#onItemDelete,
       toggleModulePower: NihilityStarshipSheet.#onToggleModulePower,
       powerGridTick: NihilityStarshipSheet.#onPowerGridTick,
+      useSkill: NihilityStarshipSheet.#onUseSkill,
       editImage: TabbedActorSheetV2.onEditImage
     }
   };
@@ -78,7 +99,10 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
     context.system = actor.system;
     context.config = MEU_SISTEMA;
     context.energyLabel = getStarshipEnergyLabel();
-    context.modules = actor.items.filter(i => i.type === "starship_module");
+    // Casco (Módulo category "armor") tem slot próprio, fora da lista geral — só um por vez.
+    context.modules = actor.items.filter(i => i.type === "starship_module" && i.system.category !== "armor");
+    context.armorModule = actor.system.armorModule;
+    context.armorCandidates = actor.items.filter(i => i.type === "starship_module" && i.system.category === "armor");
     context.skills = actor.system.skills;
     context.totalConsumption = actor.system.totalConsumption;
     context.availableEnergy = actor.system.availableEnergy;
@@ -143,6 +167,62 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
     } else {
       ui.notifications.info(`${this.actor.name}: Energia disponível: ${available}.`);
     }
+  }
+
+  /**
+   * "Usar" uma Habilidade de Nave — mesmo `useSkillEffect` de actor-sheet.js, só que mais
+   * simples: Nave não funde Skills (sem Sub-Skills a escolher). "damage" (armas) sempre pede
+   * alvo, igual Personagem; "temporary" (aprimoramento) aplica na própria Nave por padrão —
+   * uma Skill de "melhorar a arma" faz sentido mirar em si mesma, não noutro Ator.
+   */
+  static async #onUseSkill(event, target) {
+    event.preventDefault();
+    const itemId = target.closest(".item-row")?.dataset.itemId;
+    const skill = this.actor.items.get(itemId);
+    if (!skill) return;
+
+    const mech = skill.system;
+    // Habilidade Ativa já ligada: este clique só DESATIVA — nunca re-pede alvo (ver mesmo
+    // comentário em actor-sheet.js#onUseSkill).
+    const isDeactivating = mech.hasUpkeep && mech.active;
+    const usesMechanic = !isDeactivating && (mech.effectType === "temporary" || mech.effectType === "damage");
+
+    if (!usesMechanic) {
+      try {
+        await useSkillEffect(this.actor, itemId, {});
+      } catch (err) {
+        console.error(`${SYSTEM_ID} | Falha ao usar habilidade da Nave.`, err);
+      }
+      return;
+    }
+
+    try {
+      if (mech.effectType === "damage") {
+        const targetActor = await this._promptSkillTarget();
+        if (!targetActor) return;
+        await useSkillEffect(this.actor, itemId, { targetActor });
+      } else {
+        await useSkillEffect(this.actor, itemId, { targetActor: this.actor });
+      }
+    } catch (err) {
+      console.error(`${SYSTEM_ID} | Falha ao usar habilidade da Nave.`, err);
+    }
+  }
+
+  /** Escolhe o alvo de uma arma/efeito de Nave — padrão: a própria Nave (útil pra Escudo/testes). */
+  async _promptSkillTarget() {
+    const candidates = game.actors.filter(a => a.testUserPermission(game.user, "OBSERVER"));
+    const opts = candidates
+      .map(a => `<option value="${a.id}" ${a.id === this.actor.id ? "selected" : ""}>${a.name}${a.id === this.actor.id ? " (esta Nave)" : ""}</option>`)
+      .join("");
+
+    const targetId = await promptDialog({
+      title: "Escolher Alvo",
+      confirmLabel: "Usar Habilidade",
+      content: `<form><div class="form-group"><label>Alvo</label><select name="targetId">${opts}</select></div></form>`,
+      onConfirm: form => form.querySelector("[name=targetId]").value
+    });
+    return targetId ? game.actors.get(targetId) : null;
   }
 }
 

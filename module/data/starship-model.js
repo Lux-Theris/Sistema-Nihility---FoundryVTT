@@ -34,7 +34,29 @@ export class StarshipDataModel extends foundry.abstract.TypeDataModel {
       }),
 
       crew: new fields.NumberField({ required: false, integer: true, initial: 1, min: 0 }),
-      biography: new fields.HTMLField({ required: false, initial: "" })
+      biography: new fields.HTMLField({ required: false, initial: "" }),
+
+      /**
+       * Slot ÚNICO de Casco (Módulo category "armor") — id do Item instalado, ou "" se vazio.
+       * Diferente dos outros Módulos (lista livre, quantos couber no Grid), só existe UM Casco
+       * por vez: trocar é o próprio jogador escolher outro Módulo "armor" já na ficha (ex: depois
+       * de repor no estaleiro), não uma fusão/economia — ver `armorReduction` no Módulo.
+       */
+      armorModuleId: new fields.StringField({ required: false, initial: "" }),
+
+      /**
+       * Bônus de arma dados por Skills de aprimoramento "Efeito Temporário" (ver
+       * EFFECT_TARGETS "shipWeaponDamage"/"shipWeaponPenetration" em config.js) — Multiplicador
+       * começa em 1 (não 0) porque `CONST.ACTIVE_EFFECT_MODES.MULTIPLY` multiplica o valor
+       * atual do campo; Flat soma por cima do resultado já multiplicado (ver rollSkillDamage
+       * em skill-effects.js). Nunca editado à mão — só por Active Effect de Skill.
+       */
+      combatBonuses: new fields.SchemaField({
+        weaponDamageFlat: new fields.NumberField({ required: true, integer: true, initial: 0 }),
+        weaponDamageMultiplier: new fields.NumberField({ required: true, initial: 1, min: 0 }),
+        weaponPenetrationFlat: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
+        weaponPenetrationMultiplier: new fields.NumberField({ required: true, initial: 1, min: 0 })
+      })
     };
   }
 
@@ -49,8 +71,8 @@ export class StarshipDataModel extends foundry.abstract.TypeDataModel {
   }
 
   /**
-   * Habilidades Especiais da Nave (Items type "skill"), sempre concedidas por
-   * Módulos online — sem economia de pontos nem fusão, só exibição.
+   * Habilidades Especiais da Nave (Items type "skill"), sempre concedidas por Módulos online —
+   * sem economia de pontos nem fusão, mas "Usáveis" (dano/efeito/Ativa) igual Skill de Personagem.
    */
   get skills() {
     return this.parent.items.filter(i => i.type === "skill");
@@ -66,6 +88,18 @@ export class StarshipDataModel extends foundry.abstract.TypeDataModel {
   /** Energia Disponível = Reator + Baterias - Consumo Total. */
   get availableEnergy() {
     return this.powerGrid.reactorOutput + this.powerGrid.capacitor.value - this.totalConsumption;
+  }
+
+  /** O único Módulo "armor" instalado (Casco) — ver `armorModuleId`, ou `null` se o slot estiver vazio/o Item foi removido. */
+  get armorModule() {
+    if (!this.armorModuleId) return null;
+    const module = this.parent.items.get(this.armorModuleId);
+    return module?.system?.category === "armor" ? module : null;
+  }
+
+  /** Redução de dano do Casco instalado, em fração (0-1) — 0 se o slot estiver vazio. */
+  get armorReductionPercent() {
+    return Math.clamp((this.armorModule?.system.armorReduction ?? 0) / 100, 0, 1);
   }
 
   prepareDerivedData() {

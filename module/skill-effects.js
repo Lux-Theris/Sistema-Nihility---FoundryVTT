@@ -23,14 +23,44 @@ const EFFECT_TARGET_PATHS = {
   energy: "system.attributes.energy.buffDelta"
 };
 
+/**
+ * Os dois EFFECT_TARGETS "de Nave" (Dano/Penetração de arma) guardam Fixo e Multiplicador em
+ * campos SEPARADOS (StarshipDataModel.combatBonuses) — o campo real depende de `modifierType`,
+ * por isso não cabem no mapa simples de EFFECT_TARGET_PATHS acima.
+ */
+const SHIP_TARGET_PATHS = {
+  shipWeaponDamage: { flat: "system.combatBonuses.weaponDamageFlat", multiplier: "system.combatBonuses.weaponDamageMultiplier" },
+  shipWeaponPenetration: { flat: "system.combatBonuses.weaponPenetrationFlat", multiplier: "system.combatBonuses.weaponPenetrationMultiplier" }
+};
+
+/** Caminho real de update pra uma entrada de `effects[]`, considerando `modifierType` pros alvos "de Nave". */
+function resolveEffectTargetPath(entry) {
+  const shipPaths = SHIP_TARGET_PATHS[entry.target];
+  if (shipPaths) return shipPaths[entry.modifierType === "multiplier" ? "multiplier" : "flat"];
+  return EFFECT_TARGET_PATHS[entry.target];
+}
+
 /** Caminho de update pro flag `active` — top-level ou dentro de um Sub-Skill específico. */
 function activeStatePath(subSkillIndex) {
   return subSkillIndex != null ? `system.subSkills.${subSkillIndex}.active` : "system.active";
 }
 
+/**
+ * Caminho e valor atual do "pool" que Custo/Custo por Rodada de uma Skill gastam — Personagem/
+ * Criatura usa Mana/Energia (`attributes.energy`); Nave usa o Reator (`powerGrid.reactorOutput`),
+ * NUNCA o Capacitor (decisão deliberada: Habilidade Ativa de Nave compete só com a geração do
+ * Reator, sem interagir com o resto do Grid/surplus-deficit que `applyPowerGridTick` já cobre).
+ */
+function energyValuePath(actor) {
+  return actor.type === "starship" ? "system.powerGrid.reactorOutput" : "system.attributes.energy.value";
+}
+function currentEnergyValue(actor) {
+  return actor.type === "starship" ? (actor.system.powerGrid.reactorOutput ?? 0) : (actor.system.attributes.energy.value ?? 0);
+}
+
 /** Avisa só quem clicou (whisper individual) que a Energia (nome configurável) atual não cobre o Custo. */
 async function warnInsufficientEnergy(sourceActor, label, cost) {
-  const current = sourceActor.system.attributes.energy.value ?? 0;
+  const current = currentEnergyValue(sourceActor);
   const energyLabel = getEnergyLabelForActor(sourceActor);
   await ChatMessage.create({
     whisper: [game.user.id],
@@ -128,11 +158,12 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
 
   const cost = Number(mech.cost) || 0;
   if (cost > 0) {
-    if ((sourceActor.system.attributes.energy.value ?? 0) < cost) {
+    const current = currentEnergyValue(sourceActor);
+    if (current < cost) {
       await warnInsufficientEnergy(sourceActor, label, cost);
       return null;
     }
-    await sourceActor.update({ "system.attributes.energy.value": sourceActor.system.attributes.energy.value - cost });
+    await sourceActor.update({ [energyValuePath(sourceActor)]: current - cost });
   }
   if (mech.hasUpkeep) {
     await skill.update({ [activeStatePath(options.subSkillIndex)]: true });
@@ -228,20 +259,60 @@ function actorResistanceFor(targetActor, resistanceTarget) {
 }
 
 /**
+ * Bônus de arma de uma Nave atacante (`combatBonuses`, dado por Skills de "Efeito Temporário"
+ * com alvo shipWeaponDamage — ver EFFECT_TARGETS em config.js): Multiplicador primeiro, Flat
+ * depois, igual a ordem de operações padrão. `0` (não `sourceActor`) se quem atacou não for Nave.
+ */
+function applyShipWeaponBonus(rawTotal, sourceActor) {
+  if (sourceActor?.type !== "starship") return rawTotal;
+  const bonuses = sourceActor.system.combatBonuses;
+  return rawTotal * (bonuses?.weaponDamageMultiplier ?? 1) + (bonuses?.weaponDamageFlat ?? 0);
+}
+
+/**
+ * Redução (0-1) da Resistência de Casco de uma Nave-alvo, já considerando a Penetração de arma
+ * da Nave atacante (se houver): `weaponPenetrationMultiplier` (buffado via Skill, começa em 1 e
+ * SOBE com bônus — dividido no Casco, não multiplicado, pra "penetração maior" sempre significar
+ * "armadura efetiva menor") e `weaponPenetrationFlat` (pontos percentuais subtraídos direto).
+ * 0 se o alvo não for Nave ou não tiver Casco instalado.
+ */
+function shipArmorReductionAfterPenetration(targetActor, sourceActor) {
+  if (targetActor?.type !== "starship") return 0;
+  let armor = targetActor.system.armorReductionPercent ?? 0;
+  if (sourceActor?.type === "starship") {
+    const pen = sourceActor.system.combatBonuses;
+    armor /= pen?.weaponPenetrationMultiplier || 1;
+    armor -= (pen?.weaponPenetrationFlat ?? 0) / 100;
+  }
+  return Math.clamp(armor, 0, 1);
+}
+
+/**
  * Aplica Defesa Mágica + Resistência (Geral/Elemental) sobre um dano bruto já rolado, pra um
  * alvo específico. Compartilhado entre o caminho de alvo único, o de Emissão (área) e os ticks
  * periódicos (Veneno) — o roll/tick em si acontece uma vez só, mas cada alvo aplica sua própria
  * redução em cima do mesmo total. `mech` é `skill.system`, o snapshot de uma Sub-Skill, ou (pro
  * caso de tick) um objeto sintético `{ damageElements }` — mesmo formato de campos
  * (isMagicDamage/damageElements) nos três casos.
- * @param {{skipMagicDefense?: boolean}} [options] - `skipMagicDefense: true` pula o passo de
- *   Defesa Mágica mesmo com `mech.isMagicDamage` true — usado pelos ticks periódicos, onde
- *   Veneno Mágico ignora Defesa Mágica de propósito (só Resistência reduz), diferente do dano
- *   "normal" de uma Skill.
+ * @param {{skipMagicDefense?: boolean, sourceActor?: Actor}} [options] - `skipMagicDefense: true`
+ *   pula o passo de Defesa Mágica mesmo com `mech.isMagicDamage` true — usado pelos ticks
+ *   periódicos, onde Veneno Mágico ignora Defesa Mágica de propósito (só Resistência reduz),
+ *   diferente do dano "normal" de uma Skill. `sourceActor`: quem atacou — só usado pra ler a
+ *   Penetração de arma quando o alvo é uma Nave (Resistência de Casco, ver
+ *   `shipArmorReductionAfterPenetration`); Personagem/Criatura não usa isso.
  */
 function applyDamageReductions(rawTotal, mech, targetActor, options = {}) {
   let remaining = rawTotal;
   const appliedReductions = [];
+
+  if (targetActor?.type === "starship") {
+    const armorReduction = shipArmorReductionAfterPenetration(targetActor, options.sourceActor);
+    if (armorReduction > 0) {
+      remaining *= 1 - armorReduction;
+      appliedReductions.push(`Casco ${Math.round(armorReduction * 100)}%`);
+    }
+    return { finalDamage: Math.max(0, Math.floor(remaining)), appliedReductions };
+  }
 
   if (mech.isMagicDamage && targetActor && !options.skipMagicDefense) {
     const reduction = magicDefenseReduction(targetActor);
@@ -289,10 +360,12 @@ async function rollSkillDamage(actor, mech, label, targetActor = null) {
   const roll = new Roll(formula);
   await roll.evaluate();
 
+  const boostedTotal = applyShipWeaponBonus(roll.total, actor);
   let flavor = damageFlavorPrefix(mech, label);
-  const { finalDamage, appliedReductions } = applyDamageReductions(roll.total, mech, targetActor);
+  const { finalDamage, appliedReductions } = applyDamageReductions(boostedTotal, mech, targetActor, { sourceActor: actor });
+  if (boostedTotal !== roll.total) flavor += ` — bônus de arma (${roll.total} → ${Math.floor(boostedTotal)})`;
   if (appliedReductions.length) {
-    flavor += ` — reduzido por ${appliedReductions.join(", ")} (${roll.total} → ${finalDamage})`;
+    flavor += ` — reduzido por ${appliedReductions.join(", ")} (${Math.floor(boostedTotal)} → ${finalDamage})`;
   }
 
   await roll.toMessage({
@@ -325,9 +398,10 @@ async function rollSkillDamageArea(actor, mech, label, targetActors) {
   const roll = new Roll(formula);
   await roll.evaluate();
 
+  const boostedTotal = applyShipWeaponBonus(roll.total, actor);
   const title = `${damageFlavorPrefix(mech, label)} (Emissão)`;
   const rows = targetActors.map(targetActor => {
-    const { finalDamage, appliedReductions } = applyDamageReductions(roll.total, mech, targetActor);
+    const { finalDamage, appliedReductions } = applyDamageReductions(boostedTotal, mech, targetActor, { sourceActor: actor });
     const reductionText = appliedReductions.length ? ` <span class="hint-inline">(${appliedReductions.join(", ")})</span>` : "";
     return `<li><strong>${targetActor.name}</strong>: ${finalDamage}${reductionText}</li>`;
   });
@@ -336,7 +410,7 @@ async function rollSkillDamageArea(actor, mech, label, targetActors) {
     speaker: ChatMessage.getSpeaker({ actor }),
     rolls: [roll],
     flavor: title,
-    content: `<p>${title} — rolagem bruta: <strong>${roll.total}</strong></p><ul>${rows.join("")}</ul>`
+    content: `<p>${title} — rolagem bruta: <strong>${roll.total}</strong>${boostedTotal !== roll.total ? ` (bônus de arma: ${Math.floor(boostedTotal)})` : ""}</p><ul>${rows.join("")}</ul>`
   });
 
   return { roll };
@@ -431,8 +505,9 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor, subSki
       continue;
     }
 
-    const path = EFFECT_TARGET_PATHS[entry.target];
+    const path = resolveEffectTargetPath(entry);
     if (!path) continue;
+    const isMultiplier = entry.modifierType === "multiplier" && Boolean(SHIP_TARGET_PATHS[entry.target]);
 
     const periodic = isPeriodicEntry(entry);
     const tiedToActive = Boolean(mech.hasUpkeep);
@@ -514,7 +589,15 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor, subSki
         origin: originSkill.uuid,
         statuses: entry.conditionId ? [entry.conditionId] : [],
         duration: !tiedToActive && entry.durationRounds > 0 ? { rounds: entry.durationRounds } : {},
-        changes: [{ key: path, mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: String(entry.amount) }],
+        changes: [
+          {
+            key: path,
+            mode: isMultiplier ? CONST.ACTIVE_EFFECT_MODES.MULTIPLY : CONST.ACTIVE_EFFECT_MODES.ADD,
+            // MULTIPLY multiplica o valor ATUAL do campo — `amount` é percentual (20 = +20%),
+            // por isso vira fator 1.20, não 20 cru (que zeraria o campo, cuja base é 1).
+            value: String(isMultiplier ? 1 + entry.amount / 100 : entry.amount)
+          }
+        ],
         flags: {
           [SYSTEM_ID]: {
             skillEffect: true,
@@ -528,8 +611,8 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor, subSki
     ]);
     summary.push(
       tiedToActive
-        ? `${targetLabel} ${sign}${entry.amount} (até desativar)`
-        : `${targetLabel} ${sign}${entry.amount}${entry.durationRounds > 0 ? ` (${entry.durationRounds} rounds)` : ""}`
+        ? `${targetLabel} ${isMultiplier ? `×${(1 + entry.amount / 100).toFixed(2)}` : `${sign}${entry.amount}`} (até desativar)`
+        : `${targetLabel} ${isMultiplier ? `×${(1 + entry.amount / 100).toFixed(2)}` : `${sign}${entry.amount}`}${entry.durationRounds > 0 ? ` (${entry.durationRounds} rounds)` : ""}`
     );
   }
 
@@ -654,7 +737,7 @@ export async function tickActorUpkeepSkills(actor) {
 
   const results = [];
   for (const source of sources) {
-    const currentEnergy = actor.system.attributes.energy.value ?? 0;
+    const currentEnergy = currentEnergyValue(actor);
     if (currentEnergy <= 0) {
       await source.skill.update({ [activeStatePath(source.subSkillIndex)]: false });
       await removeUpkeepLinkedEffects(source.skill, source.subSkillIndex);
@@ -663,7 +746,7 @@ export async function tickActorUpkeepSkills(actor) {
     }
 
     const drain = Math.min(source.upkeepCost, currentEnergy);
-    await actor.update({ "system.attributes.energy.value": currentEnergy - drain });
+    await actor.update({ [energyValuePath(actor)]: currentEnergy - drain });
 
     const insufficient = drain < source.upkeepCost;
     if (insufficient) {

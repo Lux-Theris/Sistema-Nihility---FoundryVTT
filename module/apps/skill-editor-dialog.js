@@ -25,7 +25,11 @@ function buildEffectRowHtml(entry) {
   const tickUnitOptions = MEU_SISTEMA.PERIODIC_TICK_UNITS.map(
     u => `<option value="${u}" ${u === entry.tickUnit ? "selected" : ""}>${MEU_SISTEMA.PERIODIC_TICK_UNIT_LABELS[u]}</option>`
   ).join("");
+  const modifierTypeOptions = MEU_SISTEMA.EFFECT_MODIFIER_TYPES.map(
+    m => `<option value="${m}" ${m === (entry.modifierType || "flat") ? "selected" : ""}>${MEU_SISTEMA.EFFECT_MODIFIER_TYPE_LABELS[m]}</option>`
+  ).join("");
   const periodicVisible = targetAcceptsPeriodic(entry.target);
+  const modifierTypeVisible = MEU_SISTEMA.SHIP_EFFECT_TARGETS.includes(entry.target);
   const entryElements = Array.isArray(entry.damageElements) ? entry.damageElements : [];
   const elementChipsHtml = getActiveDamageElements()
     .map(
@@ -50,6 +54,7 @@ function buildEffectRowHtml(entry) {
         <input type="checkbox" class="se-effect-periodic" ${entry.periodic ? "checked" : ""}/> Periódico
       </label>
       <select class="se-effect-tick-unit" style="display:${periodicVisible && entry.periodic ? "inline-block" : "none"};">${tickUnitOptions}</select>
+      <select class="se-effect-modifier-type" style="display:${modifierTypeVisible ? "inline-block" : "none"};" title="Fixo soma direto no resultado; Multiplicador lê Quantidade como percentual (20 = ×1.20)">${modifierTypeOptions}</select>
     </div>
     <div class="effect-row-periodic-extra" style="display:${periodicVisible && entry.periodic ? "flex" : "none"};">
       <span class="hint-inline" style="display:inline;">Elemento(s) do tick de dano (ignorado se o tick for cura):</span>
@@ -399,7 +404,7 @@ function setupSkillEditorInteractivity(root, data) {
     });
   });
 
-  function addEffectRow(entry = { target: MEU_SISTEMA.EFFECT_TARGETS[0], amount: 1, durationRounds: 1, conditionId: "", periodic: false, tickUnit: "combatRound", damageElements: [] }) {
+  function addEffectRow(entry = { target: MEU_SISTEMA.EFFECT_TARGETS[0], amount: 1, modifierType: "flat", durationRounds: 1, conditionId: "", periodic: false, tickUnit: "combatRound", damageElements: [] }) {
     const li = document.createElement("li");
     li.className = "effect-row";
     li.innerHTML = buildEffectRowHtml(entry);
@@ -415,6 +420,7 @@ function setupSkillEditorInteractivity(root, data) {
     const periodicCheckbox = li.querySelector(".se-effect-periodic");
     const tickUnitSelect = li.querySelector(".se-effect-tick-unit");
     const periodicExtra = li.querySelector(".effect-row-periodic-extra");
+    const modifierTypeSelect = li.querySelector(".se-effect-modifier-type");
 
     function applyPeriodicVisibility() {
       const accepts = targetAcceptsPeriodic(targetSelect.value);
@@ -424,7 +430,15 @@ function setupSkillEditorInteractivity(root, data) {
       tickUnitSelect.style.display = periodicOn ? "inline-block" : "none";
       periodicExtra.style.display = periodicOn ? "flex" : "none";
     }
+    // Fixo/Multiplicador só existe pros alvos "de Nave" (Dano/Penetração de Arma) — some sozinho
+    // (volta pro padrão "flat") pra qualquer outro alvo, mesmo padrão de applyPeriodicVisibility.
+    function applyModifierTypeVisibility() {
+      const isShipTarget = MEU_SISTEMA.SHIP_EFFECT_TARGETS.includes(targetSelect.value);
+      modifierTypeSelect.style.display = isShipTarget ? "inline-block" : "none";
+      if (!isShipTarget) modifierTypeSelect.value = "flat";
+    }
     targetSelect.addEventListener("change", applyPeriodicVisibility);
+    targetSelect.addEventListener("change", applyModifierTypeVisibility);
     periodicCheckbox.addEventListener("change", applyPeriodicVisibility);
 
     li.querySelectorAll(".se-effect-element").forEach(cb => {
@@ -479,6 +493,7 @@ function readSkillEditorForm(root, lockTier) {
         ? Array.from(root.querySelectorAll(".se-effect-list .effect-row")).map(row => ({
             target: row.querySelector(".se-effect-target").value,
             amount: Number(row.querySelector(".se-effect-amount").value) || 0,
+            modifierType: row.querySelector(".se-effect-modifier-type").value,
             durationRounds: Number(row.querySelector(".se-effect-duration").value) || 0,
             conditionId: row.querySelector(".se-effect-condition").value || "",
             periodic: row.querySelector(".se-effect-periodic").checked,

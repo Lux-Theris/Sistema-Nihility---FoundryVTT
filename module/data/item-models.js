@@ -102,6 +102,17 @@ function effectEntrySchema() {
   return new fields.SchemaField({
     target: new fields.StringField({ required: true, choices: MEU_SISTEMA.EFFECT_TARGETS }),
     amount: new fields.NumberField({ required: true, integer: true, initial: 1 }),
+    /**
+     * Só relevante pros EFFECT_TARGETS "de Nave" (MEU_SISTEMA.SHIP_EFFECT_TARGETS): "flat" soma
+     * `amount` direto no resultado (ADD); "multiplier" multiplica (MULTIPLY) — `amount` nesse
+     * caso é lido como percentual (ex: 20 = ×1.20), ver `applyEffectsToActor` em skill-effects.js.
+     */
+    modifierType: new fields.StringField({
+      required: false,
+      initial: "flat",
+      blank: true,
+      choices: MEU_SISTEMA.EFFECT_MODIFIER_TYPES
+    }),
     durationRounds: new fields.NumberField({ required: true, integer: true, initial: 1, min: 0 }),
     conditionId: new fields.StringField({ required: false, initial: "", blank: true }),
     periodic: new fields.BooleanField({ required: false, initial: false }),
@@ -368,7 +379,7 @@ export class StarshipModuleDataModel extends foundry.abstract.TypeDataModel {
       category: new fields.StringField({
         required: true,
         initial: "utility",
-        choices: ["weapon", "shield", "engine", "utility"]
+        choices: ["weapon", "shield", "engine", "utility", "armor"]
       }),
       description: new fields.HTMLField({ required: false, initial: "" }),
       powerConsumption: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
@@ -378,6 +389,14 @@ export class StarshipModuleDataModel extends foundry.abstract.TypeDataModel {
         choices: ["online", "offline", "damaged"]
       }),
       slot: new fields.StringField({ required: false, initial: "" }),
+
+      /**
+       * Só relevante pra category "armor" (Casco) — percentual fixo de redução de dano
+       * recebido pela Nave, igual Resistência a Dano de Título/Skill de Personagem, mas
+       * comprado/trocado como Módulo (mais fácil de reequipar num estaleiro do que
+       * "comprar" resistência via Skill). Slot único: ver StarshipDataModel.armorModuleId.
+       */
+      armorReduction: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0, max: 100 }),
 
       /** Habilidade opcional concedida à Nave enquanto o módulo estiver "online" (ver grantedSkillSchema). */
       grantsSkill: grantedSkillSchema()

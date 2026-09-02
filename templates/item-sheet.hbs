@@ -220,10 +220,16 @@
           <option value="shield" {{#if (eq system.category "shield")}}selected{{/if}}>Escudo</option>
           <option value="engine" {{#if (eq system.category "engine")}}selected{{/if}}>Motor</option>
           <option value="utility" {{#if (eq system.category "utility")}}selected{{/if}}>Utilidade</option>
+          <option value="armor" {{#if (eq system.category "armor")}}selected{{/if}}>Casco (Armadura)</option>
         </select>
       </label>
       <label>Consumo de Energia <input type="number" name="system.powerConsumption" value="{{system.powerConsumption}}"/></label>
       <label>Slot <input type="text" name="system.slot" value="{{system.slot}}"/></label>
+      {{#if (eq system.category "armor")}}
+      <label>Redução de Dano (%) <span class="hint-inline" style="display:inline;">(reduz esse percentual de todo dano recebido pela Nave enquanto instalado no slot de Casco)</span>
+        <input type="number" name="system.armorReduction" value="{{system.armorReduction}}" min="0" max="100"/>
+      </label>
+      {{/if}}
 
       <h3>Habilidade Concedida <span class="hint-inline">(à Nave, enquanto o módulo estiver "online")</span></h3>
       <label>Nome <input type="text" name="system.grantsSkill.name" value="{{system.grantsSkill.name}}"/></label>

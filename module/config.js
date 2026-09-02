@@ -157,7 +157,20 @@ export const MEU_SISTEMA = {
    * também via Active Effect temporário) e "shield" (Escudo — tratado à parte,
    * é somado direto e gasto na mão, sem Active Effect/duração).
    */
-  EFFECT_TARGETS: ["strength", "defense", "magic", "magicalDefense", "dexterity", "stealth", "precision", "hp", "energy", "shield"],
+  EFFECT_TARGETS: [
+    "strength",
+    "defense",
+    "magic",
+    "magicalDefense",
+    "dexterity",
+    "stealth",
+    "precision",
+    "hp",
+    "energy",
+    "shield",
+    "shipWeaponDamage",
+    "shipWeaponPenetration"
+  ],
 
   EFFECT_TARGET_LABELS: {
     strength: "Força",
@@ -169,7 +182,25 @@ export const MEU_SISTEMA = {
     precision: "Precisão",
     hp: "HP",
     energy: "Mana/Energia",
-    shield: "Escudo"
+    shield: "Escudo",
+    shipWeaponDamage: "Dano de Arma (Nave)",
+    shipWeaponPenetration: "Penetração de Arma (Nave)"
+  },
+
+  /** Alvos "de Nave" de EFFECT_TARGETS — só fazem sentido numa Skill usada por uma Nave. */
+  SHIP_EFFECT_TARGETS: ["shipWeaponDamage", "shipWeaponPenetration"],
+
+  /**
+   * Só relevante pros dois EFFECT_TARGETS "de Nave" acima: uma Skill de aprimoramento de arma
+   * pode dar um bônus FIXO (soma direto no resultado, `CONST.ACTIVE_EFFECT_MODES.ADD`) ou
+   * MULTIPLICATIVO (multiplica o resultado, `CONST.ACTIVE_EFFECT_MODES.MULTIPLY`) — cada Skill
+   * escolhe o que faz mais sentido pra ela, não é um comportamento fixo do alvo.
+   */
+  EFFECT_MODIFIER_TYPES: ["flat", "multiplier"],
+
+  EFFECT_MODIFIER_TYPE_LABELS: {
+    flat: "Fixo (soma)",
+    multiplier: "Multiplicador"
   },
 
   /**

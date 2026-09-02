@@ -16,6 +16,13 @@ function baseActorSchema() {
   for (const key of MEU_SISTEMA.COMBAT_ATTRIBUTES) {
     combatAttributeFields[key] = new fields.SchemaField({
       points: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
+      /**
+       * Pontos alocados nesta sessão de edição mas ainda NÃO confirmados — mostrados como
+       * prévia (ficha) mas NUNCA somados em `total`/`bonus`/HP/Mana até "Confirmar" mover isso
+       * pra `points` de verdade (ver actor-sheet.js: incrementAttributePoint/confirmAttributePoints).
+       * "Resetar" só zera isso — nunca mexe em `points` já confirmado.
+       */
+      pendingPoints: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
       /** Alvo de Active Effects de Skills "temporary" (buff/debuff). NUNCA conta pra HP/Mana. */
       buffDelta: new fields.NumberField({ required: true, integer: true, initial: 0 })
     });
@@ -168,11 +175,17 @@ function deriveCombatAttributes(dataModel) {
     attr.itemBonus = sumItemAttributeBonus(dataModel.parent, key);
     attr.effectiveTotal = attr.total + (attr.buffDelta || 0);
     attr.bonus = Math.floor(attr.effectiveTotal / 3);
-    spent += attr.points;
+    // Prévia de "e se eu confirmar os pontos pendentes agora": NUNCA usada em HP/Mana/rolagem
+    // de verdade (só ilustrativo na ficha) — `pendingPoints` só vira `bonus` de verdade quando
+    // "Confirmar" move ele pra `points` (ver actor-sheet.js).
+    attr.previewBonus = Math.floor((attr.effectiveTotal + (attr.pendingPoints || 0)) / 3);
+    spent += attr.points + attr.pendingPoints;
   }
 
-  // Pool informativo (não bloqueia edição): quanto o Mestre concede vs. quanto já foi
-  // investido nos 7 atributos. Título não conta como "gasto" (é bônus, não escolha do jogador).
+  // Quanto o Mestre concede vs. quanto já foi investido (confirmado + pendente) nos 7
+  // atributos — os botões +/- da ficha usam `remaining` pra travar a alocação (ver
+  // incrementAttributePoint em actor-sheet.js). Título não conta como "gasto" (é bônus,
+  // não escolha do jogador).
   const level = dataModel.attributes.level;
   const total = getAttributePointsStarting() + Math.max(0, level - 1) * getAttributePointsPerLevel();
   dataModel.attributePointsPool = { total, spent, remaining: total - spent };

@@ -74,7 +74,7 @@
           <img src="{{c.img}}" width="18" height="18"/>
           <span class="condition-chip-name">{{c.name}}</span>
           {{#if c.periodic}}
-            <span class="condition-chip-remaining">{{c.ticksRemaining}} tick(s)</span>
+            <span class="condition-chip-remaining">{{#if c.tiedToActive}}até desativar{{else}}{{c.ticksRemaining}} tick(s){{/if}}</span>
             {{#if c.manual}}
             <a class="condition-chip-tick" data-action="applyManualTick" title="Aplicar Tick"><i class="fas fa-hourglass-half"></i></a>
             {{/if}}
@@ -108,21 +108,45 @@
               A cada +10 de Bônus a rolagem ganha +1d20 (todos somados). Arma/equipamento nunca
               entram nessa conta — somam por fora, na hora da rolagem.
             </p>
-            <p class="chip-inline">{{system.attributePointsPool.spent}} / {{system.attributePointsPool.total}} investidos ({{system.attributePointsPool.remaining}} livres)</p>
-            <table class="attr-table">
-              <tr><th>Atributo</th><th>Pontos</th><th>Bônus</th><th></th></tr>
-              {{#each attributeLabels as |attr|}}
-              <tr data-attribute="{{attr.key}}">
-                <td>{{attr.label}}</td>
-                <td><input type="number" name="system.attributes.combat.{{attr.key}}.points" value="{{attr.data.points}}"/></td>
-                <td class="attr-bonus">
-                  +{{attr.data.bonus}}
-                  {{#if attr.data.itemBonus}}<span class="attr-item-bonus" title="Bônus de Item/Modificação — soma por fora na rolagem, não entra no Pool de d20">+{{attr.data.itemBonus}} item</span>{{/if}}
-                </td>
-                <td><button type="button" class="attribute-roll" data-action="rollAttribute" title="Rolar (Bônus de Item incluso como número fixo)">🎲</button></td>
-              </tr>
-              {{/each}}
-            </table>
+            <div class="attr-pool-banner">
+              <span class="attr-pool-readout">{{system.attributePointsPool.remaining}}<span class="of"> / {{system.attributePointsPool.total}} livres</span></span>
+              <span class="attr-pool-track"><span class="attr-pool-fill" style="width:{{attributePoolPercent}}%"></span></span>
+            </div>
+
+            {{#each attributeLabels as |attr|}}
+            <div class="attr-row-v2 {{#if attr.data.pendingPoints}}is-pending{{/if}}" data-attribute="{{attr.key}}">
+              <div class="attr-row-top">
+                <div class="attr-name">
+                  <span class="label">{{attr.label}}</span>
+                  <span class="pts">{{attr.data.points}} pts{{#if attr.data.pendingPoints}}<span class="pending-add"> +{{attr.data.pendingPoints}}</span>{{/if}}</span>
+                </div>
+                <div class="stepper">
+                  <button type="button" class="step-btn minus" data-action="decrementAttributePoint" title="Desfazer 1 ponto pendente" {{#unless attr.data.pendingPoints}}disabled{{/unless}}>&minus;</button>
+                  <span class="step-readout {{#if attr.data.pendingPoints}}has-pending{{/if}}">{{#if attr.data.pendingPoints}}+{{attr.data.pendingPoints}}{{else}}0{{/if}}</span>
+                  <button type="button" class="step-btn plus" data-action="incrementAttributePoint" title="Alocar 1 ponto livre" {{#unless system.attributePointsPool.remaining}}disabled{{/unless}}>+</button>
+                </div>
+              </div>
+              <div class="attr-formula">
+                <span class="dice-pill current {{#if attr.data.pendingPoints}}will-change{{/if}}">{{attr.formula}}</span>
+                {{#if attr.previewFormula}}
+                <span class="formula-arrow">&rarr;</span>
+                <span class="dice-pill preview">{{attr.previewFormula}}</span>
+                {{/if}}
+                {{#if attr.data.itemBonus}}<span class="attr-item-bonus" title="Bônus de Item/Modificação — soma por fora na rolagem, não entra no Pool de d20">+{{attr.data.itemBonus}} item</span>{{/if}}
+                <button type="button" class="attribute-roll" data-action="rollAttribute" title="Rolar (Bônus de Item incluso como número fixo)">🎲</button>
+              </div>
+            </div>
+            {{/each}}
+
+            {{#if attributePointsPending}}
+            <div class="attr-action-bar visible">
+              <span class="summary"><strong>{{attributePointsPending}}</strong> pts pendentes</span>
+              <span class="buttons">
+                <button type="button" class="btn-mini reset" data-action="resetAttributePoints">Resetar</button>
+                <button type="button" class="btn-mini confirm" data-action="confirmAttributePoints">Confirmar</button>
+              </span>
+            </div>
+            {{/if}}
           </div>
 
           {{#if titlesEnabled}}

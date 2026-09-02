@@ -12,7 +12,7 @@ import {
 import { fuseSkills, evolveSkill, breakSkillPoints, mergeSkillPoints, requestSkillCreation } from "../skill-economy.js";
 import { registerItemInCompendium } from "../compendium.js";
 import { convertActorCurrency, transferCurrency } from "../currency.js";
-import { rollAttribute } from "../dice.js";
+import { rollAttribute, buildAttributeRollFormula } from "../dice.js";
 import { useSkillEffect, tickPeriodicEffect } from "../skill-effects.js";
 import { areaEffectsSupported, pickAreaTargets } from "../area-effects.js";
 import { openSkillEditorDialog } from "../apps/skill-editor-dialog.js";
@@ -81,6 +81,10 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       evolveSkill: NihilityActorSheet.#onEvolveSkill,
       requestSkillCreation: NihilityActorSheet.#onRequestSkillCreation,
       rollAttribute: NihilityActorSheet.#onRollAttribute,
+      incrementAttributePoint: NihilityActorSheet.#onIncrementAttributePoint,
+      decrementAttributePoint: NihilityActorSheet.#onDecrementAttributePoint,
+      confirmAttributePoints: NihilityActorSheet.#onConfirmAttributePoints,
+      resetAttributePoints: NihilityActorSheet.#onResetAttributePoints,
       breakSkillPoints: NihilityActorSheet.#onBreakSkillPoints,
       mergeSkillPoints: NihilityActorSheet.#onMergeSkillPoints,
       convertCurrency: NihilityActorSheet.#onConvertCurrency,
@@ -148,11 +152,25 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.isGM = game.user.isGM;
     context.currencies = getActiveCurrencies();
     context.speciesPresets = getActiveSpeciesPresets();
-    context.attributeLabels = MEU_SISTEMA.COMBAT_ATTRIBUTES.map(key => ({
-      key,
-      label: MEU_SISTEMA.COMBAT_ATTRIBUTE_LABELS[key],
-      data: actor.system.attributes.combat[key]
-    }));
+    context.attributeLabels = MEU_SISTEMA.COMBAT_ATTRIBUTES.map(key => {
+      const data = actor.system.attributes.combat[key];
+      const hasPending = (data.pendingPoints ?? 0) > 0;
+      return {
+        key,
+        label: MEU_SISTEMA.COMBAT_ATTRIBUTE_LABELS[key],
+        data,
+        formula: buildAttributeRollFormula(data.bonus),
+        previewFormula: hasPending ? buildAttributeRollFormula(data.previewBonus) : null
+      };
+    });
+    context.attributePointsPending = MEU_SISTEMA.COMBAT_ATTRIBUTES.reduce(
+      (sum, key) => sum + (actor.system.attributes.combat[key].pendingPoints ?? 0),
+      0
+    );
+    context.attributePoolPercent = percentOf(
+      actor.system.attributePointsPool.spent,
+      actor.system.attributePointsPool.total
+    );
     context.hpPercent = percentOf(actor.system.attributes.hp.value, actor.system.attributes.hp.max);
     context.energyPercent = percentOf(actor.system.attributes.energy.value, actor.system.attributes.energy.max);
     context.shieldValue = actor.system.attributes.shield.value;
@@ -165,12 +183,18 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       .filter(e => e.flags?.[SYSTEM_ID]?.skillEffect)
       .map(e => {
         const flags = e.flags[SYSTEM_ID];
+        // Periódico: "até desativar" só depois que os ticks de fontes finitas já zeraram e
+        // ainda sobra alguma âncora Ativa segurando o efeito (ver tickPeriodicEffect). Buff/
+        // debuff comum: `tiedToActive` já é a flag direta (sem contagem pra zerar antes).
+        const anchored = flags.periodic ? (flags.activeAnchors ?? []).length > 0 : Boolean(flags.tiedToActive);
+        const ticksExhausted = flags.periodic && (flags.ticksRemaining ?? 0) <= 0;
         return {
           id: e.id,
           name: e.name,
           img: e.img,
           periodic: Boolean(flags.periodic),
           manual: flags.tickUnit === "manual",
+          tiedToActive: flags.periodic ? anchored && ticksExhausted : anchored,
           ticksRemaining: flags.ticksRemaining,
           roundsRemaining: e.duration?.rounds ?? null
         };
@@ -372,10 +396,12 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
     const attrLabel = result.attrKey === "hp" ? "HP" : getCharacterEnergyLabel();
     const reductionText = result.appliedReductions?.length ? ` — reduzido por ${result.appliedReductions.join(", ")}` : "";
-    ui.notifications.info(
-      `${effect.name}: ${result.delta >= 0 ? "+" : ""}${result.delta} ${attrLabel}${reductionText}` +
-        (result.expired ? " (encerrou)." : ` (${result.ticksRemaining} tick(s) restante(s)).`)
-    );
+    const statusText = result.expired
+      ? " (encerrou)."
+      : result.ticksRemaining === null
+        ? " (até desativar)."
+        : ` (${result.ticksRemaining} tick(s) restante(s)).`;
+    ui.notifications.info(`${effect.name}: ${result.delta >= 0 ? "+" : ""}${result.delta} ${attrLabel}${reductionText}${statusText}`);
   }
 
   /** Remove uma Condição Ativa antes do prazo (ex: curada por outra Skill/poção). */
@@ -395,6 +421,53 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     const attr = this.actor.system.attributes.combat[key];
     // Bônus de Item/Modificação nunca entra no Pool de d20 — soma por fora, como número fixo.
     await rollAttribute(this.actor, key, { extraFlat: attr?.itemBonus ?? 0 });
+  }
+
+  /* -------------------------------------------- */
+  /*  Alocação de Pontos de Atributo (pendente → Confirmar/Resetar)  */
+  /* -------------------------------------------- */
+
+  /** +1 pendente no atributo — só se sobrar Pool livre (confirmado + pendente de TODOS os atributos). */
+  static async #onIncrementAttributePoint(event, target) {
+    event.preventDefault();
+    const key = target.closest("[data-attribute]").dataset.attribute;
+    if (this.actor.system.attributePointsPool.remaining <= 0) return;
+    const current = this.actor.system.attributes.combat[key].pendingPoints ?? 0;
+    await this.actor.update({ [`system.attributes.combat.${key}.pendingPoints`]: current + 1 });
+  }
+
+  /** -1 pendente no atributo — nunca mexe em `points` já confirmado, só no que ainda não foi salvo. */
+  static async #onDecrementAttributePoint(event, target) {
+    event.preventDefault();
+    const key = target.closest("[data-attribute]").dataset.attribute;
+    const current = this.actor.system.attributes.combat[key].pendingPoints ?? 0;
+    if (current <= 0) return;
+    await this.actor.update({ [`system.attributes.combat.${key}.pendingPoints`]: current - 1 });
+  }
+
+  /** Move todo `pendingPoints` pendente pra `points` de verdade (num update só) e zera o pendente. */
+  static async #onConfirmAttributePoints(event, target) {
+    event.preventDefault();
+    const combat = this.actor.system.attributes.combat;
+    const updates = {};
+    for (const key of MEU_SISTEMA.COMBAT_ATTRIBUTES) {
+      const pending = combat[key].pendingPoints ?? 0;
+      if (!pending) continue;
+      updates[`system.attributes.combat.${key}.points`] = combat[key].points + pending;
+      updates[`system.attributes.combat.${key}.pendingPoints`] = 0;
+    }
+    if (Object.keys(updates).length) await this.actor.update(updates);
+  }
+
+  /** Descarta todo `pendingPoints` (volta pro último estado confirmado) — nunca toca em `points`. */
+  static async #onResetAttributePoints(event, target) {
+    event.preventDefault();
+    const combat = this.actor.system.attributes.combat;
+    const updates = {};
+    for (const key of MEU_SISTEMA.COMBAT_ATTRIBUTES) {
+      if (combat[key].pendingPoints) updates[`system.attributes.combat.${key}.pendingPoints`] = 0;
+    }
+    if (Object.keys(updates).length) await this.actor.update(updates);
   }
 
   /* -------------------------------------------- */

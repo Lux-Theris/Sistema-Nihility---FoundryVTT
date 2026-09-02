@@ -842,34 +842,164 @@ form.nihility-config-app {
   font-style: italic;
 }
 
-.nihility-sheet .attr-table {
-  width: 100%;
-  border-collapse: collapse;
+/* Alocação de Pontos de Atributo: banner de Pool + linhas travadas (confirmado) com
+   alocação pendente (stepper +/-) e prévia da fórmula de dado — ver actor-sheet.js
+   (incrementAttributePoint/decrementAttributePoint/confirmAttributePoints/resetAttributePoints). */
+.nihility-sheet .attr-pool-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
 }
-.nihility-sheet .attr-table th {
-  text-align: left;
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  color: var(--nihility-text-dim);
-  padding: 0 4px 6px;
-}
-.nihility-sheet .attr-table td {
-  padding: 4px;
-  border-top: 1px solid rgba(58, 65, 102, 0.4);
-}
-.nihility-sheet .attr-table input[type="number"] {
-  width: 70px;
-}
-.nihility-sheet .attr-table .attr-bonus {
-  color: var(--nihility-accent);
+.nihility-sheet .attr-pool-readout {
+  font-family: var(--nihility-font-data);
+  font-size: 1rem;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
+.nihility-sheet .attr-pool-readout .of {
+  color: var(--nihility-text-faint);
+  font-size: 0.78rem;
+  font-weight: 400;
+}
+.nihility-sheet .attr-pool-track {
+  flex: 1;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--nihility-bg-dark);
+  border: 1px solid var(--nihility-border-soft);
+  overflow: hidden;
+}
+.nihility-sheet .attr-pool-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--nihility-accent-2), var(--nihility-accent));
+  border-radius: 3px;
+}
+
+.nihility-sheet .attr-row-v2 {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--nihility-border);
+  border-radius: 7px;
+  background: var(--nihility-bg-panel);
+  margin-bottom: 6px;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.nihility-sheet .attr-row-v2.is-pending {
+  border-color: rgba(232, 193, 112, 0.55);
+  background: linear-gradient(180deg, rgba(232, 193, 112, 0.06), var(--nihility-bg-panel) 60%);
+}
+.nihility-sheet .attr-row-v2 .attr-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.nihility-sheet .attr-row-v2 .attr-name { min-width: 0; }
+.nihility-sheet .attr-row-v2 .attr-name .label { display: block; font-size: 0.82rem; font-weight: 600; }
+.nihility-sheet .attr-row-v2 .attr-name .pts {
+  font-family: var(--nihility-font-data);
+  font-size: 0.66rem;
+  color: var(--nihility-text-faint);
+}
+.nihility-sheet .attr-row-v2 .attr-name .pts .pending-add { color: var(--nihility-gold); font-weight: 600; }
+
+.nihility-sheet .attr-row-v2 .attr-formula {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.nihility-sheet .attr-row-v2 .dice-pill {
+  font-family: var(--nihility-font-data);
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border-soft);
+  border-radius: 999px;
+  padding: 3px 10px;
+  color: var(--nihility-accent);
+  white-space: nowrap;
+}
+.nihility-sheet .attr-row-v2 .dice-pill.will-change {
+  border-color: rgba(110, 231, 255, 0.55);
+  box-shadow: 0 0 0 1px rgba(110, 231, 255, 0.15);
+}
+.nihility-sheet .attr-row-v2 .dice-pill.preview {
+  color: var(--nihility-gold);
+  border-color: rgba(232, 193, 112, 0.5);
+  font-size: 0.76rem;
+}
+.nihility-sheet .attr-row-v2 .formula-arrow { color: var(--nihility-text-faint); font-size: 0.7rem; }
+
+.nihility-sheet .attr-row-v2 .stepper { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+.nihility-sheet .attr-row-v2 .step-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--nihility-border);
+  background: var(--nihility-bg-panel-alt);
+  color: var(--nihility-text);
+  font-family: var(--nihility-font-data);
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.nihility-sheet .attr-row-v2 .step-btn:hover:not(:disabled) { border-color: var(--nihility-accent); color: var(--nihility-accent); }
+.nihility-sheet .attr-row-v2 .step-btn.minus:hover:not(:disabled) { border-color: var(--nihility-danger); color: var(--nihility-danger); }
+.nihility-sheet .attr-row-v2 .step-btn:disabled { opacity: 0; pointer-events: none; }
+.nihility-sheet .attr-row-v2 .step-readout {
+  font-family: var(--nihility-font-data);
+  font-size: 0.72rem;
+  color: var(--nihility-text-faint);
+  width: 16px;
+  text-align: center;
+}
+.nihility-sheet .attr-row-v2 .step-readout.has-pending { color: var(--nihility-gold); font-weight: 600; }
+
+.nihility-sheet .attr-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid rgba(232, 193, 112, 0.4);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-top: 4px;
+}
+.nihility-sheet .attr-action-bar .summary { font-size: 0.76rem; color: var(--nihility-text-dim); }
+.nihility-sheet .attr-action-bar .summary strong { color: var(--nihility-gold); font-family: var(--nihility-font-data); }
+.nihility-sheet .attr-action-bar .buttons { display: flex; gap: 6px; }
+.nihility-sheet .btn-mini {
+  font-family: var(--nihility-font);
+  font-size: 0.76rem;
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.nihility-sheet .btn-mini.reset { background: transparent; border-color: var(--nihility-border); color: var(--nihility-text-dim); }
+.nihility-sheet .btn-mini.reset:hover { border-color: var(--nihility-danger); color: var(--nihility-danger); }
+.nihility-sheet .btn-mini.confirm { background: linear-gradient(120deg, var(--nihility-gold), #f0d48f); color: #201a0c; }
+.nihility-sheet .btn-mini.confirm:hover { filter: brightness(1.08); }
+
 .nihility-sheet .attribute-roll {
   background: transparent;
   border: 1px solid var(--nihility-accent-2);
   border-radius: 5px;
   cursor: pointer;
   padding: 2px 8px;
+  flex-shrink: 0;
 }
 .nihility-sheet .attribute-roll:hover {
   background: rgba(192, 132, 252, 0.15);

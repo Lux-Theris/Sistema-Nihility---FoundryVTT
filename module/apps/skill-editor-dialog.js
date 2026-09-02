@@ -211,7 +211,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
       </div>
       <label class="checkbox-line">
         <input type="checkbox" name="hasUpkeep" ${data.hasUpkeep ? "checked" : ""}/>
-        Habilidade Ativa <span class="hint-inline" style="display:inline;">("Usar" liga/desliga — drena Energia por rodada enquanto ligada, além do Custo de Energia acima)</span>
+        Habilidade Ativa <span class="hint-inline" style="display:inline;">("Usar" liga/desliga — drena Energia por rodada enquanto ligada, além do Custo de Energia acima. Se a Mecânica for Efeito Temporário, os buffs/debuffs duram até desativar em vez da Duração (rounds) de cada Efeito)</span>
       </label>
       <div class="form-group se-upkeep-field" style="display:${data.hasUpkeep ? "flex" : "none"};">
         <label>Custo de Energia por Rodada</label>
@@ -263,6 +263,11 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
 
       <div class="mechanic-panel se-temp-panel">
         <div class="field-hint-label">Efeitos <span class="hint-inline" style="display:inline;">(pode combinar quantos alvos quiser)</span></div>
+        <p class="hint-inline se-temp-upkeep-note" style="display:${data.hasUpkeep ? "block" : "none"};">
+          Habilidade Ativa marcada acima: todo Efeito abaixo (buff/debuff comum OU Periódico/
+          Veneno/cura) dura até desativar em vez da "Duração (rounds)" configurada — Periódico
+          continua tickando normalmente (por rodada ou manual), só não conta pra expirar sozinho.
+        </p>
         <div class="effect-list-header"><span>Alvo</span><span>Quantidade</span><span>Duração (rounds)</span><span></span></div>
         <ol class="sub-list effect-list se-effect-list"></ol>
         <a class="config-add-row se-add-effect">+ Efeito</a>
@@ -350,8 +355,10 @@ function setupSkillEditorInteractivity(root, data) {
 
   const upkeepEnable = root.querySelector('[name="hasUpkeep"]');
   const upkeepField = root.querySelector(".se-upkeep-field");
+  const tempUpkeepNote = root.querySelector(".se-temp-upkeep-note");
   function applyUpkeepEnable() {
     upkeepField.style.display = upkeepEnable.checked ? "flex" : "none";
+    tempUpkeepNote.style.display = upkeepEnable.checked ? "block" : "none";
   }
   upkeepEnable.addEventListener("change", applyUpkeepEnable);
   applyUpkeepEnable();

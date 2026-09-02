@@ -39,6 +39,46 @@ async function warnInsufficientEnergy(sourceActor, label, cost) {
 }
 
 /**
+ * Desliga a "âncora" desta Skill/Sub-Skill "Ativa" em TODOS os Atores do mundo — chamado ao
+ * desativar (clique manual ou falta de Energia, ver `useSkillEffect`/`tickActorUpkeepSkills`).
+ * Precisa varrer `game.actors` (não só quem usou a Skill) porque um Efeito de Emissão em área
+ * pode ter afetado vários Atores diferentes: a área só serviu pra ESCOLHER os alvos no momento
+ * de usar — o efeito em si vive em cada Ator atingido, não no espaço, então continua neles
+ * mesmo se saírem do lugar no canvas depois, até a Skill ser desativada aqui.
+ *
+ * Buff/debuff comum (`tiedToActive`): apaga o Active Effect direto — não tem ticks nem outras
+ * fontes pra segurar ele vivo. Periódico (Veneno/cura, `activeAnchors`): só REMOVE esta fonte da
+ * lista de âncoras — se ainda sobrar outra âncora (outra Skill Ativa também mantendo o mesmo
+ * Veneno+elemento), o efeito continua vivo; só apaga de fato quando não sobra nenhuma âncora E
+ * os ticks de fontes finitas já zeraram.
+ * @param {Item} skill
+ * @param {number|null} subSkillIndex
+ */
+async function removeUpkeepLinkedEffects(skill, subSkillIndex) {
+  const isThisSource = flags => flags.sourceSkillId === skill.id && (flags.sourceSubSkillIndex ?? null) === subSkillIndex;
+
+  for (const actor of game.actors) {
+    for (const effect of actor.effects) {
+      const flags = effect.flags?.[SYSTEM_ID];
+      if (!flags) continue;
+
+      if (flags.periodic) {
+        const anchors = flags.activeAnchors ?? [];
+        const remaining = anchors.filter(a => !(a.sourceSkillId === skill.id && (a.sourceSubSkillIndex ?? null) === subSkillIndex));
+        if (remaining.length === anchors.length) continue; // esta Skill não era âncora deste efeito
+        if (!remaining.length && (flags.ticksRemaining ?? 0) <= 0) {
+          await effect.delete();
+        } else {
+          await effect.update({ [`flags.${SYSTEM_ID}.activeAnchors`]: remaining });
+        }
+      } else if (flags.tiedToActive && isThisSource(flags)) {
+        await effect.delete();
+      }
+    }
+  }
+}
+
+/**
  * Ponto de entrada único de "Usar Habilidade".
  *  - `targetType: "targeted"` (padrão): usa `options.targetActor` (1 Ator, escolhido via
  *    dropdown em actor-sheet.js) — comportamento de sempre.
@@ -77,6 +117,7 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
 
   if (mech.hasUpkeep && mech.active) {
     await skill.update({ [activeStatePath(options.subSkillIndex)]: false });
+    await removeUpkeepLinkedEffects(skill, options.subSkillIndex ?? null);
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
       content: `<p><strong>${sourceActor.name}</strong> desativou <strong>${label}</strong>.</p>`
@@ -108,8 +149,8 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
   }
   if (mech.effectType === "temporary") {
     return isEmission
-      ? applySkillEffectsArea(sourceActor, skill, mech, label, options.targetActors ?? [])
-      : applySkillEffects(sourceActor, skill, mech, label, options.targetActor ?? sourceActor);
+      ? applySkillEffectsArea(sourceActor, skill, mech, label, options.targetActors ?? [], options.subSkillIndex ?? null)
+      : applySkillEffects(sourceActor, skill, mech, label, options.targetActor ?? sourceActor, options.subSkillIndex ?? null);
   }
 
   const upkeepNote = mech.hasUpkeep ? ` (ativada — drena ${mech.upkeepCost} de Energia por rodada)` : "";
@@ -310,6 +351,15 @@ function isPeriodicEntry(entry) {
   return Boolean(entry.periodic) && (entry.target === "hp" || entry.target === "energy");
 }
 
+/** Mesmo conjunto de elementos, independente da ordem — usado só pra separar stacks de Veneno por elemento. */
+function sameElementSet(a, b) {
+  const setA = new Set(a ?? []);
+  const setB = new Set(b ?? []);
+  if (setA.size !== setB.size) return false;
+  for (const el of setA) if (!setB.has(el)) return false;
+  return true;
+}
+
 /**
  * Efeito já ativo no alvo com a MESMA Condição nomeada (mesmo `conditionId`, não vazio, E
  * mesma natureza periódica/não-periódica) que este sistema criou — usado pra decidir "estender
@@ -318,10 +368,21 @@ function isPeriodicEntry(entry) {
  * duração/ticks, não duplica o efeito). Exige a mesma "natureza" pra nunca tentar somar
  * `ticksRemaining` num efeito que não tem motor de tick (ou vice-versa) — um GM que reusar o
  * mesmo id de Condição ora periódico ora não simplesmente ganha dois efeitos independentes.
+ *
+ * Pra Periódico (Veneno/cura), também exige o MESMO conjunto de `damageElements`: Veneno+Gelo e
+ * Veneno+Fogo são efeitos independentes que coexistem (cada elemento reduzido pela Resistência
+ * certa) — só duas aplicações com EXATAMENTE os mesmos elementos somam duração/ticks entre si.
  */
-function findStackableEffect(targetActor, conditionId, periodic) {
+function findStackableEffect(targetActor, conditionId, periodic, damageElements = []) {
   if (!conditionId) return null;
-  return targetActor.effects.find(e => e.flags?.[SYSTEM_ID]?.conditionId === conditionId && Boolean(e.flags[SYSTEM_ID].periodic) === periodic) ?? null;
+  return (
+    targetActor.effects.find(e => {
+      const flags = e.flags?.[SYSTEM_ID];
+      if (!flags || flags.conditionId !== conditionId || Boolean(flags.periodic) !== periodic) return false;
+      if (periodic && !sameElementSet(flags.tickDamageElements, damageElements)) return false;
+      return true;
+    }) ?? null
+  );
 }
 
 /**
@@ -329,8 +390,28 @@ function findStackableEffect(targetActor, conditionId, periodic) {
  * chat) — compartilhado entre alvo único e Emissão. `originSkill` só empresta `img`/`uuid` pro
  * Active Effect criado (mesmo quando `mech` é o snapshot de uma Sub-Skill). Reaplicar a mesma
  * Condição nomeada em quem já a tem estende a duração/ticks restantes em vez de duplicar.
+ *
+ * Qualquer entrada de `mech.effects` (buff/debuff comum OU Periódico/Veneno/cura) tem dois
+ * modos de duração, decididos pela Skill inteira via `mech.hasUpkeep` — nunca por
+ * `entry.durationRounds` quando esse for o caso:
+ *  - Sem Habilidade Ativa: dura `entry.durationRounds` rounds/ticks (buff sem duração vira pra
+ *    sempre, se 0), igual sempre foi — custo pago uma vez, sem acompanhamento nenhum depois.
+ *  - Com Habilidade Ativa: contribui SEMPRE 0 de duração (nunca infla `durationRounds`/ticks de
+ *    outra fonte) e vira uma "âncora" que segura o efeito vivo até a Skill ser desativada
+ *    (manual ou por falta de Energia, ver `removeUpkeepLinkedEffects`/`useSkillEffect`/
+ *    `tickActorUpkeepSkills`). Buff/debuff comum: nasce sem duração própria (`tiedToActive`).
+ *    Periódico (Veneno/cura): guarda a âncora em `activeAnchors` — os ticks de OUTRAS fontes
+ *    (finitas) continuam decaindo normalmente; quando chegam a 0, se ainda sobrar alguma âncora
+ *    o efeito continua tickando (só sustentado por ela) em vez de expirar. Isso evita que
+ *    reaplicar uma Skill Ativa em cima de um Veneno já ativo fique "estendendo" a duração pra
+ *    sempre — ela só marca presença, quem realmente decai são as fontes de duração fixa.
+ *    Duas aplicações de Veneno com elementos DIFERENTES (ex: Veneno+Gelo vs Veneno+Fogo) nunca
+ *    somam entre si — só contam como a mesma "pilha" quando os elementos são exatamente iguais
+ *    (ver `findStackableEffect`). Um alvo pego numa área de Emissão fica com o efeito mesmo
+ *    saindo do lugar no canvas depois — a área só serviu pra ESCOLHER quem foi afetado no
+ *    momento de usar, o efeito em si vive no Ator, não no espaço.
  */
-async function applyEffectsToActor(mech, label, originSkill, targetActor) {
+async function applyEffectsToActor(mech, label, originSkill, targetActor, subSkillIndex = null) {
   const entries = mech.effects ?? [];
   const summary = [];
 
@@ -353,14 +434,37 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor) {
     if (!path) continue;
 
     const periodic = isPeriodicEntry(entry);
-    const existing = findStackableEffect(targetActor, entry.conditionId, periodic);
+    const tiedToActive = Boolean(mech.hasUpkeep);
+    const anchor = { sourceSkillId: originSkill.id, sourceSubSkillIndex: subSkillIndex };
+    const existing = findStackableEffect(targetActor, entry.conditionId, periodic, entry.damageElements);
 
     if (existing) {
+      const existingFlags = existing.flags[SYSTEM_ID];
+
       if (periodic) {
-        const currentTicks = existing.flags?.[SYSTEM_ID]?.ticksRemaining ?? 0;
-        const newTicks = currentTicks + Math.max(1, entry.durationRounds);
-        await existing.update({ [`flags.${SYSTEM_ID}.ticksRemaining`]: newTicks });
-        summary.push(`${condition?.label ?? targetLabel}: duração estendida (+${entry.durationRounds} tick(s), total ${newTicks})`);
+        // Uma aplicação "Ativa" nunca soma ticks (contribui 0 de duração) — só registra sua
+        // própria fonte como uma "âncora" que segura o efeito vivo. Os ticks de outras fontes
+        // (finitas) continuam contando normalmente; quando chegarem em 0, se ainda sobrar
+        // alguma âncora, o efeito continua tickando (agora só sustentado por ela) em vez de
+        // expirar — é assim que "até desativar" nunca fica refém de reaplicações infinitas.
+        if (tiedToActive) {
+          const anchors = existingFlags.activeAnchors ?? [];
+          const alreadyAnchored = anchors.some(
+            a => a.sourceSkillId === anchor.sourceSkillId && (a.sourceSubSkillIndex ?? null) === (anchor.sourceSubSkillIndex ?? null)
+          );
+          if (!alreadyAnchored) {
+            await existing.update({ [`flags.${SYSTEM_ID}.activeAnchors`]: [...anchors, anchor] });
+          }
+          summary.push(`${condition?.label ?? targetLabel}: mantido ativo (até desativar)`);
+        } else {
+          const currentTicks = existingFlags.ticksRemaining ?? 0;
+          const newTicks = currentTicks + Math.max(1, entry.durationRounds);
+          await existing.update({ [`flags.${SYSTEM_ID}.ticksRemaining`]: newTicks });
+          summary.push(`${condition?.label ?? targetLabel}: duração estendida (+${entry.durationRounds} tick(s), total ${newTicks})`);
+        }
+      } else if (existingFlags.tiedToActive) {
+        // Buff/debuff comum já indefinido — não há duração pra estender.
+        summary.push(`${condition?.label ?? targetLabel}: já ativo (até desativar)`);
       } else {
         const currentRounds = existing.duration?.rounds ?? 0;
         await existing.update({ "duration.rounds": currentRounds + entry.durationRounds });
@@ -384,7 +488,11 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor) {
               tickTarget: entry.target,
               tickAmount: entry.amount,
               tickUnit: entry.tickUnit || "combatRound",
-              ticksRemaining: Math.max(1, entry.durationRounds),
+              // Uma aplicação "Ativa" começa com 0 de duração própria (nunca infla o contador) —
+              // só existe indefinidamente porque `activeAnchors` não está vazio (ver
+              // tickPeriodicEffect: só expira quando ticksRemaining chega a 0 E não sobra âncora).
+              ticksRemaining: tiedToActive ? 0 : Math.max(1, entry.durationRounds),
+              activeAnchors: tiedToActive ? [anchor] : [],
               // Snapshot no momento da aplicação (mesma filosofia de Sub-Skill) — só usado
               // quando o tick é dano (amount negativo); cura periódica nunca é reduzida.
               tickDamageElements: Array.isArray(entry.damageElements) ? entry.damageElements : []
@@ -393,7 +501,8 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor) {
         }
       ]);
       const unitLabel = entry.tickUnit === "manual" ? "manual" : "por rodada de combate";
-      summary.push(`${condition?.label ?? targetLabel} ${sign}${entry.amount}/tick (${Math.max(1, entry.durationRounds)} tick(s), ${unitLabel})`);
+      const durationLabel = tiedToActive ? "até desativar" : `${Math.max(1, entry.durationRounds)} tick(s)`;
+      summary.push(`${condition?.label ?? targetLabel} ${sign}${entry.amount}/tick (${durationLabel}, ${unitLabel})`);
       continue;
     }
 
@@ -403,12 +512,24 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor) {
         img: condition?.icon ?? originSkill.img,
         origin: originSkill.uuid,
         statuses: entry.conditionId ? [entry.conditionId] : [],
-        duration: entry.durationRounds > 0 ? { rounds: entry.durationRounds } : {},
+        duration: !tiedToActive && entry.durationRounds > 0 ? { rounds: entry.durationRounds } : {},
         changes: [{ key: path, mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: String(entry.amount) }],
-        flags: { [SYSTEM_ID]: { skillEffect: true, conditionId: entry.conditionId || "" } }
+        flags: {
+          [SYSTEM_ID]: {
+            skillEffect: true,
+            conditionId: entry.conditionId || "",
+            tiedToActive,
+            sourceSkillId: originSkill.id,
+            sourceSubSkillIndex: subSkillIndex
+          }
+        }
       }
     ]);
-    summary.push(`${targetLabel} ${sign}${entry.amount}${entry.durationRounds > 0 ? ` (${entry.durationRounds} rounds)` : ""}`);
+    summary.push(
+      tiedToActive
+        ? `${targetLabel} ${sign}${entry.amount} (até desativar)`
+        : `${targetLabel} ${sign}${entry.amount}${entry.durationRounds > 0 ? ` (${entry.durationRounds} rounds)` : ""}`
+    );
   }
 
   return summary;
@@ -447,12 +568,24 @@ export async function tickPeriodicEffect(actor, effect) {
   const newValue = Math.clamp(attr.value + delta, 0, attr.max);
   await actor.update({ [`system.attributes.${attrKey}.value`]: newValue });
 
-  const ticksRemaining = (flags.ticksRemaining ?? 1) - 1;
-  const expired = ticksRemaining <= 0;
+  // `activeAnchors` não-vazio = pelo menos uma Skill "Ativa" está segurando este efeito vivo
+  // (reaplicações Ativas contribuem 0 de duração — só registram a âncora, ver
+  // applyEffectsToActor). Os ticks de fontes finitas continuam decaindo normalmente; ao chegar
+  // em 0, só expira de verdade se NENHUMA âncora sobrar — senão fica tickando no piso até
+  // `removeUpkeepLinkedEffects` remover a(s) âncora(s) restante(s).
+  const anchored = (flags.activeAnchors ?? []).length > 0;
+  const ticksRemaining = Math.max(0, (flags.ticksRemaining ?? 1) - 1);
+  const expired = ticksRemaining <= 0 && !anchored;
+
   if (expired) await effect.delete();
   else await effect.update({ [`flags.${SYSTEM_ID}.ticksRemaining`]: ticksRemaining });
 
-  return { attrKey, delta, newValue, ticksRemaining, expired, effectName: effect.name, appliedReductions };
+  // Pro chamador (chat/UI), "até desativar" só faz sentido reportar quando os ticks já
+  // zeraram e só a âncora está segurando — enquanto ainda há ticks finitos contando, mostra o
+  // número normal mesmo que exista uma âncora em paralelo.
+  const displayTicks = anchored && ticksRemaining <= 0 ? null : ticksRemaining;
+
+  return { attrKey, delta, newValue, ticksRemaining: displayTicks, expired, effectName: effect.name, appliedReductions };
 }
 
 /**
@@ -473,7 +606,7 @@ export async function tickCombatRoundEffects(actor) {
   if (results.length) {
     const rows = results.map(r => {
       const attrLabel = r.attrKey === "hp" ? "HP" : MEU_SISTEMA.EFFECT_TARGET_LABELS.energy;
-      const statusText = r.expired ? "encerrou" : `${r.ticksRemaining} tick(s) restante(s)`;
+      const statusText = r.expired ? "encerrou" : r.ticksRemaining === null ? "até desativar" : `${r.ticksRemaining} tick(s) restante(s)`;
       const reductionText = r.appliedReductions?.length ? ` <span class="hint-inline">(reduzido por ${r.appliedReductions.join(", ")})</span>` : "";
       return `<li><strong>${r.effectName}</strong>: ${r.delta >= 0 ? "+" : ""}${r.delta} ${attrLabel} (${statusText})${reductionText}</li>`;
     });
@@ -523,6 +656,7 @@ export async function tickActorUpkeepSkills(actor) {
     const currentEnergy = actor.system.attributes.energy.value ?? 0;
     if (currentEnergy <= 0) {
       await source.skill.update({ [activeStatePath(source.subSkillIndex)]: false });
+      await removeUpkeepLinkedEffects(source.skill, source.subSkillIndex);
       results.push({ label: source.label, drained: 0, deactivated: true });
       continue;
     }
@@ -533,6 +667,7 @@ export async function tickActorUpkeepSkills(actor) {
     const insufficient = drain < source.upkeepCost;
     if (insufficient) {
       await source.skill.update({ [activeStatePath(source.subSkillIndex)]: false });
+      await removeUpkeepLinkedEffects(source.skill, source.subSkillIndex);
     }
     results.push({ label: source.label, drained: drain, deactivated: insufficient });
   }
@@ -556,13 +691,13 @@ export async function tickActorUpkeepSkills(actor) {
   return results;
 }
 
-async function applySkillEffects(sourceActor, skill, mech, label, targetActor) {
+async function applySkillEffects(sourceActor, skill, mech, label, targetActor, subSkillIndex = null) {
   if (!(mech.effects ?? []).length) {
     ui.notifications?.warn("Essa skill não tem nenhum Efeito configurado.");
     return null;
   }
 
-  const summary = await applyEffectsToActor(mech, label, skill, targetActor);
+  const summary = await applyEffectsToActor(mech, label, skill, targetActor, subSkillIndex);
 
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
@@ -581,7 +716,7 @@ async function applySkillEffects(sourceActor, skill, mech, label, targetActor) {
  * @param {string} label
  * @param {Actor[]} targetActors
  */
-async function applySkillEffectsArea(sourceActor, skill, mech, label, targetActors) {
+async function applySkillEffectsArea(sourceActor, skill, mech, label, targetActors, subSkillIndex = null) {
   if (!(mech.effects ?? []).length) {
     ui.notifications?.warn("Essa skill não tem nenhum Efeito configurado.");
     return null;
@@ -593,7 +728,7 @@ async function applySkillEffectsArea(sourceActor, skill, mech, label, targetActo
 
   const rows = [];
   for (const targetActor of targetActors) {
-    const summary = await applyEffectsToActor(mech, label, skill, targetActor);
+    const summary = await applyEffectsToActor(mech, label, skill, targetActor, subSkillIndex);
     rows.push(`<li><strong>${targetActor.name}</strong>: ${summary.join(", ")}</li>`);
   }
 

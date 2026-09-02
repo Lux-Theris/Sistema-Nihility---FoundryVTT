@@ -85,7 +85,7 @@
       <label>Tipo de Alvo
         <select name="system.targetType">
           {{#each config.SKILL_TARGET_TYPES as |t|}}
-          <option value="{{t}}" {{#if (eq t system.targetType)}}selected{{/if}}>{{lookup ../config.SKILL_TARGET_TYPE_LABELS t}}</option>
+          <option value="{{t}}" {{#if (eq t ../system.targetType)}}selected{{/if}}>{{lookup ../config.SKILL_TARGET_TYPE_LABELS t}}</option>
           {{/each}}
         </select>
       </label>
@@ -94,7 +94,7 @@
       <label>Formato de Área
         <select name="system.areaShape">
           {{#each config.SKILL_AREA_SHAPES as |s|}}
-          <option value="{{s}}" {{#if (eq s system.areaShape)}}selected{{/if}}>{{lookup ../config.SKILL_AREA_SHAPE_LABELS s}}</option>
+          <option value="{{s}}" {{#if (eq s ../system.areaShape)}}selected{{/if}}>{{lookup ../config.SKILL_AREA_SHAPE_LABELS s}}</option>
           {{/each}}
         </select>
       </label>
@@ -232,7 +232,7 @@
       <label>Tier
         <select name="system.grantsSkill.tier">
           {{#each config.ITEM_GRANTABLE_SKILL_TIERS as |t|}}
-          <option value="{{t}}" {{#if (eq t system.grantsSkill.tier)}}selected{{/if}}>{{lookup ../config.SKILL_TIER_LABELS t}}</option>
+          <option value="{{t}}" {{#if (eq t ../system.grantsSkill.tier)}}selected{{/if}}>{{lookup ../config.SKILL_TIER_LABELS t}}</option>
           {{/each}}
         </select>
       </label>
@@ -255,7 +255,7 @@
       <label>Tier
         <select name="system.grantsSkill.tier">
           {{#each config.ITEM_GRANTABLE_SKILL_TIERS as |t|}}
-          <option value="{{t}}" {{#if (eq t system.grantsSkill.tier)}}selected{{/if}}>{{lookup ../config.SKILL_TIER_LABELS t}}</option>
+          <option value="{{t}}" {{#if (eq t ../system.grantsSkill.tier)}}selected{{/if}}>{{lookup ../config.SKILL_TIER_LABELS t}}</option>
           {{/each}}
         </select>
       </label>

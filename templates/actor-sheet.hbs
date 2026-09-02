@@ -9,7 +9,7 @@
         <label>Espécie
           <select class="species-select" name="system.species">
             {{#each speciesPresets as |preset key|}}
-              <option value="{{key}}" {{#if (eq key system.species)}}selected{{/if}}>{{preset.label}}</option>
+              <option value="{{key}}" {{#if (eq key ../system.species)}}selected{{/if}}>{{preset.label}}</option>
             {{/each}}
           </select>
         </label>
@@ -123,7 +123,7 @@
                 <div class="stepper">
                   <button type="button" class="step-btn minus" data-action="decrementAttributePoint" title="Desfazer 1 ponto pendente" {{#unless attr.data.pendingPoints}}disabled{{/unless}}>&minus;</button>
                   <span class="step-readout {{#if attr.data.pendingPoints}}has-pending{{/if}}">{{#if attr.data.pendingPoints}}+{{attr.data.pendingPoints}}{{else}}0{{/if}}</span>
-                  <button type="button" class="step-btn plus" data-action="incrementAttributePoint" title="Alocar 1 ponto livre" {{#unless system.attributePointsPool.remaining}}disabled{{/unless}}>+</button>
+                  <button type="button" class="step-btn plus" data-action="incrementAttributePoint" title="Alocar 1 ponto livre" {{#unless ../system.attributePointsPool.remaining}}disabled{{/unless}}>+</button>
                 </div>
               </div>
               <div class="attr-formula">
@@ -190,7 +190,7 @@
           <div class="block">
             <div class="row-between">
               <p class="block-title" style="margin:0">Habilidades</p>
-              <button type="button" class="skill-fuse-button" data-action="fuseSkills">⚡ Fundir Selecionadas</button>
+              {{#if isGM}}<button type="button" class="skill-fuse-button" data-action="fuseSkills">⚡ Fundir Selecionadas</button>{{/if}}
             </div>
 
             {{#each visibleTiers as |tier|}}
@@ -201,7 +201,7 @@
                 <li class="item-row" data-item-id="{{skill.id}}">
                   {{#if skill.system.isItemGranted}}
                   <span class="item-granted-badge" title="Concedida por Item/Módulo — não pode ser fundida">⚙</span>
-                  {{else}}
+                  {{else if ../../isGM}}
                   <input type="checkbox" class="skill-fuse-checkbox" data-item-id="{{skill.id}}"/>
                   {{/if}}
                   <img src="{{skill.img}}" width="24" height="24"/>
@@ -227,7 +227,7 @@
             </fieldset>
             {{/each}}
 
-            <a class="item-create" data-action="createItem" data-type="skill">+ Nova Habilidade (direto)</a>
+            {{#if isGM}}<a class="item-create" data-action="createItem" data-type="skill">+ Nova Habilidade (direto)</a>{{/if}}
             <button type="button" class="skill-request-button" data-action="requestSkillCreation">+ Pedir Criação com Pontos</button>
           </div>
 

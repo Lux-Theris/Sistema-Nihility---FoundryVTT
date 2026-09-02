@@ -48,7 +48,10 @@ async function promptDialog({ title, content, confirmLabel = "Confirmar", onConf
         default: true,
         callback: (event, button, dialog) => onConfirm(dialog.element)
       },
-      { action: "cancel", label: "Cancelar", callback: () => null }
+      // DialogV2.wait faz `result ?? button.action`: null/undefined viram a STRING "cancel"
+      // (o `action`), que é truthy — o `if (!data) return;` dos chamadores nunca disparava.
+      // `false` sobrevive ao `??` (só null/undefined são substituídos) e continua falsy.
+      { action: "cancel", label: "Cancelar", callback: () => false }
     ],
     rejectClose: false
   });
@@ -64,6 +67,10 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
   static DEFAULT_OPTIONS = {
     classes: [SYSTEM_ID, "sheet", "actor"],
     position: { width: 780, height: 860 },
+    // DocumentSheetV2 não liga auto-save por padrão — sem isso nenhum campo da ficha
+    // (atributos, HP/Mana, Pontos de Habilidade, etc.) persiste ao editar (ver mesma
+    // linha em item-sheet.js, que já tinha isso corretamente).
+    form: { submitOnChange: true, closeOnSubmit: false },
     actions: {
       selectTab: NihilityActorSheet.#onSelectTab,
       createItem: NihilityActorSheet.#onItemCreate,
@@ -694,7 +701,9 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         </form>`,
       onConfirm: form => Number(form.querySelector("[name=subSkillIndex]").value)
     });
-    return index === undefined || index === null ? null : index;
+    // Cancelar resolve como `false` (ver comentário no botão "cancel" de promptDialog) —
+    // precisa de checagem explícita porque índice 0 (primeira sub-skill) é um valor válido.
+    return index === undefined || index === null || index === false ? null : index;
   }
 
   /** Escolhe o alvo de um Efeito Temporário (buff/debuff/escudo) ou de dano mágico — padrão: o próprio dono. */

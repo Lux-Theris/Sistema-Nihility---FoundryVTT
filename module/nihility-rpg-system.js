@@ -8,6 +8,7 @@ import {
   MEU_SISTEMA,
   registerSystemSettings,
   getSkillPointsPerLevel,
+  getSkillPointsStarting,
   getCompletedMigrations,
   markMigrationCompleted
 } from "./config.js";
@@ -198,6 +199,17 @@ async function migrateElementalDamageToMagicTag() {
     if (patch) await doc.update(patch);
   }
 }
+
+// Concede os Pontos de Habilidade Normais iniciais (setting "Pontos de Habilidade Normais —
+// Criação") em Personagens novos. Só entra se `system.skillPoints.normal` não veio explícito
+// nos dados de criação — assim duplicar/importar um Ator existente (que carrega seu valor
+// atual) não ganha pontos extra de graça.
+Hooks.on("preCreateActor", (actor, data, options, userId) => {
+  if (data.type !== "character") return;
+  if (foundry.utils.getProperty(data, "system.skillPoints.normal") !== undefined) return;
+
+  actor.updateSource({ "system.skillPoints.normal": getSkillPointsStarting() });
+});
 
 // Concede Pontos de Habilidade Normais automaticamente quando o Nível sobe
 // (a quantidade por nível é a setting "Pontos de Habilidade Normais — Por Nível") e avisa

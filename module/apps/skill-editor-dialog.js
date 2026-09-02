@@ -264,9 +264,17 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     </form>`;
 
   return DialogV2.wait({
-    window: { title: initialData.name ? `Editar Skill: ${initialData.name}` : "Nova Skill" },
+    window: {
+      title: initialData.name ? `Editar Skill: ${initialData.name}` : "Nova Skill",
+      resizable: true
+    },
     classes: ["nihility-skill-editor-dialog"],
-    position: { width: 520, height: "auto" },
+    // `height: "auto"` mede o `scrollHeight` do conteúdo pra dimensionar a janela — isso
+    // ignora o `max-height: 70vh; overflow-y: auto` do CSS de `.skill-editor-form` (scrollHeight
+    // sempre reporta a altura TOTAL, mesmo do que está clipado/rolável), então a janela crescia
+    // pro tamanho do formulário inteiro e empurrava Salvar/Cancelar pra fora da tela. Altura fixa
+    // faz o form realmente rolar dentro do limite, deixando os botões sempre visíveis embaixo.
+    position: { width: 520, height: 700 },
     content,
     render: (event, dialog) => setupSkillEditorInteractivity(dialog.element, data),
     buttons: [
@@ -276,7 +284,11 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
         default: true,
         callback: (event, button, dialog) => readSkillEditorForm(dialog.element, lockTier)
       },
-      { action: "cancel", label: "Cancelar", callback: () => null }
+      // DialogV2.wait faz `result ?? button.action`: se o callback devolve null/undefined,
+      // ele substitui pela STRING "cancel" (o `action`), não por um valor falsy de verdade —
+      // "cancel" é truthy, então `if (!data) return;` no chamador nunca dispara. `false`
+      // sobrevive ao `??` (só null/undefined são substituídos) e continua falsy.
+      { action: "cancel", label: "Cancelar", callback: () => false }
     ],
     rejectClose: false
   });

@@ -50,6 +50,8 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
   static DEFAULT_OPTIONS = {
     classes: [SYSTEM_ID, "sheet", "actor", "starship"],
     position: { width: 700, height: 760 },
+    // DocumentSheetV2 não liga auto-save por padrão — ver mesmo comentário em actor-sheet.js.
+    form: { submitOnChange: true, closeOnSubmit: false },
     actions: {
       selectTab: TabbedActorSheetV2.onSelectTab,
       createItem: NihilityStarshipSheet.#onItemCreate,
@@ -127,6 +129,12 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
   /** Recalcula o Grid de Energia: excedente carrega os capacitores, déficit os drena. */
   static async #onPowerGridTick(event, target) {
     event.preventDefault();
+    // Clicar logo após editar Reator/Capacitores dispara o "change" (submitOnChange) e este
+    // "click" quase ao mesmo tempo; como o update do actor é assíncrono, ler
+    // `this.actor.system.powerGrid` aqui podia pegar o valor ainda não salvo. `submit()` força
+    // o flush do formulário atual ANTES do cálculo, garantindo que o Reator/Capacitor usado é
+    // o que está na tela, não um valor obsoleto de antes da última edição.
+    await this.submit();
     const { available, overloaded } = await this.actor.system.applyPowerGridTick();
     if (overloaded) {
       ui.notifications.warn(
@@ -146,6 +154,8 @@ export class NihilityVehicleSheet extends TabbedActorSheetV2 {
   static DEFAULT_OPTIONS = {
     classes: [SYSTEM_ID, "sheet", "actor", "vehicle"],
     position: { width: 640, height: 680 },
+    // DocumentSheetV2 não liga auto-save por padrão — ver mesmo comentário em actor-sheet.js.
+    form: { submitOnChange: true, closeOnSubmit: false },
     actions: {
       selectTab: TabbedActorSheetV2.onSelectTab,
       createItem: NihilityVehicleSheet.#onItemCreate,

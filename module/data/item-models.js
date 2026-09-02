@@ -212,7 +212,7 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
       /**
        * "targeted" (padrão — pede 1 Ator via dropdown, como sempre foi) ou "emission" (sem
        * alvo manual — o usuário posiciona uma forma no canvas e a Skill afeta quem estiver
-       * dentro dela; só funciona em Foundry V14+, ver module/area-effects.js).
+       * dentro dela, ver module/area-effects.js).
        */
       targetType: new fields.StringField({
         required: true,

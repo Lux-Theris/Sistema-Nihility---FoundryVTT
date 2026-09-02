@@ -664,7 +664,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         // Sem alvo manual — o usuário posiciona a forma no canvas e a Skill afeta quem
         // estiver dentro dela, sem etapa de revisão (decisão explícita: aplica direto).
         if (!areaEffectsSupported()) {
-          ui.notifications.warn("Skills de Emissão precisam de Foundry V14 (Scene Regions).");
+          ui.notifications.warn("Skills de Emissão precisam de acesso ao canvas da cena ativa.");
           return;
         }
         const targetActors = await pickAreaTargets({ system: mech });

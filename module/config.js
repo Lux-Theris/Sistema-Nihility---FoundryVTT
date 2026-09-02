@@ -133,12 +133,12 @@ export const MEU_SISTEMA = {
     temporary: "Efeito Temporário (buff/debrawback/escudo)"
   },
 
-  /** Só V14 (Scene Regions) — ver module/area-effects.js. */
+  /** Ver module/area-effects.js. */
   SKILL_TARGET_TYPES: ["targeted", "emission"],
 
   SKILL_TARGET_TYPE_LABELS: {
     targeted: "Targetada (escolhe 1 Ator)",
-    emission: "Emissão (área no canvas — só Foundry V14)"
+    emission: "Emissão (posiciona uma área no canvas)"
   },
 
   SKILL_AREA_SHAPES: ["", "circle", "cone", "ray"],

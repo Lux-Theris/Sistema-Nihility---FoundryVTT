@@ -277,6 +277,9 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         tier: "racial",
         level: Number(s.level) || 1,
         cost: Number(s.cost) || 0,
+        hasUpkeep: Boolean(s.hasUpkeep),
+        upkeepCost: Number(s.upkeepCost) || 0,
+        animationPath: s.animationPath || "",
         description: s.description || "",
         effectType: MEU_SISTEMA.SKILL_EFFECT_TYPES.includes(s.effectType) ? s.effectType : "none",
         damageFormula: s.damageFormula || "",
@@ -566,6 +569,9 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             tier: data.tier,
             level: data.level,
             cost: data.cost,
+            hasUpkeep: data.hasUpkeep,
+            upkeepCost: data.upkeepCost,
+            animationPath: data.animationPath,
             description: data.description,
             resistanceTarget: data.resistanceTarget,
             effectType: data.effectType,
@@ -649,7 +655,10 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       mech = subSkills[subSkillIndex];
     }
 
-    const usesMechanic = mech.effectType === "temporary" || mech.effectType === "damage";
+    // Habilidade Ativa já ligada: este clique só DESATIVA — nunca re-pede alvo nem re-executa
+    // a mecânica, mesmo se ela for "damage"/"temporary" (ver useSkillEffect em skill-effects.js).
+    const isDeactivating = mech.hasUpkeep && mech.active;
+    const usesMechanic = !isDeactivating && (mech.effectType === "temporary" || mech.effectType === "damage");
     if (!usesMechanic) {
       try {
         await useSkillEffect(this.actor, itemId, { subSkillIndex });

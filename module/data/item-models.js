@@ -52,6 +52,28 @@ function attributeBonusesSchema() {
 }
 
 /**
+ * Campos de uso compartilhados por `SkillDataModel` e `subSkillSchema()`, além da mecânica em
+ * si (effectType/damageFormula/effects/etc.):
+ *  - `hasUpkeep`/`upkeepCost`: cobrem uma Skill "Ativa". O `cost` (campo separado, já existente
+ *    em cada schema) é gasto UMA VEZ ao ligar, e passa a drenar `upkeepCost` a CADA rodada (via
+ *    `tickActorUpkeepSkills` em skill-effects.js, chamada do mesmo hook `updateCombat` que já
+ *    tica Veneno/cura) até ser desativada de novo pelo botão "Usar" ou até a Energia zerar
+ *    sozinha. `active` é estado de EXECUÇÃO, não configuração — nunca copiado ao clonar/fundir
+ *    uma Skill (skill-snapshot.js), sempre nasce `false`.
+ *  - `animationPath`: caminho opcional de vídeo/imagem/som tocado ao usar, via o módulo
+ *    opcional Sequencer (ver module/vfx.js) — "" = sem animação, e sem o Sequencer instalado
+ *    o campo simplesmente não faz nada (nunca quebra o uso da Skill).
+ */
+function usageFields() {
+  return {
+    hasUpkeep: new fields.BooleanField({ required: false, initial: false }),
+    upkeepCost: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+    active: new fields.BooleanField({ required: false, initial: false }),
+    animationPath: new fields.StringField({ required: false, initial: "" })
+  };
+}
+
+/**
  * Uma entrada de `effects[]` (Efeito Temporário de uma Skill/Sub-Skill) — reaproveitada por
  * `subSkillSchema()` e `SkillDataModel.effects`.
  *  - `conditionId`: "" = sem Condição nomeada (debuff/buff numérico genérico, como sempre foi).
@@ -111,6 +133,7 @@ function subSkillSchema() {
     tier: new fields.StringField({ required: false, initial: "normal", choices: MEU_SISTEMA.SKILL_TIERS }),
     level: new fields.NumberField({ required: false, integer: true, initial: 1, min: 1 }),
     cost: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+    ...usageFields(),
     description: new fields.HTMLField({ required: false, initial: "" }),
     resistanceTarget: new fields.StringField({ required: false, initial: "" }),
     effectType: new fields.StringField({ required: false, initial: "none", choices: MEU_SISTEMA.SKILL_EFFECT_TYPES }),
@@ -144,7 +167,9 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
         choices: MEU_SISTEMA.SKILL_TIERS
       }),
       level: new fields.NumberField({ required: true, integer: true, initial: 1, min: 1 }),
+      /** Custo de Energia pra "Usar" a skill (não confundir com o Ponto de Habilidade gasto pra criá-la — esse é fixo em 1, ver skill-economy.js). */
       cost: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
+      ...usageFields(),
       description: new fields.HTMLField({ required: false, initial: "" }),
 
       /** Sub-Skills — só existem em Skills Fundidas, ver `subSkillSchema()` acima. */

@@ -107,6 +107,9 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     tier: initialData.tier ?? lockTier ?? MEU_SISTEMA.SKILL_TIERS[0],
     level: initialData.level ?? 1,
     cost: initialData.cost ?? 0,
+    hasUpkeep: Boolean(initialData.hasUpkeep),
+    upkeepCost: initialData.upkeepCost ?? 0,
+    animationPath: initialData.animationPath ?? "",
     description: initialData.description ?? "",
     resistanceTarget: initialData.resistanceTarget ?? "",
     effectType: initialData.effectType ?? "none",
@@ -204,7 +207,19 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
       ${evolvedField}
       <div class="row-2">
         <div class="form-group"><label>Nível</label><input type="number" name="level" value="${data.level}" min="1" ${levelReadonly ? "readonly" : ""}/></div>
-        <div class="form-group"><label>Custo</label><input type="number" name="cost" value="${data.cost}" min="0"/></div>
+        <div class="form-group"><label>Custo de Energia <span class="hint-inline" style="display:inline;">(pra "Usar" — não é Ponto de Habilidade)</span></label><input type="number" name="cost" value="${data.cost}" min="0"/></div>
+      </div>
+      <label class="checkbox-line">
+        <input type="checkbox" name="hasUpkeep" ${data.hasUpkeep ? "checked" : ""}/>
+        Habilidade Ativa <span class="hint-inline" style="display:inline;">("Usar" liga/desliga — drena Energia por rodada enquanto ligada, além do Custo de Energia acima)</span>
+      </label>
+      <div class="form-group se-upkeep-field" style="display:${data.hasUpkeep ? "flex" : "none"};">
+        <label>Custo de Energia por Rodada</label>
+        <input type="number" name="upkeepCost" value="${data.upkeepCost}" min="0"/>
+      </div>
+      <div class="form-group">
+        <label>Animação <span class="hint-inline" style="display:inline;">(opcional — caminho de vídeo/imagem/som tocado via módulo Sequencer; sem ele instalado, este campo não faz nada)</span></label>
+        <input type="text" name="animationPath" value="${escapeHtml(data.animationPath)}" placeholder="modules/jb2a_patreon/Library/.../explosion.webm"/>
       </div>
       <div class="form-group">
         <label>Descrição</label>
@@ -333,6 +348,14 @@ function setupSkillEditorInteractivity(root, data) {
   resistEnable.addEventListener("change", applyResistEnable);
   applyResistEnable();
 
+  const upkeepEnable = root.querySelector('[name="hasUpkeep"]');
+  const upkeepField = root.querySelector(".se-upkeep-field");
+  function applyUpkeepEnable() {
+    upkeepField.style.display = upkeepEnable.checked ? "flex" : "none";
+  }
+  upkeepEnable.addEventListener("change", applyUpkeepEnable);
+  applyUpkeepEnable();
+
   function updateResistInfo() {
     const checked = root.querySelector('[name="resistTarget"]:checked');
     const info = root.querySelector(".se-resist-info");
@@ -423,12 +446,16 @@ function readSkillEditorForm(root, lockTier) {
   const hasRange = effectType !== "none";
   const targetType = hasRange ? root.querySelector('[name="targetType"]').value : "targeted";
   const isEmission = hasRange && targetType === "emission";
+  const hasUpkeep = root.querySelector('[name="hasUpkeep"]').checked;
 
   return {
     name: root.querySelector('[name="name"]').value.trim() || "Skill Sem Nome",
     tier: lockTier ?? root.querySelector('[name="tier"]').value,
     level: Number(root.querySelector('[name="level"]').value) || 1,
     cost: Number(root.querySelector('[name="cost"]').value) || 0,
+    hasUpkeep,
+    upkeepCost: hasUpkeep ? Number(root.querySelector('[name="upkeepCost"]').value) || 0 : 0,
+    animationPath: root.querySelector('[name="animationPath"]').value.trim(),
     description: root.querySelector('prose-mirror[name="description"]').value,
     resistanceTarget: resistEnabled ? resistChecked?.value ?? "general" : "",
     effectType,

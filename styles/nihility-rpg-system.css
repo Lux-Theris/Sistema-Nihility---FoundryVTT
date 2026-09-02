@@ -1143,6 +1143,15 @@ form.nihility-config-app {
 .nihility-sheet .skill-use-button:hover {
   background: rgba(110, 231, 255, 0.2);
 }
+/* Habilidade "Ativa" ligada (drenando Energia por rodada) — some do resto do grupo pra ficar fácil de achar na ficha. */
+.nihility-sheet .skill-use-button.active {
+  border-color: var(--nihility-warn);
+  background: rgba(255, 207, 92, 0.12);
+  color: var(--nihility-warn);
+}
+.nihility-sheet .skill-use-button.active:hover {
+  background: rgba(255, 207, 92, 0.25);
+}
 
 .nihility-sheet .attr-item-bonus {
   display: inline-block;

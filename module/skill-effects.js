@@ -8,6 +8,8 @@
  *    direto, sem duração, gasto na mão pelo jogador conforme absorve dano.
  */
 import { SYSTEM_ID, MEU_SISTEMA, getActiveDamageElements, getActiveStatusConditions } from "./config.js";
+import { announceVoiceOfTheWorld } from "./voice-of-the-world.js";
+import { playSkillAnimation } from "./vfx.js";
 
 const EFFECT_TARGET_PATHS = {
   strength: "system.attributes.combat.strength.buffDelta",
@@ -21,6 +23,21 @@ const EFFECT_TARGET_PATHS = {
   energy: "system.attributes.energy.buffDelta"
 };
 
+/** Caminho de update pro flag `active` — top-level ou dentro de um Sub-Skill específico. */
+function activeStatePath(subSkillIndex) {
+  return subSkillIndex != null ? `system.subSkills.${subSkillIndex}.active` : "system.active";
+}
+
+/** Avisa só quem clicou (whisper individual) que a Energia atual não cobre o Custo de Energia. */
+async function warnInsufficientEnergy(sourceActor, label, cost) {
+  const current = sourceActor.system.attributes.energy.value ?? 0;
+  await ChatMessage.create({
+    whisper: [game.user.id],
+    speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
+    content: `<p>Energia insuficiente pra usar <strong>${label}</strong> (precisa ${cost}, ${sourceActor.name} tem ${current}).</p>`
+  });
+}
+
 /**
  * Ponto de entrada único de "Usar Habilidade".
  *  - `targetType: "targeted"` (padrão): usa `options.targetActor` (1 Ator, escolhido via
@@ -33,6 +50,13 @@ const EFFECT_TARGET_PATHS = {
  *    targetType/etc.) em vez da mecânica própria da Skill — igual as Skills Únicas do
  *    Tensura, que têm várias sub-habilidades nomeadas dentro de uma só Skill "guarda-chuva".
  *    `actor-sheet.js` já resolve qual índice antes de chamar isto (ver `_promptSubSkillChoice`).
+ *
+ * Custo de Energia (`mech.cost`) é cobrado UMA VEZ aqui, sempre — inclusive em Skills
+ * "Descritiva" (effectType "none"), que agora também são "usáveis" (postam um anúncio simples
+ * no chat em vez de só um toast). Skills "Ativas" (`mech.hasUpkeep`) alternam ligado/desligado a
+ * cada clique: ligar cobra `cost` e passa a drenar `upkeepCost` por rodada (ver
+ * `tickActorUpkeepSkills`, chamada do hook `updateCombat`); desligar (clique com `mech.active`
+ * já true) nunca cobra de novo nem re-executa a mecânica — só para o dreno.
  * @param {Actor} sourceActor - dono da skill
  * @param {string} skillId
  * @param {{targetActor?: Actor, targetActors?: Actor[], subSkillIndex?: number}} [options]
@@ -51,6 +75,30 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
     }
   }
 
+  if (mech.hasUpkeep && mech.active) {
+    await skill.update({ [activeStatePath(options.subSkillIndex)]: false });
+    await ChatMessage.create({
+      speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
+      content: `<p><strong>${sourceActor.name}</strong> desativou <strong>${label}</strong>.</p>`
+    });
+    return true;
+  }
+
+  const cost = Number(mech.cost) || 0;
+  if (cost > 0) {
+    if ((sourceActor.system.attributes.energy.value ?? 0) < cost) {
+      await warnInsufficientEnergy(sourceActor, label, cost);
+      return null;
+    }
+    await sourceActor.update({ "system.attributes.energy.value": sourceActor.system.attributes.energy.value - cost });
+  }
+  if (mech.hasUpkeep) {
+    await skill.update({ [activeStatePath(options.subSkillIndex)]: true });
+  }
+
+  // Dispara e esquece — nunca aguardado, a animação não deve atrasar a mecânica/chat.
+  playSkillAnimation(sourceActor, mech, { targetActor: options.targetActor ?? options.targetActors?.[0] ?? null });
+
   const isEmission = mech.targetType === "emission";
 
   if (mech.effectType === "damage") {
@@ -64,8 +112,12 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
       : applySkillEffects(sourceActor, skill, mech, label, options.targetActor ?? sourceActor);
   }
 
-  ui.notifications?.info("Essa skill é só descritiva — sem mecânica pra ativar.");
-  return null;
+  const upkeepNote = mech.hasUpkeep ? ` (ativada — drena ${mech.upkeepCost} de Energia por rodada)` : "";
+  await ChatMessage.create({
+    speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
+    content: `<p><strong>${sourceActor.name}</strong> usou <strong>${label}</strong>${upkeepNote}.</p>`
+  });
+  return true;
 }
 
 /**
@@ -428,6 +480,76 @@ export async function tickCombatRoundEffects(actor) {
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor }),
       content: `<p><strong>${actor.name}</strong> — início de turno, Condições ativas:</p><ul>${rows.join("")}</ul>`
+    });
+  }
+
+  return results;
+}
+
+/** Toda Skill "Ativa" ligada no momento — top-level e cada Sub-Skill (fusões podem ter mais de uma ligada ao mesmo tempo). */
+function collectActiveUpkeepSources(actor) {
+  const sources = [];
+  for (const skill of actor.items) {
+    if (skill.type !== "skill") continue;
+    if (skill.system.hasUpkeep && skill.system.active) {
+      sources.push({ skill, subSkillIndex: null, label: skill.name, upkeepCost: Number(skill.system.upkeepCost) || 0 });
+    }
+    (skill.system.subSkills ?? []).forEach((sub, i) => {
+      if (sub.hasUpkeep && sub.active) {
+        sources.push({ skill, subSkillIndex: i, label: `${skill.name} — ${sub.name}`, upkeepCost: Number(sub.upkeepCost) || 0 });
+      }
+    });
+  }
+  return sources;
+}
+
+/**
+ * Drena a Energia de toda Skill "Ativa" (hasUpkeep + active) do Ator a cada rodada — chamada do
+ * mesmo hook `updateCombat` (nihility-rpg-system.js) que já tica Veneno/cura contínua (ver
+ * `tickCombatRoundEffects` acima), sempre que chega a vez desse Ator. Processa uma fonte de
+ * cada vez (não tudo de uma vez) porque várias Skills Ativas competem pela MESMA Energia — a
+ * ordem importa quando não sobra pra todas. Energia nunca fica negativa: se não sobrar o
+ * suficiente pro Custo por Rodada inteiro, drena só o que tem (até 0) e desativa a Skill
+ * sozinha, avisando o dono do Ator + o Mestre pela Voz do Mundo (nunca público — é
+ * meta-informação de recurso, não algo pra narrar na mesa).
+ * @param {Actor} actor
+ */
+export async function tickActorUpkeepSkills(actor) {
+  const sources = collectActiveUpkeepSources(actor);
+  if (!sources.length) return [];
+
+  const results = [];
+  for (const source of sources) {
+    const currentEnergy = actor.system.attributes.energy.value ?? 0;
+    if (currentEnergy <= 0) {
+      await source.skill.update({ [activeStatePath(source.subSkillIndex)]: false });
+      results.push({ label: source.label, drained: 0, deactivated: true });
+      continue;
+    }
+
+    const drain = Math.min(source.upkeepCost, currentEnergy);
+    await actor.update({ "system.attributes.energy.value": currentEnergy - drain });
+
+    const insufficient = drain < source.upkeepCost;
+    if (insufficient) {
+      await source.skill.update({ [activeStatePath(source.subSkillIndex)]: false });
+    }
+    results.push({ label: source.label, drained: drain, deactivated: insufficient });
+  }
+
+  const rows = results.map(
+    r => `<li><strong>${r.label}</strong>: -${r.drained} Energia${r.deactivated ? " (desativada — Energia insuficiente)" : ""}</li>`
+  );
+  await ChatMessage.create({
+    speaker: ChatMessage.getSpeaker({ actor }),
+    content: `<p><strong>${actor.name}</strong> — início de turno, Habilidades Ativas:</p><ul>${rows.join("")}</ul>`
+  });
+
+  for (const r of results.filter(r => r.deactivated)) {
+    await announceVoiceOfTheWorld(actor, {
+      kind: "skill-deactivated",
+      title: "Habilidade Desativada",
+      body: `${r.label} foi desativada automaticamente — ${actor.name} ficou sem Energia suficiente pra mantê-la.`
     });
   }
 

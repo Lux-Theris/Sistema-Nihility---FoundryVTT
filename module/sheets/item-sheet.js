@@ -131,6 +131,9 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       } else {
         context.skillMechanicSummary = "Descritiva (sem mecânica)";
       }
+      if (sys.hasUpkeep) {
+        context.skillMechanicSummary += ` · Ativa (${sys.upkeepCost}/rodada${sys.active ? ", ligada agora" : ""})`;
+      }
 
       const resistanceTarget = sys.resistanceTarget ?? "";
       context.isResistanceSkill = resistanceTarget !== "";
@@ -190,6 +193,9 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         tier: sys.tier,
         level: sys.level,
         cost: sys.cost,
+        hasUpkeep: sys.hasUpkeep,
+        upkeepCost: sys.upkeepCost,
+        animationPath: sys.animationPath,
         description: sys.description,
         resistanceTarget: sys.resistanceTarget,
         effectType: sys.effectType,
@@ -212,6 +218,12 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const updates = {
       name: result.name,
       "system.cost": result.cost,
+      "system.hasUpkeep": result.hasUpkeep,
+      "system.upkeepCost": result.upkeepCost,
+      "system.animationPath": result.animationPath,
+      // Desligar "Habilidade Ativa" no editor não pode deixar uma skill presa em `active:true`
+      // sem mais nenhum jeito de desativar (o botão "Usar" só sabe alternar quando hasUpkeep é true).
+      "system.active": result.hasUpkeep ? this.item.system.active : false,
       "system.description": result.description,
       "system.resistanceTarget": result.resistanceTarget,
       "system.effectType": result.effectType,

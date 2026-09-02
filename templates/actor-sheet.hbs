@@ -182,11 +182,15 @@
                   {{/if}}
                   <img src="{{skill.img}}" width="24" height="24"/>
                   <span class="item-name">{{skill.name}}</span>
-                  <span class="item-cost">Custo: {{skill.system.cost}}</span>
-                  {{#if (or (not (eq skill.system.effectType "none")) skill.system.subSkills.length)}}
-                  <button type="button" class="skill-use-button" data-action="useSkill" title="Usar Habilidade{{#if skill.system.subSkills.length}} (escolhe qual Sub-Skill disparar){{/if}}">
-                    {{#if skill.system.subSkills.length}}🧩 Usar{{else if (eq skill.system.effectType "damage")}}🎲 Usar{{else}}✨ Usar{{/if}}
-                  </button>
+                  <span class="item-cost">Custo: {{skill.system.cost}}{{#if skill.system.hasUpkeep}} + {{skill.system.upkeepCost}}/rodada{{/if}}</span>
+                  {{#if skill.system.active}}
+                  <button type="button" class="skill-use-button active" data-action="useSkill" title="Desativar (drenando {{skill.system.upkeepCost}} de Energia por rodada)">🔥 Desativar</button>
+                  {{else if skill.system.subSkills.length}}
+                  <button type="button" class="skill-use-button" data-action="useSkill" title="Usar Habilidade (escolhe qual Sub-Skill disparar)">🧩 Usar</button>
+                  {{else if (eq skill.system.effectType "damage")}}
+                  <button type="button" class="skill-use-button" data-action="useSkill" title="Usar Habilidade">🎲 Usar</button>
+                  {{else}}
+                  <button type="button" class="skill-use-button" data-action="useSkill" title="Usar Habilidade{{#if skill.system.hasUpkeep}} (Ativa — drena Energia por rodada até desativar){{/if}}">✨ Usar</button>
                   {{/if}}
                   <a class="item-edit" data-action="editItem" title="Editar"><i class="fas fa-edit"></i></a>
                   {{#unless skill.system.isItemGranted}}

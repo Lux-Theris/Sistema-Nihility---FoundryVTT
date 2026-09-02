@@ -33,7 +33,7 @@ import { SpeciesConfigApp } from "./apps/species-config.js";
 import { DamageElementsConfigApp } from "./apps/damage-elements-config.js";
 import { StatusConditionsConfigApp } from "./apps/status-conditions-config.js";
 import { NihilityMenuApp } from "./apps/nihility-menu.js";
-import { tickCombatRoundEffects } from "./skill-effects.js";
+import { tickCombatRoundEffects, tickActorUpkeepSkills } from "./skill-effects.js";
 
 Hooks.once("init", () => {
   console.log(`${SYSTEM_ID} | Inicializando sistema...`);
@@ -259,6 +259,12 @@ Hooks.on("updateCombat", async (combat, changed) => {
     await tickCombatRoundEffects(actor);
   } catch (err) {
     console.error(`${SYSTEM_ID} | Falha ao ticar Efeitos Periódicos no início do turno.`, err);
+  }
+
+  try {
+    await tickActorUpkeepSkills(actor);
+  } catch (err) {
+    console.error(`${SYSTEM_ID} | Falha ao drenar Energia de Habilidades Ativas no início do turno.`, err);
   }
 });
 

@@ -52,7 +52,7 @@ function buildEffectRowHtml(entry) {
       <select class="se-effect-tick-unit" style="display:${periodicVisible && entry.periodic ? "inline-block" : "none"};">${tickUnitOptions}</select>
     </div>
     <div class="effect-row-periodic-extra" style="display:${periodicVisible && entry.periodic ? "flex" : "none"};">
-      <span class="hint-inline" style="display:inline;">Elemento(s) do tick de dano (só reduzido por Resistência — nunca Defesa Mágica; ignorado se o tick for cura):</span>
+      <span class="hint-inline" style="display:inline;">Elemento(s) do tick de dano (ignorado se o tick for cura):</span>
       <div class="element-grid">${elementChipsHtml || "<span class=\"hint-inline\">Nenhum elemento configurado.</span>"}</div>
     </div>
   `;
@@ -242,7 +242,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
 
       <div class="mechanic-panel se-damage-panel">
         <div class="form-group"><label>Fórmula de Dano</label><input type="text" name="damageFormula" value="${escapeHtml(data.damageFormula)}" placeholder="2d6+3"/></div>
-        <label class="checkbox-line"><input type="checkbox" name="isMagicDamage" ${data.isMagicDamage ? "checked" : ""}/> Dano Mágico (reduzido pela Defesa Mágica do alvo)</label>
+        <label class="checkbox-line"><input type="checkbox" name="isMagicDamage" ${data.isMagicDamage ? "checked" : ""}/> Dano Mágico</label>
         <div class="form-group"><label>Elemento(s)</label><div class="element-grid">${elementChips || "<span class=\"hint-inline\">Nenhum elemento configurado.</span>"}</div></div>
       </div>
 
@@ -254,11 +254,8 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
         <p class="hint-inline">
           Quantidade negativa = debuff/drawback. Escudo ignora Duração (some só ao absorver dano).
           Condição dá ícone reconhecível no token (opcional). "Periódico" (só HP/Energia) aplica a
-          Quantidade a CADA tick em vez de uma vez só — Duração vira "quantos ticks". Tick de dano
-          (Quantidade negativa) é reduzido por Resistência Geral/Elemental do alvo — NUNCA por
-          Defesa Mágica, mesmo se o Elemento for mágico; tick de cura (Quantidade positiva) sempre
-          aplica o valor cheio. Reaplicar a MESMA Condição em quem já a tem apenas ESTENDE a
-          duração/ticks (soma), não duplica.
+          Quantidade a CADA tick em vez de uma vez só — Duração vira "quantos ticks". Reaplicar a
+          MESMA Condição em quem já a tem apenas ESTENDE a duração/ticks (soma), não duplica.
         </p>
       </div>
     </form>`;

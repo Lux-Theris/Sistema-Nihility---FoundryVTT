@@ -25,21 +25,53 @@
           <input type="number" name="system.shields.value" value="{{system.shields.value}}"/>/{{#if shieldModule}}{{system.shields.max}}{{else}}<input type="number" name="system.shields.max" value="{{system.shields.max}}"/>{{/if}}
         </span>
         {{#if system.shields.rechargeRemaining}}<span class="hint-inline" style="margin-left:4px;">(Recarga: {{system.shields.rechargeRemaining}})</span>{{/if}}
+        {{#if isGM}}
+        <a class="vital-adjust-toggle" data-action="toggleModuleVitalAdjust" data-key="shields" title="Ajustar Escudos/Recarga"><i class="fas fa-plus"></i></a>
+        {{/if}}
       </div>
+      {{#if isGM}}
+      <div class="vital-adjust-popover" data-key="shields">
+        <input type="number" class="vital-adjust-input" min="0" placeholder="Valor"/>
+        <button type="button" class="vital-adjust-btn dmg" data-action="adjustModuleVital" data-scope="actor" data-field="shields.value" data-max-field="shields.max" data-dir="-1">− Dano</button>
+        <button type="button" class="vital-adjust-btn heal" data-action="adjustModuleVital" data-scope="actor" data-field="shields.value" data-max-field="shields.max" data-dir="1">+ Reparo</button>
+        <button type="button" class="vital-adjust-btn dmg" data-action="adjustModuleVital" data-scope="actor" data-field="shields.rechargeRemaining" data-dir="-1">− Recarga</button>
+        <button type="button" class="vital-adjust-btn heal" data-action="adjustModuleVital" data-scope="actor" data-field="shields.rechargeRemaining" data-dir="1">+ Recarga</button>
+      </div>
+      {{/if}}
       <div class="vital-row">
         <span class="vital-label">Casco</span>
         <span class="vital-track"><span class="vital-fill hp" style="width:{{cascoPercent}}%"></span></span>
         <span class="vital-value">
           <input type="number" name="system.casco.value" value="{{system.casco.value}}"/>/{{#if armorModule}}{{system.casco.max}}{{else}}<input type="number" name="system.casco.max" value="{{system.casco.max}}"/>{{/if}}
         </span>
+        {{#if isGM}}
+        <a class="vital-adjust-toggle" data-action="toggleModuleVitalAdjust" data-key="casco" title="Ajustar Casco"><i class="fas fa-plus"></i></a>
+        {{/if}}
       </div>
+      {{#if isGM}}
+      <div class="vital-adjust-popover" data-key="casco">
+        <input type="number" class="vital-adjust-input" min="0" placeholder="Valor"/>
+        <button type="button" class="vital-adjust-btn dmg" data-action="adjustModuleVital" data-scope="actor" data-field="casco.value" data-max-field="casco.max" data-dir="-1">− Dano</button>
+        <button type="button" class="vital-adjust-btn heal" data-action="adjustModuleVital" data-scope="actor" data-field="casco.value" data-max-field="casco.max" data-dir="1">+ Reparo</button>
+      </div>
+      {{/if}}
       <div class="vital-row">
         <span class="vital-label">Integridade Estrutural</span>
         <span class="vital-track"><span class="vital-fill hp" style="width:{{structurePercent}}%"></span></span>
         <span class="vital-value">
           <input type="number" name="system.hull.value" value="{{system.hull.value}}"/>/<input type="number" name="system.hull.max" value="{{system.hull.max}}"/>
         </span>
+        {{#if isGM}}
+        <a class="vital-adjust-toggle" data-action="toggleModuleVitalAdjust" data-key="hull" title="Ajustar Integridade Estrutural"><i class="fas fa-plus"></i></a>
+        {{/if}}
       </div>
+      {{#if isGM}}
+      <div class="vital-adjust-popover" data-key="hull">
+        <input type="number" class="vital-adjust-input" min="0" placeholder="Valor"/>
+        <button type="button" class="vital-adjust-btn dmg" data-action="adjustModuleVital" data-scope="actor" data-field="hull.value" data-max-field="hull.max" data-dir="-1">− Dano</button>
+        <button type="button" class="vital-adjust-btn heal" data-action="adjustModuleVital" data-scope="actor" data-field="hull.value" data-max-field="hull.max" data-dir="1">+ Reparo</button>
+      </div>
+      {{/if}}
       {{#if isVehicle}}
       <div class="vital-row">
         <span class="vital-label">Velocidade</span>
@@ -105,20 +137,30 @@
         <p class="block-title">Módulos Especiais <span class="hint-inline" style="margin:0">(slot único cada)</span></p>
         <ol class="item-list">
           {{#each specialModules as |module|}}
-          <li class="item-row module-{{module.system.status}}" data-item-id="{{module.id}}">
-            <span class="cat-pill cat-{{module.system.category}}">{{lookup ../config.STARSHIP_MODULE_CATEGORY_LABELS module.system.category}}</span>
-            <img src="{{module.img}}" width="24" height="24"/>
-            <span class="item-name">{{module.name}}</span>
-            <span class="item-consumption">
-              {{module.system.powerConsumption}} EPS &middot; Throttle {{module.system.powerAllocationPercent}}% &middot; {{module.system.status}} &middot; {{module.system.hp.value}}/{{module.system.hp.max}} HP
-              {{#if (eq module.system.category "armor")}} &middot; Redução {{module.system.armorReduction}}%{{/if}}
-              {{#if (eq module.system.category "engine")}} &middot; Rotação {{../system.maneuverability}}{{/if}}
-              {{#if (eq module.system.category "ftl")}} &middot; Fator ×{{module.system.warpFactor}}{{#if (eq module.system.ftlType "jump")}} &middot; Carga {{module.system.chargeRemaining}}/{{module.system.chargeTime}}{{/if}}{{/if}}
-            </span>
-            {{#if (lt (lookup ../powerRatios module.id) 100)}}<span class="power-shortage-badge" title="Recebendo só {{lookup ../powerRatios module.id}}% da energia pedida">⚠ Energia insuficiente</span>{{/if}}
-            <a class="module-toggle-power" data-action="toggleModulePower" title="Ligar/Desligar"><i class="fas fa-power-off"></i></a>
-            <a class="item-edit" data-action="editItem" title="Editar"><i class="fas fa-edit"></i></a>
-            <a class="item-delete" data-action="deleteItem" title="Excluir"><i class="fas fa-trash"></i></a>
+          <li class="item-row-wrap">
+            <div class="item-row module-{{module.system.status}}" data-item-id="{{module.id}}">
+              <span class="cat-pill cat-{{module.system.category}}">{{lookup ../config.STARSHIP_MODULE_CATEGORY_LABELS module.system.category}}</span>
+              <img src="{{module.img}}" width="24" height="24"/>
+              <span class="item-name">{{module.name}}</span>
+              <span class="item-consumption">
+                {{module.system.powerConsumption}} EPS &middot; Throttle {{module.system.powerAllocationPercent}}% &middot; {{module.system.status}} &middot; {{module.system.hp.value}}/{{module.system.hp.max}} HP
+                {{#if (eq module.system.category "armor")}} &middot; Redução {{module.system.armorReduction}}%{{/if}}
+                {{#if (eq module.system.category "engine")}} &middot; Rotação {{../system.maneuverability}}{{/if}}
+                {{#if (eq module.system.category "ftl")}} &middot; Fator ×{{module.system.warpFactor}}{{#if (eq module.system.ftlType "jump")}} &middot; Carga {{module.system.chargeRemaining}}/{{module.system.chargeTime}}{{/if}}{{/if}}
+              </span>
+              {{#if (lt (lookup ../powerRatios module.id) 100)}}<span class="power-shortage-badge" title="Recebendo só {{lookup ../powerRatios module.id}}% da energia pedida">⚠ Energia insuficiente</span>{{/if}}
+              <a class="module-toggle-power" data-action="toggleModulePower" title="Ligar/Desligar"><i class="fas fa-power-off"></i></a>
+              {{#if ../isGM}}<a class="vital-adjust-toggle" data-action="toggleModuleVitalAdjust" data-key="module-hp-{{module.id}}" title="Ajustar Vida do Módulo"><i class="fas fa-plus"></i></a>{{/if}}
+              <a class="item-edit" data-action="editItem" title="Editar"><i class="fas fa-edit"></i></a>
+              <a class="item-delete" data-action="deleteItem" title="Excluir"><i class="fas fa-trash"></i></a>
+            </div>
+            {{#if ../isGM}}
+            <div class="vital-adjust-popover" data-key="module-hp-{{module.id}}">
+              <input type="number" class="vital-adjust-input" min="0" placeholder="Valor"/>
+              <button type="button" class="vital-adjust-btn dmg" data-action="adjustModuleVital" data-scope="item" data-item-id="{{module.id}}" data-field="hp.value" data-max-field="hp.max" data-dir="-1">− Dano</button>
+              <button type="button" class="vital-adjust-btn heal" data-action="adjustModuleVital" data-scope="item" data-item-id="{{module.id}}" data-field="hp.value" data-max-field="hp.max" data-dir="1">+ Reparo</button>
+            </div>
+            {{/if}}
           </li>
           {{/each}}
         </ol>
@@ -129,15 +171,25 @@
         <p class="block-title">Módulos</p>
         <ol class="item-list">
           {{#each modules as |module|}}
-          <li class="item-row module-{{module.system.status}}" data-item-id="{{module.id}}">
-            <span class="cat-pill cat-{{module.system.category}}">{{lookup ../config.STARSHIP_MODULE_CATEGORY_LABELS module.system.category}}</span>
-            <img src="{{module.img}}" width="24" height="24"/>
-            <span class="item-name">{{module.name}}</span>
-            <span class="item-consumption">{{module.system.powerConsumption}} EPS &middot; Throttle {{module.system.powerAllocationPercent}}% &middot; {{module.system.status}} &middot; {{module.system.hp.value}}/{{module.system.hp.max}} HP</span>
-            {{#if (lt (lookup ../powerRatios module.id) 100)}}<span class="power-shortage-badge" title="Recebendo só {{lookup ../powerRatios module.id}}% da energia pedida">⚠ Energia insuficiente</span>{{/if}}
-            <a class="module-toggle-power" data-action="toggleModulePower" title="Ligar/Desligar"><i class="fas fa-power-off"></i></a>
-            <a class="item-edit" data-action="editItem" title="Editar"><i class="fas fa-edit"></i></a>
-            <a class="item-delete" data-action="deleteItem" title="Excluir"><i class="fas fa-trash"></i></a>
+          <li class="item-row-wrap">
+            <div class="item-row module-{{module.system.status}}" data-item-id="{{module.id}}">
+              <span class="cat-pill cat-{{module.system.category}}">{{lookup ../config.STARSHIP_MODULE_CATEGORY_LABELS module.system.category}}</span>
+              <img src="{{module.img}}" width="24" height="24"/>
+              <span class="item-name">{{module.name}}</span>
+              <span class="item-consumption">{{module.system.powerConsumption}} EPS &middot; Throttle {{module.system.powerAllocationPercent}}% &middot; {{module.system.status}} &middot; {{module.system.hp.value}}/{{module.system.hp.max}} HP</span>
+              {{#if (lt (lookup ../powerRatios module.id) 100)}}<span class="power-shortage-badge" title="Recebendo só {{lookup ../powerRatios module.id}}% da energia pedida">⚠ Energia insuficiente</span>{{/if}}
+              <a class="module-toggle-power" data-action="toggleModulePower" title="Ligar/Desligar"><i class="fas fa-power-off"></i></a>
+              {{#if ../isGM}}<a class="vital-adjust-toggle" data-action="toggleModuleVitalAdjust" data-key="module-hp-{{module.id}}" title="Ajustar Vida do Módulo"><i class="fas fa-plus"></i></a>{{/if}}
+              <a class="item-edit" data-action="editItem" title="Editar"><i class="fas fa-edit"></i></a>
+              <a class="item-delete" data-action="deleteItem" title="Excluir"><i class="fas fa-trash"></i></a>
+            </div>
+            {{#if ../isGM}}
+            <div class="vital-adjust-popover" data-key="module-hp-{{module.id}}">
+              <input type="number" class="vital-adjust-input" min="0" placeholder="Valor"/>
+              <button type="button" class="vital-adjust-btn dmg" data-action="adjustModuleVital" data-scope="item" data-item-id="{{module.id}}" data-field="hp.value" data-max-field="hp.max" data-dir="-1">− Dano</button>
+              <button type="button" class="vital-adjust-btn heal" data-action="adjustModuleVital" data-scope="item" data-item-id="{{module.id}}" data-field="hp.value" data-max-field="hp.max" data-dir="1">+ Reparo</button>
+            </div>
+            {{/if}}
           </li>
           {{/each}}
         </ol>
@@ -167,21 +219,39 @@
         <p class="block-title">Armas <span class="hint-inline" style="margin:0">({{weaponBudgetLabel}})</span></p>
         <ol class="item-list weapon-list">
           {{#each weaponModules as |module|}}
-          <li class="weapon-row item-row module-{{module.system.status}}" data-item-id="{{module.id}}">
-            <span class="cat-pill cat-weapon">{{lookup ../config.MODULE_SIZE_LABELS module.system.moduleSize}}</span>
-            <img src="{{module.img}}" width="24" height="24"/>
-            <span class="item-name">{{module.name}}</span>
-            <span class="item-consumption">
-              Custo {{module.system.powerConsumption}} EPS &middot; Throttle {{module.system.powerAllocationPercent}}% &middot; {{module.system.status}} &middot; {{module.system.hp.value}}/{{module.system.hp.max}} HP
-              &middot; Dano {{module.system.damageFormula}} &middot; Penetração {{module.system.penetration}}%
-              {{#if module.system.cooldownRounds}} &middot; Recarga {{module.system.cooldownRounds}} rodada(s){{/if}}
-            </span>
-            {{#if (lt (lookup ../powerRatios module.id) 100)}}<span class="power-shortage-badge" title="Recebendo só {{lookup ../powerRatios module.id}}% da energia pedida">⚠ Energia insuficiente</span>{{/if}}
-            {{#if module.system.cooldownRemaining}}<span class="cooldown-note">⏳ Em recarga — {{module.system.cooldownRemaining}} rodada(s) restantes</span>{{/if}}
-            <button type="button" class="fire-btn" data-action="fireWeapon" {{#if module.system.cooldownRemaining}}disabled{{/if}} title="Disparar">🎯 Disparar</button>
-            <a class="module-toggle-power" data-action="toggleModulePower" title="Ligar/Desligar"><i class="fas fa-power-off"></i></a>
-            <a class="item-edit" data-action="editItem" title="Editar"><i class="fas fa-edit"></i></a>
-            <a class="item-delete" data-action="deleteItem" title="Excluir"><i class="fas fa-trash"></i></a>
+          <li class="item-row-wrap">
+            <div class="weapon-row item-row module-{{module.system.status}}" data-item-id="{{module.id}}">
+              <span class="cat-pill cat-weapon">{{lookup ../config.MODULE_SIZE_LABELS module.system.moduleSize}}</span>
+              <img src="{{module.img}}" width="24" height="24"/>
+              <span class="item-name">{{module.name}}</span>
+              <span class="item-consumption">
+                Custo {{module.system.powerConsumption}} EPS &middot; Throttle {{module.system.powerAllocationPercent}}% &middot; {{module.system.status}} &middot; {{module.system.hp.value}}/{{module.system.hp.max}} HP
+                &middot; Dano {{module.system.damageFormula}} &middot; Penetração {{module.system.penetration}}%
+                {{#if module.system.cooldownRounds}} &middot; Recarga {{module.system.cooldownRounds}} rodada(s){{/if}}
+              </span>
+              {{#if (lt (lookup ../powerRatios module.id) 100)}}<span class="power-shortage-badge" title="Recebendo só {{lookup ../powerRatios module.id}}% da energia pedida">⚠ Energia insuficiente</span>{{/if}}
+              {{#if module.system.cooldownRemaining}}<span class="cooldown-note">⏳ Em recarga — {{module.system.cooldownRemaining}} rodada(s) restantes</span>{{/if}}
+              <button type="button" class="fire-btn" data-action="fireWeapon" {{#if module.system.cooldownRemaining}}disabled{{/if}} title="Disparar">🎯 Disparar</button>
+              <a class="module-toggle-power" data-action="toggleModulePower" title="Ligar/Desligar"><i class="fas fa-power-off"></i></a>
+              {{#if ../isGM}}
+              <a class="vital-adjust-toggle" data-action="toggleModuleVitalAdjust" data-key="module-hp-{{module.id}}" title="Ajustar Vida da Arma"><i class="fas fa-plus"></i></a>
+              <a class="vital-adjust-toggle" data-action="toggleModuleVitalAdjust" data-key="module-cooldown-{{module.id}}" title="Ajustar Recarga"><i class="fas fa-clock"></i></a>
+              {{/if}}
+              <a class="item-edit" data-action="editItem" title="Editar"><i class="fas fa-edit"></i></a>
+              <a class="item-delete" data-action="deleteItem" title="Excluir"><i class="fas fa-trash"></i></a>
+            </div>
+            {{#if ../isGM}}
+            <div class="vital-adjust-popover" data-key="module-hp-{{module.id}}">
+              <input type="number" class="vital-adjust-input" min="0" placeholder="Valor"/>
+              <button type="button" class="vital-adjust-btn dmg" data-action="adjustModuleVital" data-scope="item" data-item-id="{{module.id}}" data-field="hp.value" data-max-field="hp.max" data-dir="-1">− Dano</button>
+              <button type="button" class="vital-adjust-btn heal" data-action="adjustModuleVital" data-scope="item" data-item-id="{{module.id}}" data-field="hp.value" data-max-field="hp.max" data-dir="1">+ Reparo</button>
+            </div>
+            <div class="vital-adjust-popover" data-key="module-cooldown-{{module.id}}">
+              <input type="number" class="vital-adjust-input" min="0" placeholder="Rodadas"/>
+              <button type="button" class="vital-adjust-btn dmg" data-action="adjustModuleVital" data-scope="item" data-item-id="{{module.id}}" data-field="cooldownRemaining" data-dir="-1">− Recarga</button>
+              <button type="button" class="vital-adjust-btn heal" data-action="adjustModuleVital" data-scope="item" data-item-id="{{module.id}}" data-field="cooldownRemaining" data-dir="1">+ Recarga</button>
+            </div>
+            {{/if}}
           </li>
           {{/each}}
         </ol>

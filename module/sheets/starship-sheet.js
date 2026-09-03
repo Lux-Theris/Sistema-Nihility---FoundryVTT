@@ -187,6 +187,43 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
   }
 
+  /**
+   * Ajuste manual do Mestre (Overhaul de Naves, Fase 6) — mesmo padrão de `.vital-adjust-popover`
+   * já usado no cabeçalho de Personagem (actor-sheet.js), generalizado pra qualquer campo
+   * numérico de Nave/Veículo ou de um Módulo específico: Vida de Módulo (`hp`), pools do Ator
+   * que a cascata de dano lê (`shields.value`/`casco.value`/`hull.value`), Recarga de Escudo
+   * (`shields.rechargeRemaining`) e Recarga de Arma (`cooldownRemaining`) — todos pelo mesmo
+   * par de actions, diferenciados só pelos `data-*` de cada botão (`data-scope`: "actor"|"item",
+   * `data-item-id`, `data-field`, `data-max-field` opcional).
+   */
+  static onToggleModuleVitalAdjust(event, target) {
+    event.preventDefault();
+    const key = target.closest("[data-key]")?.dataset.key;
+    if (!key) return;
+    this.element.querySelectorAll(".vital-adjust-popover").forEach(pop => {
+      pop.classList.toggle("open", pop.dataset.key === key && !pop.classList.contains("open"));
+    });
+  }
+
+  /** Aplica o valor digitado no popover como Dano/Redução (-) ou Reparo/Aumento (+), clampado em [0, max] se `data-max-field` existir. */
+  static async onAdjustModuleVital(event, target) {
+    event.preventDefault();
+    const dir = Number(target.dataset.dir);
+    const popover = target.closest(".vital-adjust-popover");
+    const input = popover?.querySelector(".vital-adjust-input");
+    const amount = Math.max(0, Number(input?.value) || 0);
+    if (!amount) return;
+
+    const { scope, itemId, field, maxField } = target.dataset;
+    const doc = scope === "item" ? this.actor.items.get(itemId) : this.actor;
+    if (!doc) return;
+
+    const current = foundry.utils.getProperty(doc.system, field) ?? 0;
+    const max = maxField ? (foundry.utils.getProperty(doc.system, maxField) ?? Infinity) : Infinity;
+    const newValue = Math.clamp(current + dir * amount, 0, max);
+    await doc.update({ [`system.${field}`]: newValue });
+  }
+
   /** Dispara uma Arma nativa (Overhaul de Naves, Fase 5) — sempre pede alvo, igual "damage" de Skill. */
   static async onFireWeapon(event, target) {
     event.preventDefault();
@@ -295,6 +332,8 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
       powerGridTick: TabbedActorSheetV2.onPowerGridTick,
       useSkill: TabbedActorSheetV2.onUseSkill,
       fireWeapon: TabbedActorSheetV2.onFireWeapon,
+      toggleModuleVitalAdjust: TabbedActorSheetV2.onToggleModuleVitalAdjust,
+      adjustModuleVital: TabbedActorSheetV2.onAdjustModuleVital,
       editImage: TabbedActorSheetV2.onEditImage
     }
   };
@@ -342,6 +381,8 @@ export class NihilityVehicleSheet extends TabbedActorSheetV2 {
       powerGridTick: TabbedActorSheetV2.onPowerGridTick,
       useSkill: TabbedActorSheetV2.onUseSkill,
       fireWeapon: TabbedActorSheetV2.onFireWeapon,
+      toggleModuleVitalAdjust: TabbedActorSheetV2.onToggleModuleVitalAdjust,
+      adjustModuleVital: TabbedActorSheetV2.onAdjustModuleVital,
       editImage: TabbedActorSheetV2.onEditImage
     }
   };

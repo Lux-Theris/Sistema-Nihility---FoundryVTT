@@ -47,15 +47,16 @@ function activeStatePath(subSkillIndex) {
 
 /**
  * Caminho e valor atual do "pool" que Custo/Custo por Rodada de uma Skill gastam — Personagem/
- * Criatura usa Mana/Energia (`attributes.energy`); Nave usa o Reator (`powerGrid.reactorOutput`),
- * NUNCA o Capacitor (decisão deliberada: Habilidade Ativa de Nave compete só com a geração do
- * Reator, sem interagir com o resto do Grid/surplus-deficit que `applyPowerGridTick` já cobre).
+ * Criatura usa Mana/Energia (`attributes.energy`); Nave e Veículo (mesmo Grid de Energia desde
+ * o overhaul de Porte) usam o Reator (`powerGrid.reactorOutput`), NUNCA o Capacitor (decisão
+ * deliberada: Habilidade Ativa de Nave/Veículo compete só com a geração do Reator, sem
+ * interagir com o resto do Grid/surplus-deficit que `applyPowerGridTick` já cobre).
  */
 function energyValuePath(actor) {
-  return actor.type === "starship" ? "system.powerGrid.reactorOutput" : "system.attributes.energy.value";
+  return isShipLike(actor) ? "system.powerGrid.reactorOutput" : "system.attributes.energy.value";
 }
 function currentEnergyValue(actor) {
-  return actor.type === "starship" ? (actor.system.powerGrid.reactorOutput ?? 0) : (actor.system.attributes.energy.value ?? 0);
+  return isShipLike(actor) ? (actor.system.powerGrid.reactorOutput ?? 0) : (actor.system.attributes.energy.value ?? 0);
 }
 
 /** Avisa só quem clicou (whisper individual) que a Energia (nome configurável) atual não cobre o Custo. */
@@ -258,33 +259,103 @@ function actorResistanceFor(targetActor, resistanceTarget) {
   return bestSkill + bestTitle;
 }
 
+/** Nave OU Veículo — os dois compartilham o mesmo `ShipSystemsDataModel` desde o overhaul de Porte. */
+function isShipLike(actor) {
+  return ["starship", "vehicle"].includes(actor?.type);
+}
+
 /**
- * Bônus de arma de uma Nave atacante (`combatBonuses`, dado por Skills de "Efeito Temporário"
- * com alvo shipWeaponDamage — ver EFFECT_TARGETS em config.js): Multiplicador primeiro, Flat
- * depois, igual a ordem de operações padrão. `0` (não `sourceActor`) se quem atacou não for Nave.
+ * Bônus de arma de uma Nave/Veículo atacante (`combatBonuses`, dado por Skills de "Efeito
+ * Temporário" com alvo shipWeaponDamage — ver EFFECT_TARGETS em config.js): Multiplicador
+ * primeiro, Flat depois, igual a ordem de operações padrão. `rawTotal` sem mudança se quem
+ * atacou não for Nave/Veículo.
  */
 function applyShipWeaponBonus(rawTotal, sourceActor) {
-  if (sourceActor?.type !== "starship") return rawTotal;
+  if (!isShipLike(sourceActor)) return rawTotal;
   const bonuses = sourceActor.system.combatBonuses;
   return rawTotal * (bonuses?.weaponDamageMultiplier ?? 1) + (bonuses?.weaponDamageFlat ?? 0);
 }
 
 /**
- * Redução (0-1) da Resistência de Casco de uma Nave-alvo, já considerando a Penetração de arma
- * da Nave atacante (se houver): `weaponPenetrationMultiplier` (buffado via Skill, começa em 1 e
- * SOBE com bônus — dividido no Casco, não multiplicado, pra "penetração maior" sempre significar
- * "armadura efetiva menor") e `weaponPenetrationFlat` (pontos percentuais subtraídos direto).
- * 0 se o alvo não for Nave ou não tiver Casco instalado.
+ * Penetração (0-1) da arma de uma Nave/Veículo atacante — hoje só reflete o bônus de Skills de
+ * aprimoramento (`combatBonuses.weaponPenetrationFlat`/Multiplier); a Arma ainda não tem seu
+ * próprio campo `penetration` base (isso é a Fase 5 do overhaul de Naves — dano/penetração/
+ * recarga na própria Módulo). Quando existir, a fórmula vira `base × multiplier + flat` sozinha,
+ * sem precisar mudar mais nada aqui. `0` se quem atacou não for Nave/Veículo.
  */
-function shipArmorReductionAfterPenetration(targetActor, sourceActor) {
-  if (targetActor?.type !== "starship") return 0;
-  let armor = targetActor.system.armorReductionPercent ?? 0;
-  if (sourceActor?.type === "starship") {
-    const pen = sourceActor.system.combatBonuses;
-    armor /= pen?.weaponPenetrationMultiplier || 1;
-    armor -= (pen?.weaponPenetrationFlat ?? 0) / 100;
+function shipWeaponPenetration(sourceActor) {
+  if (!isShipLike(sourceActor)) return 0;
+  const bonuses = sourceActor.system.combatBonuses;
+  const base = 0;
+  return Math.clamp(base * (bonuses?.weaponPenetrationMultiplier ?? 1) + (bonuses?.weaponPenetrationFlat ?? 0) / 100, 0, 1);
+}
+
+/** Absorve `amount` num pool (capado no que resta) — retorna quanto foi absorvido e quanto vazou pro próximo estágio. */
+function absorbIntoPool(amount, poolValue) {
+  const absorbed = Math.min(poolValue, amount);
+  return { absorbed, leaked: amount - absorbed };
+}
+
+/**
+ * Cascata de dano de 3 camadas pra Nave/Veículo (Overhaul de Naves, Fase 4): Escudo → Casco →
+ * Estrutura, cada separação usando a MESMA Penetração% da arma atacante (`shipWeaponPenetration`)
+ * — a parte não-penetrada tenta ser absorvida pela camada atual (capada no que resta dela), o
+ * resto (parte penetrada + excedente que a camada não aguentou) vaza pra próxima. O Casco entra
+ * com sua Redução% própria (`armorReductionPercent`, do Módulo "armor") ANTES de separar de
+ * novo pela Penetração — MAS só enquanto `casco.value > 0`: placa furada (Casco a 0%) para de
+ * oferecer proteção, tanto a Redução% quanto a própria absorção do estágio. A Estrutura recebe
+ * o que sobrar, sem redução própria. Diferente do dano em Personagem (que fica manual por design
+ * — o Mestre decide o que fazer com o número), os 3 estágios aqui aplicam automaticamente via
+ * `targetActor.update()`: a cascata é complexa demais pra fazer de cabeça na mesa. Zerar o
+ * Escudo dispara a Recarga dele (ver `shieldRechargeRounds` do Módulo, ticado em starship-power.js).
+ * @returns {{toShield:number, toCasco:number, toHull:number, appliedReductions:string[]}}
+ */
+async function applyStarshipDamageCascade(rawDamage, sourceActor, targetActor) {
+  const penetration = shipWeaponPenetration(sourceActor);
+  const cascoHasProtection = targetActor.system.casco.value > 0;
+  const armorReduction = cascoHasProtection ? (targetActor.system.armorReductionPercent ?? 0) : 0;
+  const appliedReductions = [];
+  if (penetration > 0) appliedReductions.push(`Penetração ${Math.round(penetration * 100)}%`);
+  if (armorReduction > 0) appliedReductions.push(`Redução de Casco ${Math.round(armorReduction * 100)}%`);
+
+  const updates = {};
+
+  // 1) Escudo — separado pela Penetração; o que não penetrou tenta ser absorvido pelo Escudo
+  // (capado no que resta), o resto (penetrado + excedente) vaza pro Casco.
+  const shieldTargeted = Math.floor(rawDamage * (1 - penetration));
+  const shieldBypass = Math.floor(rawDamage) - shieldTargeted;
+  const { absorbed: toShield, leaked: shieldOverflow } = absorbIntoPool(shieldTargeted, targetActor.system.shields.value);
+  let remaining = shieldBypass + shieldOverflow;
+
+  if (toShield > 0) {
+    const newShieldValue = targetActor.system.shields.value - toShield;
+    updates["system.shields.value"] = newShieldValue;
+    if (newShieldValue <= 0) {
+      updates["system.shields.rechargeRemaining"] = targetActor.system.shieldModule?.system.shieldRechargeRounds ?? 0;
+    }
   }
-  return Math.clamp(armor, 0, 1);
+
+  // 2) Casco — primeiro reduzido pela Redução% do Módulo, DEPOIS separado de novo pela mesma
+  // Penetração; o que não penetrou tenta ser absorvido pelo Casco (capado no que resta), o
+  // resto vaza pra Estrutura.
+  let toCasco = 0;
+  if (remaining > 0) {
+    const afterReduction = Math.floor(remaining * (1 - armorReduction));
+    const cascoTargeted = Math.floor(afterReduction * (1 - penetration));
+    const cascoBypass = afterReduction - cascoTargeted;
+    const { absorbed, leaked } = absorbIntoPool(cascoTargeted, targetActor.system.casco.value);
+    toCasco = absorbed;
+    remaining = cascoBypass + leaked;
+    if (toCasco > 0) updates["system.casco.value"] = targetActor.system.casco.value - toCasco;
+  }
+
+  // 3) Estrutura — recebe o que sobrou, sem redução própria.
+  const toHull = Math.max(0, remaining);
+  if (toHull > 0) updates["system.hull.value"] = Math.max(0, targetActor.system.hull.value - toHull);
+
+  if (Object.keys(updates).length) await targetActor.update(updates);
+
+  return { toShield, toCasco, toHull, appliedReductions };
 }
 
 /**
@@ -297,22 +368,13 @@ function shipArmorReductionAfterPenetration(targetActor, sourceActor) {
  * @param {{skipMagicDefense?: boolean, sourceActor?: Actor}} [options] - `skipMagicDefense: true`
  *   pula o passo de Defesa Mágica mesmo com `mech.isMagicDamage` true — usado pelos ticks
  *   periódicos, onde Veneno Mágico ignora Defesa Mágica de propósito (só Resistência reduz),
- *   diferente do dano "normal" de uma Skill. `sourceActor`: quem atacou — só usado pra ler a
- *   Penetração de arma quando o alvo é uma Nave (Resistência de Casco, ver
- *   `shipArmorReductionAfterPenetration`); Personagem/Criatura não usa isso.
+ *   diferente do dano "normal" de uma Skill. Nave/Veículo NÃO passa por aqui — usa a cascata de
+ *   3 camadas própria (`applyStarshipDamageCascade`), chamada direto de `rollSkillDamage`/
+ *   `rollSkillDamageArea` antes desta função entrar em jogo.
  */
 function applyDamageReductions(rawTotal, mech, targetActor, options = {}) {
   let remaining = rawTotal;
   const appliedReductions = [];
-
-  if (targetActor?.type === "starship") {
-    const armorReduction = shipArmorReductionAfterPenetration(targetActor, options.sourceActor);
-    if (armorReduction > 0) {
-      remaining *= 1 - armorReduction;
-      appliedReductions.push(`Casco ${Math.round(armorReduction * 100)}%`);
-    }
-    return { finalDamage: Math.max(0, Math.floor(remaining)), appliedReductions };
-  }
 
   if (mech.isMagicDamage && targetActor && !options.skipMagicDefense) {
     const reduction = magicDefenseReduction(targetActor);
@@ -362,10 +424,21 @@ async function rollSkillDamage(actor, mech, label, targetActor = null) {
 
   const boostedTotal = applyShipWeaponBonus(roll.total, actor);
   let flavor = damageFlavorPrefix(mech, label);
-  const { finalDamage, appliedReductions } = applyDamageReductions(boostedTotal, mech, targetActor, { sourceActor: actor });
   if (boostedTotal !== roll.total) flavor += ` — bônus de arma (${roll.total} → ${Math.floor(boostedTotal)})`;
-  if (appliedReductions.length) {
-    flavor += ` — reduzido por ${appliedReductions.join(", ")} (${Math.floor(boostedTotal)} → ${finalDamage})`;
+
+  let finalDamage;
+  if (isShipLike(targetActor)) {
+    const { toShield, toCasco, toHull, appliedReductions } = await applyStarshipDamageCascade(boostedTotal, actor, targetActor);
+    finalDamage = toShield + toCasco + toHull;
+    let cascadeText = `Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}`;
+    if (appliedReductions.length) cascadeText += ` (${appliedReductions.join(", ")})`;
+    flavor += ` — ${cascadeText}`;
+  } else {
+    const reduced = applyDamageReductions(boostedTotal, mech, targetActor, { sourceActor: actor });
+    finalDamage = reduced.finalDamage;
+    if (reduced.appliedReductions.length) {
+      flavor += ` — reduzido por ${reduced.appliedReductions.join(", ")} (${Math.floor(boostedTotal)} → ${finalDamage})`;
+    }
   }
 
   await roll.toMessage({
@@ -400,11 +473,18 @@ async function rollSkillDamageArea(actor, mech, label, targetActors) {
 
   const boostedTotal = applyShipWeaponBonus(roll.total, actor);
   const title = `${damageFlavorPrefix(mech, label)} (Emissão)`;
-  const rows = targetActors.map(targetActor => {
-    const { finalDamage, appliedReductions } = applyDamageReductions(boostedTotal, mech, targetActor, { sourceActor: actor });
-    const reductionText = appliedReductions.length ? ` <span class="hint-inline">(${appliedReductions.join(", ")})</span>` : "";
-    return `<li><strong>${targetActor.name}</strong>: ${finalDamage}${reductionText}</li>`;
-  });
+  const rows = [];
+  for (const targetActor of targetActors) {
+    if (isShipLike(targetActor)) {
+      const { toShield, toCasco, toHull, appliedReductions } = await applyStarshipDamageCascade(boostedTotal, actor, targetActor);
+      const reductionText = appliedReductions.length ? ` <span class="hint-inline">(${appliedReductions.join(", ")})</span>` : "";
+      rows.push(`<li><strong>${targetActor.name}</strong>: Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}${reductionText}</li>`);
+    } else {
+      const { finalDamage, appliedReductions } = applyDamageReductions(boostedTotal, mech, targetActor, { sourceActor: actor });
+      const reductionText = appliedReductions.length ? ` <span class="hint-inline">(${appliedReductions.join(", ")})</span>` : "";
+      rows.push(`<li><strong>${targetActor.name}</strong>: ${finalDamage}${reductionText}</li>`);
+    }
+  }
 
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor }),

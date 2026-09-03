@@ -34,6 +34,7 @@ import { DamageElementsConfigApp } from "./apps/damage-elements-config.js";
 import { StatusConditionsConfigApp } from "./apps/status-conditions-config.js";
 import { NihilityMenuApp } from "./apps/nihility-menu.js";
 import { tickCombatRoundEffects, tickActorUpkeepSkills } from "./skill-effects.js";
+import { tickStarshipPower } from "./starship-power.js";
 
 Hooks.once("init", () => {
   console.log(`${SYSTEM_ID} | Inicializando sistema...`);
@@ -350,6 +351,14 @@ Hooks.on("updateCombat", async (combat, changed) => {
     await tickActorUpkeepSkills(actor);
   } catch (err) {
     console.error(`${SYSTEM_ID} | Falha ao drenar Energia de Habilidades Ativas no início do turno.`, err);
+  }
+
+  if (["starship", "vehicle"].includes(actor.type)) {
+    try {
+      await tickStarshipPower(actor);
+    } catch (err) {
+      console.error(`${SYSTEM_ID} | Falha ao ticar Energia/Sobrecarga de Módulos no início do turno.`, err);
+    }
   }
 });
 

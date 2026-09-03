@@ -242,6 +242,58 @@
       </label>
       {{/if}}
 
+      {{#unless (or (eq system.category "battery") (eq system.category "distributor"))}}
+      <label>{{#if (eq system.category "reactor")}}Under/Overclock (%){{else}}Throttle (%){{/if}}
+        <span class="hint-inline" style="display:inline;">
+          {{#if (eq system.category "reactor")}}(abaixo de 100% economiza sem dano; acima de 100% já sofre dano, sem tolerância){{else}}(acima do normal aumenta capacidade e consumo, mas sofre dano por sobrecarga passado o limiar da categoria){{/if}}
+        </span>
+        <input type="number" name="system.powerAllocationPercent" value="{{system.powerAllocationPercent}}" min="0"/>
+      </label>
+      {{/unless}}
+
+      {{#unless (or (eq system.category "reactor") (eq system.category "battery") (eq system.category "distributor"))}}
+      <label>Prioridade de Energia <span class="hint-inline" style="display:inline;">(menor número = atendido primeiro pelo Distribuidor quando falta energia)</span>
+        <input type="number" name="system.powerPriority" value="{{system.powerPriority}}" min="0"/>
+      </label>
+      {{/unless}}
+
+      {{#if (eq system.category "reactor")}}
+      <label>Output (a 100% de clock) <input type="number" name="system.reactorOutput" value="{{system.reactorOutput}}" min="0"/></label>
+      {{/if}}
+
+      {{#if (eq system.category "distributor")}}
+      <label>Fator de Distribuição <span class="hint-inline" style="display:inline;">(multiplica o baseline de Porte da Nave pra achar a Capacidade de Transferência)</span>
+        <input type="number" name="system.transferFactor" value="{{system.transferFactor}}" min="0" step="0.1"/>
+      </label>
+      {{/if}}
+
+      {{#if (eq system.category "shield")}}
+      <label>Vida Máxima (a 100% de throttle) <input type="number" name="system.shieldCapacity" value="{{system.shieldCapacity}}" min="0"/></label>
+      <label>Regen por Rodada (a 100% de throttle) <input type="number" name="system.shieldRegen" value="{{system.shieldRegen}}" min="0"/></label>
+      <label>Recarga (rodadas sem proteção após zerar) <input type="number" name="system.shieldRechargeRounds" value="{{system.shieldRechargeRounds}}" min="0"/></label>
+      {{/if}}
+
+      {{#if (eq system.category "engine")}}
+      <label>Aceleração (a 100% de throttle) <input type="number" name="system.acceleration" value="{{system.acceleration}}" min="0"/></label>
+      <label>Rotação (a 100% de throttle) <input type="number" name="system.rotation" value="{{system.rotation}}" min="0"/></label>
+      {{/if}}
+
+      {{#if (eq system.category "ftl")}}
+      <label>Sub-tipo
+        <select name="system.ftlType">
+          <option value="warp" {{#if (eq system.ftlType "warp")}}selected{{/if}}>Dobra Espacial</option>
+          <option value="jump" {{#if (eq system.ftlType "jump")}}selected{{/if}}>Salto</option>
+        </select>
+      </label>
+      {{#if (eq system.ftlType "warp")}}
+      <label>Fator de Dobra (a 100% de throttle) <input type="number" name="system.warpFactor" value="{{system.warpFactor}}" min="0" step="0.1"/></label>
+      {{else}}
+      <label>Alcance de Salto <input type="number" name="system.jumpRange" value="{{system.jumpRange}}" min="0"/></label>
+      <label>Tempo de Carga (rodadas) <input type="number" name="system.chargeTime" value="{{system.chargeTime}}" min="0"/></label>
+      <label>Carga Restante <input type="number" name="system.chargeRemaining" value="{{system.chargeRemaining}}" min="0"/></label>
+      {{/if}}
+      {{/if}}
+
       <h3>Habilidade Concedida <span class="hint-inline">(à Nave, enquanto o módulo estiver "online")</span></h3>
       <label>Nome <input type="text" name="system.grantsSkill.name" value="{{system.grantsSkill.name}}"/></label>
       <label>Descrição <input type="text" name="system.grantsSkill.description" value="{{system.grantsSkill.description}}"/></label>

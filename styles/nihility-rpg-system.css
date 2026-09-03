@@ -1254,6 +1254,22 @@ form.nihility-config-app {
 .nihility-sheet .cat-shield { background: rgba(110, 231, 255, 0.15); color: var(--nihility-accent); }
 .nihility-sheet .cat-engine { background: rgba(154, 161, 194, 0.15); color: var(--nihility-text-dim); }
 .nihility-sheet .cat-utility { background: rgba(232, 193, 112, 0.18); color: var(--nihility-gold); }
+.nihility-sheet .cat-armor { background: rgba(154, 161, 194, 0.18); color: var(--nihility-text); }
+.nihility-sheet .cat-reactor { background: rgba(255, 92, 92, 0.15); color: var(--nihility-danger); }
+.nihility-sheet .cat-battery { background: rgba(110, 231, 160, 0.15); color: var(--nihility-ok, #6ee7a0); }
+.nihility-sheet .cat-distributor { background: rgba(192, 132, 252, 0.15); color: var(--nihility-accent-2, #c084fc); }
+.nihility-sheet .cat-ftl { background: rgba(192, 132, 252, 0.15); color: var(--nihility-accent-2, #c084fc); }
+
+.nihility-sheet .power-shortage-badge {
+  font-size: 0.62rem;
+  padding: 2px 7px;
+  border-radius: 5px;
+  color: var(--nihility-warn, #ffcf5c);
+  background: rgba(255, 207, 92, 0.1);
+  border: 1px solid rgba(255, 207, 92, 0.35);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
 
 /* ==========================================================================
    Sistema de Dano/Efeitos: botão "Usar", Escudo, editor de Efeitos (v5)

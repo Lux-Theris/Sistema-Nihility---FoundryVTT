@@ -150,6 +150,29 @@ export const MEU_SISTEMA = {
   STARSHIP_SINGLE_SLOT_CATEGORIES: ["reactor", "battery", "distributor", "shield", "engine", "armor", "ftl"],
 
   /**
+   * Limiar de `powerAllocationPercent` (%) acima do qual um Módulo sofre dano por sobrecarga a
+   * cada rodada (Overhaul de Naves, Fase 3 — ver `tickStarshipModuleOverload` em
+   * starship-power.js). Escudo tolera mais que um Módulo comum; Reator não tolera NADA acima
+   * de 100% (assimétrico de propósito — Underclock nunca causa dano). Arma tem regra própria
+   * (throttle não dana o Módulo, vira Recarga mais longa — ver Fase 5) e Distribuidor/Bateria
+   * nunca entram nesse tick (não têm throttle próprio).
+   */
+  OVERLOAD_THRESHOLD_DEFAULT: 200,
+  OVERLOAD_THRESHOLD_SHIELD: 500,
+  OVERLOAD_THRESHOLD_REACTOR: 100,
+
+  /**
+   * Percentual da Vida Máxima do Módulo perdido por rodada de sobrecarga, por ponto percentual
+   * de `powerAllocationPercent` acima do limiar. Fica em 0 (o tick roda, identifica a
+   * sobrecarga, mas não aplica dano nenhum ainda) até a Fase 8 do overhaul fechar a magnitude
+   * real com o Mestre — não é pra inventar um número de balanceamento sem validar.
+   */
+  OVERLOAD_DAMAGE_PERCENT_OF_MAX_PER_ROUND: 0,
+
+  /** Percentual mínimo de Vida Máxima pra um Módulo desligado por dano poder ser religado. */
+  MODULE_RESTART_HP_THRESHOLD_PERCENT: 15,
+
+  /**
    * Atributos de combate. `bonus = floor(pontos / 3)`; a cada +10 de bônus a
    * rolagem ganha +1d20 (todos os dados são somados). Bônus de arma/equipamento
    * NUNCA contam pra essa conta — somam por fora, sempre como número fixo.
@@ -560,7 +583,8 @@ export function getStarshipEnergyLabel() {
  * Nave usa `starshipEnergyLabel`, cada um configurável separadamente pelo Mestre).
  */
 export function getEnergyLabelForActor(actor) {
-  return actor?.type === "starship" ? getStarshipEnergyLabel() : getCharacterEnergyLabel();
+  // Veículo compartilha o mesmo Grid de Energia de Nave desde o overhaul de Porte (Fase 1).
+  return ["starship", "vehicle"].includes(actor?.type) ? getStarshipEnergyLabel() : getCharacterEnergyLabel();
 }
 
 /** Atalhos de leitura para os três toggles principais. */

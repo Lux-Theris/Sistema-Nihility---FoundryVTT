@@ -4,17 +4,19 @@ const fields = foundry.data.fields;
 
 /**
  * Campos compartilhados por Nave Espacial E Veículo (overhaul de Porte — Veículo ganha o
- * sistema COMPLETO, só travado em Porte mini/pequeno via `sizeChoices`): Estrutura (`hull`,
- * ainda rotulado "Casco" na UI por enquanto — vira "Estrutura" quando a cascata de dano de 3
- * camadas entrar), Escudos, o slot de Casco propriamente dito (`casco`, ainda não derivado de
- * um Módulo — isso é ligado quando a cascata Escudo→Casco→Estrutura for implementada), o Grid
- * de Energia e os bônus de combate de Skills de aprimoramento.
+ * sistema COMPLETO, só travado em Porte mini/pequeno via `sizeChoices`): Estrutura (`hull` —
+ * o "HP base", nunca vem de Módulo), Escudos (com Recarga — ver `rechargeRemaining` abaixo),
+ * o Casco propriamente dito (`casco`, com `max` derivado do Módulo "armor" instalado — ver
+ * `prepareDerivedData`), o Grid de Energia e os bônus de combate de Skills de aprimoramento.
+ * A cascata de dano de 3 camadas (Escudo→Casco→Estrutura, Fase 4) mora em skill-effects.js —
+ * `applyStarshipDamageCascade`.
  */
 function shipSystemsSchema({ sizeChoices }) {
   return {
     /** Porte da Nave/Veículo — só o Mestre edita (mesmo padrão de Nível). */
     shipSize: new fields.StringField({ required: true, initial: sizeChoices[0], choices: sizeChoices }),
 
+    /** Estrutura/Integridade Estrutural — última camada da cascata de dano, nunca reduzida por nada própria. */
     hull: new fields.SchemaField({
       value: new fields.NumberField({ required: true, integer: true, initial: 100, min: 0 }),
       max: new fields.NumberField({ required: true, integer: true, initial: 100, min: 0 })
@@ -22,12 +24,19 @@ function shipSystemsSchema({ sizeChoices }) {
     shields: new fields.SchemaField({
       value: new fields.NumberField({ required: true, integer: true, initial: 50, min: 0 }),
       max: new fields.NumberField({ required: true, integer: true, initial: 50, min: 0 }),
-      regenRate: new fields.NumberField({ required: true, integer: true, initial: 5, min: 0 })
+      regenRate: new fields.NumberField({ required: true, integer: true, initial: 5, min: 0 }),
+      /**
+       * Rodadas restantes de Recarga (0% de proteção) depois do Escudo zerar — enquanto > 0 não
+       * regenera nem absorve dano; ao chegar a 0, volta a regenerar normalmente (ver tick de
+       * Escudo em starship-power.js). Setado pela cascata de dano quando `shields.value` zera.
+       */
+      rechargeRemaining: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 })
     }),
 
     /**
-     * Vida do Casco propriamente dito — ainda não derivada do Módulo "armor" instalado (isso é
-     * ligado junto da cascata de dano Escudo→Casco→Estrutura); por enquanto só reserva o campo.
+     * Vida do Casco propriamente dito — camada intermediária da cascata de dano (Escudo→Casco→
+     * Estrutura, Fase 4). `max` é derivado do Módulo "armor" instalado (`armorModule.system.hp.max`,
+     * ver `prepareDerivedData`) enquanto houver um; sem Módulo, fica editável à mão em 0.
      */
     casco: new fields.SchemaField({
       value: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
@@ -35,7 +44,11 @@ function shipSystemsSchema({ sizeChoices }) {
     }),
 
     powerGrid: new fields.SchemaField({
-      /** Geração contínua do reator principal. */
+      /**
+       * Geração contínua do Reator. Manualmente editável enquanto não houver Módulo "reactor"
+       * instalado; a partir do momento que houver, vira derivada dele (`reactorOutput` do
+       * Módulo × throttle, ver `prepareDerivedData`) e este valor passa a ser só um espelho.
+       */
       reactorOutput: new fields.NumberField({ required: true, integer: true, initial: 100, min: 0 }),
       /** Baterias/Capacitores: armazenam excedente e descarregam quando o consumo supera o reator. */
       capacitor: new fields.SchemaField({
@@ -63,7 +76,7 @@ function shipSystemsSchema({ sizeChoices }) {
 }
 
 /**
- * Base compartilhada por Nave Espacial e Veículo (overhaul de Porte, Fase 2) — os dois tipos
+ * Base compartilhada por Nave Espacial e Veículo (overhaul de Porte, Fase 2-3) — os dois tipos
  * usam o MESMO Grid de Energia e o mesmo conceito de Módulos de slot único (Reator/Bateria/
  * Distribuidor/Escudo/Motor/Casco/FTL, ver MEU_SISTEMA.STARSHIP_SINGLE_SLOT_CATEGORIES) em vez
  * de cada um reimplementar os mesmos getters. `armorModule` substitui o antigo campo solto
@@ -90,16 +103,16 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
     return this.parent.items.filter(i => i.type === "skill");
   }
 
-  /** Soma do consumo de todos os módulos atualmente online. */
+  /** Soma do consumo de todos os módulos atualmente online, já escalado pelo throttle de cada um (Fase 3). */
   get totalConsumption() {
     return this.modules
       .filter(m => m.system.status === "online")
-      .reduce((sum, m) => sum + (m.system.powerConsumption ?? 0), 0);
+      .reduce((sum, m) => sum + Math.round((m.system.powerConsumption ?? 0) * ((m.system.powerAllocationPercent ?? 100) / 100)), 0);
   }
 
-  /** Energia Disponível = Reator + Baterias - Consumo Total. */
+  /** Energia Disponível = min(Reator, Capacidade de Transferência) + Baterias - Consumo Total. */
   get availableEnergy() {
-    return this.powerGrid.reactorOutput + this.powerGrid.capacitor.value - this.totalConsumption;
+    return Math.min(this.powerGrid.reactorOutput, this.transferCapacity) + this.powerGrid.capacitor.value - this.totalConsumption;
   }
 
   /** Único Módulo instalado de uma categoria de slot único, ou `null` se vazio. */
@@ -142,7 +155,88 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
     return this.weaponModules.reduce((sum, m) => sum + MEU_SISTEMA.MODULE_SIZE_RANK[m.system.moduleSize] + 1, 0);
   }
 
+  /**
+   * Capacidade de Transferência do Distribuidor — o teto de energia que a Nave/Veículo INTEIRA
+   * consegue rotear por rodada (não por módulo), inspirado no Distribuidor de Energia de Elite
+   * Dangerous. `Infinity` (sem teto) enquanto `MEU_SISTEMA.DISTRIBUTOR_BASELINE_BY_SHIP_SIZE`
+   * não existir (Fase 8 do overhaul, valores a fechar com o Mestre) ou enquanto não houver
+   * Distribuidor instalado — a partir do momento que a tabela existir, passa a valer sozinha.
+   */
+  get transferCapacity() {
+    const baseline = MEU_SISTEMA.DISTRIBUTOR_BASELINE_BY_SHIP_SIZE?.[this.shipSize];
+    const distributor = this.distributorModule;
+    if (baseline === undefined || !distributor) return Infinity;
+    return Math.round(baseline * (distributor.system.transferFactor ?? 1));
+  }
+
+  /**
+   * Estado ao vivo do Distribuidor (Overhaul de Naves, Fase 3) — recalculado a cada leitura,
+   * nunca armazenado: quanto cada Módulo "online" está pedindo agora, quanto a Capacidade de
+   * Transferência + a Reserva da Bateria conseguem cobrir, e — se nem isso bastar — a fração
+   * (0-1) que cada Módulo de fato recebe nesta rodada, financiando em ordem de `powerPriority`
+   * (menor primeiro). Isso é FOME DE ENERGIA, não dano: não persiste entre recálculos, não
+   * desliga o Módulo sozinho, só reduz o que ele entrega enquanto a demanda continuar acima do
+   * que a Nave/Veículo consegue entregar — se resolve sozinho assim que a demanda cair.
+   */
+  get powerShortfall() {
+    const online = this.modules.filter(m => m.system.status === "online");
+    const sorted = [...online].sort((a, b) => a.system.powerPriority - b.system.powerPriority);
+    let available = Math.min(this.powerGrid.reactorOutput, this.transferCapacity) + this.powerGrid.capacitor.value;
+
+    const ratios = new Map();
+    for (const module of sorted) {
+      const demand = (module.system.powerConsumption ?? 0) * ((module.system.powerAllocationPercent ?? 100) / 100);
+      if (demand <= 0) {
+        ratios.set(module.id, 1);
+        continue;
+      }
+      if (available >= demand) {
+        available -= demand;
+        ratios.set(module.id, 1);
+      } else {
+        ratios.set(module.id, Math.max(0, available / demand));
+        available = 0;
+      }
+    }
+
+    return { ratios, totalDemand: this.totalConsumption, capacity: this.transferCapacity };
+  }
+
+  /** Fração (0-1) de capacidade que este Módulo de fato recebe agora — 1 se não houver déficit de energia. */
+  powerRatioFor(module) {
+    if (!module) return 1;
+    return this.powerShortfall.ratios.get(module.id) ?? 1;
+  }
+
+  /**
+   * Valor de um campo do Módulo já escalado pelo throttle (`powerAllocationPercent`) E pela
+   * fome de energia do momento (`powerRatioFor`) — base pra toda capacidade derivada de Módulo
+   * (Vida/Regen de Escudo, Aceleração/Rotação de Motor, Fator de Dobra de FTL, e futuramente
+   * Dano/Penetração de Arma na Fase 5). `null`/sem Módulo instalado retorna 0.
+   */
+  effectiveModuleStat(module, field) {
+    if (!module) return 0;
+    const throttleRatio = (module.system.powerAllocationPercent ?? 100) / 100;
+    const powerRatio = this.powerRatioFor(module);
+    return Math.round((module.system[field] ?? 0) * throttleRatio * powerRatio);
+  }
+
   prepareDerivedData() {
+    // Reator/Escudo/Casco derivam do Módulo instalado (se houver) — ver comentário nos campos acima.
+    const reactor = this.reactorModule;
+    if (reactor) {
+      this.powerGrid.reactorOutput = this.effectiveModuleStat(reactor, "reactorOutput");
+    }
+    const shield = this.shieldModule;
+    if (shield) {
+      this.shields.max = this.effectiveModuleStat(shield, "shieldCapacity");
+      this.shields.regenRate = this.effectiveModuleStat(shield, "shieldRegen");
+    }
+    const armor = this.armorModule;
+    if (armor) {
+      this.casco.max = armor.system.hp.max;
+    }
+
     this.hull.value = Math.clamp(this.hull.value, 0, this.hull.max);
     this.shields.value = Math.clamp(this.shields.value, 0, this.shields.max);
     this.casco.value = Math.clamp(this.casco.value, 0, this.casco.max);
@@ -151,15 +245,16 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
   }
 
   /**
-   * Aplica um "tick" do grid de energia: excedente do reator recarrega os capacitores;
-   * déficit é descontado dos capacitores. Se os capacitores não bastarem, o grid entra
-   * em sobrecarga (isOverloaded = true) e o chamador deve tratar as consequências
-   * (queda de módulos, dano ao casco, etc).
+   * Aplica um "tick" do grid de energia: excedente do reator (já limitado pela Capacidade de
+   * Transferência do Distribuidor) recarrega os capacitores; déficit é descontado dos
+   * capacitores. Se os capacitores não bastarem, o grid entra em sobrecarga (isOverloaded =
+   * true) e o chamador deve tratar as consequências (queda de módulos, dano ao casco, etc).
    * @returns {{available:number, overloaded:boolean}}
    */
   async applyPowerGridTick() {
+    const generation = Math.min(this.powerGrid.reactorOutput, this.transferCapacity);
     const consumption = this.totalConsumption;
-    const surplus = this.powerGrid.reactorOutput - consumption;
+    const surplus = generation - consumption;
     const cap = this.powerGrid.capacitor;
     let newValue = cap.value + surplus;
     const overloaded = newValue < 0;
@@ -170,7 +265,7 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
       "system.powerGrid.isOverloaded": overloaded
     });
 
-    return { available: this.powerGrid.reactorOutput + newValue - consumption, overloaded };
+    return { available: generation + newValue - consumption, overloaded };
   }
 }
 
@@ -182,10 +277,14 @@ export class StarshipDataModel extends ShipSystemsDataModel {
   static defineSchema() {
     return {
       ...shipSystemsSchema({ sizeChoices: MEU_SISTEMA.SHIP_SIZES }),
-      maneuverability: new fields.NumberField({ required: true, integer: true, initial: 0 }),
       crew: new fields.NumberField({ required: false, integer: true, initial: 1, min: 0 }),
       biography: new fields.HTMLField({ required: false, initial: "" })
     };
+  }
+
+  /** Manobra = Rotação do Motor instalado, já escalada por throttle e fome de energia (Fase 3) — 0 sem Motor. */
+  get maneuverability() {
+    return this.effectiveModuleStat(this.engineModule, "rotation");
   }
 }
 
@@ -193,13 +292,12 @@ export class StarshipDataModel extends ShipSystemsDataModel {
  * Veículo terrestre (carro, moto...): overhaul de Porte deu a ele o MESMO sistema completo de
  * Nave Espacial (Estrutura/Escudos/Casco/Grid de Energia/bônus de combate/Módulos de slot único
  * — `ShipSystemsDataModel`), travado em Porte mini/pequeno (`MEU_SISTEMA.VEHICLE_SIZES`), mais
- * Velocidade, Combustível/Bateria e Peças (Items type "item"), que não têm equivalente em Nave.
+ * Combustível/Bateria e Peças (Items type "item"), que não têm equivalente em Nave.
  */
 export class VehicleDataModel extends ShipSystemsDataModel {
   static defineSchema() {
     return {
       ...shipSystemsSchema({ sizeChoices: MEU_SISTEMA.VEHICLE_SIZES }),
-      speed: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
       fuel: new fields.SchemaField({
         value: new fields.NumberField({ required: true, integer: true, initial: 100, min: 0 }),
         max: new fields.NumberField({ required: true, integer: true, initial: 100, min: 0 }),
@@ -213,6 +311,11 @@ export class VehicleDataModel extends ShipSystemsDataModel {
   /** Peças/módulos genéricos instalados (Items type "item") — conceito exclusivo de Veículo. */
   get parts() {
     return this.parent.items.filter(i => i.type === "item");
+  }
+
+  /** Velocidade = Aceleração do Motor instalado, já escalada por throttle e fome de energia (Fase 3) — 0 sem Motor. */
+  get speed() {
+    return this.effectiveModuleStat(this.engineModule, "acceleration");
   }
 
   prepareDerivedData() {

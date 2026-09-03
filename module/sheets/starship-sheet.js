@@ -2,6 +2,7 @@ import { SYSTEM_ID, MEU_SISTEMA, getStarshipEnergyLabel, debugLog } from "../con
 import { registerItemInCompendium } from "../compendium.js";
 import { createGrantedSkill, removeGrantedSkill } from "../skill-economy.js";
 import { useSkillEffect } from "../skill-effects.js";
+import { moduleCanRestart } from "../starship-power.js";
 
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -101,6 +102,16 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     const module = this.actor.items.get(itemId);
     if (!module) return;
     const next = module.system.status === "online" ? "offline" : "online";
+
+    // Módulo desligado por Vida zerada (dano por sobrecarga, combate, etc.) não pode religar
+    // manualmente até estar reparado a 15%+ da Vida Máxima — mesma regra do tick automático.
+    if (next === "online" && !moduleCanRestart(module)) {
+      ui.notifications.warn(
+        `${module.name}: Vida baixa demais pra religar (precisa de ${MEU_SISTEMA.MODULE_RESTART_HP_THRESHOLD_PERCENT}%+ da Vida Máxima).`
+      );
+      return;
+    }
+
     await module.update({ "system.status": next });
 
     if (next === "online") {
@@ -209,10 +220,34 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
       ? `${budgetUsed} / ${budget} espaço de Arma usado`
       : `${budgetUsed} espaço de Arma usado`;
 
+    // Fome de energia (Fase 3, Distribuidor) — mapa id→percentual pra badge "⚠ Energia
+    // insuficiente" nas linhas de Módulo; 100 (sem badge) pra quem não tem déficit agora.
+    context.powerRatios = Object.fromEntries(
+      actor.items
+        .filter(i => i.type === "starship_module")
+        .map(m => [m.id, Math.round(actor.system.powerRatioFor(m) * 100)])
+    );
+
     context.skills = actor.system.skills;
     context.totalConsumption = actor.system.totalConsumption;
     context.availableEnergy = actor.system.availableEnergy;
     context.isOverloaded = actor.system.powerGrid.isOverloaded;
+
+    // Reator/Escudo viram derivados do Módulo instalado (Fase 3) — o campo do cabeçalho/Grid só
+    // continua editável à mão enquanto não houver o Módulo correspondente (transição pra quem
+    // ainda não montou o Reator/Escudo como Módulo de verdade).
+    context.reactorModule = actor.system.reactorModule;
+    context.shieldModule = actor.system.shieldModule;
+    context.engineModule = actor.system.engineModule;
+    context.armorModule = actor.system.armorModule;
+
+    const capacity = actor.system.transferCapacity;
+    context.transferCapacityLabel = Number.isFinite(capacity) ? `${capacity} EPS/rodada` : "Sem limite (Distribuidor não configurado)";
+
+    // Cascata de dano Escudo→Casco→Estrutura (Fase 4) — as 3 barras compartilhadas do cabeçalho.
+    context.shieldPercent = percentOf(actor.system.shields.value, actor.system.shields.max);
+    context.cascoPercent = percentOf(actor.system.casco.value, actor.system.casco.max);
+    context.structurePercent = percentOf(actor.system.hull.value, actor.system.hull.max);
   }
 }
 
@@ -253,8 +288,6 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
     context.system = actor.system;
     context.config = MEU_SISTEMA;
     context.shipSizeOptions = sizeOptions(MEU_SISTEMA.SHIP_SIZES);
-    context.primaryPercent = percentOf(actor.system.hull.value, actor.system.hull.max);
-    context.secondaryPercent = percentOf(actor.system.shields.value, actor.system.shields.max);
 
     this._prepareShipSystemsContext(context);
 
@@ -303,8 +336,7 @@ export class NihilityVehicleSheet extends TabbedActorSheetV2 {
     context.isVehicle = true;
     context.shipSizeOptions = sizeOptions(MEU_SISTEMA.VEHICLE_SIZES);
     context.parts = actor.system.parts;
-    context.primaryPercent = percentOf(actor.system.hull.value, actor.system.hull.max);
-    context.secondaryPercent = percentOf(actor.system.fuel.value, actor.system.fuel.max);
+    context.fuelPercent = percentOf(actor.system.fuel.value, actor.system.fuel.max);
 
     this._prepareShipSystemsContext(context);
 

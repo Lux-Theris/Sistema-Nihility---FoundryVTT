@@ -17,49 +17,48 @@
       </div>
     </div>
 
-    {{#if isVehicle}}
     <div class="resources">
       <div class="vital-row">
-        <span class="vital-label">Integridade</span>
-        <span class="vital-track"><span class="vital-fill hp" style="width:{{primaryPercent}}%"></span></span>
+        <span class="vital-label">Escudos</span>
+        <span class="vital-track"><span class="vital-fill energy" style="width:{{shieldPercent}}%"></span></span>
+        <span class="vital-value">
+          <input type="number" name="system.shields.value" value="{{system.shields.value}}"/>/{{#if shieldModule}}{{system.shields.max}}{{else}}<input type="number" name="system.shields.max" value="{{system.shields.max}}"/>{{/if}}
+        </span>
+        {{#if system.shields.rechargeRemaining}}<span class="hint-inline" style="margin-left:4px;">(Recarga: {{system.shields.rechargeRemaining}})</span>{{/if}}
+      </div>
+      <div class="vital-row">
+        <span class="vital-label">Casco</span>
+        <span class="vital-track"><span class="vital-fill hp" style="width:{{cascoPercent}}%"></span></span>
+        <span class="vital-value">
+          <input type="number" name="system.casco.value" value="{{system.casco.value}}"/>/{{#if armorModule}}{{system.casco.max}}{{else}}<input type="number" name="system.casco.max" value="{{system.casco.max}}"/>{{/if}}
+        </span>
+      </div>
+      <div class="vital-row">
+        <span class="vital-label">Integridade Estrutural</span>
+        <span class="vital-track"><span class="vital-fill hp" style="width:{{structurePercent}}%"></span></span>
         <span class="vital-value">
           <input type="number" name="system.hull.value" value="{{system.hull.value}}"/>/<input type="number" name="system.hull.max" value="{{system.hull.max}}"/>
         </span>
       </div>
+      {{#if isVehicle}}
       <div class="vital-row">
         <span class="vital-label">Velocidade</span>
-        <span class="vital-value"><input type="number" name="system.speed" value="{{system.speed}}"/></span>
+        <span class="vital-value">{{system.speed}}{{#unless engineModule}}<span class="hint-inline" style="margin-left:4px;">(sem Motor instalado)</span>{{/unless}}</span>
       </div>
       <div class="vital-row">
         <span class="vital-label">{{#if (eq system.fuel.type "battery")}}Bateria{{else}}Combustível{{/if}}</span>
-        <span class="vital-track"><span class="vital-fill energy" style="width:{{secondaryPercent}}%"></span></span>
+        <span class="vital-track"><span class="vital-fill energy" style="width:{{fuelPercent}}%"></span></span>
         <span class="vital-value">
           <input type="number" name="system.fuel.value" value="{{system.fuel.value}}"/>/<input type="number" name="system.fuel.max" value="{{system.fuel.max}}"/>
         </span>
       </div>
-    </div>
-    {{else}}
-    <div class="resources">
-      <div class="vital-row">
-        <span class="vital-label">Casco</span>
-        <span class="vital-track"><span class="vital-fill hp" style="width:{{primaryPercent}}%"></span></span>
-        <span class="vital-value">
-          <input type="number" name="system.hull.value" value="{{system.hull.value}}"/>/<input type="number" name="system.hull.max" value="{{system.hull.max}}"/>
-        </span>
-      </div>
-      <div class="vital-row">
-        <span class="vital-label">Escudos</span>
-        <span class="vital-track"><span class="vital-fill energy" style="width:{{secondaryPercent}}%"></span></span>
-        <span class="vital-value">
-          <input type="number" name="system.shields.value" value="{{system.shields.value}}"/>/<input type="number" name="system.shields.max" value="{{system.shields.max}}"/>
-        </span>
-      </div>
+      {{else}}
       <div class="vital-row">
         <span class="vital-label">Manobra</span>
-        <span class="vital-value"><input type="number" name="system.maneuverability" value="{{system.maneuverability}}"/></span>
+        <span class="vital-value">{{system.maneuverability}}{{#unless engineModule}}<span class="hint-inline" style="margin-left:4px;">(sem Motor instalado)</span>{{/unless}}</span>
       </div>
+      {{/if}}
     </div>
-    {{/if}}
   </header>
 
   <nav class="sheet-tabs tabs">
@@ -76,7 +75,11 @@
         <div class="power-grid-summary {{#if isOverloaded}}overloaded{{/if}}">
           <div class="power-stat">
             <label>Reator</label>
-            <input type="number" name="system.powerGrid.reactorOutput" value="{{system.powerGrid.reactorOutput}}"/>
+            {{#if reactorModule}}<span>{{system.powerGrid.reactorOutput}} EPS</span>{{else}}<input type="number" name="system.powerGrid.reactorOutput" value="{{system.powerGrid.reactorOutput}}"/>{{/if}}
+          </div>
+          <div class="power-stat">
+            <label>Capacidade de Transferência</label>
+            <span>{{transferCapacityLabel}}</span>
           </div>
           <div class="power-stat">
             <label>Capacitores</label>
@@ -106,9 +109,12 @@
             <img src="{{module.img}}" width="24" height="24"/>
             <span class="item-name">{{module.name}}</span>
             <span class="item-consumption">
-              {{module.system.powerConsumption}} EPS &middot; {{module.system.status}} &middot; {{module.system.hp.value}}/{{module.system.hp.max}} HP
+              {{module.system.powerConsumption}} EPS &middot; Throttle {{module.system.powerAllocationPercent}}% &middot; {{module.system.status}} &middot; {{module.system.hp.value}}/{{module.system.hp.max}} HP
               {{#if (eq module.system.category "armor")}} &middot; Redução {{module.system.armorReduction}}%{{/if}}
+              {{#if (eq module.system.category "engine")}} &middot; Rotação {{../system.maneuverability}}{{/if}}
+              {{#if (eq module.system.category "ftl")}} &middot; Fator ×{{module.system.warpFactor}}{{#if (eq module.system.ftlType "jump")}} &middot; Carga {{module.system.chargeRemaining}}/{{module.system.chargeTime}}{{/if}}{{/if}}
             </span>
+            {{#if (lt (lookup ../powerRatios module.id) 100)}}<span class="power-shortage-badge" title="Recebendo só {{lookup ../powerRatios module.id}}% da energia pedida">⚠ Energia insuficiente</span>{{/if}}
             <a class="module-toggle-power" data-action="toggleModulePower" title="Ligar/Desligar"><i class="fas fa-power-off"></i></a>
             <a class="item-edit" data-action="editItem" title="Editar"><i class="fas fa-edit"></i></a>
             <a class="item-delete" data-action="deleteItem" title="Excluir"><i class="fas fa-trash"></i></a>
@@ -126,7 +132,8 @@
             <span class="cat-pill cat-{{module.system.category}}">{{lookup ../config.STARSHIP_MODULE_CATEGORY_LABELS module.system.category}}</span>
             <img src="{{module.img}}" width="24" height="24"/>
             <span class="item-name">{{module.name}}</span>
-            <span class="item-consumption">{{module.system.powerConsumption}} EPS &middot; {{module.system.status}} &middot; {{module.system.hp.value}}/{{module.system.hp.max}} HP</span>
+            <span class="item-consumption">{{module.system.powerConsumption}} EPS &middot; Throttle {{module.system.powerAllocationPercent}}% &middot; {{module.system.status}} &middot; {{module.system.hp.value}}/{{module.system.hp.max}} HP</span>
+            {{#if (lt (lookup ../powerRatios module.id) 100)}}<span class="power-shortage-badge" title="Recebendo só {{lookup ../powerRatios module.id}}% da energia pedida">⚠ Energia insuficiente</span>{{/if}}
             <a class="module-toggle-power" data-action="toggleModulePower" title="Ligar/Desligar"><i class="fas fa-power-off"></i></a>
             <a class="item-edit" data-action="editItem" title="Editar"><i class="fas fa-edit"></i></a>
             <a class="item-delete" data-action="deleteItem" title="Excluir"><i class="fas fa-trash"></i></a>

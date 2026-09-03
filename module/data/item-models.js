@@ -420,6 +420,60 @@ export class StarshipModuleDataModel extends foundry.abstract.TypeDataModel {
        */
       armorReduction: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0, max: 100 }),
 
+      /**
+       * Throttle de energia do Módulo (Overhaul de Naves, Fase 3) — sem teto de propósito.
+       * Escala linearmente o consumo (Demanda Total do Distribuidor, ver `totalConsumption` em
+       * starship-model.js) e as capacidades da categoria (Vida/Regen de Escudo, Aceleração/
+       * Rotação de Motor, Fator de Dobra de FTL — `effectiveModuleStat` no mesmo arquivo; Dano/
+       * Penetração/Recarga de Arma entram na Fase 5). Reator reaproveita o MESMO campo como seu
+       * próprio clock, mas com limiar de sobrecarga diferente (ver
+       * MEU_SISTEMA.OVERLOAD_THRESHOLD_REACTOR); Distribuidor/Bateria não usam este campo.
+       */
+      powerAllocationPercent: new fields.NumberField({ required: true, integer: true, initial: 100, min: 0 }),
+
+      /**
+       * Prioridade de energia do Distribuidor (menor = atendido primeiro) — só importa quando a
+       * Demanda Total da Nave/Veículo passa da Capacidade de Transferência e nem a Reserva da
+       * Bateria cobre o déficit (ver `powerShortfall` em starship-model.js). Editável, sem
+       * tabela fixa por categoria: quem decide a ordem é o jogador/Mestre.
+       */
+      powerPriority: new fields.NumberField({ required: true, integer: true, initial: 50, min: 0 }),
+
+      /**
+       * Só relevante pra category "shield" — Vida Máxima e Regen do Escudo a 100% de throttle,
+       * mais quantas rodadas o Escudo fica em Recarga (0% de proteção) depois de zerar, antes
+       * de religar e voltar a regenerar (ver `shields.rechargeRemaining` em starship-model.js).
+       */
+      shieldCapacity: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
+      shieldRegen: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
+      shieldRechargeRounds: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
+
+      /** Só relevante pra category "engine" — Aceleração/Rotação a 100% de throttle. */
+      acceleration: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
+      rotation: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
+
+      /** Só relevante pra category "reactor" — Output a 100% de clock (antes do throttle acima). */
+      reactorOutput: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
+
+      /**
+       * Só relevante pra category "distributor" — multiplicador aplicado ao baseline de Porte
+       * pra achar a Capacidade de Transferência (ver `transferCapacity` em starship-model.js).
+       */
+      transferFactor: new fields.NumberField({ required: true, initial: 1, min: 0 }),
+
+      /**
+       * Só relevante pra category "ftl". Sub-tipo Dobra ("warp", padrão): propulsão contínua,
+       * usa `warpFactor`. Sub-tipo Salto ("jump", raro): usa `jumpRange` + `chargeTime`/
+       * `chargeRemaining` (mesmo padrão de cooldownRounds/cooldownRemaining de Arma, Fase 5,
+       * decrementado por rodada). Os dois sub-tipos competem pelo MESMO slot único — nunca os
+       * dois instalados ao mesmo tempo.
+       */
+      ftlType: new fields.StringField({ required: true, initial: "warp", choices: ["warp", "jump"] }),
+      warpFactor: new fields.NumberField({ required: true, initial: 1, min: 0 }),
+      jumpRange: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
+      chargeTime: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
+      chargeRemaining: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
+
       /** Habilidade opcional concedida à Nave enquanto o módulo estiver "online" (ver grantedSkillSchema). */
       grantsSkill: grantedSkillSchema()
     };

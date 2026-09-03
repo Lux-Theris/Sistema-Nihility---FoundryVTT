@@ -5,7 +5,7 @@
  * de Habilidade (que não têm nada de IA, salvo quando delegam pra `requestAISpecialSkill`
  * abaixo) ficaram em skill-economy.js.
  */
-import { SYSTEM_ID, MEU_SISTEMA, isAnatomyEnabled, getActiveSpeciesPresets } from "./config.js";
+import { SYSTEM_ID, MEU_SISTEMA, isAnatomyEnabled, getActiveSpeciesPresets, getModuleSizePreset } from "./config.js";
 import { callAIProvider } from "./ai/providers.js";
 import { buildSubSkillsFromSources } from "./skill-snapshot.js";
 import { ensureSystemCompendiums, registerItemInCompendium } from "./compendium.js";
@@ -80,7 +80,11 @@ const UNIQUE_SKILL_SYSTEM_PROMPT =
 const STANDALONE_SKILL_SYSTEM_PROMPT =
   "Você é o motor de regras de um RPG de Foundry VTT. Responda SEMPRE com um único objeto JSON " +
   'estrito, sem markdown, no formato: {"name": string, "tier": "extra"|"normal", ' +
-  '"level": number, "cost": number, "description": string (HTML curto)}. Essa Skill nunca tem ' +
+  '"level": number, "cost": number, "description": string (HTML curto), "hasUpkeep": boolean, ' +
+  '"upkeepCost": number}. "hasUpkeep" marca uma Habilidade Ativa (liga/desliga, drenando ' +
+  '"upkeepCost" de Energia por rodada enquanto ativa, além do "cost" gasto uma vez ao ligar) — ' +
+  'só use true se a descrição pedir claramente um efeito contínuo/sustentado; a maioria das ' +
+  'Skills é de uso único ("hasUpkeep": false, "upkeepCost": 0). Essa Skill nunca tem ' +
   "Sub-Skills — elas só existem em Skills Fundidas.";
 
 function buildUniqueSkillPrompt({ consumedNames, emotionPrompt, personality }) {
@@ -131,6 +135,7 @@ export async function requestAISpecialSkill(actor, sources, tier, emotionPrompt 
  */
 export async function generateSkillFromAI(prompt) {
   const parsed = await generateJSON(STANDALONE_SKILL_SYSTEM_PROMPT, prompt);
+  const hasUpkeep = Boolean(parsed?.hasUpkeep);
   const data = {
     name: parsed?.name || "Habilidade Sem Nome",
     type: "skill",
@@ -139,6 +144,8 @@ export async function generateSkillFromAI(prompt) {
       level: Number(parsed?.level) || 1,
       cost: Number(parsed?.cost) || 0,
       description: parsed?.description || "",
+      hasUpkeep,
+      upkeepCost: hasUpkeep ? Number(parsed?.upkeepCost) || 0 : 0,
       isFused: false
     }
   };
@@ -314,20 +321,40 @@ export async function generateActorFromAI(prompt, options = {}) {
 /*  Geração de Naves/Veículos via IA             */
 /* -------------------------------------------- */
 
-const STARSHIP_SYSTEM_PROMPT =
-  "Você é o motor de regras de um RPG de Foundry VTT (Sci-Fi Arcano). Gere uma Nave Espacial. " +
-  'Responda SEMPRE com um único objeto JSON estrito, sem markdown, no formato: {"name": string, ' +
-  '"hull": number, "shields": number, "maneuverability": number, "reactorOutput": number, ' +
-  '"capacitorMax": number, "biography": string (HTML curto)}.';
+/**
+ * Prompt compartilhado pelas duas (Nave/Veículo compartilham o mesmo `ShipSystemsDataModel`
+ * desde o Overhaul de Naves — Porte + Módulos de slot único + Grid de Energia + Armas). A IA só
+ * escolhe Categoria/Porte/nome/descrição de cada Módulo — NUNCA os números de stat (Vida/
+ * Consumo/Dano/etc.): esses vêm de `MEU_SISTEMA.MODULE_SIZE_PRESETS`/`getModuleSizePreset()`,
+ * a mesma fonte usada pelo autopreenchimento do editor de Item, pra nunca ter dois lugares
+ * "inventando" o mesmo número de forma inconsistente.
+ */
+function buildVesselSystemPrompt(sizeChoices) {
+  return (
+    "Você é o motor de regras de um RPG de Foundry VTT (Sci-Fi Arcano), gerando uma Nave/Veículo " +
+    "para o sistema de Overhaul de Naves (Porte + Módulos de slot único + Grid de Energia). " +
+    'Responda SEMPRE com um único objeto JSON estrito, sem markdown, no formato: {"name": string, ' +
+    `"shipSize": ${sizeChoices.map(s => `"${s}"`).join("|")}, "biography": string (HTML curto), ` +
+    '"modules": [{"name": string, "category": "reactor"|"battery"|"distributor"|"shield"|' +
+    '"engine"|"armor"|"weapon"|"utility", "moduleSize": "compact"|"standard"|"reinforced"|' +
+    '"industrial"|"colossal", "description": string (HTML curto)}]}. Inclua exatamente um ' +
+    'Módulo de cada categoria de slot único (reactor/battery/distributor/shield/engine/armor) — ' +
+    "nunca duas do mesmo tipo — coerente com o Porte da Nave: Naves maiores usam Módulos de " +
+    'Porte maior (ex: "capital" pede Módulos "industrial"/"colossal", não "compact"). Pode ' +
+    'incluir "weapon" (0 ou mais, sem limite de contagem aqui) e "utility" (0 ou mais) à ' +
+    "vontade, coerentes com o tema da Nave. NÃO invente números de stat (Vida/Consumo/Dano/" +
+    "Penetração/etc.) — o sistema preenche isso sozinho a partir da Categoria e do Porte."
+  );
+}
 
-const VEHICLE_SYSTEM_PROMPT =
-  "Você é o motor de regras de um RPG de Foundry VTT. Gere um Veículo terrestre. " +
-  'Responda SEMPRE com um único objeto JSON estrito, sem markdown, no formato: {"name": string, ' +
-  '"integrity": number, "speed": number, "fuelType": "fuel"|"battery", "fuelMax": number, ' +
-  '"biography": string (HTML curto)}.';
+const STARSHIP_SYSTEM_PROMPT = buildVesselSystemPrompt(MEU_SISTEMA.SHIP_SIZES);
+const VEHICLE_SYSTEM_PROMPT = buildVesselSystemPrompt(MEU_SISTEMA.VEHICLE_SIZES);
 
 /**
- * Gera uma Nave Espacial ou Veículo Terrestre via IA e cria o Actor correspondente.
+ * Gera uma Nave Espacial ou Veículo Terrestre via IA — cria o Actor (Porte + biografia) e, em
+ * seguida, os Módulos que a IA escolheu como Items embutidos, cada um já com o preset de stat
+ * completo da sua Categoria×Porte (`getModuleSizePreset`) e registrado no Compêndio de Módulos
+ * de Nave, mesmo padrão de `onItemCreate` em starship-sheet.js.
  * @param {string} prompt
  * @param {"starship"|"vehicle"} vesselType
  * @param {{folder?:Folder|null}} [options]
@@ -336,43 +363,38 @@ const VEHICLE_SYSTEM_PROMPT =
 export async function generateVesselFromAI(prompt, vesselType, options = {}) {
   const { folder = null } = options;
   const isStarship = vesselType === "starship";
+  const sizeChoices = isStarship ? MEU_SISTEMA.SHIP_SIZES : MEU_SISTEMA.VEHICLE_SIZES;
   const parsed = await generateJSON(isStarship ? STARSHIP_SYSTEM_PROMPT : VEHICLE_SYSTEM_PROMPT, prompt);
 
-  const system = isStarship
-    ? {
-        hull: { value: Number(parsed?.hull) || 50, max: Number(parsed?.hull) || 50 },
-        shields: {
-          value: Number(parsed?.shields) || 20,
-          max: Number(parsed?.shields) || 20,
-          regenRate: 5
-        },
-        maneuverability: Number(parsed?.maneuverability) || 0,
-        powerGrid: {
-          reactorOutput: Number(parsed?.reactorOutput) || 50,
-          capacitor: {
-            value: Number(parsed?.capacitorMax) || 25,
-            max: Number(parsed?.capacitorMax) || 25
-          }
-        },
-        biography: parsed?.biography || ""
-      }
-    : {
-        hull: { value: Number(parsed?.integrity) || 30, max: Number(parsed?.integrity) || 30 },
-        speed: Number(parsed?.speed) || 0,
-        fuel: {
-          value: Number(parsed?.fuelMax) || 50,
-          max: Number(parsed?.fuelMax) || 50,
-          type: parsed?.fuelType === "battery" ? "battery" : "fuel"
-        },
-        biography: parsed?.biography || ""
-      };
-
-  return Actor.create({
+  const shipSize = sizeChoices.includes(parsed?.shipSize) ? parsed.shipSize : sizeChoices[0];
+  const created = await Actor.create({
     name: parsed?.name || (isStarship ? "Nave Sem Nome" : "Veículo Sem Nome"),
     type: vesselType,
     folder: folder?.id ?? null,
-    system
+    system: { shipSize, biography: parsed?.biography || "" }
   });
+
+  const modulesData = Array.isArray(parsed?.modules)
+    ? parsed.modules
+        .filter(m => MEU_SISTEMA.STARSHIP_MODULE_CATEGORIES.includes(m?.category))
+        .map(m => {
+          const moduleSize = MEU_SISTEMA.MODULE_SIZES.includes(m.moduleSize) ? m.moduleSize : "standard";
+          return {
+            name: m.name || MEU_SISTEMA.STARSHIP_MODULE_CATEGORY_LABELS[m.category],
+            type: "starship_module",
+            "system.category": m.category,
+            "system.description": m.description || "",
+            ...getModuleSizePreset(m.category, moduleSize)
+          };
+        })
+    : [];
+
+  if (modulesData.length) {
+    const createdModules = await created.createEmbeddedDocuments("Item", modulesData);
+    for (const m of createdModules) await registerItemInCompendium(m.toObject());
+  }
+
+  return created;
 }
 
 /* -------------------------------------------- */

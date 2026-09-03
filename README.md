@@ -9,8 +9,7 @@ Sistema customizado para [Foundry VTT](https://foundryvtt.com/) (compatível com
 - **Anatomia por Espécie**: ao trocar a espécie de um personagem, o sistema aplica automaticamente o preset de Partes do Corpo (HP próprio, status Intacto/Danificado/Destruído, próteses/modificações).
 - **Fusão de Skills**: funde habilidades da ficha em uma nova, reaproveitando combinações já existentes no Compêndio quando possível. Skills Únicas nascem de gatilhos emocionais/personalidade (modo manual com aprovação do Mestre, ou automático via IA) e **não podem consumir Skills Ultimate**.
 - **Compêndios auto-geridos**: Skills, Partes do Corpo, Títulos e Módulos de Nave são registrados automaticamente em Compêndios do Mundo assim que criados — nada se perde ao remover um item de uma ficha.
-- **Naves Espaciais**: Casco, Escudos, Manobra e um Grid de Energia (Reator + Capacitores) com alerta automático de sobrecarga.
-- **Veículos Terrestres**: Integridade, Velocidade, Combustível/Bateria e Peças.
+- **Naves Espaciais e Veículos Terrestres com sistema completo de Módulos**: Porte (Mini→Capital, só o Mestre edita), sete tipos de Módulo de slot único (Reator/Bateria/Distribuidor/Escudo/Motor/Casco/FTL) mais Arma (orçamento de espaço por Porte) e Utilidade, um Grid de Energia inspirado em Elite Dangerous (Reator → Distribuidor → Bateria, com throttle por Módulo e fome de energia por prioridade quando falta capacidade), cascata de dano em 3 camadas (Escudo → Casco → Integridade Estrutural, com Penetração de Arma e Recarga de Escudo), Armas nativas do Módulo (dano/penetração/recarga própria, sobrecarregar bate mais forte mas recarrega mais devagar), ferramentas de ajuste manual do Mestre e uma macro de reparo em campo (`game.nihility.requestShipRepair()`) com rolagem de Destreza. Veículo usa o mesmo sistema, só travado nos dois menores Portes.
 - **Editores visuais de Moedas e Presets de Espécie**: sem JSON à mão — telas dedicadas com linhas de add/remover (nas Configurações do Mundo).
 - **Assistente de IA (GM)**: janela com botão próprio no diretório de Atores para gerar NPCs, Montarias, Naves Espaciais, Veículos, Notas/Journal e Skills avulsas a partir de um prompt em texto livre, com geração em lote (até 10 de uma vez) e suporte nativo a múltiplos provedores (OpenAI-compatível ou Anthropic/Claude).
 - **Voz do Mundo**: anúncios de nível, fusão e novas habilidades são sempre enviados por *whisper* — nunca publicamente — apenas para o Mestre e o(s) jogador(es) dono(s) do personagem.
@@ -96,8 +95,8 @@ Escolha a tarefa, escreva um prompt em texto livre e clique em Gerar:
 |---|---|
 | NPC (Personagem/Criatura) | Actor `character`, com espécie, atributos, biografia e 2–3 skills; aplica o preset de anatomia da espécie automaticamente |
 | Montaria | Igual ao NPC, com prompt focado em bestas/montarias |
-| Nave Espacial | Actor `starship` (Casco, Escudos, Grid de Energia) |
-| Veículo Terrestre | Actor `vehicle` (Integridade, Velocidade, Combustível/Bateria) |
+| Nave Espacial | Actor `starship` já com Porte + um Módulo de cada slot único (Reator/Bateria/Distribuidor/Escudo/Motor/Casco) coerente com o Porte, mais Armas/Utilidade a critério da IA — os números de cada Módulo vêm dos presets do sistema, a IA só escolhe Categoria/Porte |
+| Veículo Terrestre | Actor `vehicle` com o mesmo sistema de Módulos acima, travado nos dois Portes menores, mais Velocidade/Combustível |
 | Nota / Journal | Uma `JournalEntry` com título e conteúdo |
 | Habilidade (Skill avulsa) | Um Item `skill` direto no Compêndio de Habilidades |
 | Pergunta Livre | Resposta em texto solto, nada é criado |
@@ -117,6 +116,10 @@ game.nihility.ai.generateVesselFromAI("uma corveta de reconhecimento rápida..."
 game.nihility.ai.generateNoteFromAI("um evento estranho na vila de Ashcroft...");
 game.nihility.ai.generateSkillFromAI("uma habilidade de cura baseada em luz estelar...");
 game.nihility.ai.generateFreeform("sugira 5 nomes para uma guilda de mercenários...");
+
+// Reparo de Nave/Veículo em campo — abre um diálogo pro jogador escolher Nave, Módulo/pool e
+// engenheiro; cria um pedido no chat pro Mestre rolar Destreza e aplicar o reparo
+game.nihility.requestShipRepair();
 ```
 
 ## Status

@@ -1,4 +1,4 @@
-import { SYSTEM_ID, MEU_SISTEMA, getActiveDamageElements, getResistanceTargetOptions, debugLog } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getActiveDamageElements, getResistanceTargetOptions, getModuleSizePreset, debugLog } from "../config.js";
 import { createGrantedSkill, removeGrantedSkill, evolveSkill } from "../skill-economy.js";
 import { announceVoiceOfTheWorld } from "../voice-of-the-world.js";
 import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../skill-effects.js";
@@ -192,21 +192,13 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
     const sys = this.item.system;
     const updates = { "system.category": category, "system.moduleSize": moduleSize };
-    const fieldDefaults = { transferFactor: 1, warpFactor: 1 };
+    const fieldDefaults = { "system.transferFactor": 1, "system.warpFactor": 1, "system.hp.max": 20, "system.hp.value": 20 };
 
-    const preset = MEU_SISTEMA.MODULE_SIZE_PRESETS[category]?.[moduleSize] ?? {};
-    for (const [field, value] of Object.entries(preset)) {
+    for (const [key, value] of Object.entries(getModuleSizePreset(category, moduleSize))) {
+      const field = key.replace(/^system\./, "");
       const current = foundry.utils.getProperty(sys, field);
-      const defaultValue = fieldDefaults[field] ?? (typeof value === "string" ? "" : 0);
-      if (current === defaultValue || current === undefined) updates[`system.${field}`] = value;
-    }
-
-    const hpPreset = MEU_SISTEMA.MODULE_HP_BY_SIZE[moduleSize];
-    if (hpPreset && (sys.hp.max === 0 || sys.hp.max === 20)) {
-      updates["system.hp.max"] = hpPreset;
-      if (sys.hp.value === 0 || sys.hp.value === 20 || sys.hp.value === sys.hp.max) {
-        updates["system.hp.value"] = hpPreset;
-      }
+      const defaultValue = fieldDefaults[key] ?? (typeof value === "string" ? "" : 0);
+      if (current === defaultValue || current === undefined) updates[key] = value;
     }
 
     await this.item.update(updates);

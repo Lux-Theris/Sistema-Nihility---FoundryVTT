@@ -1,4 +1,4 @@
-import { SYSTEM_ID, MEU_SISTEMA, getStarshipEnergyLabel, debugLog } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getStarshipEnergyLabel, getModuleSizePreset, debugLog } from "../config.js";
 import { registerItemInCompendium } from "../compendium.js";
 import { createGrantedSkill, removeGrantedSkill } from "../skill-economy.js";
 import { useSkillEffect, fireStarshipWeapon } from "../skill-effects.js";
@@ -92,13 +92,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (type === "starship_module") {
       const category = target.dataset.category || "utility";
       data["system.category"] = category;
-      const preset = MEU_SISTEMA.MODULE_SIZE_PRESETS[category]?.standard;
-      if (preset) for (const [field, value] of Object.entries(preset)) data[`system.${field}`] = value;
-      const hpPreset = MEU_SISTEMA.MODULE_HP_BY_SIZE.standard;
-      if (hpPreset) {
-        data["system.hp.max"] = hpPreset;
-        data["system.hp.value"] = hpPreset;
-      }
+      Object.assign(data, getModuleSizePreset(category, "standard"));
     }
 
     const [created] = await this.actor.createEmbeddedDocuments("Item", [data]);

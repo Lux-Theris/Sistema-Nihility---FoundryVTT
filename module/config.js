@@ -691,6 +691,26 @@ export function getEnergyLabelForActor(actor) {
   return ["starship", "vehicle"].includes(actor?.type) ? getStarshipEnergyLabel() : getCharacterEnergyLabel();
 }
 
+/**
+ * Preset completo (stats de MODULE_SIZE_PRESETS + hp.max/value de MODULE_HP_BY_SIZE) pra um
+ * Módulo de uma Categoria×Porte — usado tanto pelo autopreenchimento do editor de Item (Fase
+ * 1/8, `_onModulePresetChange`/`onItemCreate`) quanto pela geração de Nave via IA (Fase 9), pra
+ * nunca duplicar a lógica de "que número sugerir" em dois lugares. Chaves já vêm no formato
+ * `system.<campo>` pronto pra entrar direto num objeto de `createEmbeddedDocuments`/`update`.
+ */
+export function getModuleSizePreset(category, moduleSize) {
+  const preset = {};
+  for (const [field, value] of Object.entries(MEU_SISTEMA.MODULE_SIZE_PRESETS[category]?.[moduleSize] ?? {})) {
+    preset[`system.${field}`] = value;
+  }
+  const hp = MEU_SISTEMA.MODULE_HP_BY_SIZE[moduleSize];
+  if (hp) {
+    preset["system.hp.max"] = hp;
+    preset["system.hp.value"] = hp;
+  }
+  return preset;
+}
+
 /** Atalhos de leitura para os três toggles principais. */
 export function isEconomyEnabled() {
   return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.economyEnabled);

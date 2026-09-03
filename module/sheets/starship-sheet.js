@@ -1,4 +1,4 @@
-import { SYSTEM_ID, MEU_SISTEMA, getStarshipEnergyLabel, getModuleSizePreset, debugLog } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getStarshipEnergyLabel, getModuleSizePreset, sceneActorCandidates, debugLog } from "../config.js";
 import { registerItemInCompendium } from "../compendium.js";
 import { createGrantedSkill, removeGrantedSkill } from "../skill-economy.js";
 import { useSkillEffect, fireStarshipWeapon } from "../skill-effects.js";
@@ -250,9 +250,11 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
   }
 
-  /** Escolhe o alvo de uma arma/efeito — padrão: o próprio Ator (útil pra Escudo/testes). */
+  /** Escolhe o alvo de uma arma/efeito — padrão: o próprio Ator (útil pra Escudo/testes). Só Atores com Token na cena atual. */
   async _promptSkillTarget() {
-    const candidates = game.actors.filter(a => a.testUserPermission(game.user, "OBSERVER"));
+    // Sempre inclui o próprio Ator mesmo sem Token na cena — os demais exigem Token na cena atual.
+    const candidates = sceneActorCandidates();
+    if (!candidates.some(a => a.id === this.actor.id)) candidates.unshift(this.actor);
     const opts = candidates
       .map(a => `<option value="${a.id}" ${a.id === this.actor.id ? "selected" : ""}>${a.name}${a.id === this.actor.id ? " (este Ator)" : ""}</option>`)
       .join("");

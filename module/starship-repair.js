@@ -5,15 +5,10 @@
  * livre, julga por fora se passou (filosofia do sistema: o Mestre adjudica, o sistema só
  * calcula números) e, se decidir que sim, aplica a fórmula de reparo na Vida do alvo.
  */
-import { SYSTEM_ID, MEU_SISTEMA } from "./config.js";
+import { SYSTEM_ID, MEU_SISTEMA, sceneActorCandidates } from "./config.js";
 import { rollAttribute } from "./dice.js";
 
 const { DialogV2 } = foundry.applications.api;
-
-/** Nave/Veículo visíveis pro usuário atual — mesmo padrão de permissão usado em toda escolha de alvo do sistema. */
-function repairableActors() {
-  return game.actors.filter(a => ["starship", "vehicle"].includes(a.type) && a.testUserPermission(game.user, "OBSERVER"));
-}
 
 /**
  * Alvos reparáveis de uma Nave/Veículo: cada Módulo instalado (`hp`) mais os 3 pools do próprio
@@ -52,47 +47,43 @@ function resolveRepairTarget(ship, targetId) {
 }
 
 /**
- * Abre o diálogo de pedido de reparo: escolhe a Nave/Veículo, o Módulo/pool a consertar e o
- * Ator-personagem que está fazendo o reparo (padrão: o Ator do usuário atual). Rode via macro
- * na hotbar: `game.nihility.requestShipRepair()`.
+ * Abre o diálogo de pedido de reparo — diferente de toda outra escolha de alvo do sistema
+ * (que lista candidatos e deixa o jogador escolher), a Nave/Veículo aqui NUNCA é um dropdown:
+ * é sempre a única Nave/Veículo com Token na cena atual (`sceneActorCandidates`) — decisão
+ * deliberada, reparo é sempre "conserte a nave que eu estou", não "escolha qualquer nave do
+ * mundo". Só pede o Módulo/pool a consertar e o Personagem (seu, na mesma cena) que repara.
+ * Rode via macro na hotbar: `game.nihility.requestShipRepair()`.
  */
 export async function requestShipRepair() {
-  const ships = repairableActors();
+  const ships = sceneActorCandidates({ types: ["starship", "vehicle"] });
   if (!ships.length) {
-    ui.notifications.warn("Nenhuma Nave/Veículo visível pra reparar.");
+    ui.notifications.warn("Nenhuma Nave/Veículo na cena atual.");
     return;
   }
+  if (ships.length > 1) {
+    ui.notifications.warn("Mais de uma Nave/Veículo na cena atual — o pedido de reparo só funciona com exatamente uma.");
+    return;
+  }
+  const ship = ships[0];
 
-  const engineers = game.actors.filter(a => a.type === "character" && a.testUserPermission(game.user, "OWNER"));
+  const engineers = sceneActorCandidates({ types: ["character"], permission: "OWNER" });
   if (!engineers.length) {
-    ui.notifications.warn("Você não controla nenhum Personagem pra fazer o reparo.");
+    ui.notifications.warn("Você não controla nenhum Personagem na cena atual pra fazer o reparo.");
     return;
   }
   const defaultEngineer = game.user.character;
-
-  const shipOptions = ships.map(a => `<option value="${a.id}">${a.name}</option>`).join("");
   const engineerOptions = engineers
     .map(a => `<option value="${a.id}" ${a.id === defaultEngineer?.id ? "selected" : ""}>${a.name}</option>`)
     .join("");
-
-  function populateTargets(dialogEl, shipId) {
-    const ship = game.actors.get(shipId);
-    const select = dialogEl.querySelector('[name="targetId"]');
-    if (!ship || !select) return;
-    select.innerHTML = repairTargetsFor(ship).map(t => `<option value="${t.id}">${t.label}</option>`).join("");
-  }
+  const targetOptions = repairTargetsFor(ship).map(t => `<option value="${t.id}">${t.label}</option>`).join("");
 
   const result = await DialogV2.wait({
-    window: { title: "Pedido de Reparo" },
+    window: { title: `Pedido de Reparo — ${ship.name}` },
     content: `
       <form>
         <div class="form-group">
-          <label>Nave/Veículo</label>
-          <select name="shipId">${shipOptions}</select>
-        </div>
-        <div class="form-group">
           <label>Módulo/Pool a reparar</label>
-          <select name="targetId"></select>
+          <select name="targetId">${targetOptions}</select>
         </div>
         <div class="form-group">
           <label>Engenheiro (rola Destreza)</label>
@@ -100,11 +91,6 @@ export async function requestShipRepair() {
         </div>
       </form>
     `,
-    render: (event, dialog) => {
-      const shipSelect = dialog.element.querySelector('[name="shipId"]');
-      populateTargets(dialog.element, shipSelect.value);
-      shipSelect.addEventListener("change", () => populateTargets(dialog.element, shipSelect.value));
-    },
     buttons: [
       {
         action: "request",
@@ -112,11 +98,7 @@ export async function requestShipRepair() {
         default: true,
         callback: (event, button, dialog) => {
           const form = dialog.element.querySelector("form");
-          return {
-            shipId: form.shipId.value,
-            targetId: form.targetId.value,
-            engineerId: form.engineerId.value
-          };
+          return { targetId: form.targetId.value, engineerId: form.engineerId.value };
         }
       },
       // `false` (não a string do `action`) sobrevive ao `??` do DialogV2.wait — ver mesmo
@@ -128,10 +110,9 @@ export async function requestShipRepair() {
 
   if (!result) return;
 
-  const ship = game.actors.get(result.shipId);
   const engineer = game.actors.get(result.engineerId);
-  const target = ship && repairTargetsFor(ship).find(t => t.id === result.targetId);
-  if (!ship || !engineer || !target) return;
+  const target = repairTargetsFor(ship).find(t => t.id === result.targetId);
+  if (!engineer || !target) return;
 
   await createShipRepairRequestMessage(ship, engineer, target);
 }
@@ -206,9 +187,8 @@ export async function approveShipRepairRoll(message, modifier = 0) {
 
 /**
  * Botão "Restaurar Vida" — só aparece depois da rolagem, GM-only. Rola a fórmula de reparo
- * (`MEU_SISTEMA.REPAIR_ROLL_FORMULA`, placeholder "0" até a Fase 8 do overhaul fechar o valor
- * real com o Mestre — não é pra inventar um número de balanceamento sem validar) e aplica o
- * resultado no alvo escolhido, clampado em [0, max].
+ * (`MEU_SISTEMA.REPAIR_ROLL_FORMULA`, "2d6" — mesma pra qualquer alvo, sem escalar pelo tamanho
+ * dele, ver Fase 8 do overhaul) e aplica o resultado no alvo escolhido, clampado em [0, max].
  */
 export async function restoreShipRepairTarget(message) {
   if (!game.user.isGM) {

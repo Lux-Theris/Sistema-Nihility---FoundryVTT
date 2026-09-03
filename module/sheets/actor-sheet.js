@@ -7,6 +7,7 @@ import {
   isEconomyEnabled,
   isTitlesEnabled,
   isAnatomyEnabled,
+  sceneActorCandidates,
   debugLog
 } from "../config.js";
 import { fuseSkills, evolveSkill, breakSkillPoints, mergeSkillPoints, requestSkillCreation } from "../skill-economy.js";
@@ -589,11 +590,13 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
   async _promptCurrencyTransfer() {
     const currencies = getActiveCurrencies();
     const currencyOpts = currencies.map(c => `<option value="${c.id}">${c.label}</option>`).join("");
-    const recipients = game.actors.filter(a => a.id !== this.actor.id && a.testUserPermission(game.user, "OBSERVER"));
+    // Só Personagens na mesma cena — Nave/Veículo não tem conceito de moeda própria, e listar
+    // o mundo inteiro (em vez de só quem está na cena) deixava mandar dinheiro pra qualquer um.
+    const recipients = sceneActorCandidates({ types: ["character"], excludeActorId: this.actor.id });
     const recipientOpts = recipients.map(a => `<option value="${a.id}">${a.name}</option>`).join("");
 
     if (!recipients.length) {
-      ui.notifications.warn("Nenhum outro Ator visível para receber a transferência.");
+      ui.notifications.warn("Nenhum outro Personagem na cena atual pra receber a transferência.");
       return null;
     }
 
@@ -788,9 +791,12 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     return index === undefined || index === null || index === false ? null : index;
   }
 
-  /** Escolhe o alvo de um Efeito Temporário (buff/debuff/escudo) ou de dano mágico — padrão: o próprio dono. */
+  /** Escolhe o alvo de um Efeito Temporário (buff/debuff/escudo) ou de dano mágico — padrão: o próprio dono. Só Atores com Token na cena atual. */
   async _promptSkillTarget() {
-    const candidates = game.actors.filter(a => a.testUserPermission(game.user, "OBSERVER"));
+    // Sempre inclui o próprio Ator mesmo sem Token na cena (buff/dano em si mesmo tem que
+    // funcionar sempre) — os demais candidatos exigem Token na cena atual.
+    const candidates = sceneActorCandidates();
+    if (!candidates.some(a => a.id === this.actor.id)) candidates.unshift(this.actor);
     const opts = candidates
       .map(a => `<option value="${a.id}" ${a.id === this.actor.id ? "selected" : ""}>${a.name}${a.id === this.actor.id ? " (você mesmo)" : ""}</option>`)
       .join("");

@@ -711,6 +711,31 @@ export function getModuleSizePreset(category, moduleSize) {
   return preset;
 }
 
+/**
+ * Atores candidatos a alvo/destinatário: só quem tem um Token na CENA atualmente aberta
+ * (`canvas.scene`), não o Diretório de Atores do mundo inteiro — evita listar gente que nem
+ * está na cena (ex: mandar dinheiro pra um Ator noutra sessão de jogo, ou mirar Habilidade
+ * numa Nave que não está nem por perto). Tokens duplicados do mesmo Ator (vários NPCs iguais)
+ * contam uma vez só. `types` (opcional) filtra por `actor.type`; `excludeActorId` tira um Ator
+ * específico da lista; `permission` (padrão "OBSERVER") é o nível mínimo exigido.
+ */
+export function sceneActorCandidates({ types = null, excludeActorId = null, permission = "OBSERVER" } = {}) {
+  const scene = canvas?.scene;
+  if (!scene) return [];
+  const seen = new Set();
+  const candidates = [];
+  for (const token of scene.tokens) {
+    const actor = token.actor;
+    if (!actor || seen.has(actor.id)) continue;
+    if (actor.id === excludeActorId) continue;
+    if (types && !types.includes(actor.type)) continue;
+    if (!actor.testUserPermission(game.user, permission)) continue;
+    seen.add(actor.id);
+    candidates.push(actor);
+  }
+  return candidates;
+}
+
 /** Atalhos de leitura para os três toggles principais. */
 export function isEconomyEnabled() {
   return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.economyEnabled);

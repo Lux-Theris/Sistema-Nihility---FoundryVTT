@@ -8,6 +8,7 @@
       <div class="header-row">
         <label>Espécie
           <select class="species-select" name="system.species">
+            <option value="" {{#unless system.species}}selected{{/unless}}>—</option>
             {{#each speciesPresets as |preset key|}}
               <option value="{{key}}" {{#if (eq key ../system.species)}}selected{{/if}}>{{preset.label}}</option>
             {{/each}}

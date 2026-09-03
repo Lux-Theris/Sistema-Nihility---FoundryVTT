@@ -397,11 +397,9 @@ export async function fireStarshipWeapon(sourceActor, weaponModule, targetActor 
 
   let finalDamage = null;
   if (targetActor) {
-    const { toShield, toCasco, toHull, appliedReductions } = await applyStarshipDamageCascade(boostedTotal, sourceActor, targetActor, weaponModule);
+    const { toShield, toCasco, toHull } = await applyStarshipDamageCascade(boostedTotal, sourceActor, targetActor, weaponModule);
     finalDamage = toShield + toCasco + toHull;
-    let cascadeText = `Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}`;
-    if (appliedReductions.length) cascadeText += ` (${appliedReductions.join(", ")})`;
-    flavor += ` — ${cascadeText}`;
+    flavor += ` — Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}`;
   }
 
   await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: sourceActor }), flavor });
@@ -484,17 +482,14 @@ async function rollSkillDamage(actor, mech, label, targetActor = null) {
 
   let finalDamage;
   if (isShipLike(targetActor)) {
-    const { toShield, toCasco, toHull, appliedReductions } = await applyStarshipDamageCascade(boostedTotal, actor, targetActor);
+    const { toShield, toCasco, toHull } = await applyStarshipDamageCascade(boostedTotal, actor, targetActor);
     finalDamage = toShield + toCasco + toHull;
-    let cascadeText = `Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}`;
-    if (appliedReductions.length) cascadeText += ` (${appliedReductions.join(", ")})`;
-    flavor += ` — ${cascadeText}`;
+    flavor += ` — Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}`;
   } else {
-    const reduced = applyDamageReductions(boostedTotal, mech, targetActor, { sourceActor: actor });
-    finalDamage = reduced.finalDamage;
-    if (reduced.appliedReductions.length) {
-      flavor += ` — reduzido por ${reduced.appliedReductions.join(", ")} (${Math.floor(boostedTotal)} → ${finalDamage})`;
-    }
+    // Nunca revela NO CHAT que/quanto de Resistência ou Defesa Mágica foi aplicada — só o
+    // número final. A redução em si continua acontecendo (applyDamageReductions), só não
+    // aparece na mensagem (nem a existência dela, mesmo quando reduz a 0).
+    finalDamage = applyDamageReductions(boostedTotal, mech, targetActor, { sourceActor: actor }).finalDamage;
   }
 
   await roll.toMessage({
@@ -530,15 +525,15 @@ async function rollSkillDamageArea(actor, mech, label, targetActors) {
   const boostedTotal = applyShipWeaponBonus(roll.total, actor);
   const title = `${damageFlavorPrefix(mech, label)} (Emissão)`;
   const rows = [];
+  // Nunca revela NO CHAT que/quanto de Resistência, Defesa Mágica, Penetração ou Redução de
+  // Casco foi aplicada — só o número final por alvo (a redução em si continua acontecendo).
   for (const targetActor of targetActors) {
     if (isShipLike(targetActor)) {
-      const { toShield, toCasco, toHull, appliedReductions } = await applyStarshipDamageCascade(boostedTotal, actor, targetActor);
-      const reductionText = appliedReductions.length ? ` <span class="hint-inline">(${appliedReductions.join(", ")})</span>` : "";
-      rows.push(`<li><strong>${targetActor.name}</strong>: Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}${reductionText}</li>`);
+      const { toShield, toCasco, toHull } = await applyStarshipDamageCascade(boostedTotal, actor, targetActor);
+      rows.push(`<li><strong>${targetActor.name}</strong>: Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}</li>`);
     } else {
-      const { finalDamage, appliedReductions } = applyDamageReductions(boostedTotal, mech, targetActor, { sourceActor: actor });
-      const reductionText = appliedReductions.length ? ` <span class="hint-inline">(${appliedReductions.join(", ")})</span>` : "";
-      rows.push(`<li><strong>${targetActor.name}</strong>: ${finalDamage}${reductionText}</li>`);
+      const { finalDamage } = applyDamageReductions(boostedTotal, mech, targetActor, { sourceActor: actor });
+      rows.push(`<li><strong>${targetActor.name}</strong>: ${finalDamage}</li>`);
     }
   }
 
@@ -827,8 +822,8 @@ export async function tickCombatRoundEffects(actor) {
     const rows = results.map(r => {
       const attrLabel = r.attrKey === "hp" ? "HP" : MEU_SISTEMA.EFFECT_TARGET_LABELS.energy;
       const statusText = r.expired ? "encerrou" : r.ticksRemaining === null ? "até desativar" : `${r.ticksRemaining} tick(s) restante(s)`;
-      const reductionText = r.appliedReductions?.length ? ` <span class="hint-inline">(reduzido por ${r.appliedReductions.join(", ")})</span>` : "";
-      return `<li><strong>${r.effectName}</strong>: ${r.delta >= 0 ? "+" : ""}${r.delta} ${attrLabel} (${statusText})${reductionText}</li>`;
+      // Nunca revela NO CHAT que/quanto de Resistência foi aplicada no tick — só o delta final.
+      return `<li><strong>${r.effectName}</strong>: ${r.delta >= 0 ? "+" : ""}${r.delta} ${attrLabel} (${statusText})</li>`;
     });
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor }),

@@ -318,23 +318,25 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
 
 /** Liga a interatividade do modal: mostrar/esconder painéis, linhas de Efeito, Sub-Skills expansíveis e o resumo de Resistência. */
 function setupSkillEditorInteractivity(root, data) {
-  // Aplica o layout de rolagem direto via JS (inline style), em vez de confiar só no CSS de
-  // `.nihility-skill-editor-dialog .window-content`/`.skill-editor-form` — não dá pra ter
-  // certeza de que a classe passada em `DialogV2.wait({ classes: [...] })` realmente chega no
-  // elemento raiz do jeito que `DEFAULT_OPTIONS.classes` chegaria numa Application V2 normal
-  // (esse é o único lugar do sistema que passa `classes` direto pro `.wait()`, sem precedente
-  // confirmado). Fazendo aqui, contra o `root` (`dialog.element`) que o `render` já garante
-  // estar correto, o scroll funciona sempre, com ou sem o CSS por classe realmente aplicando.
-  const windowContent = root.querySelector(".window-content");
-  if (windowContent) {
-    windowContent.style.display = "flex";
-    windowContent.style.flexDirection = "column";
-  }
+  // Nenhuma tentativa via CSS de cascata (classe no DialogV2.wait, flex em .window-content)
+  // sobreviveu tanto na janela embutida quanto numa Pop Out (Foundry renderiza o mesmo App numa
+  // janela de navegador separada, "/detached/index.html" — contexto de ancestrais diferente,
+  // sem garantia de que a mesma cadeia de flex/altura se aplique). Em vez de continuar
+  // adivinhando, mede a altura REAL renderizada da janela toda vez que ela existe/muda de
+  // tamanho e força um `max-height` em pixel direto no formulário — funciona igual em
+  // qualquer contexto, porque não depende de nenhum ancestral estar configurado de um jeito
+  // específico, só do que `getBoundingClientRect()` realmente reporta.
   const form = root.querySelector(".skill-editor-form");
   if (form) {
-    form.style.flex = "1 1 auto";
-    form.style.minHeight = "0";
-    form.style.overflowY = "auto";
+    const fitScroll = () => {
+      const appHeight = root.getBoundingClientRect().height;
+      // Reserva ~110px pro cabeçalho da janela + a barra de Salvar/Cancelar abaixo do form.
+      const available = appHeight - 110;
+      form.style.maxHeight = available > 120 ? `${available}px` : "none";
+      form.style.overflowY = "auto";
+    };
+    fitScroll();
+    new ResizeObserver(fitScroll).observe(root);
   }
 
   const mechanicSelect = root.querySelector('[name="effectType"]');

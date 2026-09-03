@@ -72,8 +72,12 @@ function baseActorSchema() {
       unique: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 })
     }),
 
-    /** Espécie ativa. Usada para aplicar automaticamente o preset de Partes do Corpo e Skills Raciais. */
-    species: new fields.StringField({ required: true, initial: "humano", blank: false }),
+    /**
+     * Espécie ativa. Usada para aplicar automaticamente o preset de Partes do Corpo e Skills
+     * Raciais. Começa em branco de propósito (nunca "humano" por padrão) — o seletor mostra
+     * "—" até o jogador escolher de verdade, obrigando uma escolha explícita na criação.
+     */
+    species: new fields.StringField({ required: true, initial: "", blank: true }),
 
     /** Guarda a última espécie para a qual um preset de anatomia já foi aplicado. */
     lastAppliedSpeciesPreset: new fields.StringField({ required: false, initial: "" }),

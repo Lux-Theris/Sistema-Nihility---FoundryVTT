@@ -318,6 +318,25 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
 
 /** Liga a interatividade do modal: mostrar/esconder painéis, linhas de Efeito, Sub-Skills expansíveis e o resumo de Resistência. */
 function setupSkillEditorInteractivity(root, data) {
+  // Aplica o layout de rolagem direto via JS (inline style), em vez de confiar só no CSS de
+  // `.nihility-skill-editor-dialog .window-content`/`.skill-editor-form` — não dá pra ter
+  // certeza de que a classe passada em `DialogV2.wait({ classes: [...] })` realmente chega no
+  // elemento raiz do jeito que `DEFAULT_OPTIONS.classes` chegaria numa Application V2 normal
+  // (esse é o único lugar do sistema que passa `classes` direto pro `.wait()`, sem precedente
+  // confirmado). Fazendo aqui, contra o `root` (`dialog.element`) que o `render` já garante
+  // estar correto, o scroll funciona sempre, com ou sem o CSS por classe realmente aplicando.
+  const windowContent = root.querySelector(".window-content");
+  if (windowContent) {
+    windowContent.style.display = "flex";
+    windowContent.style.flexDirection = "column";
+  }
+  const form = root.querySelector(".skill-editor-form");
+  if (form) {
+    form.style.flex = "1 1 auto";
+    form.style.minHeight = "0";
+    form.style.overflowY = "auto";
+  }
+
   const mechanicSelect = root.querySelector('[name="effectType"]');
   const rangeSection = root.querySelector(".se-range-section");
   const damagePanel = root.querySelector(".se-damage-panel");

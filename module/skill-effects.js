@@ -277,16 +277,16 @@ function applyShipWeaponBonus(rawTotal, sourceActor) {
 }
 
 /**
- * Penetração (0-1) da arma de uma Nave/Veículo atacante — hoje só reflete o bônus de Skills de
- * aprimoramento (`combatBonuses.weaponPenetrationFlat`/Multiplier); a Arma ainda não tem seu
- * próprio campo `penetration` base (isso é a Fase 5 do overhaul de Naves — dano/penetração/
- * recarga na própria Módulo). Quando existir, a fórmula vira `base × multiplier + flat` sozinha,
- * sem precisar mudar mais nada aqui. `0` se quem atacou não for Nave/Veículo.
+ * Penetração (0-1) da arma de uma Nave/Veículo atacante: `base` vem do `penetration` (%) da
+ * própria Módulo disparada (já escalado por throttle/fome de energia via `effectiveModuleStat`
+ * — Fase 5), 0 se o dano veio de uma Skill genérica sem Módulo associado (Skills de
+ * aprimoramento continuam empilhando por cima via `combatBonuses`, igual antes). `0` se quem
+ * atacou não for Nave/Veículo.
  */
-function shipWeaponPenetration(sourceActor) {
+function shipWeaponPenetration(sourceActor, weaponModule = null) {
   if (!isShipLike(sourceActor)) return 0;
   const bonuses = sourceActor.system.combatBonuses;
-  const base = 0;
+  const base = weaponModule ? sourceActor.system.effectiveModuleStat(weaponModule, "penetration") / 100 : 0;
   return Math.clamp(base * (bonuses?.weaponPenetrationMultiplier ?? 1) + (bonuses?.weaponPenetrationFlat ?? 0) / 100, 0, 1);
 }
 
@@ -308,10 +308,13 @@ function absorbIntoPool(amount, poolValue) {
  * — o Mestre decide o que fazer com o número), os 3 estágios aqui aplicam automaticamente via
  * `targetActor.update()`: a cascata é complexa demais pra fazer de cabeça na mesa. Zerar o
  * Escudo dispara a Recarga dele (ver `shieldRechargeRounds` do Módulo, ticado em starship-power.js).
+ * `weaponModule` (opcional): a Arma que disparou, se o dano veio de `fireStarshipWeapon` — dá a
+ * Penetração base real (ver `shipWeaponPenetration`); `null` pra dano vindo de uma Skill
+ * genérica (sem Módulo específico associado).
  * @returns {{toShield:number, toCasco:number, toHull:number, appliedReductions:string[]}}
  */
-async function applyStarshipDamageCascade(rawDamage, sourceActor, targetActor) {
-  const penetration = shipWeaponPenetration(sourceActor);
+async function applyStarshipDamageCascade(rawDamage, sourceActor, targetActor, weaponModule = null) {
+  const penetration = shipWeaponPenetration(sourceActor, weaponModule);
   const cascoHasProtection = targetActor.system.casco.value > 0;
   const armorReduction = cascoHasProtection ? (targetActor.system.armorReductionPercent ?? 0) : 0;
   const appliedReductions = [];
@@ -356,6 +359,59 @@ async function applyStarshipDamageCascade(rawDamage, sourceActor, targetActor) {
   if (Object.keys(updates).length) await targetActor.update(updates);
 
   return { toShield, toCasco, toHull, appliedReductions };
+}
+
+/**
+ * Dispara uma Arma NATIVA de Nave/Veículo (Overhaul de Naves, Fase 5) — dano/penetração/recarga
+ * vivem na própria Módulo (`damageFormula`/`penetration`/`cooldownRounds`), independente de
+ * qualquer Habilidade que ela conceda (`grantsSkill` continua servindo pra outras Habilidades
+ * não-dano). Rola a fórmula, escala pelo throttle da Arma (`powerAllocationPercent`) E pela fome
+ * de energia do momento (`powerRatioFor`), aplica o bônus de Skills de aprimoramento
+ * (`combatBonuses.weaponDamageFlat/Multiplier`, já existente) e roda a cascata de dano da Fase 4
+ * usando a Penetração da própria Arma. Recarga escala pelo MESMO throttle da Arma (arredondado
+ * pra cima, mínimo 1 se `cooldownRounds > 0`) — sobrecarregar bate mais forte, mas demora mais
+ * pra disparar de novo.
+ */
+export async function fireStarshipWeapon(sourceActor, weaponModule, targetActor = null) {
+  const sys = weaponModule.system;
+  if (sys.cooldownRemaining > 0) {
+    ui.notifications?.warn(`${weaponModule.name} está em recarga (${sys.cooldownRemaining} rodada(s) restantes).`);
+    return null;
+  }
+  const formula = sys.damageFormula?.trim();
+  if (!formula) {
+    ui.notifications?.warn(`${weaponModule.name} não tem uma Fórmula de Dano configurada.`);
+    return null;
+  }
+
+  const roll = new Roll(formula);
+  await roll.evaluate();
+
+  const throttleRatio = (sys.powerAllocationPercent ?? 100) / 100;
+  const powerRatio = sourceActor.system.powerRatioFor(weaponModule);
+  const throttledTotal = roll.total * throttleRatio * powerRatio;
+  const boostedTotal = applyShipWeaponBonus(throttledTotal, sourceActor);
+
+  let flavor = `${weaponModule.name} — Dano`;
+  if (Math.floor(boostedTotal) !== roll.total) flavor += ` — throttle/bônus (${roll.total} → ${Math.floor(boostedTotal)})`;
+
+  let finalDamage = null;
+  if (targetActor) {
+    const { toShield, toCasco, toHull, appliedReductions } = await applyStarshipDamageCascade(boostedTotal, sourceActor, targetActor, weaponModule);
+    finalDamage = toShield + toCasco + toHull;
+    let cascadeText = `Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}`;
+    if (appliedReductions.length) cascadeText += ` (${appliedReductions.join(", ")})`;
+    flavor += ` — ${cascadeText}`;
+  }
+
+  await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: sourceActor }), flavor });
+
+  if (sys.cooldownRounds > 0) {
+    const scaledCooldown = Math.max(1, Math.ceil(sys.cooldownRounds * throttleRatio));
+    await weaponModule.update({ "system.cooldownRemaining": scaledCooldown });
+  }
+
+  return { roll, finalDamage };
 }
 
 /**

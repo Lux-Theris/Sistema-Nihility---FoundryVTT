@@ -245,7 +245,7 @@
       {{#unless (or (eq system.category "battery") (eq system.category "distributor"))}}
       <label>{{#if (eq system.category "reactor")}}Under/Overclock (%){{else}}Throttle (%){{/if}}
         <span class="hint-inline" style="display:inline;">
-          {{#if (eq system.category "reactor")}}(abaixo de 100% economiza sem dano; acima de 100% já sofre dano, sem tolerância){{else}}(acima do normal aumenta capacidade e consumo, mas sofre dano por sobrecarga passado o limiar da categoria){{/if}}
+          {{#if (eq system.category "reactor")}}(abaixo de 100% economiza sem dano; acima de 100% já sofre dano, sem tolerância){{else if (eq system.category "weapon")}}(acima de 100% aumenta Dano/Penetração, mas também aumenta a Recarga na mesma proporção — não dana o Módulo){{else}}(acima do normal aumenta capacidade e consumo, mas sofre dano por sobrecarga passado o limiar da categoria){{/if}}
         </span>
         <input type="number" name="system.powerAllocationPercent" value="{{system.powerAllocationPercent}}" min="0"/>
       </label>
@@ -276,6 +276,14 @@
       {{#if (eq system.category "engine")}}
       <label>Aceleração (a 100% de throttle) <input type="number" name="system.acceleration" value="{{system.acceleration}}" min="0"/></label>
       <label>Rotação (a 100% de throttle) <input type="number" name="system.rotation" value="{{system.rotation}}" min="0"/></label>
+      {{/if}}
+
+      {{#if (eq system.category "weapon")}}
+      <label>Fórmula de Dano <input type="text" name="system.damageFormula" value="{{system.damageFormula}}" placeholder="ex: 3d10"/></label>
+      <label>Penetração (%, a 100% de throttle) <input type="number" name="system.penetration" value="{{system.penetration}}" min="0" max="100"/></label>
+      <label>Recarga (rodadas, a 100% de throttle) <span class="hint-inline" style="display:inline;">(0 = sempre disponível pra disparar)</span>
+        <input type="number" name="system.cooldownRounds" value="{{system.cooldownRounds}}" min="0"/>
+      </label>
       {{/if}}
 
       {{#if (eq system.category "ftl")}}

@@ -1260,6 +1260,29 @@ form.nihility-config-app {
 .nihility-sheet .cat-distributor { background: rgba(192, 132, 252, 0.15); color: var(--nihility-accent-2, #c084fc); }
 .nihility-sheet .cat-ftl { background: rgba(192, 132, 252, 0.15); color: var(--nihility-accent-2, #c084fc); }
 
+.nihility-sheet .fire-btn {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--nihility-hp);
+  background: rgba(239, 83, 80, 0.1);
+  color: var(--nihility-hp);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.nihility-sheet .fire-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.nihility-sheet .cooldown-note {
+  font-size: 0.68rem;
+  color: var(--nihility-warn);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .nihility-sheet .power-shortage-badge {
   font-size: 0.62rem;
   padding: 2px 7px;

@@ -1,7 +1,7 @@
 import { SYSTEM_ID, MEU_SISTEMA, getStarshipEnergyLabel, debugLog } from "../config.js";
 import { registerItemInCompendium } from "../compendium.js";
 import { createGrantedSkill, removeGrantedSkill } from "../skill-economy.js";
-import { useSkillEffect } from "../skill-effects.js";
+import { useSkillEffect, fireStarshipWeapon } from "../skill-effects.js";
 import { moduleCanRestart } from "../starship-power.js";
 
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
@@ -74,12 +74,19 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     fp.render(true);
   }
 
-  /** Cria um Módulo de Nave (`data-type="starship_module"`) ou uma Peça genérica de Veículo (`data-type="item"`). */
+  /**
+   * Cria um Módulo de Nave (`data-type="starship_module"`) ou uma Peça genérica de Veículo
+   * (`data-type="item"`) — `data-category` opcional pré-seleciona a Categoria do Módulo (ex: o
+   * botão "+ Nova Arma" da aba Armas já cria com `category:"weapon"`, em vez de nascer
+   * "Utilidade" e o jogador ter que trocar na mão).
+   */
   static async onItemCreate(event, target) {
     event.preventDefault();
     const type = target.dataset.type || "item";
     const name = type === "starship_module" ? "Novo Módulo" : "Nova Peça";
-    const [created] = await this.actor.createEmbeddedDocuments("Item", [{ name, type }]);
+    const data = { name, type };
+    if (target.dataset.category) data["system.category"] = target.dataset.category;
+    const [created] = await this.actor.createEmbeddedDocuments("Item", [data]);
     if (type === "starship_module") await registerItemInCompendium(created.toObject());
     created.sheet.render(true);
   }
@@ -180,6 +187,23 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
   }
 
+  /** Dispara uma Arma nativa (Overhaul de Naves, Fase 5) — sempre pede alvo, igual "damage" de Skill. */
+  static async onFireWeapon(event, target) {
+    event.preventDefault();
+    const itemId = target.closest(".weapon-row")?.dataset.itemId;
+    const weaponModule = this.actor.items.get(itemId);
+    if (!weaponModule) return;
+
+    const targetActor = await this._promptSkillTarget();
+    if (!targetActor) return;
+
+    try {
+      await fireStarshipWeapon(this.actor, weaponModule, targetActor);
+    } catch (err) {
+      console.error(`${SYSTEM_ID} | Falha ao disparar Arma.`, err);
+    }
+  }
+
   /** Escolhe o alvo de uma arma/efeito — padrão: o próprio Ator (útil pra Escudo/testes). */
   async _promptSkillTarget() {
     const candidates = game.actors.filter(a => a.testUserPermission(game.user, "OBSERVER"));
@@ -211,8 +235,9 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
       .map(category => actor.system.singleSlotModule(category))
       .filter(Boolean);
     context.specialModules = specialModules;
-    const specialModuleIds = new Set(specialModules.map(m => m.id));
-    context.modules = actor.items.filter(i => i.type === "starship_module" && !specialModuleIds.has(i.id));
+    context.weaponModules = actor.system.weaponModules;
+    const excludedIds = new Set([...specialModules, ...context.weaponModules].map(m => m.id));
+    context.modules = actor.items.filter(i => i.type === "starship_module" && !excludedIds.has(i.id));
 
     const budgetUsed = actor.system.weaponSpaceUsed;
     const budget = actor.system.weaponSlotBudget;
@@ -269,6 +294,7 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
       toggleModulePower: TabbedActorSheetV2.onToggleModulePower,
       powerGridTick: TabbedActorSheetV2.onPowerGridTick,
       useSkill: TabbedActorSheetV2.onUseSkill,
+      fireWeapon: TabbedActorSheetV2.onFireWeapon,
       editImage: TabbedActorSheetV2.onEditImage
     }
   };
@@ -315,6 +341,7 @@ export class NihilityVehicleSheet extends TabbedActorSheetV2 {
       toggleModulePower: TabbedActorSheetV2.onToggleModulePower,
       powerGridTick: TabbedActorSheetV2.onPowerGridTick,
       useSkill: TabbedActorSheetV2.onUseSkill,
+      fireWeapon: TabbedActorSheetV2.onFireWeapon,
       editImage: TabbedActorSheetV2.onEditImage
     }
   };

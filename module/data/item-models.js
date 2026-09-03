@@ -474,6 +474,24 @@ export class StarshipModuleDataModel extends foundry.abstract.TypeDataModel {
       chargeTime: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
       chargeRemaining: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
 
+      /**
+       * Só relevante pra category "weapon" (Overhaul de Naves, Fase 5) — dano/penetração/recarga
+       * NA PRÓPRIA Módulo, disparado pela action `fireWeapon` (ver `fireStarshipWeapon` em
+       * skill-effects.js), independente de qualquer Habilidade que ela conceda. `penetration` é
+       * 0-100 (%), igual `armorReduction`. `cooldownRounds` 0 = sempre disponível pra disparar;
+       * `cooldownRemaining` é estado (setado ao disparar, decrementado por rodada em
+       * starship-power.js), não editável à mão aqui — só pelo popover do Mestre (Fase 6).
+       * Arma usa o MESMO `powerAllocationPercent` genérico, mas com regra própria: throttle
+       * acima de 100% NÃO dana o Módulo (diferente da regra geral de sobrecarga) — em vez disso
+       * escala `damageFormula`/`penetration` pra cima E escala `cooldownRounds` na mesma
+       * proporção (arredondado pra cima, mínimo 1): sobrecarregar bate mais forte/penetra mais,
+       * mas demora mais pra disparar de novo.
+       */
+      damageFormula: new fields.StringField({ required: false, initial: "" }),
+      penetration: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0, max: 100 }),
+      cooldownRounds: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
+      cooldownRemaining: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
+
       /** Habilidade opcional concedida à Nave enquanto o módulo estiver "online" (ver grantedSkillSchema). */
       grantsSkill: grantedSkillSchema()
     };

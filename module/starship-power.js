@@ -25,9 +25,14 @@ function computeModuleTickPatch(module) {
   const patch = {};
 
   // Carga de Salto (sub-tipo FTL "jump") decrementa por rodada — mesmo padrão de
-  // cooldownRemaining de Arma (Fase 5), até chegar a 0.
+  // cooldownRemaining de Arma, até chegar a 0.
   if (sys.category === "ftl" && sys.ftlType === "jump" && sys.chargeRemaining > 0) {
     patch["system.chargeRemaining"] = Math.max(0, sys.chargeRemaining - 1);
+  }
+
+  // Recarga de Arma (Fase 5) decrementa por rodada — mesmo padrão da Carga de Salto acima.
+  if (sys.category === "weapon" && sys.cooldownRemaining > 0) {
+    patch["system.cooldownRemaining"] = Math.max(0, sys.cooldownRemaining - 1);
   }
 
   let hpValue = sys.hp.value;

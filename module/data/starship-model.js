@@ -158,14 +158,13 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
   /**
    * Capacidade de Transferência do Distribuidor — o teto de energia que a Nave/Veículo INTEIRA
    * consegue rotear por rodada (não por módulo), inspirado no Distribuidor de Energia de Elite
-   * Dangerous. `Infinity` (sem teto) enquanto `MEU_SISTEMA.DISTRIBUTOR_BASELINE_BY_SHIP_SIZE`
-   * não existir (Fase 8 do overhaul, valores a fechar com o Mestre) ou enquanto não houver
-   * Distribuidor instalado — a partir do momento que a tabela existir, passa a valer sozinha.
+   * Dangerous. Sem Distribuidor instalado é 0, não "sem limite" — sem ele a Nave não consegue
+   * rotear energia nenhuma, precisa do Módulo de verdade pra funcionar.
    */
   get transferCapacity() {
-    const baseline = MEU_SISTEMA.DISTRIBUTOR_BASELINE_BY_SHIP_SIZE?.[this.shipSize];
     const distributor = this.distributorModule;
-    if (baseline === undefined || !distributor) return Infinity;
+    if (!distributor) return 0;
+    const baseline = MEU_SISTEMA.DISTRIBUTOR_BASELINE_BY_SHIP_SIZE[this.shipSize] ?? 0;
     return Math.round(baseline * (distributor.system.transferFactor ?? 1));
   }
 
@@ -222,24 +221,14 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
   }
 
   prepareDerivedData() {
-    // Reator/Escudo/Casco derivam do Módulo instalado (se houver) — ver comentário nos campos acima.
-    const reactor = this.reactorModule;
-    if (reactor) {
-      this.powerGrid.reactorOutput = this.effectiveModuleStat(reactor, "reactorOutput");
-    }
-    const shield = this.shieldModule;
-    if (shield) {
-      this.shields.max = this.effectiveModuleStat(shield, "shieldCapacity");
-      this.shields.regenRate = this.effectiveModuleStat(shield, "shieldRegen");
-    }
-    const armor = this.armorModule;
-    if (armor) {
-      this.casco.max = armor.system.hp.max;
-    }
-    const battery = this.batteryModule;
-    if (battery) {
-      this.powerGrid.capacitor.max = this.effectiveModuleStat(battery, "batteryCapacity");
-    }
+    // Reator/Bateria/Escudo/Casco são 100% derivados do Módulo instalado — sem o Módulo
+    // correspondente o valor é 0, não um fallback editável à mão (instalar o Módulo é a única
+    // forma de configurar isso agora). `effectiveModuleStat`/`?? 0` já cobrem o caso "sem Módulo".
+    this.powerGrid.reactorOutput = this.effectiveModuleStat(this.reactorModule, "reactorOutput");
+    this.powerGrid.capacitor.max = this.effectiveModuleStat(this.batteryModule, "batteryCapacity");
+    this.shields.max = this.effectiveModuleStat(this.shieldModule, "shieldCapacity");
+    this.shields.regenRate = this.effectiveModuleStat(this.shieldModule, "shieldRegen");
+    this.casco.max = this.armorModule?.system.hp.max ?? 0;
 
     this.hull.value = Math.clamp(this.hull.value, 0, this.hull.max);
     this.shields.value = Math.clamp(this.shields.value, 0, this.shields.max);

@@ -1611,6 +1611,15 @@ form.nihility-config-app {
    definidos acima, que também valem dentro de .nihility-sheet.
    ========================================================================== */
 
+/* .window-content precisa ser flex column pra `.skill-editor-form`'s `max-height: 70vh` ter uma
+   altura real pra estourar contra — mesma causa (e correção) do corte sem barra de rolagem já
+   resolvido em .sheet.item/.sheet.actor e .ai-assistant-app; sem isso, o formulário cortava sem
+   nenhuma barra de rolagem em vez de rolar dentro do limite fixo do DialogV2. */
+.nihility-skill-editor-dialog .window-content {
+  display: flex;
+  flex-direction: column;
+}
+
 /* O modal ganhou muito conteúdo (Descrição rica, Sub-Skills, Alcance, Dano/Efeitos) — o limite
    e a rolagem ficam no <form> em si (não em .window-content, que também abriga os botões
    Salvar/Cancelar do DialogV2) pra eles nunca saírem da vista rolando junto com o conteúdo. */

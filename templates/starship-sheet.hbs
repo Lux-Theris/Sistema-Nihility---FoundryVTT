@@ -22,8 +22,9 @@
         <span class="vital-label">Escudos</span>
         <span class="vital-track"><span class="vital-fill energy" style="width:{{shieldPercent}}%"></span></span>
         <span class="vital-value">
-          <input type="number" name="system.shields.value" value="{{system.shields.value}}"/>/{{#if shieldModule}}{{system.shields.max}}{{else}}<input type="number" name="system.shields.max" value="{{system.shields.max}}"/>{{/if}}
+          <input type="number" name="system.shields.value" value="{{system.shields.value}}"/>/{{system.shields.max}}
         </span>
+        {{#unless shieldModule}}<span class="hint-inline" style="margin-left:4px;">(sem Escudo instalado)</span>{{/unless}}
         {{#if system.shields.rechargeRemaining}}<span class="hint-inline" style="margin-left:4px;">(Recarga: {{system.shields.rechargeRemaining}})</span>{{/if}}
         {{#if isGM}}
         <a class="vital-adjust-toggle" data-action="toggleModuleVitalAdjust" data-key="shields" title="Ajustar Escudos/Recarga"><i class="fas fa-plus"></i></a>
@@ -42,8 +43,9 @@
         <span class="vital-label">Casco</span>
         <span class="vital-track"><span class="vital-fill hp" style="width:{{cascoPercent}}%"></span></span>
         <span class="vital-value">
-          <input type="number" name="system.casco.value" value="{{system.casco.value}}"/>/{{#if armorModule}}{{system.casco.max}}{{else}}<input type="number" name="system.casco.max" value="{{system.casco.max}}"/>{{/if}}
+          <input type="number" name="system.casco.value" value="{{system.casco.value}}"/>/{{system.casco.max}}
         </span>
+        {{#unless armorModule}}<span class="hint-inline" style="margin-left:4px;">(sem Casco instalado)</span>{{/unless}}
         {{#if isGM}}
         <a class="vital-adjust-toggle" data-action="toggleModuleVitalAdjust" data-key="casco" title="Ajustar Casco"><i class="fas fa-plus"></i></a>
         {{/if}}
@@ -108,17 +110,20 @@
         <div class="power-grid-summary {{#if isOverloaded}}overloaded{{/if}}">
           <div class="power-stat">
             <label>Reator</label>
-            {{#if reactorModule}}<span>{{system.powerGrid.reactorOutput}} EPS</span>{{else}}<input type="number" name="system.powerGrid.reactorOutput" value="{{system.powerGrid.reactorOutput}}"/>{{/if}}
+            <span>{{system.powerGrid.reactorOutput}} EPS</span>
+            {{#unless reactorModule}}<span class="hint-inline" style="margin:0;">(sem Reator instalado)</span>{{/unless}}
           </div>
           <div class="power-stat">
             <label>Capacidade de Transferência</label>
             <span>{{transferCapacityLabel}}</span>
+            {{#unless distributorModule}}<span class="hint-inline" style="margin:0;">(sem Distribuidor instalado)</span>{{/unless}}
           </div>
           <div class="power-stat">
             <label>Capacitores</label>
             <input type="number" name="system.powerGrid.capacitor.value" value="{{system.powerGrid.capacitor.value}}"/>
             <span>/</span>
-            {{#if batteryModule}}{{system.powerGrid.capacitor.max}}{{else}}<input type="number" name="system.powerGrid.capacitor.max" value="{{system.powerGrid.capacitor.max}}"/>{{/if}}
+            <span>{{system.powerGrid.capacitor.max}}</span>
+            {{#unless batteryModule}}<span class="hint-inline" style="margin:0;">(sem Bateria instalada)</span>{{/unless}}
           </div>
           <div class="power-stat">
             <label>Consumo Total</label>

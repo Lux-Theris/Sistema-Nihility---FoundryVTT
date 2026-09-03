@@ -304,17 +304,17 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.availableEnergy = actor.system.availableEnergy;
     context.isOverloaded = actor.system.powerGrid.isOverloaded;
 
-    // Reator/Escudo viram derivados do Módulo instalado (Fase 3) — o campo do cabeçalho/Grid só
-    // continua editável à mão enquanto não houver o Módulo correspondente (transição pra quem
-    // ainda não montou o Reator/Escudo como Módulo de verdade).
+    // Reator/Bateria/Distribuidor/Escudo/Casco são 100% derivados do Módulo instalado — sem o
+    // Módulo, o valor é 0 (não um fallback editável), então esses campos do cabeçalho/Grid
+    // ficam sempre só-leitura (ver prepareDerivedData em starship-model.js).
     context.reactorModule = actor.system.reactorModule;
     context.shieldModule = actor.system.shieldModule;
     context.engineModule = actor.system.engineModule;
     context.armorModule = actor.system.armorModule;
     context.batteryModule = actor.system.batteryModule;
+    context.distributorModule = actor.system.distributorModule;
 
-    const capacity = actor.system.transferCapacity;
-    context.transferCapacityLabel = Number.isFinite(capacity) ? `${capacity} EPS/rodada` : "Sem limite (Distribuidor não configurado)";
+    context.transferCapacityLabel = `${actor.system.transferCapacity} EPS/rodada`;
 
     // Cascata de dano Escudo→Casco→Estrutura (Fase 4) — as 3 barras compartilhadas do cabeçalho.
     context.shieldPercent = percentOf(actor.system.shields.value, actor.system.shields.max);

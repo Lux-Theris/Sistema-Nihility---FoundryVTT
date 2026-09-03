@@ -1,0 +1,26 @@
+<div class="nihility-skill-request status-{{status}}">
+  <header class="votw-header">
+    <i class="fas fa-wrench"></i>
+    <span class="votw-label">Pedido de Reparo</span>
+  </header>
+
+  <p class="sr-actor"><strong>{{engineerName}}</strong> quer reparar <strong>{{targetLabel}}</strong> em <strong>{{shipName}}</strong>.</p>
+
+  {{#if (eq status "pending")}}
+  <div class="sr-actions">
+    <label class="sr-modifier">Modificador do Mestre
+      <input type="number" class="repair-modifier-input" value="0"/>
+    </label>
+    <button type="button" class="repair-approve"><i class="fas fa-dice-d20"></i> Rolar Destreza</button>
+  </div>
+  {{/if}}
+
+  {{#if (eq status "rolled")}}
+  <p class="sr-status">🎲 Destreza rolada — veja o resultado acima. O Mestre julga se passou.</p>
+  <div class="sr-actions">
+    <button type="button" class="repair-restore"><i class="fas fa-heart"></i> Restaurar Vida</button>
+  </div>
+  {{/if}}
+
+  {{#if (eq status "restored")}}<p class="sr-status sr-approved">✅ Reparo aplicado.</p>{{/if}}
+</div>

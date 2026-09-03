@@ -35,6 +35,7 @@ import { StatusConditionsConfigApp } from "./apps/status-conditions-config.js";
 import { NihilityMenuApp } from "./apps/nihility-menu.js";
 import { tickCombatRoundEffects, tickActorUpkeepSkills } from "./skill-effects.js";
 import { tickStarshipPower } from "./starship-power.js";
+import { requestShipRepair, approveShipRepairRoll, restoreShipRepairTarget } from "./starship-repair.js";
 
 Hooks.once("init", () => {
   console.log(`${SYSTEM_ID} | Inicializando sistema...`);
@@ -46,7 +47,9 @@ Hooks.once("init", () => {
     id: SYSTEM_ID,
     config: MEU_SISTEMA,
     ai: AIHelper,
-    openAssistant: () => new NihilityMenuApp().render(true)
+    openAssistant: () => new NihilityMenuApp().render(true),
+    // Overhaul de Naves, Fase 7 — rode via macro na hotbar pra pedir reparo de Módulo/Nave.
+    requestShipRepair: () => requestShipRepair()
   };
 
   registerSystemSettings();
@@ -367,6 +370,14 @@ Hooks.on("renderChatMessage", (message, html) => {
   const $html = html instanceof jQuery ? html : $(html);
   $html.find(".skill-request-approve").on("click", () => approveSkillCreationRequest(message));
   $html.find(".skill-request-reject").on("click", () => rejectSkillCreationRequest(message));
+
+  // Pedido de Reparo de Nave/Veículo (Overhaul de Naves, Fase 7) — o modificador do Mestre é
+  // lido do próprio input no momento do clique, não guardado nas flags da mensagem.
+  $html.find(".repair-approve").on("click", event => {
+    const modifier = Number($(event.currentTarget).closest(".nihility-skill-request").find(".repair-modifier-input").val()) || 0;
+    approveShipRepairRoll(message, modifier);
+  });
+  $html.find(".repair-restore").on("click", () => restoreShipRepairTarget(message));
 });
 
 // Botão do Menu Principal no diretório de Atores — ponto de entrada único pro sistema.

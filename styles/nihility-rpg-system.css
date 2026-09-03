@@ -1178,6 +1178,29 @@ form.nihility-config-app {
 .nihility-skill-request.status-approved { border-color: var(--nihility-ok); }
 .nihility-skill-request.status-rejected,
 .nihility-skill-request.status-insufficient { border-color: var(--nihility-danger); }
+.nihility-skill-request.status-rolled { border-color: var(--nihility-warn); }
+.nihility-skill-request.status-restored { border-color: var(--nihility-ok); }
+
+.nihility-skill-request .sr-modifier {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  color: var(--nihility-text-dim);
+}
+.nihility-skill-request .sr-modifier input {
+  width: 60px;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  border-radius: 4px;
+  color: var(--nihility-text);
+  padding: 3px 5px;
+}
+.nihility-skill-request .repair-approve,
+.nihility-skill-request .repair-restore {
+  border-color: var(--nihility-accent);
+  color: var(--nihility-accent);
+}
 
 /* ==========================================================================
    Habilidades concedidas por Item/Módulo (v3)

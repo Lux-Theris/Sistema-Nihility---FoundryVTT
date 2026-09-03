@@ -261,6 +261,10 @@
       <label>Output (a 100% de clock) <input type="number" name="system.reactorOutput" value="{{system.reactorOutput}}" min="0"/></label>
       {{/if}}
 
+      {{#if (eq system.category "battery")}}
+      <label>Capacidade de Armazenamento <input type="number" name="system.batteryCapacity" value="{{system.batteryCapacity}}" min="0"/></label>
+      {{/if}}
+
       {{#if (eq system.category "distributor")}}
       <label>Fator de Distribuição <span class="hint-inline" style="display:inline;">(multiplica o baseline de Porte da Nave pra achar a Capacidade de Transferência)</span>
         <input type="number" name="system.transferFactor" value="{{system.transferFactor}}" min="0" step="0.1"/>

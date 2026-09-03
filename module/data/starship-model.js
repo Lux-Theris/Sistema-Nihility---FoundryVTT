@@ -236,6 +236,10 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
     if (armor) {
       this.casco.max = armor.system.hp.max;
     }
+    const battery = this.batteryModule;
+    if (battery) {
+      this.powerGrid.capacitor.max = this.effectiveModuleStat(battery, "batteryCapacity");
+    }
 
     this.hull.value = Math.clamp(this.hull.value, 0, this.hull.max);
     this.shields.value = Math.clamp(this.shields.value, 0, this.shields.max);

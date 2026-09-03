@@ -168,6 +168,48 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     this.element.querySelectorAll(".item-equip-toggle").forEach(checkbox => {
       checkbox.addEventListener("change", this._onEquipToggle.bind(this));
     });
+
+    if (this.item.type === "starship_module") {
+      const presetChange = this._onModulePresetChange.bind(this);
+      this.element.querySelector('[name="system.category"]')?.addEventListener("change", presetChange);
+      this.element.querySelector('[name="system.moduleSize"]')?.addEventListener("change", presetChange);
+    }
+  }
+
+  /**
+   * Autopreenche os campos numéricos de um Módulo de Nave (Overhaul de Naves, Fase 1/8) quando
+   * o usuário troca Categoria ou Porte, a partir de `MEU_SISTEMA.MODULE_SIZE_PRESETS`/
+   * `MODULE_HP_BY_SIZE` — só sobrescreve um campo se ele ainda estiver no valor-padrão do
+   * schema, nunca uma edição manual já feita. `stopPropagation` evita que este mesmo "change"
+   * TAMBÉM dispare o submitOnChange padrão do DocumentSheetV2 — os dois juntos fariam dois
+   * `update()` concorrentes no mesmo Item (um só com Categoria/Porte, outro com os presets).
+   */
+  async _onModulePresetChange(event) {
+    event.stopPropagation();
+    const form = event.currentTarget.closest("form");
+    const category = form.querySelector('[name="system.category"]').value;
+    const moduleSize = form.querySelector('[name="system.moduleSize"]').value;
+
+    const sys = this.item.system;
+    const updates = { "system.category": category, "system.moduleSize": moduleSize };
+    const fieldDefaults = { transferFactor: 1, warpFactor: 1 };
+
+    const preset = MEU_SISTEMA.MODULE_SIZE_PRESETS[category]?.[moduleSize] ?? {};
+    for (const [field, value] of Object.entries(preset)) {
+      const current = foundry.utils.getProperty(sys, field);
+      const defaultValue = fieldDefaults[field] ?? (typeof value === "string" ? "" : 0);
+      if (current === defaultValue || current === undefined) updates[`system.${field}`] = value;
+    }
+
+    const hpPreset = MEU_SISTEMA.MODULE_HP_BY_SIZE[moduleSize];
+    if (hpPreset && (sys.hp.max === 0 || sys.hp.max === 20)) {
+      updates["system.hp.max"] = hpPreset;
+      if (sys.hp.value === 0 || sys.hp.value === 20 || sys.hp.value === sys.hp.max) {
+        updates["system.hp.value"] = hpPreset;
+      }
+    }
+
+    await this.item.update(updates);
   }
 
   /**

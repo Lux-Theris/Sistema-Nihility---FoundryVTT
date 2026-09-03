@@ -163,14 +163,118 @@ export const MEU_SISTEMA = {
 
   /**
    * Percentual da Vida Máxima do Módulo perdido por rodada de sobrecarga, por ponto percentual
-   * de `powerAllocationPercent` acima do limiar. Fica em 0 (o tick roda, identifica a
-   * sobrecarga, mas não aplica dano nenhum ainda) até a Fase 8 do overhaul fechar a magnitude
-   * real com o Mestre — não é pra inventar um número de balanceamento sem validar.
+   * de `powerAllocationPercent` acima do limiar. Fechado em 0.5 (Fase 8 do overhaul, "moderado":
+   * ~5% da Vida Máxima por rodada a cada 10 pontos de excesso — dano = (excesso/100) × hp.max ×
+   * este valor, então excesso=10 vira 5% e excesso=20 vira 10%, escalando linear).
    */
-  OVERLOAD_DAMAGE_PERCENT_OF_MAX_PER_ROUND: 0,
+  OVERLOAD_DAMAGE_PERCENT_OF_MAX_PER_ROUND: 0.5,
 
   /** Percentual mínimo de Vida Máxima pra um Módulo desligado por dano poder ser religado. */
   MODULE_RESTART_HP_THRESHOLD_PERCENT: 15,
+
+  /**
+   * Fórmula de dado da 2ª rolagem do reparo (Fase 7/8) — quanto de Vida um reparo bem-sucedido
+   * restaura, aplicado igual em Módulo ou pool do Ator (Escudo/Casco/Integridade Estrutural),
+   * sem escalar pelo tamanho do alvo (consertar algo grande simplesmente pode levar mais
+   * tentativas). Sem DC formal — o Mestre julga o resultado da rolagem de Destreza por fora
+   * (mesma filosofia do resto do sistema) antes de decidir aplicar este roll.
+   */
+  REPAIR_ROLL_FORMULA: "2d6",
+
+  /**
+   * Curva de escala de Porte de Módulo (Overhaul de Naves, Fase 8) — cada Porte multiplica um
+   * valor-base "a Compacto" por este fator. Usada tanto pelos presets de stat sugeridos
+   * (MODULE_SIZE_PRESETS) quanto pelo orçamento de espaço de Arma por Porte de Nave
+   * (WEAPON_SLOT_BUDGET_BY_SHIP_SIZE) — dobrar a cada Porte cria fricção o bastante pra evitar
+   * troca casual de Módulo sem precisar de uma curva mais agressiva: subir de Porte já dobra o
+   * Consumo de Energia daquele Módulo, obrigando a Nave inteira (Reator/Distribuidor) a
+   * acompanhar antes de sustentar o upgrade.
+   */
+  MODULE_SIZE_MULTIPLIER: { compact: 1, standard: 2, reinforced: 4, industrial: 8, colossal: 16 },
+
+  /** Orçamento de espaço de Arma por Porte de Nave/Veículo — Mini = exatamente 1 Arma Compacta (decisão já fechada), o resto segue MODULE_SIZE_MULTIPLIER. */
+  WEAPON_SLOT_BUDGET_BY_SHIP_SIZE: { mini: 1, pequeno: 2, medio: 4, grande: 8, capital: 16 },
+
+  /** Baseline de Capacidade de Transferência do Distribuidor por Porte de Nave — Médio = 320 EPS/rodada (mesma referência já usada no mockup aprovado da Fase 0), resto segue MODULE_SIZE_MULTIPLIER. */
+  DISTRIBUTOR_BASELINE_BY_SHIP_SIZE: { mini: 80, pequeno: 160, medio: 320, grande: 640, capital: 1280 },
+
+  /**
+   * Presets de stat sugeridos por Categoria×Porte de Módulo (Fase 8), usados só pra
+   * autopreenchimento no editor do Item (Fase 1) — nunca sobrescrevem um valor já editado à
+   * mão. Campos de CAPACIDADE (Vida/Consumo/Output/Aceleração/Rotação/dado de Dano) escalam por
+   * MODULE_SIZE_MULTIPLIER a partir do valor "a Compacto"; campos de PERCENTUAL (Penetração/
+   * Redução) e de TEMPO (Recarga/Carga/Fator) NÃO seguem essa curva — dobrar Recarga a cada
+   * Porte deixaria Módulos grandes inutilizáveis, então esses sobem bem mais devagar, num
+   * incremento próprio por Porte.
+   */
+  MODULE_SIZE_PRESETS: {
+    shield: {
+      compact: { powerConsumption: 30, shieldCapacity: 100, shieldRegen: 10, shieldRechargeRounds: 3 },
+      standard: { powerConsumption: 60, shieldCapacity: 200, shieldRegen: 20, shieldRechargeRounds: 3 },
+      reinforced: { powerConsumption: 120, shieldCapacity: 400, shieldRegen: 40, shieldRechargeRounds: 4 },
+      industrial: { powerConsumption: 240, shieldCapacity: 800, shieldRegen: 80, shieldRechargeRounds: 4 },
+      colossal: { powerConsumption: 480, shieldCapacity: 1600, shieldRegen: 160, shieldRechargeRounds: 5 }
+    },
+    engine: {
+      compact: { powerConsumption: 20, acceleration: 20, rotation: 15 },
+      standard: { powerConsumption: 40, acceleration: 40, rotation: 30 },
+      reinforced: { powerConsumption: 80, acceleration: 80, rotation: 60 },
+      industrial: { powerConsumption: 160, acceleration: 160, rotation: 120 },
+      colossal: { powerConsumption: 320, acceleration: 320, rotation: 240 }
+    },
+    reactor: {
+      compact: { powerConsumption: 0, reactorOutput: 250 },
+      standard: { powerConsumption: 0, reactorOutput: 500 },
+      reinforced: { powerConsumption: 0, reactorOutput: 1000 },
+      industrial: { powerConsumption: 0, reactorOutput: 2000 },
+      colossal: { powerConsumption: 0, reactorOutput: 4000 }
+    },
+    battery: {
+      compact: { powerConsumption: 0, batteryCapacity: 125 },
+      standard: { powerConsumption: 0, batteryCapacity: 250 },
+      reinforced: { powerConsumption: 0, batteryCapacity: 500 },
+      industrial: { powerConsumption: 0, batteryCapacity: 1000 },
+      colossal: { powerConsumption: 0, batteryCapacity: 2000 }
+    },
+    distributor: {
+      compact: { powerConsumption: 10, transferFactor: 0.5 },
+      standard: { powerConsumption: 20, transferFactor: 1 },
+      reinforced: { powerConsumption: 40, transferFactor: 1.5 },
+      industrial: { powerConsumption: 80, transferFactor: 2.25 },
+      colossal: { powerConsumption: 160, transferFactor: 3 }
+    },
+    armor: {
+      compact: { armorReduction: 10 },
+      standard: { armorReduction: 20 },
+      reinforced: { armorReduction: 30 },
+      industrial: { armorReduction: 45 },
+      colossal: { armorReduction: 60 }
+    },
+    ftl: {
+      compact: { powerConsumption: 15, warpFactor: 1, jumpRange: 10, chargeTime: 3 },
+      standard: { powerConsumption: 30, warpFactor: 1.5, jumpRange: 20, chargeTime: 3 },
+      reinforced: { powerConsumption: 60, warpFactor: 2, jumpRange: 40, chargeTime: 4 },
+      industrial: { powerConsumption: 120, warpFactor: 3, jumpRange: 80, chargeTime: 4 },
+      colossal: { powerConsumption: 240, warpFactor: 4, jumpRange: 160, chargeTime: 5 }
+    },
+    weapon: {
+      compact: { powerConsumption: 15, damageFormula: "1d10", penetration: 10, cooldownRounds: 1 },
+      standard: { powerConsumption: 30, damageFormula: "2d10", penetration: 20, cooldownRounds: 2 },
+      reinforced: { powerConsumption: 60, damageFormula: "4d10", penetration: 30, cooldownRounds: 2 },
+      industrial: { powerConsumption: 120, damageFormula: "8d10", penetration: 40, cooldownRounds: 3 },
+      colossal: { powerConsumption: 240, damageFormula: "16d10", penetration: 50, cooldownRounds: 3 }
+    },
+    utility: {
+      compact: { powerConsumption: 10 },
+      standard: { powerConsumption: 20 },
+      reinforced: { powerConsumption: 40 },
+      industrial: { powerConsumption: 80 },
+      colossal: { powerConsumption: 160 }
+    }
+  },
+
+  /** Vida estrutural (hp.max) sugerida por Porte de Módulo, igual pra toda Categoria — 20 é o valor "a Compacto" (já o default do campo), escala por MODULE_SIZE_MULTIPLIER. */
+  MODULE_HP_BY_SIZE: { compact: 20, standard: 40, reinforced: 80, industrial: 160, colossal: 320 },
 
   /**
    * Atributos de combate. `bonus = floor(pontos / 3)`; a cada +10 de bônus a

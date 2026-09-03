@@ -78,14 +78,29 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
    * Cria um Módulo de Nave (`data-type="starship_module"`) ou uma Peça genérica de Veículo
    * (`data-type="item"`) — `data-category` opcional pré-seleciona a Categoria do Módulo (ex: o
    * botão "+ Nova Arma" da aba Armas já cria com `category:"weapon"`, em vez de nascer
-   * "Utilidade" e o jogador ter que trocar na mão).
+   * "Utilidade" e o jogador ter que trocar na mão). Já nasce com os presets Standard de
+   * `MEU_SISTEMA.MODULE_SIZE_PRESETS`/`MODULE_HP_BY_SIZE` (Overhaul de Naves, Fase 8) — o mesmo
+   * autopreenchimento que rodaria se o usuário trocasse a Categoria manualmente depois (ver
+   * `_onModulePresetChange` em item-sheet.js), só que direto na criação.
    */
   static async onItemCreate(event, target) {
     event.preventDefault();
     const type = target.dataset.type || "item";
     const name = type === "starship_module" ? "Novo Módulo" : "Nova Peça";
     const data = { name, type };
-    if (target.dataset.category) data["system.category"] = target.dataset.category;
+
+    if (type === "starship_module") {
+      const category = target.dataset.category || "utility";
+      data["system.category"] = category;
+      const preset = MEU_SISTEMA.MODULE_SIZE_PRESETS[category]?.standard;
+      if (preset) for (const [field, value] of Object.entries(preset)) data[`system.${field}`] = value;
+      const hpPreset = MEU_SISTEMA.MODULE_HP_BY_SIZE.standard;
+      if (hpPreset) {
+        data["system.hp.max"] = hpPreset;
+        data["system.hp.value"] = hpPreset;
+      }
+    }
+
     const [created] = await this.actor.createEmbeddedDocuments("Item", [data]);
     if (type === "starship_module") await registerItemInCompendium(created.toObject());
     created.sheet.render(true);
@@ -302,6 +317,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.shieldModule = actor.system.shieldModule;
     context.engineModule = actor.system.engineModule;
     context.armorModule = actor.system.armorModule;
+    context.batteryModule = actor.system.batteryModule;
 
     const capacity = actor.system.transferCapacity;
     context.transferCapacityLabel = Number.isFinite(capacity) ? `${capacity} EPS/rodada` : "Sem limite (Distribuidor não configurado)";

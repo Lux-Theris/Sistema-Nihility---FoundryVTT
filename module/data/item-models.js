@@ -455,6 +455,9 @@ export class StarshipModuleDataModel extends foundry.abstract.TypeDataModel {
       /** Só relevante pra category "reactor" — Output a 100% de clock (antes do throttle acima). */
       reactorOutput: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
 
+      /** Só relevante pra category "battery" — Capacidade de armazenamento, vira `powerGrid.capacitor.max` (ver prepareDerivedData em starship-model.js). */
+      batteryCapacity: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
+
       /**
        * Só relevante pra category "distributor" — multiplicador aplicado ao baseline de Porte
        * pra achar a Capacidade de Transferência (ver `transferCapacity` em starship-model.js).

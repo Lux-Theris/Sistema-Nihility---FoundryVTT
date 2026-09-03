@@ -118,7 +118,7 @@
             <label>Capacitores</label>
             <input type="number" name="system.powerGrid.capacitor.value" value="{{system.powerGrid.capacitor.value}}"/>
             <span>/</span>
-            <input type="number" name="system.powerGrid.capacitor.max" value="{{system.powerGrid.capacitor.max}}"/>
+            {{#if batteryModule}}{{system.powerGrid.capacitor.max}}{{else}}<input type="number" name="system.powerGrid.capacitor.max" value="{{system.powerGrid.capacitor.max}}"/>{{/if}}
           </div>
           <div class="power-stat">
             <label>Consumo Total</label>

@@ -1,4 +1,4 @@
-import { MEU_SISTEMA, getActiveDamageElements, getActiveStatusConditions, getResistanceTargetOptions } from "../config.js";
+import { MEU_SISTEMA, getActiveDamageElements, getActiveStatusConditions, getResistanceTargetOptions, getCharacterEnergyLabel } from "../config.js";
 import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../skill-effects.js";
 
 const { DialogV2 } = foundry.applications.api;
@@ -205,6 +205,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
       </div>`
     : "";
 
+  const energyLabel = getCharacterEnergyLabel();
   const content = `
     <form class="skill-editor-form">
       <div class="form-group"><label>Nome</label><input type="text" name="name" value="${escapeHtml(data.name)}"/></div>
@@ -212,18 +213,18 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
       ${evolvedField}
       <div class="row-2">
         <div class="form-group"><label>Nível</label><input type="number" name="level" value="${data.level}" min="1" ${levelReadonly ? "readonly" : ""}/></div>
-        <div class="form-group"><label>Custo de Energia <span class="hint-inline" style="display:inline;">(pra "Usar" — não é Ponto de Habilidade)</span></label><input type="number" name="cost" value="${data.cost}" min="0"/></div>
+        <div class="form-group"><label>Custo de ${energyLabel}</label><input type="number" name="cost" value="${data.cost}" min="0"/></div>
       </div>
       <label class="checkbox-line">
         <input type="checkbox" name="hasUpkeep" ${data.hasUpkeep ? "checked" : ""}/>
-        Habilidade Ativa <span class="hint-inline" style="display:inline;">("Usar" liga/desliga — drena Energia por rodada enquanto ligada, além do Custo de Energia acima. Se a Mecânica for Efeito Temporário, os buffs/debuffs duram até desativar em vez da Duração (rounds) de cada Efeito)</span>
+        Habilidade Ativa
       </label>
       <div class="form-group se-upkeep-field" style="display:${data.hasUpkeep ? "flex" : "none"};">
-        <label>Custo de Energia por Rodada</label>
+        <label>Custo de ${energyLabel} por Rodada</label>
         <input type="number" name="upkeepCost" value="${data.upkeepCost}" min="0"/>
       </div>
       <div class="form-group">
-        <label>Animação <span class="hint-inline" style="display:inline;">(opcional — caminho de vídeo/imagem/som tocado via módulo Sequencer; sem ele instalado, este campo não faz nada)</span></label>
+        <label>Animação</label>
         <input type="text" name="animationPath" value="${escapeHtml(data.animationPath)}" placeholder="modules/jb2a_patreon/Library/.../explosion.webm"/>
       </div>
       <div class="form-group">
@@ -278,7 +279,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
         <a class="config-add-row se-add-effect">+ Efeito</a>
         <p class="hint-inline">
           Quantidade negativa = debuff/drawback. Escudo ignora Duração (some só ao absorver dano).
-          Condição dá ícone reconhecível no token (opcional). "Periódico" (só HP/Energia) aplica a
+          Condição dá ícone reconhecível no token (opcional). "Periódico" (só HP/${energyLabel}) aplica a
           Quantidade a CADA tick em vez de uma vez só — Duração vira "quantos ticks". Reaplicar a
           MESMA Condição em quem já a tem apenas ESTENDE a duração/ticks (soma), não duplica.
         </p>
@@ -337,6 +338,13 @@ function setupSkillEditorInteractivity(root, data) {
     };
     fitScroll();
     new ResizeObserver(fitScroll).observe(root);
+
+    // Sem isso, o `wheel` disparado sobre o form (que já tem overflow-y:auto e scrolla
+    // normalmente) continua BORBULHANDO pro document depois — e o listener global de zoom/pan
+    // do canvas do Foundry (fora da hierarquia do dialog) pega esse evento e mexe na cena atrás,
+    // em vez do dialog. `stopPropagation` deixa o scroll nativo do form intacto (não mexe em
+    // preventDefault) e só impede o evento de continuar subindo depois de rolar o form.
+    form.addEventListener("wheel", event => event.stopPropagation());
   }
 
   const mechanicSelect = root.querySelector('[name="effectType"]');

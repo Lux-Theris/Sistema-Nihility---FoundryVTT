@@ -2212,6 +2212,14 @@ form.nihility-config-app {
   padding: 4px 12px 10px;
   border-bottom: 1px solid var(--nihility-border);
 }
+/* .pad-topbar/.pad-persona-picker/.pad-lib-list setam `display` na própria classe, mesma
+   especificidade do utilitário ".hidden" do core — sem essa regra composta (maior especificidade,
+   ganha independente da ordem de carregamento core→sistema), o painel "hidden" ainda renderiza
+   por cima do conteúdo (foi exatamente esse bug já corrigido antes em .nm-actor-card.hidden, só
+   não replicado aqui). */
+.pad-topbar.hidden,
+.pad-persona-picker.hidden,
+.pad-lib-list.hidden { display: none; }
 .pad-topbar h2 {
   flex: 1; margin: 0; font-size: 1.05rem; letter-spacing: 0.02em;
   font-family: var(--pad-font-display); font-weight: 600;
@@ -2236,9 +2244,12 @@ form.nihility-config-app {
   margin: 6px 0 2px; color: var(--nihility-text);
 }
 .pad-home-sub {
-  font-size: 0.72rem; letter-spacing: 0.02em;
+  font-size: 0.72rem;
   color: var(--nihility-text-dim);
   margin: 0 0 18px;
+  overflow: visible;
+  white-space: normal;
+  text-overflow: unset;
 }
 
 .pad-icon-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }

@@ -2155,6 +2155,20 @@ form.nihility-config-app {
   font-family: var(--pad-font-body);
 }
 
+/* Glow ambiente sutil atrás de toda a tela — mesmo efeito do "stage" do mockup de estilo,
+   só decorativo (não deve competir com o conteúdo, por isso pointer-events:none). */
+.pad-device::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(220px 180px at 50% 0%, rgba(110, 231, 255, 0.08), transparent 70%),
+    radial-gradient(180px 150px at 85% 90%, rgba(232, 193, 112, 0.05), transparent 72%);
+  pointer-events: none;
+  z-index: 0;
+}
+.pad-statusbar, .pad-topbar, .pad-content, .pad-persona-picker { position: relative; z-index: 1; }
+
 /* Reset largo — o tema do core do Foundry estiliza button/input/select globalmente; sem isso
    alguns elementos do PAD herdam padding/borda/fonte do core em vez do visual do próprio PAD. */
 .pad-device button,
@@ -2219,7 +2233,12 @@ form.nihility-config-app {
 .pad-home-head {
   font-family: var(--pad-font-display); font-weight: 700;
   font-size: 1.3rem; letter-spacing: 0.02em;
-  margin: 6px 0 18px; color: var(--nihility-text);
+  margin: 6px 0 2px; color: var(--nihility-text);
+}
+.pad-home-sub {
+  font-size: 0.72rem; letter-spacing: 0.02em;
+  color: var(--nihility-text-dim);
+  margin: 0 0 18px;
 }
 
 .pad-icon-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
@@ -2230,13 +2249,17 @@ form.nihility-config-app {
 }
 .pad-icon-tile {
   width: 100%; aspect-ratio: 1; border-radius: 16px;
-  background: var(--nihility-bg-panel-alt);
+  background: linear-gradient(160deg, var(--nihility-bg-panel-alt), var(--nihility-bg-panel));
   border: 1px solid var(--nihility-border);
   display: flex; align-items: center; justify-content: center;
   color: var(--nihility-accent);
   font-size: 1.3rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.pad-icon:hover .pad-icon-tile { border-color: var(--nihility-accent); }
+.pad-icon:hover .pad-icon-tile {
+  border-color: var(--nihility-accent);
+  box-shadow: 0 0 0 1px rgba(110, 231, 255, 0.15), 0 10px 22px -14px rgba(110, 231, 255, 0.45);
+}
 .pad-icon.disabled { opacity: 0.45; }
 .pad-icon.disabled .pad-icon-tile { color: var(--nihility-text-faint); }
 

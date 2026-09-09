@@ -45,6 +45,7 @@
 
     <section class="pad-screen {{#unless (eq activeScreen "home")}}hidden{{/unless}}">
       <p class="pad-home-head">{{actor.name}}</p>
+      <p class="pad-home-sub">{{#if selectedShip}}Vinculado à {{selectedShip.name}} · sinal estável{{else}}PAD Pessoal · sinal estável{{/if}}</p>
       <div class="pad-icon-grid">
 
         {{#if padShipEnabled}}

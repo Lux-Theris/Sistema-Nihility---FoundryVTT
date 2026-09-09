@@ -328,6 +328,10 @@
         <input type="number" name="system.value.amount" value="{{system.value.amount}}"/>
         <input type="text" name="system.value.currency" value="{{system.value.currency}}"/>
       </label>
+      {{#if isGM}}
+      <label>Dispositivo PAD? <input type="checkbox" name="system.isPadDevice" {{#if system.isPadDevice}}checked{{/if}}/></label>
+      <p class="hint-inline">Marca este Item como um PAD físico — quem possuir ao menos um ganha o botão "Abrir PAD" na própria ficha (não precisa estar equipado).</p>
+      {{/if}}
 
       <h3>Habilidade Concedida <span class="hint-inline">(ao dono, enquanto o item estiver equipado)</span></h3>
       <label>Nome <input type="text" name="system.grantsSkill.name" value="{{system.grantsSkill.name}}"/></label>

@@ -514,6 +514,15 @@ export class GenericItemDataModel extends foundry.abstract.TypeDataModel {
         currency: new fields.StringField({ required: false, initial: "gold" })
       }),
 
+      /**
+       * PAD (celular in-game, ver hasPadDevice() em pad-crew.js): marca este Item como um
+       * dispositivo PAD físico. Um Ator só ganha o botão "Abrir PAD" na própria ficha se possuir
+       * ao menos um Item com essa flag — não exige `equipped:true`, um celular não precisa estar
+       * "equipado" pra ser usado, só precisa estar com o personagem. O Mestre sempre tem acesso
+       * ao PAD independente desta flag (ferramenta de Mestre, não posse física).
+       */
+      isPadDevice: new fields.BooleanField({ required: false, initial: false }),
+
       /** Habilidade opcional concedida ao dono enquanto o item estiver "equipado" (ver grantedSkillSchema). */
       grantsSkill: grantedSkillSchema(),
 

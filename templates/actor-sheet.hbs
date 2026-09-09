@@ -23,6 +23,12 @@
         {{#if titlesEnabled}}
         <span class="chip violet">{{titles.length}} Título(s) sempre ativo(s)</span>
         {{/if}}
+
+        {{#if showPadButton}}
+        <button type="button" class="pad-open-button" data-action="openPad" title="Abrir PAD">
+          <i class="fas fa-mobile-screen-button"></i> PAD
+        </button>
+        {{/if}}
       </div>
     </div>
 

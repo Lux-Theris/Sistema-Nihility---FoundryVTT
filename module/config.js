@@ -31,7 +31,11 @@ export const MEU_SISTEMA = {
     aiProvider: "aiProvider",
     aiEndpointUrl: "aiEndpointUrl",
     aiModel: "aiModel",
-    aiApiKey: "aiApiKey"
+    aiApiKey: "aiApiKey",
+    padEnabled: "padEnabled",
+    padShipEnabled: "padShipEnabled",
+    padLibraryEnabled: "padLibraryEnabled",
+    padMessagingEnabled: "padMessagingEnabled"
   },
 
   /** Nome da pasta usada para organizar Atores/Notas criados pelo Assistente de IA. */
@@ -42,7 +46,9 @@ export const MEU_SISTEMA = {
     skills: { key: "meu-sistema-skills", label: "Compêndio de Habilidades", type: "Item" },
     bodyParts: { key: "meu-sistema-body-parts", label: "Compêndio de Partes do Corpo", type: "Item" },
     titles: { key: "meu-sistema-titles", label: "Compêndio de Títulos", type: "Item" },
-    starshipModules: { key: "meu-sistema-starship-modules", label: "Compêndio de Módulos de Naves", type: "Item" }
+    starshipModules: { key: "meu-sistema-starship-modules", label: "Compêndio de Módulos de Naves", type: "Item" },
+    padLibrary: { key: "meu-sistema-pad-library", label: "Biblioteca do PAD (Naves)", type: "JournalEntry" },
+    padGroups: { key: "meu-sistema-pad-groups", label: "Grupos de Mensagem do PAD", type: "JournalEntry" }
   },
 
   /**
@@ -736,7 +742,7 @@ export function sceneActorCandidates({ types = null, excludeActorId = null, perm
   return candidates;
 }
 
-/** Atalhos de leitura para os três toggles principais. */
+/** Atalhos de leitura para os toggles principais. */
 export function isEconomyEnabled() {
   return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.economyEnabled);
 }
@@ -745,6 +751,20 @@ export function isTitlesEnabled() {
 }
 export function isAnatomyEnabled() {
   return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.anatomyEnabled);
+}
+
+/** Chave-mestra do PAD — sem ela, nenhuma sub-funcionalidade abaixo aparece mesmo que ligada. */
+export function isPadEnabled() {
+  return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.padEnabled);
+}
+export function isPadShipEnabled() {
+  return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.padShipEnabled);
+}
+export function isPadLibraryEnabled() {
+  return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.padLibraryEnabled);
+}
+export function isPadMessagingEnabled() {
+  return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.padMessagingEnabled);
 }
 
 /** Pontos de Atributo/Habilidade concedidos na criação e por nível (settings do Mestre). */
@@ -790,6 +810,46 @@ export function registerSystemSettings() {
   game.settings.register(SYSTEM_ID, S.anatomyEnabled, {
     name: "Sistema de Anatomia/Modificação Corporal",
     hint: "Ativa Partes do Corpo com HP próprio, presets por espécie e próteses/modificações.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+    requiresReload: true
+  });
+
+  game.settings.register(SYSTEM_ID, S.padEnabled, {
+    name: "PAD — Aplicativo do Personagem",
+    hint: "Chave-mestra do PAD (app estilo smartphone). Desligada, nenhuma das sub-funcionalidades abaixo aparece, mesmo que estejam ativas.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+    requiresReload: true
+  });
+
+  game.settings.register(SYSTEM_ID, S.padShipEnabled, {
+    name: "PAD — Conexão com a Nave",
+    hint: "Ativa a tela de Status da Nave/Veículo tripulada e a gestão de Tripulação no PAD.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+    requiresReload: true
+  });
+
+  game.settings.register(SYSTEM_ID, S.padLibraryEnabled, {
+    name: "PAD — Biblioteca",
+    hint: "Ativa a tela de Biblioteca (favoritos pessoais e da Nave) no PAD.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+    requiresReload: true
+  });
+
+  game.settings.register(SYSTEM_ID, S.padMessagingEnabled, {
+    name: "PAD — Mensagens",
+    hint: "Ativa a troca de mensagens privadas (diretas e em grupo) entre Personagens no PAD.",
     scope: "world",
     config: true,
     type: Boolean,

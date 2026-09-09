@@ -1,8 +1,9 @@
-import { SYSTEM_ID, MEU_SISTEMA, getStarshipEnergyLabel, getModuleSizePreset, sceneActorCandidates, debugLog } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getStarshipEnergyLabel, getModuleSizePreset, sceneActorCandidates, isPadShipEnabled, debugLog } from "../config.js";
 import { registerItemInCompendium } from "../compendium.js";
 import { createGrantedSkill, removeGrantedSkill } from "../skill-economy.js";
 import { useSkillEffect, fireStarshipWeapon } from "../skill-effects.js";
 import { moduleCanRestart } from "../starship-power.js";
+import { syncLibraryOwnershipToCrew } from "../pad/pad-library.js";
 
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -60,6 +61,71 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     event.preventDefault();
     this.activeTab = target.dataset.tab;
     this.render();
+  }
+
+  /**
+   * @override
+   * Eventos que não são clique-em-data-action (drop de tripulante, edição de cargo por linha)
+   * precisam ser ligados manualmente a cada render — mesmo padrão de ai-assistant.js.
+   */
+  _onRender(context, options) {
+    super._onRender(context, options);
+    if (!game.user.isGM) return;
+
+    const dropzone = this.element.querySelector(".crew-dropzone");
+    if (dropzone) {
+      dropzone.addEventListener("dragover", event => event.preventDefault());
+      dropzone.addEventListener("drop", this._onDropCrewMember.bind(this));
+    }
+
+    this.element.querySelectorAll(".crew-role-input").forEach(input => {
+      input.addEventListener("change", this._onChangeCrewRole.bind(this));
+    });
+  }
+
+  /** Recebe um Ator (PJ ou NPC) arrastado da barra lateral/ficha como novo tripulante da aba Tripulação. */
+  async _onDropCrewMember(event) {
+    event.preventDefault();
+    let data;
+    try {
+      data = TextEditor.getDragEventData(event);
+    } catch (err) {
+      return;
+    }
+    if (!data?.uuid) return;
+
+    const doc = await fromUuid(data.uuid);
+    if (!doc || doc.documentName !== "Actor" || doc.type !== "character") {
+      ui.notifications.warn("Só é possível designar Personagens (PJ ou NPC) como tripulantes.");
+      return;
+    }
+
+    const current = this.actor.system.crewMembers;
+    if (current.some(entry => entry.actorUuid === doc.uuid)) {
+      ui.notifications.info(`${doc.name} já é tripulante.`);
+      return;
+    }
+
+    await this.actor.update({ "system.crewMembers": [...current, { actorUuid: doc.uuid, role: "" }] });
+    await syncLibraryOwnershipToCrew(this.actor);
+  }
+
+  /** Edita o cargo (rótulo livre) de um tripulante já designado — sempre ler-array-inteiro/patch-por-uuid/regravar. */
+  async _onChangeCrewRole(event) {
+    const input = event.currentTarget;
+    const actorUuid = input.dataset.actorUuid;
+    const current = this.actor.system.crewMembers;
+    const patched = current.map(entry => entry.actorUuid === actorUuid ? { ...entry, role: input.value } : entry);
+    await this.actor.update({ "system.crewMembers": patched });
+  }
+
+  /** Remove um tripulante da lista. */
+  static async onRemoveCrew(event, target) {
+    event.preventDefault();
+    const actorUuid = target.dataset.actorUuid;
+    const current = this.actor.system.crewMembers;
+    await this.actor.update({ "system.crewMembers": current.filter(entry => entry.actorUuid !== actorUuid) });
+    await syncLibraryOwnershipToCrew(this.actor);
   }
 
   /** Clique no retrato abre o FilePicker de imagem — precisa de action explícita no ApplicationV2. */
@@ -302,6 +368,8 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     );
 
     context.skills = actor.system.skills;
+    context.padShipEnabled = isPadShipEnabled();
+    context.crewActors = actor.system.crewActors;
     context.totalConsumption = actor.system.totalConsumption;
     context.availableEnergy = actor.system.availableEnergy;
     context.isOverloaded = actor.system.powerGrid.isOverloaded;
@@ -346,7 +414,8 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
       fireWeapon: TabbedActorSheetV2.onFireWeapon,
       toggleModuleVitalAdjust: TabbedActorSheetV2.onToggleModuleVitalAdjust,
       adjustModuleVital: TabbedActorSheetV2.onAdjustModuleVital,
-      editImage: TabbedActorSheetV2.onEditImage
+      editImage: TabbedActorSheetV2.onEditImage,
+      removeCrew: TabbedActorSheetV2.onRemoveCrew
     }
   };
 
@@ -395,7 +464,8 @@ export class NihilityVehicleSheet extends TabbedActorSheetV2 {
       fireWeapon: TabbedActorSheetV2.onFireWeapon,
       toggleModuleVitalAdjust: TabbedActorSheetV2.onToggleModuleVitalAdjust,
       adjustModuleVital: TabbedActorSheetV2.onAdjustModuleVital,
-      editImage: TabbedActorSheetV2.onEditImage
+      editImage: TabbedActorSheetV2.onEditImage,
+      removeCrew: TabbedActorSheetV2.onRemoveCrew
     }
   };
 

@@ -378,6 +378,13 @@ Hooks.on("renderChatMessage", (message, html) => {
     approveShipRepairRoll(message, modifier);
   });
   $html.find(".repair-restore").on("click", () => restoreShipRepairTarget(message));
+
+  // PAD — mensagens e compartilhamentos de contato (estilo WhatsApp/CyberCall) ficam fora do log
+  // de chat padrão por padrão; o PAD lê direto de game.messages, independente disso. `showInLog`
+  // fica reservado pra uma futura opção de exibição — hoje nenhuma UI liga essa flag.
+  const padMessage = message.getFlag(SYSTEM_ID, "padMessage");
+  const padContactShare = message.getFlag(SYSTEM_ID, "padContactShare");
+  if ((padMessage && !padMessage.showInLog) || padContactShare) $html.hide();
 });
 
 // Botão do Menu Principal no diretório de Atores — ponto de entrada único pro sistema.

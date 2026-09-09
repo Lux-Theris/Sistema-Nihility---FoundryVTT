@@ -7,9 +7,11 @@ import {
   isEconomyEnabled,
   isTitlesEnabled,
   isAnatomyEnabled,
+  isPadEnabled,
   sceneActorCandidates,
   debugLog
 } from "../config.js";
+import { hasPadDevice } from "../pad/pad-crew.js";
 import { fuseSkills, evolveSkill, breakSkillPoints, mergeSkillPoints, requestSkillCreation } from "../skill-economy.js";
 import { registerItemInCompendium } from "../compendium.js";
 import { convertActorCurrency, transferCurrency } from "../currency.js";
@@ -96,7 +98,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       restActor: NihilityActorSheet.#onRest,
       editImage: NihilityActorSheet.#onEditImage,
       applyManualTick: NihilityActorSheet.#onApplyManualTick,
-      deleteCondition: NihilityActorSheet.#onDeleteCondition
+      deleteCondition: NihilityActorSheet.#onDeleteCondition,
+      openPad: NihilityActorSheet.#onOpenPad
     }
   };
 
@@ -136,6 +139,16 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     fp.render(true);
   }
 
+  /**
+   * Abre o PAD vinculado a este Personagem. Import dinâmico igual todo outro app aberto sob
+   * demanda no sistema (ver `#onRunAction` em nihility-menu.js).
+   */
+  static async #onOpenPad(event, target) {
+    event.preventDefault();
+    const { NihilityPadApp } = await import("../apps/nihility-pad.js");
+    new NihilityPadApp({ actor: this.actor }).render(true);
+  }
+
   /** @override */
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
@@ -151,6 +164,9 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.titlesEnabled = isTitlesEnabled();
     context.anatomyEnabled = isAnatomyEnabled();
     context.isGM = game.user.isGM;
+    // Mestre sempre vê o botão (ferramenta de Mestre, independente de o NPC possuir o Item
+    // físico); jogador só vê se o próprio Ator tiver ao menos um Item marcado como PAD.
+    context.showPadButton = isPadEnabled() && (game.user.isGM || hasPadDevice(actor));
     context.currencies = getActiveCurrencies();
     context.speciesPresets = getActiveSpeciesPresets();
     context.attributeLabels = MEU_SISTEMA.COMBAT_ATTRIBUTES.map(key => {

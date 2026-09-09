@@ -71,7 +71,24 @@ function shipSystemsSchema({ sizeChoices }) {
       weaponDamageMultiplier: new fields.NumberField({ required: true, initial: 1, min: 0 }),
       weaponPenetrationFlat: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
       weaponPenetrationMultiplier: new fields.NumberField({ required: true, initial: 1, min: 0 })
-    })
+    }),
+
+    /**
+     * Tripulação (PAD, Fase 1): Personagens (Actor type "character", PJ ou NPC) atualmente
+     * designados a esta Nave/Veículo. Só o Mestre gerencia (mesma filosofia de Level Up — mudança
+     * de estado do mundo, não algo que o jogador ativa sozinho), pela aba "Tripulação" da própria
+     * ficha. Guarda por UUID (não embutido) porque o Ator tripulante continua existindo e sendo
+     * editável independente da Nave — só a ASSOCIAÇÃO mora aqui. `role` é rótulo livre (ex:
+     * "Piloto"), opcional. NÃO confundir com `crew` (NumberField logo acima nas Data Models
+     * concretas — capacidade numérica pré-existente, nomes deliberadamente diferentes).
+     */
+    crewMembers: new fields.ArrayField(
+      new fields.SchemaField({
+        actorUuid: new fields.StringField({ required: true, blank: false }),
+        role: new fields.StringField({ required: false, initial: "", blank: true })
+      }),
+      { required: false, initial: [] }
+    )
   };
 }
 
@@ -101,6 +118,19 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
    */
   get skills() {
     return this.parent.items.filter(i => i.type === "skill");
+  }
+
+  /**
+   * Tripulantes resolvidos (Actor documents), na mesma ordem de `crewMembers`. Usa `fromUuidSync`
+   * (não `fromUuid`) porque um getter de Data Model não pode ser async — entradas cujo Ator foi
+   * apagado (`fromUuidSync` retorna null) são filtradas, não quebram o getter nem deixam
+   * "fantasmas" na lista, mas também não são auto-removidas de `crewMembers` (isso é
+   * responsabilidade da UI de edição do Mestre, não deste getter — leitura nunca deve mutar dados).
+   */
+  get crewActors() {
+    return this.crewMembers
+      .map(entry => ({ ...entry, actor: fromUuidSync(entry.actorUuid) }))
+      .filter(entry => entry.actor !== null);
   }
 
   /** Soma do consumo de todos os módulos atualmente online, já escalado pelo throttle de cada um (Fase 3). */

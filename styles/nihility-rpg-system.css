@@ -2095,3 +2095,401 @@ form.nihility-config-app {
 }
 .nihility-sheet .condition-chip-tick:hover { color: var(--nihility-accent); }
 .nihility-sheet .condition-chip-delete:hover { color: var(--nihility-danger); }
+
+/* ---------- Tripulação (PAD, Fase 1) ---------- */
+
+.starship-sheet .crew-row {
+  gap: 8px;
+}
+.starship-sheet .crew-role-input {
+  width: 140px;
+  margin-left: auto;
+  background: var(--nihility-bg-dark);
+  border: 1px solid var(--nihility-border);
+  border-radius: 4px;
+  color: var(--nihility-text);
+  padding: 2px 6px;
+  font-size: 0.8rem;
+}
+.starship-sheet .crew-dropzone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  margin-top: 8px;
+  border: 1px dashed var(--nihility-border);
+  border-radius: 6px;
+  background: var(--nihility-bg-dark);
+  color: var(--nihility-text-dim);
+  font-size: 0.8rem;
+  text-align: center;
+  padding: 6px 10px;
+}
+
+/* ---------- PAD (celular in-game, ver module/apps/nihility-pad.js) ---------- */
+
+.nihility-pad-app .window-content { padding: 0; }
+
+.pad-device {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--nihility-bg-dark);
+  color: var(--nihility-text);
+}
+
+.pad-topbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--nihility-border);
+}
+.pad-topbar h2 { flex: 1; margin: 0; font-size: 1rem; color: var(--nihility-text); }
+.pad-back {
+  width: 26px; height: 26px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-accent);
+  cursor: pointer;
+}
+.pad-back:hover { border-color: var(--nihility-accent); }
+
+.pad-content { position: relative; flex: 1; overflow-y: auto; padding: 14px 16px 20px; }
+
+.pad-home-head { font-size: 1.1rem; font-weight: 600; margin: 4px 0 18px; }
+
+.pad-icon-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.pad-icon {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  background: none; border: none; color: var(--nihility-text); font-size: 0.72rem; cursor: pointer;
+}
+.pad-icon-tile {
+  width: 100%; aspect-ratio: 1; border-radius: 16px;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--nihility-accent);
+  font-size: 1.3rem;
+}
+.pad-icon:hover .pad-icon-tile { border-color: var(--nihility-accent); }
+.pad-icon.disabled { opacity: 0.45; }
+.pad-icon.disabled .pad-icon-tile { color: var(--nihility-text-faint); }
+
+.pad-hud-panel {
+  background: var(--nihility-bg-panel);
+  border: 1px solid var(--nihility-border);
+  border-radius: 10px 10px 10px 3px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+.pad-hud-label {
+  font-family: var(--nihility-font-data);
+  font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--nihility-text-faint);
+  margin: 0 0 8px;
+}
+
+.pad-vital-row { margin-bottom: 8px; }
+.pad-vital-row:last-child { margin-bottom: 0; }
+.pad-vital-top {
+  display: flex; justify-content: space-between;
+  font-size: 0.8rem; color: var(--nihility-text-dim); margin-bottom: 4px;
+}
+.pad-vital-top span:last-child { font-family: var(--nihility-font-data); color: var(--nihility-text); }
+.pad-bar-track { height: 5px; border-radius: 3px; background: var(--nihility-bg-panel-alt); overflow: hidden; }
+.pad-bar-fill { height: 100%; background: var(--nihility-accent); }
+.pad-bar-fill.warn { background: var(--nihility-gold); }
+
+.pad-module-list, .pad-crew-list { display: flex; flex-direction: column; gap: 8px; }
+.pad-module-row { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; }
+.pad-status-dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+.pad-status-dot.on { background: var(--nihility-ok); }
+.pad-status-dot.off { background: var(--nihility-danger); }
+.pad-m-name { flex: 1; }
+.pad-m-state {
+  font-family: var(--nihility-font-data); font-size: 0.65rem; letter-spacing: 0.04em;
+  color: var(--nihility-text-dim); text-transform: uppercase;
+}
+
+.pad-crew-row { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; }
+.pad-crew-row img { width: 24px; height: 24px; border-radius: 6px; border: 1px solid var(--nihility-border); }
+.pad-c-name { flex: 1; }
+.pad-c-role {
+  font-family: var(--nihility-font-data); font-size: 0.62rem; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--nihility-gold);
+  background: rgba(232, 193, 112, 0.12);
+  border: 1px solid rgba(232, 193, 112, 0.35);
+  border-radius: 5px; padding: 2px 6px;
+}
+
+.pad-ship-select {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 10px; border-radius: 10px;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border-soft);
+  margin-bottom: 12px; cursor: pointer;
+}
+.pad-ship-name { font-weight: 600; font-size: 0.9rem; }
+.pad-ship-kind { font-size: 0.68rem; color: var(--nihility-text-dim); }
+.pad-chev { color: var(--nihility-accent); }
+.pad-ship-menu { display: flex; flex-direction: column; margin: -6px 0 12px; border: 1px solid var(--nihility-border); border-radius: 8px; overflow: hidden; }
+.pad-ship-menu button {
+  text-align: left; border: none; border-bottom: 1px solid var(--nihility-border);
+  background: var(--nihility-bg-panel); color: var(--nihility-text-dim);
+  padding: 8px 10px; font-size: 0.8rem; cursor: pointer;
+}
+.pad-ship-menu button:last-child { border-bottom: none; }
+.pad-ship-menu button:hover { color: var(--nihility-text); background: var(--nihility-bg-panel-alt); }
+
+.pad-ghost-btn {
+  width: 100%; margin-top: 4px; padding: 9px;
+  border-radius: 8px; border: 1px solid var(--nihility-accent);
+  background: transparent; color: var(--nihility-accent);
+  font-weight: 600; font-size: 0.8rem; cursor: pointer;
+}
+.pad-ghost-btn:hover { background: rgba(110, 231, 255, 0.1); }
+
+.pad-hint { color: var(--nihility-text-dim); font-size: 0.8rem; }
+.pad-hint.pad-empty { text-align: center; margin-top: 30px; }
+
+.pad-open-button {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: 1px solid var(--nihility-accent);
+  background: rgba(110, 231, 255, 0.08);
+  color: var(--nihility-accent);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+.pad-open-button:hover { background: rgba(110, 231, 255, 0.18); }
+
+/* ---------- PAD — Biblioteca (Fase 3) ---------- */
+
+.pad-seg {
+  display: flex;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  border-radius: 8px;
+  padding: 3px;
+  margin-bottom: 12px;
+}
+.pad-seg button {
+  flex: 1;
+  border: none; background: none;
+  color: var(--nihility-text-dim);
+  font-weight: 600; font-size: 0.72rem;
+  padding: 6px 4px; border-radius: 6px;
+  cursor: pointer;
+}
+.pad-seg button.active { background: var(--nihility-bg-panel); color: var(--nihility-accent); }
+
+.pad-lib-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.pad-lib-row {
+  display: flex; align-items: center; gap: 9px;
+  background: var(--nihility-bg-panel);
+  border: 1px solid var(--nihility-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.pad-lib-row.missing { opacity: 0.55; }
+.pad-lib-icon {
+  width: 26px; height: 26px; border-radius: 6px; flex: 0 0 auto;
+  background: var(--nihility-bg-panel-alt);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--nihility-accent);
+  font-size: 0.8rem;
+}
+.pad-lib-body { flex: 1; min-width: 0; cursor: pointer; }
+.pad-lib-name {
+  font-size: 0.8rem; color: var(--nihility-text);
+  display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pad-lib-remove { color: var(--nihility-text-faint); cursor: pointer; flex: 0 0 auto; }
+.pad-lib-remove:hover { color: var(--nihility-danger); }
+
+.pad-lib-dropzone {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 44px; padding: 8px 10px;
+  border: 1px dashed var(--nihility-border);
+  border-radius: 8px;
+  background: var(--nihility-bg-panel-alt);
+  color: var(--nihility-text-dim);
+  font-size: 0.75rem; text-align: center;
+}
+
+/* ---------- PAD — Mensagens (Fase 4) ---------- */
+
+.pad-subhead {
+  font-family: var(--nihility-font-data);
+  font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--nihility-text-faint);
+  margin: 14px 2px 8px;
+}
+
+.pad-thread-list { display: flex; flex-direction: column; }
+.pad-thread-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--nihility-border-soft);
+  cursor: pointer;
+}
+.pad-thread-row:last-child { border-bottom: none; }
+.pad-thread-avatar {
+  width: 32px; height: 32px; border-radius: 9px; flex: 0 0 auto;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 0.72rem;
+  color: var(--nihility-accent);
+}
+.pad-thread-avatar.group { color: var(--nihility-gold); }
+.pad-thread-info { flex: 1; min-width: 0; }
+.pad-t-name {
+  font-size: 0.82rem; color: var(--nihility-text); font-weight: 500;
+  display: flex; align-items: center; gap: 5px;
+}
+.pad-grp-tag {
+  font-family: var(--nihility-font-data); font-size: 0.6rem; letter-spacing: 0.05em;
+  color: var(--nihility-gold);
+  border: 1px solid rgba(232, 193, 112, 0.35);
+  border-radius: 4px; padding: 1px 4px;
+}
+.pad-t-preview {
+  font-size: 0.72rem; color: var(--nihility-text-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.pad-thread-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.pad-new-thread-btn {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; padding: 8px;
+  border: 1px dashed var(--nihility-border);
+  border-radius: 8px;
+  background: none; color: var(--nihility-text-dim);
+  font-size: 0.78rem; font-weight: 600;
+  cursor: pointer;
+}
+.pad-new-thread-btn:hover { border-color: var(--nihility-accent); color: var(--nihility-accent); }
+
+.pad-pending-contact { cursor: default; }
+.pad-add-contact-btn {
+  appearance: none; cursor: pointer; flex: 0 0 auto;
+  border: 1px solid var(--nihility-accent);
+  background: rgba(110, 231, 255, 0.1);
+  color: var(--nihility-accent);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.68rem; font-weight: 600;
+}
+.pad-add-contact-btn:hover { background: rgba(110, 231, 255, 0.2); }
+
+.pad-new-group { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.pad-new-group-name {
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  border-radius: 6px; color: var(--nihility-text);
+  padding: 6px 8px; font-size: 0.8rem;
+}
+.pad-new-group-members {
+  display: flex; flex-direction: column; gap: 4px;
+  max-height: 140px; overflow-y: auto;
+  background: var(--nihility-bg-panel);
+  border: 1px solid var(--nihility-border);
+  border-radius: 6px; padding: 6px 8px;
+}
+.pad-new-group-member { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--nihility-text-dim); }
+
+.pad-gm-chip {
+  appearance: none; cursor: pointer;
+  font-family: var(--nihility-font-data);
+  font-size: 0.6rem; line-height: 1.3;
+  color: var(--nihility-gold);
+  background: rgba(232, 193, 112, 0.1);
+  border: 1px solid rgba(232, 193, 112, 0.35);
+  border-radius: 7px;
+  padding: 4px 7px;
+  max-width: 130px;
+  text-align: left;
+}
+.pad-gm-chip span { display: block; text-transform: uppercase; letter-spacing: 0.08em; color: var(--nihility-text-faint); font-size: 0.55rem; margin-bottom: 1px; }
+
+.pad-persona-picker {
+  position: absolute;
+  top: 54px; left: 12px; right: 12px;
+  max-height: 320px;
+  background: var(--nihility-bg-panel);
+  border: 1px solid rgba(232, 193, 112, 0.4);
+  border-radius: 10px;
+  z-index: 20;
+  display: flex; flex-direction: column;
+  box-shadow: 0 16px 32px -14px rgba(0, 0, 0, 0.6);
+}
+.pad-persona-search-row { padding: 8px 10px; border-bottom: 1px solid var(--nihility-border); }
+.pad-persona-search {
+  width: 100%; background: none; border: none;
+  color: var(--nihility-text); font-size: 0.8rem;
+}
+.pad-persona-search:focus { outline: none; }
+.pad-persona-list { overflow-y: auto; padding: 4px 0 8px; }
+.pad-persona-group-label {
+  font-family: var(--nihility-font-data); font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--nihility-text-faint);
+  padding: 6px 10px 3px;
+  margin: 0;
+}
+.pad-persona-row {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; border: none; background: none;
+  padding: 5px 10px; cursor: pointer; text-align: left;
+  color: var(--nihility-text); font-size: 0.78rem;
+}
+.pad-persona-row:hover { background: var(--nihility-bg-panel-alt); }
+.pad-persona-row img { width: 20px; height: 20px; border-radius: 5px; }
+.pad-persona-row.is-npc .p-name { color: var(--nihility-gold); }
+
+.pad-thread-view {
+  position: absolute; inset: 0; z-index: 5;
+  display: flex; flex-direction: column;
+  background: var(--nihility-bg-dark);
+}
+.pad-bubbles { flex: 1; overflow-y: auto; padding: 10px 4px; display: flex; flex-direction: column; gap: 8px; }
+.pad-bubble {
+  max-width: 78%; padding: 7px 10px; border-radius: 12px;
+  font-size: 0.8rem; line-height: 1.4;
+}
+.pad-bubble-who {
+  display: block; font-family: var(--nihility-font-data);
+  font-size: 0.6rem; letter-spacing: 0.05em; text-transform: uppercase;
+  opacity: 0.7; margin-bottom: 2px;
+}
+.pad-bubble.theirs { align-self: flex-start; background: var(--nihility-bg-panel); border: 1px solid var(--nihility-border); border-bottom-left-radius: 3px; color: var(--nihility-text); }
+.pad-bubble.mine { align-self: flex-end; background: rgba(110, 231, 255, 0.14); border: 1px solid rgba(110, 231, 255, 0.35); border-bottom-right-radius: 3px; color: var(--nihility-text); }
+
+.pad-composer {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 4px 4px;
+  border-top: 1px solid var(--nihility-border);
+}
+.pad-compose-input {
+  flex: 1;
+  background: var(--nihility-bg-panel);
+  border: 1px solid var(--nihility-border);
+  border-radius: 999px;
+  padding: 7px 12px;
+  color: var(--nihility-text);
+  font-size: 0.8rem;
+}
+.pad-compose-input:focus { outline: none; border-color: var(--nihility-accent); }
+.pad-send-btn {
+  width: 30px; height: 30px; border-radius: 50%; flex: 0 0 auto;
+  background: var(--nihility-accent);
+  color: var(--nihility-bg-dark);
+  border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}

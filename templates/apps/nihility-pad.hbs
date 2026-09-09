@@ -1,0 +1,291 @@
+<div class="pad-device">
+
+  <div class="pad-topbar {{#if (eq activeScreen "home")}}hidden{{/if}}">
+    <a class="pad-back" data-action="goBack" title="Voltar"><i class="fas fa-chevron-left"></i></a>
+    <h2>
+      {{#if (eq activeScreen "nave")}}Nave{{/if}}
+      {{#if (eq activeScreen "biblioteca")}}Biblioteca{{/if}}
+      {{#if (eq activeScreen "mensagens")}}{{#if activeThread}}{{threadTitle}}{{else}}Mensagens{{/if}}{{/if}}
+    </h2>
+    {{#if (and (eq activeScreen "mensagens") isGM)}}
+    <button type="button" class="pad-gm-chip" data-action="togglePersonaPicker" title="Escolher com qual Personagem/NPC falar">
+      <span>Só Mestre</span>
+      Falando como: {{actor.name}} ▾
+    </button>
+    {{/if}}
+  </div>
+
+  {{#if isGM}}
+  <div class="pad-persona-picker hidden">
+    <div class="pad-persona-search-row">
+      <input type="text" class="pad-persona-search" placeholder="Buscar personagem ou NPC…"/>
+    </div>
+    <div class="pad-persona-list">
+      <p class="pad-persona-group-label">Personagens</p>
+      {{#each personaPcs as |p|}}
+      <button type="button" class="pad-persona-row" data-action="selectPersona" data-actor-uuid="{{p.uuid}}" data-search="{{p.searchName}}">
+        <img src="{{p.img}}"/><span class="p-name">{{p.name}}</span>
+      </button>
+      {{/each}}
+      <p class="pad-persona-group-label">NPCs</p>
+      {{#each personaNpcs as |p|}}
+      <button type="button" class="pad-persona-row is-npc" data-action="selectPersona" data-actor-uuid="{{p.uuid}}" data-search="{{p.searchName}}">
+        <img src="{{p.img}}"/><span class="p-name">{{p.name}}</span>
+      </button>
+      {{/each}}
+    </div>
+  </div>
+  {{/if}}
+
+  <div class="pad-content">
+
+    <section class="pad-screen {{#unless (eq activeScreen "home")}}hidden{{/unless}}">
+      <p class="pad-home-head">{{actor.name}}</p>
+      <div class="pad-icon-grid">
+
+        {{#if padShipEnabled}}
+        {{#if crewedShips.length}}
+        <button type="button" class="pad-icon" data-action="openApp" data-pad="nave">
+          <span class="pad-icon-tile"><i class="fas fa-rocket"></i></span>
+          Nave
+        </button>
+        {{else}}
+        <button type="button" class="pad-icon disabled" data-action="openApp" data-pad="nave" title="Você não está tripulando nenhuma Nave/Veículo no momento">
+          <span class="pad-icon-tile"><i class="fas fa-rocket"></i></span>
+          Nave
+        </button>
+        {{/if}}
+        {{/if}}
+
+        {{#if padLibraryEnabled}}
+        <button type="button" class="pad-icon" data-action="openApp" data-pad="biblioteca">
+          <span class="pad-icon-tile"><i class="fas fa-book"></i></span>
+          Biblioteca
+        </button>
+        {{/if}}
+
+        {{#if padMessagingEnabled}}
+        <button type="button" class="pad-icon" data-action="openApp" data-pad="mensagens">
+          <span class="pad-icon-tile"><i class="fas fa-comment-dots"></i></span>
+          Mensagens
+        </button>
+        {{/if}}
+
+      </div>
+    </section>
+
+    <section class="pad-screen {{#unless (eq activeScreen "nave")}}hidden{{/unless}}">
+      {{#if selectedShip}}
+
+      {{#if hasMultipleShips}}
+      <div class="pad-ship-select" data-action="toggleShipMenu">
+        <div>
+          <div class="pad-ship-name">{{selectedShip.name}}</div>
+          <div class="pad-ship-kind">{{#if shipIsVehicle}}Veículo{{else}}Nave Estelar{{/if}}</div>
+        </div>
+        <span class="pad-chev">▾</span>
+      </div>
+      {{#if shipMenuOpen}}
+      <div class="pad-ship-menu">
+        {{#each crewedShips as |s|}}
+        <button type="button" data-action="selectShip" data-ship-id="{{s.id}}">{{s.name}}</button>
+        {{/each}}
+      </div>
+      {{/if}}
+      {{else}}
+      <div class="pad-ship-select">
+        <div>
+          <div class="pad-ship-name">{{selectedShip.name}}</div>
+          <div class="pad-ship-kind">{{#if shipIsVehicle}}Veículo{{else}}Nave Estelar{{/if}}</div>
+        </div>
+      </div>
+      {{/if}}
+
+      <div class="pad-hud-panel">
+        <p class="pad-hud-label">Integridade</p>
+        <div class="pad-vital-row">
+          <div class="pad-vital-top"><span>Casco</span><span>{{selectedShip.system.casco.value}} / {{selectedShip.system.casco.max}}</span></div>
+          <div class="pad-bar-track"><div class="pad-bar-fill" style="width:{{shipCascoPercent}}%"></div></div>
+        </div>
+        <div class="pad-vital-row">
+          <div class="pad-vital-top"><span>Escudo</span><span>{{selectedShip.system.shields.value}} / {{selectedShip.system.shields.max}}</span></div>
+          <div class="pad-bar-track"><div class="pad-bar-fill warn" style="width:{{shipShieldPercent}}%"></div></div>
+        </div>
+      </div>
+
+      <div class="pad-hud-panel">
+        <p class="pad-hud-label">Grid de Energia{{#if shipDeficit}} · déficit{{/if}}</p>
+        <div class="pad-vital-row">
+          <div class="pad-vital-top"><span>Reator</span><span>{{shipReactorOutput}}</span></div>
+        </div>
+        <div class="pad-vital-row">
+          <div class="pad-vital-top"><span>Consumo</span><span>{{shipConsumption}}</span></div>
+        </div>
+      </div>
+
+      <div class="pad-hud-panel">
+        <p class="pad-hud-label">Módulos</p>
+        <div class="pad-module-list">
+          {{#each shipModules as |m|}}
+          <div class="pad-module-row">
+            <span class="pad-status-dot {{#if (eq m.system.status "online")}}on{{else}}off{{/if}}"></span>
+            <span class="pad-m-name">{{m.name}}</span>
+            <span class="pad-m-state">{{m.system.status}}</span>
+          </div>
+          {{/each}}
+        </div>
+        {{#unless shipModules.length}}<p class="pad-hint">Nenhum módulo instalado.</p>{{/unless}}
+      </div>
+
+      <div class="pad-hud-panel">
+        <p class="pad-hud-label">Tripulação</p>
+        <div class="pad-crew-list">
+          {{#each shipCrew as |entry|}}
+          <div class="pad-crew-row">
+            <img src="{{entry.actor.img}}"/>
+            <span class="pad-c-name">{{entry.actor.name}}</span>
+            {{#if entry.role}}<span class="pad-c-role">{{entry.role}}</span>{{/if}}
+          </div>
+          {{/each}}
+        </div>
+        {{#unless shipCrew.length}}<p class="pad-hint">Nenhum tripulante designado.</p>{{/unless}}
+      </div>
+
+      {{#if canViewShipSheet}}
+      <button type="button" class="pad-ghost-btn" data-action="openShipSheet">Ver Ficha Completa da Nave</button>
+      {{/if}}
+
+      {{else}}
+      <p class="pad-hint pad-empty">Você não está tripulando nenhuma Nave/Veículo no momento.</p>
+      {{/if}}
+    </section>
+
+    <section class="pad-screen {{#unless (eq activeScreen "biblioteca")}}hidden{{/unless}}">
+
+      {{#if selectedShip}}
+      <div class="pad-seg">
+        <button type="button" class="{{#if (eq libraryTab "pessoal")}}active{{/if}}" data-action="selectLibraryTab" data-lib-tab="pessoal">Pessoal</button>
+        <button type="button" class="{{#if (eq libraryTab "nave")}}active{{/if}}" data-action="selectLibraryTab" data-lib-tab="nave">Da {{selectedShip.name}}</button>
+      </div>
+      {{/if}}
+
+      <div class="pad-lib-list {{#unless (eq libraryTab "pessoal")}}hidden{{/unless}}">
+        {{#each personalLibrary as |entry|}}
+        <div class="pad-lib-row {{#unless entry.resolvedDoc}}missing{{/unless}}">
+          <span class="pad-lib-icon">
+            {{#if (eq entry.resolvedDoc.documentName "Item")}}<i class="fas fa-suitcase"></i>
+            {{else if (eq entry.resolvedDoc.documentName "JournalEntry")}}<i class="fas fa-book-open"></i>
+            {{else if (eq entry.resolvedDoc.documentName "Actor")}}<i class="fas fa-user"></i>
+            {{else}}<i class="fas fa-file"></i>{{/if}}
+          </span>
+          <span class="pad-lib-body" data-action="openLibraryEntry" data-uuid="{{entry.uuid}}">
+            <span class="pad-lib-name">{{#if entry.resolvedDoc}}{{entry.resolvedDoc.name}}{{else}}{{entry.label}} (removido){{/if}}</span>
+          </span>
+          <a class="pad-lib-remove" data-action="removeLibraryEntry" data-entry-id="{{entry.id}}" data-lib-tab="pessoal" title="Remover"><i class="fas fa-times"></i></a>
+        </div>
+        {{/each}}
+        {{#unless personalLibrary.length}}<p class="pad-hint">Nenhum favorito pessoal salvo ainda.</p>{{/unless}}
+      </div>
+
+      {{#if selectedShip}}
+      <div class="pad-lib-list {{#unless (eq libraryTab "nave")}}hidden{{/unless}}">
+        {{#each shipLibrary as |entry|}}
+        <div class="pad-lib-row {{#unless entry.resolvedDoc}}missing{{/unless}}">
+          <span class="pad-lib-icon">
+            {{#if (eq entry.resolvedDoc.documentName "Item")}}<i class="fas fa-suitcase"></i>
+            {{else if (eq entry.resolvedDoc.documentName "JournalEntry")}}<i class="fas fa-book-open"></i>
+            {{else if (eq entry.resolvedDoc.documentName "Actor")}}<i class="fas fa-user"></i>
+            {{else}}<i class="fas fa-file"></i>{{/if}}
+          </span>
+          <span class="pad-lib-body" data-action="openLibraryEntry" data-uuid="{{entry.uuid}}">
+            <span class="pad-lib-name">{{#if entry.resolvedDoc}}{{entry.resolvedDoc.name}}{{else}}{{entry.label}} (removido){{/if}}</span>
+          </span>
+          <a class="pad-lib-remove" data-action="removeLibraryEntry" data-entry-id="{{entry.id}}" data-lib-tab="nave" title="Remover"><i class="fas fa-times"></i></a>
+        </div>
+        {{/each}}
+        {{#unless shipLibrary.length}}<p class="pad-hint">Nenhum favorito da Nave salvo ainda.</p>{{/unless}}
+      </div>
+      {{/if}}
+
+      <div class="pad-lib-dropzone">Arraste um Item, Registro ou Ator aqui pra salvar como favorito{{#if selectedShip}} (na aba selecionada){{/if}}.</div>
+    </section>
+
+    <section class="pad-screen {{#unless (eq activeScreen "mensagens")}}hidden{{/unless}}">
+
+      {{#unless activeThread}}
+      <div class="pad-thread-list">
+        {{#each threads as |t|}}
+        <div class="pad-thread-row" data-action="openThread" data-thread-type="{{t.conversationType}}" data-actor-uuid="{{t.otherActorUuid}}" data-group-id="{{t.groupId}}">
+          <span class="pad-thread-avatar {{#if (eq t.conversationType "group")}}group{{/if}}">{{t.avatarInitials}}</span>
+          <div class="pad-thread-info">
+            <div class="pad-t-name">{{t.title}}{{#if (eq t.conversationType "group")}} <span class="pad-grp-tag">GRUPO</span>{{/if}}</div>
+            <div class="pad-t-preview">{{t.preview}}</div>
+          </div>
+        </div>
+        {{/each}}
+        {{#unless threads.length}}<p class="pad-hint">Nenhuma conversa ainda.</p>{{/unless}}
+      </div>
+
+      {{#if pendingContactShares.length}}
+      <p class="pad-subhead">Contatos Compartilhados</p>
+      <div class="pad-thread-list">
+        {{#each pendingContactShares as |s|}}
+        <div class="pad-thread-row pad-pending-contact">
+          <span class="pad-thread-avatar">{{s.avatarInitials}}</span>
+          <div class="pad-thread-info"><div class="pad-t-name">{{s.senderName}}</div></div>
+          <button type="button" class="pad-add-contact-btn" data-action="addPendingContact" data-actor-uuid="{{s.senderActorUuid}}">+ Adicionar</button>
+        </div>
+        {{/each}}
+      </div>
+      {{/if}}
+
+      {{#if contacts.length}}
+      <p class="pad-subhead">Contatos</p>
+      <div class="pad-thread-list">
+        {{#each contacts as |c|}}
+        <div class="pad-thread-row" data-action="openThread" data-thread-type="direct" data-actor-uuid="{{c.uuid}}">
+          <span class="pad-thread-avatar">{{c.initials}}</span>
+          <div class="pad-thread-info"><div class="pad-t-name">{{c.name}}</div></div>
+        </div>
+        {{/each}}
+      </div>
+      {{/if}}
+
+      <div class="pad-thread-actions">
+        <button type="button" class="pad-new-thread-btn" data-action="shareContact"><i class="fas fa-share-nodes"></i> Compartilhar Meu Contato</button>
+        <button type="button" class="pad-new-thread-btn" data-action="toggleNewGroup">+ Novo Grupo</button>
+      </div>
+      {{#if newGroupMode}}
+      <div class="pad-new-group">
+        <input type="text" class="pad-new-group-name" placeholder="Nome do grupo"/>
+        <div class="pad-new-group-members">
+          {{#each contacts as |c|}}
+          <label class="pad-new-group-member"><input type="checkbox" class="pad-new-group-check" value="{{c.uuid}}"/> {{c.name}}</label>
+          {{/each}}
+        </div>
+        <button type="button" class="pad-ghost-btn" data-action="createGroup">Criar Grupo</button>
+      </div>
+      {{/if}}
+      {{/unless}}
+
+      {{#if activeThread}}
+      <div class="pad-thread-view">
+        <div class="pad-bubbles">
+          {{#each threadMessages as |m|}}
+          <div class="pad-bubble {{#if (eq m.senderActorUuid ../actor.uuid)}}mine{{else}}theirs{{/if}}">
+            {{#if (eq ../threadConversationType "group")}}<span class="pad-bubble-who">{{m.senderName}}</span>{{/if}}
+            {{m.body}}
+          </div>
+          {{/each}}
+          {{#unless threadMessages.length}}<p class="pad-hint pad-empty">Nenhuma mensagem ainda. Diga oi!</p>{{/unless}}
+        </div>
+        <div class="pad-composer">
+          <input type="text" class="pad-compose-input" placeholder="Mensagem…"/>
+          <button type="button" class="pad-send-btn" data-action="sendMessage" title="Enviar"><i class="fas fa-paper-plane"></i></button>
+        </div>
+      </div>
+      {{/if}}
+    </section>
+
+  </div>
+</div>

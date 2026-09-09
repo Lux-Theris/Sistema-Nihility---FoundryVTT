@@ -99,6 +99,9 @@
     <a class="item {{#if (eq activeTab "sistemas")}}active{{/if}}" data-action="selectTab" data-tab="sistemas">Sistemas</a>
     <a class="item {{#if (eq activeTab "armas")}}active{{/if}}" data-action="selectTab" data-tab="armas">Armas</a>
     <a class="item {{#if (eq activeTab "skills")}}active{{/if}}" data-action="selectTab" data-tab="skills">Habilidades</a>
+    {{#if padShipEnabled}}
+    <a class="item {{#if (eq activeTab "tripulacao")}}active{{/if}}" data-action="selectTab" data-tab="tripulacao">Tripulação</a>
+    {{/if}}
     <a class="item {{#if (eq activeTab "biography")}}active{{/if}}" data-action="selectTab" data-tab="biography">Registro</a>
   </nav>
 
@@ -287,6 +290,33 @@
         </ol>
       </div>
     </div>
+
+    {{#if padShipEnabled}}
+    <div class="tab {{#unless (eq activeTab "tripulacao")}}hidden{{/unless}}">
+      <div class="block">
+        <p class="block-title">Tripulação</p>
+        <ol class="item-list crew-list">
+          {{#each crewActors as |entry|}}
+          <li class="item-row crew-row">
+            <img src="{{entry.actor.img}}" width="24" height="24"/>
+            <span class="item-name">{{entry.actor.name}}</span>
+            {{#if ../isGM}}
+            <input type="text" class="crew-role-input" data-actor-uuid="{{entry.actorUuid}}" value="{{entry.role}}" placeholder="Cargo (ex: Piloto)"/>
+            <a class="item-delete" data-action="removeCrew" data-actor-uuid="{{entry.actorUuid}}" title="Remover tripulante"><i class="fas fa-trash"></i></a>
+            {{else}}
+            {{#if entry.role}}<span class="cat-pill">{{entry.role}}</span>{{/if}}
+            {{/if}}
+          </li>
+          {{/each}}
+        </ol>
+        {{#unless crewActors.length}}<p class="hint-inline">Nenhum tripulante designado.</p>{{/unless}}
+
+        {{#if isGM}}
+        <div class="crew-dropzone">Arraste um Personagem (PJ ou NPC) aqui pra designá-lo como tripulante.</div>
+        {{/if}}
+      </div>
+    </div>
+    {{/if}}
 
     <div class="tab {{#unless (eq activeTab "biography")}}hidden{{/unless}}">
       <div class="block">

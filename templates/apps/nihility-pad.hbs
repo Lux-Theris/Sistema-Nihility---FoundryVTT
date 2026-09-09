@@ -1,5 +1,9 @@
 <div class="pad-device">
 
+  <div class="pad-statusbar">
+    <span class="pad-signal"><span class="pad-signal-dot"></span>{{actor.name}}</span>
+  </div>
+
   <div class="pad-topbar {{#if (eq activeScreen "home")}}hidden{{/if}}">
     <a class="pad-back" data-action="goBack" title="Voltar"><i class="fas fa-chevron-left"></i></a>
     <h2>

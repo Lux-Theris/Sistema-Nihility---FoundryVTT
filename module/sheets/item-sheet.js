@@ -1,4 +1,4 @@
-import { SYSTEM_ID, MEU_SISTEMA, getActiveDamageElements, getResistanceTargetOptions, getModuleSizePreset, debugLog } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getActiveDamageElements, getActiveCurrencies, getResistanceTargetOptions, getModuleSizePreset, debugLog } from "../config.js";
 import { createGrantedSkill, removeGrantedSkill, evolveSkill } from "../skill-economy.js";
 import { announceVoiceOfTheWorld } from "../voice-of-the-world.js";
 import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../skill-effects.js";
@@ -98,6 +98,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.config = MEU_SISTEMA;
     context.itemType = this.item.type;
     context.activeTab = this.activeTab;
+    context.currencies = getActiveCurrencies();
     context.item = this.item;
     context.owner = this.item.isOwner;
     context.isGM = game.user.isGM;

@@ -50,6 +50,12 @@ function personaEntry(actor, group) {
  */
 export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
   constructor(options = {}) {
+    // `id` fixo faria dois PADs abertos ao mesmo tempo (ex: um pra cada tripulante, ou o Mestre
+    // abrindo o de um NPC enquanto o de um jogador já está aberto) brigarem pelo MESMO elemento
+    // na tela — um sobrescreve o título/conteúdo do outro no meio do render. Um id por Ator
+    // (ver `getPadAppForActor` abaixo) faz reabrir o PAD do mesmo Ator focar a janela já aberta,
+    // em vez de duplicar.
+    options.id ??= `nihility-pad-${options.actor?.id ?? foundry.utils.randomID()}`;
     super(options);
     this.actor = options.actor;
     this.activeScreen = "home"; // "home" | "nave" | "biblioteca" | "mensagens"
@@ -61,7 +67,6 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   static DEFAULT_OPTIONS = {
-    id: "nihility-pad",
     window: { title: "PAD", resizable: false, minimizable: true },
     classes: [SYSTEM_ID, "nihility-pad-app"],
     position: { width: 380, height: 680 },

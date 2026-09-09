@@ -2,7 +2,7 @@
    Nihility RPG System — tema Sci-Fi Arcano / Fantasia Isekai
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Signika:wght@400;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Signika:wght@400;600;700&family=JetBrains+Mono:wght@400;500;600&family=Rajdhani:wght@500;600;700&family=Sora:wght@400;500;600&display=swap');
 
 :root {
   --nihility-bg-dark: #10121a;
@@ -23,6 +23,9 @@
   --nihility-warn: #ffcf5c;
   --nihility-font: "Signika", "Segoe UI", sans-serif;
   --nihility-font-data: "JetBrains Mono", ui-monospace, "Courier New", monospace;
+  /* Só o PAD usa esses dois — identidade própria de "dispositivo", separada do resto das fichas. */
+  --pad-font-display: "Rajdhani", "Segoe UI", sans-serif;
+  --pad-font-body: "Sora", "Segoe UI", sans-serif;
 }
 
 /* .window-content precisa ser flex column pra .nihility-sheet esticar até a altura da janela;
@@ -2128,43 +2131,102 @@ form.nihility-config-app {
 
 /* ---------- PAD (celular in-game, ver module/apps/nihility-pad.js) ---------- */
 
-.nihility-pad-app .window-content { padding: 0; }
+/* Foundry deixa .window-content flex por padrão em vários temas do core — sem redeclarar isso
+   aqui E dar flex:1 pro .pad-device (não só height:100%, que um item flex ignora sem flex-basis),
+   sobra espaço mostrando o fundo claro padrão do core por trás do app. Também é aqui que o fundo
+   escuro do PAD é garantido, não só dentro do .pad-device. */
+.nihility-pad-app .window-content {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  background: var(--nihility-bg-dark);
+}
 
 .pad-device {
   position: relative;
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
   background: var(--nihility-bg-dark);
   color: var(--nihility-text);
+  font-family: var(--pad-font-body);
 }
+
+/* Reset largo — o tema do core do Foundry estiliza button/input/select globalmente; sem isso
+   alguns elementos do PAD herdam padding/borda/fonte do core em vez do visual do próprio PAD. */
+.pad-device button,
+.pad-device input,
+.pad-device select,
+.pad-device textarea {
+  appearance: none;
+  font-family: inherit;
+  color: inherit;
+}
+
+.pad-statusbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px 4px;
+  font-family: var(--nihility-font-data);
+  font-size: 0.68rem;
+  color: var(--nihility-text-dim);
+}
+.pad-statusbar .pad-signal {
+  display: flex; align-items: center; gap: 5px;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.pad-statusbar .pad-signal-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--nihility-ok);
+  box-shadow: 0 0 5px var(--nihility-ok);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pad-statusbar .pad-signal-dot { animation: pad-pulse 2.6s ease-in-out infinite; }
+}
+@keyframes pad-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
 .pad-topbar {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 4px 12px 10px;
   border-bottom: 1px solid var(--nihility-border);
 }
-.pad-topbar h2 { flex: 1; margin: 0; font-size: 1rem; color: var(--nihility-text); }
+.pad-topbar h2 {
+  flex: 1; margin: 0; font-size: 1.05rem; letter-spacing: 0.02em;
+  font-family: var(--pad-font-display); font-weight: 600;
+  color: var(--nihility-text);
+}
 .pad-back {
-  width: 26px; height: 26px; border-radius: 6px;
+  appearance: none;
+  width: 28px; height: 28px; border-radius: 8px; flex: 0 0 auto;
   display: flex; align-items: center; justify-content: center;
   border: 1px solid var(--nihility-border);
+  background: var(--nihility-bg-panel);
   color: var(--nihility-accent);
   cursor: pointer;
 }
-.pad-back:hover { border-color: var(--nihility-accent); }
+.pad-back:hover { border-color: var(--nihility-accent); box-shadow: 0 0 0 1px rgba(110, 231, 255, 0.25); }
 
-.pad-content { position: relative; flex: 1; overflow-y: auto; padding: 14px 16px 20px; }
+.pad-content { position: relative; flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 14px 16px 20px; }
 
-.pad-home-head { font-size: 1.1rem; font-weight: 600; margin: 4px 0 18px; }
+.pad-home-head {
+  font-family: var(--pad-font-display); font-weight: 700;
+  font-size: 1.3rem; letter-spacing: 0.02em;
+  margin: 6px 0 18px; color: var(--nihility-text);
+}
 
 .pad-icon-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 .pad-icon {
   display: flex; flex-direction: column; align-items: center; gap: 6px;
   background: none; border: none; color: var(--nihility-text); font-size: 0.72rem; cursor: pointer;
+  font-family: var(--pad-font-display); font-weight: 600; letter-spacing: 0.02em;
 }
 .pad-icon-tile {
   width: 100%; aspect-ratio: 1; border-radius: 16px;
@@ -2181,7 +2243,7 @@ form.nihility-config-app {
 .pad-hud-panel {
   background: var(--nihility-bg-panel);
   border: 1px solid var(--nihility-border);
-  border-radius: 10px 10px 10px 3px;
+  border-radius: 14px 14px 14px 4px;
   padding: 10px 12px;
   margin-bottom: 12px;
 }
@@ -2232,7 +2294,7 @@ form.nihility-config-app {
   border: 1px solid var(--nihility-border-soft);
   margin-bottom: 12px; cursor: pointer;
 }
-.pad-ship-name { font-weight: 600; font-size: 0.9rem; }
+.pad-ship-name { font-family: var(--pad-font-display); font-weight: 600; font-size: 0.95rem; letter-spacing: 0.01em; }
 .pad-ship-kind { font-size: 0.68rem; color: var(--nihility-text-dim); }
 .pad-chev { color: var(--nihility-accent); }
 .pad-ship-menu { display: flex; flex-direction: column; margin: -6px 0 12px; border: 1px solid var(--nihility-border); border-radius: 8px; overflow: hidden; }
@@ -2343,13 +2405,14 @@ form.nihility-config-app {
   background: var(--nihility-bg-panel-alt);
   border: 1px solid var(--nihility-border);
   display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 0.72rem;
+  font-family: var(--pad-font-display); font-weight: 700; font-size: 0.74rem;
   color: var(--nihility-accent);
 }
 .pad-thread-avatar.group { color: var(--nihility-gold); }
 .pad-thread-info { flex: 1; min-width: 0; }
 .pad-t-name {
-  font-size: 0.82rem; color: var(--nihility-text); font-weight: 500;
+  font-family: var(--pad-font-display);
+  font-size: 0.86rem; color: var(--nihility-text); font-weight: 600;
   display: flex; align-items: center; gap: 5px;
 }
 .pad-grp-tag {
@@ -2420,7 +2483,7 @@ form.nihility-config-app {
 
 .pad-persona-picker {
   position: absolute;
-  top: 54px; left: 12px; right: 12px;
+  top: 74px; left: 12px; right: 12px;
   max-height: 320px;
   background: var(--nihility-bg-panel);
   border: 1px solid rgba(232, 193, 112, 0.4);

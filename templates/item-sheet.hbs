@@ -326,7 +326,11 @@
       <label>Equipado? <input type="checkbox" class="item-equip-toggle" name="system.equipped" {{#if system.equipped}}checked{{/if}}/></label>
       <label>Valor
         <input type="number" name="system.value.amount" value="{{system.value.amount}}"/>
-        <input type="text" name="system.value.currency" value="{{system.value.currency}}"/>
+        <select name="system.value.currency">
+          {{#each currencies as |currency|}}
+          <option value="{{currency.id}}" {{#if (eq currency.id ../system.value.currency)}}selected{{/if}}>{{currency.label}}</option>
+          {{/each}}
+        </select>
       </label>
       {{#if isGM}}
       <label>Dispositivo PAD? <input type="checkbox" name="system.isPadDevice" {{#if system.isPadDevice}}checked{{/if}}/></label>

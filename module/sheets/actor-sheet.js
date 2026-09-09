@@ -146,6 +146,13 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
   static async #onOpenPad(event, target) {
     event.preventDefault();
     const { NihilityPadApp } = await import("../apps/nihility-pad.js");
+    // Reaproveita a janela já aberta pra este Ator (ver comentário sobre `id` no construtor de
+    // NihilityPadApp) em vez de abrir uma segunda instância brigando pelo mesmo `id`.
+    const existing = foundry.applications.instances.get(`nihility-pad-${this.actor.id}`);
+    if (existing) {
+      existing.bringToFront();
+      return;
+    }
     new NihilityPadApp({ actor: this.actor }).render(true);
   }
 

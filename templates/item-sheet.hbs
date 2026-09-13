@@ -15,7 +15,11 @@
   <section class="sheet-body">
 
     <div class="tab {{#unless (eq activeTab "description")}}hidden{{/unless}}">
-      {{editor system.description target="system.description" button=true engine="prosemirror" owner=owner editable=owner}}
+      {{#if owner}}
+      <prose-mirror name="system.description" value="{{system.description}}"></prose-mirror>
+      {{else}}
+      <div class="rich-text-readonly">{{{system.description}}}</div>
+      {{/if}}
     </div>
 
     <div class="tab {{#unless (eq activeTab "details")}}hidden{{/unless}}">

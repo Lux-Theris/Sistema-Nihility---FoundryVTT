@@ -320,7 +320,11 @@
 
     <div class="tab {{#unless (eq activeTab "biography")}}hidden{{/unless}}">
       <div class="block">
-        {{editor system.biography target="system.biography" button=true engine="prosemirror" owner=owner editable=owner}}
+        {{#if owner}}
+      <prose-mirror name="system.biography" value="{{system.biography}}"></prose-mirror>
+      {{else}}
+      <div class="rich-text-readonly">{{{system.biography}}}</div>
+      {{/if}}
       </div>
     </div>
 

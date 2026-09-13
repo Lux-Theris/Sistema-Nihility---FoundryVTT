@@ -44,8 +44,11 @@
 
   <div class="pad-content">
 
-    <section class="pad-screen {{#unless (eq activeScreen "home")}}hidden{{/unless}}">
-      <p class="pad-home-head">{{actor.name}}</p>
+    <section class="pad-screen pad-screen-home {{#unless (eq activeScreen "home")}}hidden{{/unless}}">
+      {{!-- O nome em destaque só pro Mestre: pro jogador é redundante (já está na barra de
+            status logo acima, e ele sabe de quem é o próprio PAD), enquanto pro Mestre é o
+            aviso de QUAL persona está ativa antes de mandar mensagem como ela. --}}
+      {{#if isGM}}<p class="pad-home-head">{{actor.name}}</p>{{/if}}
       <p class="pad-home-sub">{{#if selectedShip}}Vinculado à {{selectedShip.name}} · sinal estável{{else}}PAD Pessoal · sinal estável{{/if}}</p>
       <div class="pad-icon-grid">
 

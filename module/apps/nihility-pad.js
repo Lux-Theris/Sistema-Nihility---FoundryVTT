@@ -270,6 +270,7 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const actor = this.actor;
 
     context.actor = actor;
+    context.isGM = game.user.isGM;
     context.activeScreen = this.activeScreen;
     context.padShipEnabled = isPadShipEnabled();
     context.padLibraryEnabled = isPadLibraryEnabled();
@@ -309,7 +310,6 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
 
     if (context.padMessagingEnabled) {
-      context.isGM = game.user.isGM;
       if (context.isGM) {
         context.personaPcs = game.actors
           .filter(a => a.type === "character" && a.system.isPlayerCharacter === true)

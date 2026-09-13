@@ -2807,3 +2807,53 @@ form.nihility-config-app {
 .nihility-feature-config .feature-main.child.is-inherited-off {
   opacity: 0.5;
 }
+
+/* Tela inicial do PAD: layout de coluna explícito em vez de depender de margem entre
+   irmãos. A linha "PAD Pessoal · sinal estável" estava aparecendo POR BAIXO da grade de
+   ícones; com flex + gap, cada faixa ocupa a própria linha e não há margem pra colapsar
+   ou sobrepor, seja qual for a largura da janela. Escopado em .pad-screen-home de
+   propósito — as outras telas (Nave/Biblioteca/Mensagens) têm layout próprio. */
+.pad-screen-home {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pad-screen-home .pad-home-head,
+.pad-screen-home .pad-home-sub {
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.pad-screen-home .pad-icon-grid {
+  flex: 0 0 auto;
+  margin-top: 4px;
+}
+
+/* Texto rico em modo leitura (quem não é dono da ficha) — o <prose-mirror> só é renderizado
+   pra quem pode editar; sem isso o conteúdo saía cru, sem respiro nem rolagem. */
+.rich-text-readonly {
+  padding: 8px 10px;
+  border: 1px solid var(--nihility-border);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.rich-text-readonly:empty::before {
+  content: "Sem conteúdo.";
+  opacity: 0.5;
+  font-style: italic;
+}
+
+/* O <prose-mirror> do core nasce sem altura mínima dentro das fichas deste sistema, o que
+   deixava uma área de clique fina demais pra acertar quando o campo está vazio. */
+.nihility-sheet prose-mirror {
+  display: block;
+  min-height: 220px;
+  border: 1px solid var(--nihility-border);
+  border-radius: 6px;
+  padding: 4px 6px;
+  background: rgba(255, 255, 255, 0.02);
+}

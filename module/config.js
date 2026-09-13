@@ -26,6 +26,25 @@ export const MEU_SISTEMA = {
     skillPointsPerLevel: "skillPointsPerLevel",
     damageElementsData: "damageElementsData",
     statusConditionsData: "statusConditionsData",
+    // Blocos ligáveis/desligáveis por campanha (ver MEU_SISTEMA.FEATURES). As chaves dos blocos
+    // que já existiam mantêm o nome original de storage de propósito — mundos que já tinham
+    // essas settings configuradas não perdem o valor ao atualizar.
+    vesselsEnabled: "vesselsEnabled",
+    skillFusionEnabled: "skillFusionEnabled",
+    skillPointsEnabled: "skillPointsEnabled",
+    attributePoolEnabled: "attributePoolEnabled",
+    resistancesEnabled: "resistancesEnabled",
+    statusConditionsEnabled: "statusConditionsEnabled",
+    areaEffectsEnabled: "areaEffectsEnabled",
+    aiAssistantEnabled: "aiAssistantEnabled",
+    // Fórmula de HP/Mana configurável (ver getVitalFormula / deriveVitalStats).
+    hpFormulaPrimary: "hpFormulaPrimary",
+    hpFormulaSecondary: "hpFormulaSecondary",
+    energyPoolEnabled: "energyPoolEnabled",
+    energyFormulaPrimary: "energyFormulaPrimary",
+    energyFormulaSecondary: "energyFormulaSecondary",
+    vitalFormulaMultiplier: "vitalFormulaMultiplier",
+    vitalFormulaFloor: "vitalFormulaFloor",
     completedMigrations: "completedMigrations",
     debugMode: "debugMode",
     aiProvider: "aiProvider",
@@ -40,6 +59,157 @@ export const MEU_SISTEMA = {
 
   /** Nome da pasta usada para organizar Atores/Notas criados pelo Assistente de IA. */
   AI_GENERATED_FOLDER_NAME: "IA — Gerado",
+
+  /**
+   * Blocos do sistema que o Mestre liga/desliga por mundo — a espinha da modularidade: o mesmo
+   * sistema roda uma campanha de Fantasia Medieval, uma de Sci-Fi ou uma mistura das duas, e o
+   * que a campanha não usa simplesmente some da interface.
+   *
+   * **Regra que nunca pode ser quebrada: desligar um bloco só ESCONDE a UI (e impede criar
+   * conteúdo novo daquele tipo) — nunca apaga nem migra dado já existente.** Religar tem que
+   * devolver o mundo exatamente como estava; é isso que torna seguro trocar de preset no meio
+   * de uma campanha, ou usar o mesmo mundo pra duas mesas diferentes.
+   *
+   * Cada entrada: `setting` (chave de storage — as pré-existentes mantêm o nome antigo pra não
+   * perder configuração de quem já atualizou), `name`/`hint` (mostrados na tela de Settings e no
+   * editor visual), `default` e, opcionalmente, `parent` (a sub-feature só vale se o pai estiver
+   * ligado — ver `isFeatureEnabled`, que sobe a cadeia inteira).
+   *
+   * Pra adicionar um bloco novo: acrescente UMA linha aqui e use `isFeatureEnabled("chave")`
+   * onde for gatear. O registro da setting, a tela de configuração e os presets abaixo já varrem
+   * esta tabela sozinhos — não existe lista paralela pra manter em sincronia.
+   */
+  FEATURES: {
+    economy: {
+      setting: "economyEnabled",
+      name: "Economia / Moedas",
+      hint: "Rastreamento de moedas nas fichas, conversão e transferência entre Personagens.",
+      default: true
+    },
+    titles: {
+      setting: "titlesEnabled",
+      name: "Títulos",
+      hint: "Títulos com bônus permanentes de Atributo/HP/Mana e Resistências.",
+      default: true
+    },
+    anatomy: {
+      setting: "anatomyEnabled",
+      name: "Anatomia / Modificação Corporal",
+      hint: "Partes do Corpo com Vida própria, presets por Espécie e próteses/modificações.",
+      default: true
+    },
+    vessels: {
+      setting: "vesselsEnabled",
+      name: "Naves e Veículos",
+      hint: "Naves Espaciais e Veículos Terrestres: Porte, Módulos, Grid de Energia, cascata de dano e reparo. Desligado, nenhuma Nave/Veículo NOVO pode ser criado — as que já existem continuam intactas e abríveis.",
+      default: true
+    },
+    skillFusion: {
+      setting: "skillFusionEnabled",
+      name: "Fusão de Habilidades",
+      hint: "Fundir 2+ Habilidades numa só (com Sub-Skills disparáveis). Desligar esconde a seleção e o botão de Fundir; Evolução (1-pra-1) continua disponível.",
+      default: true
+    },
+    skillPoints: {
+      setting: "skillPointsEnabled",
+      name: "Pontos de Habilidade",
+      hint: "Economia de Pontos de Habilidade: quebra/fusão de pontos, pedido de criação com aprovação do Mestre e ganho automático por nível.",
+      default: true
+    },
+    attributePool: {
+      setting: "attributePoolEnabled",
+      name: "Pool de Pontos de Atributo",
+      hint: "Orçamento de pontos por nível com alocação em duas etapas (pendente → Confirmar). Desligado, os Atributos viram campos de digitação livre.",
+      default: true
+    },
+    resistances: {
+      setting: "resistancesEnabled",
+      name: "Resistências / Imunidades",
+      hint: "Habilidades e Títulos que reduzem dano por tipo (Geral ou Elemental).",
+      default: true
+    },
+    statusConditions: {
+      setting: "statusConditionsEnabled",
+      name: "Condições de Status",
+      hint: "Condições nomeadas (Veneno, Cegueira, Atordoamento...) com ícone no token, em Efeitos de Habilidade.",
+      default: true
+    },
+    areaEffects: {
+      setting: "areaEffectsEnabled",
+      name: "Habilidades de Emissão (área)",
+      hint: "Habilidades que posicionam uma forma no canvas (Círculo/Cone/Linha) em vez de escolher um alvo único.",
+      default: true
+    },
+    aiAssistant: {
+      setting: "aiAssistantEnabled",
+      name: "Assistente de IA",
+      hint: "Geração e edição de conteúdo via IA (só Mestre). Desligado, somem as abas de IA e Geração do Menu Principal.",
+      default: true
+    },
+    pad: {
+      setting: "padEnabled",
+      name: "PAD — Aplicativo do Personagem",
+      hint: "Chave-mestra do PAD (app estilo smartphone). Desligada, nenhuma das sub-funcionalidades abaixo aparece, mesmo que estejam ativas.",
+      default: true
+    },
+    padShip: {
+      setting: "padShipEnabled",
+      parent: "pad",
+      name: "PAD — Conexão com a Nave",
+      hint: "Tela de Status da Nave/Veículo tripulada e gestão de Tripulação no PAD.",
+      default: true
+    },
+    padLibrary: {
+      setting: "padLibraryEnabled",
+      parent: "pad",
+      name: "PAD — Biblioteca",
+      hint: "Tela de Biblioteca (favoritos pessoais e da Nave) no PAD.",
+      default: true
+    },
+    padMessaging: {
+      setting: "padMessagingEnabled",
+      parent: "pad",
+      name: "PAD — Mensagens",
+      hint: "Troca de mensagens privadas (diretas e em grupo) entre Personagens no PAD.",
+      default: true
+    }
+  },
+
+  /**
+   * Combinações prontas de FEATURES por tipo de campanha — aplicadas de uma vez pelo editor
+   * visual (ver `applyCampaignPreset`). Só mexem nos blocos listados em `features`; o que não
+   * aparece na lista fica como está. Nenhum preset apaga dado: "Naves desligadas" numa campanha
+   * medieval significa que a UI some, não que as Naves do mundo sumam.
+   */
+  CAMPAIGN_PRESETS: {
+    medieval: {
+      label: "Fantasia Medieval",
+      hint: "Isekai/fantasia: Títulos, Anatomia, Fusão e Magia ligados; nada de Naves, Veículos ou PAD.",
+      features: {
+        economy: true, titles: true, anatomy: true, vessels: false, skillFusion: true,
+        skillPoints: true, attributePool: true, resistances: true, statusConditions: true,
+        areaEffects: true, aiAssistant: true, pad: false
+      }
+    },
+    scifi: {
+      label: "Sci-Fi Arcano",
+      hint: "Naves, Veículos e PAD ligados; Títulos e Fusão de Habilidades desligados (são convenções de isekai).",
+      features: {
+        economy: true, titles: false, anatomy: true, vessels: true, skillFusion: false,
+        skillPoints: true, attributePool: true, resistances: true, statusConditions: true,
+        areaEffects: true, aiAssistant: true, pad: true
+      }
+    },
+    misto: {
+      label: "Misto (tudo ligado)",
+      hint: "O sistema inteiro disponível — fantasia e sci-fi coexistindo na mesma campanha.",
+      features: {
+        economy: true, titles: true, anatomy: true, vessels: true, skillFusion: true,
+        skillPoints: true, attributePool: true, resistances: true, statusConditions: true,
+        areaEffects: true, aiAssistant: true, pad: true
+      }
+    }
+  },
 
   /** Nomes (chaves) dos Compêndios de World auto-geridos pelo sistema. */
   COMPENDIUM: {
@@ -70,11 +240,12 @@ export const MEU_SISTEMA = {
   /** Tiers que participam da economia de Pontos de Habilidade (Racial e Ultimate ficam de fora). */
   SKILL_POINT_TIERS: ["extra", "normal", "unique"],
 
-  /** Taxas de conversão fixas entre Pontos de Habilidade (nos dois sentidos). */
-  SKILL_POINT_CONVERSION: {
-    extraToNormal: 3, // 3 Extra <-> 1 Normal
-    normalToUnique: 3 // 3 Normal <-> 1 Único
-  },
+  /**
+   * Quantos Pontos de Habilidade de um tier valem 1 do tier acima, nos dois sentidos (quebrar
+   * 1 Normal devolve 3 Extra; juntar 3 Extra vira 1 Normal). Vale igual pra todo par de tiers
+   * vizinhos em SKILL_POINT_TIERS — ver breakSkillPoints/mergeSkillPoints em skill-economy.js.
+   */
+  SKILL_POINT_CONVERSION_RATE: 3,
 
   /**
    * Tiers que um Item Geral/Modificação de Parte do Corpo/Módulo de Nave pode
@@ -95,7 +266,7 @@ export const MEU_SISTEMA = {
   /**
    * Porte de Nave Espacial, do menor pro maior — só o Mestre edita (mesmo padrão de Nível).
    * Rege compatibilidade de Módulo (SHIP_SIZE_RANK vs MODULE_SIZE_RANK) e o orçamento de
-   * espaço de Arma (WEAPON_SLOT_BUDGET_BY_SHIP_SIZE, valores a fechar na Fase 8 do overhaul).
+   * espaço de Arma (WEAPON_SLOT_BUDGET_BY_SHIP_SIZE).
    */
   SHIP_SIZES: ["mini", "pequeno", "medio", "grande", "capital"],
 
@@ -205,6 +376,20 @@ export const MEU_SISTEMA = {
   DISTRIBUTOR_BASELINE_BY_SHIP_SIZE: { mini: 80, pequeno: 160, medio: 320, grande: 640, capital: 1280 },
 
   /**
+   * Capacidade mínima de Capacitor que TODA Nave/Veículo tem mesmo sem Módulo de Bateria: é a
+   * energia que já está parada dentro dos próprios conduítes de força do casco. Sem isso o
+   * Capacitor ficava em 0 sem Bateria, e como é dele que sai o Custo de Habilidade de Nave (ver
+   * `energyValuePath` em skill-effects.js), uma Nave sem Bateria não conseguia usar Habilidade
+   * nenhuma — o que nunca foi a intenção.
+   *
+   * Instalar um Módulo de Bateria **substitui** este valor (não soma) — ver `prepareDerivedData`
+   * em starship-model.js. Por isso todos os valores aqui ficam abaixo de 125, a capacidade da
+   * menor Bateria instalável (Compacto): assim substituir nunca é um downgrade, em Porte nenhum.
+   * É também por isso que a curva achata no fim em vez de dobrar até 320 como as outras tabelas.
+   */
+  CONDUIT_CAPACITOR_BY_SHIP_SIZE: { mini: 10, pequeno: 20, medio: 40, grande: 80, capital: 120 },
+
+  /**
    * Presets de stat sugeridos por Categoria×Porte de Módulo (Fase 8), usados só pra
    * autopreenchimento no editor do Item (Fase 1) — nunca sobrescrevem um valor já editado à
    * mão. Campos de CAPACIDADE (Vida/Consumo/Output/Aceleração/Rotação/dado de Dano) escalam por
@@ -296,6 +481,9 @@ export const MEU_SISTEMA = {
    * buffDelta temporário de HP/Mana somam por cima, sem piso.
    */
   MIN_BASE_VITAL_STAT: 50,
+
+  /** Multiplicador padrão da fórmula de HP/Mana (Atributo × Atributo × ISTO). Sobrescrito pela setting `vitalFormulaMultiplier`. */
+  DEFAULT_VITAL_FORMULA_MULTIPLIER: 10,
 
   /**
    * Redução de dano mágico/elemental (skill.system.isMagicDamage) pela Defesa Mágica do alvo:
@@ -742,29 +930,146 @@ export function sceneActorCandidates({ types = null, excludeActorId = null, perm
   return candidates;
 }
 
-/** Atalhos de leitura para os toggles principais. */
+/**
+ * Leitor ÚNICO de todo bloco ligável/desligável do sistema (ver MEU_SISTEMA.FEATURES) — use
+ * isto, e não `game.settings.get` direto, pra gatear qualquer coisa: só aqui a cadeia de
+ * `parent` é respeitada (uma sub-feature do PAD com a chave-mestra desligada conta como
+ * desligada, mesmo que a setting dela esteja `true`).
+ *
+ * Cai no `default` da tabela quando as settings ainda não foram registradas — isso acontece de
+ * verdade quando um Data Model prepara dados cedo demais no boot, e um `throw` aqui derrubaria
+ * a preparação inteira da ficha.
+ * @param {keyof MEU_SISTEMA["FEATURES"]} key
+ * @returns {boolean}
+ */
+export function isFeatureEnabled(key) {
+  const feature = MEU_SISTEMA.FEATURES[key];
+  if (!feature) return true;
+  if (feature.parent && !isFeatureEnabled(feature.parent)) return false;
+  try {
+    return Boolean(game.settings.get(SYSTEM_ID, feature.setting));
+  } catch (err) {
+    return feature.default ?? true;
+  }
+}
+
+/**
+ * Aplica um preset de campanha (MEU_SISTEMA.CAMPAIGN_PRESETS) de uma vez só. Blocos que o preset
+ * não menciona ficam como estão. Não toca em dado nenhum do mundo — só nas settings de exibição.
+ * @param {keyof MEU_SISTEMA["CAMPAIGN_PRESETS"]} presetKey
+ */
+export async function applyCampaignPreset(presetKey) {
+  const preset = MEU_SISTEMA.CAMPAIGN_PRESETS[presetKey];
+  if (!preset) throw new Error(`Preset de campanha desconhecido: "${presetKey}".`);
+
+  for (const [featureKey, enabled] of Object.entries(preset.features)) {
+    const feature = MEU_SISTEMA.FEATURES[featureKey];
+    if (!feature) continue;
+    await game.settings.set(SYSTEM_ID, feature.setting, Boolean(enabled));
+  }
+  return preset;
+}
+
+/* Atalhos nomeados — mantidos porque metade do sistema já os importa, mas todos delegam pro
+   mesmo `isFeatureEnabled` acima (nenhuma leitura paralela de setting). */
 export function isEconomyEnabled() {
-  return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.economyEnabled);
+  return isFeatureEnabled("economy");
 }
 export function isTitlesEnabled() {
-  return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.titlesEnabled);
+  return isFeatureEnabled("titles");
 }
 export function isAnatomyEnabled() {
-  return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.anatomyEnabled);
+  return isFeatureEnabled("anatomy");
+}
+export function isVesselsEnabled() {
+  return isFeatureEnabled("vessels");
+}
+export function isSkillFusionEnabled() {
+  return isFeatureEnabled("skillFusion");
+}
+export function isSkillPointsEnabled() {
+  return isFeatureEnabled("skillPoints");
+}
+export function isAttributePoolEnabled() {
+  return isFeatureEnabled("attributePool");
+}
+export function isResistancesEnabled() {
+  return isFeatureEnabled("resistances");
+}
+export function isStatusConditionsEnabled() {
+  return isFeatureEnabled("statusConditions");
+}
+export function isAreaEffectsEnabled() {
+  return isFeatureEnabled("areaEffects");
+}
+export function isAIAssistantEnabled() {
+  return isFeatureEnabled("aiAssistant");
 }
 
 /** Chave-mestra do PAD — sem ela, nenhuma sub-funcionalidade abaixo aparece mesmo que ligada. */
 export function isPadEnabled() {
-  return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.padEnabled);
+  return isFeatureEnabled("pad");
 }
 export function isPadShipEnabled() {
-  return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.padShipEnabled);
+  return isFeatureEnabled("padShip");
 }
 export function isPadLibraryEnabled() {
-  return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.padLibraryEnabled);
+  return isFeatureEnabled("padLibrary");
 }
 export function isPadMessagingEnabled() {
-  return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.padMessagingEnabled);
+  return isFeatureEnabled("padMessaging");
+}
+
+/**
+ * Fórmula de HP/Mana Máximo, configurável pelo Mestre (ver `deriveVitalStats` em
+ * data/character-model.js). O formato é sempre `Atributo A .Total × Atributo B .Total ×
+ * multiplicador`, com um piso — o que muda por campanha é QUAIS atributos entram e com que
+ * escala. É isso que permite uma campanha sem magia: basta apontar a Mana pra outros dois
+ * atributos, ou desligar o pool inteiro (`energyPoolEnabled`).
+ *
+ * Um atributo removido da lista por engano (ou uma setting de um mundo antigo apontando pra
+ * chave que não existe mais) cai no padrão em vez de quebrar a preparação da ficha.
+ * @returns {{hp: [string, string], energy: [string, string], multiplier: number, floor: number, energyEnabled: boolean}}
+ */
+export function getVitalFormula() {
+  const read = (key, fallback) => {
+    try {
+      const value = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[key]);
+      return MEU_SISTEMA.COMBAT_ATTRIBUTES.includes(value) ? value : fallback;
+    } catch (err) {
+      return fallback;
+    }
+  };
+  const readNumber = (key, fallback) => {
+    try {
+      const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[key]));
+      return Number.isFinite(value) && value >= 0 ? value : fallback;
+    } catch (err) {
+      return fallback;
+    }
+  };
+
+  return {
+    hp: [read("hpFormulaPrimary", "strength"), read("hpFormulaSecondary", "defense")],
+    energy: [read("energyFormulaPrimary", "magic"), read("energyFormulaSecondary", "magicalDefense")],
+    multiplier: readNumber("vitalFormulaMultiplier", MEU_SISTEMA.DEFAULT_VITAL_FORMULA_MULTIPLIER),
+    floor: readNumber("vitalFormulaFloor", MEU_SISTEMA.MIN_BASE_VITAL_STAT),
+    energyEnabled: isEnergyPoolEnabled()
+  };
+}
+
+/**
+ * Campanha usa pool de Mana/Energia? Desligado (campanha "sem magia"), a barra some da ficha,
+ * o Máximo vira 0 e nenhum Custo/Custo por Rodada de Habilidade é cobrado — a Skill continua
+ * funcionando, o recurso é que deixa de existir. Nave/Veículo NÃO é afetado: o Grid de Energia
+ * é outro sistema, com pool próprio.
+ */
+export function isEnergyPoolEnabled() {
+  try {
+    return Boolean(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.energyPoolEnabled));
+  } catch (err) {
+    return true;
+  }
 }
 
 /** Pontos de Atributo/Habilidade concedidos na criação e por nível (settings do Mestre). */
@@ -787,9 +1092,54 @@ export function getSkillPointsPerLevel() {
 export function registerSystemSettings() {
   const S = MEU_SISTEMA.SETTINGS;
 
-  game.settings.register(SYSTEM_ID, S.economyEnabled, {
-    name: "Sistema de Moedas/Economia",
-    hint: "Ativa o rastreamento de moedas dinâmicas nas fichas de personagem.",
+  // Um registro por bloco de MEU_SISTEMA.FEATURES — a tabela é a única fonte da verdade, então
+  // ligar um bloco novo não exige tocar aqui. `config: false` de propósito: a lista apareceria
+  // como 15 checkboxes soltos no meio das settings do Foundry; em vez disso ela é editada pela
+  // tela "Configurar Módulos do Sistema" (list-config-app-factory-style, ver
+  // apps/feature-config.js), que mostra os presets de campanha junto.
+  for (const feature of Object.values(MEU_SISTEMA.FEATURES)) {
+    game.settings.register(SYSTEM_ID, feature.setting, {
+      name: feature.name,
+      hint: feature.hint,
+      scope: "world",
+      config: false,
+      type: Boolean,
+      default: feature.default ?? true,
+      requiresReload: true
+    });
+  }
+
+  // Fórmula de HP/Mana. Fica visível na tela de settings (config: true) porque é uma regra de
+  // balanceamento que o Mestre ajusta uma vez e esquece — não é um liga/desliga de campanha.
+  const attributeChoices = Object.fromEntries(
+    MEU_SISTEMA.COMBAT_ATTRIBUTES.map(key => [key, MEU_SISTEMA.COMBAT_ATTRIBUTE_LABELS[key]])
+  );
+
+  game.settings.register(SYSTEM_ID, S.hpFormulaPrimary, {
+    name: "Fórmula de HP — 1º Atributo",
+    hint: "HP Máximo = (1º Atributo).Total × (2º Atributo).Total × Multiplicador.",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: attributeChoices,
+    default: "strength",
+    requiresReload: true
+  });
+
+  game.settings.register(SYSTEM_ID, S.hpFormulaSecondary, {
+    name: "Fórmula de HP — 2º Atributo",
+    hint: "O segundo fator da multiplicação de HP Máximo.",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: attributeChoices,
+    default: "defense",
+    requiresReload: true
+  });
+
+  game.settings.register(SYSTEM_ID, S.energyPoolEnabled, {
+    name: "Usar pool de Mana/Energia",
+    hint: "Desligue numa campanha sem magia: a barra some da ficha e nenhum Custo de Habilidade é cobrado (as Habilidades continuam funcionando). Não afeta o Grid de Energia de Naves/Veículos, que é outro sistema.",
     scope: "world",
     config: true,
     type: Boolean,
@@ -797,63 +1147,45 @@ export function registerSystemSettings() {
     requiresReload: true
   });
 
-  game.settings.register(SYSTEM_ID, S.titlesEnabled, {
-    name: "Sistema de Títulos",
-    hint: "Ativa o rastreamento e exibição de Títulos nas fichas de personagem.",
+  game.settings.register(SYSTEM_ID, S.energyFormulaPrimary, {
+    name: "Fórmula de Mana/Energia — 1º Atributo",
+    hint: "Mana Máxima = (1º Atributo).Total × (2º Atributo).Total × Multiplicador.",
     scope: "world",
     config: true,
-    type: Boolean,
-    default: true,
+    type: String,
+    choices: attributeChoices,
+    default: "magic",
     requiresReload: true
   });
 
-  game.settings.register(SYSTEM_ID, S.anatomyEnabled, {
-    name: "Sistema de Anatomia/Modificação Corporal",
-    hint: "Ativa Partes do Corpo com HP próprio, presets por espécie e próteses/modificações.",
+  game.settings.register(SYSTEM_ID, S.energyFormulaSecondary, {
+    name: "Fórmula de Mana/Energia — 2º Atributo",
+    hint: "O segundo fator da multiplicação de Mana Máxima.",
     scope: "world",
     config: true,
-    type: Boolean,
-    default: true,
+    type: String,
+    choices: attributeChoices,
+    default: "magicalDefense",
     requiresReload: true
   });
 
-  game.settings.register(SYSTEM_ID, S.padEnabled, {
-    name: "PAD — Aplicativo do Personagem",
-    hint: "Chave-mestra do PAD (app estilo smartphone). Desligada, nenhuma das sub-funcionalidades abaixo aparece, mesmo que estejam ativas.",
+  game.settings.register(SYSTEM_ID, S.vitalFormulaMultiplier, {
+    name: "Fórmula de HP/Mana — Multiplicador",
+    hint: "O ×10 padrão da fórmula. Baixar deixa a campanha inteira mais letal; subir, mais heroica.",
     scope: "world",
     config: true,
-    type: Boolean,
-    default: true,
+    type: Number,
+    default: MEU_SISTEMA.DEFAULT_VITAL_FORMULA_MULTIPLIER,
     requiresReload: true
   });
 
-  game.settings.register(SYSTEM_ID, S.padShipEnabled, {
-    name: "PAD — Conexão com a Nave",
-    hint: "Ativa a tela de Status da Nave/Veículo tripulada e a gestão de Tripulação no PAD.",
+  game.settings.register(SYSTEM_ID, S.vitalFormulaFloor, {
+    name: "Fórmula de HP/Mana — Piso",
+    hint: "Resultado mínimo da fórmula, mesmo com os atributos zerados. Modificadores de Título/Skill/Item somam POR CIMA desse piso.",
     scope: "world",
     config: true,
-    type: Boolean,
-    default: true,
-    requiresReload: true
-  });
-
-  game.settings.register(SYSTEM_ID, S.padLibraryEnabled, {
-    name: "PAD — Biblioteca",
-    hint: "Ativa a tela de Biblioteca (favoritos pessoais e da Nave) no PAD.",
-    scope: "world",
-    config: true,
-    type: Boolean,
-    default: true,
-    requiresReload: true
-  });
-
-  game.settings.register(SYSTEM_ID, S.padMessagingEnabled, {
-    name: "PAD — Mensagens",
-    hint: "Ativa a troca de mensagens privadas (diretas e em grupo) entre Personagens no PAD.",
-    scope: "world",
-    config: true,
-    type: Boolean,
-    default: true,
+    type: Number,
+    default: MEU_SISTEMA.MIN_BASE_VITAL_STAT,
     requiresReload: true
   });
 

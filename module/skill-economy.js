@@ -9,6 +9,7 @@ import { ensureSystemCompendiums, getCompendiumForItemType, registerItemInCompen
 import { buildSubSkillsFromSources } from "./skill-snapshot.js";
 import { requestAISpecialSkill } from "./ai-generation.js";
 import { announceVoiceOfTheWorld } from "./voice-of-the-world.js";
+import { renderSystemTemplate } from "./helpers/foundry-compat.js";
 
 /* -------------------------------------------- */
 /*  Habilidades concedidas por Item/Módulo       */
@@ -279,9 +280,7 @@ export async function evolveSkill(actor, sourceItemId, newSkillData) {
 /*  Pontos de Habilidade: conversão e criação    */
 /* -------------------------------------------- */
 
-const SKILL_POINT_CONVERSION_RATE = 3;
-
-/** Quebra 1 Ponto de Habilidade de `tier` em SKILL_POINT_CONVERSION_RATE pontos do tier abaixo. */
+/** Quebra 1 Ponto de Habilidade de `tier` em MEU_SISTEMA.SKILL_POINT_CONVERSION_RATE pontos do tier abaixo. */
 export async function breakSkillPoints(actor, tier) {
   const order = MEU_SISTEMA.SKILL_POINT_TIERS; // ["extra", "normal", "unique"]
   const idx = order.indexOf(tier);
@@ -296,11 +295,12 @@ export async function breakSkillPoints(actor, tier) {
 
   await actor.update({
     [`system.skillPoints.${tier}`]: current - 1,
-    [`system.skillPoints.${lowerTier}`]: (actor.system.skillPoints[lowerTier] ?? 0) + SKILL_POINT_CONVERSION_RATE
+    [`system.skillPoints.${lowerTier}`]:
+      (actor.system.skillPoints[lowerTier] ?? 0) + MEU_SISTEMA.MEU_SISTEMA.SKILL_POINT_CONVERSION_RATE
   });
 }
 
-/** Funde SKILL_POINT_CONVERSION_RATE Pontos de Habilidade de `tier` em 1 ponto do tier acima. */
+/** Funde MEU_SISTEMA.SKILL_POINT_CONVERSION_RATE Pontos de Habilidade de `tier` em 1 ponto do tier acima. */
 export async function mergeSkillPoints(actor, tier) {
   const order = MEU_SISTEMA.SKILL_POINT_TIERS;
   const idx = order.indexOf(tier);
@@ -308,13 +308,13 @@ export async function mergeSkillPoints(actor, tier) {
   const upperTier = order[idx + 1];
 
   const current = actor.system.skillPoints[tier] ?? 0;
-  if (current < SKILL_POINT_CONVERSION_RATE) {
-    ui.notifications?.warn(`Precisa de ${SKILL_POINT_CONVERSION_RATE} Pontos ${MEU_SISTEMA.SKILL_TIER_LABELS[tier]} para fundir.`);
+  if (current < MEU_SISTEMA.SKILL_POINT_CONVERSION_RATE) {
+    ui.notifications?.warn(`Precisa de ${MEU_SISTEMA.SKILL_POINT_CONVERSION_RATE} Pontos ${MEU_SISTEMA.SKILL_TIER_LABELS[tier]} para fundir.`);
     throw new Error("Pontos insuficientes.");
   }
 
   await actor.update({
-    [`system.skillPoints.${tier}`]: current - SKILL_POINT_CONVERSION_RATE,
+    [`system.skillPoints.${tier}`]: current - MEU_SISTEMA.SKILL_POINT_CONVERSION_RATE,
     [`system.skillPoints.${upperTier}`]: (actor.system.skillPoints[upperTier] ?? 0) + 1
   });
 }
@@ -344,7 +344,7 @@ export async function requestSkillCreation(actor, data) {
 }
 
 async function createSkillRequestMessage(actor, req) {
-  const content = await renderTemplate(`systems/${SYSTEM_ID}/templates/chat/skill-request.hbs`, {
+  const content = await renderSystemTemplate(`systems/${SYSTEM_ID}/templates/chat/skill-request.hbs`, {
     actorName: actor.name,
     tierLabel: MEU_SISTEMA.SKILL_TIER_LABELS[req.tier],
     ...req
@@ -364,7 +364,7 @@ async function createSkillRequestMessage(actor, req) {
 
 async function updateSkillRequestMessage(message, status) {
   const req = { ...message.flags[SYSTEM_ID].skillRequest, status };
-  const content = await renderTemplate(`systems/${SYSTEM_ID}/templates/chat/skill-request.hbs`, {
+  const content = await renderSystemTemplate(`systems/${SYSTEM_ID}/templates/chat/skill-request.hbs`, {
     actorName: game.actors.get(req.actorId)?.name ?? "?",
     tierLabel: MEU_SISTEMA.SKILL_TIER_LABELS[req.tier],
     ...req

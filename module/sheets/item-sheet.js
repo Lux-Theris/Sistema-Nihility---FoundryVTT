@@ -1,8 +1,18 @@
-import { SYSTEM_ID, MEU_SISTEMA, getActiveDamageElements, getActiveCurrencies, getResistanceTargetOptions, getModuleSizePreset, debugLog } from "../config.js";
+import {
+  SYSTEM_ID,
+  MEU_SISTEMA,
+  getActiveDamageElements,
+  getActiveCurrencies,
+  getResistanceTargetOptions,
+  getModuleSizePreset,
+  isResistancesEnabled,
+  debugLog
+} from "../config.js";
 import { createGrantedSkill, removeGrantedSkill, evolveSkill } from "../skill-economy.js";
 import { announceVoiceOfTheWorld } from "../voice-of-the-world.js";
 import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../skill-effects.js";
 import { openSkillEditorDialog } from "../apps/skill-editor-dialog.js";
+import { pickImageFile } from "../helpers/foundry-compat.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -83,12 +93,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   static async #onEditImage(event, target) {
     const field = target.dataset.edit || "img";
     const current = foundry.utils.getProperty(this.item, field);
-    const fp = new FilePicker({
-      type: "image",
-      current,
-      callback: path => this.item.update({ [field]: path })
-    });
-    fp.render(true);
+    pickImageFile(current, path => this.item.update({ [field]: path }));
   }
 
   /** @override */
@@ -102,6 +107,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.item = this.item;
     context.owner = this.item.isOwner;
     context.isGM = game.user.isGM;
+    context.resistancesEnabled = isResistancesEnabled();
 
     // Alvos de Resistência (Geral + cada Elemento ativo) — usado pela Skill (com "Nenhuma"
     // na frente) e pelo Título (uma entrada sempre tem um alvo, sem opção "Nenhuma").

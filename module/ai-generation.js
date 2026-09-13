@@ -5,7 +5,13 @@
  * de Habilidade (que não têm nada de IA, salvo quando delegam pra `requestAISpecialSkill`
  * abaixo) ficaram em skill-economy.js.
  */
-import { SYSTEM_ID, MEU_SISTEMA, isAnatomyEnabled, getActiveSpeciesPresets, getModuleSizePreset } from "./config.js";
+import {
+  SYSTEM_ID,
+  MEU_SISTEMA,
+  isAnatomyEnabled,
+  getActiveSpeciesPresets,
+  getModuleSizePreset
+} from "./config.js";
 import { callAIProvider } from "./ai/providers.js";
 import { buildSubSkillsFromSources } from "./skill-snapshot.js";
 import { ensureSystemCompendiums, registerItemInCompendium } from "./compendium.js";
@@ -214,20 +220,39 @@ export async function editDocumentWithAI(doc, instruction) {
 /*  Geração de NPCs e Montarias via IA           */
 /* -------------------------------------------- */
 
+/**
+ * HP e Mana NÃO são pedidos à IA: os dois são DERIVADOS dos atributos
+ * (`Atributo × Atributo × multiplicador`, ver `deriveVitalStats`). Antes o prompt pedia
+ * "hp"/"energy" e o resultado era descartado na preparação da ficha — como nada preenchia
+ * `attributes.combat.*.points`, todo NPC gerado nascia com os 7 atributos zerados e HP no piso.
+ * Agora a IA distribui PONTOS DE ATRIBUTO, que é o que o sistema realmente usa.
+ */
+const ATTRIBUTE_POINTS_FORMAT =
+  '"attributes": {' +
+  MEU_SISTEMA.COMBAT_ATTRIBUTES.map(a => `"${a}": number`).join(", ") +
+  "}";
+
 const NPC_SYSTEM_PROMPT =
   "Você é o motor de regras de um RPG de Foundry VTT. Responda SEMPRE com um único objeto JSON " +
   'estrito, sem markdown, no formato: {"name": string, "species": string, "level": number, ' +
-  '"hp": number, "energy": number, "biography": string (HTML curto), "personalityTraits": string, ' +
+  ATTRIBUTE_POINTS_FORMAT +
+  ', "biography": string (HTML curto), "personalityTraits": string, ' +
   '"skills": [{"name": string, "tier": "extra"|"normal", "level": number, "cost": number, "description": string}]}. ' +
+  "Em \"attributes\", distribua pontos de atributo coerentes com o conceito e o nível do NPC " +
+  "(um humano comum de nível 1 fica na casa de 3-6 por atributo; um chefe de fim de campanha, " +
+  "bem mais). Vida e Mana NÃO são informadas — o sistema as calcula a partir desses atributos. " +
   "Não inclua skills de tier racial ou superior — essas vêm automaticamente da Espécie.";
 
 const MOUNT_SYSTEM_PROMPT =
   "Você é o motor de regras de um RPG de Foundry VTT. Gere uma Montaria (besta de carga ou de combate). " +
   'Responda SEMPRE com um único objeto JSON estrito, sem markdown, no formato: {"name": string, ' +
-  '"species": string, "level": number, "hp": number, "energy": number, ' +
-  '"biography": string (HTML curto, mencione velocidade e capacidade de carga), ' +
+  '"species": string, "level": number, ' +
+  ATTRIBUTE_POINTS_FORMAT +
+  ', "biography": string (HTML curto, mencione velocidade e capacidade de carga), ' +
   '"skills": [{"name": string, "tier": "extra"|"normal", "level": number, "cost": number, "description": string}]}. ' +
-  "Não inclua skills de tier racial ou superior — essas vêm automaticamente da Espécie.";
+  "Em \"attributes\", distribua pontos coerentes com a besta (uma montaria de carga tem Força e " +
+  "Defesa altas e Magia baixa). Vida e Mana NÃO são informadas — o sistema as calcula a partir " +
+  "desses atributos. Não inclua skills de tier racial ou superior — essas vêm automaticamente da Espécie.";
 
 /**
  * Gera um NPC/Criatura (ou Montaria) completo via IA: cria o Actor, aplica o
@@ -241,8 +266,13 @@ export async function generateActorFromAI(prompt, options = {}) {
   const parsed = await generateJSON(isMount ? MOUNT_SYSTEM_PROMPT : NPC_SYSTEM_PROMPT, prompt);
 
   const species = parsed?.species || "humano";
-  const hp = Number(parsed?.hp) || 10;
-  const energy = Number(parsed?.energy) || 0;
+
+  // Pontos por atributo, saneados: a IA pode devolver texto, negativo ou chave inventada.
+  const combat = {};
+  for (const key of MEU_SISTEMA.COMBAT_ATTRIBUTES) {
+    const points = Math.max(0, Math.round(Number(parsed?.attributes?.[key]) || 0));
+    combat[key] = { points };
+  }
 
   const created = await Actor.create({
     name: parsed?.name || (isMount ? "Montaria Sem Nome" : "NPC Sem Nome"),
@@ -253,12 +283,18 @@ export async function generateActorFromAI(prompt, options = {}) {
       isPlayerCharacter: false,
       attributes: {
         level: Number(parsed?.level) || 1,
-        hp: { value: hp, max: hp },
-        energy: { value: energy, max: energy }
+        combat
       },
       biography: parsed?.biography || "",
       personality: { traits: parsed?.personalityTraits || "", desires: "", emotionalState: "" }
     }
+  });
+
+  // HP/Mana Máximos saem da fórmula (já recalculados na criação acima); começar o NPC com as
+  // barras cheias é o único ajuste que faz sentido — senão ele nasce com 10/N de Vida.
+  await created.update({
+    "system.attributes.hp.value": created.system.attributes.hp.max,
+    "system.attributes.energy.value": created.system.attributes.energy.max
   });
 
   const preset = getActiveSpeciesPresets()[species];
@@ -374,9 +410,20 @@ export async function generateVesselFromAI(prompt, vesselType, options = {}) {
     system: { shipSize, biography: parsed?.biography || "" }
   });
 
+  // A IA às vezes devolve dois Módulos da mesma categoria de slot único (dois Reatores, por
+  // exemplo). O hook `preCreateItem` que normalmente barra isso não enxerga os irmãos do MESMO
+  // `createEmbeddedDocuments`, então os dois passariam — a deduplicação tem que acontecer aqui,
+  // antes de criar: vale o primeiro de cada categoria de slot único.
+  const usedSingleSlots = new Set();
   const modulesData = Array.isArray(parsed?.modules)
     ? parsed.modules
         .filter(m => MEU_SISTEMA.STARSHIP_MODULE_CATEGORIES.includes(m?.category))
+        .filter(m => {
+          if (!MEU_SISTEMA.STARSHIP_SINGLE_SLOT_CATEGORIES.includes(m.category)) return true;
+          if (usedSingleSlots.has(m.category)) return false;
+          usedSingleSlots.add(m.category);
+          return true;
+        })
         .map(m => {
           const moduleSize = MEU_SISTEMA.MODULE_SIZES.includes(m.moduleSize) ? m.moduleSize : "standard";
           return {

@@ -196,6 +196,7 @@
       </ol>
       <a class="title-bonus-add" data-action="addTitleBonus">+ Bônus</a>
 
+      {{#if resistancesEnabled}}
       <h3>Resistência a Dano <span class="hint-inline">(percentual fixo — não tem nível)</span></h3>
       <ol class="sub-list">
         {{#each titleResistances as |res index|}}
@@ -211,6 +212,7 @@
         {{/each}}
       </ol>
       <a class="title-resistance-add" data-action="addTitleResistance">+ Resistência</a>
+      {{/if}}
       {{/if}}
 
       {{#if (eq itemType "starship_module")}}

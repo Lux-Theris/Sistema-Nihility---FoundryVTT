@@ -45,12 +45,26 @@ function shipSystemsSchema({ sizeChoices }) {
 
     powerGrid: new fields.SchemaField({
       /**
-       * Geração contínua do Reator. Manualmente editável enquanto não houver Módulo "reactor"
-       * instalado; a partir do momento que houver, vira derivada dele (`reactorOutput` do
-       * Módulo × throttle, ver `prepareDerivedData`) e este valor passa a ser só um espelho.
+       * Geração contínua LÍQUIDA do Reator — sempre derivada (ver `prepareDerivedData`), nunca
+       * editável à mão: `reactorOutput` do Módulo × throttle × fome de energia, MENOS o Custo
+       * por Rodada de toda Habilidade Ativa ligada (`activeUpkeepDrain`). É de propósito que o
+       * upkeep entre aqui em vez de virar um desconto salvo em algum lugar: uma Skill Ativa
+       * compete com a geração bruta do Reator (não com a reserva da Bateria), e desligá-la
+       * devolve a energia sozinha, sem estado nenhum pra vazar ou precisar de limpeza.
+       * `powerGrid.reactorBaseOutput` (também derivado) guarda a geração ANTES desse desconto —
+       * é o teto que `tickActorUpkeepSkills` usa pra decidir o que a Nave ainda consegue manter
+       * ligado.
        */
       reactorOutput: new fields.NumberField({ required: true, integer: true, initial: 100, min: 0 }),
-      /** Baterias/Capacitores: armazenam excedente e descarregam quando o consumo supera o reator. */
+      /**
+       * Baterias/Capacitores: armazenam excedente e descarregam quando o consumo supera o
+       * reator. É também o pool de onde sai o Custo ÚNICO (pago ao usar/ligar) de uma
+       * Habilidade de Nave — ver `energyValuePath` em skill-effects.js.
+       *
+       * `max` é sempre derivado (ver `prepareDerivedData`): sem Módulo de Bateria vale o mínimo
+       * dos conduítes do casco (`MEU_SISTEMA.CONDUIT_CAPACITOR_BY_SHIP_SIZE`, pequeno mas nunca
+       * zero); com Bateria instalada, a capacidade dela SUBSTITUI esse mínimo.
+       */
       capacitor: new fields.SchemaField({
         value: new fields.NumberField({ required: true, integer: true, initial: 50, min: 0 }),
         max: new fields.NumberField({ required: true, integer: true, initial: 50, min: 0 })
@@ -105,6 +119,21 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
   /** Rótulo de energia atual (setting compartilhada entre Nave e Veículo). */
   get energyLabel() {
     return getStarshipEnergyLabel();
+  }
+
+  /**
+   * Resultado memorizado de `powerShortfall` dentro de UM ciclo de preparação de dados. Sem
+   * isso, `effectiveModuleStat` refaz a ordenação de todos os Módulos uma vez POR CAMPO lido —
+   * renderizar a ficha de uma Nave com uma dúzia de Módulos repetia a mesma conta dezenas de
+   * vezes. Invalidado em `prepareDerivedData` (ver lá os dois pontos de invalidação e por que
+   * são dois).
+   * @type {{ratios: Map<string, number>, totalDemand: number, capacity: number}|null}
+   */
+  #shortfallCache = null;
+
+  /** Descarta o valor memorizado de fome de energia — chamado sempre que um insumo dele muda. */
+  #invalidatePowerCache() {
+    this.#shortfallCache = null;
   }
 
   /** Módulos instalados (Items type "starship_module"). */
@@ -171,10 +200,10 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
   }
 
   /**
-   * Orçamento de espaço de Arma pro Porte desta Nave/Veículo. Placeholder `Infinity`
-   * (sem limite) até `MEU_SISTEMA.WEAPON_SLOT_BUDGET_BY_SHIP_SIZE` ser preenchido — valores a
-   * fechar com o Mestre (Fase 8 do overhaul de Naves); a partir do momento que a tabela
-   * existir, o orçamento passa a valer sozinho, sem mudar mais nada neste getter.
+   * Orçamento de espaço de Arma pro Porte desta Nave/Veículo, de
+   * `MEU_SISTEMA.WEAPON_SLOT_BUDGET_BY_SHIP_SIZE` (Mini = 1 Arma Compacta, dobrando por Porte).
+   * O `?? Infinity` é só a rede de segurança pra um Porte fora da tabela: nesse caso o
+   * orçamento não bloqueia nada, em vez de zerar e impedir qualquer Arma.
    */
   get weaponSlotBudget() {
     return MEU_SISTEMA.WEAPON_SLOT_BUDGET_BY_SHIP_SIZE?.[this.shipSize] ?? Infinity;
@@ -208,6 +237,8 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
    * que a Nave/Veículo consegue entregar — se resolve sozinho assim que a demanda cair.
    */
   get powerShortfall() {
+    if (this.#shortfallCache) return this.#shortfallCache;
+
     const online = this.modules.filter(m => m.system.status === "online");
     const sorted = [...online].sort((a, b) => a.system.powerPriority - b.system.powerPriority);
     let available = Math.min(this.powerGrid.reactorOutput, this.transferCapacity) + this.powerGrid.capacitor.value;
@@ -228,7 +259,8 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
       }
     }
 
-    return { ratios, totalDemand: this.totalConsumption, capacity: this.transferCapacity };
+    this.#shortfallCache = { ratios, totalDemand: this.totalConsumption, capacity: this.transferCapacity };
+    return this.#shortfallCache;
   }
 
   /** Fração (0-1) de capacidade que este Módulo de fato recebe agora — 1 se não houver déficit de energia. */
@@ -250,12 +282,55 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
     return Math.round((module.system[field] ?? 0) * throttleRatio * powerRatio);
   }
 
+  /**
+   * Soma do Custo por Rodada de toda Habilidade Ativa ligada nesta Nave/Veículo — top-level e
+   * cada Sub-Skill de uma Skill Fundida (várias podem estar ligadas ao mesmo tempo). Vira um
+   * desconto direto na geração do Reator (ver `prepareDerivedData`), e não um `update()` que
+   * precisaria ser desfeito ao desligar: o estado `active` da Skill JÁ é a persistência disso.
+   */
+  get activeUpkeepDrain() {
+    let sum = 0;
+    for (const skill of this.parent.items) {
+      if (skill.type !== "skill") continue;
+      if (skill.system.hasUpkeep && skill.system.active) sum += Number(skill.system.upkeepCost) || 0;
+      for (const sub of skill.system.subSkills ?? []) {
+        if (sub.hasUpkeep && sub.active) sum += Number(sub.upkeepCost) || 0;
+      }
+    }
+    return sum;
+  }
+
   prepareDerivedData() {
-    // Reator/Bateria/Escudo/Casco são 100% derivados do Módulo instalado — sem o Módulo
-    // correspondente o valor é 0, não um fallback editável à mão (instalar o Módulo é a única
-    // forma de configurar isso agora). `effectiveModuleStat`/`?? 0` já cobrem o caso "sem Módulo".
-    this.powerGrid.reactorOutput = this.effectiveModuleStat(this.reactorModule, "reactorOutput");
-    this.powerGrid.capacitor.max = this.effectiveModuleStat(this.batteryModule, "batteryCapacity");
+    // 1ª invalidação: os dados podem ter mudado desde a última preparação.
+    this.#invalidatePowerCache();
+
+    // FASE A — os INSUMOS do cálculo de fome de energia (Reator e Capacitor). Tudo aqui é 100%
+    // derivado do Módulo instalado; sem o Módulo correspondente o valor é 0 (ou o mínimo de
+    // conduíte, no caso do Capacitor), nunca um fallback editável à mão.
+    // `reactorBaseOutput` é a geração ANTES do desconto de Habilidades Ativas (não faz parte do
+    // schema salvo, mesmo padrão de `attributePointsPool` em character-model.js); `reactorOutput`
+    // é o que sobra de fato pros Módulos depois que as Skills Ativas reservam a parte delas.
+    this.powerGrid.reactorBaseOutput = this.effectiveModuleStat(this.reactorModule, "reactorOutput");
+    this.powerGrid.reactorOutput = Math.max(0, this.powerGrid.reactorBaseOutput - this.activeUpkeepDrain);
+    // Capacitor: o mínimo dos conduítes do casco é o piso natural de toda Nave/Veículo; o
+    // Módulo de Bateria SUBSTITUI esse valor (não soma) quando instalado. A tabela de conduíte
+    // fica toda abaixo da menor Bateria instalável, então trocar nunca piora — ver
+    // MEU_SISTEMA.CONDUIT_CAPACITOR_BY_SHIP_SIZE.
+    this.powerGrid.capacitor.max = this.batteryModule
+      ? this.effectiveModuleStat(this.batteryModule, "batteryCapacity")
+      : MEU_SISTEMA.CONDUIT_CAPACITOR_BY_SHIP_SIZE[this.shipSize] ?? 0;
+    // Clampar a reserva AQUI (e não junto dos outros clamps lá embaixo) é deliberado:
+    // `powerShortfall` soma `capacitor.value` na energia disponível, e financiar Módulo com
+    // reserva acima do próprio máximo — situação real logo depois de trocar por uma Bateria
+    // menor — inflaria Escudo/Motor por um instante.
+    this.powerGrid.capacitor.value = Math.clamp(this.powerGrid.capacitor.value, 0, this.powerGrid.capacitor.max);
+
+    // 2ª invalidação: os insumos acima acabaram de mudar. A partir daqui eles estão finalizados,
+    // então o valor memorizado passa a ser o definitivo desta preparação — é este ponto que
+    // torna o cache seguro, em vez de congelar um estado intermediário da Fase A.
+    this.#invalidatePowerCache();
+
+    // FASE B — capacidades derivadas, todas lendo a fome de energia já resolvida e estável.
     this.shields.max = this.effectiveModuleStat(this.shieldModule, "shieldCapacity");
     this.shields.regenRate = this.effectiveModuleStat(this.shieldModule, "shieldRegen");
     this.casco.max = this.armorModule?.system.hp.max ?? 0;
@@ -263,7 +338,6 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
     this.hull.value = Math.clamp(this.hull.value, 0, this.hull.max);
     this.shields.value = Math.clamp(this.shields.value, 0, this.shields.max);
     this.casco.value = Math.clamp(this.casco.value, 0, this.casco.max);
-    this.powerGrid.capacitor.value = Math.clamp(this.powerGrid.capacitor.value, 0, this.powerGrid.capacitor.max);
     this.powerGrid.isOverloaded = this.availableEnergy < 0;
   }
 

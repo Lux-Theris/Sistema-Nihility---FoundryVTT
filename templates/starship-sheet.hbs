@@ -113,7 +113,7 @@
         <div class="power-grid-summary {{#if isOverloaded}}overloaded{{/if}}">
           <div class="power-stat">
             <label>Reator</label>
-            <span>{{system.powerGrid.reactorOutput}} EPS</span>
+            <span>{{system.powerGrid.reactorOutput}} {{energyLabel}}</span>
             {{#unless reactorModule}}<span class="hint-inline" style="margin:0;">(sem Reator instalado)</span>{{/unless}}
           </div>
           <div class="power-stat">
@@ -126,15 +126,15 @@
             <input type="number" name="system.powerGrid.capacitor.value" value="{{system.powerGrid.capacitor.value}}"/>
             <span>/</span>
             <span>{{system.powerGrid.capacitor.max}}</span>
-            {{#unless batteryModule}}<span class="hint-inline" style="margin:0;">(sem Bateria instalada)</span>{{/unless}}
+            {{#unless batteryModule}}<span class="hint-inline" style="margin:0;" title="Energia parada nos conduítes do casco. Instalar um Módulo de Bateria substitui esse valor.">(conduítes — sem Bateria instalada)</span>{{/unless}}
           </div>
           <div class="power-stat">
             <label>Consumo Total</label>
-            <span>{{totalConsumption}} EPS</span>
+            <span>{{totalConsumption}} {{energyLabel}}</span>
           </div>
           <div class="power-stat">
             <label>Energia Disponível</label>
-            <span>{{availableEnergy}} EPS</span>
+            <span>{{availableEnergy}} {{energyLabel}}</span>
           </div>
           {{#if isOverloaded}}<p class="overload-alert">⚠ GRID SOBRECARREGADO</p>{{/if}}
         </div>
@@ -151,7 +151,7 @@
               <img src="{{module.img}}" width="24" height="24"/>
               <span class="item-name">{{module.name}}</span>
               <span class="item-consumption">
-                {{module.system.powerConsumption}} EPS &middot; Throttle {{module.system.powerAllocationPercent}}% &middot; {{module.system.status}} &middot; {{module.system.hp.value}}/{{module.system.hp.max}} HP
+                {{module.system.powerConsumption}} {{../energyLabel}} &middot; Throttle {{module.system.powerAllocationPercent}}% &middot; {{module.system.status}} &middot; {{module.system.hp.value}}/{{module.system.hp.max}} HP
                 {{#if (eq module.system.category "armor")}} &middot; Redução {{module.system.armorReduction}}%{{/if}}
                 {{#if (eq module.system.category "engine")}} &middot; Rotação {{../system.maneuverability}}{{/if}}
                 {{#if (eq module.system.category "ftl")}} &middot; Fator ×{{module.system.warpFactor}}{{#if (eq module.system.ftlType "jump")}} &middot; Carga {{module.system.chargeRemaining}}/{{module.system.chargeTime}}{{/if}}{{/if}}
@@ -184,7 +184,7 @@
               <span class="cat-pill cat-{{module.system.category}}">{{lookup ../config.STARSHIP_MODULE_CATEGORY_LABELS module.system.category}}</span>
               <img src="{{module.img}}" width="24" height="24"/>
               <span class="item-name">{{module.name}}</span>
-              <span class="item-consumption">{{module.system.powerConsumption}} EPS &middot; Throttle {{module.system.powerAllocationPercent}}% &middot; {{module.system.status}} &middot; {{module.system.hp.value}}/{{module.system.hp.max}} HP</span>
+              <span class="item-consumption">{{module.system.powerConsumption}} {{../energyLabel}} &middot; Throttle {{module.system.powerAllocationPercent}}% &middot; {{module.system.status}} &middot; {{module.system.hp.value}}/{{module.system.hp.max}} HP</span>
               {{#if (lt (lookup ../powerRatios module.id) 100)}}<span class="power-shortage-badge" title="Recebendo só {{lookup ../powerRatios module.id}}% da energia pedida">⚠ Energia insuficiente</span>{{/if}}
               <a class="module-toggle-power" data-action="toggleModulePower" title="Ligar/Desligar"><i class="fas fa-power-off"></i></a>
               {{#if ../isGM}}<a class="vital-adjust-toggle" data-action="toggleModuleVitalAdjust" data-key="module-hp-{{module.id}}" title="Ajustar Vida do Módulo"><i class="fas fa-plus"></i></a>{{/if}}
@@ -233,7 +233,7 @@
               <img src="{{module.img}}" width="24" height="24"/>
               <span class="item-name">{{module.name}}</span>
               <span class="item-consumption">
-                Custo {{module.system.powerConsumption}} EPS &middot; Throttle {{module.system.powerAllocationPercent}}% &middot; {{module.system.status}} &middot; {{module.system.hp.value}}/{{module.system.hp.max}} HP
+                Custo {{module.system.powerConsumption}} {{../energyLabel}} &middot; Throttle {{module.system.powerAllocationPercent}}% &middot; {{module.system.status}} &middot; {{module.system.hp.value}}/{{module.system.hp.max}} HP
                 &middot; Dano {{module.system.damageFormula}} &middot; Penetração {{module.system.penetration}}%
                 {{#if module.system.cooldownRounds}} &middot; Recarga {{module.system.cooldownRounds}} rodada(s){{/if}}
               </span>

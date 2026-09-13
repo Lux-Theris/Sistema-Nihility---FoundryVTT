@@ -7,6 +7,7 @@
  */
 import { SYSTEM_ID, MEU_SISTEMA, sceneActorCandidates } from "./config.js";
 import { rollAttribute } from "./dice.js";
+import { renderSystemTemplate } from "./helpers/foundry-compat.js";
 
 const { DialogV2 } = foundry.applications.api;
 
@@ -118,7 +119,7 @@ export async function requestShipRepair() {
 }
 
 async function createShipRepairRequestMessage(ship, engineer, target) {
-  const content = await renderTemplate(`systems/${SYSTEM_ID}/templates/chat/ship-repair-request.hbs`, {
+  const content = await renderSystemTemplate(`systems/${SYSTEM_ID}/templates/chat/ship-repair-request.hbs`, {
     shipName: ship.name,
     engineerName: engineer.name,
     targetLabel: target.label,
@@ -151,7 +152,7 @@ async function createShipRepairRequestMessage(ship, engineer, target) {
 
 async function updateShipRepairMessage(message, status) {
   const req = { ...message.flags[SYSTEM_ID].shipRepairRequest, status };
-  const content = await renderTemplate(`systems/${SYSTEM_ID}/templates/chat/ship-repair-request.hbs`, {
+  const content = await renderSystemTemplate(`systems/${SYSTEM_ID}/templates/chat/ship-repair-request.hbs`, {
     shipName: game.actors.get(req.shipId)?.name ?? "?",
     engineerName: game.actors.get(req.engineerId)?.name ?? "?",
     targetLabel: req.targetLabel,

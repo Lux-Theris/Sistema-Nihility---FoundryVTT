@@ -7,7 +7,14 @@
  *    HP/Mana Máximo mesmo quando o alvo é um atributo); "shield" é somado
  *    direto, sem duração, gasto na mão pelo jogador conforme absorve dano.
  */
-import { SYSTEM_ID, MEU_SISTEMA, getActiveDamageElements, getActiveStatusConditions, getEnergyLabelForActor } from "./config.js";
+import {
+  SYSTEM_ID,
+  MEU_SISTEMA,
+  getActiveDamageElements,
+  getActiveStatusConditions,
+  getEnergyLabelForActor,
+  isEnergyPoolEnabled
+} from "./config.js";
 import { announceVoiceOfTheWorld } from "./voice-of-the-world.js";
 import { playSkillAnimation } from "./vfx.js";
 
@@ -46,17 +53,26 @@ function activeStatePath(subSkillIndex) {
 }
 
 /**
- * Caminho e valor atual do "pool" que Custo/Custo por Rodada de uma Skill gastam — Personagem/
- * Criatura usa Mana/Energia (`attributes.energy`); Nave e Veículo (mesmo Grid de Energia desde
- * o overhaul de Porte) usam o Reator (`powerGrid.reactorOutput`), NUNCA o Capacitor (decisão
- * deliberada: Habilidade Ativa de Nave/Veículo compete só com a geração do Reator, sem
- * interagir com o resto do Grid/surplus-deficit que `applyPowerGridTick` já cobre).
+ * Caminho e valor atual do pool de onde sai o Custo ÚNICO de uma Skill (pago uma vez ao usar/
+ * ligar): Personagem/Criatura gasta Mana/Energia (`attributes.energy`); Nave e Veículo (mesmo
+ * Grid de Energia desde o overhaul de Porte) gastam a reserva do Capacitor
+ * (`powerGrid.capacitor.value`).
+ *
+ * Precisa ser um campo PERSISTIDO — antes isso apontava pra `powerGrid.reactorOutput`, que é
+ * recalculado do Módulo de Reator a cada `prepareDerivedData()`: o desconto era sobrescrito na
+ * preparação seguinte (Skill de Nave saía de graça) e, sem Módulo de Reator, o valor lido era
+ * sempre 0 (nenhuma Skill com custo jamais podia ser usada).
+ *
+ * O Custo POR RODADA (upkeep) não passa por aqui: ele é descontado direto da geração do Reator,
+ * de forma derivada, por `ShipSystemsDataModel.activeUpkeepDrain` — quem controla esse desconto
+ * é o próprio estado `active` da Skill, então desligar devolve a energia sem precisar de
+ * nenhuma escrita de compensação.
  */
 function energyValuePath(actor) {
-  return isShipLike(actor) ? "system.powerGrid.reactorOutput" : "system.attributes.energy.value";
+  return isShipLike(actor) ? "system.powerGrid.capacitor.value" : "system.attributes.energy.value";
 }
 function currentEnergyValue(actor) {
-  return isShipLike(actor) ? (actor.system.powerGrid.reactorOutput ?? 0) : (actor.system.attributes.energy.value ?? 0);
+  return isShipLike(actor) ? (actor.system.powerGrid.capacitor.value ?? 0) : (actor.system.attributes.energy.value ?? 0);
 }
 
 /** Avisa só quem clicou (whisper individual) que a Energia (nome configurável) atual não cobre o Custo. */
@@ -157,7 +173,11 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
     return true;
   }
 
-  const cost = Number(mech.cost) || 0;
+  // Numa campanha sem pool de Mana/Energia (setting `energyPoolEnabled`), Personagem/Criatura
+  // não paga Custo nenhum — a Habilidade continua funcionando, o recurso é que não existe.
+  // Nave/Veículo ignora esse desligamento: o Grid de Energia é um sistema à parte.
+  const chargesEnergy = isShipLike(sourceActor) || isEnergyPoolEnabled();
+  const cost = chargesEnergy ? Number(mech.cost) || 0 : 0;
   if (cost > 0) {
     const current = currentEnergyValue(sourceActor);
     if (current < cost) {
@@ -419,7 +439,7 @@ export async function fireStarshipWeapon(sourceActor, weaponModule, targetActor 
  * redução em cima do mesmo total. `mech` é `skill.system`, o snapshot de uma Sub-Skill, ou (pro
  * caso de tick) um objeto sintético `{ damageElements }` — mesmo formato de campos
  * (isMagicDamage/damageElements) nos três casos.
- * @param {{skipMagicDefense?: boolean, sourceActor?: Actor}} [options] - `skipMagicDefense: true`
+ * @param {{skipMagicDefense?: boolean}} [options] - `skipMagicDefense: true`
  *   pula o passo de Defesa Mágica mesmo com `mech.isMagicDamage` true — usado pelos ticks
  *   periódicos, onde Veneno Mágico ignora Defesa Mágica de propósito (só Resistência reduz),
  *   diferente do dano "normal" de uma Skill. Nave/Veículo NÃO passa por aqui — usa a cascata de
@@ -489,7 +509,12 @@ async function rollSkillDamage(actor, mech, label, targetActor = null) {
     // Nunca revela NO CHAT que/quanto de Resistência ou Defesa Mágica foi aplicada — só o
     // número final. A redução em si continua acontecendo (applyDamageReductions), só não
     // aparece na mensagem (nem a existência dela, mesmo quando reduz a 0).
-    finalDamage = applyDamageReductions(boostedTotal, mech, targetActor, { sourceActor: actor }).finalDamage;
+    finalDamage = applyDamageReductions(boostedTotal, mech, targetActor).finalDamage;
+    // O `roll.toMessage()` abaixo mostra o total BRUTO da rolagem — sem esta linha o número
+    // final (já reduzido) nunca chegava ao chat, e o Mestre acabava aplicando o bruto: na
+    // prática, Resistência e Defesa Mágica não valiam nada contra alvo único. Mesmo formato
+    // "Alvo: número" que a versão em área (`rollSkillDamageArea`) já usava.
+    if (targetActor) flavor += ` — ${targetActor.name}: ${finalDamage}`;
   }
 
   await roll.toMessage({
@@ -532,7 +557,7 @@ async function rollSkillDamageArea(actor, mech, label, targetActors) {
       const { toShield, toCasco, toHull } = await applyStarshipDamageCascade(boostedTotal, actor, targetActor);
       rows.push(`<li><strong>${targetActor.name}</strong>: Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}</li>`);
     } else {
-      const { finalDamage } = applyDamageReductions(boostedTotal, mech, targetActor, { sourceActor: actor });
+      const { finalDamage } = applyDamageReductions(boostedTotal, mech, targetActor);
       rows.push(`<li><strong>${targetActor.name}</strong>: ${finalDamage}</li>`);
     }
   }
@@ -851,27 +876,24 @@ function collectActiveUpkeepSources(actor) {
   return sources;
 }
 
-/**
- * Drena a Energia de toda Skill "Ativa" (hasUpkeep + active) do Ator a cada rodada — chamada do
- * mesmo hook `updateCombat` (nihility-rpg-system.js) que já tica Veneno/cura contínua (ver
- * `tickCombatRoundEffects` acima), sempre que chega a vez desse Ator. Processa uma fonte de
- * cada vez (não tudo de uma vez) porque várias Skills Ativas competem pela MESMA Energia — a
- * ordem importa quando não sobra pra todas. Energia nunca fica negativa: se não sobrar o
- * suficiente pro Custo por Rodada inteiro, drena só o que tem (até 0) e desativa a Skill
- * sozinha, avisando o dono do Ator + o Mestre pela Voz do Mundo (nunca público — é
- * meta-informação de recurso, não algo pra narrar na mesa).
- * @param {Actor} actor
- */
-export async function tickActorUpkeepSkills(actor) {
-  const sources = collectActiveUpkeepSources(actor);
-  if (!sources.length) return [];
+/** Desliga uma Skill/Sub-Skill Ativa e solta tudo que ela estava segurando (buffs, Veneno ancorado...). */
+async function deactivateUpkeepSource(source) {
+  await source.skill.update({ [activeStatePath(source.subSkillIndex)]: false });
+  await removeUpkeepLinkedEffects(source.skill, source.subSkillIndex);
+}
 
+/**
+ * Personagem/Criatura: o Custo por Rodada sai da Mana/Energia de verdade, uma fonte por vez
+ * (não tudo de uma vez) porque várias Skills Ativas competem pelo MESMO pool — a ordem importa
+ * quando não sobra pra todas. A Energia nunca fica negativa: se não cobrir o Custo por Rodada
+ * inteiro, drena só o que tem (até 0) e desativa a Skill sozinha.
+ */
+async function drainCharacterUpkeep(actor, sources) {
   const results = [];
   for (const source of sources) {
     const currentEnergy = currentEnergyValue(actor);
     if (currentEnergy <= 0) {
-      await source.skill.update({ [activeStatePath(source.subSkillIndex)]: false });
-      await removeUpkeepLinkedEffects(source.skill, source.subSkillIndex);
+      await deactivateUpkeepSource(source);
       results.push({ label: source.label, drained: 0, deactivated: true });
       continue;
     }
@@ -880,17 +902,66 @@ export async function tickActorUpkeepSkills(actor) {
     await actor.update({ [energyValuePath(actor)]: currentEnergy - drain });
 
     const insufficient = drain < source.upkeepCost;
-    if (insufficient) {
-      await source.skill.update({ [activeStatePath(source.subSkillIndex)]: false });
-      await removeUpkeepLinkedEffects(source.skill, source.subSkillIndex);
-    }
+    if (insufficient) await deactivateUpkeepSource(source);
     results.push({ label: source.label, drained: drain, deactivated: insufficient });
   }
+  return results;
+}
+
+/**
+ * Nave/Veículo: o Custo por Rodada NÃO é drenado de lugar nenhum — ele já sai da geração do
+ * Reator continuamente, de forma derivada (`ShipSystemsDataModel.activeUpkeepDrain`, que
+ * `prepareDerivedData` subtrai de `powerGrid.reactorOutput`). O que este tick faz é só aplicar
+ * o TETO: se a soma das Skills ligadas passar da geração bruta do Reator
+ * (`powerGrid.reactorBaseOutput`), a Nave não consegue sustentar todas — as que não couberem
+ * são desligadas, na ordem em que aparecem na ficha. Sem esse teto, `reactorOutput` ficaria
+ * preso em 0 e a Nave inteira entraria em fome de energia permanente.
+ */
+async function enforceShipUpkeepCapacity(actor, sources) {
+  const capacity = actor.system.powerGrid.reactorBaseOutput ?? 0;
+  const results = [];
+  let reserved = 0;
+
+  for (const source of sources) {
+    if (reserved + source.upkeepCost <= capacity) {
+      reserved += source.upkeepCost;
+      results.push({ label: source.label, drained: source.upkeepCost, deactivated: false });
+      continue;
+    }
+    await deactivateUpkeepSource(source);
+    results.push({ label: source.label, drained: 0, deactivated: true });
+  }
+  return results;
+}
+
+/**
+ * Processa o Custo por Rodada de toda Skill "Ativa" (hasUpkeep + active) do Ator — chamada do
+ * mesmo hook `updateCombat` (nihility-rpg-system.js) que já tica Veneno/cura contínua (ver
+ * `tickCombatRoundEffects` acima), sempre que chega a vez desse Ator. O mecanismo difere por
+ * tipo de Ator (ver as duas funções acima): Personagem drena o pool de verdade, Nave/Veículo só
+ * confere se o Reator sustenta o que está ligado. Nos dois casos, o que não se sustenta é
+ * desativado sozinho e avisado ao dono do Ator + Mestre pela Voz do Mundo (nunca público — é
+ * meta-informação de recurso, não algo pra narrar na mesa).
+ * @param {Actor} actor
+ */
+export async function tickActorUpkeepSkills(actor) {
+  const sources = collectActiveUpkeepSources(actor);
+  if (!sources.length) return [];
+
+  const shipLike = isShipLike(actor);
+  // Sem pool de Mana/Energia não há o que drenar nem o que desativar por falta de recurso: a
+  // Habilidade Ativa vira um liga/desliga puramente narrativo (ver `energyPoolEnabled`).
+  if (!shipLike && !isEnergyPoolEnabled()) return [];
+  const results = shipLike ? await enforceShipUpkeepCapacity(actor, sources) : await drainCharacterUpkeep(actor, sources);
 
   const energyLabel = getEnergyLabelForActor(actor);
-  const rows = results.map(
-    r => `<li><strong>${r.label}</strong>: -${r.drained} ${energyLabel}${r.deactivated ? ` (desativada — ${energyLabel} insuficiente)` : ""}</li>`
-  );
+  // Nave não "perde" a energia do upkeep — ela fica reservada enquanto a Skill estiver ligada
+  // (e volta sozinha ao desligar), então o verbo no chat é outro.
+  const rows = results.map(r => {
+    const amount = shipLike ? `${r.drained} ${energyLabel} reservado(s) do Reator` : `-${r.drained} ${energyLabel}`;
+    const reason = shipLike ? "Reator não sustenta" : `${energyLabel} insuficiente`;
+    return `<li><strong>${r.label}</strong>: ${amount}${r.deactivated ? ` (desativada — ${reason})` : ""}</li>`;
+  });
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor }),
     content: `<p><strong>${actor.name}</strong> — início de turno, Habilidades Ativas:</p><ul>${rows.join("")}</ul>`
@@ -900,7 +971,9 @@ export async function tickActorUpkeepSkills(actor) {
     await announceVoiceOfTheWorld(actor, {
       kind: "skill-deactivated",
       title: "Habilidade Desativada",
-      body: `${r.label} foi desativada automaticamente — ${actor.name} ficou sem ${energyLabel} suficiente pra mantê-la.`
+      body: shipLike
+        ? `${r.label} foi desativada automaticamente — o Reator de ${actor.name} não tem geração suficiente pra sustentá-la.`
+        : `${r.label} foi desativada automaticamente — ${actor.name} ficou sem ${energyLabel} suficiente pra mantê-la.`
     });
   }
 

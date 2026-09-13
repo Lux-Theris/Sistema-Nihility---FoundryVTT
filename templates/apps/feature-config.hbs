@@ -1,0 +1,51 @@
+<div class="config-editor-body">
+  <p class="hint">
+    Ligue ou desligue cada bloco do sistema conforme a campanha deste mundo.
+    <strong>Desligar nunca apaga nada</strong> — o bloco só some da interface e para de aceitar
+    conteúdo novo; Atores, Itens e Compêndios que já existem continuam intactos, e religar
+    devolve tudo como estava.
+  </p>
+
+  <div class="feature-presets">
+    <p class="block-title">Presets de Campanha</p>
+    <div class="feature-preset-row">
+      {{#each presets as |preset|}}
+      <button type="button" class="feature-preset-btn" data-action="applyPreset" data-preset="{{preset.key}}" title="{{preset.hint}}">
+        {{preset.label}}
+      </button>
+      {{/each}}
+    </div>
+  </div>
+
+  <div class="feature-list">
+    {{#each features as |feature|}}
+    <div class="feature-row {{#unless feature.checked}}is-off{{/unless}}">
+      <label class="feature-main">
+        <input type="checkbox" data-feature="{{feature.key}}" {{#if feature.checked}}checked{{/if}}/>
+        <span class="feature-text">
+          <span class="feature-name">{{feature.name}}</span>
+          <span class="feature-hint">{{feature.hint}}</span>
+        </span>
+      </label>
+
+      {{#if feature.children.length}}
+      <div class="feature-children">
+        {{#each feature.children as |child|}}
+        <label class="feature-main child {{#unless ../feature.checked}}is-inherited-off{{/unless}}">
+          <input type="checkbox" data-feature="{{child.key}}" {{#if child.checked}}checked{{/if}}/>
+          <span class="feature-text">
+            <span class="feature-name">{{child.name}}</span>
+            <span class="feature-hint">{{child.hint}}</span>
+          </span>
+        </label>
+        {{/each}}
+      </div>
+      {{/if}}
+    </div>
+    {{/each}}
+  </div>
+
+  <footer class="sheet-footer">
+    <button type="button" data-action="save"><i class="fas fa-save"></i> Salvar</button>
+  </footer>
+</div>

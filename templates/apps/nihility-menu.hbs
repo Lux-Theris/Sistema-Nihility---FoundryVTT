@@ -57,6 +57,18 @@
       <div class="nm-content-head"><h2>Configurações Gerais</h2></div>
       <div class="nm-card-grid">
         <div class="nm-feature-card">
+          <div class="nm-icon-badge violet"><i class="fas fa-toggle-on"></i></div>
+          <h4>Módulos do Sistema</h4>
+          <p>Ligar/desligar blocos (Naves, Títulos, Fusão, PAD...) e aplicar presets de campanha.</p>
+          <button class="nm-card-button" data-action="runAction" data-menu-action="feature-config">Configurar</button>
+        </div>
+        <div class="nm-feature-card">
+          <div class="nm-icon-badge"><i class="fas fa-fire"></i></div>
+          <h4>Tipos de Dano</h4>
+          <p>Elementos de dano disponíveis para Habilidades e Resistências.</p>
+          <button class="nm-card-button" data-action="runAction" data-menu-action="damage-elements-config">Configurar</button>
+        </div>
+        <div class="nm-feature-card">
           <div class="nm-icon-badge"><i class="fas fa-coins"></i></div>
           <h4>Sistema de Economia</h4>
           <p>Gerenciar moedas e transações.</p>
@@ -87,6 +99,12 @@
       <div class="nm-content-head"><h2>Assistente de IA</h2></div>
       <div class="nm-card-grid">
         <div class="nm-feature-card">
+          <div class="nm-icon-badge violet"><i class="fas fa-robot"></i></div>
+          <h4>Assistente Completo</h4>
+          <p>Abre sem tarefa pré-escolhida — é por aqui que se chega nos modos Editar Existente e Agente.</p>
+          <button class="nm-card-button" data-action="runAction" data-menu-action="open-ai-assistant">Abrir</button>
+        </div>
+        <div class="nm-feature-card">
           <div class="nm-icon-badge"><i class="fas fa-user"></i></div>
           <h4>Geração de NPC</h4>
           <p>Criar personagens com base em descrições.</p>
@@ -98,6 +116,7 @@
           <p>Criar montarias e bestas de carga.</p>
           <button class="nm-card-button" data-action="runAction" data-menu-action="generate-mount">Gerar</button>
         </div>
+        {{#if vesselsEnabled}}
         <div class="nm-feature-card">
           <div class="nm-icon-badge violet"><i class="fas fa-rocket"></i></div>
           <h4>Naves Espaciais</h4>
@@ -110,6 +129,7 @@
           <p>Criar veículos terrestres.</p>
           <button class="nm-card-button" data-action="runAction" data-menu-action="generate-vehicle">Gerar</button>
         </div>
+        {{/if}}
         <div class="nm-feature-card">
           <div class="nm-icon-badge gold"><i class="fas fa-bolt"></i></div>
           <h4>Habilidades</h4>
@@ -163,6 +183,12 @@
           <h4>Sincronização</h4>
           <p>Sincronizar dados do sistema.</p>
           <button class="nm-card-button" data-action="runAction" data-menu-action="sync-data">Sincronizar</button>
+        </div>
+        <div class="nm-feature-card">
+          <div class="nm-icon-badge gold"><i class="fas fa-wand-magic-sparkles"></i></div>
+          <h4>Macros do Sistema</h4>
+          <p>Cria as macros de Menu Principal e Pedido de Reparo na sua barra (não duplica as que já existem).</p>
+          <button class="nm-card-button" data-action="runAction" data-menu-action="create-macros">Criar</button>
         </div>
         <div class="nm-feature-card">
           <div class="nm-icon-badge"><i class="fas fa-file-import"></i></div>

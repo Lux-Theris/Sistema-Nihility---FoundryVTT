@@ -5,7 +5,17 @@
  * documentos criados/editados naquela rodada — pra poder desfazer tudo de uma vez.
  */
 import { SYSTEM_ID } from "../config.js";
+import { compendiumCollectionClass } from "./foundry-compat.js";
 
+/**
+ * Este Compêndio é criado aqui e NÃO entra em `MEU_SISTEMA.COMPENDIUM` de propósito (decisão
+ * revisada e mantida): aquela tabela é de Compêndios de CONTEÚDO DE JOGO (Skills, Títulos,
+ * Módulos, Biblioteca/Grupos do PAD) — coisas que o Mestre abre, navega e edita, e que o botão
+ * "Sincronizar" do menu recria por serem parte do mundo. Este aqui é infraestrutura interna: um
+ * log de desfazer que ninguém deveria abrir à mão. Juntar os dois faria "Sincronizar" recriar um
+ * log vazio e daria a entender que é conteúdo. O preço é existirem dois caminhos de criação de
+ * Compêndio no sistema — é intencional, não descuido.
+ */
 const BACKUP_PACK_KEY = `${SYSTEM_ID}-ai-backups`;
 
 async function ensureBackupPack() {
@@ -14,7 +24,7 @@ async function ensureBackupPack() {
   if (pack) return pack;
   if (!game.user.isGM) return null;
 
-  pack = await CompendiumCollection.createCompendium({
+  pack = await compendiumCollectionClass().createCompendium({
     type: "JournalEntry",
     label: "Nihility — Backups do Assistente de IA",
     name: BACKUP_PACK_KEY,

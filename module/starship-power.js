@@ -16,9 +16,10 @@ function overloadThreshold(category) {
 
 /**
  * Calcula o patch de update de UM Módulo pro tick por rodada (Overhaul de Naves, Fase 3):
- * decrementa Carga de Salto FTL, aplica dano por sobrecarga (magnitude ainda 0 — ver
- * MEU_SISTEMA.OVERLOAD_DAMAGE_PERCENT_OF_MAX_PER_ROUND, pendente de balanceamento na Fase 8) e
- * desliga sozinho qualquer Módulo cuja Vida chegue a 0. `null` se nada mudou.
+ * decrementa Carga de Salto FTL e Recarga de Arma, aplica dano por sobrecarga
+ * (MEU_SISTEMA.OVERLOAD_DAMAGE_PERCENT_OF_MAX_PER_ROUND, hoje 0.5 = ~5% da Vida Máxima por
+ * rodada a cada 10 pontos de throttle acima do limiar da categoria) e desliga sozinho qualquer
+ * Módulo cuja Vida chegue a 0. `null` se nada mudou.
  */
 function computeModuleTickPatch(module) {
   const sys = module.system;
@@ -95,6 +96,13 @@ export async function tickStarshipPower(actor) {
 
   const shieldPatch = computeShieldTickPatch(actor);
   if (shieldPatch) await actor.update(shieldPatch);
+
+  // Carga/descarga do Capacitor por rodada. Antes isso só acontecia se alguém clicasse no botão
+  // manual da ficha, então o Capacitor ficava congelado durante o combate inteiro — o que passou
+  // a importar de verdade quando ele virou o pool de onde sai o Custo de Habilidade de Nave
+  // (ver `energyValuePath` em skill-effects.js): sem este tick, gastar a reserva era definitivo.
+  // Roda por último, depois de Módulos/Escudo, pra somar em cima do estado já atualizado.
+  await actor.system.applyPowerGridTick();
 }
 
 /** Um Módulo desligado por Vida zerada só pode ser religado a partir de MODULE_RESTART_HP_THRESHOLD_PERCENT de Vida Máxima. */

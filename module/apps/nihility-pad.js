@@ -22,6 +22,7 @@ import {
   addSavedContact,
   getPendingContactShares
 } from "../pad/pad-messaging.js";
+import { getDragEventData } from "../helpers/foundry-compat.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -164,12 +165,7 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Recebe um Item/JournalEntry/Actor arrastado da barra lateral/ficha como novo favorito da Biblioteca (pessoal ou da Nave, conforme a aba ativa no momento do drop). */
   async _onDropLibraryEntry(event) {
     event.preventDefault();
-    let data;
-    try {
-      data = TextEditor.getDragEventData(event);
-    } catch (err) {
-      return;
-    }
+    const data = getDragEventData(event);
     if (!data?.uuid) return;
 
     const doc = await fromUuid(data.uuid);

@@ -4,6 +4,7 @@ import { createGrantedSkill, removeGrantedSkill } from "../skill-economy.js";
 import { useSkillEffect, fireStarshipWeapon } from "../skill-effects.js";
 import { moduleCanRestart } from "../starship-power.js";
 import { syncLibraryOwnershipToCrew } from "../pad/pad-library.js";
+import { pickImageFile, getDragEventData } from "../helpers/foundry-compat.js";
 
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -86,12 +87,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
   /** Recebe um Ator (PJ ou NPC) arrastado da barra lateral/ficha como novo tripulante da aba Tripulação. */
   async _onDropCrewMember(event) {
     event.preventDefault();
-    let data;
-    try {
-      data = TextEditor.getDragEventData(event);
-    } catch (err) {
-      return;
-    }
+    const data = getDragEventData(event);
     if (!data?.uuid) return;
 
     const doc = await fromUuid(data.uuid);
@@ -132,12 +128,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
   static async onEditImage(event, target) {
     const field = target.dataset.edit || "img";
     const current = foundry.utils.getProperty(this.actor, field);
-    const fp = new FilePicker({
-      type: "image",
-      current,
-      callback: path => this.actor.update({ [field]: path })
-    });
-    fp.render(true);
+    pickImageFile(current, path => this.actor.update({ [field]: path }));
   }
 
   /**
@@ -384,7 +375,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.batteryModule = actor.system.batteryModule;
     context.distributorModule = actor.system.distributorModule;
 
-    context.transferCapacityLabel = `${actor.system.transferCapacity} EPS/rodada`;
+    context.transferCapacityLabel = `${actor.system.transferCapacity} ${context.energyLabel}/rodada`;
 
     // Cascata de dano Escudo→Casco→Estrutura (Fase 4) — as 3 barras compartilhadas do cabeçalho.
     context.shieldPercent = percentOf(actor.system.shields.value, actor.system.shields.max);

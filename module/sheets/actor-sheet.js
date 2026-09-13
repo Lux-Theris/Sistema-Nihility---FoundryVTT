@@ -8,6 +8,11 @@ import {
   isTitlesEnabled,
   isAnatomyEnabled,
   isPadEnabled,
+  isSkillFusionEnabled,
+  isSkillPointsEnabled,
+  isAttributePoolEnabled,
+  isEnergyPoolEnabled,
+  isAreaEffectsEnabled,
   sceneActorCandidates,
   debugLog
 } from "../config.js";
@@ -19,6 +24,7 @@ import { rollAttribute, buildAttributeRollFormula } from "../dice.js";
 import { useSkillEffect, tickPeriodicEffect } from "../skill-effects.js";
 import { areaEffectsSupported, pickAreaTargets } from "../area-effects.js";
 import { openSkillEditorDialog } from "../apps/skill-editor-dialog.js";
+import { pickImageFile } from "../helpers/foundry-compat.js";
 
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -131,12 +137,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
   static async #onEditImage(event, target) {
     const field = target.dataset.edit || "img";
     const current = foundry.utils.getProperty(this.actor, field);
-    const fp = new FilePicker({
-      type: "image",
-      current,
-      callback: path => this.actor.update({ [field]: path })
-    });
-    fp.render(true);
+    pickImageFile(current, path => this.actor.update({ [field]: path }));
   }
 
   /**
@@ -170,6 +171,10 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.economyEnabled = isEconomyEnabled();
     context.titlesEnabled = isTitlesEnabled();
     context.anatomyEnabled = isAnatomyEnabled();
+    context.skillFusionEnabled = isSkillFusionEnabled();
+    context.skillPointsEnabled = isSkillPointsEnabled();
+    context.attributePoolEnabled = isAttributePoolEnabled();
+    context.energyPoolEnabled = isEnergyPoolEnabled();
     context.isGM = game.user.isGM;
     // Mestre sempre vê o botão (ferramenta de Mestre, independente de o NPC possuir o Item
     // físico); jogador só vê se o próprio Ator tiver ao menos um Item marcado como PAD.
@@ -454,6 +459,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
   /** +1 pendente no atributo — só se sobrar Pool livre (confirmado + pendente de TODOS os atributos). */
   static async #onIncrementAttributePoint(event, target) {
     event.preventDefault();
+    if (!isAttributePoolEnabled()) return;
     const key = target.closest("[data-attribute]").dataset.attribute;
     if (this.actor.system.attributePointsPool.remaining <= 0) return;
     const current = this.actor.system.attributes.combat[key].pendingPoints ?? 0;
@@ -768,9 +774,11 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     }
 
     try {
-      if (mech.targetType === "emission") {
+      if (mech.targetType === "emission" && isAreaEffectsEnabled()) {
         // Sem alvo manual — o usuário posiciona a forma no canvas e a Skill afeta quem
         // estiver dentro dela, sem etapa de revisão (decisão explícita: aplica direto).
+        // Com o bloco de Emissão desligado na campanha, a Skill não quebra: cai no fluxo de
+        // alvo único abaixo (a mecânica dela continua valendo, só a seleção por área some).
         if (!areaEffectsSupported()) {
           ui.notifications.warn("Skills de Emissão precisam de acesso ao canvas da cena ativa.");
           return;

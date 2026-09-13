@@ -5,8 +5,9 @@
  * exclusivas do Mestre — a trilha mostra essas abas com cadeado pro jogador em vez de
  * simplesmente escondê-las, pra deixar claro que existem e são intencionalmente bloqueadas.
  */
-import { SYSTEM_ID, MEU_SISTEMA, debugLog } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, isVesselsEnabled, isAIAssistantEnabled, debugLog } from "../config.js";
 import { ensureSystemCompendiums } from "../compendium.js";
+import { saveTextToFile, readFileAsText } from "../helpers/foundry-compat.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 
@@ -26,6 +27,66 @@ const AI_TASK_ACTIONS = {
 /** Abas exclusivas do Mestre — o jogador nunca consegue selecioná-las, mesmo clicando no item travado da trilha. */
 const GM_ONLY_TABS = ["system", "ai", "generation", "tools"];
 
+/**
+ * Macros que o sistema oferece pra hotbar. `game.nihility.*` é a API pública (ver o `init` em
+ * nihility-rpg-system.js) — estas macros existem só pra poupar o Mestre de digitar a chamada à
+ * mão, que era a única forma de chegar nelas antes.
+ *
+ * `ownership.default: OBSERVER` no Reparo é proposital: reparar é uma ação de JOGADOR (ele
+ * escolhe a Nave, a peça e o engenheiro; o Mestre só rola e aprova depois), então a macro
+ * precisa ser executável por quem não é Mestre. O Menu Principal também é aberto a jogadores,
+ * por causa da aba "Fichas".
+ */
+const SYSTEM_MACROS = [
+  {
+    name: "Nihility — Menu Principal",
+    img: "icons/svg/book.svg",
+    command: "game.nihility.openAssistant();"
+  },
+  {
+    name: "Nihility — Pedir Reparo de Nave",
+    img: "icons/svg/hazard.svg",
+    command: "game.nihility.requestShipRepair();"
+  }
+];
+
+/**
+ * Cria as macros do sistema no mundo e coloca cada uma na primeira vaga livre da hotbar de quem
+ * clicou. Idempotente: uma macro com o mesmo nome que já exista é reaproveitada (nunca duplica,
+ * e nunca sobrescreve uma que o Mestre tenha editado à mão).
+ */
+async function createSystemMacros() {
+  const created = [];
+  const reused = [];
+
+  for (const definition of SYSTEM_MACROS) {
+    let macro = game.macros.find(m => m.name === definition.name);
+    if (macro) {
+      reused.push(macro);
+    } else {
+      macro = await Macro.create({
+        name: definition.name,
+        type: "script",
+        img: definition.img,
+        command: definition.command,
+        ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER }
+      });
+      if (macro) created.push(macro);
+    }
+
+    // Só ocupa a hotbar se a macro ainda não estiver nela — e só se sobrar vaga (slots 1-50).
+    if (macro && !Object.values(game.user.hotbar).includes(macro.id)) {
+      const freeSlot = Array.from({ length: 50 }, (_, i) => i + 1).find(slot => !game.user.hotbar[slot]);
+      if (freeSlot) await game.user.assignHotbarMacro(macro, freeSlot);
+    }
+  }
+
+  const parts = [];
+  if (created.length) parts.push(`${created.length} macro(s) criada(s)`);
+  if (reused.length) parts.push(`${reused.length} já existia(m)`);
+  ui.notifications.info(`${parts.join(", ")} — confira a barra de macros.`);
+}
+
 /** Recria os compêndios auto-geridos do sistema (Skills/Partes do Corpo/Títulos/Módulos), caso algum tenha sido apagado. */
 async function syncData() {
   await ensureSystemCompendiums();
@@ -43,7 +104,7 @@ async function exportData() {
     damageElementsData: JSON.parse(game.settings.get(SYSTEM_ID, S.damageElementsData)),
     statusConditionsData: JSON.parse(game.settings.get(SYSTEM_ID, S.statusConditionsData))
   };
-  saveDataToFile(JSON.stringify(bundle, null, 2), "application/json", "nihility-config.json");
+  saveTextToFile(JSON.stringify(bundle, null, 2), "application/json", "nihility-config.json");
 }
 
 /**
@@ -61,7 +122,7 @@ async function importData() {
     if (!file) return;
 
     try {
-      const text = await readTextFromFile(file);
+      const text = await readFileAsText(file);
       const bundle = JSON.parse(text);
       const hasExpectedShape =
         bundle && typeof bundle === "object" && "currenciesData" in bundle && "speciesPresetsData" in bundle && "damageElementsData" in bundle;
@@ -127,13 +188,28 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if (!isGM && GM_ONLY_TABS.includes(this.activeTab)) this.activeTab = "fichas";
     context.activeTab = this.activeTab;
 
+    // Blocos desligados pela campanha somem da trilha inteira (diferente de gmOnly, que mostra
+    // o cadeado): não é "existe mas você não pode", é "esta campanha não usa isso".
+    const aiEnabled = isAIAssistantEnabled();
+    context.vesselsEnabled = isVesselsEnabled();
+    context.aiAssistantEnabled = aiEnabled;
+
     context.railItems = [
       { id: "fichas", label: "Fichas", icon: "fas fa-users" },
       { id: "system", label: "Configurações Gerais", icon: "fas fa-cog", gmOnly: true },
-      { id: "ai", label: "Assistente de IA", icon: "fas fa-robot", gmOnly: true },
-      { id: "generation", label: "Geração Automática", icon: "fas fa-magic", gmOnly: true },
+      { id: "ai", label: "Assistente de IA", icon: "fas fa-robot", gmOnly: true, feature: aiEnabled },
+      { id: "generation", label: "Geração Automática", icon: "fas fa-magic", gmOnly: true, feature: aiEnabled },
       { id: "tools", label: "Ferramentas de Admin", icon: "fas fa-tools", gmOnly: true }
-    ].map(item => ({ ...item, active: item.id === context.activeTab, locked: item.gmOnly && !isGM }));
+    ]
+      .filter(item => item.feature !== false)
+      .map(item => ({ ...item, active: item.id === context.activeTab, locked: item.gmOnly && !isGM }));
+
+    // Se a aba ativa acabou de sumir (bloco desligado), volta pra Fichas em vez de renderizar vazio.
+    if (!context.railItems.some(item => item.id === this.activeTab)) {
+      this.activeTab = "fichas";
+      context.activeTab = "fichas";
+      context.railItems = context.railItems.map(item => ({ ...item, active: item.id === "fichas" }));
+    }
 
     context.actors = this._getVisibleActors();
 
@@ -250,6 +326,16 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
         new AIAssistantApp({ initialMode: "agent" }).render(true);
         break;
       }
+      case "feature-config": {
+        const { FeatureConfigApp } = await import("./feature-config.js");
+        new FeatureConfigApp().render(true);
+        break;
+      }
+      case "damage-elements-config": {
+        const { DamageElementsConfigApp } = await import("./damage-elements-config.js");
+        new DamageElementsConfigApp().render(true);
+        break;
+      }
       case "economy-config": {
         const { CurrencyConfigApp } = await import("./currency-config.js");
         new CurrencyConfigApp().render(true);
@@ -274,6 +360,9 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
         else ui.notifications.warn("Compêndio de Títulos ainda não existe — use 'Sincronizar' primeiro.");
         break;
       }
+      case "create-macros":
+        await createSystemMacros();
+        break;
       case "sync-data":
         await syncData();
         break;

@@ -13,6 +13,7 @@ import { registerItemInCompendium } from "../compendium.js";
 import { runAgentTask } from "../ai/agent-runner.js";
 import { createAgentTools } from "../ai/agent-tools.js";
 import { recordBatchOperation, undoBatchOperation, listRecentBatchOperations } from "../helpers/world-backup.js";
+import { getDragEventData } from "../helpers/foundry-compat.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 
@@ -156,12 +157,7 @@ export class AIAssistantApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Recebe um Ator ou Item arrastado da barra lateral/ficha como alvo de edição. */
   async _onDropEditTarget(event) {
     event.preventDefault();
-    let data;
-    try {
-      data = TextEditor.getDragEventData(event);
-    } catch (err) {
-      return;
-    }
+    const data = getDragEventData(event);
     if (!data?.uuid) return;
 
     const doc = await fromUuid(data.uuid);

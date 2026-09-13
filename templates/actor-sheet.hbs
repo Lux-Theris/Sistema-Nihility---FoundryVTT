@@ -47,6 +47,7 @@
         <button type="button" class="vital-adjust-btn heal" data-action="adjustVital" data-vital="hp" data-dir="1">+ Cura</button>
       </div>
 
+      {{#if energyPoolEnabled}}
       <div class="vital-row" data-vital="energy">
         <span class="vital-label">{{energyLabel}}</span>
         <span class="vital-track"><span class="vital-fill energy" style="width:{{energyPercent}}%"></span></span>
@@ -60,6 +61,7 @@
         <button type="button" class="vital-adjust-btn dmg" data-action="adjustVital" data-vital="energy" data-dir="-1">− Gastar</button>
         <button type="button" class="vital-adjust-btn heal" data-action="adjustVital" data-vital="energy" data-dir="1">+ Restaurar</button>
       </div>
+      {{/if}}
 
       {{#if shieldValue}}
       <div class="vital-row shield-row">
@@ -115,10 +117,12 @@
               A cada +10 de Bônus a rolagem ganha +1d20 (todos somados). Arma/equipamento nunca
               entram nessa conta — somam por fora, na hora da rolagem.
             </p>
+            {{#if attributePoolEnabled}}
             <div class="attr-pool-banner">
               <span class="attr-pool-readout">{{system.attributePointsPool.remaining}}<span class="of"> / {{system.attributePointsPool.total}} livres</span></span>
               <span class="attr-pool-track"><span class="attr-pool-fill" style="width:{{attributePoolPercent}}%"></span></span>
             </div>
+            {{/if}}
 
             {{#each attributeLabels as |attr|}}
             <div class="attr-row-v2 {{#if attr.data.pendingPoints}}is-pending{{/if}}" data-attribute="{{attr.key}}">
@@ -127,11 +131,19 @@
                   <span class="label">{{attr.label}}</span>
                   <span class="pts">{{attr.data.points}} pts{{#if attr.data.pendingPoints}}<span class="pending-add"> +{{attr.data.pendingPoints}}</span>{{/if}}</span>
                 </div>
+                {{#if ../attributePoolEnabled}}
                 <div class="stepper">
                   <button type="button" class="step-btn minus" data-action="decrementAttributePoint" title="Desfazer 1 ponto pendente" {{#unless attr.data.pendingPoints}}disabled{{/unless}}>&minus;</button>
                   <span class="step-readout {{#if attr.data.pendingPoints}}has-pending{{/if}}">{{#if attr.data.pendingPoints}}+{{attr.data.pendingPoints}}{{else}}0{{/if}}</span>
                   <button type="button" class="step-btn plus" data-action="incrementAttributePoint" title="Alocar 1 ponto livre" {{#unless ../system.attributePointsPool.remaining}}disabled{{/unless}}>+</button>
                 </div>
+                {{else}}
+                <!-- Pool de Pontos de Atributo desligado nesta campanha: os pontos viram um campo
+                     de digitação livre, sem orçamento nem etapa de confirmação. -->
+                <div class="stepper free-entry">
+                  <input type="number" name="system.attributes.combat.{{attr.key}}.points" value="{{attr.data.points}}" min="0"/>
+                </div>
+                {{/if}}
               </div>
               <div class="attr-formula">
                 <span class="dice-pill current {{#if attr.data.pendingPoints}}will-change{{/if}}">{{attr.formula}}</span>
@@ -145,7 +157,7 @@
             </div>
             {{/each}}
 
-            {{#if attributePointsPending}}
+            {{#if attributePoolEnabled}}{{#if attributePointsPending}}
             <div class="attr-action-bar visible">
               <span class="summary"><strong>{{attributePointsPending}}</strong> pts pendentes</span>
               <span class="buttons">
@@ -153,7 +165,7 @@
                 <button type="button" class="btn-mini confirm" data-action="confirmAttributePoints">Confirmar</button>
               </span>
             </div>
-            {{/if}}
+            {{/if}}{{/if}}
           </div>
 
           {{#if titlesEnabled}}
@@ -178,6 +190,7 @@
         <!-- Coluna direita: Pontos de Habilidade, Habilidades, Itens, Economia -->
         <div class="col-right">
 
+          {{#if skillPointsEnabled}}
           <div class="block">
             <p class="block-title">Pontos de Habilidade</p>
             <div class="sp-ledger">
@@ -193,11 +206,12 @@
               {{/each}}
             </div>
           </div>
+          {{/if}}
 
           <div class="block">
             <div class="row-between">
               <p class="block-title" style="margin:0">Habilidades</p>
-              {{#if isGM}}<button type="button" class="skill-fuse-button" data-action="fuseSkills">⚡ Fundir Selecionadas</button>{{/if}}
+              {{#if skillFusionEnabled}}{{#if isGM}}<button type="button" class="skill-fuse-button" data-action="fuseSkills">⚡ Fundir Selecionadas</button>{{/if}}{{/if}}
             </div>
 
             {{#each visibleTiers as |tier|}}
@@ -209,7 +223,7 @@
                   {{#if skill.system.isItemGranted}}
                   <span class="item-granted-badge" title="Concedida por Item/Módulo — não pode ser fundida">⚙</span>
                   {{else if ../../isGM}}
-                  <input type="checkbox" class="skill-fuse-checkbox" data-item-id="{{skill.id}}"/>
+                  {{#if ../../skillFusionEnabled}}<input type="checkbox" class="skill-fuse-checkbox" data-item-id="{{skill.id}}"/>{{/if}}
                   {{/if}}
                   <img src="{{skill.img}}" width="24" height="24"/>
                   <span class="item-name">{{skill.name}}</span>
@@ -235,7 +249,7 @@
             {{/each}}
 
             {{#if isGM}}<a class="item-create" data-action="createItem" data-type="skill">+ Nova Habilidade (direto)</a>{{/if}}
-            <button type="button" class="skill-request-button" data-action="requestSkillCreation">+ Pedir Criação com Pontos</button>
+            {{#if skillPointsEnabled}}<button type="button" class="skill-request-button" data-action="requestSkillCreation">+ Pedir Criação com Pontos</button>{{/if}}
           </div>
 
           <div class="block">

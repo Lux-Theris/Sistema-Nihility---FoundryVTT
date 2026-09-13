@@ -2,7 +2,8 @@ import {
   getCharacterEnergyLabel,
   MEU_SISTEMA,
   getAttributePointsStarting,
-  getAttributePointsPerLevel
+  getAttributePointsPerLevel,
+  getVitalFormula
 } from "../config.js";
 
 const fields = foundry.data.fields;
@@ -196,12 +197,19 @@ function deriveCombatAttributes(dataModel) {
 }
 
 /**
- * HP Máximo = Força.Total × Defesa.Total × 10; Mana Máxima = Magia.Total × Defesa
- * Mágica.Total × 10 — usando só a base PERMANENTE dos atributos (buffs temporários
- * de atributo nunca entram aqui). A fórmula em si nunca fica abaixo de
- * MIN_BASE_VITAL_STAT (mesmo com os 7 atributos zerados) — modificadores
- * permanentes (Título/Skill/Item/Modificação) e o buffDelta temporário de HP/Mana
- * somam por cima desse piso, sem limite próprio.
+ * HP Máximo = (Atributo A).Total × (Atributo B).Total × Multiplicador; Mana Máxima segue a
+ * mesma forma com o outro par de atributos — usando só a base PERMANENTE dos atributos (buffs
+ * temporários de atributo nunca entram aqui). A fórmula em si nunca fica abaixo do Piso (mesmo
+ * com os 7 atributos zerados); modificadores permanentes (Título/Skill/Item/Modificação) e o
+ * buffDelta temporário de HP/Mana somam por cima desse piso, sem limite próprio.
+ *
+ * QUAIS atributos entram, o multiplicador e o piso vêm de `getVitalFormula()` (settings do
+ * Mestre) — o padrão continua sendo Força×Defesa e Magia×Defesa Mágica ×10, piso 50, que é
+ * exatamente o comportamento anterior. É isso que permite uma campanha sem magia: apontar a
+ * Mana pra outros dois atributos, ou desligar o pool inteiro (`energyEnabled: false`), caso em
+ * que o Máximo vira 0 e a barra some da ficha — nenhum Custo de Habilidade é cobrado nesse modo
+ * (ver `useSkillEffect` em skill-effects.js).
+ *
  * Precisa rodar DEPOIS de deriveCombatAttributes (usa combat.X.total já calculado).
  */
 function deriveVitalStats(dataModel) {
@@ -209,15 +217,24 @@ function deriveVitalStats(dataModel) {
   const combat = dataModel.attributes.combat;
   const hp = dataModel.attributes.hp;
   const energy = dataModel.attributes.energy;
-  const minBase = MEU_SISTEMA.MIN_BASE_VITAL_STAT;
+  const formula = getVitalFormula();
 
-  const baseHpMax = Math.max(minBase, Math.round(combat.strength.total * combat.defense.total * 10));
-  const baseEnergyMax = Math.max(minBase, Math.round(combat.magic.total * combat.magicalDefense.total * 10));
+  const product = ([first, second]) => (combat[first]?.total ?? 0) * (combat[second]?.total ?? 0);
+  const baseHpMax = Math.max(formula.floor, Math.round(product(formula.hp) * formula.multiplier));
 
   hp.max = Math.max(1, baseHpMax + sumPermanentStatModifier(actor, "hp") + (hp.buffDelta || 0));
-  energy.max = Math.max(0, baseEnergyMax + sumPermanentStatModifier(actor, "energy") + (energy.buffDelta || 0));
-
   hp.value = Math.clamp(hp.value, 0, hp.max);
+
+  if (!formula.energyEnabled) {
+    // Campanha sem pool de Mana/Energia: zera em vez de esconder só visualmente, pra nenhuma
+    // regra (Custo, upkeep, tick periódico com alvo "energy") ler um valor que a mesa não usa.
+    energy.max = 0;
+    energy.value = 0;
+    return;
+  }
+
+  const baseEnergyMax = Math.max(formula.floor, Math.round(product(formula.energy) * formula.multiplier));
+  energy.max = Math.max(0, baseEnergyMax + sumPermanentStatModifier(actor, "energy") + (energy.buffDelta || 0));
   energy.value = Math.clamp(energy.value, 0, energy.max);
 }
 
@@ -256,37 +273,6 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
   }
 
   /** true se o Ator já possuir alguma Skill tier "ultimate" — controla se a UI pode mencionar Ultimate. */
-  get hasUltimateSkill() {
-    return this.parent.items.some(i => i.type === "skill" && i.system.tier === "ultimate");
-  }
-
-  prepareDerivedData() {
-    deriveCombatAttributes(this);
-    deriveVitalStats(this);
-  }
-}
-
-export class CreatureDataModel extends foundry.abstract.TypeDataModel {
-  static defineSchema() {
-    return {
-      ...baseActorSchema(),
-      isPlayerCharacter: new fields.BooleanField({ required: true, initial: false }),
-      challengeRating: new fields.NumberField({ required: false, initial: 1, min: 0 })
-    };
-  }
-
-  get energyLabel() {
-    return getCharacterEnergyLabel();
-  }
-
-  get bodyParts() {
-    return this.parent.items.filter(i => i.type === "body_part");
-  }
-
-  get titles() {
-    return this.parent.items.filter(i => i.type === "title");
-  }
-
   get hasUltimateSkill() {
     return this.parent.items.some(i => i.type === "skill" && i.system.tier === "ultimate");
   }

@@ -10,7 +10,9 @@ import {
   getSkillPointsPerLevel,
   getSkillPointsStarting,
   getCompletedMigrations,
-  markMigrationCompleted
+  markMigrationCompleted,
+  isSkillPointsEnabled,
+  isVesselsEnabled
 } from "./config.js";
 import { CharacterDataModel } from "./data/character-model.js";
 import { StarshipDataModel, VehicleDataModel } from "./data/starship-model.js";
@@ -33,9 +35,16 @@ import { SpeciesConfigApp } from "./apps/species-config.js";
 import { DamageElementsConfigApp } from "./apps/damage-elements-config.js";
 import { StatusConditionsConfigApp } from "./apps/status-conditions-config.js";
 import { NihilityMenuApp } from "./apps/nihility-menu.js";
+import { FeatureConfigApp } from "./apps/feature-config.js";
 import { tickCombatRoundEffects, tickActorUpkeepSkills } from "./skill-effects.js";
 import { tickStarshipPower } from "./starship-power.js";
 import { requestShipRepair, approveShipRepairRoll, restoreShipRepairTarget } from "./starship-repair.js";
+import {
+  actorsCollection,
+  itemsCollection,
+  coreActorSheetClass,
+  coreItemSheetClass
+} from "./helpers/foundry-compat.js";
 
 Hooks.once("init", () => {
   console.log(`${SYSTEM_ID} | Inicializando sistema...`);
@@ -55,6 +64,15 @@ Hooks.once("init", () => {
   registerSystemSettings();
 
   // Editores visuais (Settings Menu) para as settings de config:false acima.
+  game.settings.registerMenu(SYSTEM_ID, "featureConfigMenu", {
+    name: "Configurar Módulos do Sistema",
+    label: "Configurar Módulos do Sistema",
+    hint: "Liga/desliga blocos do sistema (Naves, Títulos, Fusão, PAD...) e aplica presets de campanha.",
+    icon: "fas fa-toggle-on",
+    type: FeatureConfigApp,
+    restricted: true
+  });
+
   game.settings.registerMenu(SYSTEM_ID, "currencyConfigMenu", {
     name: "Configurar Moedas",
     label: "Configurar Moedas",
@@ -102,19 +120,36 @@ Hooks.once("init", () => {
   CONFIG.Item.dataModels.starship_module = StarshipModuleDataModel;
   CONFIG.Item.dataModels.item = GenericItemDataModel;
 
-  // NPCs/monstros usam o tipo "character" com isPlayerCharacter=false (ver CreatureDataModel
-  // em data/character-model.js, reservado para uso direto via API/macros quando necessário).
+  // NPCs/monstros/montarias usam o MESMO tipo "character", só com isPlayerCharacter=false —
+  // não existe um Data Model separado pra eles (tinha um, `CreatureDataModel`, que nunca foi
+  // registrado em lugar nenhum e por isso foi removido).
 
   // Registro das Sheets customizadas, substituindo as fichas padrão do core.
-  Actors.unregisterSheet("core", ActorSheet);
-  Actors.registerSheet(SYSTEM_ID, NihilityActorSheet, { types: ["character"], makeDefault: true });
-  Actors.registerSheet(SYSTEM_ID, NihilityStarshipSheet, { types: ["starship"], makeDefault: true });
-  Actors.registerSheet(SYSTEM_ID, NihilityVehicleSheet, { types: ["vehicle"], makeDefault: true });
+  const ActorsCollection = actorsCollection();
+  const ItemsCollection = itemsCollection();
 
-  Items.unregisterSheet("core", ItemSheet);
-  Items.registerSheet(SYSTEM_ID, NihilityItemSheet, {
+  ActorsCollection.unregisterSheet("core", coreActorSheetClass());
+  ActorsCollection.registerSheet(SYSTEM_ID, NihilityActorSheet, { types: ["character"], makeDefault: true });
+  ActorsCollection.registerSheet(SYSTEM_ID, NihilityStarshipSheet, { types: ["starship"], makeDefault: true });
+  ActorsCollection.registerSheet(SYSTEM_ID, NihilityVehicleSheet, { types: ["vehicle"], makeDefault: true });
+
+  ItemsCollection.unregisterSheet("core", coreItemSheetClass());
+  ItemsCollection.registerSheet(SYSTEM_ID, NihilityItemSheet, {
     types: ["skill", "body_part", "title", "starship_module", "item"],
     makeDefault: true
+  });
+
+  // Menu Principal do sistema. Fica AQUI dentro (e não no topo do módulo, como ficava antes):
+  // registrar setting/menu fora do hook `init` não é suportado pela API — rodava em tempo de
+  // import, antes de o Foundry garantir que `game.settings` existe, e qualquer mudança na
+  // ordem de boot derrubaria o sistema inteiro na hora de carregar.
+  game.settings.registerMenu(SYSTEM_ID, "nihilityMainMenu", {
+    name: "Menu Principal Nihility",
+    label: "Menu Principal",
+    hint: "Interface centralizada para todas as funcionalidades do sistema.",
+    icon: "fas fa-th-large",
+    type: NihilityMenuApp,
+    restricted: true
   });
 });
 
@@ -209,7 +244,18 @@ async function migrateElementalDamageToMagicTag() {
 // nos dados de criação — assim duplicar/importar um Ator existente (que carrega seu valor
 // atual) não ganha pontos extra de graça.
 Hooks.on("preCreateActor", (actor, data, options, userId) => {
+  // Naves/Veículos desligados pela campanha (ver MEU_SISTEMA.FEATURES) não podem ser CRIADOS —
+  // mas as que já existem continuam abrindo e funcionando normalmente. Desligar um bloco nunca
+  // apaga nem esconde dado salvo, só impede conteúdo novo.
+  if (["starship", "vehicle"].includes(data.type) && !isVesselsEnabled()) {
+    ui.notifications.warn(
+      "O bloco \"Naves e Veículos\" está desligado neste mundo (Configurar Módulos do Sistema)."
+    );
+    return false;
+  }
+
   if (data.type !== "character") return;
+  if (!isSkillPointsEnabled()) return;
   if (foundry.utils.getProperty(data, "system.skillPoints.normal") !== undefined) return;
 
   actor.updateSource({ "system.skillPoints.normal": getSkillPointsStarting() });
@@ -232,6 +278,8 @@ Hooks.on("preUpdateActor", (actor, changes) => {
   // Sempre anuncia quando o nível sobe, mesmo que a setting de Pontos por Nível esteja
   // zerada (por isso fica ANTES do early-return de `gained <= 0` logo abaixo).
   announceLevelUp(actor, newLevel);
+
+  if (!isSkillPointsEnabled()) return;
 
   const gained = (newLevel - oldLevel) * getSkillPointsPerLevel();
   if (gained <= 0) return;
@@ -285,11 +333,10 @@ function checkSingleSlotAvailable(actor, category, excludeItemId) {
 }
 
 /**
- * Overhaul de Naves (Fase 2) — orçamento de espaço de Arma por Porte da Nave/Veículo. Inerte
- * enquanto `MEU_SISTEMA.WEAPON_SLOT_BUDGET_BY_SHIP_SIZE` não existir: `weaponSlotBudget`
- * (ver ShipSystemsDataModel em starship-model.js) retorna `Infinity` até a tabela ser
- * preenchida na Fase 8 (valores a fechar com o Mestre), então esta checagem nunca bloqueia
- * nada por enquanto — só passa a valer sozinha quando a tabela existir.
+ * Overhaul de Naves (Fase 2) — orçamento de espaço de Arma por Porte da Nave/Veículo. Cada Arma
+ * consome `MODULE_SIZE_RANK + 1` unidades do orçamento do casco (`weaponSlotBudget`, ver
+ * ShipSystemsDataModel em starship-model.js): num Porte Mini cabe exatamente uma Arma Compacta.
+ * Só não bloqueia se o Porte não estiver na tabela (orçamento `Infinity`).
  */
 function checkWeaponBudget(actor, category, moduleSize, excludeItemId) {
   if (!actor || !["starship", "vehicle"].includes(actor.type)) return true;
@@ -366,25 +413,29 @@ Hooks.on("updateCombat", async (combat, changed) => {
 });
 
 // Botões de Aprovar/Rejeitar nos pedidos de criação de Skill via Pontos de Habilidade.
-Hooks.on("renderChatMessage", (message, html) => {
-  const $html = html instanceof jQuery ? html : $(html);
-  $html.find(".skill-request-approve").on("click", () => approveSkillCreationRequest(message));
-  $html.find(".skill-request-reject").on("click", () => rejectSkillCreationRequest(message));
+// `renderChatMessageHTML` (e não o antigo `renderChatMessage`) é o hook do V13+: entrega um
+// HTMLElement puro em vez de jQuery, então tudo aqui é DOM nativo.
+Hooks.on("renderChatMessageHTML", (message, html) => {
+  const on = (selector, handler) => html.querySelectorAll(selector).forEach(el => el.addEventListener("click", handler));
+
+  on(".skill-request-approve", () => approveSkillCreationRequest(message));
+  on(".skill-request-reject", () => rejectSkillCreationRequest(message));
 
   // Pedido de Reparo de Nave/Veículo (Overhaul de Naves, Fase 7) — o modificador do Mestre é
   // lido do próprio input no momento do clique, não guardado nas flags da mensagem.
-  $html.find(".repair-approve").on("click", event => {
-    const modifier = Number($(event.currentTarget).closest(".nihility-skill-request").find(".repair-modifier-input").val()) || 0;
+  on(".repair-approve", event => {
+    const card = event.currentTarget.closest(".nihility-skill-request");
+    const modifier = Number(card?.querySelector(".repair-modifier-input")?.value) || 0;
     approveShipRepairRoll(message, modifier);
   });
-  $html.find(".repair-restore").on("click", () => restoreShipRepairTarget(message));
+  on(".repair-restore", () => restoreShipRepairTarget(message));
 
   // PAD — mensagens e compartilhamentos de contato (estilo WhatsApp/CyberCall) ficam fora do log
   // de chat padrão por padrão; o PAD lê direto de game.messages, independente disso. `showInLog`
   // fica reservado pra uma futura opção de exibição — hoje nenhuma UI liga essa flag.
   const padMessage = message.getFlag(SYSTEM_ID, "padMessage");
   const padContactShare = message.getFlag(SYSTEM_ID, "padContactShare");
-  if ((padMessage && !padMessage.showInLog) || padContactShare) $html.hide();
+  if ((padMessage && !padMessage.showInLog) || padContactShare) html.style.display = "none";
 });
 
 // Botão do Menu Principal no diretório de Atores — ponto de entrada único pro sistema.
@@ -396,8 +447,11 @@ Hooks.on("renderChatMessage", (message, html) => {
 const AI_BUTTON_CONTAINER_SELECTORS = [".directory-footer", ".header-actions", ".directory-header", ".action-buttons"];
 
 Hooks.on("renderActorDirectory", (app, html) => {
-  // Verifica se o botão já existe
-  if (html.querySelector(".nihility-ai-assistant-button")) return;
+  // V13+ entrega um HTMLElement puro neste hook (no V12 era jQuery — por isso o sistema exige
+  // V13 como mínimo; ver `compatibility` em system.json).
+  const root = html;
+  if (!root?.querySelector) return;
+  if (root.querySelector(".nihility-ai-assistant-button")) return;
 
   const button = document.createElement("button");
   button.type = "button";
@@ -409,23 +463,14 @@ Hooks.on("renderActorDirectory", (app, html) => {
 
   let container = null;
   for (const selector of AI_BUTTON_CONTAINER_SELECTORS) {
-    const found = html.querySelector(selector);
+    const found = root.querySelector(selector);
     if (found) {
       container = found;
       break;
     }
   }
 
-  // Se não encontrou um container específico, usa o próprio html
-  (container ?? html).appendChild(button);
+  // Se não encontrou um container específico, usa a própria raiz do diretório.
+  (container ?? root).appendChild(button);
 });
 
-// Registro do menu principal do sistema
-game.settings.registerMenu(SYSTEM_ID, "nihilityMainMenu", {
-  name: "Menu Principal Nihility",
-  label: "Menu Principal",
-  hint: "Interface centralizada para todas as funcionalidades do sistema.",
-  icon: "fas fa-th-large",
-  type: NihilityMenuApp,
-  restricted: true
-});

@@ -1,4 +1,13 @@
-import { MEU_SISTEMA, getActiveDamageElements, getActiveStatusConditions, getResistanceTargetOptions, getCharacterEnergyLabel } from "../config.js";
+import {
+  MEU_SISTEMA,
+  getActiveDamageElements,
+  getActiveStatusConditions,
+  getResistanceTargetOptions,
+  getCharacterEnergyLabel,
+  isResistancesEnabled,
+  isStatusConditionsEnabled,
+  isAreaEffectsEnabled
+} from "../config.js";
 import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../skill-effects.js";
 
 const { DialogV2 } = foundry.applications.api;
@@ -17,11 +26,16 @@ function buildEffectRowHtml(entry) {
   const options = MEU_SISTEMA.EFFECT_TARGETS.map(
     t => `<option value="${t}" ${t === entry.target ? "selected" : ""}>${MEU_SISTEMA.EFFECT_TARGET_LABELS[t]}</option>`
   ).join("");
-  const conditionOptions =
-    `<option value="">— sem Condição —</option>` +
-    getActiveStatusConditions()
-      .map(c => `<option value="${c.id}" ${c.id === entry.conditionId ? "selected" : ""}>${c.label}</option>`)
-      .join("");
+  // Campanha sem Condições nomeadas: o <select> continua existindo (o resto do editor e o
+  // `readForm` contam com ele), mas fica escondido e só com a opção vazia — o efeito numérico
+  // da entrada continua funcionando igual, sem ganhar nome/ícone de status.
+  const conditionsEnabled = isStatusConditionsEnabled();
+  const conditionOptions = conditionsEnabled
+    ? `<option value="">— sem Condição —</option>` +
+      getActiveStatusConditions()
+        .map(c => `<option value="${c.id}" ${c.id === entry.conditionId ? "selected" : ""}>${c.label}</option>`)
+        .join("")
+    : `<option value="" selected>— sem Condição —</option>`;
   const tickUnitOptions = MEU_SISTEMA.PERIODIC_TICK_UNITS.map(
     u => `<option value="${u}" ${u === entry.tickUnit ? "selected" : ""}>${MEU_SISTEMA.PERIODIC_TICK_UNIT_LABELS[u]}</option>`
   ).join("");
@@ -49,7 +63,7 @@ function buildEffectRowHtml(entry) {
       <a class="se-effect-delete" title="Remover"><i class="fas fa-trash"></i></a>
     </div>
     <div class="effect-row-extra">
-      <select class="se-effect-condition" title="Condição nomeada (ícone de status no token — opcional)">${conditionOptions}</select>
+      <select class="se-effect-condition" title="Condição nomeada (ícone de status no token — opcional)" ${conditionsEnabled ? "" : 'style="display:none"'}>${conditionOptions}</select>
       <label class="checkbox-line small se-effect-periodic-line" style="display:${periodicVisible ? "inline-flex" : "none"};">
         <input type="checkbox" class="se-effect-periodic" ${entry.periodic ? "checked" : ""}/> Periódico
       </label>
@@ -149,7 +163,11 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     t => `<option value="${t}" ${t === data.effectType ? "selected" : ""}>${MEU_SISTEMA.SKILL_EFFECT_TYPE_LABELS[t]}</option>`
   ).join("");
 
-  const targetTypeOptions = MEU_SISTEMA.SKILL_TARGET_TYPES.map(
+
+  const availableTargetTypes = isAreaEffectsEnabled()
+    ? MEU_SISTEMA.SKILL_TARGET_TYPES
+    : MEU_SISTEMA.SKILL_TARGET_TYPES.filter(t => t !== "emission");
+  const targetTypeOptions = availableTargetTypes.map(
     t => `<option value="${t}" ${t === data.targetType ? "selected" : ""}>${MEU_SISTEMA.SKILL_TARGET_TYPE_LABELS[t]}</option>`
   ).join("");
 
@@ -175,6 +193,24 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
         </label>`
     )
     .join("");
+
+  // Bloco de Resistência: sai inteiro do editor quando a campanha não usa Resistências. O
+  // `resistEnable` ausente faz `readForm` devolver resistanceTarget "" — uma Skill que JÁ era de
+  // Resistência mantém o valor salvo intocado (desligar nunca reescreve dado), ela só deixa de
+  // ser editável por aqui.
+  const resistanceSection = isResistancesEnabled()
+    ? `
+      <label class="checkbox-line">
+        <input type="checkbox" name="resistEnable" ${data.resistanceTarget ? "checked" : ""}/>
+        Esta Skill concede Resistência/Imunidade passiva
+        <span class="hint-inline">(independente da Mecânica ao Usar abaixo — pode ter as duas)</span>
+      </label>
+      <div class="mechanic-panel resist se-resist-panel">
+        <div class="field-hint-label">Alvo <span class="hint-inline" style="display:inline;">(escolha um — Geral cobre qualquer dano, Elemento só aquele tipo)</span></div>
+        <div class="element-grid">${resistChips}</div>
+        <p class="hint-inline se-resist-info">&nbsp;</p>
+      </div>`
+    : "";
 
   const subSkillsField = data.subSkills.length
     ? `<div class="form-group sub-skills-block">
@@ -235,16 +271,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
       ${subSkillsField}
       ${fusionLineageField}
 
-      <label class="checkbox-line">
-        <input type="checkbox" name="resistEnable" ${data.resistanceTarget ? "checked" : ""}/>
-        Esta Skill concede Resistência/Imunidade passiva
-        <span class="hint-inline">(independente da Mecânica ao Usar abaixo — pode ter as duas)</span>
-      </label>
-      <div class="mechanic-panel resist se-resist-panel">
-        <div class="field-hint-label">Alvo <span class="hint-inline" style="display:inline;">(escolha um — Geral cobre qualquer dano, Elemento só aquele tipo)</span></div>
-        <div class="element-grid">${resistChips}</div>
-        <p class="hint-inline se-resist-info">&nbsp;</p>
-      </div>
+      ${resistanceSection}
 
       <hr/>
 
@@ -391,8 +418,12 @@ function setupSkillEditorInteractivity(root, data) {
   function applyResistEnable() {
     resistPanel.style.display = resistEnable.checked ? "flex" : "none";
   }
-  resistEnable.addEventListener("change", applyResistEnable);
-  applyResistEnable();
+  // `resistEnable` não existe quando o bloco de Resistências está desligado na campanha (o
+  // editor nem renderiza a seção) — sem esta guarda, abrir qualquer Skill quebraria aqui.
+  if (resistEnable && resistPanel) {
+    resistEnable.addEventListener("change", applyResistEnable);
+    applyResistEnable();
+  }
 
   const upkeepEnable = root.querySelector('[name="hasUpkeep"]');
   const upkeepField = root.querySelector(".se-upkeep-field");
@@ -498,7 +529,9 @@ function setupSkillEditorInteractivity(root, data) {
  */
 function readSkillEditorForm(root, lockTier) {
   const effectType = root.querySelector('[name="effectType"]').value;
-  const resistEnabled = root.querySelector('[name="resistEnable"]').checked;
+  // Campanha sem Resistências: a seção não foi renderizada, então não há o que ler — a Skill
+  // simplesmente não ganha/perde Resistência por aqui (o valor já salvo continua intocado).
+  const resistEnabled = Boolean(root.querySelector('[name="resistEnable"]')?.checked);
   const resistChecked = root.querySelector('[name="resistTarget"]:checked');
   const hasRange = effectType !== "none";
   const targetType = hasRange ? root.querySelector('[name="targetType"]').value : "targeted";

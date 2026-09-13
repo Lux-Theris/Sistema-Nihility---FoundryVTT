@@ -2715,3 +2715,95 @@ form.nihility-config-app {
 }
 .pad-send-btn:hover { box-shadow: 0 0 12px -1px rgba(110, 231, 255, 0.6); }
 .pad-send-btn:active { transform: scale(0.92); }
+
+/* ==========================================================================
+   Configurar Módulos do Sistema (apps/feature-config.js) — liga/desliga cada
+   bloco por campanha + presets prontos. Reaproveita .nihility-config-app (moldura,
+   fundo, footer) dos outros editores; aqui ficam só as partes próprias.
+   ========================================================================== */
+
+.nihility-feature-config .feature-presets {
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.nihility-feature-config .feature-preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.nihility-feature-config .feature-preset-btn {
+  flex: 1 1 auto;
+  min-width: 140px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.nihility-feature-config .feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 52vh;
+  overflow-y: auto;
+}
+
+.nihility-feature-config .feature-row {
+  padding: 7px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.03);
+  transition: opacity 0.15s ease;
+}
+
+/* Bloco desligado continua legível (não é erro, é escolha de campanha) — só recuado. */
+.nihility-feature-config .feature-row.is-off {
+  opacity: 0.55;
+}
+
+.nihility-feature-config .feature-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.nihility-feature-config .feature-main input[type="checkbox"] {
+  margin-top: 3px;
+  flex: 0 0 auto;
+}
+
+.nihility-feature-config .feature-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nihility-feature-config .feature-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.nihility-feature-config .feature-hint {
+  font-size: 11px;
+  opacity: 0.72;
+  line-height: 1.35;
+}
+
+/* Sub-features (as do PAD) entram recuadas sob o pai, com um fio ligando visualmente. */
+.nihility-feature-config .feature-children {
+  margin: 6px 0 0 22px;
+  padding-left: 10px;
+  border-left: 2px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+/* Sub-feature ligada sob um pai desligado: some visualmente sem perder o estado salvo. */
+.nihility-feature-config .feature-main.child.is-inherited-off {
+  opacity: 0.5;
+}

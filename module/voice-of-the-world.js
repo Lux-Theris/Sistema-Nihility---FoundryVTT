@@ -5,6 +5,7 @@
  * diretamente pelo hook `preUpdateActor` de level-up.
  */
 import { SYSTEM_ID } from "./config.js";
+import { renderSystemTemplate } from "./helpers/foundry-compat.js";
 
 /**
  * Publica um anúncio "Voz do Mundo" no chat, sempre em whisper para os
@@ -23,7 +24,7 @@ export async function announceVoiceOfTheWorld(actor, data = {}) {
     timestamp: new Date().toLocaleString()
   };
 
-  const content = await renderTemplate(
+  const content = await renderSystemTemplate(
     `systems/${SYSTEM_ID}/templates/chat/voice-of-the-world.hbs`,
     templateData
   );

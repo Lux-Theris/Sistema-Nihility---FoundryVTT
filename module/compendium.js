@@ -5,6 +5,7 @@
  * (Sheets, Apps, skill-economy.js, ai-generation.js), não só pela geração via IA.
  */
 import { SYSTEM_ID, MEU_SISTEMA } from "./config.js";
+import { compendiumCollectionClass } from "./helpers/foundry-compat.js";
 
 const COMPENDIUM_TYPE_MAP = {
   skill: MEU_SISTEMA.COMPENDIUM.skills,
@@ -22,7 +23,7 @@ export async function ensureSystemCompendiums() {
   for (const def of Object.values(MEU_SISTEMA.COMPENDIUM)) {
     const collectionId = `world.${def.key}`;
     if (game.packs.get(collectionId)) continue;
-    await CompendiumCollection.createCompendium({
+    await compendiumCollectionClass().createCompendium({
       type: def.type,
       label: def.label,
       name: def.key,
@@ -40,8 +41,28 @@ export function getCompendiumForItemType(itemType) {
 }
 
 /**
+ * "Impressão digital" de um Item pro Compêndio — o que torna duas entradas A MESMA coisa.
+ *
+ * Só o nome não basta: duas Skills diferentes chamadas "Corte" (uma Extra de nível 1, outra
+ * Única fundida) colidiam e viravam uma entrada só, e a fusão — que registra as fontes no
+ * Compêndio antes de consumi-las — podia recuperar a Skill errada depois. A assinatura junta
+ * nome + tier + a linhagem de fusão (quando existe), que é exatamente o que distingue esses
+ * casos sem transformar cada edição de descrição num Item novo.
+ */
+function itemFingerprint(itemData) {
+  const name = (itemData.name ?? "").trim().toLowerCase();
+  const tier = itemData.system?.tier ?? "";
+  const lineage = [...(itemData.system?.fusionSources ?? [])].map(n => String(n).trim().toLowerCase()).sort().join("+");
+  return [name, tier, lineage].join("|");
+}
+
+/**
  * Registra (ou reaproveita) um Item no Compêndio global correspondente ao seu tipo.
  * Usado sempre que uma Skill, Parte do Corpo, Título ou Módulo é criado/fundido.
+ *
+ * O reaproveitamento casa pela `itemFingerprint` acima; entradas antigas (criadas antes da
+ * assinatura existir) continuam sendo encontradas pelo nome, pra não duplicar de uma vez tudo
+ * que já está no Compêndio de mundos existentes.
  * @param {object} itemData - dados no formato source (ex: item.toObject())
  * @returns {Promise<Item|null>}
  */
@@ -49,8 +70,11 @@ export async function registerItemInCompendium(itemData) {
   const pack = getCompendiumForItemType(itemData.type);
   if (!pack) return null;
 
-  const index = await pack.getIndex();
-  const existing = index.find(e => e.name === itemData.name);
+  const index = await pack.getIndex({ fields: ["system.tier", "system.fusionSources"] });
+  const fingerprint = itemFingerprint(itemData);
+  const existing =
+    index.find(e => itemFingerprint({ name: e.name, system: e.system ?? {} }) === fingerprint) ??
+    index.find(e => e.name === itemData.name && e.system?.tier === undefined);
   if (existing) return pack.getDocument(existing._id);
 
   const [doc] = await pack.documentClass.createDocuments([itemData], { pack: pack.collection });

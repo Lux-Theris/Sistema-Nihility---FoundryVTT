@@ -1,4 +1,5 @@
 import { SYSTEM_ID, MEU_SISTEMA, debugLog } from "../config.js";
+import { pickImageFile } from "../helpers/foundry-compat.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -142,13 +143,9 @@ export function createListConfigApp({ id, title, settingsKey, fields, getActiveL
       const row = target.closest(".list-config-row");
       const input = row?.querySelector(`[data-field="${target.dataset.field}"]`);
       if (!input) return;
-      new FilePicker({
-        type: "image",
-        current: input.value,
-        callback: path => {
-          input.value = path;
-        }
-      }).render(true);
+      pickImageFile(input.value, path => {
+        input.value = path;
+      });
     }
 
     /**

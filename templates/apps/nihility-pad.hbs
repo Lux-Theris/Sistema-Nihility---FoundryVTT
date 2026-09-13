@@ -1,7 +1,8 @@
 <div class="pad-device">
 
   <div class="pad-statusbar">
-    <span class="pad-signal"><span class="pad-signal-dot"></span>{{actor.name}}</span>
+    <span class="pad-signal"><span class="pad-signal-bars"><i></i><i></i><i></i><i></i></span>{{actor.name}}</span>
+    <span class="pad-battery"><span class="pad-battery-icon"><span class="pad-battery-fill"></span></span></span>
   </div>
 
   <div class="pad-topbar {{#if (eq activeScreen "home")}}hidden{{/if}}">
@@ -161,7 +162,7 @@
       {{/if}}
 
       {{else}}
-      <p class="pad-hint pad-empty">Você não está tripulando nenhuma Nave/Veículo no momento.</p>
+      <div class="pad-empty-state"><i class="fas fa-rocket"></i><p>Você não está tripulando nenhuma Nave/Veículo no momento.</p></div>
       {{/if}}
     </section>
 
@@ -282,7 +283,7 @@
             {{m.body}}
           </div>
           {{/each}}
-          {{#unless threadMessages.length}}<p class="pad-hint pad-empty">Nenhuma mensagem ainda. Diga oi!</p>{{/unless}}
+          {{#unless threadMessages.length}}<div class="pad-empty-state"><i class="fas fa-comment-dots"></i><p>Nenhuma mensagem ainda. Diga oi!</p></div>{{/unless}}
         </div>
         <div class="pad-composer">
           <input type="text" class="pad-compose-input" placeholder="Mensagem…"/>

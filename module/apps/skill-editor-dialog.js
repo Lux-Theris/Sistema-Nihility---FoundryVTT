@@ -297,7 +297,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     // sempre reporta a altura TOTAL, mesmo do que está clipado/rolável), então a janela crescia
     // pro tamanho do formulário inteiro e empurrava Salvar/Cancelar pra fora da tela. Altura fixa
     // faz o form realmente rolar dentro do limite, deixando os botões sempre visíveis embaixo.
-    position: { width: 520, height: 700 },
+    position: { width: 520, height: Math.min(700, window.innerHeight - 40) },
     content,
     render: (event, dialog) => setupSkillEditorInteractivity(dialog.element, data),
     buttons: [
@@ -332,11 +332,18 @@ function setupSkillEditorInteractivity(root, data) {
     const fitScroll = () => {
       const appHeight = root.getBoundingClientRect().height;
       // Reserva ~110px pro cabeçalho da janela + a barra de Salvar/Cancelar abaixo do form.
-      const available = appHeight - 110;
-      form.style.maxHeight = available > 120 ? `${available}px` : "none";
+      // NUNCA cai pra "none": uma medição ruim/transitória (ex: primeiro paint, antes do
+      // layout da janela assentar) não pode desarmar o limite de altura, senão o form vaza
+      // pra fora de `.window-content` (que corta overflow) e leva a barra de Salvar/Cancelar
+      // junto — sem scrollbar nenhuma pra alcançá-la de volta. Um piso de 200px garante que o
+      // form sempre role de verdade, mesmo com `appHeight` momentaneamente errado.
+      const available = Math.max(appHeight - 110, 200);
+      form.style.maxHeight = `${available}px`;
       form.style.overflowY = "auto";
     };
-    fitScroll();
+    // Primeira medição só depois de um paint (rAF) em vez de síncrona dentro do `render:` do
+    // DialogV2 — dá tempo da janela assentar no tamanho real antes de medir `root`.
+    requestAnimationFrame(fitScroll);
     new ResizeObserver(fitScroll).observe(root);
 
     // Sem isso, o `wheel` disparado sobre o form (que já tem overflow-y:auto e scrolla

@@ -287,7 +287,15 @@
   gap: 10px;
   margin-bottom: 10px;
 }
-@media (max-width: 720px) {
+/* Mesmo motivo da grade de Módulos: a ficha do Foundry é redimensionada pelo usuário e não
+   acompanha a janela, então quem manda é a largura do corpo da ficha (container), não a da tela.
+   Com @media, uma ficha estreitada num monitor grande continuava com o rail de 300px espremendo
+   a coluna da direita. */
+.nihility-sheet .sheet-body {
+  container-type: inline-size;
+  container-name: sheetbody;
+}
+@container sheetbody (max-width: 720px) {
   .nihility-sheet .ficha-grid { grid-template-columns: 1fr; }
 }
 
@@ -3007,7 +3015,12 @@ form.nihility-config-app {
   cursor: pointer;
 }
 
-@media (max-width: 520px) {
+/* Janela de app também é redimensionável à parte da tela — container, não media. */
+.nihility-attribute-config .attribute-list {
+  container-type: inline-size;
+  container-name: attrlist;
+}
+@container attrlist (max-width: 520px) {
   .nihility-attribute-config .attribute-row { grid-template-columns: 1fr; gap: 6px; }
   .nihility-attribute-config .attribute-row.header { display: none; }
 }
@@ -3279,15 +3292,28 @@ form.nihility-config-app {
    cabeçalho em vez de uma frase corrida separada por pontos.
    ========================================================================== */
 
-.nihility-sheet .module-grid { display: flex; flex-direction: column; }
+.nihility-sheet .module-grid {
+  display: flex;
+  flex-direction: column;
+  /* A ficha é redimensionável independente da janela do navegador, então o layout responde à
+     largura DELA (container query), não à da tela — media query mediria a coisa errada. */
+  container-type: inline-size;
+  container-name: modgrid;
+}
 
 .nihility-sheet .module-grid-head,
 .nihility-sheet .module-grid-row {
   display: grid;
-  /* O nome tem MÍNIMO garantido (minmax) — com `minmax(0, 1fr)` ele era a única coluna
-     elástica e colapsava quando as fixas somavam mais que a largura da ficha, quebrando
-     em uma palavra por linha. */
-  grid-template-columns: 86px minmax(150px, 1fr) 78px 66px 128px 82px;
+  /* `max-content` em vez de px fixo: cada coluna fica exatamente do tamanho do seu conteúdo mais
+     largo, então nada estoura pra cima da coluna vizinha — foi o que aconteceu quando a Vida
+     ganhou campo editável e não coube nos 78px reservados. Só o nome é elástico. */
+  grid-template-columns:
+    max-content
+    minmax(110px, 1fr)
+    max-content
+    max-content
+    max-content
+    max-content;
   gap: 8px;
   align-items: center;
 }
@@ -3397,24 +3423,14 @@ form.nihility-config-app {
 .nihility-sheet .vital-fill.state-low { background: var(--nihility-warn); }
 .nihility-sheet .vital-fill.state-crit { background: var(--nihility-hp); }
 
-/* Abaixo de ~640px a grade vira lista empilhada em vez de estourar a largura. */
-@media (max-width: 640px) {
-  .nihility-sheet .module-grid-head { display: none; }
-  .nihility-sheet .module-grid-row {
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-  }
-  .nihility-sheet .module-name-cell { grid-column: 1 / -1; }
-  .nihility-sheet .module-acts { justify-content: flex-start; }
-}
+
 
 /* ---- Armas: mesma grade dos Módulos, com colunas próprias ---- */
 .nihility-sheet .weapon-grid-head,
 .nihility-sheet .weapon-grid-row {
   /* Cinco colunas, não sete: Dano e Penetração ocupam uma célula (são lidas juntas), e
-     Disparar entra na célula de Ações. Com sete, a soma das fixas não deixava largura
-     nenhuma pro nome da Arma. */
-  grid-template-columns: 86px minmax(150px, 1fr) 96px 128px auto;
+     Disparar entra na célula de Ações. Mesmo dimensionamento por conteúdo da grade de Módulos. */
+  grid-template-columns: max-content minmax(110px, 1fr) max-content max-content max-content;
 }
 .nihility-sheet .weapon-grid-row { border-left-color: var(--nihility-danger); }
 .nihility-sheet .weapon-grid-row.is-offline { border-left-color: var(--nihility-text-faint); }
@@ -3562,12 +3578,7 @@ form.nihility-config-app {
 .nihility-sheet .demand-legend .swatch.free { background: rgba(110, 231, 255, 0.18); }
 .nihility-sheet .demand-over { color: var(--nihility-danger); font-weight: 600; }
 
-@media (max-width: 640px) {
-  .nihility-sheet .power-chain { grid-template-columns: 1fr; }
-  .nihility-sheet .weapon-grid-head { display: none; }
-  .nihility-sheet .weapon-grid-row { grid-template-columns: 1fr 1fr; gap: 6px; }
-  .nihility-sheet .weapon-fire-cell { justify-content: flex-start; }
-}
+
 
 /* ==========================================================================
    Prévia de campo-multiplicador (Fator de Distribuição).
@@ -3693,3 +3704,50 @@ form.nihility-config-app {
   cursor: help;
   white-space: nowrap;
 }
+
+/* ==========================================================================
+   Grade de Módulos/Armas em ficha estreita.
+
+   `@container` e não `@media`: a ficha do Foundry é redimensionável sozinha, então
+   o que importa é a largura DELA. Numa tela grande com a ficha encolhida, media
+   query não dispararia e a grade estouraria do mesmo jeito.
+   ========================================================================== */
+
+@container modgrid (max-width: 620px) {
+  /* Sem colunas, o cabeçalho não descreve mais nada. */
+  .nihility-sheet .module-grid-head { display: none; }
+
+  .nihility-sheet .module-grid-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* O nome toma a linha inteira; o resto flui embaixo e quebra sozinho conforme couber. */
+  .nihility-sheet .module-name-cell { flex: 1 1 100%; }
+  .nihility-sheet .module-name {
+    -webkit-line-clamp: unset;
+    display: block;
+  }
+  .nihility-sheet .module-hp-cell { flex: 0 0 auto; min-width: 104px; }
+  .nihility-sheet .module-consumption,
+  .nihility-sheet .weapon-stat { flex: 0 0 auto; }
+  .nihility-sheet .throttle { flex: 0 0 auto; }
+  .nihility-sheet .module-acts { flex: 1 1 auto; justify-content: flex-end; }
+}
+
+/* Última linha de defesa: se nem assim couber (ficha muito estreita, nome muito longo),
+   a grade rola na horizontal em vez de vazar por cima do que está ao lado. */
+.nihility-sheet .module-grid { overflow-x: auto; }
+
+/* O Grid de Energia segue a mesma regra de container. */
+.nihility-sheet .ship-power-block { container-type: inline-size; container-name: powerblock; }
+@container powerblock (max-width: 520px) {
+  .nihility-sheet .power-chain { grid-template-columns: 1fr; }
+}
+
+/* A célula de Vida é a mais densa da linha (barra + campo + máximo + percentual):
+   deixa de ter largura própria e passa a caber no que precisa. */
+.nihility-sheet .module-hp-cell { min-width: 0; }
+.nihility-sheet .module-hp-cell small { white-space: nowrap; }

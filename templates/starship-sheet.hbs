@@ -92,6 +92,7 @@
     <div class="tab {{#unless (eq activeTab "sistemas")}}hidden{{/unless}}">
       <div class="block">
         <p class="block-title">Grid de Energia — {{energyLabel}}</p>
+        <div class="ship-power-block">
         <div class="power-chain {{#if isOverloaded}}overloaded{{/if}}">
           <div class="chain-node">
             <span class="chain-label">Reator · geração</span>
@@ -130,6 +131,7 @@
             {{#if demandSlack}}<span><b class="swatch free"></b>folga de {{demandSlack}} {{energyAbbr}}</span>{{/if}}
             {{#if isOverloaded}}<span class="demand-over">⚠ demanda acima do que a Nave entrega</span>{{/if}}
           </div>
+        </div>
         </div>
 
         <button type="button" class="power-grid-tick" data-action="powerGridTick">Recalcular Grid de Energia</button>

@@ -1,4 +1,4 @@
-import { MEU_SISTEMA, getStarshipEnergyLabel } from "../config.js";
+import { MEU_SISTEMA, getStarshipEnergyLabel, effectiveSkillCost } from "../config.js";
 
 const fields = foundry.data.fields;
 
@@ -292,9 +292,13 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
     let sum = 0;
     for (const skill of this.parent.items) {
       if (skill.type !== "skill") continue;
-      if (skill.system.hasUpkeep && skill.system.active) sum += Number(skill.system.upkeepCost) || 0;
+      // Mesmo desconto por nível que `tickActorUpkeepSkills` aplica (ver effectiveSkillCost) —
+      // os dois precisam concordar, senão o Reator reservaria um valor e o tick cobraria outro.
+      if (skill.system.hasUpkeep && skill.system.active) {
+        sum += effectiveSkillCost(skill.system.upkeepCost, skill.system.level);
+      }
       for (const sub of skill.system.subSkills ?? []) {
-        if (sub.hasUpkeep && sub.active) sum += Number(sub.upkeepCost) || 0;
+        if (sub.hasUpkeep && sub.active) sum += effectiveSkillCost(sub.upkeepCost, sub.level);
       }
     }
     return sum;

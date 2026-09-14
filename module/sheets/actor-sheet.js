@@ -684,6 +684,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             resistanceTarget: data.resistanceTarget,
             effectType: data.effectType,
             damageFormula: data.damageFormula,
+            scalingAttribute: data.scalingAttribute,
             isMagicDamage: data.isMagicDamage,
             damageElements: data.damageElements,
             effects: data.effects,

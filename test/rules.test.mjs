@@ -13,7 +13,17 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { computeAttributeDicePool, buildAttributeRollFormula } from "../module/dice.js";
-import { MEU_SISTEMA, getModuleSizePreset, convertCurrencyAmount, getVitalFormula } from "../module/config.js";
+import {
+  MEU_SISTEMA,
+  getModuleSizePreset,
+  convertCurrencyAmount,
+  getVitalFormula,
+  skillLevelBonuses,
+  effectiveSkillCost,
+  damageScalingMultiplier,
+  getXpForNextLevel,
+  resistanceXpGain
+} from "../module/config.js";
 import { computeResistancePercent, computeResistanceName, resistanceMaxLevel } from "../module/skill-effects.js";
 import { buildSubSkillsFromSources } from "../module/skill-snapshot.js";
 
@@ -168,6 +178,111 @@ test("fórmula vital: sem settings registradas, cai exatamente no comportamento 
   assert.equal(formula.multiplier, 10);
   assert.equal(formula.floor, MEU_SISTEMA.MIN_BASE_VITAL_STAT);
   assert.equal(formula.energyEnabled, true);
+});
+
+/* -------------------------------------------- */
+/*  Ciclo de nível de Skill                      */
+/* -------------------------------------------- */
+
+test("ciclo de nível: nível 1 não tem bônus nenhum", () => {
+  const b = skillLevelBonuses(1);
+  assert.equal(b.power, 1);
+  assert.equal(b.cost, 1);
+});
+
+test("ciclo de nível: 2 de Poder, depois 2 de Desconto (padrão)", () => {
+  // nv 2 e 3 = Poder; nv 4 e 5 = Desconto.
+  assert.equal(skillLevelBonuses(3).power.toFixed(2), "1.21");   // 1.10^2
+  assert.equal(skillLevelBonuses(3).cost.toFixed(2), "1.00");    // desconto ainda não começou
+  assert.equal(skillLevelBonuses(5).power.toFixed(2), "1.21");   // poder parado durante o desconto
+  assert.equal(skillLevelBonuses(5).cost.toFixed(2), "0.64");    // 0.80^2
+});
+
+test("ciclo de nível: desconto é multiplicativo, nunca subtrativo", () => {
+  // Subtrativo levaria o custo ao piso em 5 níveis e mataria o resto da curva.
+  // Multiplicativo, o nível 20 ainda está acima do piso.
+  assert.ok(skillLevelBonuses(20).cost > 0.10);
+  assert.ok(skillLevelBonuses(20).cost < 0.20);
+});
+
+test("ciclo de nível: o Custo nunca fura o piso de 10%", () => {
+  for (const nv of [24, 30, 50, 200]) {
+    assert.ok(skillLevelBonuses(nv).cost >= 0.10 - 1e-9, `nível ${nv} furou o piso`);
+  }
+});
+
+test("ciclo de nível: com o custo no piso, nível de Desconto vira Poder (nenhum nível morto)", () => {
+  // Sem a conversão, o poder ficaria parado entre dois níveis de desconto pós-piso.
+  const antes = skillLevelBonuses(40).power;
+  const depois = skillLevelBonuses(41).power;
+  assert.ok(depois > antes, "nível pós-piso não entregou nada — a conversão não está valendo");
+});
+
+test("custo efetivo: aplica o desconto do nível e nunca deixa a Skill de graça", () => {
+  assert.equal(effectiveSkillCost(40, 1), 40);
+  assert.equal(effectiveSkillCost(40, 5), 26);   // 40 × 0.64
+  assert.equal(effectiveSkillCost(0, 30), 0);    // custo 0 continua 0
+  assert.equal(effectiveSkillCost(1, 50), 1);    // arredondamento nunca zera um custo real
+});
+
+/* -------------------------------------------- */
+/*  Escala de dano por Atributo                  */
+/* -------------------------------------------- */
+
+function fakeActor(attr, total) {
+  return { system: { attributes: { combat: { [attr]: { total } } } } };
+}
+
+test("escala de dano: sem Atributo de Escala o dano é exatamente a fórmula", () => {
+  // É o que mantém intacta toda Skill criada antes da regra existir.
+  assert.equal(damageScalingMultiplier(fakeActor("strength", 30), ""), 1);
+  assert.equal(damageScalingMultiplier(fakeActor("strength", 30), "atributo-inexistente"), 1);
+});
+
+test("escala de dano: é quadrática — é o que acompanha a curva de HP", () => {
+  // HP = Atributo × Atributo × mult, então dobrar o atributo tem que quadruplicar o dano;
+  // qualquer escala linear seria engolida pela curva de HP conforme o nível sobe.
+  const dobro = damageScalingMultiplier(fakeActor("strength", 40), "strength");
+  const metade = damageScalingMultiplier(fakeActor("strength", 20), "strength");
+  assert.equal(dobro / metade, 4);
+});
+
+test("escala de dano: atributo zerado não zera o dano", () => {
+  assert.equal(damageScalingMultiplier(fakeActor("strength", 0), "strength"), 1);
+});
+
+/* -------------------------------------------- */
+/*  XP de Resistência (aprender apanhando)       */
+/* -------------------------------------------- */
+
+test("XP de Resistência: é a FRAÇÃO da Vida salva, não o dano bruto", () => {
+  // O ponto da regra: defender um golpe igualmente perigoso rende o mesmo XP em qualquer
+  // nível. Se fosse proporcional ao dano bruto, o nível alto ganharia XP muito mais rápido,
+  // porque o dano deste sistema cresce com o quadrado do atributo.
+  const cedo = resistanceXpGain(480, 4840);      // ~10% da Vida no nível 3
+  const tarde = resistanceXpGain(8100, 81000);   // ~10% da Vida no nível 30
+  assert.equal(cedo, tarde);
+  assert.equal(cedo, 10);
+});
+
+test("XP de Resistência: arranhão não ensina nada", () => {
+  assert.equal(resistanceXpGain(80, 81000), 0);
+});
+
+test("XP de Resistência: entrada inválida devolve 0 em vez de NaN/Infinity", () => {
+  assert.equal(resistanceXpGain(0, 1000), 0);
+  assert.equal(resistanceXpGain(100, 0), 0);
+  assert.equal(resistanceXpGain(-50, 1000), 0);
+});
+
+/* -------------------------------------------- */
+/*  Curva de XP                                  */
+/* -------------------------------------------- */
+
+test("XP: sem setting registrada, cai no padrão 100 × nível", () => {
+  assert.equal(getXpForNextLevel(1), 100);
+  assert.equal(getXpForNextLevel(10), 1000);
+  assert.equal(getXpForNextLevel(0), 100);    // nível inválido é tratado como 1
 });
 
 /* -------------------------------------------- */

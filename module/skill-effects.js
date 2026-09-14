@@ -14,8 +14,15 @@ import {
   getActiveStatusConditions,
   getEnergyLabelForActor,
   isEnergyPoolEnabled,
-  getEffectTargetLabels
+  getEffectTargetLabels,
+  getAttributeLabel,
+  damageScalingMultiplier,
+  skillLevelBonuses,
+  effectiveSkillCost,
+  resistanceXpGain,
+  getResistanceLearnThreshold
 } from "./config.js";
+import { runAsGm } from "./helpers/gm-relay.js";
 import { announceVoiceOfTheWorld } from "./voice-of-the-world.js";
 import { playSkillAnimation } from "./vfx.js";
 
@@ -178,7 +185,9 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
   // não paga Custo nenhum — a Habilidade continua funcionando, o recurso é que não existe.
   // Nave/Veículo ignora esse desligamento: o Grid de Energia é um sistema à parte.
   const chargesEnergy = isShipLike(sourceActor) || isEnergyPoolEnabled();
-  const cost = chargesEnergy ? Number(mech.cost) || 0 : 0;
+  // O Custo escrito na Skill é o do nível 1; o ciclo de nível vai descontando dele (ver
+  // skillLevelBonuses em config.js). Sub-Skill usa o nível dela própria, não o da Skill-mãe.
+  const cost = chargesEnergy ? effectiveSkillCost(mech.cost, mech.level) : 0;
   if (cost > 0) {
     const current = currentEnergyValue(sourceActor);
     if (current < cost) {
@@ -207,7 +216,9 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
       : applySkillEffects(sourceActor, skill, mech, label, options.targetActor ?? sourceActor, options.subSkillIndex ?? null);
   }
 
-  const upkeepNote = mech.hasUpkeep ? ` (ativada — drena ${mech.upkeepCost} de ${getEnergyLabelForActor(sourceActor)} por rodada)` : "";
+  const upkeepNote = mech.hasUpkeep
+    ? ` (ativada — drena ${effectiveSkillCost(mech.upkeepCost, mech.level)} de ${getEnergyLabelForActor(sourceActor)} por rodada)`
+    : "";
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
     content: `<p><strong>${sourceActor.name}</strong> usou <strong>${label}</strong>${upkeepNote}.</p>`
@@ -262,14 +273,30 @@ export function computeResistancePercent(resistanceTarget, level) {
  * fonte não somam entre si, só a melhor conta).
  */
 function actorResistanceFor(targetActor, resistanceTarget) {
-  if (!targetActor) return 0;
+  return resistanceSourceFor(targetActor, resistanceTarget).percent;
+}
+
+/**
+ * Como `actorResistanceFor`, mas devolve também QUAL Skill entregou a parte de Skill — é ela que
+ * ganha XP ao defender (ver `grantResistanceXp`). Título não entra: Título não tem nível, então
+ * não tem o que evoluir. Quando duas Skills cobrem o mesmo alvo só a melhor conta, e portanto só
+ * a melhor aprende.
+ * @returns {{percent:number, skill:Item|null}}
+ */
+function resistanceSourceFor(targetActor, resistanceTarget) {
+  if (!targetActor) return { percent: 0, skill: null };
 
   let bestSkill = 0;
+  let bestSkillItem = null;
   let bestTitle = 0;
 
   for (const item of targetActor.items) {
     if (item.type === "skill" && item.system.resistanceTarget === resistanceTarget) {
-      bestSkill = Math.max(bestSkill, computeResistancePercent(resistanceTarget, item.system.level));
+      const percent = computeResistancePercent(resistanceTarget, item.system.level);
+      if (percent > bestSkill) {
+        bestSkill = percent;
+        bestSkillItem = item;
+      }
     } else if (item.type === "title") {
       for (const entry of item.system.resistances ?? []) {
         if (entry.target === resistanceTarget) bestTitle = Math.max(bestTitle, (Number(entry.amount) || 0) / 100);
@@ -277,7 +304,108 @@ function actorResistanceFor(targetActor, resistanceTarget) {
     }
   }
 
-  return bestSkill + bestTitle;
+  return { percent: bestSkill + bestTitle, skill: bestSkillItem };
+}
+
+/**
+ * Credita XP nas Skills de Resistência que acabaram de reduzir dano — "aprender apanhando".
+ *
+ * **Só o Mestre executa.** Quem rola o ataque costuma não ter permissão de escrita na ficha do
+ * alvo (um jogador atacando um NPC, por exemplo), então deixar qualquer cliente tentar gravaria
+ * um erro de permissão no console e nada mais. O caso que importa — o Mestre atacando um
+ * personagem — é justamente o que passa por aqui.
+ *
+ * O XP para no teto do nível atual (ver `xp` em item-models.js): a Skill acumula até encher e
+ * então para, porque subir de nível continua sendo clique do Mestre.
+ * @param {Array<{skill: Item, blocked: number}>} defenders - saída de `applyDamageReductions`
+ * @param {Actor} targetActor
+ */
+async function grantResistanceXp(defenders, targetActor) {
+  if (!defenders?.length || !targetActor) return;
+
+  const maxHp = targetActor.system?.attributes?.hp?.max ?? 0;
+  const grants = defenders
+    .map(({ skill, blocked }) => ({ skillId: skill.id, gain: resistanceXpGain(blocked, maxHp) }))
+    .filter(g => g.gain > 0);
+  if (!grants.length) return;
+
+  // Vai pelo relay (helpers/gm-relay.js): quem rolou o ataque quase nunca tem permissão de
+  // escrita na ficha do alvo — jogador atacando jogador, ou atacando NPC. Sem isso o XP só
+  // existia quando o próprio Mestre rolava.
+  await runAsGm("resistanceXp", { actorUuid: targetActor.uuid, grants });
+}
+
+/**
+ * Contabiliza que `targetActor` levou um golpe de cada tipo em `elements` — é o que, depois de
+ * `getResistanceLearnThreshold()` golpes, faz o sistema SUGERIR ao Mestre conceder a Resistência
+ * àquele tipo.
+ *
+ * Resistência é a única Skill do sistema que pode nascer assim, e mesmo ela **não é criada
+ * sozinha**: o aviso é uma sugestão pela Voz do Mundo, e conceder continua sendo ato do Mestre —
+ * conseguir a Skill pela primeira vez é deliberadamente mais difícil do que subi-la de nível
+ * depois.
+ *
+ * Só conta dano ELEMENTAL: "Geral" não é um tipo que se leva golpe de, é a resistência
+ * guarda-chuva — e ela ser automática tornaria trivial obter a redução mais forte do sistema.
+ */
+async function registerResistanceExposure(targetActor, elements, finalDamage) {
+  if (!targetActor || !(finalDamage > 0)) return; // golpe que não machucou não ensina nada
+  if (!getResistanceLearnThreshold()) return;
+
+  const relevant = (elements ?? []).filter(Boolean);
+  if (!relevant.length) return;
+
+  await runAsGm("resistanceExposure", { actorUuid: targetActor.uuid, elements: relevant });
+}
+
+/**
+ * Lado-Mestre de `registerResistanceExposure`: incrementa o contador por tipo de dano guardado
+ * nas flags do Ator e, ao cruzar o limiar, avisa uma única vez pela Voz do Mundo.
+ *
+ * Exportada porque quem chama é o relay (helpers/gm-relay.js), nunca outro ponto do sistema.
+ * @param {Actor} actor
+ * @param {string[]} elements
+ */
+export async function applyResistanceExposure(actor, elements) {
+  const threshold = getResistanceLearnThreshold();
+  if (!threshold || !Array.isArray(elements)) return;
+
+  const exposure = { ...(actor.getFlag(SYSTEM_ID, "resistanceExposure") ?? {}) };
+  const notified = new Set(actor.getFlag(SYSTEM_ID, "resistanceNotified") ?? []);
+  const catalog = getActiveDamageElements();
+  const announcements = [];
+  let changed = false;
+
+  for (const elementId of elements) {
+    // Já tem a Skill? Então não há o que sugerir — o contador nem importa mais.
+    const alreadyHas = actor.items.some(i => i.type === "skill" && i.system.resistanceTarget === elementId);
+    if (alreadyHas || notified.has(elementId)) continue;
+
+    exposure[elementId] = (Number(exposure[elementId]) || 0) + 1;
+    changed = true;
+
+    if (exposure[elementId] >= threshold) {
+      notified.add(elementId);
+      announcements.push(catalog.find(e => e.id === elementId)?.label ?? elementId);
+    }
+  }
+
+  if (!changed) return;
+
+  await actor.update({
+    [`flags.${SYSTEM_ID}.resistanceExposure`]: exposure,
+    [`flags.${SYSTEM_ID}.resistanceNotified`]: [...notified]
+  });
+
+  for (const label of announcements) {
+    await announceVoiceOfTheWorld(actor, {
+      kind: "resistance-available",
+      title: "Resistência ao alcance",
+      body:
+        `${actor.name} já suportou ${threshold} golpes de ${label}. O corpo aprendeu o bastante — ` +
+        `o Mestre pode conceder a Skill de Resistência a ${label}.`
+    });
+  }
 }
 
 /** Nave OU Veículo — os dois compartilham o mesmo `ShipSystemsDataModel` desde o overhaul de Porte. */
@@ -450,6 +578,9 @@ export async function fireStarshipWeapon(sourceActor, weaponModule, targetActor 
 function applyDamageReductions(rawTotal, mech, targetActor, options = {}) {
   let remaining = rawTotal;
   const appliedReductions = [];
+  // Quem de fato abateu dano agora, e quanto — insumo do XP de Resistência. Cada etapa mede o
+  // quanto ELA tirou (antes menos depois), não a fração, pra somar direto em pontos de dano.
+  const defenders = [];
 
   if (mech.isMagicDamage && targetActor && !options.skipMagicDefense) {
     const reduction = magicDefenseReduction(targetActor);
@@ -460,23 +591,27 @@ function applyDamageReductions(rawTotal, mech, targetActor, options = {}) {
   }
 
   if (targetActor) {
-    const generalReduction = actorResistanceFor(targetActor, "general");
-    if (generalReduction > 0) {
-      remaining *= 1 - generalReduction;
-      appliedReductions.push(`Resistência Geral ${Math.round(generalReduction * 100)}%`);
+    const general = resistanceSourceFor(targetActor, "general");
+    if (general.percent > 0) {
+      const before = remaining;
+      remaining *= 1 - general.percent;
+      appliedReductions.push(`Resistência Geral ${Math.round(general.percent * 100)}%`);
+      if (general.skill) defenders.push({ skill: general.skill, blocked: before - remaining });
     }
 
     for (const elementId of mech.damageElements ?? []) {
-      const elementReduction = actorResistanceFor(targetActor, elementId);
-      if (elementReduction > 0) {
-        remaining *= 1 - elementReduction;
+      const element = resistanceSourceFor(targetActor, elementId);
+      if (element.percent > 0) {
+        const before = remaining;
+        remaining *= 1 - element.percent;
         const label = getActiveDamageElements().find(e => e.id === elementId)?.label ?? elementId;
-        appliedReductions.push(`Resistência ${label} ${Math.round(elementReduction * 100)}%`);
+        appliedReductions.push(`Resistência ${label} ${Math.round(element.percent * 100)}%`);
+        if (element.skill) defenders.push({ skill: element.skill, blocked: before - remaining });
       }
     }
   }
 
-  return { finalDamage: Math.max(0, Math.floor(remaining)), appliedReductions };
+  return { finalDamage: Math.max(0, Math.floor(remaining)), appliedReductions, defenders };
 }
 
 /** `label` já vem pronto de `useSkillEffect` (nome da Skill, ou "Skill — Sub-Skill" quando aplicável). */
@@ -497,9 +632,20 @@ async function rollSkillDamage(actor, mech, label, targetActor = null) {
   const roll = new Roll(formula);
   await roll.evaluate();
 
-  const boostedTotal = applyShipWeaponBonus(roll.total, actor);
+  // Escala por Atributo (ver damageScalingMultiplier em config.js) — 1 quando a Skill não tem
+  // Atributo de Escala escolhido, que é o padrão e o estado de todo conteúdo anterior à regra.
+  const scaling = damageScalingMultiplier(actor, mech.scalingAttribute);
+  const levelPower = skillLevelBonuses(mech.level).power;
+  const scaledTotal = roll.total * scaling * levelPower;
+  const boostedTotal = applyShipWeaponBonus(scaledTotal, actor);
+
   let flavor = damageFlavorPrefix(mech, label);
-  if (boostedTotal !== roll.total) flavor += ` — bônus de arma (${roll.total} → ${Math.floor(boostedTotal)})`;
+  if (scaling !== 1) {
+    flavor += ` — ${getAttributeLabel(mech.scalingAttribute)} ×${scaling.toFixed(1)}`;
+  }
+  if (levelPower !== 1) flavor += ` — nível ×${levelPower.toFixed(2)}`;
+  if (scaledTotal !== roll.total) flavor += ` (${roll.total} → ${Math.floor(scaledTotal)})`;
+  if (boostedTotal !== scaledTotal) flavor += ` — bônus de arma (${Math.floor(scaledTotal)} → ${Math.floor(boostedTotal)})`;
 
   let finalDamage;
   if (isShipLike(targetActor)) {
@@ -510,7 +656,12 @@ async function rollSkillDamage(actor, mech, label, targetActor = null) {
     // Nunca revela NO CHAT que/quanto de Resistência ou Defesa Mágica foi aplicada — só o
     // número final. A redução em si continua acontecendo (applyDamageReductions), só não
     // aparece na mensagem (nem a existência dela, mesmo quando reduz a 0).
-    finalDamage = applyDamageReductions(boostedTotal, mech, targetActor).finalDamage;
+    const reduction = applyDamageReductions(boostedTotal, mech, targetActor);
+    finalDamage = reduction.finalDamage;
+    // Defender é o que faz uma Skill de Resistência evoluir — ela aprende apanhando. E levar
+    // golpes de um tipo que ainda não se resiste é o que faz a Skill poder nascer.
+    await grantResistanceXp(reduction.defenders, targetActor);
+    await registerResistanceExposure(targetActor, mech.damageElements, finalDamage);
     // O `roll.toMessage()` abaixo mostra o total BRUTO da rolagem — sem esta linha o número
     // final (já reduzido) nunca chegava ao chat, e o Mestre acabava aplicando o bruto: na
     // prática, Resistência e Defesa Mágica não valiam nada contra alvo único. Mesmo formato
@@ -548,7 +699,10 @@ async function rollSkillDamageArea(actor, mech, label, targetActors) {
   const roll = new Roll(formula);
   await roll.evaluate();
 
-  const boostedTotal = applyShipWeaponBonus(roll.total, actor);
+  // Mesma escala por Atributo do caminho de alvo único — aplicada UMA vez, sobre a rolagem que
+  // todos os alvos compartilham (cada alvo ainda aplica as próprias reduções depois).
+  const scaling = damageScalingMultiplier(actor, mech.scalingAttribute);
+  const boostedTotal = applyShipWeaponBonus(roll.total * scaling * skillLevelBonuses(mech.level).power, actor);
   const title = `${damageFlavorPrefix(mech, label)} (Emissão)`;
   const rows = [];
   // Nunca revela NO CHAT que/quanto de Resistência, Defesa Mágica, Penetração ou Redução de
@@ -558,8 +712,10 @@ async function rollSkillDamageArea(actor, mech, label, targetActors) {
       const { toShield, toCasco, toHull } = await applyStarshipDamageCascade(boostedTotal, actor, targetActor);
       rows.push(`<li><strong>${targetActor.name}</strong>: Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}</li>`);
     } else {
-      const { finalDamage } = applyDamageReductions(boostedTotal, mech, targetActor);
-      rows.push(`<li><strong>${targetActor.name}</strong>: ${finalDamage}</li>`);
+      const reduction = applyDamageReductions(boostedTotal, mech, targetActor);
+      await grantResistanceXp(reduction.defenders, targetActor);
+      await registerResistanceExposure(targetActor, mech.damageElements, reduction.finalDamage);
+      rows.push(`<li><strong>${targetActor.name}</strong>: ${reduction.finalDamage}</li>`);
     }
   }
 
@@ -644,8 +800,22 @@ function findStackableEffect(targetActor, conditionId, periodic, damageElements 
  *    momento de usar, o efeito em si vive no Ator, não no espaço.
  */
 async function applyEffectsToActor(mech, label, originSkill, targetActor, subSkillIndex = null) {
-  const entries = mech.effects ?? [];
+  const rawEntries = mech.effects ?? [];
   const summary = [];
+
+  // O Poder do nível também vale pros valores de Efeito — um buff/veneno de Skill nível 10 é
+  // mais forte que o mesmo de nível 1, igual acontece com o dano. Entrada de tipo "multiplicador"
+  // (só os alvos de arma de Nave) fica de fora: ali `amount` é um percentual, e escalá-lo
+  // significaria outra coisa.
+  const levelPower = skillLevelBonuses(mech.level).power;
+  const entries =
+    levelPower === 1
+      ? rawEntries
+      : rawEntries.map(entry =>
+          entry.modifierType === "multiplier"
+            ? entry
+            : { ...entry, amount: Math.round((Number(entry.amount) || 0) * levelPower) }
+        );
 
   for (const entry of entries) {
     const targetLabel = getEffectTargetLabels()[entry.target] ?? entry.target;
@@ -801,9 +971,11 @@ export async function tickPeriodicEffect(actor, effect) {
   let appliedReductions = [];
   if (delta < 0) {
     const mech = { damageElements: flags.tickDamageElements ?? [] };
-    const { finalDamage, appliedReductions: reductions } = applyDamageReductions(-delta, mech, actor, { skipMagicDefense: true });
-    delta = -finalDamage;
-    appliedReductions = reductions;
+    const reduction = applyDamageReductions(-delta, mech, actor, { skipMagicDefense: true });
+    delta = -reduction.finalDamage;
+    appliedReductions = reduction.appliedReductions;
+    await grantResistanceXp(reduction.defenders, actor);
+    await registerResistanceExposure(actor, mech.damageElements, reduction.finalDamage);
   }
 
   const newValue = Math.clamp(attr.value + delta, 0, attr.max);
@@ -866,11 +1038,21 @@ function collectActiveUpkeepSources(actor) {
   for (const skill of actor.items) {
     if (skill.type !== "skill") continue;
     if (skill.system.hasUpkeep && skill.system.active) {
-      sources.push({ skill, subSkillIndex: null, label: skill.name, upkeepCost: Number(skill.system.upkeepCost) || 0 });
+      sources.push({
+        skill,
+        subSkillIndex: null,
+        label: skill.name,
+        upkeepCost: effectiveSkillCost(skill.system.upkeepCost, skill.system.level)
+      });
     }
     (skill.system.subSkills ?? []).forEach((sub, i) => {
       if (sub.hasUpkeep && sub.active) {
-        sources.push({ skill, subSkillIndex: i, label: `${skill.name} — ${sub.name}`, upkeepCost: Number(sub.upkeepCost) || 0 });
+        sources.push({
+          skill,
+          subSkillIndex: i,
+          label: `${skill.name} — ${sub.name}`,
+          upkeepCost: effectiveSkillCost(sub.upkeepCost, sub.level)
+        });
       }
     });
   }

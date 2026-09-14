@@ -32,6 +32,7 @@ export function buildSubSkillsFromSources(sources) {
         resistanceTarget: source.system.resistanceTarget,
         effectType: source.system.effectType,
         damageFormula: source.system.damageFormula,
+        scalingAttribute: source.system.scalingAttribute,
         isMagicDamage: source.system.isMagicDamage,
         damageElements: foundry.utils.deepClone(source.system.damageElements ?? []),
         effects: foundry.utils.deepClone(source.system.effects ?? []),

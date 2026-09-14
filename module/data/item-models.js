@@ -1,4 +1,4 @@
-import { MEU_SISTEMA } from "../config.js";
+import { MEU_SISTEMA, getXpForNextLevel } from "../config.js";
 
 const fields = foundry.data.fields;
 
@@ -149,6 +149,7 @@ function subSkillSchema() {
     resistanceTarget: new fields.StringField({ required: false, initial: "" }),
     effectType: new fields.StringField({ required: false, initial: "none", choices: MEU_SISTEMA.SKILL_EFFECT_TYPES }),
     damageFormula: new fields.StringField({ required: false, initial: "" }),
+    scalingAttribute: new fields.StringField({ required: false, initial: "", blank: true }),
     isMagicDamage: new fields.BooleanField({ required: false, initial: false }),
     damageElements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
     effects: new fields.ArrayField(effectEntrySchema(), { required: false, initial: [] }),
@@ -170,6 +171,15 @@ function subSkillSchema() {
  * skill só funde fontes de tier ≤ o dela).
  */
 export class SkillDataModel extends foundry.abstract.TypeDataModel {
+  /** Mesmo teto do XP de Personagem, aplicado na preparação — ver `deriveExperience` em character-model.js. */
+  prepareDerivedData() {
+    const max = getXpForNextLevel(this.level);
+    this.xpMax = max;
+    this.xp = Math.clamp(this.xp ?? 0, 0, max);
+    this.xpReady = this.xp >= max;
+    this.xpPercent = max > 0 ? Math.round((this.xp / max) * 100) : 0;
+  }
+
   static defineSchema() {
     return {
       tier: new fields.StringField({
@@ -178,6 +188,15 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
         choices: MEU_SISTEMA.SKILL_TIERS
       }),
       level: new fields.NumberField({ required: true, integer: true, initial: 1, min: 1 }),
+
+      /**
+       * XP acumulado rumo ao próximo nível DESTA Skill — mesma regra do XP de Personagem: trava
+       * no teto do nível atual e para de acumular até o Mestre subir o nível (o botão de Level Up
+       * da Skill é GM-only). É isso que impede farmar uso repetido e chegar com vários níveis
+       * pagos adiantados.
+       */
+      xp: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+
       /** Custo de Energia pra "Usar" a skill (não confundir com o Ponto de Habilidade gasto pra criá-la — esse é fixo em 1, ver skill-economy.js). */
       cost: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
       ...usageFields(),
@@ -223,6 +242,18 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
       }),
 
       damageFormula: new fields.StringField({ required: false, initial: "" }),
+
+      /**
+       * Atributo de Combate que escala o dano desta Skill: o resultado da fórmula é multiplicado
+       * por `(Atributo.Total)² ÷ divisor` (ver `damageScalingMultiplier` em config.js). Quadrático
+       * porque o HP também é — escala linear não acompanha a curva de HP e o combate iria ficando
+       * mais longo a cada nível.
+       *
+       * `""` (padrão) = sem escala: a fórmula vale exatamente como escrita. Toda Skill criada
+       * antes desta regra fica nesse estado, então nada de conteúdo antigo muda de dano sozinho.
+       * Sem `choices` fixo porque a lista de atributos visíveis é configurável em runtime.
+       */
+      scalingAttribute: new fields.StringField({ required: false, initial: "", blank: true }),
 
       /**
        * Independente dos elementos abaixo: só essa flag decide se o dano é reduzido pela

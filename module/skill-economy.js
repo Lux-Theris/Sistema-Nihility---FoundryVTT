@@ -252,6 +252,7 @@ export async function evolveSkill(actor, sourceItemId, newSkillData) {
       resistanceTarget: newSkillData.resistanceTarget,
       effectType: newSkillData.effectType,
       damageFormula: newSkillData.damageFormula,
+      scalingAttribute: newSkillData.scalingAttribute,
       isMagicDamage: newSkillData.isMagicDamage,
       damageElements: newSkillData.damageElements,
       effects: newSkillData.effects,

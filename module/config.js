@@ -31,6 +31,14 @@ export const MEU_SISTEMA = {
     // essas settings configuradas não perdem o valor ao atualizar.
     attributesData: "attributesData",
     xpFormula: "xpFormula",
+    damageScalingDivisor: "damageScalingDivisor",
+    skillPowerPerLevel: "skillPowerPerLevel",
+    skillDiscountPerLevel: "skillDiscountPerLevel",
+    skillCyclePower: "skillCyclePower",
+    skillCycleDiscount: "skillCycleDiscount",
+    skillCostFloorPercent: "skillCostFloorPercent",
+    resistanceXpFactor: "resistanceXpFactor",
+    resistanceLearnThreshold: "resistanceLearnThreshold",
     vesselsEnabled: "vesselsEnabled",
     skillFusionEnabled: "skillFusionEnabled",
     skillPointsEnabled: "skillPointsEnabled",
@@ -1019,6 +1027,141 @@ export function getXpForNextLevel(level) {
   }
 }
 
+/** Golpes de um mesmo tipo até o sistema sugerir a Resistência ao Mestre (0 = aviso desligado). */
+export function getResistanceLearnThreshold() {
+  try {
+    const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.resistanceLearnThreshold));
+    return Number.isFinite(value) && value >= 0 ? Math.round(value) : 25;
+  } catch (err) {
+    return 25;
+  }
+}
+
+/**
+ * XP que uma Skill de Resistência ganha por ter bloqueado `blocked` de dano num defensor com
+ * `maxHp` de Vida Máxima.
+ *
+ * É proporcional à FRAÇÃO da própria Vida que foi salva, nunca ao número absoluto de dano: como
+ * o dano deste sistema escala com o quadrado do atributo, XP proporcional ao dano bruto
+ * inflacionaria sozinho (a mesma defesa renderia dezenas de vezes mais XP no fim da campanha que
+ * no começo, e a Skill subiria de nível sem esforço). Em fração, defender um golpe igualmente
+ * perigoso rende o mesmo XP em qualquer nível — e arranhão continua rendendo 0.
+ * @returns {number} XP inteiro (0 quando o bloqueio foi irrelevante perto da Vida do defensor)
+ */
+export function resistanceXpGain(blocked, maxHp) {
+  if (!(blocked > 0) || !(maxHp > 0)) return 0;
+
+  let factor = 100;
+  try {
+    const configured = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.resistanceXpFactor));
+    if (Number.isFinite(configured) && configured >= 0) factor = configured;
+  } catch (err) {
+    /* setting ainda não registrada — segue no padrão */
+  }
+
+  return Math.round((blocked / maxHp) * factor);
+}
+
+/**
+ * O que o nível de uma Skill entrega, acumulado do nível 1 até `level`.
+ *
+ * O nível avança num CICLO fixo e previsível: N níveis de Poder (cada um multiplica o efeito da
+ * Skill) seguidos de M níveis de Desconto (cada um corta o Custo), repetindo pra sempre. O
+ * jogador sempre sabe o que o próximo nível dá sem consultar tabela — é o motivo de o ciclo ser
+ * fixo em vez de uma tabela por nível.
+ *
+ * Duas regras não-óbvias, ambas deliberadas:
+ *  - **Os dois são multiplicativos, nunca subtrativos.** Um desconto de -20% subtrativo levaria o
+ *    custo ao piso em 5 níveis e tornaria todo o resto da curva inútil; multiplicativo, o piso
+ *    chega por volta do nível 24 com os padrões atuais.
+ *  - **Nível de Desconto que cai com o custo JÁ no piso vira nível de Poder.** Sem isso, toda
+ *    Skill que passa do piso acumula níveis que não entregam nada (13 níveis mortos até o nível
+ *    50, nos padrões) — e o Mestre ainda teria gasto o clique de Level Up em cada um.
+ *
+ * Skill de Resistência não passa por aqui: ela tem progressão própria (10%/nível, ver
+ * `computeResistancePercent`) e teto de nível próprio.
+ * @param {number} level
+ * @returns {{power: number, cost: number}} multiplicadores (1 = sem alteração)
+ */
+export function skillLevelBonuses(level) {
+  const read = (key, fallback) => {
+    try {
+      const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[key]));
+      return Number.isFinite(value) && value >= 0 ? value : fallback;
+    } catch (err) {
+      return fallback;
+    }
+  };
+
+  const powerStep = read("skillPowerPerLevel", 10) / 100;
+  const discountStep = read("skillDiscountPerLevel", 20) / 100;
+  const floor = Math.clamp(read("skillCostFloorPercent", 10) / 100, 0, 1);
+  const powerLevels = Math.max(0, Math.round(read("skillCyclePower", 2)));
+  const discountLevels = Math.max(0, Math.round(read("skillCycleDiscount", 2)));
+
+  const cycle = [...Array(powerLevels).fill("power"), ...Array(discountLevels).fill("discount")];
+  const safeLevel = Math.max(1, Math.round(Number(level) || 1));
+  if (!cycle.length) return { power: 1, cost: 1 };
+
+  let power = 1;
+  let cost = 1;
+  for (let i = 0; i < safeLevel - 1; i++) {
+    const atFloor = cost <= floor + 1e-9;
+    // Desconto com o custo já no piso não teria efeito nenhum — vira Poder (ver acima).
+    const phase = cycle[i % cycle.length] === "discount" && !atFloor ? "discount" : "power";
+    if (phase === "power") power *= 1 + powerStep;
+    else cost = Math.max(floor, cost * (1 - discountStep));
+  }
+
+  return { power, cost };
+}
+
+/**
+ * Custo de Energia efetivo de uma Skill/Sub-Skill no nível dela — o valor escrito na Skill já
+ * com o desconto acumulado do ciclo. Uma Skill que custa alguma coisa nunca fica de graça por
+ * arredondamento: o mínimo é 1.
+ * @param {number} baseCost - `cost` ou `upkeepCost` escrito na Skill
+ * @param {number} level
+ */
+export function effectiveSkillCost(baseCost, level) {
+  const base = Number(baseCost) || 0;
+  if (base <= 0) return 0;
+  return Math.max(1, Math.round(base * skillLevelBonuses(level).cost));
+}
+
+/**
+ * Multiplicador de dano vindo do Atributo de Escala de uma Skill: `(Atributo.Total)² ÷ divisor`.
+ *
+ * A forma é QUADRÁTICA de propósito, não por gosto: o HP deste sistema é
+ * `Atributo × Atributo × multiplicador`, ou seja cresce com o quadrado dos pontos investidos.
+ * Qualquer escala linear de dano (somar o bônus, multiplicar pelo total) é engolida pela curva
+ * de HP — um alvo de mesmo nível passaria de ~24 golpes no nível 1 para ~200 no nível 50. Com a
+ * forma quadrática o número de golpes fica constante em toda a campanha, e quem controla o
+ * ritmo é o divisor (setting) e a fórmula de dado escrita na Skill.
+ *
+ * Sem Atributo de Escala escolhido (`""`, o padrão) devolve 1 — toda Skill criada antes desta
+ * regra continua causando exatamente o dano que sempre causou.
+ * @param {Actor} actor - quem está usando a Skill
+ * @param {string} attributeKey - `mech.scalingAttribute`
+ * @returns {number} fator multiplicativo (1 = sem escala)
+ */
+export function damageScalingMultiplier(actor, attributeKey) {
+  if (!attributeKey || !MEU_SISTEMA.COMBAT_ATTRIBUTES.includes(attributeKey)) return 1;
+
+  const total = actor?.system?.attributes?.combat?.[attributeKey]?.total ?? 0;
+  if (total <= 0) return 1;
+
+  let divisor = 10;
+  try {
+    const configured = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.damageScalingDivisor));
+    if (Number.isFinite(configured) && configured > 0) divisor = configured;
+  } catch (err) {
+    /* setting ainda não registrada — segue no padrão */
+  }
+
+  return (total * total) / divisor;
+}
+
 /**
  * Leitor ÚNICO de todo bloco ligável/desligável do sistema (ver MEU_SISTEMA.FEATURES) — use
  * isto, e não `game.settings.get` direto, pra gatear qualquer coisa: só aqui a cadeia de
@@ -1206,6 +1349,86 @@ export function registerSystemSettings() {
     config: false,
     type: String,
     default: "[]"
+  });
+
+  game.settings.register(SYSTEM_ID, S.damageScalingDivisor, {
+    name: "Escala de Dano por Atributo — Divisor",
+    hint: "Uma Skill com Atributo de Escala causa: Fórmula × (Atributo.Total)² ÷ este número. Menor = combate mais rápido. Padrão 10 (uma skill 2d6 derruba um alvo de mesmo nível em ~14 golpes; uma 10d10, em 2).",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 10,
+    requiresReload: true
+  });
+
+  game.settings.register(SYSTEM_ID, S.skillPowerPerLevel, {
+    name: "Nível de Skill — Poder por nível (%)",
+    hint: "Quanto cada nível de Poder multiplica o efeito da Skill (dano e valores de efeito). Padrão 10%.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 10,
+    requiresReload: true
+  });
+
+  game.settings.register(SYSTEM_ID, S.skillDiscountPerLevel, {
+    name: "Nível de Skill — Desconto de Custo por nível (%)",
+    hint: "Quanto cada nível de Desconto corta do Custo de Energia, multiplicativamente. Padrão 20%.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 20,
+    requiresReload: true
+  });
+
+  game.settings.register(SYSTEM_ID, S.skillCyclePower, {
+    name: "Nível de Skill — Níveis de Poder no ciclo",
+    hint: "Quantos níveis seguidos dão Poder antes de começarem os de Desconto. Padrão 2.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 2,
+    requiresReload: true
+  });
+
+  game.settings.register(SYSTEM_ID, S.skillCycleDiscount, {
+    name: "Nível de Skill — Níveis de Desconto no ciclo",
+    hint: "Quantos níveis seguidos dão Desconto antes de o ciclo recomeçar. Padrão 2. Com o custo já no piso, esses níveis viram Poder.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 2,
+    requiresReload: true
+  });
+
+  game.settings.register(SYSTEM_ID, S.skillCostFloorPercent, {
+    name: "Nível de Skill — Piso do Custo (%)",
+    hint: "O Custo de uma Skill nunca cai abaixo deste percentual do valor original. Padrão 10%.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 10,
+    requiresReload: true
+  });
+
+  game.settings.register(SYSTEM_ID, S.resistanceXpFactor, {
+    name: "XP de Resistência — Fator",
+    hint: "XP que uma Skill de Resistência ganha ao defender: (dano bloqueado ÷ Vida Máxima do defensor) × este número. Padrão 100 — bloquear 10% da própria Vida rende 10 XP, e um arranhão rende 0.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 100,
+    requiresReload: true
+  });
+
+  game.settings.register(SYSTEM_ID, S.resistanceLearnThreshold, {
+    name: "Resistência — Golpes para aprender",
+    hint: "Quantos golpes de um mesmo tipo de dano um personagem precisa levar antes de o sistema avisar o Mestre que ele pode ganhar a Resistência àquele tipo. A Skill NÃO é criada sozinha — o aviso é só uma sugestão. Padrão 25. Coloque 0 para desligar o aviso.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 25,
+    requiresReload: true
   });
 
   game.settings.register(SYSTEM_ID, S.xpFormula, {

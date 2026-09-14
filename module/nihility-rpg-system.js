@@ -40,6 +40,7 @@ import { AttributeConfigApp } from "./apps/attribute-config.js";
 import { tickCombatRoundEffects, tickActorUpkeepSkills } from "./skill-effects.js";
 import { tickStarshipPower } from "./starship-power.js";
 import { requestShipRepair, approveShipRepairRoll, restoreShipRepairTarget } from "./starship-repair.js";
+import { registerGmRelay } from "./helpers/gm-relay.js";
 import {
   actorsCollection,
   itemsCollection,
@@ -164,6 +165,10 @@ Hooks.once("init", () => {
 });
 
 Hooks.once("ready", async () => {
+  // Canal de socket que deixa um cliente sem permissão pedir a escrita ao Mestre (ver
+  // helpers/gm-relay.js) — é o que faz XP de Resistência funcionar em jogador vs. jogador.
+  registerGmRelay();
+
   await ensureSystemCompendiums();
   await runMigrationIfNeeded("tierCommonToNormal", migrateCommonTierToNormal);
   await runMigrationIfNeeded("elementalDamageToMagicTag", migrateElementalDamageToMagicTag);

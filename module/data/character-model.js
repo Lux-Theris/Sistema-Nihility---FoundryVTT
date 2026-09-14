@@ -3,7 +3,8 @@ import {
   MEU_SISTEMA,
   getAttributePointsStarting,
   getAttributePointsPerLevel,
-  getVitalFormula
+  getVitalFormula,
+  getXpForNextLevel
 } from "../config.js";
 
 const fields = foundry.data.fields;
@@ -51,6 +52,12 @@ function baseActorSchema() {
         value: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 })
       }),
       level: new fields.NumberField({ required: true, integer: true, initial: 1, min: 0 }),
+      /**
+       * XP acumulado rumo ao próximo nível. É SEMPRE limitado ao teto do nível atual
+       * (`getXpForNextLevel`, ver deriveExperience) — nunca acumula excedente: um personagem que
+       * bate o teto para de ganhar XP até o Mestre subir o nível dele. Sem esse limite, quem
+       * farmasse XP chegaria ao nível seguinte já com vários níveis "pagos" adiantados.
+       */
       xp: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
 
       /**
@@ -212,6 +219,22 @@ function deriveCombatAttributes(dataModel) {
  *
  * Precisa rodar DEPOIS de deriveCombatAttributes (usa combat.X.total já calculado).
  */
+/**
+ * Deriva o teto de XP do nível atual e trava `xp` nele. O clamp acontece na PREPARAÇÃO (e não só
+ * em quem escreve) porque o XP entra por vários caminhos — macro do Mestre, uso de Skill, edição
+ * direta na ficha — e todos precisam obedecer ao mesmo teto sem cada um lembrar de checar.
+ * `xpReady` é o que a ficha e a Voz do Mundo usam pra avisar que dá pra subir de nível.
+ */
+function deriveExperience(dataModel) {
+  const attributes = dataModel.attributes;
+  const max = getXpForNextLevel(attributes.level);
+
+  attributes.xpMax = max;
+  attributes.xp = Math.clamp(attributes.xp, 0, max);
+  attributes.xpReady = attributes.xp >= max;
+  attributes.xpPercent = max > 0 ? Math.round((attributes.xp / max) * 100) : 0;
+}
+
 function deriveVitalStats(dataModel) {
   const actor = dataModel.parent;
   const combat = dataModel.attributes.combat;
@@ -280,5 +303,6 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
   prepareDerivedData() {
     deriveCombatAttributes(this);
     deriveVitalStats(this);
+    deriveExperience(this);
   }
 }

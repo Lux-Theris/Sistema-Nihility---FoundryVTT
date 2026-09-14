@@ -8,7 +8,8 @@ import {
   isStatusConditionsEnabled,
   isAreaEffectsEnabled,
   getEffectTargetLabels,
-  getVisibleAttributes
+  getVisibleAttributes,
+  getAttributeLabel
 } from "../config.js";
 import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../skill-effects.js";
 
@@ -141,6 +142,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     resistanceTarget: initialData.resistanceTarget ?? "",
     effectType: initialData.effectType ?? "none",
     damageFormula: initialData.damageFormula ?? "",
+    scalingAttribute: initialData.scalingAttribute ?? "",
     isMagicDamage: Boolean(initialData.isMagicDamage),
     damageElements: Array.isArray(initialData.damageElements) ? initialData.damageElements : [],
     effects: Array.isArray(initialData.effects) ? foundry.utils.deepClone(initialData.effects) : [],
@@ -166,6 +168,20 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
         <span class="hint-inline">(só um vínculo histórico — a skill antiga não existe mais, essa aqui foi definida do zero)</span>
       </div>`
     : "";
+
+  // Atributo de Escala: "nenhum" na frente (o padrão, e o estado de toda Skill anterior à regra).
+  // Um atributo escondido pela campanha some da lista, mas continua listado se a Skill JÁ usa ele
+  // — senão editar a Skill apagaria a escala dela sem avisar.
+  const scalingAttributeOptions =
+    `<option value="" ${data.scalingAttribute ? "" : "selected"}>— sem escala —</option>` +
+    getVisibleAttributes()
+      .concat(
+        data.scalingAttribute && !getVisibleAttributes().some(a => a.key === data.scalingAttribute)
+          ? [{ key: data.scalingAttribute, label: `${getAttributeLabel(data.scalingAttribute)} (oculto)` }]
+          : []
+      )
+      .map(a => `<option value="${a.key}" ${a.key === data.scalingAttribute ? "selected" : ""}>${a.label}</option>`)
+      .join("");
 
   const effectTypeOptions = MEU_SISTEMA.SKILL_EFFECT_TYPES.map(
     t => `<option value="${t}" ${t === data.effectType ? "selected" : ""}>${MEU_SISTEMA.SKILL_EFFECT_TYPE_LABELS[t]}</option>`
@@ -298,6 +314,11 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
 
       <div class="mechanic-panel se-damage-panel">
         <div class="form-group"><label>Fórmula de Dano</label><input type="text" name="damageFormula" value="${escapeHtml(data.damageFormula)}" placeholder="2d6+3"/></div>
+        <div class="form-group">
+          <label>Atributo de Escala</label>
+          <select name="scalingAttribute">${scalingAttributeOptions}</select>
+          <span class="hint-inline">Multiplica o dano por (Atributo.Total)² ÷ divisor. Sem escala, a fórmula vale como escrita.</span>
+        </div>
         <label class="checkbox-line"><input type="checkbox" name="isMagicDamage" ${data.isMagicDamage ? "checked" : ""}/> Dano Mágico</label>
         <div class="form-group"><label>Elemento(s)</label><div class="element-grid">${elementChips || "<span class=\"hint-inline\">Nenhum elemento configurado.</span>"}</div></div>
       </div>
@@ -545,6 +566,7 @@ function readSkillEditorForm(root, lockTier) {
   const targetType = hasRange ? root.querySelector('[name="targetType"]').value : "targeted";
   const isEmission = hasRange && targetType === "emission";
   const hasUpkeep = root.querySelector('[name="hasUpkeep"]').checked;
+  const scalingAttribute = root.querySelector('[name="scalingAttribute"]')?.value ?? "";
 
   return {
     name: root.querySelector('[name="name"]').value.trim() || "Skill Sem Nome",
@@ -562,6 +584,7 @@ function readSkillEditorForm(root, lockTier) {
     areaDistance: isEmission ? Number(root.querySelector('[name="areaDistance"]').value) || 0 : 0,
     areaAngle: isEmission ? Number(root.querySelector('[name="areaAngle"]').value) || 53 : 53,
     damageFormula: effectType === "damage" ? root.querySelector('[name="damageFormula"]').value.trim() : "",
+    scalingAttribute: effectType === "damage" ? scalingAttribute : "",
     isMagicDamage: effectType === "damage" && root.querySelector('[name="isMagicDamage"]').checked,
     damageElements:
       effectType === "damage" ? Array.from(root.querySelectorAll('[name="damageElements"]:checked')).map(el => el.value) : [],

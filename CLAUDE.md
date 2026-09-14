@@ -21,8 +21,6 @@ node --test test/rules.test.mjs       # unit tests of the pure rule functions
 
 `test/rules.test.mjs` covers only what is callable without Foundry (dice pool, resistance curve, module presets, currency conversion, fusion snapshot), with `test/setup.mjs` stubbing the handful of Foundry globals the import path touches (`Math.clamp`, `foundry.utils.*`). **The bar for adding a test there is that the function needs no Actor/Item/canvas** — if a test would need to fake a Document, extract the pure part instead of growing the stub. Everything involving documents, sheets or canvas is still manual load-testing inside a running world.
 
-**Audit trail:** `ANALISE-SISTEMA.md` at the repo root is the full audit this system was measured against (inventory, bugs with file:line, deprecation sweep, modularity roadmap). Items 1–10 of its roadmap have been executed; it is kept as the record of *why* those changes were made.
-
 **Version bump convention (always follow this):** `system.json`'s `"version"` must be bumped in its own `chore: bump version to x.y.z` commit after every meaningful feature/fix push. Foundry's update-check compares this field against the manifest URL, so without a bump, worlds never see new content as available. Look at recent `git log` for the exact pattern already in use.
 
 **Install for manual testing:** copy `system.json`, `module/`, `templates/`, `styles/`, `lang/` into `Data/systems/nihility-rpg-system/` in a Foundry install, or point Foundry's "Install System" at the manifest URL in `system.json` (`manifest`/`download` point at this repo's `main` branch on GitHub).
@@ -183,6 +181,15 @@ Every sheet/app in this system was migrated off the classic AppV1 API (the same 
 - Document sheets (`ItemSheetV2`/`ActorSheetV2`) keep the old `submitOnChange` behavior via `form: { submitOnChange: true, closeOnSubmit: false }` — no `form.handler` override needed, the DocumentSheetV2 default already applies the diff to the Document.
 
 `module/sheets/*.js` + `templates/*.hbs` are the Actor/Item sheets built this way; `module/apps/*.js` + `templates/apps/*.hbs` are the rest (`NihilityMenuApp`, `AIAssistantApp`, the four config editors — three of them built by `list-config-app-factory.js`, see the `config.js` section above —, `skill-editor-dialog.js`'s `openSkillEditorDialog` — a `DialogV2`-based modal, not a full app, used for Species-preset racial skills so they get the same field set as a real Skill instead of a stripped-down inline row).
+
+### Two CSS traps from the Foundry core theme
+
+Both of these produced bugs that looked like something else entirely, so check them first when layout or text "disappears":
+
+- **The core gives every `<button>` a fixed height** (`var(--button-size)`). A button whose content is taller than that stays clamped to it: the content overflows its own box, overlaps whatever is next to it, and **only the original short strip stays clickable**. That single rule caused both PAD symptoms at once — the icon grid reported `clientHeight: 23` while the tiles drew at ~100px, so the status line underneath was overlapped and most of each icon was dead to clicks. Any button in this system whose content is a tile/card needs `height: auto; min-height: 0; line-height: normal`.
+- **Rich text is dark-on-dark by default.** `<prose-mirror>`'s editable area inherits the core's light-theme text color, which vanishes against this system's dark panels — you can type, the content saves, the HTML source view shows it, and the visual editor looks empty. Always set an explicit `color` on `.ProseMirror` *and* on the block elements inside it (`p`, `h1`…), since those get their own color from the core.
+
+Rich text fields use the `<prose-mirror>` custom element, never the old `{{editor ... button=true}}` helper — that helper draws a pencil button whose click handler was wired by AppV1's `FormApplication#activateEditor`, which DocumentSheetV2 does not do, so the button renders and does nothing. `<prose-mirror name="system.x" value="{{system.x}}">` is a real form field, so `submitOnChange` saves it with no handler of our own.
 
 ### Handlebars context depth
 

@@ -2226,6 +2226,13 @@ form.nihility-config-app {
   appearance: none;
   font-family: inherit;
   color: inherit;
+  /* O core do Foundry dá ALTURA FIXA a todo <button> (var(--button-size)). Sem soltar isso, um
+     botão do PAD cujo conteúdo é maior que essa altura fica preso nela: o conteúdo vaza pra
+     fora da caixa, sobrepõe o que está em volta e só a faixa da altura original continua
+     clicável — exatamente o que acontecia com a grade de ícones da tela inicial. */
+  height: auto;
+  min-height: 0;
+  line-height: normal;
 }
 
 .pad-statusbar {
@@ -2847,13 +2854,64 @@ form.nihility-config-app {
   font-style: italic;
 }
 
-/* O <prose-mirror> do core nasce sem altura mínima dentro das fichas deste sistema, o que
-   deixava uma área de clique fina demais pra acertar quando o campo está vazio. */
+/* O botão de ícone da tela inicial do PAD é a tile inteira, não só o rótulo: sem zerar o
+   padding herdado do core, sobra uma borda morta em volta da área clicável. `.pad-device` na
+   frente só pra vencer a especificidade do reset acima (que é `.pad-device button`). */
+.pad-device .pad-icon {
+  padding: 0;
+  height: auto;
+  min-height: 0;
+  width: 100%;
+}
+
+/* Piso de altura da tile: `aspect-ratio` sozinho depende de a largura estar resolvida, o que
+   nem sempre acontece no primeiro layout dentro de uma janela redimensionável. O mínimo
+   garante que a tile (e portanto a área clicável) nunca colapse. */
+.pad-device .pad-icon-tile {
+  min-height: 64px;
+}
+
+/* ==========================================================================
+   Editor de texto rico (<prose-mirror>) dentro das fichas — Biografia/Descrição.
+   O conteúdo digitado existia (aparecia no editor de código-fonte) mas ficava
+   INVISÍVEL no modo visual: a área editável do core herda a cor de texto do tema
+   claro do Foundry, que some no fundo escuro deste sistema. Daí a cor explícita.
+   ========================================================================== */
 .nihility-sheet prose-mirror {
-  display: block;
-  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  min-height: 260px;
   border: 1px solid var(--nihility-border);
   border-radius: 6px;
-  padding: 4px 6px;
   background: rgba(255, 255, 255, 0.02);
+  color: var(--nihility-text);
+}
+
+.nihility-sheet prose-mirror .editor-container,
+.nihility-sheet prose-mirror .editor-content {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.nihility-sheet prose-mirror .ProseMirror {
+  min-height: 200px;
+  padding: 8px 10px;
+  color: var(--nihility-text);
+  overflow-y: auto;
+}
+
+/* O texto digitado quase sempre nasce dentro de um bloco (<p>, <h1>…) — sem herdar a cor
+   explicitamente, cada um desses volta a pegar a cor do tema claro do core. */
+.nihility-sheet prose-mirror .ProseMirror :is(p, h1, h2, h3, h4, h5, h6, li, td, th, blockquote) {
+  color: inherit;
+}
+
+.nihility-sheet prose-mirror .ProseMirror a { color: var(--nihility-accent); }
+
+/* A barra de ferramentas do editor também é feita de <button> do core: mesma armadilha de
+   altura fixa da grade do PAD, só que aqui o sintoma seria o ícone cortado. */
+.nihility-sheet prose-mirror .editor-menu button {
+  height: auto;
+  min-height: 0;
+  line-height: normal;
 }

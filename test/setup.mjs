@@ -19,6 +19,14 @@ if (typeof Math.clamp !== "function") {
 globalThis.foundry ??= {};
 foundry.utils ??= {};
 
+// `data/*.js` monta schemas no topo do módulo (`const fields = foundry.data.fields`) e estende
+// `foundry.abstract.TypeDataModel` na definição das classes — as duas coisas acontecem só por
+// IMPORTAR o arquivo, antes de qualquer teste rodar. Os stubs existem pra que o import não
+// exploda; nenhum teste chama schema ou Data Model de verdade (se precisasse, o alvo estaria
+// errado — ver o critério no cabeçalho de rules.test.mjs).
+foundry.data ??= { fields: {} };
+foundry.abstract ??= { TypeDataModel: class {} };
+
 foundry.utils.getProperty ??= (object, key) =>
   key.split(".").reduce((acc, part) => (acc == null ? acc : acc[part]), object);
 

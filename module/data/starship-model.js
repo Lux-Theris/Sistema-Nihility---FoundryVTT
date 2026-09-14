@@ -3,6 +3,38 @@ import { MEU_SISTEMA, getStarshipEnergyLabel, effectiveSkillCost } from "../conf
 const fields = foundry.data.fields;
 
 /**
+ * Fração (0-1) do desempenho que um Módulo ainda entrega, dada a Vida dele — a regra de que
+ * Módulo danificado faz menos: um Escudo de capacidade 100 com 5 de 100 de Vida segura 5, e um
+ * Regen de 100 passa a regenerar 5.
+ *
+ * Fica FORA da classe de propósito: não usa `this`, e como função pura dá pra testar a regra
+ * sem precisar de um Actor do Foundry montado (ver test/rules.test.mjs).
+ *
+ * `hp.max` zerado devolve 1 (integridade plena) em vez de dividir por zero — sem máximo não há
+ * como medir dano, e zerar o desempenho de um Módulo mal configurado seria pior que ignorar.
+ */
+/**
+ * Categorias que NÃO entram na soma da Integridade Estrutural. Casco e Escudo têm pool próprio
+ * (são as duas primeiras camadas da cascata), e Arma é equipamento pendurado no casco, não
+ * estrutura — derrubar todas as armas não deveria partir a nave ao meio.
+ */
+const NON_STRUCTURAL_CATEGORIES = ["armor", "shield", "weapon"];
+
+/**
+ * Categorias que não recebem dano espalhado pela Integridade. **Só o Casco** — ele já absorveu
+ * a parte dele no estágio anterior da cascata, e levar de novo no estágio seguinte seria contar
+ * duas vezes. Escudo e Arma, apesar de ficarem FORA da soma, recebem esse dano na própria Vida:
+ * um tiro que atravessa o casco pode muito bem acertar o emissor de escudo ou uma torre.
+ */
+const SPREAD_IMMUNE_CATEGORIES = ["armor"];
+
+export function moduleIntegrityRatio(module) {
+  const max = module?.system?.hp?.max ?? 0;
+  if (max <= 0) return 1;
+  return Math.clamp((module.system.hp.value ?? 0) / max, 0, 1);
+}
+
+/**
  * Campos compartilhados por Nave Espacial E Veículo (overhaul de Porte — Veículo ganha o
  * sistema COMPLETO, só travado em Porte mini/pequeno via `sizeChoices`): Estrutura (`hull` —
  * o "HP base", nunca vem de Módulo), Escudos (com Recarga — ver `rechargeRemaining` abaixo),
@@ -189,9 +221,34 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
   /** O único Módulo "armor" instalado (Casco), ou `null` se o slot estiver vazio. */
   get armorModule() { return this.singleSlotModule("armor"); }
 
-  /** Redução de dano do Casco instalado, em fração (0-1) — 0 se o slot estiver vazio. */
+  /**
+   * Redução de dano do Casco instalado, em fração (0-1) — 0 se o slot estiver vazio.
+   * Degrada com a Vida do Módulo, como todo o resto: placa amassada protege menos.
+   */
   get armorReductionPercent() {
-    return Math.clamp((this.armorModule?.system.armorReduction ?? 0) / 100, 0, 1);
+    const armor = this.armorModule;
+    if (!armor) return 0;
+    const base = (armor.system.armorReduction ?? 0) / 100;
+    return Math.clamp(base * this.integrityRatioFor(armor), 0, 1);
+  }
+
+  /**
+   * Módulos que compõem a Integridade Estrutural: tudo menos Casco, Escudo e Arma
+   * (NON_STRUCTURAL_CATEGORIES). A Integridade não é um número próprio da Nave — é a soma da
+   * Vida desses Módulos, então "a nave está inteira" e "os sistemas dela estão inteiros" passam
+   * a ser a mesma frase.
+   */
+  get structuralModules() {
+    return this.modules.filter(m => !NON_STRUCTURAL_CATEGORIES.includes(m.system.category));
+  }
+
+  /**
+   * Módulos que podem receber o dano espalhado pela Integridade — todos menos o Casco
+   * (SPREAD_IMMUNE_CATEGORIES). Inclui Escudo e Armas de propósito, mesmo eles ficando fora da
+   * SOMA da Integridade.
+   */
+  get spreadDamageTargets() {
+    return this.modules.filter(m => !SPREAD_IMMUNE_CATEGORIES.includes(m.system.category));
   }
 
   /** Armas instaladas (category "weapon") — múltiplas, ao contrário dos slots únicos acima. */
@@ -224,7 +281,8 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
     const distributor = this.distributorModule;
     if (!distributor) return 0;
     const baseline = MEU_SISTEMA.DISTRIBUTOR_BASELINE_BY_SHIP_SIZE[this.shipSize] ?? 0;
-    return Math.round(baseline * (distributor.system.transferFactor ?? 1));
+    // Distribuidor danificado roteia menos — mesma regra de integridade dos outros Módulos.
+    return Math.round(baseline * (distributor.system.transferFactor ?? 1) * this.integrityRatioFor(distributor));
   }
 
   /**
@@ -270,16 +328,36 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
   }
 
   /**
-   * Valor de um campo do Módulo já escalado pelo throttle (`powerAllocationPercent`) E pela
-   * fome de energia do momento (`powerRatioFor`) — base pra toda capacidade derivada de Módulo
-   * (Vida/Regen de Escudo, Aceleração/Rotação de Motor, Fator de Dobra de FTL, e futuramente
-   * Dano/Penetração de Arma na Fase 5). `null`/sem Módulo instalado retorna 0.
+   * Fração (0-1) do desempenho que um Módulo ainda entrega, dada a Vida dele. Um Módulo meio
+   * destruído faz meio serviço: um Escudo de capacidade 100 com 5 de 100 de Vida segura 5, e se
+   * regenera 100 por rodada, passa a regenerar 5.
+   *
+   * `hp.max` zerado devolve 1 (integridade plena) em vez de dividir por zero — sem máximo não há
+   * como medir dano, e zerar o desempenho de um Módulo mal configurado seria pior que ignorar.
+   */
+  integrityRatioFor(module) {
+    return moduleIntegrityRatio(module);
+  }
+
+  /**
+   * Valor de um campo do Módulo já escalado pelos TRÊS fatores que limitam o que ele entrega:
+   * o throttle escolhido (`powerAllocationPercent`), a fome de energia do momento
+   * (`powerRatioFor`) e a Vida restante do próprio Módulo (`integrityRatioFor`).
+   *
+   * É a base de toda capacidade derivada de Módulo — Geração do Reator, Vida/Regen de Escudo,
+   * Aceleração/Rotação de Motor, Fator de Dobra, Dano/Penetração de Arma. `null`/sem Módulo
+   * instalado retorna 0.
+   *
+   * Repare que o CONSUMO não passa por aqui (ver `totalConsumption`): um Módulo danificado
+   * continua puxando a mesma energia e entregando menos — é o que torna o dano realmente caro,
+   * em vez de dar um desconto de energia como prêmio por estar quebrado.
    */
   effectiveModuleStat(module, field) {
     if (!module) return 0;
     const throttleRatio = (module.system.powerAllocationPercent ?? 100) / 100;
     const powerRatio = this.powerRatioFor(module);
-    return Math.round((module.system[field] ?? 0) * throttleRatio * powerRatio);
+    const integrityRatio = this.integrityRatioFor(module);
+    return Math.round((module.system[field] ?? 0) * throttleRatio * powerRatio * integrityRatio);
   }
 
   /**
@@ -337,11 +415,20 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
     // FASE B — capacidades derivadas, todas lendo a fome de energia já resolvida e estável.
     this.shields.max = this.effectiveModuleStat(this.shieldModule, "shieldCapacity");
     this.shields.regenRate = this.effectiveModuleStat(this.shieldModule, "shieldRegen");
+
+    // Casco e Integridade não são mais números próprios da Nave: são VISÕES sobre a Vida dos
+    // Módulos. O Casco é literalmente a Vida do Módulo de armadura (danificar o pool é danificar
+    // o Módulo), e a Integridade é a soma da Vida dos Módulos estruturais. Os campos continuam
+    // no schema por compatibilidade com mundos salvos antes desta regra, mas o valor guardado
+    // deixou de ser consultado — quem manda é o Módulo.
+    this.casco.value = this.armorModule?.system.hp.value ?? 0;
     this.casco.max = this.armorModule?.system.hp.max ?? 0;
 
-    this.hull.value = Math.clamp(this.hull.value, 0, this.hull.max);
+    const structural = this.structuralModules;
+    this.hull.value = structural.reduce((sum, m) => sum + (m.system.hp.value ?? 0), 0);
+    this.hull.max = structural.reduce((sum, m) => sum + (m.system.hp.max ?? 0), 0);
+
     this.shields.value = Math.clamp(this.shields.value, 0, this.shields.max);
-    this.casco.value = Math.clamp(this.casco.value, 0, this.casco.max);
     this.powerGrid.isOverloaded = this.availableEnergy < 0;
   }
 

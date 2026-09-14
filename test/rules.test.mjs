@@ -27,6 +27,8 @@ import {
 import { computeResistancePercent, computeResistanceName, resistanceMaxLevel } from "../module/skill-effects.js";
 import { buildSubSkillsFromSources } from "../module/skill-snapshot.js";
 import { buildBatchPrompt, summarizeCreatedDocument } from "../module/ai-generation.js";
+import { moduleIntegrityRatio } from "../module/data/starship-model.js";
+import { splitStructuralDamage } from "../module/starship-power.js";
 
 /* -------------------------------------------- */
 /*  Pool de dados de Atributo                    */
@@ -147,6 +149,97 @@ test("capacitor: instalar a MENOR Bateria nunca pode piorar a reserva de nenhum 
       `Porte "${size}": conduíte (${MEU_SISTEMA.CONDUIT_CAPACITOR_BY_SHIP_SIZE[size]}) passou da menor Bateria (${smallestBattery})`
     );
   }
+});
+
+/* -------------------------------------------- */
+/*  Integridade de Módulo (danificado faz menos) */
+/* -------------------------------------------- */
+
+function fakeModule(value, max) {
+  return { system: { hp: { value, max } } };
+}
+
+test("integridade: Módulo intacto entrega 100% do que promete", () => {
+  assert.equal(moduleIntegrityRatio(fakeModule(320, 320)), 1);
+});
+
+test("integridade: o exemplo da regra — Escudo com 5 de 100 de Vida segura 5%", () => {
+  // Capacidade 100 × 0.05 = 5, e Regen 100 × 0.05 = 5.
+  assert.equal(moduleIntegrityRatio(fakeModule(5, 100)), 0.05);
+});
+
+test("integridade: metade da Vida, metade do desempenho", () => {
+  assert.equal(moduleIntegrityRatio(fakeModule(160, 320)), 0.5);
+});
+
+test("integridade: Módulo destruído não entrega nada", () => {
+  assert.equal(moduleIntegrityRatio(fakeModule(0, 320)), 0);
+});
+
+test("integridade: sem Vida Máxima definida, assume intacto em vez de dividir por zero", () => {
+  assert.equal(moduleIntegrityRatio(fakeModule(0, 0)), 1);
+  assert.equal(moduleIntegrityRatio(null), 1);
+});
+
+test("integridade: Vida acima do máximo não passa de 100%", () => {
+  // Um ajuste manual do Mestre não pode virar bônus de desempenho.
+  assert.equal(moduleIntegrityRatio(fakeModule(500, 320)), 1);
+});
+
+/* -------------------------------------------- */
+/*  Dano espalhado pela Integridade Estrutural   */
+/* -------------------------------------------- */
+
+/** Aleatoriedade determinística: consome uma sequência fixa em vez de sortear de verdade. */
+function fakeRandom(sequencia) {
+  let i = 0;
+  return () => sequencia[i++ % sequencia.length];
+}
+
+test("dano estrutural: reparte o total inteiro entre os Módulos", () => {
+  const alvos = [
+    { id: "a", remaining: 100 },
+    { id: "b", remaining: 100 },
+    { id: "c", remaining: 100 }
+  ];
+  const split = splitStructuralDamage(60, alvos, fakeRandom([0, 0.5, 0.4, 0.5, 0.8, 1]));
+  const total = split.reduce((sum, x) => sum + x.damage, 0);
+  assert.equal(total, 60, "o dano aplicado tem que fechar com o dano recebido");
+});
+
+test("dano estrutural: nenhum Módulo leva mais do que a Vida que tem", () => {
+  const alvos = [
+    { id: "frágil", remaining: 10 },
+    { id: "robusto", remaining: 500 }
+  ];
+  const split = splitStructuralDamage(300, alvos, fakeRandom([0, 1, 0, 1]));
+  const frágil = split.find(x => x.id === "frágil");
+  assert.ok(!frágil || frágil.damage <= 10, "o Módulo frágil levou mais do que aguentava");
+  assert.equal(split.reduce((s, x) => s + x.damage, 0), 300);
+});
+
+test("dano estrutural: com todos os Módulos zerados, o excedente se perde (a nave já é sucata)", () => {
+  const split = splitStructuralDamage(500, [{ id: "a", remaining: 0 }], fakeRandom([0, 1]));
+  assert.deepEqual(split, []);
+});
+
+test("dano estrutural: não entra em laço infinito quando a Vida acaba antes do dano", () => {
+  // O caso que travaria: pedaços sorteados de tamanho 0 nunca consumiriam o dano.
+  const split = splitStructuralDamage(1000, [{ id: "a", remaining: 5 }, { id: "b", remaining: 5 }], fakeRandom([0]));
+  assert.equal(split.reduce((s, x) => s + x.damage, 0), 10, "só dá pra aplicar a Vida existente");
+});
+
+test("dano estrutural: dano zero ou negativo não toca em Módulo nenhum", () => {
+  assert.deepEqual(splitStructuralDamage(0, [{ id: "a", remaining: 100 }], fakeRandom([0.5])), []);
+  assert.deepEqual(splitStructuralDamage(-30, [{ id: "a", remaining: 100 }], fakeRandom([0.5])), []);
+});
+
+test("dano estrutural: sorteios diferentes atingem Módulos diferentes", () => {
+  // É o ponto da regra: o mesmo golpe não lasca todo mundo por igual.
+  const alvos = () => [{ id: "a", remaining: 100 }, { id: "b", remaining: 100 }];
+  const primeiro = splitStructuralDamage(20, alvos(), fakeRandom([0, 1]));
+  const segundo = splitStructuralDamage(20, alvos(), fakeRandom([0.99, 1]));
+  assert.notDeepEqual(primeiro, segundo);
 });
 
 /* -------------------------------------------- */

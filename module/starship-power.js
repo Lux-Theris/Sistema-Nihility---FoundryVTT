@@ -1,6 +1,69 @@
 import { MEU_SISTEMA } from "./config.js";
 
 /**
+ * Reparte `amount` de dano entre Módulos, em pedaços de tamanho ALEATÓRIO e em ordem ALEATÓRIA —
+ * é o que faz um mesmo golpe na Integridade Estrutural atingir sistemas diferentes a cada vez,
+ * em vez de lascar todos por igual.
+ *
+ * Cada Módulo nunca recebe mais do que a Vida que ainda tem; o que sobrar passa pro próximo
+ * sorteado. Se todos zerarem antes do dano acabar, o excedente se perde — a nave já é sucata, e
+ * não há mais o que quebrar.
+ *
+ * Função PURA (recebe a lista e a fonte de aleatoriedade, devolve a repartição): é a única forma
+ * de testar uma regra de sorteio sem depender do que o dado deu — ver test/rules.test.mjs, onde
+ * `random` é substituído por uma sequência fixa.
+ * @param {number} amount
+ * @param {Array<{id: string, remaining: number}>} targets
+ * @param {() => number} [random]
+ * @returns {Array<{id: string, damage: number}>} só os Módulos que de fato foram atingidos
+ */
+export function splitStructuralDamage(amount, targets, random = Math.random) {
+  let remainingDamage = Math.max(0, Math.round(amount));
+  const pool = targets.filter(t => t.remaining > 0).map(t => ({ ...t }));
+  const dealt = new Map();
+
+  while (remainingDamage > 0 && pool.length) {
+    const index = Math.floor(random() * pool.length);
+    const target = pool[Math.min(index, pool.length - 1)];
+
+    // Pedaço aleatório do que ainda falta — nunca 0, senão o laço não anda.
+    const chunk = Math.max(1, Math.round(random() * remainingDamage));
+    const applied = Math.min(chunk, remainingDamage, target.remaining);
+
+    dealt.set(target.id, (dealt.get(target.id) ?? 0) + applied);
+    target.remaining -= applied;
+    remainingDamage -= applied;
+
+    if (target.remaining <= 0) pool.splice(pool.indexOf(target), 1);
+  }
+
+  return [...dealt.entries()].map(([id, damage]) => ({ id, damage }));
+}
+
+/**
+ * Aplica o dano da Integridade Estrutural espalhando pelos Módulos elegíveis (todos menos o
+ * Casco — ver `spreadDamageTargets` em starship-model.js). Escreve numa chamada só.
+ * @returns {Array<{name: string, damage: number}>} pro resumo no chat
+ */
+export async function applyStructuralDamage(actor, amount) {
+  const targets = actor.system.spreadDamageTargets.map(m => ({ id: m.id, remaining: m.system.hp.value ?? 0 }));
+  const split = splitStructuralDamage(amount, targets, Math.random);
+  if (!split.length) return [];
+
+  const updates = [];
+  const summary = [];
+  for (const { id, damage } of split) {
+    const module = actor.items.get(id);
+    if (!module) continue;
+    updates.push({ _id: id, "system.hp.value": Math.max(0, module.system.hp.value - damage) });
+    summary.push({ name: module.name, damage });
+  }
+
+  if (updates.length) await actor.updateEmbeddedDocuments("Item", updates);
+  return summary;
+}
+
+/**
  * Categorias sem throttle próprio (Bateria/Distribuidor não têm `powerAllocationPercent` na UI)
  * nunca sofrem dano por sobrecarga; Arma tem regra própria (sobrecarregar aumenta a Recarga em
  * vez de danificar o Módulo, ver Fase 5) — também fica de fora do tick de sobrecarga comum.

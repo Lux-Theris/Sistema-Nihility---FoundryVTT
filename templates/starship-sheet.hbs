@@ -43,38 +43,20 @@
         <span class="vital-label">Casco</span>
         <span class="vital-track"><span class="vital-fill hp state-{{cascoState}}" style="width:{{cascoPercent}}%"></span></span>
         <span class="vital-value">
-          <input type="number" name="system.casco.value" value="{{system.casco.value}}"/>/{{system.casco.max}}<span class="vital-percent">{{cascoPercent}}%</span>
+          <span class="vital-derived">{{system.casco.value}}</span>/{{system.casco.max}}<span class="vital-percent">{{cascoPercent}}%</span>
         </span>
         {{#unless armorModule}}<span class="hint-inline" style="margin-left:4px;">(sem Casco instalado)</span>{{/unless}}
-        {{#if isGM}}
-        <a class="vital-adjust-toggle" data-action="toggleModuleVitalAdjust" data-key="casco" title="Ajustar Casco"><i class="fas fa-plus"></i></a>
-        {{/if}}
+        <span class="hint-inline vital-source" title="O Casco é a Vida do Módulo de armadura — ajuste na linha dele, logo abaixo em Módulos Especiais.">= Vida do Módulo de Casco</span>
       </div>
-      {{#if isGM}}
-      <div class="vital-adjust-popover" data-key="casco">
-        <input type="number" class="vital-adjust-input" min="0" placeholder="Valor"/>
-        <button type="button" class="vital-adjust-btn dmg" data-action="adjustModuleVital" data-scope="actor" data-field="casco.value" data-max-field="casco.max" data-dir="-1">− Dano</button>
-        <button type="button" class="vital-adjust-btn heal" data-action="adjustModuleVital" data-scope="actor" data-field="casco.value" data-max-field="casco.max" data-dir="1">+ Reparo</button>
-      </div>
-      {{/if}}
       <div class="vital-row">
         <span class="vital-label">Integridade Estrutural</span>
         <span class="vital-track"><span class="vital-fill hp state-{{structureState}}" style="width:{{structurePercent}}%"></span></span>
         <span class="vital-value">
-          <input type="number" name="system.hull.value" value="{{system.hull.value}}"/>/<input type="number" name="system.hull.max" value="{{system.hull.max}}"/><span class="vital-percent">{{structurePercent}}%</span>
+          <span class="vital-derived">{{system.hull.value}}</span>/<span class="vital-derived">{{system.hull.max}}</span><span class="vital-percent">{{structurePercent}}%</span>
         </span>
-        {{#if isGM}}
-        <a class="vital-adjust-toggle" data-action="toggleModuleVitalAdjust" data-key="hull" title="Ajustar Integridade Estrutural"><i class="fas fa-plus"></i></a>
-        {{/if}}
+        <span class="hint-inline vital-source" title="Soma da Vida dos Módulos estruturais (tudo menos Casco, Escudo e Armas) — ajuste na linha de cada Módulo.">= soma dos Módulos estruturais</span>
       </div>
-      {{#if isGM}}
-      <div class="vital-adjust-popover" data-key="hull">
-        <input type="number" class="vital-adjust-input" min="0" placeholder="Valor"/>
-        <button type="button" class="vital-adjust-btn dmg" data-action="adjustModuleVital" data-scope="actor" data-field="hull.value" data-max-field="hull.max" data-dir="-1">− Dano</button>
-        <button type="button" class="vital-adjust-btn heal" data-action="adjustModuleVital" data-scope="actor" data-field="hull.value" data-max-field="hull.max" data-dir="1">+ Reparo</button>
-      </div>
-      {{/if}}
-      {{#if isVehicle}}
+            {{#if isVehicle}}
       <div class="vital-row">
         <span class="vital-label">Velocidade</span>
         <span class="vital-value">{{system.speed}}{{#unless engineModule}}<span class="hint-inline" style="margin-left:4px;">(sem Motor instalado)</span>{{/unless}}</span>
@@ -172,9 +154,16 @@
               {{/if}}
             </span>
 
-            <span class="module-hp-cell">
+            <span class="module-hp-cell" title="A Vida escala o desempenho: um Módulo a 50% entrega 50%.">
               <span class="module-meter state-{{row.hpState}}"><span style="width:{{row.hpPercent}}%"></span></span>
-              <small>{{row.hpValue}}/{{row.hpMax}}</small>
+              {{#if ../isGM}}
+              <small class="module-hp-edit">
+                <input type="number" class="module-hp-input" value="{{row.hpValue}}" min="0" max="{{row.hpMax}}"/>/{{row.hpMax}}
+                <span class="module-hp-percent">{{row.hpPercent}}%</span>
+              </small>
+              {{else}}
+              <small>{{row.hpValue}}/{{row.hpMax}} <span class="module-hp-percent">{{row.hpPercent}}%</span></small>
+              {{/if}}
             </span>
 
             <span class="module-consumption">{{row.consumption}} {{../energyAbbr}}</span>
@@ -229,9 +218,16 @@
               {{/if}}
             </span>
 
-            <span class="module-hp-cell">
+            <span class="module-hp-cell" title="A Vida escala o desempenho: um Módulo a 50% entrega 50%.">
               <span class="module-meter state-{{row.hpState}}"><span style="width:{{row.hpPercent}}%"></span></span>
-              <small>{{row.hpValue}}/{{row.hpMax}}</small>
+              {{#if ../isGM}}
+              <small class="module-hp-edit">
+                <input type="number" class="module-hp-input" value="{{row.hpValue}}" min="0" max="{{row.hpMax}}"/>/{{row.hpMax}}
+                <span class="module-hp-percent">{{row.hpPercent}}%</span>
+              </small>
+              {{else}}
+              <small>{{row.hpValue}}/{{row.hpMax}} <span class="module-hp-percent">{{row.hpPercent}}%</span></small>
+              {{/if}}
             </span>
 
             <span class="module-consumption">{{row.consumption}} {{../energyAbbr}}</span>

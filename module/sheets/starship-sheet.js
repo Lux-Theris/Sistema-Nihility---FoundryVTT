@@ -153,6 +153,9 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     this.element.querySelectorAll(".throttle-input").forEach(input => {
       input.addEventListener("change", this._onThrottleInput.bind(this));
     });
+    this.element.querySelectorAll(".module-hp-input").forEach(input => {
+      input.addEventListener("change", this._onModuleHpInput.bind(this));
+    });
   }
 
   /** Recebe um Ator (PJ ou NPC) arrastado da barra lateral/ficha como novo tripulante da aba Tripulação. */
@@ -287,6 +290,25 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     const step = Number(target.dataset.step) || 0;
     const next = Math.max(0, (module.system.powerAllocationPercent ?? 100) + step);
     await module.update({ "system.powerAllocationPercent": next });
+  }
+
+  /**
+   * Vida de um Módulo editada direto na grade da ficha. A Vida é ESTADO (muda toda rodada de
+   * combate), não configuração — e agora que ela escala o desempenho do Módulo
+   * (`integrityRatioFor` em starship-model.js), precisa estar onde o combate acontece, não atrás
+   * de dois cliques na ficha do Módulo.
+   *
+   * Só o Mestre: ao contrário do throttle, que é manobra da tripulação, dano e reparo são
+   * arbitragem de mesa.
+   */
+  async _onModuleHpInput(event) {
+    if (!game.user.isGM) return;
+    const input = event.currentTarget;
+    const module = this.actor.items.get(input.closest("[data-item-id]")?.dataset.itemId);
+    if (!module) return;
+
+    const value = Math.clamp(Math.round(Number(input.value) || 0), 0, module.system.hp.max);
+    await module.update({ "system.hp.value": value });
   }
 
   /** Throttle digitado direto no campo — mesmo caminho e mesma permissão dos botões. */

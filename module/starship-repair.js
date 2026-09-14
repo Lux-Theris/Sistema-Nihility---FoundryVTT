@@ -17,11 +17,11 @@ const { DialogV2 } = foundry.applications.api;
  * desses três é consertar a placa/estrutura em si, não o Módulo que a alimenta.
  */
 function repairTargetsFor(actor) {
-  const targets = [
-    { id: "actor::shields.value:shields.max", label: "Escudos (pool da Nave)" },
-    { id: "actor::casco.value:casco.max", label: "Casco (pool da Nave)" },
-    { id: "actor::hull.value:hull.max", label: "Integridade Estrutural (pool da Nave)" }
-  ];
+  // Só o Escudo é pool de verdade. Casco e Integridade Estrutural deixaram de ser números
+  // próprios da Nave: o Casco é a Vida do Módulo de armadura, e a Integridade é a soma da Vida
+  // dos Módulos estruturais — reparar qualquer um dos dois é reparar o Módulo correspondente,
+  // que já aparece na lista logo abaixo.
+  const targets = [{ id: "actor::shields.value:shields.max", label: "Escudos (pool da Nave)" }];
   for (const module of actor.system.modules) {
     targets.push({ id: `item:${module.id}:hp.value:hp.max`, label: `${module.name} (Módulo)` });
   }

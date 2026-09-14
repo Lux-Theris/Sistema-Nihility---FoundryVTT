@@ -3660,3 +3660,36 @@ form.nihility-config-app {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Vida do Módulo editável direto na grade (só Mestre). É estado de combate, e agora que ela
+   escala o desempenho do Módulo precisa estar onde o combate acontece. */
+.nihility-sheet .module-hp-edit { display: flex; align-items: center; gap: 3px; }
+.nihility-sheet .module-hp-input {
+  width: 42px;
+  text-align: center;
+  font-family: var(--nihility-font-data);
+  font-size: 0.66rem;
+  padding: 1px 0;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+  height: auto;
+  min-height: 0;
+}
+.nihility-sheet .module-hp-percent { color: var(--nihility-text-faint); margin-left: 2px; }
+
+/* Casco e Integridade Estrutural não são mais campos editáveis: são VISÕES sobre a Vida dos
+   Módulos (o Casco é o Módulo de armadura; a Integridade é a soma dos estruturais). Ficam com
+   cara de valor calculado, e a dica ao lado diz onde ajustar de verdade. */
+.nihility-sheet .vital-derived {
+  font-family: var(--nihility-font-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--nihility-text);
+}
+.nihility-sheet .vital-source {
+  margin-left: 6px;
+  font-size: 0.66rem;
+  color: var(--nihility-text-faint);
+  cursor: help;
+  white-space: nowrap;
+}

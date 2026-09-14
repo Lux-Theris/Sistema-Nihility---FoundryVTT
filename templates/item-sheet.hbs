@@ -230,12 +230,14 @@
           {{/each}}
         </select>
       </label>
+      <p class="hint-inline module-spec-note">
+        Este registro descreve o Módulo <strong>como ele é de fábrica</strong>. Vida atual,
+        throttle, ligado/desligado e recarga são <strong>estado</strong> — mudam a cada rodada e
+        se editam na ficha da Nave, não aqui.
+      </p>
       <label>Consumo de Energia <input type="number" name="system.powerConsumption" value="{{system.powerConsumption}}"/></label>
       <label>Vida Máx.
         <input type="number" name="system.hp.max" value="{{system.hp.max}}" min="0"/>
-      </label>
-      <label>Vida Atual
-        <input type="number" name="system.hp.value" value="{{system.hp.value}}" min="0"/>
       </label>
       <label>Slot <input type="text" name="system.slot" value="{{system.slot}}"/></label>
       {{#if (eq system.category "armor")}}
@@ -244,14 +246,6 @@
       </label>
       {{/if}}
 
-      {{#unless (or (eq system.category "battery") (eq system.category "distributor"))}}
-      <label>{{#if (eq system.category "reactor")}}Under/Overclock (%){{else}}Throttle (%){{/if}}
-        <span class="hint-inline" style="display:inline;">
-          {{#if (eq system.category "reactor")}}(abaixo de 100% economiza sem dano; acima de 100% já sofre dano, sem tolerância){{else if (eq system.category "weapon")}}(acima de 100% aumenta Dano/Penetração, mas também aumenta a Recarga na mesma proporção — não dana o Módulo){{else}}(acima do normal aumenta capacidade e consumo, mas sofre dano por sobrecarga passado o limiar da categoria){{/if}}
-        </span>
-        <input type="number" name="system.powerAllocationPercent" value="{{system.powerAllocationPercent}}" min="0"/>
-      </label>
-      {{/unless}}
 
       {{#unless (or (eq system.category "reactor") (eq system.category "battery") (eq system.category "distributor"))}}
       <label>Prioridade de Energia <span class="hint-inline" style="display:inline;">(menor número = atendido primeiro pelo Distribuidor quando falta energia)</span>
@@ -322,7 +316,6 @@
       {{else}}
       <label>Alcance de Salto <input type="number" name="system.jumpRange" value="{{system.jumpRange}}" min="0"/></label>
       <label>Tempo de Carga (rodadas) <input type="number" name="system.chargeTime" value="{{system.chargeTime}}" min="0"/></label>
-      <label>Carga Restante <input type="number" name="system.chargeRemaining" value="{{system.chargeRemaining}}" min="0"/></label>
       {{/if}}
       {{/if}}
 

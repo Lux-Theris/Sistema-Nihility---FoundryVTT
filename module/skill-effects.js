@@ -26,6 +26,7 @@ import { runAsGm } from "./helpers/gm-relay.js";
 import { announceVoiceOfTheWorld } from "./voice-of-the-world.js";
 import { playSkillAnimation } from "./vfx.js";
 import { damageApplyFlags } from "./damage-apply.js";
+import { applyStructuralDamage } from "./starship-power.js";
 
 const EFFECT_TARGET_PATHS = {
   strength: "system.attributes.combat.strength.buffDelta",
@@ -499,16 +500,27 @@ async function applyStarshipDamageCascade(rawDamage, sourceActor, targetActor, w
     const { absorbed, leaked } = absorbIntoPool(cascoTargeted, targetActor.system.casco.value);
     toCasco = absorbed;
     remaining = cascoBypass + leaked;
-    if (toCasco > 0) updates["system.casco.value"] = targetActor.system.casco.value - toCasco;
+    // O Casco NÃO é um pool próprio: ele é a Vida do Módulo de armadura. Danificar o Casco é
+    // danificar aquele Módulo — por isso a escrita vai no Item, não no Ator.
+    if (toCasco > 0) {
+      const armor = targetActor.system.armorModule;
+      if (armor) {
+        await armor.update({ "system.hp.value": Math.max(0, armor.system.hp.value - toCasco) });
+      }
+    }
   }
 
-  // 3) Estrutura — recebe o que sobrou, sem redução própria.
+  // 3) Integridade Estrutural — o que sobrou, sem redução própria. Também não é um pool: é a
+  // Vida dos Módulos, e o dano se ESPALHA entre eles em pedaços aleatórios (ver
+  // splitStructuralDamage em starship-power.js). Escudo e Arma recebem esse dano na Vida do
+  // próprio Módulo mesmo ficando fora da SOMA da Integridade; só o Casco fica imune aqui,
+  // porque já absorveu a parte dele no estágio 2.
   const toHull = Math.max(0, remaining);
-  if (toHull > 0) updates["system.hull.value"] = Math.max(0, targetActor.system.hull.value - toHull);
+  const structuralHits = toHull > 0 ? await applyStructuralDamage(targetActor, toHull) : [];
 
   if (Object.keys(updates).length) await targetActor.update(updates);
 
-  return { toShield, toCasco, toHull, appliedReductions };
+  return { toShield, toCasco, toHull, structuralHits, appliedReductions };
 }
 
 /**
@@ -547,9 +559,15 @@ export async function fireStarshipWeapon(sourceActor, weaponModule, targetActor 
 
   let finalDamage = null;
   if (targetActor) {
-    const { toShield, toCasco, toHull } = await applyStarshipDamageCascade(boostedTotal, sourceActor, targetActor, weaponModule);
+    const { toShield, toCasco, toHull, structuralHits } = await applyStarshipDamageCascade(
+      boostedTotal,
+      sourceActor,
+      targetActor,
+      weaponModule
+    );
     finalDamage = toShield + toCasco + toHull;
     flavor += ` — Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}`;
+    if (structuralHits?.length) flavor += ` (${structuralHits.map(h => `${h.name} -${h.damage}`).join(", ")})`;
   }
 
   await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: sourceActor }), flavor });
@@ -650,9 +668,10 @@ async function rollSkillDamage(actor, mech, label, targetActor = null) {
 
   let finalDamage;
   if (isShipLike(targetActor)) {
-    const { toShield, toCasco, toHull } = await applyStarshipDamageCascade(boostedTotal, actor, targetActor);
+    const { toShield, toCasco, toHull, structuralHits } = await applyStarshipDamageCascade(boostedTotal, actor, targetActor);
     finalDamage = toShield + toCasco + toHull;
     flavor += ` — Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}`;
+    if (structuralHits?.length) flavor += ` (${structuralHits.map(h => `${h.name} -${h.damage}`).join(", ")})`;
   } else {
     // Nunca revela NO CHAT que/quanto de Resistência ou Defesa Mágica foi aplicada — só o
     // número final. A redução em si continua acontecendo (applyDamageReductions), só não
@@ -713,8 +732,11 @@ async function rollSkillDamageArea(actor, mech, label, targetActors) {
   // Casco foi aplicada — só o número final por alvo (a redução em si continua acontecendo).
   for (const targetActor of targetActors) {
     if (isShipLike(targetActor)) {
-      const { toShield, toCasco, toHull } = await applyStarshipDamageCascade(boostedTotal, actor, targetActor);
-      rows.push(`<li><strong>${targetActor.name}</strong>: Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}</li>`);
+      const { toShield, toCasco, toHull, structuralHits } = await applyStarshipDamageCascade(boostedTotal, actor, targetActor);
+      const detalhe = structuralHits?.length ? ` (${structuralHits.map(h => `${h.name} -${h.damage}`).join(", ")})` : "";
+      rows.push(
+        `<li><strong>${targetActor.name}</strong>: Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}${detalhe}</li>`
+      );
     } else {
       const reduction = applyDamageReductions(boostedTotal, mech, targetActor);
       await grantResistanceXp(reduction.defenders, targetActor);

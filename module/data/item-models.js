@@ -115,6 +115,13 @@ function effectEntrySchema() {
     }),
     durationRounds: new fields.NumberField({ required: true, integer: true, initial: 1, min: 0 }),
     conditionId: new fields.StringField({ required: false, initial: "", blank: true }),
+    /**
+     * Ícone deste efeito específico. "" (padrão) HERDA o ícone da Condição escolhida — e, sem
+     * Condição, o da própria Skill. Preenchido, sobrescreve os dois. É o mesmo arranjo que os
+     * sistemas grandes do Foundry usam: a Condição define o visual padrão, o efeito pontual pode
+     * divergir (um Veneno de ácido e um Veneno de mordida não precisam do mesmo ícone).
+     */
+    icon: new fields.StringField({ required: false, initial: "", blank: true }),
     periodic: new fields.BooleanField({ required: false, initial: false }),
     tickUnit: new fields.StringField({
       required: false,

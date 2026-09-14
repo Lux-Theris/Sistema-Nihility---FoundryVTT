@@ -880,7 +880,7 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor, subSki
       await targetActor.createEmbeddedDocuments("ActiveEffect", [
         {
           name: condition?.label ?? `${label}: ${targetLabel}`,
-          img: condition?.icon ?? originSkill.img,
+          img: entry.icon || condition?.icon || originSkill.img,
           origin: originSkill.uuid,
           statuses: entry.conditionId ? [entry.conditionId] : [],
           flags: {
@@ -912,7 +912,7 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor, subSki
     await targetActor.createEmbeddedDocuments("ActiveEffect", [
       {
         name: condition?.label ?? `${label}: ${targetLabel} ${sign}${entry.amount}`,
-        img: condition?.icon ?? originSkill.img,
+        img: entry.icon || condition?.icon || originSkill.img,
         origin: originSkill.uuid,
         statuses: entry.conditionId ? [entry.conditionId] : [],
         duration: !tiedToActive && entry.durationRounds > 0 ? { rounds: entry.durationRounds } : {},
@@ -944,6 +944,27 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor, subSki
   }
 
   return summary;
+}
+
+/**
+ * Aplica uma Condição que o Mestre marcou À MÃO no token (item 02) — o caminho que não passa por
+ * Skill nenhuma.
+ *
+ * Reaproveita `applyEffectsToActor` de propósito, com uma "Skill sintética" no lugar da origem:
+ * assim a Condição manual nasce com exatamente a mesma forma de flags, `statuses`, duração e
+ * empilhamento que uma vinda de Skill. Se fosse montada à parte, as duas divergiriam na primeira
+ * mudança de schema — e aí reaplicar Veneno por Skill em quem o Mestre marcou à mão deixaria de
+ * empilhar, que é justamente o que se espera que funcione.
+ * @param {Actor} actor
+ * @param {string} conditionId - id de getActiveStatusConditions()
+ * @param {object} entry - uma entrada no formato de `effectEntrySchema` (ver data/item-models.js)
+ */
+export async function applyManualCondition(actor, conditionId, entry) {
+  const condition = getActiveStatusConditions().find(c => c.id === conditionId);
+  if (!condition) return [];
+
+  const origin = { id: `manual:${conditionId}`, img: condition.icon, uuid: undefined };
+  return applyEffectsToActor({ effects: [{ ...entry, conditionId }], hasUpkeep: false }, condition.label, origin, actor, null);
 }
 
 /**

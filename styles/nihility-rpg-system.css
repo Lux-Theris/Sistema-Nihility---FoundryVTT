@@ -3091,3 +3091,23 @@ form.nihility-config-app {
   color: var(--nihility-text-dim);
   font-variant-numeric: tabular-nums;
 }
+
+/* Campo de ícone por efeito no editor de Skill (herda o da Condição quando vazio). */
+.skill-editor-form .se-effect-icon {
+  min-width: 0;
+  flex: 1 1 90px;
+  font-family: var(--nihility-font-data);
+  font-size: 0.72rem;
+}
+
+/* Diálogo da Condição aplicada à mão pelo Mestre no HUD do token. */
+.nihility-condition-dialog { display: flex; flex-direction: column; gap: 10px; }
+.nihility-condition-dialog .hint { margin: 0; font-size: 0.82rem; color: var(--nihility-text-dim); }
+.nihility-condition-dialog .form-group { display: flex; flex-direction: column; gap: 3px; }
+.nihility-condition-dialog .checkbox-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 0.8rem;
+  color: var(--nihility-text-dim);
+}

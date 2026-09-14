@@ -73,6 +73,9 @@ function buildEffectRowHtml(entry) {
     </div>
     <div class="effect-row-extra">
       <select class="se-effect-condition" title="Condição nomeada (ícone de status no token — opcional)" ${conditionsEnabled ? "" : 'style="display:none"'}>${conditionOptions}</select>
+      <input type="text" class="se-effect-icon" value="${escapeHtml(entry.icon ?? "")}" placeholder="herdar ícone"
+             title="Ícone deste efeito. Em branco herda o da Condição (e, sem Condição, o da própria Skill)."
+             ${conditionsEnabled ? "" : 'style="display:none"'}/>
       <label class="checkbox-line small se-effect-periodic-line" style="display:${periodicVisible ? "inline-flex" : "none"};">
         <input type="checkbox" class="se-effect-periodic" ${entry.periodic ? "checked" : ""}/> Periódico
       </label>
@@ -596,6 +599,7 @@ function readSkillEditorForm(root, lockTier) {
             modifierType: row.querySelector(".se-effect-modifier-type").value,
             durationRounds: Number(row.querySelector(".se-effect-duration").value) || 0,
             conditionId: row.querySelector(".se-effect-condition").value || "",
+            icon: row.querySelector(".se-effect-icon")?.value.trim() || "",
             periodic: row.querySelector(".se-effect-periodic").checked,
             tickUnit: row.querySelector(".se-effect-tick-unit").value,
             damageElements: Array.from(row.querySelectorAll(".se-effect-element:checked")).map(el => el.value)

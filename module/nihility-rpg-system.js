@@ -42,6 +42,7 @@ import { tickStarshipPower } from "./starship-power.js";
 import { requestShipRepair, approveShipRepairRoll, restoreShipRepairTarget } from "./starship-repair.js";
 import { registerGmRelay } from "./helpers/gm-relay.js";
 import { registerInitiative } from "./combat.js";
+import { registerStatusConditions, interceptManualCondition } from "./conditions.js";
 import { isEnergyPoolEnabled } from "./config.js";
 import {
   actorsCollection,
@@ -182,6 +183,10 @@ Hooks.once("ready", async () => {
   // Canal de socket que deixa um cliente sem permissão pedir a escrita ao Mestre (ver
   // helpers/gm-relay.js) — é o que faz XP de Resistência funcionar em jogador vs. jogador.
   registerGmRelay();
+
+  // Condições do sistema na paleta do token HUD (ver module/conditions.js). Roda no `ready`
+  // porque lê a setting do catálogo, que só existe depois do `init`.
+  registerStatusConditions();
 
   await ensureSystemCompendiums();
   await runMigrationIfNeeded("tierCommonToNormal", migrateCommonTierToNormal);
@@ -360,6 +365,10 @@ function announceXpReadyIfJustFilled(actor, label, xp, xpMax) {
     body: `${label} acumulou todo o XP deste nível (${xpMax}). O Mestre pode subir o nível quando quiser.`
   });
 }
+
+// Condição marcada à mão no token abre a tela de configuração antes de existir de verdade
+// (duração/efeito/valor, ou nada e vira só marcador visual) — ver module/conditions.js.
+Hooks.on("preCreateActiveEffect", (effect, data, options, userId) => interceptManualCondition(effect, data, options, userId));
 
 Hooks.on("updateActor", (actor, changes) => {
   if (foundry.utils.getProperty(changes, "system.attributes.xp") === undefined) return;

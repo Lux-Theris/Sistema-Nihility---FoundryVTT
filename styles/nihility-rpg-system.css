@@ -3165,3 +3165,34 @@ form.nihility-config-app {
   color: var(--nihility-ok);
   font-weight: 600;
 }
+
+/* Não lidas do PAD — badge por conversa e no botão da ficha. */
+.pad-unread-badge {
+  flex: 0 0 auto;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 99px;
+  background: var(--nihility-accent);
+  color: #06121a;
+  font-family: var(--nihility-font-data);
+  font-size: 0.68rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pad-thread-row.has-unread .pad-t-name { font-weight: 700; }
+.pad-thread-row.has-unread .pad-t-preview { color: var(--nihility-text); }
+
+.nihility-sheet .pad-open-button.has-unread {
+  border-color: var(--nihility-accent);
+  box-shadow: 0 0 0 1px rgba(110, 231, 255, 0.25);
+}
+.nihility-sheet .pad-open-button .pad-unread-badge {
+  min-width: 16px;
+  height: 16px;
+  font-size: 0.62rem;
+  margin-left: 5px;
+}

@@ -224,12 +224,13 @@
       {{#unless activeThread}}
       <div class="pad-thread-list">
         {{#each threads as |t|}}
-        <div class="pad-thread-row" data-action="openThread" data-thread-type="{{t.conversationType}}" data-actor-uuid="{{t.otherActorUuid}}" data-group-id="{{t.groupId}}">
+        <div class="pad-thread-row {{#if t.unread}}has-unread{{/if}}" data-action="openThread" data-thread-type="{{t.conversationType}}" data-actor-uuid="{{t.otherActorUuid}}" data-group-id="{{t.groupId}}">
           <span class="pad-thread-avatar {{#if (eq t.conversationType "group")}}group{{/if}}">{{t.avatarInitials}}</span>
           <div class="pad-thread-info">
             <div class="pad-t-name">{{t.title}}{{#if (eq t.conversationType "group")}} <span class="pad-grp-tag">GRUPO</span>{{/if}}</div>
             <div class="pad-t-preview">{{t.preview}}</div>
           </div>
+          {{#if t.unread}}<span class="pad-unread-badge" title="{{t.unread}} mensagem(ns) não lida(s)">{{t.unread}}</span>{{/if}}
         </div>
         {{/each}}
         {{#unless threads.length}}<p class="pad-hint">Nenhuma conversa ainda.</p>{{/unless}}

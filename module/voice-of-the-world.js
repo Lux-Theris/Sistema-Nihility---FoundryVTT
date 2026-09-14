@@ -11,10 +11,13 @@ import { renderSystemTemplate } from "./helpers/foundry-compat.js";
  * Publica um anúncio "Voz do Mundo" no chat, sempre em whisper para os
  * Mestres e para o(s) jogador(es) dono(s) do Ator. NUNCA é público.
  * @param {Actor|null} actor
- * @param {{kind?:string, title?:string, body?:string}} data
+ * @param {{kind?:string, title?:string, body?:string, whisper?:string[]}} data - `whisper`
+ *   sobrescreve a lista de destinatários calculada a partir do Ator. Serve pro caso em que o
+ *   anúncio é de VÁRIOS donos ao mesmo tempo (mensagem de grupo do PAD): sem isso seria preciso
+ *   um card por membro, enchendo o chat de todo mundo.
  */
 export async function announceVoiceOfTheWorld(actor, data = {}) {
-  const { kind = "info", title = "", body = "" } = data;
+  const { kind = "info", title = "", body = "", whisper: whisperOverride = null } = data;
 
   const templateData = {
     kind,
@@ -33,7 +36,7 @@ export async function announceVoiceOfTheWorld(actor, data = {}) {
   const ownerIds = actor
     ? game.users.filter(u => !u.isGM && actor.testUserPermission(u, "OWNER")).map(u => u.id)
     : [];
-  const whisper = Array.from(new Set([...gmIds, ...ownerIds]));
+  const whisper = whisperOverride ?? Array.from(new Set([...gmIds, ...ownerIds]));
 
   return ChatMessage.create({
     content,

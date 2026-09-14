@@ -20,7 +20,9 @@ import {
   createGroup,
   shareContactWithScene,
   addSavedContact,
-  getPendingContactShares
+  getPendingContactShares,
+  getUnreadCount,
+  markThreadRead
 } from "../pad/pad-messaging.js";
 import { getDragEventData } from "../helpers/foundry-compat.js";
 
@@ -183,12 +185,16 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   /** Abre uma conversa — direta (clicando num contato ou numa thread já existente) ou de grupo. */
-  static #onOpenThread(event, target) {
+  static async #onOpenThread(event, target) {
     event.preventDefault();
     const type = target.dataset.threadType;
     this.activeThread = type === "group"
       ? { type: "group", groupId: target.dataset.groupId }
       : { type: "direct", actorUuid: target.dataset.actorUuid };
+
+    // Abrir a conversa é o que zera a contagem — não o simples fato de o PAD estar aberto.
+    const threadId = type === "group" ? target.dataset.groupId : directThreadId(this.actor.uuid, target.dataset.actorUuid);
+    await markThreadRead(this.actor, threadId);
     this.render();
   }
 
@@ -336,7 +342,8 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
           title: fromUuidSync(t.otherActorUuid)?.name ?? "Desconhecido",
           avatarInitials: initialsOf(fromUuidSync(t.otherActorUuid)?.name),
           preview: t.lastMessage?.body ?? ""
-        });
+        })
+      .map(t => ({ ...t, unread: getUnreadCount(actor, t.threadId) }));
 
       context.newGroupMode = this.newGroupMode;
       context.activeThread = this.activeThread;
@@ -354,6 +361,8 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
           context.threadConversationType = "direct";
         }
         context.threadMessages = getThreadMessages(context.threadId);
+        // Mensagem que chega com a conversa JÁ aberta também conta como lida.
+        await markThreadRead(actor, context.threadId);
       }
     }
 

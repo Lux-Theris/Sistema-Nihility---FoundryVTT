@@ -8,6 +8,7 @@ import {
   isTitlesEnabled,
   isAnatomyEnabled,
   isPadEnabled,
+  isPadMessagingEnabled,
   isSkillFusionEnabled,
   isSkillPointsEnabled,
   isAttributePoolEnabled,
@@ -18,6 +19,7 @@ import {
   debugLog
 } from "../config.js";
 import { hasPadDevice } from "../pad/pad-crew.js";
+import { getTotalUnread } from "../pad/pad-messaging.js";
 import { fuseSkills, evolveSkill, breakSkillPoints, mergeSkillPoints, requestSkillCreation } from "../skill-economy.js";
 import { registerItemInCompendium } from "../compendium.js";
 import { convertActorCurrency, transferCurrency } from "../currency.js";
@@ -184,6 +186,9 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     // Mestre sempre vê o botão (ferramenta de Mestre, independente de o NPC possuir o Item
     // físico); jogador só vê se o próprio Ator tiver ao menos um Item marcado como PAD.
     context.showPadButton = isPadEnabled() && (game.user.isGM || hasPadDevice(actor));
+    // Badge de não lidas no botão do PAD — as mensagens ficam fora do log de chat, então sem
+    // isto (e sem o aviso da Voz do Mundo) só quem abre o PAD por acaso descobre que chegou algo.
+    context.padUnread = context.showPadButton && isPadMessagingEnabled() ? await getTotalUnread(actor) : 0;
     // Peso por moeda e total — cada moeda já tinha `weight` configurável e nada usava o número.
     // É só exibição: não existe limite de carga nem penalidade por excesso.
     const currencyTotals = { weight: 0 };

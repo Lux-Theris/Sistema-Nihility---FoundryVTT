@@ -17,6 +17,7 @@
  */
 import { SYSTEM_ID, MEU_SISTEMA, sceneActorCandidates } from "../config.js";
 import { findCrewedShipsForActor } from "./pad-crew.js";
+import { announceVoiceOfTheWorld } from "../voice-of-the-world.js";
 
 const GROUPS_PACK_COLLECTION = `world.${MEU_SISTEMA.COMPENDIUM.padGroups.key}`;
 
@@ -68,6 +69,7 @@ async function createPadMessage({ threadId, senderActorUuid, senderName, recipie
 
 export async function sendDirectMessage(senderActor, recipientActor, body) {
   const whisper = Array.from(new Set([...gmUserIds(), ...owningUserIds(senderActor), ...owningUserIds(recipientActor)]));
+  await announceIncoming(senderActor, [recipientActor], null);
   await createPadMessage({
     threadId: directThreadId(senderActor.uuid, recipientActor.uuid),
     senderActorUuid: senderActor.uuid,
@@ -85,6 +87,8 @@ export async function sendGroupMessage(senderActor, groupId, body) {
   if (!group) return;
   const memberActors = group.memberActorUuids.map(uuid => fromUuidSync(uuid)).filter(Boolean);
   const whisper = Array.from(new Set([...gmUserIds(), ...memberActors.flatMap(owningUserIds)]));
+  // Um único aviso pro grupo inteiro (whisper combinado) em vez de um card por membro.
+  await announceIncoming(senderActor, memberActors, group.groupName);
   await createPadMessage({
     threadId: groupId,
     senderActorUuid: senderActor.uuid,
@@ -93,6 +97,62 @@ export async function sendGroupMessage(senderActor, groupId, body) {
     groupId,
     conversationType: "group",
     body,
+    whisper
+  });
+}
+
+/* ---------- Não lidas ---------- */
+
+/**
+ * Marca de leitura por conversa, guardada no próprio Ator (`{threadId: timestamp}`).
+ *
+ * Fica no Ator e não numa setting de usuário porque a leitura é do PERSONAGEM: o Mestre trocando
+ * de persona no PAD vê o estado de não-lidas daquela persona, não o dele. E como o jogador é dono
+ * do próprio Ator, a escrita nunca esbarra em permissão.
+ */
+function lastReadMap(actor) {
+  return actor.getFlag(SYSTEM_ID, "padLastRead") ?? {};
+}
+
+/** Quantas mensagens desta conversa chegaram depois da última leitura — as próprias nunca contam. */
+export function getUnreadCount(actor, threadId) {
+  const since = Number(lastReadMap(actor)[threadId]) || 0;
+  return getThreadMessages(threadId).filter(m => m.createdAt > since && m.senderActorUuid !== actor.uuid).length;
+}
+
+/** Total de não lidas em todas as conversas deste Ator — é o número do badge no botão do PAD. */
+export async function getTotalUnread(actor) {
+  const threads = await getRecentThreadsFor(actor);
+  return threads.reduce((sum, thread) => sum + getUnreadCount(actor, thread.threadId), 0);
+}
+
+/** Zera a contagem de uma conversa. Chamado ao abrir a conversa no PAD. */
+export async function markThreadRead(actor, threadId) {
+  if (!threadId) return;
+  const current = lastReadMap(actor);
+  // Não grava se nada mudaria — abrir a mesma conversa duas vezes não deve gerar update.
+  if (getUnreadCount(actor, threadId) === 0 && current[threadId]) return;
+  await actor.setFlag(SYSTEM_ID, "padLastRead", { ...current, [threadId]: Date.now() });
+}
+
+/**
+ * Avisa os destinatários pela Voz do Mundo que chegou mensagem. O card do PAD em si fica fora do
+ * log de chat (ver o hook de render em nihility-rpg-system.js), então sem este aviso um jogador
+ * só descobriria a mensagem abrindo o PAD por conta própria.
+ *
+ * Quem enviou nunca é avisado da própria mensagem.
+ */
+async function announceIncoming(senderActor, recipientActors, threadLabel) {
+  const recipients = recipientActors.filter(a => a && a.uuid !== senderActor.uuid);
+  if (!recipients.length) return;
+
+  const whisper = Array.from(new Set([...gmUserIds(), ...recipients.flatMap(owningUserIds)]));
+  if (!whisper.length) return;
+
+  await announceVoiceOfTheWorld(senderActor, {
+    kind: "pad-message",
+    title: "PAD — Mensagem nova",
+    body: `${senderActor.name} mandou uma mensagem${threadLabel ? ` em ${threadLabel}` : ""}.`,
     whisper
   });
 }

@@ -25,8 +25,9 @@
         {{/if}}
 
         {{#if showPadButton}}
-        <button type="button" class="pad-open-button" data-action="openPad" title="Abrir PAD">
+        <button type="button" class="pad-open-button {{#if padUnread}}has-unread{{/if}}" data-action="openPad" title="Abrir PAD{{#if padUnread}} — {{padUnread}} mensagem(ns) não lida(s){{/if}}">
           <i class="fas fa-mobile-screen-button"></i> PAD
+          {{#if padUnread}}<span class="pad-unread-badge">{{padUnread}}</span>{{/if}}
         </button>
         {{/if}}
       </div>

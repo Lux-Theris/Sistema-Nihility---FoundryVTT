@@ -2748,6 +2748,13 @@ form.nihility-config-app {
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+}
+.nihility-feature-config .feature-preset-btn:hover {
+  border-color: var(--nihility-accent);
+  color: var(--nihility-accent);
 }
 
 .nihility-feature-config .feature-list {
@@ -2771,6 +2778,15 @@ form.nihility-config-app {
   opacity: 0.55;
 }
 
+/* `.feature-main` é um <label>, e o core do Foundry dá aos labels a cor do TEMA CLARO — os
+   filhos herdam e o texto some no painel escuro (mesma armadilha que já tinha apagado o
+   conteúdo do editor de texto rico). Por isso a cor é explícita aqui e em todo texto das
+   telas próprias do sistema, em vez de herdada. */
+.nihility-feature-config .feature-row,
+.nihility-feature-config .feature-main {
+  color: var(--nihility-text);
+}
+
 .nihility-feature-config .feature-main {
   display: flex;
   align-items: flex-start;
@@ -2792,12 +2808,13 @@ form.nihility-config-app {
 .nihility-feature-config .feature-name {
   font-weight: 600;
   font-size: 13px;
+  color: var(--nihility-text);
 }
 
 .nihility-feature-config .feature-hint {
   font-size: 11px;
-  opacity: 0.72;
   line-height: 1.35;
+  color: var(--nihility-text-dim);
 }
 
 /* Sub-features (as do PAD) entram recuadas sob o pai, com um fio ligando visualmente. */
@@ -3133,7 +3150,7 @@ form.nihility-config-app {
   letter-spacing: 0;
   color: var(--nihility-text);
 }
-.nihility-target-picker .target-search-note { font-size: 0.7rem; }
+.nihility-target-picker .target-search-note { font-size: 0.7rem; color: var(--nihility-text-faint); }
 
 .nihility-damage-controls {
   display: flex;
@@ -3210,4 +3227,45 @@ form.nihility-config-app {
   color: var(--nihility-text-dim);
   cursor: pointer;
   white-space: nowrap;
+}
+
+/* ==========================================================================
+   Cor explícita em todo texto das telas próprias do sistema.
+
+   O core do Foundry estiliza <label>, <p> e <span> dentro de aplicação com a cor
+   do tema CLARO. Em qualquer painel escuro deste sistema isso resulta em texto
+   invisível — o mesmo defeito que já tinha apagado o conteúdo do editor de texto
+   rico e a lista de Módulos do Sistema. Herdar a cor não é seguro aqui.
+   ========================================================================== */
+
+.nihility-config-app,
+.nihility-config-app label,
+.nihility-config-app p,
+.nihility-config-app legend,
+.nihility-condition-dialog,
+.nihility-condition-dialog label,
+.nihility-target-picker,
+.nihility-target-picker label {
+  color: var(--nihility-text);
+}
+
+.nihility-config-app .hint,
+.nihility-config-app .hint-inline,
+.nihility-condition-dialog .hint,
+.nihility-condition-dialog .hint-inline,
+.nihility-target-picker .hint-inline {
+  color: var(--nihility-text-dim);
+}
+
+/* Campos de formulário dentro dessas telas: o core também os pinta pro tema claro. */
+.nihility-config-app input[type="text"],
+.nihility-config-app input[type="number"],
+.nihility-config-app select,
+.nihility-condition-dialog input[type="text"],
+.nihility-condition-dialog input[type="number"],
+.nihility-condition-dialog select,
+.nihility-target-picker select {
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
 }

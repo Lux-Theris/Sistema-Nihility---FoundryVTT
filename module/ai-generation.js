@@ -74,6 +74,96 @@ export async function generateFreeform(prompt) {
 }
 
 /* -------------------------------------------- */
+/*  Contexto de geração em lote                  */
+/* -------------------------------------------- */
+
+/** Texto puro a partir de HTML, cortado — descrição inteira encheria o prompt sem acrescentar nada. */
+function plainSummary(html, limit = 160) {
+  const text = String(html ?? "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    // Tag colada na pontuação (`<b>Ashcroft</b>.`) vira espaço e deixaria "Ashcroft ." no resumo.
+    .replace(/\s+([.,;:!?])/g, "$1")
+    .trim();
+  return text.length > limit ? `${text.slice(0, limit)}…` : text;
+}
+
+/**
+ * Resume um documento recém-criado no MÍNIMO que a próxima geração precisa pra se apoiar nele:
+ * nome, o que ele é, e as peças reaproveitáveis (Skills de um NPC, Módulos de uma Nave).
+ *
+ * Resumo, e não o JSON inteiro, por dois motivos: um lote de 10 encheria a janela de contexto do
+ * modelo com campos que não ajudam a escrever o próximo (buffDelta, pendingPoints, ids), e cada
+ * item extra no prompt é token pago em toda chamada seguinte da mesma leva.
+ * @param {Actor|Item|JournalEntry} doc
+ * @returns {string|null}
+ */
+export function summarizeCreatedDocument(doc) {
+  if (!doc) return null;
+  const parts = [doc.name];
+
+  if (doc.documentName === "Actor") {
+    const sys = doc.system ?? {};
+    if (doc.type === "character") {
+      if (sys.species) parts.push(`espécie ${sys.species}`);
+      parts.push(`nível ${sys.attributes?.level ?? 1}`);
+      const skills = doc.items.filter(i => i.type === "skill").map(i => i.name);
+      if (skills.length) parts.push(`Skills: ${skills.join(", ")}`);
+      const bio = plainSummary(sys.biography, 120);
+      if (bio) parts.push(bio);
+    } else {
+      parts.push(`Porte ${sys.shipSize ?? "?"}`);
+      const modules = doc.items.filter(i => i.type === "starship_module").map(i => i.name);
+      if (modules.length) parts.push(`Módulos: ${modules.join(", ")}`);
+      const bio = plainSummary(sys.biography, 120);
+      if (bio) parts.push(bio);
+    }
+  } else if (doc.documentName === "Item") {
+    if (doc.type === "skill") parts.push(`Skill tier ${doc.system?.tier ?? "?"}, custo ${doc.system?.cost ?? 0}`);
+    const desc = plainSummary(doc.system?.description);
+    if (desc) parts.push(desc);
+  } else if (doc.documentName === "JournalEntry") {
+    const text = plainSummary(doc.pages?.contents?.[0]?.text?.content);
+    if (text) parts.push(text);
+  }
+
+  return parts.filter(Boolean).join(" — ");
+}
+
+/**
+ * Monta o prompt de UM item de uma leva, dando à IA o que ela já criou nas voltas anteriores.
+ *
+ * Sem isso, cada item da leva era uma chamada isolada que só recebia "variação N, diferente das
+ * anteriores" — a IA não tinha como saber o que eram "as anteriores", então repetia nomes e não
+ * conseguia costurar nada entre si. Com os resumos no prompt, ela pode reaproveitar de propósito
+ * (a facção do NPC 1 aparecendo no NPC 3, a Skill do 2 citada na descrição do 4) e evitar repetir
+ * de fato, não só por instrução.
+ * @param {string} prompt - o pedido original do Mestre
+ * @param {string[]} previousSummaries - saída de `summarizeCreatedDocument` dos já criados
+ * @param {number} index - posição base-0 do item atual
+ * @param {number} total
+ */
+export function buildBatchPrompt(prompt, previousSummaries, index, total) {
+  if (total <= 1) return prompt;
+
+  const done = (previousSummaries ?? []).filter(Boolean);
+  if (!done.length) {
+    return `${prompt}\n\nEste é o item 1 de ${total} de uma leva. Os próximos verão o que você criar aqui, então estabeleça nomes, lugares e facções que valha a pena reaproveitar.`;
+  }
+
+  const lista = done.map((resumo, i) => `${i + 1}. ${resumo}`).join("\n");
+  return [
+    prompt,
+    "",
+    `--- JÁ CRIADOS NESTA MESMA LEVA (${done.length} de ${total}) ---`,
+    lista,
+    "--- FIM DA LISTA ---",
+    "",
+    `Crie agora o item ${index + 1} de ${total}. Ele deve ser CLARAMENTE DISTINTO dos acima (não repita nome, conceito nem função), mas pode e deve se apoiar neles quando fizer sentido: reaproveite lugares, facções, eventos e nomes já citados, cite ou responda ao que já existe, e mantenha o mesmo tom. Trate os anteriores como parte do mesmo mundo, não como rascunhos descartados.`
+  ].join("\n");
+}
+
+/* -------------------------------------------- */
 /*  Geração de Skills via IA                     */
 /* -------------------------------------------- */
 

@@ -26,6 +26,7 @@ import {
 } from "../module/config.js";
 import { computeResistancePercent, computeResistanceName, resistanceMaxLevel } from "../module/skill-effects.js";
 import { buildSubSkillsFromSources } from "../module/skill-snapshot.js";
+import { buildBatchPrompt, summarizeCreatedDocument } from "../module/ai-generation.js";
 
 /* -------------------------------------------- */
 /*  Pool de dados de Atributo                    */
@@ -283,6 +284,72 @@ test("XP: sem setting registrada, cai no padrão 100 × nível", () => {
   assert.equal(getXpForNextLevel(1), 100);
   assert.equal(getXpForNextLevel(10), 1000);
   assert.equal(getXpForNextLevel(0), 100);    // nível inválido é tratado como 1
+});
+
+/* -------------------------------------------- */
+/*  Contexto de geração em lote via IA           */
+/* -------------------------------------------- */
+
+test("lote de IA: geração única não ganha texto de leva nenhum", () => {
+  assert.equal(buildBatchPrompt("um mercador anão", [], 0, 1), "um mercador anão");
+});
+
+test("lote de IA: o 1º item é avisado de que os próximos vão vê-lo", () => {
+  const p = buildBatchPrompt("um mercador anão", [], 0, 5);
+  assert.match(p, /item 1 de 5/);
+  assert.ok(p.startsWith("um mercador anão"), "o pedido original tem que vir primeiro");
+});
+
+test("lote de IA: do 2º em diante, os anteriores entram no prompt", () => {
+  // É o ponto da mudança: antes a IA só recebia "diferente das anteriores", sem saber quais.
+  const p = buildBatchPrompt("um mercador anão", ["Borin — espécie anao — nível 3"], 1, 3);
+  assert.match(p, /JÁ CRIADOS NESTA MESMA LEVA \(1 de 3\)/);
+  assert.match(p, /1\. Borin — espécie anao — nível 3/);
+  assert.match(p, /item 2 de 3/);
+});
+
+test("lote de IA: resumo vazio ou nulo não vira linha em branco na lista", () => {
+  const p = buildBatchPrompt("x", [null, "", "Kaelen — nível 2"], 3, 4);
+  assert.match(p, /\(1 de 4\)/);          // só o resumo real conta
+  assert.match(p, /1\. Kaelen/);
+  assert.ok(!/^2\. *$/m.test(p), "resumo vazio não pode virar item numerado");
+});
+
+test("resumo de documento: Ator traz espécie, nível e as Skills reaproveitáveis", () => {
+  const actor = {
+    documentName: "Actor",
+    type: "character",
+    name: "Borin",
+    system: { species: "anao", attributes: { level: 3 }, biography: "<p>Ferreiro de <b>Ashcroft</b>.</p>" },
+    items: [
+      { type: "skill", name: "Olho de Forja" },
+      { type: "body_part", name: "Tronco" }
+    ]
+  };
+  const resumo = summarizeCreatedDocument(actor);
+  assert.match(resumo, /Borin/);
+  assert.match(resumo, /espécie anao/);
+  assert.match(resumo, /nível 3/);
+  assert.match(resumo, /Skills: Olho de Forja/);
+  // HTML sai limpo, e Parte do Corpo não entra (não é peça reaproveitável na escrita).
+  assert.match(resumo, /Ferreiro de Ashcroft\./);
+  assert.ok(!resumo.includes("<b>"));
+  assert.ok(!resumo.includes("Tronco"));
+});
+
+test("resumo de documento: Nave traz Porte e Módulos", () => {
+  const nave = {
+    documentName: "Actor",
+    type: "starship",
+    name: "Vagalume",
+    system: { shipSize: "pequeno", biography: "" },
+    items: [{ type: "starship_module", name: "Reator Fagulha" }]
+  };
+  assert.match(summarizeCreatedDocument(nave), /Vagalume — Porte pequeno — Módulos: Reator Fagulha/);
+});
+
+test("resumo de documento: nulo devolve nulo em vez de quebrar a leva", () => {
+  assert.equal(summarizeCreatedDocument(null), null);
 });
 
 /* -------------------------------------------- */

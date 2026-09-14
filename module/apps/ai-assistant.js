@@ -7,7 +7,9 @@ import {
   generateItemFromAI,
   generateFreeform,
   getAIGeneratedFolder,
-  editDocumentWithAI
+  editDocumentWithAI,
+  summarizeCreatedDocument,
+  buildBatchPrompt
 } from "../ai-generation.js";
 import { registerItemInCompendium } from "../compendium.js";
 import { runAgentTask } from "../ai/agent-runner.js";
@@ -221,11 +223,18 @@ export class AIAssistantApp extends HandlebarsApplicationMixin(ApplicationV2) {
       } else if (task === "freeform") {
         this.freeformAnswer = await generateFreeform(prompt);
       } else {
+        // Resumo do que já saiu nesta leva, repassado a cada volta seguinte (ver
+        // buildBatchPrompt em ai-generation.js) — é o que deixa o item 3 se apoiar no 1 e no 2.
+        const createdSoFar = [];
         for (let i = 0; i < quantity; i++) {
           this.statusText = quantity > 1 ? `Gerando ${i + 1}/${quantity}...` : "Gerando...";
           this.render();
-          const doc = await this._runTask(task, prompt, i, quantity);
-          if (doc) this.results.push({ name: doc.name, uuid: doc.uuid, icon: TASKS[task].icon });
+          const doc = await this._runTask(task, prompt, i, quantity, createdSoFar);
+          if (doc) {
+            this.results.push({ name: doc.name, uuid: doc.uuid, icon: TASKS[task].icon });
+            const resumo = summarizeCreatedDocument(doc);
+            if (resumo) createdSoFar.push(resumo);
+          }
         }
       }
     } catch (err) {
@@ -237,9 +246,13 @@ export class AIAssistantApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
   }
 
-  async _runTask(task, prompt, index, total) {
-    const variedPrompt =
-      total > 1 ? `${prompt} (variação ${index + 1} de ${total}; diferente das anteriores)` : prompt;
+  /**
+   * Uma volta da leva. `previousSummaries` são os resumos do que já foi criado AQUI, e entram no
+   * prompt pra esta geração poder se apoiar neles — antes, cada item era uma chamada isolada que
+   * só recebia "diferente das anteriores", sem saber quais eram.
+   */
+  async _runTask(task, prompt, index, total, previousSummaries = []) {
+    const variedPrompt = buildBatchPrompt(prompt, previousSummaries, index, total);
 
     switch (task) {
       case "npc":

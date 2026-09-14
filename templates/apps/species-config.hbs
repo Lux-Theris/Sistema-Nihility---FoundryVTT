@@ -13,6 +13,16 @@
     <legend>
       <input type="text" class="species-key-input" value="{{key}}" placeholder="chave (ex: humano)"/>
       <input type="text" class="species-label-input" value="{{sp.label}}" placeholder="Nome exibido"/>
+      <select class="species-group" title="Só organiza a lista — sem efeito mecânico">
+        <option value="" {{#unless sp.group}}selected{{/unless}}>— grupo —</option>
+        {{#each ../config.SPECIES_GROUP_LABELS as |label groupKey|}}
+        <option value="{{groupKey}}" {{#if (eq groupKey ../sp.group)}}selected{{/if}}>{{label}}</option>
+        {{/each}}
+      </select>
+      <label class="species-at-creation-cell" title="Desmarcado, esta espécie some do seletor do JOGADOR. O Mestre e a geração via IA continuam podendo aplicá-la.">
+        <input type="checkbox" class="species-at-creation" {{#if sp.availableAtCreation}}checked{{/if}}/>
+        <span>na criação</span>
+      </label>
       <a class="species-delete" data-action="deleteSpecies" title="Remover Espécie"><i class="fas fa-trash"></i></a>
     </legend>
 

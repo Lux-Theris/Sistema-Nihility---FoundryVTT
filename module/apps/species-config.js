@@ -48,11 +48,16 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
     for (const [key, def] of Object.entries(presets)) {
       species[key] = {
         label: def.label ?? key,
+        group: def.group ?? "",
+        groupLabel: MEU_SISTEMA.SPECIES_GROUP_LABELS[def.group] ?? "",
+        // Ausente conta como disponível: espécie criada à mão não some do seletor sem querer.
+        availableAtCreation: def.availableAtCreation !== false,
         parts: (def.parts ?? []).map(p => ({ ...p, tagsText: (p.tags ?? []).join(", ") })),
         skills: (def.skills ?? []).map(s => ({ ...s, dataJson: JSON.stringify(s) }))
       };
     }
     context.species = species;
+    context.config = MEU_SISTEMA; // o template lê SPECIES_GROUP_LABELS pra montar o seletor de grupo
     debugLog(`${SYSTEM_ID} | SpeciesConfigApp._prepareContext:`, Object.keys(species).length, "espécie(s).");
     return context;
   }
@@ -177,7 +182,16 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
         skills.push(skill);
       });
 
-      result[key] = { label, parts, skills };
+      // `group` e `availableAtCreation` sobrevivem ao salvamento: sem isto, editar qualquer
+      // espécie pelo editor apagaria o marcador de criação dela (e Grifo voltaria a aparecer
+      // como opção de personagem).
+      result[key] = {
+        label,
+        group: block.querySelector(".species-group")?.value ?? "",
+        availableAtCreation: block.querySelector(".species-at-creation")?.checked !== false,
+        parts,
+        skills
+      };
     });
 
     await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.speciesPresetsData, JSON.stringify(result, null, 2));

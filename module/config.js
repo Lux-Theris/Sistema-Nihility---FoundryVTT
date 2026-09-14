@@ -669,15 +669,34 @@ export const MEU_SISTEMA = {
   ],
 
   /**
-   * Presets de Partes do Corpo E Skills Raciais por Espécie.
-   * Sobrescrito/estendido pela setting `speciesPresetsData` (JSON) para permitir
-   * espécies customizadas sem editar código.
-   * Cada parte: { key, label, slot, hpMax, tags[] }
-   * Cada skill racial: { name, description, level, cost }
+   * Presets de Partes do Corpo E Skills Raciais por Espécie, sobrescritos pela setting
+   * `speciesPresetsData` (editor visual) para permitir espécies próprias sem tocar em código.
+   *
+   * Cada espécie: `{ label, group, availableAtCreation, parts[], skills[] }`
+   *  - `parts`: `{ key, label, slot, hpMax, tags[] }` — vira um Item `body_part` na ficha.
+   *  - `skills`: `{ name, description, level, cost }` — vira uma Skill de tier Racial.
+   *  - `group`: só organiza a lista no editor (ver SPECIES_GROUP_LABELS), sem efeito mecânico.
+   *  - `availableAtCreation`: `false` tira a espécie do seletor da ficha do JOGADOR. O Mestre
+   *    continua vendo todas (precisa poder aplicar qualquer uma), e a geração via IA também —
+   *    é o que permite ter Grifo e Cavalo como preset de Montaria sem oferecê-los como escolha
+   *    de personagem. Ausente conta como `true`, então espécie criada à mão continua aparecendo.
    */
+  /**
+   * Grupos de Espécie — só rótulo, pra organizar a lista no editor e deixar óbvio de qual tipo de
+   * campanha cada uma veio. Não têm efeito mecânico nenhum.
+   */
+  SPECIES_GROUP_LABELS: {
+    fantasia: "Fantasia",
+    isekai: "Isekai",
+    scifi: "Sci-Fi",
+    besta: "Besta / Montaria"
+  },
+
   DEFAULT_SPECIES_PRESETS: {
     humano: {
       label: "Humano",
+      group: "fantasia",
+      availableAtCreation: true,
       parts: [
         { key: "head", label: "Cabeça", slot: "head", hpMax: 10, tags: ["vital"] },
         { key: "torso", label: "Tronco", slot: "torso", hpMax: 20, tags: ["vital"] },
@@ -692,6 +711,8 @@ export const MEU_SISTEMA = {
     },
     elfo: {
       label: "Elfo",
+      group: "fantasia",
+      availableAtCreation: true,
       parts: [
         { key: "head", label: "Cabeça", slot: "head", hpMax: 8, tags: ["vital"] },
         { key: "torso", label: "Tronco", slot: "torso", hpMax: 16, tags: ["vital"] },
@@ -705,8 +726,78 @@ export const MEU_SISTEMA = {
         { name: "Visão Élfica", description: "Enxerga com clareza mesmo em pouca luz; bônus em Precisão à distância.", level: 1, cost: 0 }
       ]
     },
+    anao: {
+      label: "Anão",
+      group: "fantasia",
+      availableAtCreation: true,
+      parts: [
+        { key: "head", label: "Cabeça", slot: "head", hpMax: 12, tags: ["vital"] },
+        { key: "torso", label: "Tronco", slot: "torso", hpMax: 24, tags: ["vital"] },
+        { key: "left_arm", label: "Braço Esquerdo", slot: "arm", hpMax: 10, tags: ["limb"] },
+        { key: "right_arm", label: "Braço Direito", slot: "arm", hpMax: 10, tags: ["limb"] },
+        { key: "left_leg", label: "Perna Esquerda", slot: "leg", hpMax: 8, tags: ["limb"] },
+        { key: "right_leg", label: "Perna Direita", slot: "leg", hpMax: 8, tags: ["limb"] }
+      ],
+      skills: [
+        { name: "Constituição Pétrea", description: "Corpo denso e baixo centro de gravidade: resiste a ser derrubado e a venenos comuns.", level: 1, cost: 0 },
+        { name: "Olho de Forja", description: "Reconhece metal, liga e qualidade de forja no toque — e enxerga no escuro das minas.", level: 1, cost: 0 }
+      ]
+    },
+    orc: {
+      label: "Orc",
+      group: "fantasia",
+      availableAtCreation: true,
+      parts: [
+        { key: "head", label: "Cabeça", slot: "head", hpMax: 12, tags: ["vital"] },
+        { key: "torso", label: "Tronco", slot: "torso", hpMax: 26, tags: ["vital"] },
+        { key: "left_arm", label: "Braço Esquerdo", slot: "arm", hpMax: 12, tags: ["limb"] },
+        { key: "right_arm", label: "Braço Direito", slot: "arm", hpMax: 12, tags: ["limb"] },
+        { key: "left_leg", label: "Perna Esquerda", slot: "leg", hpMax: 12, tags: ["limb"] },
+        { key: "right_leg", label: "Perna Direita", slot: "leg", hpMax: 12, tags: ["limb"] }
+      ],
+      skills: [
+        { name: "Fúria Crescente", description: "Quanto mais ferido, mais forte bate — a dor vira ímpeto em vez de hesitação.", level: 1, cost: 0 },
+        { name: "Couro Grosso", description: "A pele espessa absorve parte dos cortes e contusões.", level: 1, cost: 0 }
+      ]
+    },
+    goblin: {
+      label: "Goblin",
+      group: "fantasia",
+      availableAtCreation: true,
+      parts: [
+        { key: "head", label: "Cabeça", slot: "head", hpMax: 6, tags: ["vital"] },
+        { key: "torso", label: "Tronco", slot: "torso", hpMax: 12, tags: ["vital"] },
+        { key: "left_arm", label: "Braço Esquerdo", slot: "arm", hpMax: 5, tags: ["limb"] },
+        { key: "right_arm", label: "Braço Direito", slot: "arm", hpMax: 5, tags: ["limb"] },
+        { key: "left_leg", label: "Perna Esquerda", slot: "leg", hpMax: 7, tags: ["limb"] },
+        { key: "right_leg", label: "Perna Direita", slot: "leg", hpMax: 7, tags: ["limb"] }
+      ],
+      skills: [
+        { name: "Esgueirar-se", description: "Pequeno e silencioso: passa por brechas e some de vista em terreno bagunçado.", level: 1, cost: 0 },
+        { name: "Instinto de Sucata", description: "Improvisa ferramenta ou arma com o que houver por perto.", level: 1, cost: 0 }
+      ]
+    },
+    halfling: {
+      label: "Pequenino",
+      group: "fantasia",
+      availableAtCreation: true,
+      parts: [
+        { key: "head", label: "Cabeça", slot: "head", hpMax: 7, tags: ["vital"] },
+        { key: "torso", label: "Tronco", slot: "torso", hpMax: 13, tags: ["vital"] },
+        { key: "left_arm", label: "Braço Esquerdo", slot: "arm", hpMax: 5, tags: ["limb"] },
+        { key: "right_arm", label: "Braço Direito", slot: "arm", hpMax: 5, tags: ["limb"] },
+        { key: "left_leg", label: "Perna Esquerda", slot: "leg", hpMax: 7, tags: ["limb"] },
+        { key: "right_leg", label: "Perna Direita", slot: "leg", hpMax: 7, tags: ["limb"] }
+      ],
+      skills: [
+        { name: "Sorte Teimosa", description: "Uma vez por cena, o desastre erra por pouco.", level: 1, cost: 0 },
+        { name: "Pés Silenciosos", description: "Anda sem fazer ruído, mesmo sobre folhas secas ou assoalho velho.", level: 1, cost: 0 }
+      ]
+    },
     slime: {
       label: "Slime",
+      group: "isekai",
+      availableAtCreation: true,
       parts: [
         { key: "core", label: "Núcleo", slot: "core", hpMax: 30, tags: ["vital", "regenerative"] },
         { key: "mass", label: "Massa Gelatinosa", slot: "body", hpMax: 40, tags: ["amorphous", "regenerative"] }
@@ -715,8 +806,82 @@ export const MEU_SISTEMA = {
         { name: "Regeneração Amorfa", description: "Recupera uma fração do HP máximo por turno enquanto o Núcleo estiver intacto.", level: 1, cost: 0 }
       ]
     },
+    dragoide: {
+      label: "Dragoide",
+      group: "isekai",
+      availableAtCreation: true,
+      parts: [
+        { key: "head", label: "Cabeça", slot: "head", hpMax: 14, tags: ["vital"] },
+        { key: "torso", label: "Tronco", slot: "torso", hpMax: 28, tags: ["vital"] },
+        { key: "left_arm", label: "Braço Esquerdo", slot: "arm", hpMax: 12, tags: ["limb"] },
+        { key: "right_arm", label: "Braço Direito", slot: "arm", hpMax: 12, tags: ["limb"] },
+        { key: "left_leg", label: "Perna Esquerda", slot: "leg", hpMax: 14, tags: ["limb"] },
+        { key: "right_leg", label: "Perna Direita", slot: "leg", hpMax: 14, tags: ["limb"] },
+        { key: "tail", label: "Cauda", slot: "tail", hpMax: 12, tags: ["limb"] },
+        { key: "wings", label: "Asas Membranosas", slot: "wing", hpMax: 10, tags: ["limb", "flight"] }
+      ],
+      skills: [
+        { name: "Escamas Ancestrais", description: "As escamas reduzem dano físico e resistem ao calor.", level: 1, cost: 0 },
+        { name: "Sopro Dracônico", description: "Exala o elemento da própria linhagem num cone à frente.", level: 1, cost: 20 },
+        { name: "Presença de Dragão", description: "A mera presença impõe medo a criaturas menores.", level: 1, cost: 0 }
+      ]
+    },
+    ogro: {
+      label: "Ogro",
+      group: "isekai",
+      availableAtCreation: true,
+      parts: [
+        { key: "head", label: "Cabeça", slot: "head", hpMax: 16, tags: ["vital"] },
+        { key: "torso", label: "Tronco", slot: "torso", hpMax: 34, tags: ["vital"] },
+        { key: "left_arm", label: "Braço Esquerdo", slot: "arm", hpMax: 18, tags: ["limb"] },
+        { key: "right_arm", label: "Braço Direito", slot: "arm", hpMax: 18, tags: ["limb"] },
+        { key: "left_leg", label: "Perna Esquerda", slot: "leg", hpMax: 16, tags: ["limb"] },
+        { key: "right_leg", label: "Perna Direita", slot: "leg", hpMax: 16, tags: ["limb"] }
+      ],
+      skills: [
+        { name: "Força Bruta", description: "Ergue e arremessa o que criatura nenhuma do seu tamanho deveria.", level: 1, cost: 0 },
+        { name: "Estômago de Ferro", description: "Come e bebe o que for sem adoecer — veneno ingerido quase não o afeta.", level: 1, cost: 0 }
+      ]
+    },
+    lobo_tempestade: {
+      label: "Lobo Tempestade",
+      group: "isekai",
+      availableAtCreation: true,
+      parts: [
+        { key: "head", label: "Cabeça", slot: "head", hpMax: 12, tags: ["vital"] },
+        { key: "torso", label: "Tronco", slot: "torso", hpMax: 24, tags: ["vital"] },
+        { key: "front_left", label: "Pata Dianteira Esquerda", slot: "leg", hpMax: 10, tags: ["limb"] },
+        { key: "front_right", label: "Pata Dianteira Direita", slot: "leg", hpMax: 10, tags: ["limb"] },
+        { key: "hind_left", label: "Pata Traseira Esquerda", slot: "leg", hpMax: 12, tags: ["limb"] },
+        { key: "hind_right", label: "Pata Traseira Direita", slot: "leg", hpMax: 12, tags: ["limb"] },
+        { key: "tail", label: "Cauda", slot: "tail", hpMax: 6, tags: ["limb"] }
+      ],
+      skills: [
+        { name: "Passo de Trovão", description: "Move-se em rajadas curtas, rápido demais para o olho acompanhar.", level: 1, cost: 0 },
+        { name: "Pelo Estático", description: "A pelagem carregada fere quem o agarra.", level: 1, cost: 0 }
+      ]
+    },
+    harpia: {
+      label: "Harpia",
+      group: "isekai",
+      availableAtCreation: true,
+      parts: [
+        { key: "head", label: "Cabeça", slot: "head", hpMax: 8, tags: ["vital"] },
+        { key: "torso", label: "Tronco", slot: "torso", hpMax: 16, tags: ["vital"] },
+        { key: "left_wing", label: "Asa Esquerda", slot: "wing", hpMax: 10, tags: ["limb", "flight"] },
+        { key: "right_wing", label: "Asa Direita", slot: "wing", hpMax: 10, tags: ["limb", "flight"] },
+        { key: "left_talon", label: "Garra Esquerda", slot: "leg", hpMax: 8, tags: ["limb"] },
+        { key: "right_talon", label: "Garra Direita", slot: "leg", hpMax: 8, tags: ["limb"] }
+      ],
+      skills: [
+        { name: "Voo Batido", description: "Voa de verdade — não plana: sobe, para no ar e mergulha.", level: 1, cost: 0 },
+        { name: "Grito Cortante", description: "Um grito que desorienta quem estiver perto.", level: 1, cost: 15 }
+      ]
+    },
     ciborgue: {
       label: "Ciborgue",
+      group: "scifi",
+      availableAtCreation: true,
       parts: [
         { key: "head", label: "Cabeça", slot: "head", hpMax: 10, tags: ["vital"] },
         { key: "torso", label: "Tronco", slot: "torso", hpMax: 22, tags: ["vital", "mechanical"] },
@@ -727,6 +892,133 @@ export const MEU_SISTEMA = {
       ],
       skills: [
         { name: "Blindagem Sintética", description: "Membros protéticos absorvem parte do dano físico recebido.", level: 1, cost: 0 }
+      ]
+    },
+    androide: {
+      label: "Androide",
+      group: "scifi",
+      availableAtCreation: true,
+      parts: [
+        { key: "core", label: "Núcleo de Processamento", slot: "core", hpMax: 18, tags: ["vital", "mechanical"] },
+        { key: "chassis", label: "Chassi", slot: "torso", hpMax: 28, tags: ["vital", "mechanical"] },
+        { key: "left_arm", label: "Braço Esquerdo", slot: "arm", hpMax: 16, tags: ["limb", "mechanical"] },
+        { key: "right_arm", label: "Braço Direito", slot: "arm", hpMax: 16, tags: ["limb", "mechanical"] },
+        { key: "left_leg", label: "Perna Esquerda", slot: "leg", hpMax: 16, tags: ["limb", "mechanical"] },
+        { key: "right_leg", label: "Perna Direita", slot: "leg", hpMax: 16, tags: ["limb", "mechanical"] },
+        { key: "optics", label: "Conjunto Óptico", slot: "head", hpMax: 8, tags: ["sensory", "mechanical"] }
+      ],
+      skills: [
+        { name: "Sem Fôlego a Perder", description: "Não respira, não cansa e não dorme: imune a veneno inalado e a sufocamento.", level: 1, cost: 0 },
+        { name: "Interface Direta", description: "Conecta-se a sistemas e portas de dados sem precisar de terminal.", level: 1, cost: 0 }
+      ]
+    },
+    mutante: {
+      label: "Mutante",
+      group: "scifi",
+      availableAtCreation: true,
+      parts: [
+        { key: "head", label: "Cabeça", slot: "head", hpMax: 10, tags: ["vital"] },
+        { key: "torso", label: "Tronco", slot: "torso", hpMax: 22, tags: ["vital"] },
+        { key: "left_arm", label: "Braço Esquerdo", slot: "arm", hpMax: 10, tags: ["limb"] },
+        { key: "right_arm", label: "Braço Direito", slot: "arm", hpMax: 10, tags: ["limb"] },
+        { key: "left_leg", label: "Perna Esquerda", slot: "leg", hpMax: 11, tags: ["limb"] },
+        { key: "right_leg", label: "Perna Direita", slot: "leg", hpMax: 11, tags: ["limb"] }
+      ],
+      skills: [
+        { name: "Carne Instável", description: "O corpo se reconfigura sob estresse — fecha ferimentos rápido demais para ser natural.", level: 1, cost: 0 },
+        { name: "Anomalia Latente", description: "Cada Mutante carrega uma mutação única, definida com o Mestre na criação.", level: 1, cost: 0 }
+      ]
+    },
+    simbionte: {
+      label: "Simbionte",
+      group: "scifi",
+      availableAtCreation: true,
+      parts: [
+        { key: "head", label: "Cabeça", slot: "head", hpMax: 10, tags: ["vital"] },
+        { key: "torso", label: "Tronco", slot: "torso", hpMax: 20, tags: ["vital"] },
+        { key: "left_arm", label: "Braço Esquerdo", slot: "arm", hpMax: 9, tags: ["limb"] },
+        { key: "right_arm", label: "Braço Direito", slot: "arm", hpMax: 9, tags: ["limb"] },
+        { key: "left_leg", label: "Perna Esquerda", slot: "leg", hpMax: 10, tags: ["limb"] },
+        { key: "right_leg", label: "Perna Direita", slot: "leg", hpMax: 10, tags: ["limb"] },
+        { key: "symbiote", label: "Simbionte", slot: "body", hpMax: 20, tags: ["vital", "regenerative", "parasitic"] }
+      ],
+      skills: [
+        { name: "Hospedeiro Compartilhado", description: "O simbionte cura o hospedeiro — e sente o que ele sente.", level: 1, cost: 0 },
+        { name: "Massa Adaptativa", description: "O simbionte endurece sobre o corpo, virando lâmina ou escudo conforme a necessidade.", level: 1, cost: 10 }
+      ]
+    },
+    cavalo: {
+      label: "Cavalo",
+      group: "besta",
+      availableAtCreation: false,
+      parts: [
+        { key: "head", label: "Cabeça", slot: "head", hpMax: 10, tags: ["vital"] },
+        { key: "torso", label: "Tronco", slot: "torso", hpMax: 30, tags: ["vital"] },
+        { key: "front_left", label: "Pata Dianteira Esquerda", slot: "leg", hpMax: 12, tags: ["limb"] },
+        { key: "front_right", label: "Pata Dianteira Direita", slot: "leg", hpMax: 12, tags: ["limb"] },
+        { key: "hind_left", label: "Pata Traseira Esquerda", slot: "leg", hpMax: 14, tags: ["limb"] },
+        { key: "hind_right", label: "Pata Traseira Direita", slot: "leg", hpMax: 14, tags: ["limb"] }
+      ],
+      skills: [
+        { name: "Galope Sustentado", description: "Mantém velocidade alta por horas sem se esgotar.", level: 1, cost: 0 },
+        { name: "Coice", description: "Um coice das patas traseiras derruba quem se aproxima por trás.", level: 1, cost: 0 }
+      ]
+    },
+    lobo_gigante: {
+      label: "Lobo Gigante",
+      group: "besta",
+      availableAtCreation: false,
+      parts: [
+        { key: "head", label: "Cabeça", slot: "head", hpMax: 14, tags: ["vital"] },
+        { key: "torso", label: "Tronco", slot: "torso", hpMax: 28, tags: ["vital"] },
+        { key: "front_left", label: "Pata Dianteira Esquerda", slot: "leg", hpMax: 12, tags: ["limb"] },
+        { key: "front_right", label: "Pata Dianteira Direita", slot: "leg", hpMax: 12, tags: ["limb"] },
+        { key: "hind_left", label: "Pata Traseira Esquerda", slot: "leg", hpMax: 14, tags: ["limb"] },
+        { key: "hind_right", label: "Pata Traseira Direita", slot: "leg", hpMax: 14, tags: ["limb"] },
+        { key: "tail", label: "Cauda", slot: "tail", hpMax: 6, tags: ["limb"] }
+      ],
+      skills: [
+        { name: "Faro de Caçador", description: "Segue um rastro por dias, mesmo depois da chuva.", level: 1, cost: 0 },
+        { name: "Mordida Travante", description: "A mordida prende a presa no lugar.", level: 1, cost: 0 }
+      ]
+    },
+    grifo: {
+      label: "Grifo",
+      group: "besta",
+      availableAtCreation: false,
+      parts: [
+        { key: "head", label: "Cabeça de Águia", slot: "head", hpMax: 12, tags: ["vital", "sensory"] },
+        { key: "torso", label: "Tronco Leonino", slot: "torso", hpMax: 26, tags: ["vital"] },
+        { key: "left_wing", label: "Asa Esquerda", slot: "wing", hpMax: 12, tags: ["limb", "flight"] },
+        { key: "right_wing", label: "Asa Direita", slot: "wing", hpMax: 12, tags: ["limb", "flight"] },
+        { key: "front_left", label: "Garra Dianteira Esquerda", slot: "leg", hpMax: 10, tags: ["limb"] },
+        { key: "front_right", label: "Garra Dianteira Direita", slot: "leg", hpMax: 10, tags: ["limb"] },
+        { key: "hind_left", label: "Pata Traseira Esquerda", slot: "leg", hpMax: 12, tags: ["limb"] },
+        { key: "hind_right", label: "Pata Traseira Direita", slot: "leg", hpMax: 12, tags: ["limb"] }
+      ],
+      skills: [
+        { name: "Montaria Alada", description: "Carrega um cavaleiro em voo, não só em terra.", level: 1, cost: 0 },
+        { name: "Olhar de Águia", description: "Distingue detalhes a distâncias que olho nenhum alcança.", level: 1, cost: 0 }
+      ]
+    },
+    inseto_de_carga: {
+      label: "Inseto de Carga",
+      group: "besta",
+      availableAtCreation: false,
+      parts: [
+        { key: "head", label: "Cabeça", slot: "head", hpMax: 10, tags: ["vital"] },
+        { key: "thorax", label: "Tórax", slot: "torso", hpMax: 26, tags: ["vital", "chitinous"] },
+        { key: "abdomen", label: "Abdômen", slot: "body", hpMax: 30, tags: ["chitinous"] },
+        { key: "leg_1", label: "Perna 1", slot: "leg", hpMax: 8, tags: ["limb"] },
+        { key: "leg_2", label: "Perna 2", slot: "leg", hpMax: 8, tags: ["limb"] },
+        { key: "leg_3", label: "Perna 3", slot: "leg", hpMax: 8, tags: ["limb"] },
+        { key: "leg_4", label: "Perna 4", slot: "leg", hpMax: 8, tags: ["limb"] },
+        { key: "leg_5", label: "Perna 5", slot: "leg", hpMax: 8, tags: ["limb"] },
+        { key: "leg_6", label: "Perna 6", slot: "leg", hpMax: 8, tags: ["limb"] }
+      ],
+      skills: [
+        { name: "Carapaça de Quitina", description: "A casca dura reduz cortes e perfurações.", level: 1, cost: 0 },
+        { name: "Besta de Carga", description: "Carrega várias vezes o próprio peso sem perder o passo.", level: 1, cost: 0 }
       ]
     }
   }
@@ -863,6 +1155,19 @@ export function getActiveSpeciesPresets() {
     console.warn(`${SYSTEM_ID} | JSON de presets de espécie inválido, usando padrão.`, err);
   }
   return MEU_SISTEMA.DEFAULT_SPECIES_PRESETS;
+}
+
+/**
+ * Espécies que o seletor da ficha deve oferecer. O Mestre vê todas — ele precisa poder aplicar
+ * qualquer preset, inclusive os de Montaria; o jogador só vê as marcadas como disponíveis.
+ * @returns {Array<{key:string, label:string}>}
+ */
+export function getSpeciesForCreation() {
+  const presets = getActiveSpeciesPresets();
+  return Object.entries(presets)
+    .filter(([, def]) => game.user.isGM || def.availableAtCreation !== false)
+    .map(([key, def]) => ({ key, label: def.label ?? key }))
+    .sort((a, b) => a.label.localeCompare(b.label));
 }
 
 /** Rótulo atual do sistema de energia de Personagens/Criaturas (setting > default). */

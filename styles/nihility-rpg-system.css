@@ -3196,3 +3196,18 @@ form.nihility-config-app {
   font-size: 0.62rem;
   margin-left: 5px;
 }
+
+/* Grupo e marcador de criação no editor de Espécies. */
+.species-block legend .species-group {
+  max-width: 130px;
+  font-size: 0.76rem;
+}
+.species-block legend .species-at-creation-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  color: var(--nihility-text-dim);
+  cursor: pointer;
+  white-space: nowrap;
+}

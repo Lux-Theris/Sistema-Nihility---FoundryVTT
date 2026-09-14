@@ -4,6 +4,7 @@ import {
   getCharacterEnergyLabel,
   getActiveCurrencies,
   getActiveSpeciesPresets,
+  getSpeciesForCreation,
   isEconomyEnabled,
   isTitlesEnabled,
   isAnatomyEnabled,
@@ -199,7 +200,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       return { ...currency, amount, weight: weight.toFixed(2) };
     });
     context.currencyWeightTotal = currencyTotals.weight.toFixed(2);
-    context.speciesPresets = getActiveSpeciesPresets();
+    // Só as espécies oferecidas na criação (o Mestre vê todas) — ver getSpeciesForCreation.
+    context.speciesOptions = getSpeciesForCreation();
     // Só os atributos que a campanha exibe (ver getActiveAttributes em config.js). Um atributo
     // oculto continua valendo por baixo — só não aparece nem é rolável.
     context.attributeLabels = getVisibleAttributes().map(({ key, label }) => {

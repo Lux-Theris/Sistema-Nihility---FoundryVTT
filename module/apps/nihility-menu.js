@@ -6,7 +6,7 @@
  * simplesmente escondê-las, pra deixar claro que existem e são intencionalmente bloqueadas.
  */
 import { SYSTEM_ID, MEU_SISTEMA, isVesselsEnabled, isAIAssistantEnabled, debugLog } from "../config.js";
-import { ensureSystemCompendiums } from "../compendium.js";
+import { ensureSystemCompendiums, registerItemInCompendium } from "../compendium.js";
 import { saveTextToFile, readFileAsText } from "../helpers/foundry-compat.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
@@ -96,6 +96,94 @@ async function createSystemMacros() {
   if (created.length) parts.push(`${created.length} macro(s) criada(s)`);
   if (reused.length) parts.push(`${reused.length} já existia(m)`);
   ui.notifications.info(`${parts.join(", ")} — confira a barra de macros.`);
+}
+
+/**
+ * Skills de exemplo pro Compêndio, pra um mundo novo não começar 100% vazio — e pra servirem de
+ * referência de como cada campo se comporta.
+ *
+ * **Só tier Extra e Normal, nunca Único ou Ultimate**: essas duas só nascem de fusão e de
+ * narrativa na mesa, então vir uma pronta no Compêndio contradiria a própria regra do sistema.
+ *
+ * A divisão segue a do mundo: **Extra** é o que um humano bem treinado do nosso mundo faria;
+ * **Normal** é a evolução com componente mágico/arcano por cima.
+ */
+const SAMPLE_SKILLS = [
+  // ---------------- Extra: perícia humana, sem nada sobrenatural
+  { name: "Golpe Preciso", tier: "extra", cost: 4, effectType: "damage", damageFormula: "1d8", scalingAttribute: "precision",
+    description: "<p>Um ataque calculado, mirando a brecha na guarda em vez da força bruta.</p>" },
+  { name: "Investida", tier: "extra", cost: 5, effectType: "damage", damageFormula: "1d10", scalingAttribute: "strength",
+    description: "<p>Avança usando o peso do corpo inteiro para carregar o golpe.</p>" },
+  { name: "Passo Lateral", tier: "extra", cost: 3, effectType: "temporary",
+    effects: [{ target: "defense", amount: 3, durationRounds: 2 }],
+    description: "<p>Um deslocamento curto e treinado que abre ângulo e fecha a guarda.</p>" },
+  { name: "Leitura de Combate", tier: "extra", cost: 3, effectType: "temporary",
+    effects: [{ target: "precision", amount: 3, durationRounds: 3 }],
+    description: "<p>Observar o oponente por alguns segundos revela o padrão dos golpes dele.</p>" },
+  { name: "Primeiros Socorros", tier: "extra", cost: 6, effectType: "temporary",
+    effects: [{ target: "hp", amount: 8, durationRounds: 0 }],
+    description: "<p>Estancar sangramento e imobilizar o que estiver quebrado. Não faz milagre — só impede a piora.</p>" },
+  { name: "Andar Silencioso", tier: "extra", cost: 2, effectType: "temporary",
+    effects: [{ target: "stealth", amount: 4, durationRounds: 3 }],
+    description: "<p>Distribuir o peso e escolher onde pisar. Qualquer um aprende; poucos treinam.</p>" },
+  { name: "Aparar", tier: "extra", cost: 4, effectType: "temporary",
+    effects: [{ target: "defense", amount: 5, durationRounds: 1 }],
+    description: "<p>Desviar a lâmina inimiga com a própria, em vez de bloquear de frente.</p>" },
+  { name: "Tiro Firme", tier: "extra", cost: 5, effectType: "damage", damageFormula: "1d12", scalingAttribute: "precision",
+    description: "<p>Prender a respiração, esperar a janela e soltar. Vale para arco, besta ou cano.</p>" },
+
+  // ---------------- Normal: a mesma perícia, agora com componente arcano
+  { name: "Lâmina Flamejante", tier: "normal", cost: 12, effectType: "damage", damageFormula: "2d8",
+    scalingAttribute: "magic", isMagicDamage: true, damageElements: ["fire"],
+    description: "<p>A arma pega fogo sem se consumir. O corte queima muito depois de a lâmina passar.</p>" },
+  { name: "Manto de Gelo", tier: "normal", cost: 10, effectType: "temporary",
+    effects: [{ target: "shield", amount: 25, durationRounds: 0 }],
+    description: "<p>Uma casca de gelo se forma sobre o corpo e absorve o impacto até rachar.</p>" },
+  { name: "Toque Vital", tier: "normal", cost: 14, effectType: "temporary",
+    effects: [{ target: "hp", amount: 20, durationRounds: 0 }],
+    description: "<p>Acelera a própria carne a fechar o ferimento — cansa quem cura tanto quanto quem é curado.</p>" },
+  { name: "Descarga Elétrica", tier: "normal", cost: 12, effectType: "damage", damageFormula: "2d10",
+    scalingAttribute: "magic", isMagicDamage: true, damageElements: ["lightning"],
+    description: "<p>Um arco curto salta da mão. Contra armadura de metal, é pior ainda.</p>" },
+  { name: "Passo das Sombras", tier: "normal", cost: 9, effectType: "temporary",
+    effects: [{ target: "stealth", amount: 8, durationRounds: 3 }],
+    description: "<p>A sombra ao redor engrossa e engole o contorno de quem se move dentro dela.</p>" },
+  { name: "Peso de Ferro", tier: "normal", cost: 11, effectType: "temporary",
+    effects: [{ target: "strength", amount: 6, durationRounds: 3 }],
+    description: "<p>Os músculos endurecem como cabo de aço pelo tempo que a concentração aguentar.</p>" },
+  { name: "Névoa Ácida", tier: "normal", cost: 15, effectType: "temporary",
+    effects: [{ target: "hp", amount: -5, durationRounds: 4, periodic: true, tickUnit: "combatRound",
+               conditionId: "poison", damageElements: ["acid"] }],
+    description: "<p>Uma névoa baixa que corrói o que toca. Continua corroendo depois que se dispersa.</p>" },
+  { name: "Escudo Arcano", tier: "normal", cost: 10, effectType: "temporary",
+    effects: [{ target: "magicalDefense", amount: 6, durationRounds: 3 }],
+    description: "<p>Uma malha invisível que dispersa o que é feito de energia antes de chegar à pele.</p>" },
+  { name: "Cegueira Luminosa", tier: "normal", cost: 8, effectType: "temporary",
+    effects: [{ target: "precision", amount: -6, durationRounds: 2, conditionId: "blindness" }],
+    description: "<p>Um estouro de luz branca. Não fere — mas por alguns segundos ninguém acerta nada.</p>" }
+];
+
+/**
+ * Cria as Skills de exemplo no Compêndio de Habilidades. Idempotente: `registerItemInCompendium`
+ * reaproveita o que já existir com a mesma assinatura, então clicar duas vezes não duplica nada.
+ */
+async function createSampleContent() {
+  await ensureSystemCompendiums();
+
+  let criadas = 0;
+  for (const skill of SAMPLE_SKILLS) {
+    const { name, tier, cost, description, ...mechanics } = skill;
+    const created = await registerItemInCompendium({
+      name,
+      type: "skill",
+      system: { tier, level: 1, cost, description, ...mechanics }
+    });
+    if (created) criadas += 1;
+  }
+
+  ui.notifications.info(
+    `${criadas} Skill(s) de exemplo no Compêndio de Habilidades (${SAMPLE_SKILLS.length} no total; as repetidas foram reaproveitadas).`
+  );
 }
 
 /** Recria os compêndios auto-geridos do sistema (Skills/Partes do Corpo/Títulos/Módulos), caso algum tenha sido apagado. */
@@ -378,6 +466,9 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
       }
       case "create-macros":
         await createSystemMacros();
+        break;
+      case "create-sample-content":
+        await createSampleContent();
         break;
       case "sync-data":
         await syncData();

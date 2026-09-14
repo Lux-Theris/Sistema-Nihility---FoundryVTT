@@ -331,6 +331,11 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
         new FeatureConfigApp().render(true);
         break;
       }
+      case "attribute-config": {
+        const { AttributeConfigApp } = await import("./attribute-config.js");
+        new AttributeConfigApp().render(true);
+        break;
+      }
       case "damage-elements-config": {
         const { DamageElementsConfigApp } = await import("./damage-elements-config.js");
         new DamageElementsConfigApp().render(true);

@@ -4,7 +4,7 @@
  * ganha +1d20 — todos os dados são somados (2d20, 3d20...). Bônus de
  * arma/equipamento NUNCA entram nessa conta: somam por fora, como número fixo.
  */
-import { MEU_SISTEMA } from "./config.js";
+import { MEU_SISTEMA, getAttributeLabel } from "./config.js";
 
 /** @returns {{diceCount:number, flat:number}} */
 export function computeAttributeDicePool(bonus) {
@@ -34,7 +34,7 @@ export async function rollAttribute(actor, attributeKey, options = {}) {
   if (!attr) return null;
 
   const formula = buildAttributeRollFormula(attr.bonus, extraFlat);
-  const label = MEU_SISTEMA.COMBAT_ATTRIBUTE_LABELS[attributeKey] ?? attributeKey;
+  const label = getAttributeLabel(attributeKey);
 
   const roll = new Roll(formula);
   await roll.evaluate();

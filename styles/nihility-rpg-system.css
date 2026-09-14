@@ -2915,3 +2915,82 @@ form.nihility-config-app {
   min-height: 0;
   line-height: normal;
 }
+
+
+/* ==========================================================================
+   Configurar Atributos (apps/attribute-config.js) — renomear/esconder os sete
+   Atributos de Combate. Mesma moldura de .nihility-config-app dos outros editores.
+   ========================================================================== */
+
+.nihility-attribute-config .attribute-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 56vh;
+  overflow-y: auto;
+}
+
+.nihility-attribute-config .attribute-row {
+  display: grid;
+  grid-template-columns: 150px 1fr 110px;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.nihility-attribute-config .attribute-row.header {
+  border: 0;
+  background: none;
+  padding-block: 0 2px;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--nihility-text-faint);
+  font-weight: 600;
+}
+
+/* Atributo escondido continua legível — é escolha de campanha, não erro. */
+.nihility-attribute-config .attribute-row.is-off { opacity: 0.55; }
+
+.nihility-attribute-config .attribute-key {
+  font-family: var(--nihility-font-data);
+  font-size: 0.78rem;
+  color: var(--nihility-text-faint);
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 3px;
+  padding: 2px 6px;
+  justify-self: start;
+  cursor: help;
+}
+
+.nihility-attribute-config .attribute-label-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.nihility-attribute-config .attribute-label-input { width: 100%; }
+
+.nihility-attribute-config .attribute-formula-note {
+  font-size: 0.68rem;
+  color: var(--nihility-gold);
+  opacity: 0.85;
+}
+
+.nihility-attribute-config .attribute-visible-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--nihility-text-dim);
+  cursor: pointer;
+}
+
+@media (max-width: 520px) {
+  .nihility-attribute-config .attribute-row { grid-template-columns: 1fr; gap: 6px; }
+  .nihility-attribute-config .attribute-row.header { display: none; }
+}

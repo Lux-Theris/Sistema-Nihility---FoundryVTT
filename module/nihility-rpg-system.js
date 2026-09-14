@@ -36,6 +36,7 @@ import { DamageElementsConfigApp } from "./apps/damage-elements-config.js";
 import { StatusConditionsConfigApp } from "./apps/status-conditions-config.js";
 import { NihilityMenuApp } from "./apps/nihility-menu.js";
 import { FeatureConfigApp } from "./apps/feature-config.js";
+import { AttributeConfigApp } from "./apps/attribute-config.js";
 import { tickCombatRoundEffects, tickActorUpkeepSkills } from "./skill-effects.js";
 import { tickStarshipPower } from "./starship-power.js";
 import { requestShipRepair, approveShipRepairRoll, restoreShipRepairTarget } from "./starship-repair.js";
@@ -70,6 +71,15 @@ Hooks.once("init", () => {
     hint: "Liga/desliga blocos do sistema (Naves, Títulos, Fusão, PAD...) e aplica presets de campanha.",
     icon: "fas fa-toggle-on",
     type: FeatureConfigApp,
+    restricted: true
+  });
+
+  game.settings.registerMenu(SYSTEM_ID, "attributeConfigMenu", {
+    name: "Configurar Atributos",
+    label: "Configurar Atributos",
+    hint: "Renomeie os sete Atributos de Combate ou esconda os que esta campanha não usa.",
+    icon: "fas fa-chart-simple",
+    type: AttributeConfigApp,
     restricted: true
   });
 

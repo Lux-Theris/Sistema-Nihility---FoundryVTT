@@ -6,6 +6,8 @@ import {
   getResistanceTargetOptions,
   getModuleSizePreset,
   isResistancesEnabled,
+  getVisibleAttributes,
+  getEffectTargetLabels,
   debugLog
 } from "../config.js";
 import { createGrantedSkill, removeGrantedSkill, evolveSkill } from "../skill-economy.js";
@@ -108,6 +110,13 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.owner = this.item.isOwner;
     context.isGM = game.user.isGM;
     context.resistancesEnabled = isResistancesEnabled();
+    // Seletores de bônus de Atributo (Título, Item, Modificação) usam os rótulos e a
+    // visibilidade atuais — atributo oculto sai da lista de opções novas.
+    context.visibleAttributes = getVisibleAttributes();
+    context.effectTargetLabels = getEffectTargetLabels();
+    context.titleBonusTargets = MEU_SISTEMA.TITLE_BONUS_TARGETS.filter(
+      t => !MEU_SISTEMA.COMBAT_ATTRIBUTES.includes(t) || context.visibleAttributes.some(a => a.key === t)
+    );
 
     // Alvos de Resistência (Geral + cada Elemento ativo) — usado pela Skill (com "Nenhuma"
     // na frente) e pelo Título (uma entrada sempre tem um alvo, sem opção "Nenhuma").

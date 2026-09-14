@@ -56,10 +56,6 @@
       {{/unless}}
 
       <label>Gatilho Emocional <input type="text" name="system.emotionTrigger" value="{{system.emotionTrigger}}"/></label>
-      <label>Requer Item <span class="hint-inline">(livre, só pra RP — ex: "Revólver das Transmutações")</span>
-        <input type="text" name="system.requiredItem" value="{{system.requiredItem}}"/>
-      </label>
-
       {{#if system.isItemGranted}}
       <p class="hint-inline">⚙ Concedida automaticamente por um Item/Módulo — não pode ser fundida, e some se a fonte for desequipada/removida.</p>
       {{/if}}
@@ -163,8 +159,8 @@
               {{#each mod.attributeBonuses as |bonus bIndex|}}
               <li data-index="{{index}}" data-bonus-index="{{bIndex}}" class="effect-row">
                 <select name="system.installedMods.{{index}}.attributeBonuses.{{bIndex}}.attribute">
-                  {{#each ../../config.COMBAT_ATTRIBUTES as |attrKey|}}
-                  <option value="{{attrKey}}" {{#if (eq attrKey bonus.attribute)}}selected{{/if}}>{{lookup ../../../config.COMBAT_ATTRIBUTE_LABELS attrKey}}</option>
+                  {{#each ../../visibleAttributes as |attr|}}
+                  <option value="{{attr.key}}" {{#if (eq attr.key bonus.attribute)}}selected{{/if}}>{{attr.label}}</option>
                   {{/each}}
                 </select>
                 <input type="number" name="system.installedMods.{{index}}.attributeBonuses.{{bIndex}}.amount" value="{{bonus.amount}}"/>
@@ -189,8 +185,8 @@
         {{#each system.bonuses as |bonus index|}}
         <li data-index="{{index}}">
           <select name="system.bonuses.{{index}}.attribute">
-            {{#each ../config.TITLE_BONUS_TARGETS as |attrKey|}}
-            <option value="{{attrKey}}" {{#if (eq attrKey bonus.attribute)}}selected{{/if}}>{{lookup ../../config.EFFECT_TARGET_LABELS attrKey}}</option>
+            {{#each ../titleBonusTargets as |attrKey|}}
+            <option value="{{attrKey}}" {{#if (eq attrKey bonus.attribute)}}selected{{/if}}>{{lookup ../../effectTargetLabels attrKey}}</option>
             {{/each}}
           </select>
           <input type="number" name="system.bonuses.{{index}}.amount" value="{{bonus.amount}}"/>
@@ -365,8 +361,8 @@
         {{#each system.attributeBonuses as |bonus index|}}
         <li data-index="{{index}}" class="effect-row">
           <select name="system.attributeBonuses.{{index}}.attribute">
-            {{#each ../config.COMBAT_ATTRIBUTES as |attrKey|}}
-            <option value="{{attrKey}}" {{#if (eq attrKey bonus.attribute)}}selected{{/if}}>{{lookup ../../config.COMBAT_ATTRIBUTE_LABELS attrKey}}</option>
+            {{#each ../visibleAttributes as |attr|}}
+            <option value="{{attr.key}}" {{#if (eq attr.key bonus.attribute)}}selected{{/if}}>{{attr.label}}</option>
             {{/each}}
           </select>
           <input type="number" name="system.attributeBonuses.{{index}}.amount" value="{{bonus.amount}}"/>

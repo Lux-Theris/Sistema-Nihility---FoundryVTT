@@ -29,6 +29,8 @@ export const MEU_SISTEMA = {
     // Blocos ligáveis/desligáveis por campanha (ver MEU_SISTEMA.FEATURES). As chaves dos blocos
     // que já existiam mantêm o nome original de storage de propósito — mundos que já tinham
     // essas settings configuradas não perdem o valor ao atualizar.
+    attributesData: "attributesData",
+    xpFormula: "xpFormula",
     vesselsEnabled: "vesselsEnabled",
     skillFusionEnabled: "skillFusionEnabled",
     skillPointsEnabled: "skillPointsEnabled",
@@ -931,6 +933,93 @@ export function sceneActorCandidates({ types = null, excludeActorId = null, perm
 }
 
 /**
+ * Atributos de combate com rótulo e visibilidade atuais (setting > padrão do código).
+ *
+ * As CHAVES são imutáveis de propósito e nunca entram na edição: elas aparecem dentro de
+ * caminhos de Active Effect já gravados (`system.attributes.combat.magic.buffDelta`), em
+ * `EFFECT_TARGETS`, em `TITLE_BONUS_TARGETS` e nas settings de fórmula vital — deixar o Mestre
+ * renomear a chave apagaria silenciosamente todo efeito, Título e fórmula que já apontasse pra
+ * ela. O que é editável é só o RÓTULO e o liga/desliga de exibição.
+ *
+ * `visible: false` some o atributo da ficha e da rolagem, mas o valor salvo continua existindo e
+ * continua contando em toda conta que já o usava (inclusive a fórmula de HP/Mana) — reexibir
+ * devolve o atributo exatamente como estava. Desligar nunca destrói dado, mesma regra de
+ * MEU_SISTEMA.FEATURES.
+ * @returns {Array<{key:string,label:string,visible:boolean}>} sempre na ordem de COMBAT_ATTRIBUTES
+ */
+export function getActiveAttributes() {
+  let saved = {};
+  try {
+    const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.attributesData);
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (Array.isArray(parsed)) saved = Object.fromEntries(parsed.map(a => [a.key, a]));
+  } catch (err) {
+    /* setting ausente/inválida — cai nos padrões do código abaixo */
+  }
+
+  return MEU_SISTEMA.COMBAT_ATTRIBUTES.map(key => ({
+    key,
+    label: saved[key]?.label?.trim() || MEU_SISTEMA.COMBAT_ATTRIBUTE_LABELS[key],
+    visible: saved[key]?.visible !== false
+  }));
+}
+
+/** Só os atributos que a campanha exibe — use nas fichas e em qualquer seletor mostrado ao jogador. */
+export function getVisibleAttributes() {
+  return getActiveAttributes().filter(a => a.visible);
+}
+
+/** Rótulo atual de um atributo (cai na chave crua se alguém passar uma chave desconhecida). */
+export function getAttributeLabel(key) {
+  return getActiveAttributes().find(a => a.key === key)?.label ?? key;
+}
+
+/** Mapa chave→rótulo, substituto direto de MEU_SISTEMA.COMBAT_ATTRIBUTE_LABELS. */
+export function getAttributeLabels() {
+  return Object.fromEntries(getActiveAttributes().map(a => [a.key, a.label]));
+}
+
+/**
+ * MEU_SISTEMA.EFFECT_TARGET_LABELS com os sete atributos trocados pelos rótulos ativos — os
+ * alvos que não são atributo (hp/energy/shield/os de Nave) ficam como estão.
+ */
+export function getEffectTargetLabels() {
+  return { ...MEU_SISTEMA.EFFECT_TARGET_LABELS, ...getAttributeLabels() };
+}
+
+/**
+ * XP necessário para sair de `level` para o próximo. A fórmula é uma setting (padrão
+ * `100 * @nivel`, ou seja 100 no nv 1, 1000 no nv 10) porque a curva certa depende da campanha:
+ * o poder do personagem cresce de forma QUADRÁTICA (HP = Atributo × Atributo × mult, sobre
+ * pontos que crescem linearmente por nível), então uma curva linear de XP mantém o preço por
+ * ponto de poder quase constante, enquanto uma quadrática vira um teto disfarçado.
+ *
+ * Avaliada por `Roll.safeEval` (só aritmética, nunca código do usuário). Fórmula inválida cai no
+ * padrão em vez de quebrar a ficha.
+ * @param {number} level
+ * @returns {number} XP para o próximo nível (mínimo 1)
+ */
+export function getXpForNextLevel(level) {
+  const safeLevel = Math.max(1, Math.round(Number(level) || 1));
+  const fallback = 100 * safeLevel;
+  let formula;
+  try {
+    formula = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.xpFormula);
+  } catch (err) {
+    return fallback;
+  }
+  if (!formula?.trim()) return fallback;
+
+  try {
+    const value = Roll.safeEval(String(formula).replaceAll("@nivel", String(safeLevel)));
+    return Number.isFinite(value) && value > 0 ? Math.round(value) : fallback;
+  } catch (err) {
+    console.warn(`${SYSTEM_ID} | Fórmula de XP inválida ("${formula}") — usando o padrão.`, err);
+    return fallback;
+  }
+}
+
+/**
  * Leitor ÚNICO de todo bloco ligável/desligável do sistema (ver MEU_SISTEMA.FEATURES) — use
  * isto, e não `game.settings.get` direto, pra gatear qualquer coisa: só aqui a cadeia de
  * `parent` é respeitada (uma sub-feature do PAD com a chave-mestra desligada conta como
@@ -1109,11 +1198,28 @@ export function registerSystemSettings() {
     });
   }
 
+  // Rótulo/visibilidade dos sete atributos (editados pela tela "Configurar Atributos").
+  // Registrada ANTES das settings de fórmula vital de propósito: os `choices` daquelas são
+  // montados a partir dos rótulos ATIVOS, então esta precisa já existir pra ser lida.
+  game.settings.register(SYSTEM_ID, S.attributesData, {
+    scope: "world",
+    config: false,
+    type: String,
+    default: "[]"
+  });
+
+  game.settings.register(SYSTEM_ID, S.xpFormula, {
+    name: "Fórmula de XP por Nível",
+    hint: "XP necessário para sair do nível atual. Use @nivel para o nível atual. Padrão: 100 * @nivel (100 no nível 1, 1000 no nível 10).",
+    scope: "world",
+    config: true,
+    type: String,
+    default: "100 * @nivel"
+  });
+
   // Fórmula de HP/Mana. Fica visível na tela de settings (config: true) porque é uma regra de
   // balanceamento que o Mestre ajusta uma vez e esquece — não é um liga/desliga de campanha.
-  const attributeChoices = Object.fromEntries(
-    MEU_SISTEMA.COMBAT_ATTRIBUTES.map(key => [key, MEU_SISTEMA.COMBAT_ATTRIBUTE_LABELS[key]])
-  );
+  const attributeChoices = Object.fromEntries(getActiveAttributes().map(a => [a.key, a.label]));
 
   game.settings.register(SYSTEM_ID, S.hpFormulaPrimary, {
     name: "Fórmula de HP — 1º Atributo",

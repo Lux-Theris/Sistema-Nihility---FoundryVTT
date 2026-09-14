@@ -13,6 +13,7 @@ import {
   isAttributePoolEnabled,
   isEnergyPoolEnabled,
   isAreaEffectsEnabled,
+  getVisibleAttributes,
   sceneActorCandidates,
   debugLog
 } from "../config.js";
@@ -181,12 +182,14 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.showPadButton = isPadEnabled() && (game.user.isGM || hasPadDevice(actor));
     context.currencies = getActiveCurrencies();
     context.speciesPresets = getActiveSpeciesPresets();
-    context.attributeLabels = MEU_SISTEMA.COMBAT_ATTRIBUTES.map(key => {
+    // Só os atributos que a campanha exibe (ver getActiveAttributes em config.js). Um atributo
+    // oculto continua valendo por baixo — só não aparece nem é rolável.
+    context.attributeLabels = getVisibleAttributes().map(({ key, label }) => {
       const data = actor.system.attributes.combat[key];
       const hasPending = (data.pendingPoints ?? 0) > 0;
       return {
         key,
-        label: MEU_SISTEMA.COMBAT_ATTRIBUTE_LABELS[key],
+        label,
         data,
         formula: buildAttributeRollFormula(data.bonus),
         previewFormula: hasPending ? buildAttributeRollFormula(data.previewBonus) : null

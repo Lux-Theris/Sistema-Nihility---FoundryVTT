@@ -13,7 +13,8 @@ import {
   getActiveDamageElements,
   getActiveStatusConditions,
   getEnergyLabelForActor,
-  isEnergyPoolEnabled
+  isEnergyPoolEnabled,
+  getEffectTargetLabels
 } from "./config.js";
 import { announceVoiceOfTheWorld } from "./voice-of-the-world.js";
 import { playSkillAnimation } from "./vfx.js";
@@ -647,7 +648,7 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor, subSki
   const summary = [];
 
   for (const entry of entries) {
-    const targetLabel = MEU_SISTEMA.EFFECT_TARGET_LABELS[entry.target] ?? entry.target;
+    const targetLabel = getEffectTargetLabels()[entry.target] ?? entry.target;
     const sign = entry.amount >= 0 ? "+" : "";
     const condition = entry.conditionId ? getActiveStatusConditions().find(c => c.id === entry.conditionId) : null;
 
@@ -845,7 +846,7 @@ export async function tickCombatRoundEffects(actor) {
 
   if (results.length) {
     const rows = results.map(r => {
-      const attrLabel = r.attrKey === "hp" ? "HP" : MEU_SISTEMA.EFFECT_TARGET_LABELS.energy;
+      const attrLabel = r.attrKey === "hp" ? "HP" : getEffectTargetLabels().energy;
       const statusText = r.expired ? "encerrou" : r.ticksRemaining === null ? "até desativar" : `${r.ticksRemaining} tick(s) restante(s)`;
       // Nunca revela NO CHAT que/quanto de Resistência foi aplicada no tick — só o delta final.
       return `<li><strong>${r.effectName}</strong>: ${r.delta >= 0 ? "+" : ""}${r.delta} ${attrLabel} (${statusText})</li>`;

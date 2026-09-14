@@ -6,7 +6,9 @@ import {
   getCharacterEnergyLabel,
   isResistancesEnabled,
   isStatusConditionsEnabled,
-  isAreaEffectsEnabled
+  isAreaEffectsEnabled,
+  getEffectTargetLabels,
+  getVisibleAttributes
 } from "../config.js";
 import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../skill-effects.js";
 
@@ -23,9 +25,15 @@ function targetAcceptsPeriodic(target) {
 }
 
 function buildEffectRowHtml(entry) {
-  const options = MEU_SISTEMA.EFFECT_TARGETS.map(
-    t => `<option value="${t}" ${t === entry.target ? "selected" : ""}>${MEU_SISTEMA.EFFECT_TARGET_LABELS[t]}</option>`
-  ).join("");
+  // Atributo oculto pela campanha sai da lista de alvos — mas uma entrada JÁ salva apontando
+  // pra ele continua na lista, senão editar a Skill apagaria o alvo dela sem avisar.
+  const labels = getEffectTargetLabels();
+  const hiddenAttributes = new Set(
+    MEU_SISTEMA.COMBAT_ATTRIBUTES.filter(k => !getVisibleAttributes().some(a => a.key === k))
+  );
+  const options = MEU_SISTEMA.EFFECT_TARGETS.filter(t => !hiddenAttributes.has(t) || t === entry.target)
+    .map(t => `<option value="${t}" ${t === entry.target ? "selected" : ""}>${labels[t]}</option>`)
+    .join("");
   // Campanha sem Condições nomeadas: o <select> continua existindo (o resto do editor e o
   // `readForm` contam com ele), mas fica escondido e só com a opção vazia — o efeito numérico
   // da entrada continua funcionando igual, sem ganhar nome/ícone de status.

@@ -210,13 +210,6 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
       isItemGranted: new fields.BooleanField({ required: false, initial: false }),
 
       /**
-       * Texto livre e puramente narrativo: um item que a skill "precisa" pra funcionar
-       * (ex: uma Skill Ultimate que transforma balas exige uma arma pra dispará-las).
-       * Não é um vínculo mecânico — só um lembrete de RP.
-       */
-      requiredItem: new fields.StringField({ required: false, initial: "" }),
-
-      /**
        * Mecânica ao "Usar" a skill — ver MEU_SISTEMA.SKILL_EFFECT_TYPES:
        * "none" (padrão, só descritiva), "damage" (rola damageFormula e posta no
        * chat público, com elemento(s) opcional(is)) ou "temporary" (aplica cada

@@ -1,0 +1,44 @@
+<div class="config-editor-body">
+  <p class="hint">
+    Renomeie os Atributos de Combate para o vocabulário desta campanha, ou esconda os que ela não
+    usa. <strong>Esconder não apaga nada</strong> — o atributo some da ficha e da rolagem, mas o
+    valor salvo continua valendo onde já era usado, e reexibir devolve tudo como estava.
+  </p>
+  <p class="hint">
+    A <strong>chave</strong> de cada atributo é fixa: ela aparece dentro de efeitos, Títulos e
+    fórmulas já gravados, e renomeá-la apagaria em silêncio tudo que aponta pra ela.
+  </p>
+
+  <div class="attribute-list">
+    <div class="attribute-row header">
+      <span>Chave</span>
+      <span>Rótulo exibido</span>
+      <span>Na ficha</span>
+    </div>
+
+    {{#each attributes as |attr|}}
+    <div class="attribute-row {{#unless attr.visible}}is-off{{/unless}}" data-attribute="{{attr.key}}">
+      <code class="attribute-key" title="Chave interna — não editável">{{attr.key}}</code>
+
+      <span class="attribute-label-cell">
+        <input type="text" class="attribute-label-input" value="{{attr.label}}" placeholder="{{attr.defaultLabel}}"/>
+        {{#if attr.inFormula}}
+        <span class="attribute-formula-note" title="Este atributo entra na fórmula de HP/Mana. Esconder não o tira da conta.">
+          usado na fórmula de HP/Mana
+        </span>
+        {{/if}}
+      </span>
+
+      <label class="attribute-visible-cell">
+        <input type="checkbox" class="attribute-visible-input" {{#if attr.visible}}checked{{/if}}/>
+        <span>visível</span>
+      </label>
+    </div>
+    {{/each}}
+  </div>
+
+  <footer class="sheet-footer">
+    <button type="button" data-action="reset"><i class="fas fa-rotate-left"></i> Restaurar padrões</button>
+    <button type="button" data-action="save"><i class="fas fa-save"></i> Salvar</button>
+  </footer>
+</div>

@@ -44,6 +44,17 @@ const SYSTEM_MACROS = [
     command: "game.nihility.openAssistant();"
   },
   {
+    name: "Nihility — Conceder XP",
+    img: "icons/svg/upgrade.svg",
+    // Abre a ficha do Ator selecionado direto na aba onde o bloco de XP (só-Mestre) aparece —
+    // conceder XP mora lá, junto do estado atual, em vez de num diálogo solto sem contexto.
+    command: [
+      "const actor = canvas.tokens.controlled[0]?.actor ?? game.user.character;",
+      'if (!actor) ui.notifications.warn("Selecione o token de um Personagem primeiro.");',
+      "else actor.sheet.render(true);"
+    ].join("\n")
+  },
+  {
     name: "Nihility — Pedir Reparo de Nave",
     img: "icons/svg/hazard.svg",
     command: "game.nihility.requestShipRepair();"

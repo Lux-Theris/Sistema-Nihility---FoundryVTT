@@ -105,6 +105,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       adjustVital: NihilityActorSheet.#onAdjustVital,
       restActor: NihilityActorSheet.#onRest,
       rollInitiative: NihilityActorSheet.#onRollInitiative,
+      grantXp: NihilityActorSheet.#onGrantXp,
       editImage: NihilityActorSheet.#onEditImage,
       applyManualTick: NihilityActorSheet.#onApplyManualTick,
       deleteCondition: NihilityActorSheet.#onDeleteCondition,
@@ -215,6 +216,36 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       actor.system.attributePointsPool.total
     );
     context.initiativeLabel = getInitiativeLabel();
+
+    // Experiência — bloco SÓ do Mestre (o jogador nem sabe que existe). Uma linha pro Personagem
+    // e uma por Skill, todas já com o teto do nível atual calculado em prepareDerivedData.
+    if (context.isGM) {
+      const attributes = actor.system.attributes;
+      context.xpEntries = [
+        {
+          scope: "actor",
+          id: "",
+          name: actor.name,
+          detail: `nível ${attributes.level}`,
+          xp: attributes.xp,
+          xpMax: attributes.xpMax,
+          percent: attributes.xpPercent,
+          ready: attributes.xpReady
+        },
+        ...actor.items
+          .filter(i => i.type === "skill")
+          .map(skill => ({
+            scope: "skill",
+            id: skill.id,
+            name: skill.name,
+            detail: `nível ${skill.system.level}`,
+            xp: skill.system.xp,
+            xpMax: skill.system.xpMax,
+            percent: skill.system.xpPercent,
+            ready: skill.system.xpReady
+          }))
+      ];
+    }
     context.hpPercent = percentOf(actor.system.attributes.hp.value, actor.system.attributes.hp.max);
     context.energyPercent = percentOf(actor.system.attributes.energy.value, actor.system.attributes.energy.max);
     context.shieldValue = actor.system.attributes.shield.value;
@@ -406,6 +437,52 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     const attr = this.actor.system.attributes[vital];
     const newValue = Math.clamp(attr.value + dir * amount, 0, attr.max);
     await this.actor.update({ [`system.attributes.${vital}.value`]: newValue });
+  }
+
+  /**
+   * Concede XP ao Personagem ou a uma Skill dele (só Mestre). O XP para no teto do nível atual —
+   * ver `deriveExperience` em character-model.js: não existe "800/100", porque acumular além do
+   * teto daria níveis já pagos adiantados assim que o Mestre clicasse em subir.
+   */
+  static async #onGrantXp(event, target) {
+    event.preventDefault();
+    if (!game.user.isGM) return;
+
+    const skills = this.actor.items.filter(i => i.type === "skill");
+    const options = [
+      `<option value="actor:">${this.actor.name} (Personagem)</option>`,
+      ...skills.map(s => `<option value="skill:${s.id}">${s.name} — nível ${s.system.level}</option>`)
+    ].join("");
+
+    const data = await promptDialog({
+      title: "Conceder XP",
+      confirmLabel: "Conceder",
+      content: `
+        <form>
+          <div class="form-group"><label>Para</label><select name="alvo">${options}</select></div>
+          <div class="form-group"><label>Quantidade</label><input type="number" name="amount" value="50"/></div>
+        </form>`,
+      onConfirm: form => ({
+        alvo: form.querySelector("[name=alvo]").value,
+        amount: Number(form.querySelector("[name=amount]").value) || 0
+      })
+    });
+    if (!data || !data.amount) return;
+
+    const [scope, id] = data.alvo.split(":");
+    const doc = scope === "skill" ? this.actor.items.get(id) : this.actor;
+    if (!doc) return;
+
+    const path = scope === "skill" ? "system.xp" : "system.attributes.xp";
+    const current = scope === "skill" ? doc.system.xp : doc.system.attributes.xp;
+    const max = scope === "skill" ? doc.system.xpMax : doc.system.attributes.xpMax;
+    const next = Math.clamp(current + data.amount, 0, max);
+
+    if (next === current) {
+      ui.notifications.info(`${doc.name} já está no teto de XP deste nível (${max}).`);
+      return;
+    }
+    await doc.update({ [path]: next });
   }
 
   /** Rola a iniciativa deste Ator e lança no rastreador de combate (ver module/combat.js). */

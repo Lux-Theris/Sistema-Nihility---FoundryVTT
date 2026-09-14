@@ -26,7 +26,7 @@ import {
 import { AIHelper } from "./ai-helper.js";
 import { ensureSystemCompendiums } from "./compendium.js";
 import { approveSkillCreationRequest, rejectSkillCreationRequest, removeGrantedSkill } from "./skill-economy.js";
-import { announceLevelUp } from "./voice-of-the-world.js";
+import { announceLevelUp, announceVoiceOfTheWorld } from "./voice-of-the-world.js";
 import { NihilityActorSheet } from "./sheets/actor-sheet.js";
 import { NihilityStarshipSheet, NihilityVehicleSheet } from "./sheets/starship-sheet.js";
 import { NihilityItemSheet } from "./sheets/item-sheet.js";
@@ -345,6 +345,31 @@ Hooks.on("preUpdateActor", (actor, changes) => {
 
   const currentNormal = actor.system.skillPoints.normal ?? 0;
   foundry.utils.setProperty(changes, "system.skillPoints.normal", currentNormal + gained);
+});
+
+/**
+ * Avisa o Mestre (e o dono do Ator) quando o XP enche — o Level Up em si continua sendo clique
+ * dele, aqui e em Skill. Dispara só na transição pro teto: como o XP é limitado no próprio
+ * schema, ganhos posteriores não geram update nenhum e portanto não repetem o aviso.
+ */
+function announceXpReadyIfJustFilled(actor, label, xp, xpMax) {
+  if (!game.user.isGM || !(xpMax > 0) || xp < xpMax) return;
+  announceVoiceOfTheWorld(actor, {
+    kind: "xp-ready",
+    title: "Experiência no limite",
+    body: `${label} acumulou todo o XP deste nível (${xpMax}). O Mestre pode subir o nível quando quiser.`
+  });
+}
+
+Hooks.on("updateActor", (actor, changes) => {
+  if (foundry.utils.getProperty(changes, "system.attributes.xp") === undefined) return;
+  announceXpReadyIfJustFilled(actor, actor.name, actor.system.attributes.xp, actor.system.attributes.xpMax);
+});
+
+Hooks.on("updateItem", (item, changes) => {
+  if (item.type !== "skill" || !item.parent) return;
+  if (foundry.utils.getProperty(changes, "system.xp") === undefined) return;
+  announceXpReadyIfJustFilled(item.parent, `${item.name} (de ${item.parent.name})`, item.system.xp, item.system.xpMax);
 });
 
 // Limpa a Habilidade Concedida (ver skill-economy.js) quando o Item Geral ou Módulo de

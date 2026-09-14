@@ -191,6 +191,25 @@
         <!-- Coluna direita: Pontos de Habilidade, Habilidades, Itens, Economia -->
         <div class="col-right">
 
+          {{#if isGM}}
+          <div class="block xp-block">
+            <div class="row-between">
+              <p class="block-title" style="margin:0">Experiência <span class="gm-only-tag">só Mestre</span></p>
+              <button type="button" class="xp-grant-button" data-action="grantXp" title="Conceder XP ao Personagem ou a uma Habilidade">+ XP</button>
+            </div>
+            <p class="hint-inline">O XP trava no teto do nível — subir de nível continua sendo clique seu.</p>
+            <ol class="xp-list">
+              {{#each xpEntries as |entry|}}
+              <li class="xp-row {{#if entry.ready}}is-ready{{/if}}">
+                <span class="xp-name">{{entry.name}} <span class="xp-detail">{{entry.detail}}</span></span>
+                <span class="xp-track"><span class="xp-fill" style="width:{{entry.percent}}%"></span></span>
+                <span class="xp-value">{{entry.xp}}/{{entry.xpMax}}</span>
+              </li>
+              {{/each}}
+            </ol>
+          </div>
+          {{/if}}
+
           {{#if skillPointsEnabled}}
           <div class="block">
             <p class="block-title">Pontos de Habilidade</p>

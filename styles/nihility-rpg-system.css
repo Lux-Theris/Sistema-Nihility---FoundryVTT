@@ -3111,3 +3111,57 @@ form.nihility-config-app {
   font-size: 0.8rem;
   color: var(--nihility-text-dim);
 }
+
+/* ==========================================================================
+   Escolha de alvo (helpers/target-picker.js) e botões de dano no chat
+   (damage-apply.js).
+   ========================================================================== */
+
+.nihility-target-picker { display: flex; flex-direction: column; gap: 10px; }
+.nihility-target-picker .form-group { display: flex; flex-direction: column; gap: 3px; }
+.nihility-target-picker select { width: 100%; }
+.nihility-target-picker optgroup {
+  font-style: normal;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nihility-text-faint);
+}
+.nihility-target-picker optgroup option {
+  font-size: 0.86rem;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--nihility-text);
+}
+.nihility-target-picker .target-search-note { font-size: 0.7rem; }
+
+.nihility-damage-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--nihility-border-soft);
+}
+
+.nihility-damage-controls button {
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  height: auto;
+  min-height: 0;
+  line-height: normal;
+}
+.nihility-damage-controls button:first-child { border-color: var(--nihility-accent); color: var(--nihility-accent); }
+.nihility-damage-controls button:hover { box-shadow: 0 0 0 1px rgba(110, 231, 255, 0.25); }
+
+.nihility-damage-controls .damage-applied {
+  font-size: 0.78rem;
+  color: var(--nihility-ok);
+  font-weight: 600;
+}

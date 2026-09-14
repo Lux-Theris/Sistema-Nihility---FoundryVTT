@@ -40,6 +40,7 @@ export const MEU_SISTEMA = {
     resistanceXpFactor: "resistanceXpFactor",
     resistanceLearnThreshold: "resistanceLearnThreshold",
     initiativeAttribute: "initiativeAttribute",
+    allowOffSceneTargets: "allowOffSceneTargets",
     vesselsEnabled: "vesselsEnabled",
     skillFusionEnabled: "skillFusionEnabled",
     skillPointsEnabled: "skillPointsEnabled",
@@ -1496,6 +1497,16 @@ export function registerSystemSettings() {
     type: String,
     choices: attributeChoices,
     default: "magicalDefense",
+    requiresReload: true
+  });
+
+  game.settings.register(SYSTEM_ID, S.allowOffSceneTargets, {
+    name: "Permitir alvo sem Token na cena",
+    hint: "Ligado, a busca do diálogo de alvo alcança o diretório de Atores do mundo — necessário em mesa de teatro da mente, onde ninguém tem Token. Desligado (padrão), só quem está na cena atual pode ser alvo.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
     requiresReload: true
   });
 

@@ -25,6 +25,7 @@ import {
 import { runAsGm } from "./helpers/gm-relay.js";
 import { announceVoiceOfTheWorld } from "./voice-of-the-world.js";
 import { playSkillAnimation } from "./vfx.js";
+import { damageApplyFlags } from "./damage-apply.js";
 
 const EFFECT_TARGET_PATHS = {
   strength: "system.attributes.combat.strength.buffDelta",
@@ -671,7 +672,10 @@ async function rollSkillDamage(actor, mech, label, targetActor = null) {
 
   await roll.toMessage({
     speaker: ChatMessage.getSpeaker({ actor }),
-    flavor
+    flavor,
+    // Dados dos botões de Aplicar/Desfazer (ver module/damage-apply.js). Ficam em `flags` e não
+    // no conteúdo: quem abrir o chat depois vê o mesmo estado de quem estava online.
+    flags: damageApplyFlags(targetActor, finalDamage)
   });
   return { roll, finalDamage };
 }

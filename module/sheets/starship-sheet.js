@@ -1,9 +1,10 @@
-import { SYSTEM_ID, MEU_SISTEMA, getStarshipEnergyLabel, getModuleSizePreset, sceneActorCandidates, isPadShipEnabled, debugLog } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getStarshipEnergyLabel, getModuleSizePreset, isPadShipEnabled, debugLog } from "../config.js";
 import { registerItemInCompendium } from "../compendium.js";
 import { createGrantedSkill, removeGrantedSkill } from "../skill-economy.js";
 import { useSkillEffect, fireStarshipWeapon } from "../skill-effects.js";
 import { moduleCanRestart } from "../starship-power.js";
 import { syncLibraryOwnershipToCrew } from "../pad/pad-library.js";
+import { pickTargetActor } from "../helpers/target-picker.js";
 import { pickImageFile, getDragEventData } from "../helpers/foundry-compat.js";
 
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
@@ -307,22 +308,9 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
   }
 
-  /** Escolhe o alvo de uma arma/efeito — padrão: o próprio Ator (útil pra Escudo/testes). Só Atores com Token na cena atual. */
+  /** Escolhe o alvo de uma Arma/Habilidade — ver helpers/target-picker.js (compartilhado com a ficha de Personagem). */
   async _promptSkillTarget() {
-    // Sempre inclui o próprio Ator mesmo sem Token na cena — os demais exigem Token na cena atual.
-    const candidates = sceneActorCandidates();
-    if (!candidates.some(a => a.id === this.actor.id)) candidates.unshift(this.actor);
-    const opts = candidates
-      .map(a => `<option value="${a.id}" ${a.id === this.actor.id ? "selected" : ""}>${a.name}${a.id === this.actor.id ? " (este Ator)" : ""}</option>`)
-      .join("");
-
-    const targetId = await promptDialog({
-      title: "Escolher Alvo",
-      confirmLabel: "Usar Habilidade",
-      content: `<form><div class="form-group"><label>Alvo</label><select name="targetId">${opts}</select></div></form>`,
-      onConfirm: form => form.querySelector("[name=targetId]").value
-    });
-    return targetId ? game.actors.get(targetId) : null;
+    return pickTargetActor({ self: this.actor, title: "Escolher Alvo", confirmLabel: "Usar Habilidade" });
   }
 
   /**

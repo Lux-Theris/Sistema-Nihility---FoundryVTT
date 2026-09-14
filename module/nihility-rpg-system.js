@@ -43,6 +43,7 @@ import { requestShipRepair, approveShipRepairRoll, restoreShipRepairTarget } fro
 import { registerGmRelay } from "./helpers/gm-relay.js";
 import { registerInitiative } from "./combat.js";
 import { registerStatusConditions, interceptManualCondition } from "./conditions.js";
+import { renderDamageControls } from "./damage-apply.js";
 import { isEnergyPoolEnabled } from "./config.js";
 import {
   actorsCollection,
@@ -526,6 +527,9 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
   // PAD — mensagens e compartilhamentos de contato (estilo WhatsApp/CyberCall) ficam fora do log
   // de chat padrão por padrão; o PAD lê direto de game.messages, independente disso. `showInLog`
   // fica reservado pra uma futura opção de exibição — hoje nenhuma UI liga essa flag.
+  // Botões de aplicar dano (só Mestre) — ver module/damage-apply.js.
+  renderDamageControls(message, html);
+
   const padMessage = message.getFlag(SYSTEM_ID, "padMessage");
   const padContactShare = message.getFlag(SYSTEM_ID, "padContactShare");
   if ((padMessage && !padMessage.showInLog) || padContactShare) html.style.display = "none";

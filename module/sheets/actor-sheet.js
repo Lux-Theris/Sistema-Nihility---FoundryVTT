@@ -23,6 +23,7 @@ import { registerItemInCompendium } from "../compendium.js";
 import { convertActorCurrency, transferCurrency } from "../currency.js";
 import { rollAttribute, buildAttributeRollFormula } from "../dice.js";
 import { rollInitiativeForActor, getInitiativeLabel } from "../combat.js";
+import { pickTargetActor } from "../helpers/target-picker.js";
 import { useSkillEffect, tickPeriodicEffect } from "../skill-effects.js";
 import { areaEffectsSupported, pickAreaTargets } from "../area-effects.js";
 import { openSkillEditorDialog } from "../apps/skill-editor-dialog.js";
@@ -925,27 +926,12 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     return index === undefined || index === null || index === false ? null : index;
   }
 
-  /** Escolhe o alvo de um Efeito Temporário (buff/debuff/escudo) ou de dano mágico — padrão: o próprio dono. Só Atores com Token na cena atual. */
+  /**
+   * Escolhe o alvo de uma Habilidade. Toda a lógica (alvo já marcado no mapa, grupos, busca no
+   * diretório) mora em helpers/target-picker.js, compartilhada com a ficha de Nave.
+   */
   async _promptSkillTarget() {
-    // Sempre inclui o próprio Ator mesmo sem Token na cena (buff/dano em si mesmo tem que
-    // funcionar sempre) — os demais candidatos exigem Token na cena atual.
-    const candidates = sceneActorCandidates();
-    if (!candidates.some(a => a.id === this.actor.id)) candidates.unshift(this.actor);
-    const opts = candidates
-      .map(a => `<option value="${a.id}" ${a.id === this.actor.id ? "selected" : ""}>${a.name}${a.id === this.actor.id ? " (você mesmo)" : ""}</option>`)
-      .join("");
-
-    const targetId = await promptDialog({
-      title: "Escolher Alvo",
-      confirmLabel: "Usar Habilidade",
-      content: `
-        <form>
-          <div class="form-group"><label>Alvo</label><select name="targetId">${opts}</select></div>
-        </form>`,
-      onConfirm: form => form.querySelector("[name=targetId]").value
-    });
-    if (!targetId) return null;
-    return game.actors.get(targetId) ?? null;
+    return pickTargetActor({ self: this.actor, title: "Escolher Alvo", confirmLabel: "Usar Habilidade" });
   }
 
   /* -------------------------------------------- */

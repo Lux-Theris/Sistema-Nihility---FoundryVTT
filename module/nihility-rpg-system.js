@@ -41,6 +41,8 @@ import { tickCombatRoundEffects, tickActorUpkeepSkills } from "./skill-effects.j
 import { tickStarshipPower } from "./starship-power.js";
 import { requestShipRepair, approveShipRepairRoll, restoreShipRepairTarget } from "./starship-repair.js";
 import { registerGmRelay } from "./helpers/gm-relay.js";
+import { registerInitiative } from "./combat.js";
+import { isEnergyPoolEnabled } from "./config.js";
 import {
   actorsCollection,
   itemsCollection,
@@ -119,6 +121,18 @@ Hooks.once("init", () => {
     type: StatusConditionsConfigApp,
     restricted: true
   });
+
+  // Iniciativa pelo pool de dados do Ator (ver module/combat.js) — precisa rodar no `init`,
+  // antes de qualquer Combate existir.
+  registerInitiative();
+
+  // Campos que o Foundry oferece nos seletores de barra de token. Sem isso ele lista o schema
+  // cru, onde "shields.regenRate" aparece como se fosse uma barra plausível.
+  CONFIG.Actor.trackableAttributes = {
+    character: { bar: ["attributes.hp", "attributes.energy"], value: ["attributes.shield.value", "attributes.level"] },
+    starship: { bar: ["shields", "casco", "hull", "powerGrid.capacitor"], value: ["powerGrid.reactorOutput"] },
+    vehicle: { bar: ["shields", "casco", "hull", "fuel", "powerGrid.capacitor"], value: ["powerGrid.reactorOutput"] }
+  };
 
   // Registro dos Data Models por tipo de documento (substitui template.json).
   CONFIG.Actor.dataModels.character = CharacterDataModel;
@@ -258,7 +272,37 @@ async function migrateElementalDamageToMagicTag() {
 // Criação") em Personagens novos. Só entra se `system.skillPoints.normal` não veio explícito
 // nos dados de criação — assim duplicar/importar um Ator existente (que carrega seu valor
 // atual) não ganha pontos extra de graça.
+/**
+ * Barras de token por tipo de Ator. Personagem/Montaria mostra Vida e Mana; Nave/Veículo mostra
+ * Escudo e Casco — o Foundry só tem DUAS barras, e a Integridade Estrutural (a camada final da
+ * cascata) fica visível na ficha.
+ *
+ * Aplicado só em Ator NOVO e só quando os dados de criação não trazem `prototypeToken` próprio:
+ * duplicar ou importar um Ator tem que preservar a configuração que ele já tinha (mesma cautela
+ * do grant de Pontos de Habilidade na criação, logo abaixo).
+ */
+function defaultPrototypeToken(type) {
+  if (["starship", "vehicle"].includes(type)) {
+    return {
+      "prototypeToken.bar1.attribute": "shields",
+      "prototypeToken.bar2.attribute": "casco",
+      // Nave é sempre única no mundo — token não-vinculado criaria cópias com energia própria.
+      "prototypeToken.actorLink": true,
+      "prototypeToken.displayName": CONST.TOKEN_DISPLAY_MODES.HOVER
+    };
+  }
+
+  return {
+    "prototypeToken.bar1.attribute": "attributes.hp",
+    // Campanha sem pool de Mana não configura a segunda barra em vez de mostrar uma barra vazia.
+    "prototypeToken.bar2.attribute": isEnergyPoolEnabled() ? "attributes.energy" : null,
+    "prototypeToken.displayName": CONST.TOKEN_DISPLAY_MODES.HOVER
+  };
+}
+
 Hooks.on("preCreateActor", (actor, data, options, userId) => {
+  if (!data.prototypeToken) actor.updateSource(defaultPrototypeToken(data.type));
+
   // Naves/Veículos desligados pela campanha (ver MEU_SISTEMA.FEATURES) não podem ser CRIADOS —
   // mas as que já existem continuam abrindo e funcionando normalmente. Desligar um bloco nunca
   // apaga nem esconde dado salvo, só impede conteúdo novo.

@@ -75,6 +75,7 @@
       <button type="button" class="rest-button" data-action="restActor">
         <i class="fas fa-moon"></i> Descanso Completo <span class="hint-inline">(restaura HP e {{energyLabel}} ao máximo)</span>
       </button>
+      <button type="button" class="initiative-button" data-action="rollInitiative" title="Rola {{initiativeLabel}} no pool de dados e lança no rastreador de combate">⚔ Iniciativa</button>
 
       {{#if activeConditions.length}}
       <div class="active-conditions">
@@ -277,9 +278,11 @@
                 <img src="{{currency.icon}}" width="20" height="20"/>
                 <label>{{currency.label}}</label>
                 <input type="number" name="system.currencies.{{currency.id}}" value="{{lookup ../system.currencies currency.id}}" {{#unless ../isGM}}readonly{{/unless}}/>
+                <span class="currency-weight" title="Peso desta moeda no total carregado">{{currency.weight}}</span>
               </li>
               {{/each}}
             </ol>
+            <p class="currency-weight-total">Peso total em moedas <strong>{{currencyWeightTotal}}</strong></p>
             <button type="button" class="currency-convert" data-action="convertCurrency">🔄 Converter</button>
             <button type="button" class="currency-send" data-action="sendCurrency">📤 Enviar Dinheiro</button>
             {{#unless isGM}}<p class="hint-inline">Valores só editáveis pelo Mestre — use Converter/Enviar.</p>{{/unless}}

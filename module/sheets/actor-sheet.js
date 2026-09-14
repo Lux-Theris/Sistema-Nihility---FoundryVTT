@@ -22,6 +22,7 @@ import { fuseSkills, evolveSkill, breakSkillPoints, mergeSkillPoints, requestSki
 import { registerItemInCompendium } from "../compendium.js";
 import { convertActorCurrency, transferCurrency } from "../currency.js";
 import { rollAttribute, buildAttributeRollFormula } from "../dice.js";
+import { rollInitiativeForActor, getInitiativeLabel } from "../combat.js";
 import { useSkillEffect, tickPeriodicEffect } from "../skill-effects.js";
 import { areaEffectsSupported, pickAreaTargets } from "../area-effects.js";
 import { openSkillEditorDialog } from "../apps/skill-editor-dialog.js";
@@ -103,6 +104,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       toggleVitalAdjust: NihilityActorSheet.#onToggleVitalAdjust,
       adjustVital: NihilityActorSheet.#onAdjustVital,
       restActor: NihilityActorSheet.#onRest,
+      rollInitiative: NihilityActorSheet.#onRollInitiative,
       editImage: NihilityActorSheet.#onEditImage,
       applyManualTick: NihilityActorSheet.#onApplyManualTick,
       deleteCondition: NihilityActorSheet.#onDeleteCondition,
@@ -180,7 +182,16 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     // Mestre sempre vê o botão (ferramenta de Mestre, independente de o NPC possuir o Item
     // físico); jogador só vê se o próprio Ator tiver ao menos um Item marcado como PAD.
     context.showPadButton = isPadEnabled() && (game.user.isGM || hasPadDevice(actor));
-    context.currencies = getActiveCurrencies();
+    // Peso por moeda e total — cada moeda já tinha `weight` configurável e nada usava o número.
+    // É só exibição: não existe limite de carga nem penalidade por excesso.
+    const currencyTotals = { weight: 0 };
+    context.currencies = getActiveCurrencies().map(currency => {
+      const amount = Number(actor.system.currencies?.[currency.id]) || 0;
+      const weight = amount * (Number(currency.weight) || 0);
+      currencyTotals.weight += weight;
+      return { ...currency, amount, weight: weight.toFixed(2) };
+    });
+    context.currencyWeightTotal = currencyTotals.weight.toFixed(2);
     context.speciesPresets = getActiveSpeciesPresets();
     // Só os atributos que a campanha exibe (ver getActiveAttributes em config.js). Um atributo
     // oculto continua valendo por baixo — só não aparece nem é rolável.
@@ -203,6 +214,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       actor.system.attributePointsPool.spent,
       actor.system.attributePointsPool.total
     );
+    context.initiativeLabel = getInitiativeLabel();
     context.hpPercent = percentOf(actor.system.attributes.hp.value, actor.system.attributes.hp.max);
     context.energyPercent = percentOf(actor.system.attributes.energy.value, actor.system.attributes.energy.max);
     context.shieldValue = actor.system.attributes.shield.value;
@@ -394,6 +406,16 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     const attr = this.actor.system.attributes[vital];
     const newValue = Math.clamp(attr.value + dir * amount, 0, attr.max);
     await this.actor.update({ [`system.attributes.${vital}.value`]: newValue });
+  }
+
+  /** Rola a iniciativa deste Ator e lança no rastreador de combate (ver module/combat.js). */
+  static async #onRollInitiative(event, target) {
+    event.preventDefault();
+    try {
+      await rollInitiativeForActor(this.actor);
+    } catch (err) {
+      console.error(`${SYSTEM_ID} | Falha ao rolar iniciativa.`, err);
+    }
   }
 
   /** Descanso Completo: cura HP e Mana/Energia direto pro Máximo. */

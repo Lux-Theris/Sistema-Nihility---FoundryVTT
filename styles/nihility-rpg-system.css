@@ -2994,3 +2994,40 @@ form.nihility-config-app {
   .nihility-attribute-config .attribute-row { grid-template-columns: 1fr; gap: 6px; }
   .nihility-attribute-config .attribute-row.header { display: none; }
 }
+
+/* Botão de Iniciativa — mesma faixa do Descanso Completo no cabeçalho da ficha. */
+.nihility-sheet .initiative-button {
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-gold);
+  color: var(--nihility-gold);
+  border-radius: 4px;
+  padding: 5px 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.nihility-sheet .initiative-button:hover {
+  box-shadow: 0 0 0 1px rgba(232, 193, 112, 0.3);
+}
+
+/* Peso das moedas — coluna discreta à direita do saldo; é só informação, não há limite de carga. */
+.nihility-sheet .currency-row .currency-weight {
+  font-family: var(--nihility-font-data);
+  font-size: 0.72rem;
+  color: var(--nihility-text-faint);
+  min-width: 46px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.nihility-sheet .currency-weight-total {
+  margin: 6px 0 0;
+  text-align: right;
+  font-size: 0.74rem;
+  color: var(--nihility-text-dim);
+}
+.nihility-sheet .currency-weight-total strong {
+  font-family: var(--nihility-font-data);
+  color: var(--nihility-gold);
+  font-variant-numeric: tabular-nums;
+}

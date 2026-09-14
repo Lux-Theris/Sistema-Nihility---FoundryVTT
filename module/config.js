@@ -39,6 +39,7 @@ export const MEU_SISTEMA = {
     skillCostFloorPercent: "skillCostFloorPercent",
     resistanceXpFactor: "resistanceXpFactor",
     resistanceLearnThreshold: "resistanceLearnThreshold",
+    initiativeAttribute: "initiativeAttribute",
     vesselsEnabled: "vesselsEnabled",
     skillFusionEnabled: "skillFusionEnabled",
     skillPointsEnabled: "skillPointsEnabled",
@@ -1495,6 +1496,17 @@ export function registerSystemSettings() {
     type: String,
     choices: attributeChoices,
     default: "magicalDefense",
+    requiresReload: true
+  });
+
+  game.settings.register(SYSTEM_ID, S.initiativeAttribute, {
+    name: "Atributo de Iniciativa",
+    hint: "Atributo que rege a rolagem de iniciativa. Usa o mesmo pool escalável de qualquer rolagem (Nd20 + fixo), não um d20 solto.",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: attributeChoices,
+    default: "dexterity",
     requiresReload: true
   });
 

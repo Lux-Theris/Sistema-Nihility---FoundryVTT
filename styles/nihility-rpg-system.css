@@ -3284,8 +3284,11 @@ form.nihility-config-app {
 .nihility-sheet .module-grid-head,
 .nihility-sheet .module-grid-row {
   display: grid;
-  grid-template-columns: 92px minmax(0, 1fr) 92px 78px auto 88px;
-  gap: 10px;
+  /* O nome tem MÍNIMO garantido (minmax) — com `minmax(0, 1fr)` ele era a única coluna
+     elástica e colapsava quando as fixas somavam mais que a largura da ficha, quebrando
+     em uma palavra por linha. */
+  grid-template-columns: 86px minmax(150px, 1fr) 78px 66px 128px 82px;
+  gap: 8px;
   align-items: center;
 }
 
@@ -3344,8 +3347,8 @@ form.nihility-config-app {
 /* ---- Throttle: controle de combate, agora na ficha e não dentro do Módulo ---- */
 .nihility-sheet .throttle { display: flex; align-items: center; gap: 3px; }
 .nihility-sheet .throttle button {
-  width: 22px;
-  height: 22px;
+  width: 19px;
+  height: 19px;
   flex: 0 0 auto;
   padding: 0;
   border-radius: 3px;
@@ -3362,7 +3365,7 @@ form.nihility-config-app {
 }
 .nihility-sheet .throttle button:hover { border-color: var(--nihility-accent); color: var(--nihility-accent); }
 .nihility-sheet .throttle .throttle-input {
-  width: 52px;
+  width: 44px;
   flex: 0 0 auto;
   text-align: center;
   font-family: var(--nihility-font-data);
@@ -3408,7 +3411,10 @@ form.nihility-config-app {
 /* ---- Armas: mesma grade dos Módulos, com colunas próprias ---- */
 .nihility-sheet .weapon-grid-head,
 .nihility-sheet .weapon-grid-row {
-  grid-template-columns: 92px minmax(0, 1fr) 84px 76px auto 96px 88px;
+  /* Cinco colunas, não sete: Dano e Penetração ocupam uma célula (são lidas juntas), e
+     Disparar entra na célula de Ações. Com sete, a soma das fixas não deixava largura
+     nenhuma pro nome da Arma. */
+  grid-template-columns: 86px minmax(150px, 1fr) 96px 128px auto;
 }
 .nihility-sheet .weapon-grid-row { border-left-color: var(--nihility-danger); }
 .nihility-sheet .weapon-grid-row.is-offline { border-left-color: var(--nihility-text-faint); }
@@ -3626,3 +3632,31 @@ form.nihility-config-app {
 }
 
 .nihility-sheet .factor-preview .hint-inline { margin: 6px 0 0; display: block; }
+
+/* Dano e Penetração numa célula só — são lidas juntas ("16d10 penetrando 50%"). */
+.nihility-sheet .weapon-stat { display: flex; flex-direction: column; gap: 1px; line-height: 1.25; }
+.nihility-sheet .weapon-stat small {
+  font-family: var(--nihility-font-data);
+  font-size: 0.64rem;
+  color: var(--nihility-text-faint);
+  font-weight: 400;
+}
+.nihility-sheet .weapon-nodamage { color: var(--nihility-text-faint); font-style: italic; font-family: var(--nihility-font); }
+
+.nihility-sheet .weapon-acts { flex-wrap: wrap; gap: 5px; }
+
+/* Nome do Módulo/Arma: quebra por palavra em vez de estourar a coluna, e nunca mais que
+   duas linhas — o resto vira reticências em vez de empurrar a linha inteira pra baixo. */
+.nihility-sheet .module-name {
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.nihility-sheet .module-detail,
+.nihility-sheet .module-starved {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

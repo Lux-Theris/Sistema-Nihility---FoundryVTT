@@ -230,19 +230,19 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   static onItemEdit(event, target) {
     event.preventDefault();
-    const itemId = target.closest(".item-row").dataset.itemId;
-    this.actor.items.get(itemId)?.sheet.render(true);
+    const itemId = target.closest("[data-item-id]")?.dataset.itemId;
+    if (itemId) this.actor.items.get(itemId)?.sheet.render(true);
   }
 
   static async onItemDelete(event, target) {
     event.preventDefault();
-    const itemId = target.closest(".item-row").dataset.itemId;
-    await this.actor.deleteEmbeddedDocuments("Item", [itemId]);
+    const itemId = target.closest("[data-item-id]")?.dataset.itemId;
+    if (itemId) await this.actor.deleteEmbeddedDocuments("Item", [itemId]);
   }
 
   static async onToggleModulePower(event, target) {
     event.preventDefault();
-    const itemId = target.closest(".item-row").dataset.itemId;
+    const itemId = target.closest("[data-item-id]")?.dataset.itemId;
     const module = this.actor.items.get(itemId);
     if (!module) return;
     const next = module.system.status === "online" ? "offline" : "online";
@@ -327,7 +327,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async onUseSkill(event, target) {
     event.preventDefault();
-    const itemId = target.closest(".item-row")?.dataset.itemId;
+    const itemId = target.closest("[data-item-id]")?.dataset.itemId;
     const skill = this.actor.items.get(itemId);
     if (!skill) return;
 
@@ -399,7 +399,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
   /** Dispara uma Arma nativa (Overhaul de Naves, Fase 5) — sempre pede alvo, igual "damage" de Skill. */
   static async onFireWeapon(event, target) {
     event.preventDefault();
-    const itemId = target.closest(".weapon-row")?.dataset.itemId;
+    const itemId = target.closest("[data-item-id]")?.dataset.itemId;
     const weaponModule = this.actor.items.get(itemId);
     if (!weaponModule) return;
 
@@ -546,7 +546,9 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
 export class NihilityStarshipSheet extends TabbedActorSheetV2 {
   static DEFAULT_OPTIONS = {
     classes: [SYSTEM_ID, "sheet", "actor", "starship"],
-    position: { width: 700, height: 760 },
+    // 780 e não 700: a grade de Módulos tem colunas com mínimo garantido, e abaixo disso o
+    // nome do Módulo começa a ser espremido.
+    position: { width: 780, height: 760 },
     // DocumentSheetV2 não liga auto-save por padrão — ver mesmo comentário em actor-sheet.js.
     form: { submitOnChange: true, closeOnSubmit: false },
     actions: {
@@ -597,7 +599,7 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
 export class NihilityVehicleSheet extends TabbedActorSheetV2 {
   static DEFAULT_OPTIONS = {
     classes: [SYSTEM_ID, "sheet", "actor", "vehicle"],
-    position: { width: 700, height: 780 },
+    position: { width: 780, height: 780 },
     // DocumentSheetV2 não liga auto-save por padrão — ver mesmo comentário em actor-sheet.js.
     form: { submitOnChange: true, closeOnSubmit: false },
     actions: {

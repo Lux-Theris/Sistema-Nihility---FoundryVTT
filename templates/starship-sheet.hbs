@@ -290,7 +290,7 @@
         <p class="block-title">Armas <span class="hint-inline" style="margin:0">({{weaponBudgetLabel}})</span></p>
         <div class="module-grid weapon-grid">
           <div class="module-grid-head weapon-grid-head">
-            <span>Porte</span><span>Arma</span><span>Dano</span><span>Penetração</span><span>Throttle</span><span>Ação</span><span class="acts-head">Ações</span>
+            <span>Porte</span><span>Arma</span><span>Dano · Penetração</span><span>Throttle</span><span class="acts-head">Disparar · Ações</span>
           </div>
           {{#each weaponRows as |row|}}
           <div class="module-grid-row weapon-grid-row {{#unless row.online}}is-offline{{/unless}} {{#if row.starved}}is-starved{{/if}}" data-item-id="{{row.id}}">
@@ -305,8 +305,10 @@
               {{/if}}
             </span>
 
-            <span class="weapon-stat">{{row.damageFormula}}</span>
-            <span class="weapon-stat">{{row.penetration}}%</span>
+            <span class="weapon-stat">
+              {{#if row.damageFormula}}{{row.damageFormula}}{{else}}<span class="weapon-nodamage">sem fórmula</span>{{/if}}
+              <small>penetra {{row.penetration}}%</small>
+            </span>
 
             <span class="throttle {{row.throttleState}}">
               {{#if ../canAdjustThrottle}}
@@ -320,16 +322,13 @@
               {{/if}}
             </span>
 
-            <span class="weapon-fire-cell">
+            <span class="module-acts weapon-acts">
               {{#if row.cooldownRemaining}}
               <span class="cooldown-chip" title="Rodadas restantes de Recarga">⏳ {{row.cooldownRemaining}}</span>
               <button type="button" class="fire-btn" data-action="fireWeapon" disabled title="Em recarga">Disparar</button>
               {{else}}
               <button type="button" class="fire-btn" data-action="fireWeapon" title="Disparar">Disparar</button>
               {{/if}}
-            </span>
-
-            <span class="module-acts">
               <a class="module-toggle-power" data-action="toggleModulePower" title="Ligar/Desligar"><i class="fas fa-power-off"></i></a>
               {{#if ../isGM}}
               <a class="vital-adjust-toggle" data-action="toggleModuleVitalAdjust" data-key="module-hp-{{row.id}}" title="Ajustar Vida"><i class="fas fa-plus"></i></a>

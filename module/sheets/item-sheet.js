@@ -5,6 +5,7 @@ import {
   getActiveCurrencies,
   getResistanceTargetOptions,
   getModuleSizePreset,
+  getStarshipEnergyAbbr,
   isResistancesEnabled,
   getVisibleAttributes,
   getEffectTargetLabels,
@@ -158,6 +159,24 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         context.resistancePercent = Math.round(computeResistancePercent(resistanceTarget, sys.level) * 100);
         context.skillResistanceSummary = `${computeResistanceName(resistanceTarget, sys.level)} — ${context.resistancePercent}% (nível ${sys.level}/${context.resistanceMaxLevel})`;
       }
+    }
+
+    if (this.item.type === "starship_module" && this.item.system.category === "distributor") {
+      // "Fator 5" não diz nada sozinho: a Capacidade de Transferência sai de
+      // `baseline(Porte) × fator`, e a tabela de baseline mora no código. Sem ver o RESULTADO,
+      // não há como calibrar o número — nem quem escreveu o Módulo, nem quem recebe ele pronto.
+      const factor = Number(this.item.system.transferFactor) || 0;
+      const abbr = getStarshipEnergyAbbr();
+      context.distributorPreview = {
+        abbr,
+        rows: MEU_SISTEMA.SHIP_SIZES.map(size => ({
+          label: MEU_SISTEMA.SHIP_SIZE_LABELS[size],
+          baseline: MEU_SISTEMA.DISTRIBUTOR_BASELINE_BY_SHIP_SIZE[size] ?? 0,
+          result: Math.round((MEU_SISTEMA.DISTRIBUTOR_BASELINE_BY_SHIP_SIZE[size] ?? 0) * factor),
+          // Destaca a linha do Porte da Nave onde ESTE Módulo está instalado, quando está.
+          current: this.item.parent?.system?.shipSize === size
+        }))
+      };
     }
 
     if (this.item.type === "title") {

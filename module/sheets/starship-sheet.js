@@ -1,4 +1,12 @@
-import { SYSTEM_ID, MEU_SISTEMA, getStarshipEnergyLabel, getModuleSizePreset, isPadShipEnabled, debugLog } from "../config.js";
+import {
+  SYSTEM_ID,
+  MEU_SISTEMA,
+  getStarshipEnergyLabel,
+  getStarshipEnergyAbbr,
+  getModuleSizePreset,
+  isPadShipEnabled,
+  debugLog
+} from "../config.js";
 import { registerItemInCompendium } from "../compendium.js";
 import { createGrantedSkill, removeGrantedSkill } from "../skill-economy.js";
 import { useSkillEffect, fireStarshipWeapon } from "../skill-effects.js";
@@ -14,6 +22,55 @@ const { ActorSheetV2 } = foundry.applications.sheets;
 function percentOf(value, max) {
   if (!max) return 0;
   return Math.round(Math.clamp((value / max) * 100, 0, 100));
+}
+
+/**
+ * Quem pode mexer no throttle dos Módulos. Não é permissão de edição da ficha: throttle é manobra
+ * de combate — quem está a bordo decide na hora, sem esperar o dono da ficha. Por isso entra
+ * qualquer jogador que possua um Personagem designado na Tripulação (ver `crewMembers` em
+ * starship-model.js), além do Mestre e do dono da própria Nave.
+ */
+function canAdjustThrottle(actor) {
+  if (game.user.isGM || actor.isOwner) return true;
+  return actor.system.crewActors.some(entry => entry.actor?.isOwner);
+}
+
+/** Estado visual de uma barra de Vida/pool: verde, âmbar abaixo de 50%, vermelho abaixo de 20%. */
+function meterState(percent) {
+  if (percent <= 20) return "crit";
+  if (percent <= 50) return "low";
+  return "ok";
+}
+
+/**
+ * Segunda linha do nome de um Módulo — o que aquela categoria faz de fato, já escalado por
+ * throttle e fome de energia. Sem isso o Mestre precisaria abrir a ficha do Módulo pra saber se
+ * o Escudo instalado é de 200 ou de 1600.
+ */
+function moduleDetail(actor, module, abbr) {
+  const sys = module.system;
+  const stat = field => actor.system.effectiveModuleStat(module, field);
+
+  switch (sys.category) {
+    case "reactor":
+      return `gera ${stat("reactorOutput")} ${abbr}`;
+    case "battery":
+      return `reserva ${stat("batteryCapacity")} ${abbr}`;
+    case "distributor":
+      return `teto de ${actor.system.transferCapacity} ${abbr}/rodada`;
+    case "shield":
+      return `capacidade ${stat("shieldCapacity")} · regen ${stat("shieldRegen")}/rodada`;
+    case "engine":
+      return `aceleração ${stat("acceleration")} · rotação ${stat("rotation")}`;
+    case "armor":
+      return `redução ${sys.armorReduction}%`;
+    case "ftl":
+      return sys.ftlType === "jump"
+        ? `Salto · alcance ${sys.jumpRange} · carga ${sys.chargeRemaining}/${sys.chargeTime}`
+        : `Dobra · fator ×${sys.warpFactor}`;
+    default:
+      return "";
+  }
 }
 
 /** Opções {value,label} de Porte pro `<select>` do cabeçalho — usa MEU_SISTEMA.SHIP_SIZE_LABELS pros dois tipos. */
@@ -72,6 +129,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   _onRender(context, options) {
     super._onRender(context, options);
+    this._onRenderThrottleInputs();
     if (!game.user.isGM) return;
 
     const dropzone = this.element.querySelector(".crew-dropzone");
@@ -82,6 +140,18 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     this.element.querySelectorAll(".crew-role-input").forEach(input => {
       input.addEventListener("change", this._onChangeCrewRole.bind(this));
+    });
+  }
+
+  /**
+   * @override
+   * O campo de throttle dispara em "change", fora da API de `actions` (que é só clique). Fica
+   * separado do `_onRender` acima de propósito: aquele é GM-only (drop de tripulante, cargo), e
+   * o throttle vale pra toda a tripulação.
+   */
+  _onRenderThrottleInputs() {
+    this.element.querySelectorAll(".throttle-input").forEach(input => {
+      input.addEventListener("change", this._onThrottleInput.bind(this));
     });
   }
 
@@ -193,6 +263,41 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     } else {
       await removeGrantedSkill(this.actor, module.id);
     }
+  }
+
+  /**
+   * Ajusta o throttle de um Módulo direto da ficha — era editável só abrindo a ficha do Módulo,
+   * o que não serve pra um controle que se mexe NO MEIO do combate (subir o Escudo, cortar o
+   * Motor, sobrecarregar o Reator).
+   *
+   * Dois passos por botão: 5 pro ajuste fino e 20 pro grosso. Sem teto superior (a sobrecarga
+   * é uma escolha legítima, com consequência mecânica própria), mas nunca abaixo de 0.
+   */
+  static async onAdjustThrottle(event, target) {
+    event.preventDefault();
+    if (!canAdjustThrottle(this.actor)) {
+      ui.notifications.warn("Só a tripulação da Nave pode ajustar o throttle dos Módulos.");
+      return;
+    }
+
+    const itemId = target.closest("[data-item-id]")?.dataset.itemId;
+    const module = this.actor.items.get(itemId);
+    if (!module) return;
+
+    const step = Number(target.dataset.step) || 0;
+    const next = Math.max(0, (module.system.powerAllocationPercent ?? 100) + step);
+    await module.update({ "system.powerAllocationPercent": next });
+  }
+
+  /** Throttle digitado direto no campo — mesmo caminho e mesma permissão dos botões. */
+  async _onThrottleInput(event) {
+    if (!canAdjustThrottle(this.actor)) return;
+    const input = event.currentTarget;
+    const module = this.actor.items.get(input.closest("[data-item-id]")?.dataset.itemId);
+    if (!module) return;
+
+    const value = Math.max(0, Math.round(Number(input.value) || 0));
+    await module.update({ "system.powerAllocationPercent": value });
   }
 
   /** Recalcula o Grid de Energia: excedente carrega os capacitores, déficit os drena. */
@@ -332,6 +437,53 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     const excludedIds = new Set([...specialModules, ...context.weaponModules].map(m => m.id));
     context.modules = actor.items.filter(i => i.type === "starship_module" && !excludedIds.has(i.id));
 
+    const abbr = getStarshipEnergyAbbr();
+    context.energyAbbr = abbr;
+    context.canAdjustThrottle = canAdjustThrottle(actor);
+
+    /**
+     * Cada linha da grade já vem calculada daqui — o template não faz conta nenhuma. Foi o que
+     * permitiu trocar a frase corrida de estatísticas por colunas de verdade: cada célula tem um
+     * valor só, e todas alinham de uma linha pra outra.
+     */
+    const buildRow = module => {
+      const sys = module.system;
+      const hpPercent = percentOf(sys.hp.value, sys.hp.max);
+      const throttle = sys.powerAllocationPercent ?? 100;
+      const ratio = Math.round(actor.system.powerRatioFor(module) * 100);
+      return {
+        id: module.id,
+        name: module.name,
+        img: module.img,
+        category: sys.category,
+        categoryLabel: MEU_SISTEMA.STARSHIP_MODULE_CATEGORY_LABELS[sys.category],
+        sizeLabel: MEU_SISTEMA.MODULE_SIZE_LABELS[sys.moduleSize],
+        detail: moduleDetail(actor, module, abbr),
+        online: sys.status === "online",
+        hpValue: sys.hp.value,
+        hpMax: sys.hp.max,
+        hpPercent,
+        hpState: meterState(hpPercent),
+        throttle,
+        // Abaixo de 100% economiza, acima sobrecarrega: a borda do campo muda de cor nos dois
+        // sentidos, senão "90%" e "190%" pareceriam a mesma coisa de relance.
+        throttleState: throttle > 100 ? "over" : throttle < 100 ? "under" : "",
+        // Consumo REAL (já escalado pelo throttle) — é este que pesa no Grid, não o valor base.
+        consumption: Math.round((sys.powerConsumption ?? 0) * (throttle / 100)),
+        starved: ratio < 100,
+        powerRatio: ratio,
+        // Só Arma
+        damageFormula: sys.damageFormula,
+        penetration: sys.penetration,
+        cooldownRemaining: sys.cooldownRemaining,
+        cooldownRounds: sys.cooldownRounds
+      };
+    };
+
+    context.specialModuleRows = specialModules.map(buildRow);
+    context.moduleRows = context.modules.map(buildRow);
+    context.weaponRows = context.weaponModules.map(buildRow);
+
     const budgetUsed = actor.system.weaponSpaceUsed;
     const budget = actor.system.weaponSlotBudget;
     context.weaponBudgetLabel = Number.isFinite(budget)
@@ -363,12 +515,27 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.batteryModule = actor.system.batteryModule;
     context.distributorModule = actor.system.distributorModule;
 
+    // O número cru (a corrente do Grid mostra o valor sozinho, com o rótulo no cabeçalho da
+    // coluna); o label pronto continua pra onde a frase inteira ainda faz sentido.
+    context.transferCapacity = actor.system.transferCapacity;
     context.transferCapacityLabel = `${actor.system.transferCapacity} ${context.energyLabel}/rodada`;
 
     // Cascata de dano Escudo→Casco→Estrutura (Fase 4) — as 3 barras compartilhadas do cabeçalho.
     context.shieldPercent = percentOf(actor.system.shields.value, actor.system.shields.max);
     context.cascoPercent = percentOf(actor.system.casco.value, actor.system.casco.max);
     context.structurePercent = percentOf(actor.system.hull.value, actor.system.hull.max);
+    // Estado de cada pool, pra barra mudar de cor — "Escudo em 1%" precisa gritar mais que o texto.
+    context.shieldState = meterState(context.shieldPercent);
+    context.cascoState = meterState(context.cascoPercent);
+    context.structureState = meterState(context.structurePercent);
+
+    // Grid de Energia desenhado como corrente: quem é o gargalo agora, o Reator ou o Distribuidor?
+    const generation = actor.system.powerGrid.reactorOutput;
+    const transfer = actor.system.transferCapacity;
+    context.powerCeiling = Math.min(generation, transfer);
+    context.distributorIsBottleneck = transfer < generation;
+    context.demandPercent = percentOf(actor.system.totalConsumption, context.powerCeiling);
+    context.demandSlack = Math.max(0, context.powerCeiling - actor.system.totalConsumption);
   }
 }
 
@@ -388,6 +555,7 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
       editItem: TabbedActorSheetV2.onItemEdit,
       deleteItem: TabbedActorSheetV2.onItemDelete,
       toggleModulePower: TabbedActorSheetV2.onToggleModulePower,
+      adjustThrottle: TabbedActorSheetV2.onAdjustThrottle,
       powerGridTick: TabbedActorSheetV2.onPowerGridTick,
       useSkill: TabbedActorSheetV2.onUseSkill,
       fireWeapon: TabbedActorSheetV2.onFireWeapon,
@@ -438,6 +606,7 @@ export class NihilityVehicleSheet extends TabbedActorSheetV2 {
       editItem: TabbedActorSheetV2.onItemEdit,
       deleteItem: TabbedActorSheetV2.onItemDelete,
       toggleModulePower: TabbedActorSheetV2.onToggleModulePower,
+      adjustThrottle: TabbedActorSheetV2.onAdjustThrottle,
       powerGridTick: TabbedActorSheetV2.onPowerGridTick,
       useSkill: TabbedActorSheetV2.onUseSkill,
       fireWeapon: TabbedActorSheetV2.onFireWeapon,

@@ -268,9 +268,27 @@
       {{/if}}
 
       {{#if (eq system.category "distributor")}}
-      <label>Fator de Distribuição <span class="hint-inline" style="display:inline;">(multiplica o baseline de Porte da Nave pra achar a Capacidade de Transferência)</span>
+      <label>Fator de Distribuição <span class="hint-inline" style="display:inline;">(multiplica o baseline do Porte da Nave)</span>
         <input type="number" name="system.transferFactor" value="{{system.transferFactor}}" min="0" step="0.1"/>
       </label>
+      {{#if distributorPreview}}
+      <div class="factor-preview">
+        <p class="factor-preview-title">Capacidade de Transferência que este Fator entrega</p>
+        <table>
+          <thead><tr><th>Porte da Nave</th><th>Baseline</th><th>Resultado</th></tr></thead>
+          <tbody>
+            {{#each distributorPreview.rows as |row|}}
+            <tr class="{{#if row.current}}is-current{{/if}}">
+              <td>{{row.label}}{{#if row.current}} <span class="factor-here">instalado aqui</span>{{/if}}</td>
+              <td class="num">{{row.baseline}}</td>
+              <td class="num strong">{{row.result}} {{../distributorPreview.abbr}}/rodada</td>
+            </tr>
+            {{/each}}
+          </tbody>
+        </table>
+        <p class="hint-inline">Esse é o teto de energia que a Nave inteira consegue rotear por rodada — não por Módulo.</p>
+      </div>
+      {{/if}}
       {{/if}}
 
       {{#if (eq system.category "shield")}}

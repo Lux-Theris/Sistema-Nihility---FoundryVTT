@@ -3269,3 +3269,360 @@ form.nihility-config-app {
   border: 1px solid var(--nihility-border);
   color: var(--nihility-text);
 }
+
+/* ==========================================================================
+   Ficha de Nave — grade de Módulos.
+
+   Substitui a linha flex única onde nome e estatísticas disputavam a largura (o
+   nome perdia e quebrava em uma palavra por linha) por colunas fixas: tudo alinha
+   de uma linha pra outra, e cada célula carrega um valor só, com rótulo no
+   cabeçalho em vez de uma frase corrida separada por pontos.
+   ========================================================================== */
+
+.nihility-sheet .module-grid { display: flex; flex-direction: column; }
+
+.nihility-sheet .module-grid-head,
+.nihility-sheet .module-grid-row {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) 92px 78px auto 88px;
+  gap: 10px;
+  align-items: center;
+}
+
+.nihility-sheet .module-grid-head {
+  padding: 0 8px 5px;
+  border-bottom: 1px solid var(--nihility-border-soft);
+}
+.nihility-sheet .module-grid-head span {
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--nihility-text-faint);
+  font-weight: 600;
+}
+.nihility-sheet .module-grid-head .acts-head { text-align: right; }
+
+.nihility-sheet .module-grid-row {
+  padding: 8px;
+  border-bottom: 1px solid var(--nihility-border-soft);
+  /* A faixa da borda esquerda codifica o estado sem gastar uma coluna inteira. */
+  border-left: 3px solid var(--nihility-ok);
+  background: var(--nihility-bg-panel);
+}
+.nihility-sheet .module-grid-row.is-starved { border-left-color: var(--nihility-warn); }
+.nihility-sheet .module-grid-row.is-offline { border-left-color: var(--nihility-text-faint); opacity: 0.6; }
+
+.nihility-sheet .module-name-cell { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.nihility-sheet .module-name { font-weight: 600; font-size: 0.86rem; color: var(--nihility-text); }
+.nihility-sheet .module-detail { font-size: 0.7rem; color: var(--nihility-text-faint); }
+.nihility-sheet .module-starved { font-size: 0.7rem; color: var(--nihility-warn); }
+
+.nihility-sheet .module-hp-cell { display: flex; flex-direction: column; gap: 3px; }
+.nihility-sheet .module-hp-cell small {
+  font-family: var(--nihility-font-data);
+  font-size: 0.64rem;
+  color: var(--nihility-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.nihility-sheet .module-meter {
+  height: 5px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.nihility-sheet .module-meter > span { display: block; height: 100%; border-radius: 99px; background: var(--nihility-ok); }
+.nihility-sheet .module-meter.state-low > span { background: var(--nihility-warn); }
+.nihility-sheet .module-meter.state-crit > span { background: var(--nihility-hp); }
+
+.nihility-sheet .module-consumption {
+  font-family: var(--nihility-font-data);
+  font-size: 0.76rem;
+  color: var(--nihility-text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Throttle: controle de combate, agora na ficha e não dentro do Módulo ---- */
+.nihility-sheet .throttle { display: flex; align-items: center; gap: 3px; }
+.nihility-sheet .throttle button {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  padding: 0;
+  border-radius: 3px;
+  border: 1px solid var(--nihility-border);
+  background: var(--nihility-bg-panel-alt);
+  color: var(--nihility-text-dim);
+  font-size: 0.72rem;
+  line-height: normal;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.nihility-sheet .throttle button:hover { border-color: var(--nihility-accent); color: var(--nihility-accent); }
+.nihility-sheet .throttle .throttle-input {
+  width: 52px;
+  flex: 0 0 auto;
+  text-align: center;
+  font-family: var(--nihility-font-data);
+  font-size: 0.74rem;
+  padding: 2px 0;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+}
+/* Abaixo de 100 economiza, acima sobrecarrega — sem cor, "90%" e "190%" se pareceriam. */
+.nihility-sheet .throttle.under .throttle-input { border-color: var(--nihility-accent); color: var(--nihility-accent); }
+.nihility-sheet .throttle.over .throttle-input { border-color: var(--nihility-danger); color: var(--nihility-danger); }
+.nihility-sheet .throttle-readonly {
+  font-family: var(--nihility-font-data);
+  font-size: 0.74rem;
+  color: var(--nihility-text-dim);
+}
+
+.nihility-sheet .module-acts { display: flex; gap: 6px; justify-content: flex-end; align-items: center; }
+
+/* Percentual ao lado do total nos pools do cabeçalho. */
+.nihility-sheet .vital-percent {
+  margin-left: 6px;
+  font-family: var(--nihility-font-data);
+  font-size: 0.7rem;
+  color: var(--nihility-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.nihility-sheet .vital-fill.state-low { background: var(--nihility-warn); }
+.nihility-sheet .vital-fill.state-crit { background: var(--nihility-hp); }
+
+/* Abaixo de ~640px a grade vira lista empilhada em vez de estourar a largura. */
+@media (max-width: 640px) {
+  .nihility-sheet .module-grid-head { display: none; }
+  .nihility-sheet .module-grid-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .nihility-sheet .module-name-cell { grid-column: 1 / -1; }
+  .nihility-sheet .module-acts { justify-content: flex-start; }
+}
+
+/* ---- Armas: mesma grade dos Módulos, com colunas próprias ---- */
+.nihility-sheet .weapon-grid-head,
+.nihility-sheet .weapon-grid-row {
+  grid-template-columns: 92px minmax(0, 1fr) 84px 76px auto 96px 88px;
+}
+.nihility-sheet .weapon-grid-row { border-left-color: var(--nihility-danger); }
+.nihility-sheet .weapon-grid-row.is-offline { border-left-color: var(--nihility-text-faint); }
+.nihility-sheet .weapon-grid-row.is-starved { border-left-color: var(--nihility-warn); }
+
+.nihility-sheet .weapon-stat {
+  font-family: var(--nihility-font-data);
+  font-size: 0.8rem;
+  color: var(--nihility-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.nihility-sheet .weapon-fire-cell { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+
+/* Recarga sai do meio da frase e vira estado contado, ao lado do botão que ela bloqueia. */
+.nihility-sheet .cooldown-chip {
+  font-family: var(--nihility-font-data);
+  font-size: 0.66rem;
+  padding: 1px 7px;
+  border-radius: 99px;
+  border: 1px solid var(--nihility-warn);
+  color: var(--nihility-warn);
+  white-space: nowrap;
+}
+
+.nihility-sheet .weapon-fire-cell .fire-btn {
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-danger);
+  color: var(--nihility-danger);
+  border-radius: 4px;
+  padding: 3px 11px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  height: auto;
+  min-height: 0;
+  line-height: normal;
+  white-space: nowrap;
+}
+.nihility-sheet .weapon-fire-cell .fire-btn[disabled] {
+  border-color: var(--nihility-border);
+  color: var(--nihility-text-faint);
+  cursor: not-allowed;
+}
+
+/* ==========================================================================
+   Grid de Energia como CORRENTE (Reator → Distribuidor → Capacitor) + Demanda.
+
+   Antes eram cinco pares rótulo/valor soltos, e descobrir o gargalo exigia
+   comparar dois números de listas diferentes. A corrente responde direto:
+   o nó que está limitando fica destacado em âmbar.
+   ========================================================================== */
+
+.nihility-sheet .power-chain {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.nihility-sheet .chain-node {
+  background: var(--nihility-bg-panel);
+  border: 1px solid var(--nihility-border-soft);
+  border-radius: 5px;
+  padding: 9px 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.nihility-sheet .chain-node.is-bottleneck { border-color: var(--nihility-warn); }
+.nihility-sheet .chain-node.is-bottleneck .chain-value { color: var(--nihility-warn); }
+
+.nihility-sheet .chain-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--nihility-text-faint);
+  font-weight: 600;
+}
+.nihility-sheet .chain-value {
+  font-family: var(--nihility-font-data);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--nihility-text);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.nihility-sheet .chain-value input { width: 74px; font-family: var(--nihility-font-data); }
+.nihility-sheet .chain-value small { font-size: 0.74rem; color: var(--nihility-text-faint); }
+.nihility-sheet .chain-sub {
+  font-size: 0.68rem;
+  color: var(--nihility-text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nihility-sheet .power-demand {
+  margin-top: 10px;
+  background: var(--nihility-bg-panel);
+  border: 1px solid var(--nihility-border-soft);
+  border-radius: 5px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.nihility-sheet .power-demand.overloaded { border-color: var(--nihility-danger); }
+
+.nihility-sheet .demand-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.nihility-sheet .demand-figure {
+  font-family: var(--nihility-font-data);
+  font-size: 0.8rem;
+  color: var(--nihility-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.nihility-sheet .demand-bar {
+  height: 12px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+.nihility-sheet .demand-used { display: block; height: 100%; background: var(--nihility-accent); }
+.nihility-sheet .power-demand.overloaded .demand-used { background: var(--nihility-danger); }
+
+.nihility-sheet .demand-legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 0.68rem;
+  color: var(--nihility-text-dim);
+}
+.nihility-sheet .demand-legend .swatch {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  margin-right: 5px;
+  vertical-align: -1px;
+}
+.nihility-sheet .demand-legend .swatch.used { background: var(--nihility-accent); }
+.nihility-sheet .demand-legend .swatch.free { background: rgba(110, 231, 255, 0.18); }
+.nihility-sheet .demand-over { color: var(--nihility-danger); font-weight: 600; }
+
+@media (max-width: 640px) {
+  .nihility-sheet .power-chain { grid-template-columns: 1fr; }
+  .nihility-sheet .weapon-grid-head { display: none; }
+  .nihility-sheet .weapon-grid-row { grid-template-columns: 1fr 1fr; gap: 6px; }
+  .nihility-sheet .weapon-fire-cell { justify-content: flex-start; }
+}
+
+/* ==========================================================================
+   Prévia de campo-multiplicador (Fator de Distribuição).
+
+   Um fator sozinho não é calibrável: "5" só significa alguma coisa se você souber
+   a tabela de baseline por Porte, que mora no código. A prévia mostra o RESULTADO
+   em cada Porte, e destaca aquele em que o Módulo está instalado.
+   ========================================================================== */
+
+.nihility-sheet .factor-preview {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--nihility-border-soft);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.nihility-sheet .factor-preview-title {
+  margin: 0 0 7px;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--nihility-text-faint);
+  font-weight: 600;
+}
+
+.nihility-sheet .factor-preview table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.nihility-sheet .factor-preview th {
+  text-align: left;
+  font-size: 0.64rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nihility-text-faint);
+  font-weight: 600;
+  padding: 0 8px 4px 0;
+  border-bottom: 1px solid var(--nihility-border-soft);
+}
+.nihility-sheet .factor-preview td {
+  padding: 4px 8px 4px 0;
+  color: var(--nihility-text-dim);
+  border-bottom: 1px solid rgba(58, 65, 102, 0.2);
+}
+.nihility-sheet .factor-preview tr:last-child td { border-bottom: 0; }
+.nihility-sheet .factor-preview td.num {
+  font-family: var(--nihility-font-data);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.nihility-sheet .factor-preview td.strong { color: var(--nihility-text); font-weight: 600; }
+
+/* O Porte da Nave onde este Módulo está instalado — é a linha que o Mestre procura. */
+.nihility-sheet .factor-preview tr.is-current td { color: var(--nihility-accent); }
+.nihility-sheet .factor-preview tr.is-current td.strong { color: var(--nihility-accent); }
+.nihility-sheet .factor-here {
+  font-size: 0.62rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 1px solid var(--nihility-accent);
+  border-radius: 99px;
+  padding: 0 6px;
+  margin-left: 5px;
+}
+
+.nihility-sheet .factor-preview .hint-inline { margin: 6px 0 0; display: block; }

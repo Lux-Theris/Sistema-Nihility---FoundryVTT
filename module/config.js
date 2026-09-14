@@ -41,6 +41,7 @@ export const MEU_SISTEMA = {
     resistanceLearnThreshold: "resistanceLearnThreshold",
     initiativeAttribute: "initiativeAttribute",
     allowOffSceneTargets: "allowOffSceneTargets",
+    starshipEnergyAbbr: "starshipEnergyAbbr",
     vesselsEnabled: "vesselsEnabled",
     skillFusionEnabled: "skillFusionEnabled",
     skillPointsEnabled: "skillPointsEnabled",
@@ -1181,6 +1182,21 @@ export function getCharacterEnergyLabel() {
   return MEU_SISTEMA.DEFAULT_CHARACTER_ENERGY_LABEL;
 }
 
+/**
+ * Forma CURTA do rótulo de energia de Nave, pra usar em coluna de tabela — o nome completo
+ * ("Sistema Eletro-Plasmático (EPS)") repetido em toda linha de Módulo consumia metade da largura
+ * da ficha. O nome completo continua valendo em título e mensagem de chat.
+ */
+export function getStarshipEnergyAbbr() {
+  try {
+    const abbr = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.starshipEnergyAbbr);
+    if (abbr && String(abbr).trim().length) return String(abbr).trim();
+  } catch (err) {
+    /* setting ainda não registrada */
+  }
+  return "EPS";
+}
+
 /** Rótulo atual do sistema de energia de Naves Espaciais (setting > default). */
 export function getStarshipEnergyLabel() {
   try {
@@ -1862,6 +1878,15 @@ export function registerSystemSettings() {
     config: true,
     type: String,
     default: MEU_SISTEMA.DEFAULT_STARSHIP_ENERGY_LABEL
+  });
+
+  game.settings.register(SYSTEM_ID, S.starshipEnergyAbbr, {
+    name: "Sigla da Energia de Naves",
+    hint: "Forma curta do rótulo de energia, usada nas tabelas da ficha de Nave (onde o nome completo se repetiria em toda linha e comeria a largura útil). O nome completo continua nos títulos e no chat.",
+    scope: "world",
+    config: true,
+    type: String,
+    default: "EPS"
   });
 
   game.settings.register(SYSTEM_ID, S.attributePointsStarting, {

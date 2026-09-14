@@ -28,7 +28,7 @@ export class FeatureConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
   };
 
   static PARTS = {
-    body: { template: `systems/${SYSTEM_ID}/templates/apps/feature-config.hbs`, scrollable: [".feature-list"] }
+    body: { template: `systems/${SYSTEM_ID}/templates/apps/feature-config.hbs`, scrollable: [".config-editor-body"] }
   };
 
   /** @override */

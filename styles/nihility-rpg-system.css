@@ -517,7 +517,12 @@ form.nihility-config-app {
   margin: 0 0 4px;
 }
 
-.nihility-config-app input,
+/* `width: 100%` é o que um campo de TEXTO quer; um checkbox vira uma caixa gigante vazia com
+   o rótulo espremido no que sobrar da direita. O seletor precisa excluir checkbox/radio na
+   origem — `flex: 0 0 auto` no filho NÃO conserta, porque flex-basis:auto lê justamente este
+   `width`. Mesma família das outras armadilhas do tema: uma regra genérica do sistema (não do
+   core, desta vez) atingindo um controle que ela nunca teve em mente. */
+.nihility-config-app input:not([type="checkbox"]):not([type="radio"]),
 .nihility-config-app select,
 .nihility-config-app textarea {
   background: var(--nihility-bg-panel-alt);
@@ -528,7 +533,17 @@ form.nihility-config-app {
   width: 100%;
 }
 
-.nihility-config-app input:focus,
+/* Checkbox volta ao tamanho de um checkbox, em qualquer editor de configuração. */
+.nihility-config-app input[type="checkbox"],
+.nihility-config-app input[type="radio"] {
+  width: auto;
+  flex: 0 0 auto;
+  min-width: 0;
+  margin: 0;
+  accent-color: var(--nihility-accent);
+}
+
+.nihility-config-app input:not([type="checkbox"]):not([type="radio"]):focus,
 .nihility-config-app select:focus,
 .nihility-config-app textarea:focus {
   outline: none;
@@ -2765,12 +2780,22 @@ form.nihility-config-app {
   color: var(--nihility-accent);
 }
 
+/* A lista não rola sozinha: quem rola é `.config-editor-body`, uma só barra. O teto continua
+   existindo (a janela é `height: "auto"` e cresceria além da tela com 15 blocos), só que agora
+   mora no elemento certo — ver a regra de max-height logo abaixo. Com o teto AQUI havia duas
+   barras aninhadas, e a de dentro era a que aparecia cortando a lista. */
 .nihility-feature-config .feature-list {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-height: 52vh;
-  overflow-y: auto;
+}
+
+/* Janela de altura automática: cresce com o conteúdo até caber na tela e só então rola.
+   `vh` é a unidade certa justamente aqui — o limite que se quer é "não passar da tela", e é a
+   tela que a janela ocupa. (Diferente das grades da ficha, onde o que importa é a largura da
+   própria ficha e por isso usam @container.) */
+.nihility-feature-config .config-editor-body {
+  max-height: 70vh;
 }
 
 .nihility-feature-config .feature-row {
@@ -2811,6 +2836,10 @@ form.nihility-config-app {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  /* Item de flex tem min-width:auto por padrão e se recusa a encolher abaixo do conteúdo —
+     é o que faz uma dica longa empurrar a linha pra fora em vez de quebrar. */
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .nihility-feature-config .feature-name {

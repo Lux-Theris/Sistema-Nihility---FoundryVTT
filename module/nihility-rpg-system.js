@@ -44,6 +44,7 @@ import { registerGmRelay } from "./helpers/gm-relay.js";
 import { registerInitiative } from "./combat.js";
 import { registerStatusConditions, interceptManualCondition } from "./conditions.js";
 import { renderDamageControls } from "./damage-apply.js";
+import { notifyIncomingPadMessage } from "./pad/pad-messaging.js";
 import { isEnergyPoolEnabled } from "./config.js";
 import {
   actorsCollection,
@@ -370,6 +371,10 @@ function announceXpReadyIfJustFilled(actor, label, xp, xpMax) {
 // Condição marcada à mão no token abre a tela de configuração antes de existir de verdade
 // (duração/efeito/valor, ou nada e vira só marcador visual) — ver module/conditions.js.
 Hooks.on("preCreateActiveEffect", (effect, data, options, userId) => interceptManualCondition(effect, data, options, userId));
+
+// Aviso de mensagem nova do PAD. Fica no hook de CRIAÇÃO (e não em quem envia) porque só o
+// cliente do destinatário sabe se a conversa está aberta na tela — ver notifyIncomingPadMessage.
+Hooks.on("createChatMessage", message => notifyIncomingPadMessage(message));
 
 Hooks.on("updateActor", (actor, changes) => {
   if (foundry.utils.getProperty(changes, "system.attributes.xp") === undefined) return;

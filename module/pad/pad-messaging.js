@@ -69,7 +69,6 @@ async function createPadMessage({ threadId, senderActorUuid, senderName, recipie
 
 export async function sendDirectMessage(senderActor, recipientActor, body) {
   const whisper = Array.from(new Set([...gmUserIds(), ...owningUserIds(senderActor), ...owningUserIds(recipientActor)]));
-  await announceIncoming(senderActor, [recipientActor], null);
   await createPadMessage({
     threadId: directThreadId(senderActor.uuid, recipientActor.uuid),
     senderActorUuid: senderActor.uuid,
@@ -87,8 +86,6 @@ export async function sendGroupMessage(senderActor, groupId, body) {
   if (!group) return;
   const memberActors = group.memberActorUuids.map(uuid => fromUuidSync(uuid)).filter(Boolean);
   const whisper = Array.from(new Set([...gmUserIds(), ...memberActors.flatMap(owningUserIds)]));
-  // Um único aviso pro grupo inteiro (whisper combinado) em vez de um card por membro.
-  await announceIncoming(senderActor, memberActors, group.groupName);
   await createPadMessage({
     threadId: groupId,
     senderActorUuid: senderActor.uuid,
@@ -136,24 +133,70 @@ export async function markThreadRead(actor, threadId) {
 }
 
 /**
- * Avisa os destinatários pela Voz do Mundo que chegou mensagem. O card do PAD em si fica fora do
- * log de chat (ver o hook de render em nihility-rpg-system.js), então sem este aviso um jogador
- * só descobriria a mensagem abrindo o PAD por conta própria.
+ * Uma janela do PAD deste usuário está com ESTA conversa aberta agora?
  *
- * Quem enviou nunca é avisado da própria mensagem.
+ * Lê as instâncias de aplicação abertas pelo id (`nihility-pad-<actorId>`, ver o construtor em
+ * apps/nihility-pad.js) em vez de importar a classe — importar criaria um ciclo, já que o PAD
+ * importa este módulo. O acoplamento é pelo formato do id, e está documentado dos dois lados.
  */
-async function announceIncoming(senderActor, recipientActors, threadLabel) {
-  const recipients = recipientActors.filter(a => a && a.uuid !== senderActor.uuid);
-  if (!recipients.length) return;
+function isThreadOpenFor(actorUuid, threadId) {
+  for (const [id, app] of foundry.applications.instances ?? []) {
+    if (!id.startsWith("nihility-pad-") || !app.rendered) continue;
+    if (app.actor?.uuid !== actorUuid) continue;
 
-  const whisper = Array.from(new Set([...gmUserIds(), ...recipients.flatMap(owningUserIds)]));
-  if (!whisper.length) return;
+    const open = app.activeThread;
+    if (!open) continue;
+    const openId = open.type === "group" ? open.groupId : directThreadId(actorUuid, open.actorUuid);
+    if (openId === threadId) return true;
+  }
+  return false;
+}
 
-  await announceVoiceOfTheWorld(senderActor, {
+/**
+ * Avisa pela Voz do Mundo que chegou mensagem — **só se a conversa não estiver aberta na tela**.
+ *
+ * Roda no cliente de QUEM RECEBE, não de quem envia: só o destinatário sabe o que está olhando.
+ * Por isso o aviso não é criado junto com a mensagem; ele nasce aqui, no hook `createChatMessage`,
+ * e é sussurrado apenas pra este usuário (cada cliente cria o próprio, então ninguém recebe o
+ * aviso de outra pessoa).
+ *
+ * O card da mensagem em si fica fora do log de chat (ver o hook de render em
+ * nihility-rpg-system.js), então sem este aviso um jogador só descobriria a mensagem abrindo o
+ * PAD por conta própria.
+ * @param {ChatMessage} message
+ */
+export async function notifyIncomingPadMessage(message) {
+  const pm = message.getFlag(SYSTEM_ID, "padMessage");
+  if (!pm) return;
+
+  const sender = fromUuidSync(pm.senderActorUuid);
+  if (!sender) return;
+
+  // Personas deste usuário que são destinatárias desta mensagem. O Mestre só entra pela persona
+  // que ele tem aberta no PAD — senão receberia aviso de toda mensagem do mundo, já que é dono
+  // de tudo.
+  const mine = (pm.recipientActorUuids ?? [])
+    .filter(uuid => uuid !== pm.senderActorUuid)
+    .map(uuid => fromUuidSync(uuid))
+    .filter(actor => {
+      if (!actor) return false;
+      if (game.user.isGM) {
+        return Array.from(foundry.applications.instances ?? [])
+          .some(([id, app]) => id.startsWith("nihility-pad-") && app.rendered && app.actor?.uuid === actor.uuid);
+      }
+      return actor.testUserPermission(game.user, "OWNER");
+    });
+
+  // Conversa aberta = o usuário já está vendo a mensagem chegar. Nada a avisar.
+  const unread = mine.filter(actor => !isThreadOpenFor(actor.uuid, pm.threadId));
+  if (!unread.length) return;
+
+  const escopo = pm.conversationType === "group" ? " em um grupo" : "";
+  await announceVoiceOfTheWorld(sender, {
     kind: "pad-message",
     title: "PAD — Mensagem nova",
-    body: `${senderActor.name} mandou uma mensagem${threadLabel ? ` em ${threadLabel}` : ""}.`,
-    whisper
+    body: `${pm.senderName} mandou uma mensagem${escopo} para ${unread.map(a => a.name).join(", ")}.`,
+    whisper: [game.user.id]
   });
 }
 

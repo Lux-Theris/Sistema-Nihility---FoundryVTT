@@ -6,6 +6,12 @@ Sistema customizado para [Foundry VTT](https://foundryvtt.com/) (requer **V13+**
 
 - **Totalmente modular**: cada bloco do sistema (Economia, Títulos, Anatomia, **Naves e Veículos**, Fusão de Habilidades, Pontos de Habilidade, Pool de Atributos, Resistências, Condições, Habilidades de Área, Assistente de IA e o PAD) liga e desliga por mundo, com **presets de campanha** prontos — Fantasia Medieval, Sci-Fi Arcano ou Misto. Desligar um bloco só esconde a interface e impede criar conteúdo novo daquele tipo: **nada é apagado**, e religar devolve tudo como estava.
 - **Fórmula de HP/Mana configurável**: quais Atributos multiplicam cada pool, o multiplicador e o piso são settings — dá até pra desligar o pool de Mana inteiro numa campanha sem magia (as Habilidades continuam funcionando, só deixam de custar recurso).
+- **Atributos renomeáveis**: os sete Atributos de Combate podem receber os nomes da sua campanha (ou serem escondidos da ficha) sem quebrar Efeitos, Títulos ou fórmulas já gravados — só o rótulo muda, a chave interna fica.
+- **Experiência e progressão**: Personagens **e** Habilidades acumulam XP, com a curva definida por uma fórmula configurável (padrão `100 × nível`). O sistema avisa quando a barra enche; subir de nível continua sendo decisão do Mestre. Cada nível de Habilidade segue um ciclo previsível de **Poder** (multiplica o efeito) e **Desconto** (corta o Custo), e Habilidades podem escalar o dano por um Atributo — numa curva quadrática, a única que acompanha o crescimento do HP.
+- **Resistências que aprendem sozinhas**: uma Skill de Resistência ganha XP ao efetivamente bloquear dano — proporcional à fatia da própria Vida que foi salva, então defender um golpe perigoso vale o mesmo no nível 1 e no 50, e arranhão não ensina nada. O sistema também conta quantas vezes o personagem apanhou de cada tipo de dano e **sugere** a Resistência ao Mestre.
+- **Iniciativa pelo Atributo**: a iniciativa usa o mesmo pool de d20 escalável do resto do sistema (Atributo configurável, padrão Destreza), em vez do `1d20` solto do Foundry.
+- **Dano aplicável pelo chat**: o card de dano ganha botões **Aplicar / Metade / Dobro** (só Mestre) com **Desfazer** — o número já sai com Defesa Mágica e Resistências descontadas, e nada toca a ficha sem clique.
+- **Condições no HUD do token**: o catálogo de Condições alimenta a paleta de status do token, então dá pra marcar "Envenenado" clicando no token, com uma tela opcional pra dizer o que a Condição faz (ou nada, e ela vira só o ícone).
 - **Moedas e Energia customizáveis**: defina suas próprias moedas (JSON) e o nome do sistema de energia (padrão: *Sistema Eletro-Plasmático (EPS)*).
 - **Anatomia por Espécie**: ao trocar a espécie de um personagem, o sistema aplica automaticamente o preset de Partes do Corpo (HP próprio, status Intacto/Danificado/Destruído, próteses/modificações).
 - **Fusão de Skills**: funde habilidades da ficha em uma nova, reaproveitando combinações já existentes no Compêndio quando possível. Skills Únicas nascem de gatilhos emocionais/personalidade (modo manual com aprovação do Mestre, ou automático via IA) e **não podem consumir Skills Ultimate**.
@@ -44,6 +50,9 @@ https://raw.githubusercontent.com/Lux-Theris/Sistema-Nihility---FoundryVTT/main/
 │   ├── skill-effects.js               # "Usar Habilidade": dano, efeitos, Condições, upkeep
 │   ├── skill-snapshot.js              # Snapshot de Skill em Sub-Skill (compartilhado)
 │   ├── area-effects.js                # Habilidades de Emissão (Measured Templates)
+│   ├── combat.js                      # Iniciativa pelo pool de Atributo
+│   ├── conditions.js                  # Condições na paleta do HUD do token
+│   ├── damage-apply.js                # Botões de Aplicar/Desfazer dano no chat
 │   ├── starship-power.js              # Tick de energia/sobrecarga/recarga de Nave
 │   ├── starship-repair.js             # Macro de reparo em campo
 │   ├── currency.js                    # Conversão e transferência de moedas
@@ -54,7 +63,8 @@ https://raw.githubusercontent.com/Lux-Theris/Sistema-Nihility---FoundryVTT/main/
 │   ├── ai-helper.js                   # Montagem da API pública game.nihility.ai
 │   ├── ai/                            # Provedores, loop de agente e tools
 │   ├── pad/                           # PAD: tripulação, biblioteca e mensagens
-│   ├── helpers/                       # foundry-compat.js, world-backup.js
+│   ├── helpers/                       # foundry-compat.js, world-backup.js,
+│   │                                  # gm-relay.js (socket), target-picker.js
 │   ├── data/                          # DataModels (character, starship, item)
 │   ├── sheets/                        # Fichas de Actor/Item
 │   └── apps/                          # Menu, Assistente de IA, PAD e editores de config
@@ -82,7 +92,17 @@ Nas **Configurações do Mundo → Configurar Configurações → Nihility RPG S
 | Fórmula de Mana — 1º/2º Atributo | Idem para a Mana (padrão: Magia × Defesa Mágica) |
 | Fórmula de HP/Mana — Multiplicador / Piso | O `×10` e o mínimo de 50 da fórmula, ajustáveis |
 | Rótulo de Energia — Personagens / Naves | Nomes customizados para cada energia (ex: Mana, Ki / EPS) |
+| Sigla de Energia de Naves | Forma curta usada nas linhas de Módulo, onde o nome inteiro não cabe (padrão: EPS) |
 | Pontos de Atributo e de Habilidade (Criação / Por Nível) | Orçamento concedido na criação e a cada nível |
+| **Configurar Atributos** (botão) | Renomeia e mostra/esconde cada Atributo de Combate (a chave interna nunca muda) |
+| Fórmula de XP | Curva de XP por nível, em texto (padrão `100 * @nivel`); vale para Personagens e Habilidades |
+| Atributo de Iniciativa | Qual Atributo rege a iniciativa (padrão: Destreza) |
+| Divisor da Escala de Dano | Controla o ritmo da escala quadrática de dano por Atributo (padrão: 10) |
+| Habilidade — Poder / Desconto por Nível | Quanto cada nível de Poder multiplica o efeito e cada nível de Desconto corta o Custo |
+| Habilidade — Ciclo (Poder / Desconto) e Piso de Custo | Quantos níveis de cada tipo se alternam, e o mínimo a que o Custo pode cair |
+| XP de Resistência — Fator | Quanto XP uma Resistência ganha por fração da Vida salva |
+| Limiar de Aprendizado de Resistência | Golpes de um mesmo tipo até o sistema sugerir a Resistência ao Mestre (0 = desligado) |
+| Permitir alvos fora da cena | Libera a busca no diretório ao escolher alvo — para mesas sem mapa/token |
 | **Configurar Moedas** (botão) | Abre o editor visual de moedas (id, nome, ícone, peso, Valor-Base) |
 | **Configurar Presets de Espécie** (botão) | Abre o editor visual de espécies e suas Partes do Corpo |
 | **Configurar Tipos de Dano** (botão) | Elementos de dano usados por Habilidades e Resistências |
@@ -103,7 +123,7 @@ você precisa reconfigurar essas settings se trocar de navegador ou computador.
 
 ## Assistente de IA (GM)
 
-Botão **🤖 Assistente de IA** no rodapé do diretório de Atores (visível só para o Mestre). Se não aparecer em alguma versão do Foundry, abra via macro:
+Botão **Nihility RPG System** no rodapé do diretório de Atores → aba *Assistente de IA*. O botão aparece para todo mundo (o Menu tem uma aba *Fichas* que jogadores usam), mas as abas de IA, Geração e Administração são bloqueadas para quem não é Mestre. Se não aparecer em alguma versão do Foundry, abra via macro:
 
 ```js
 game.nihility.openAssistant();
@@ -176,11 +196,16 @@ O `system.json` declara `flags.hotReload` para `styles/`, `templates/` e `lang/`
 `.css`, `.hbs` ou `.json` de idioma aplica na hora, sem reiniciar o mundo. Mudança em `.js`
 ainda exige recarregar (F5).
 
-Os testes cobrem só o que é chamável sem o Foundry (pool de dados, resistências, presets de
-Módulo, conversão de moeda, snapshot de fusão). Tudo que envolve documento, ficha ou canvas
-continua sendo teste manual dentro de um mundo aberto.
+Os testes cobrem só o que é chamável sem o Foundry: pool de dados e fórmula de iniciativa, curva
+de Resistência, curva de XP e XP de Resistência, ciclo de níveis de Habilidade, escala de dano,
+presets de Módulo e dano estrutural, conversão de moeda, prompts em lote da IA e snapshot de
+fusão. Tudo que envolve documento, ficha ou canvas continua sendo teste manual dentro de um mundo
+aberto.
+
+A versão em `system.json` é incrementada **no mesmo commit** da alteração, nunca em um commit
+separado — é o que o Foundry compara com o manifesto para oferecer atualização.
 
 ## Status
 
-Projeto em desenvolvimento ativo. Próximos passos: expandir automação de dano/combate, presets
-adicionais de espécie e testes em mundo real no Foundry.
+Projeto em desenvolvimento ativo. Próximos passos: presets adicionais de espécie, mais automação
+de combate além dos botões de dano e da iniciativa, e testes em mundo real no Foundry.

@@ -67,9 +67,12 @@ function buildRowInputsHtml(fields, values) {
  * @param {() => Array<object>} config.getActiveList - reader (setting > default) da lista atual
  * @param {string} [config.hint] - texto de ajuda (HTML) no topo do editor
  * @param {number} [config.width]
+ * @param {() => void} [config.afterSave] - roda depois de gravar a setting, pra republicar a lista
+ *   em quem a consome fora do reader (hoje só as Condições, que alimentam `CONFIG.statusEffects`
+ *   — sem isso a paleta do HUD do token fica na lista antiga até um F5)
  * @returns {typeof ApplicationV2} a classe do app, pronta pra `new`/registrar como Settings Menu
  */
-export function createListConfigApp({ id, title, settingsKey, fields, getActiveList, hint = "", width = 520 }) {
+export function createListConfigApp({ id, title, settingsKey, fields, getActiveList, hint = "", width = 520, afterSave = null }) {
   const gridColumns = gridColumnsFor(fields);
   const noun = title.replace(/^Configurar\s*/i, "");
 
@@ -177,6 +180,7 @@ export function createListConfigApp({ id, title, settingsKey, fields, getActiveL
       });
 
       await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS[settingsKey], JSON.stringify(rows, null, 2));
+      afterSave?.();
       ui.notifications.info(`${noun} atualizado(s).`);
       debugLog(`${SYSTEM_ID} | ${id}: ${rows.length} linha(s) salva(s).`, rows);
     }

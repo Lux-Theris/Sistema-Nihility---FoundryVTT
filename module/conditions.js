@@ -11,7 +11,14 @@
  * Condição marcada à mão empilha com a mesma Condição vinda de Skill, em vez de virar um segundo
  * efeito independente.
  */
-import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions, getVisibleAttributes, debugLog } from "./config.js";
+import {
+  SYSTEM_ID,
+  MEU_SISTEMA,
+  getActiveStatusConditions,
+  getVisibleAttributes,
+  isStatusConditionsEnabled,
+  debugLog
+} from "./config.js";
 import { applyManualCondition } from "./skill-effects.js";
 
 const { DialogV2 } = foundry.applications.api;
@@ -27,15 +34,38 @@ function isSystemCondition(id) {
 }
 
 /**
+ * A lista de status do core, como estava antes de o sistema encostar nela. Guardada na primeira
+ * chamada pra que desligar o bloco de Condições em tempo de execução devolva a paleta original do
+ * Foundry, em vez de deixar o mundo preso na última lista que o sistema publicou.
+ */
+let coreStatusEffects = null;
+
+/**
  * Publica o catálogo de Condições em `CONFIG.statusEffects`, substituindo a lista do core.
  *
  * Substitui em vez de concatenar porque a lista do core traz dezenas de status de outros
  * sistemas (prone, invisible, dead...) que não significam nada aqui — misturar deixaria a paleta
  * do token cheia de ícones sem regra nenhuma por trás. O `defeated`, único que o Foundry usa
  * internamente (marca o combatente derrotado no rastreador), é preservado por isso mesmo.
+ *
+ * Com o bloco "Condições de Status" desligado o sistema não publica nada e devolve a lista do
+ * core: desligar um bloco tem que ESCONDER interface do sistema, nunca trocar a do Foundry por
+ * uma — e um mundo que optou por não usar Condições ficaria sem os status do core e com os do
+ * Nihility no lugar, exatamente o contrário do pedido.
  */
 export function registerStatusConditions() {
-  const defeated = CONFIG.statusEffects.find(e => e.id === CONFIG.specialStatusEffects?.DEFEATED || e.id === "dead");
+  coreStatusEffects ??= CONFIG.statusEffects;
+
+  if (!isStatusConditionsEnabled()) {
+    CONFIG.statusEffects = coreStatusEffects;
+    debugLog(`${SYSTEM_ID} | Bloco de Condições desligado — paleta do token mantida no padrão do Foundry.`);
+    return;
+  }
+
+  // Procurado no snapshot do core, e NÃO em `CONFIG.statusEffects`: a partir da segunda chamada
+  // (o Mestre salvou o catálogo) a lista corrente já é a do sistema, que não tem `defeated` —
+  // procurar nela descartaria o status em silêncio e quebraria o "derrotado" do rastreador.
+  const defeated = coreStatusEffects.find(e => e.id === CONFIG.specialStatusEffects?.DEFEATED || e.id === "dead");
 
   CONFIG.statusEffects = [
     ...getActiveStatusConditions().map(condition => ({
@@ -61,6 +91,8 @@ export function registerStatusConditions() {
  */
 export function interceptManualCondition(effect, data, options, userId) {
   if (game.user.id !== userId) return; // só o cliente que clicou abre o diálogo
+  // Bloco desligado: o Foundry cria o Active Effect do jeito dele, sem a tela do sistema no meio.
+  if (!isStatusConditionsEnabled()) return;
   if (options?.nihilityConfigured) return;
   if (effect.flags?.[SYSTEM_ID]?.skillEffect) return;
 

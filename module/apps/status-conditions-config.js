@@ -1,5 +1,6 @@
 import { getActiveStatusConditions } from "../config.js";
 import { createListConfigApp } from "./list-config-app-factory.js";
+import { registerStatusConditions } from "../conditions.js";
 
 /**
  * Editor visual das Condições de Status (Cegueira, Veneno, Atordoamento...) usadas pelas
@@ -22,5 +23,9 @@ export const StatusConditionsConfigApp = createListConfigApp({
     { key: "label", label: "Nome", type: "text", placeholder: "Nome exibido" },
     { key: "icon", label: "Ícone", type: "icon", placeholder: "Caminho do ícone", default: "icons/svg/aura.svg" }
   ],
-  getActiveList: getActiveStatusConditions
+  getActiveList: getActiveStatusConditions,
+  // Republica o catálogo em `CONFIG.statusEffects` na hora: a paleta do HUD do token é montada
+  // uma vez no `ready`, então sem isto o Mestre edita as Condições e continua vendo a lista
+  // antiga no token até recarregar o mundo.
+  afterSave: registerStatusConditions
 });

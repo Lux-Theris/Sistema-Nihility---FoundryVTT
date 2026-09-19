@@ -7,6 +7,7 @@ import {
   getModuleSizePreset,
   getStarshipEnergyAbbr,
   isResistancesEnabled,
+  isSkillPointsEnabled,
   getVisibleAttributes,
   getAttributeLabel,
   getEffectTargetLabels,
@@ -65,6 +66,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       deleteModAttrBonus: NihilityItemSheet.#onModAttrBonusDelete,
       selectTab: NihilityItemSheet.#onSelectTab,
       levelUpSkill: NihilityItemSheet.#onLevelUpSkill,
+      spendPointLevelUp: NihilityItemSheet.#onSpendPointLevelUp,
       addTitleResistance: NihilityItemSheet.#onTitleResistanceAdd,
       deleteTitleResistance: NihilityItemSheet.#onTitleResistanceDelete,
       editImage: NihilityItemSheet.#onEditImage
@@ -118,6 +120,13 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.owner = this.item.isOwner;
     context.isGM = game.user.isGM;
     context.resistancesEnabled = isResistancesEnabled();
+    // Jogador pode comprar 1 nível de Skill com 1 Ponto de Habilidade do tier dela (Racial/
+    // Ultimate não têm Pontos). O Mestre já tem o "+ Nível" livre, então o botão é só do jogador.
+    const pointTier = this.item.system?.tier;
+    context.canSpendPointLevel =
+      this.item.type === "skill" && !game.user.isGM && this.item.isOwner && Boolean(this.item.parent) &&
+      isSkillPointsEnabled() && MEU_SISTEMA.SKILL_POINT_TIERS.includes(pointTier);
+    context.levelPointBalance = this.item.parent?.system?.skillPoints?.[pointTier] ?? 0;
     // Seletores de bônus de Atributo (Título, Item, Modificação) usam os rótulos e a
     // visibilidade atuais — atributo oculto sai da lista de opções novas.
     context.visibleAttributes = getVisibleAttributes();
@@ -555,6 +564,25 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
   static async #onLevelUpSkill(event, target) {
     event.preventDefault();
+    await this.#raiseSkillLevel();
+  }
+
+  /** Jogador paga 1 Ponto de Habilidade do tier da Skill por 1 nível (sem esperar o XP encher). */
+  static async #onSpendPointLevelUp(event, target) {
+    event.preventDefault();
+    const actor = this.item.parent;
+    const tier = this.item.system.tier;
+    if (!actor || !MEU_SISTEMA.SKILL_POINT_TIERS.includes(tier)) return;
+    const balance = actor.system.skillPoints?.[tier] ?? 0;
+    if (balance < 1) {
+      ui.notifications.warn(`Sem Pontos ${MEU_SISTEMA.SKILL_TIER_LABELS[tier]} para subir o nível.`);
+      return;
+    }
+    // O ponto só é gasto se o nível realmente subiu (teto de Resistência recusa antes).
+    await this.#raiseSkillLevel({ spendPointFrom: actor, tier, balance });
+  }
+
+  async #raiseSkillLevel({ spendPointFrom = null, tier = null, balance = 0 } = {}) {
     const resistanceTarget = this.item.system.resistanceTarget;
     const currentLevel = this.item.system.level;
 
@@ -573,6 +601,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const newLevel = currentLevel + 1;
     const updates = { "system.level": newLevel };
     if (resistanceTarget) updates.name = computeResistanceName(resistanceTarget, newLevel);
+    if (spendPointFrom) await spendPointFrom.update({ [`system.skillPoints.${tier}`]: balance - 1 });
     await this.item.update(updates);
 
     const actor = this.item.parent;
@@ -580,7 +609,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       await announceVoiceOfTheWorld(actor, {
         kind: "skill-level-up",
         title: "Habilidade Evoluiu",
-        body: `${this.item.name} de ${actor.name} subiu para o nível ${newLevel}.`
+        body: `${this.item.name} de ${actor.name} subiu para o nível ${newLevel}${spendPointFrom ? " (1 Ponto de Habilidade gasto)" : ""}.`
       });
     }
   }

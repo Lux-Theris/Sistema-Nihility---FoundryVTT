@@ -57,6 +57,17 @@ const HANDLERS = {
    * forma é validada e limitada aqui, e a origem tem de ser um Ator que existe.
    * @param {{sceneId:string, data:object, zone:object}} payload
    */
+  async removeZones({ sourceUuid, skillId, subSkillIndex }) {
+    for (const scene of game.scenes) {
+      for (const template of scene.templates) {
+        const zone = template.getFlag(SYSTEM_ID, "zone");
+        if (zone?.sourceUuid === sourceUuid && zone.skillId === skillId && (zone.subSkillIndex ?? null) === (subSkillIndex ?? null)) {
+          await template.delete();
+        }
+      }
+    }
+  },
+
   async createZone({ sceneId, data, zone }) {
     const scene = game.scenes.get(sceneId);
     const source = zone?.sourceUuid ? await fromUuid(zone.sourceUuid) : null;
@@ -80,6 +91,7 @@ const HANDLERS = {
               skillId: String(zone.skillId ?? ""),
               subSkillIndex: Number.isInteger(zone.subSkillIndex) ? zone.subSkillIndex : null,
               label: String(zone.label ?? "Zona"),
+              untilDeactivated: Boolean(zone.untilDeactivated),
               roundsRemaining: Math.min(Math.max(Number(zone.roundsRemaining) || 1, 1), 100)
             }
           }

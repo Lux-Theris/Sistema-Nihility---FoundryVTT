@@ -176,7 +176,7 @@ export async function pickZonePlacement(skill) {
  * confirmar), marcado com uma flag que diz quem a lançou, qual Skill e quantas rodadas restam.
  * A criação vai pelo Mestre (`runAsGm`): jogador nem sempre pode escrever na Scene.
  */
-export async function createZoneTemplate(placementData, { sourceActor, skillId, subSkillIndex, label, rounds }) {
+export async function createZoneTemplate(placementData, { sourceActor, skillId, subSkillIndex, label, rounds, untilDeactivated = false }) {
   if (!canvas?.scene) return;
   await runAsGm("createZone", {
     sceneId: canvas.scene.id,
@@ -186,9 +186,16 @@ export async function createZoneTemplate(placementData, { sourceActor, skillId, 
       skillId,
       subSkillIndex: subSkillIndex ?? null,
       label,
+      // Skill Ativa: a Zona vive até a Skill ser desligada, sem contagem de rodadas.
+      untilDeactivated: Boolean(untilDeactivated),
       roundsRemaining: Math.max(1, Number(rounds) || 1)
     }
   });
+}
+
+/** Apaga as Zonas que uma Skill Ativa mantinha (ao desativá-la). Vai pelo Mestre. */
+export async function removeZonesFor(sourceActor, skillId, subSkillIndex) {
+  await runAsGm("removeZones", { sourceUuid: sourceActor.uuid, skillId, subSkillIndex: subSkillIndex ?? null });
 }
 
 /** Zonas (templates marcados) da cena ativa. */

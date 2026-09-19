@@ -23,7 +23,7 @@ import {
   getResistanceLearnThreshold
 } from "./config.js";
 import { runAsGm } from "./helpers/gm-relay.js";
-import { createZoneTemplate, zonesOnScene, zoneContainsToken } from "./area-effects.js";
+import { createZoneTemplate, removeZonesFor, zonesOnScene, zoneContainsToken } from "./area-effects.js";
 import { announceVoiceOfTheWorld } from "./voice-of-the-world.js";
 import { playSkillAnimation } from "./vfx.js";
 import { damageApplyFlags } from "./damage-apply.js";
@@ -114,6 +114,9 @@ async function warnInsufficientEnergy(sourceActor, label, cost) {
  * @param {number|null} subSkillIndex
  */
 async function removeUpkeepLinkedEffects(skill, subSkillIndex) {
+  // Zona mantida por esta Skill Ativa some junto com ela.
+  if (skill.parent) await removeZonesFor(skill.parent, skill.id, subSkillIndex);
+
   const isThisSource = flags => flags.sourceSkillId === skill.id && (flags.sourceSubSkillIndex ?? null) === subSkillIndex;
 
   for (const actor of game.actors) {
@@ -215,11 +218,12 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
       skillId,
       subSkillIndex: options.subSkillIndex ?? null,
       label,
-      rounds: mech.zoneRounds
+      rounds: mech.zoneRounds,
+      untilDeactivated: mech.hasUpkeep
     });
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
-      content: `<p><strong>${sourceActor.name}</strong> criou a zona <strong>${label}</strong> (${mech.zoneRounds} rodada(s)) — afeta quem permanecer nela no início do próprio turno.</p>`
+      content: `<p><strong>${sourceActor.name}</strong> criou a zona <strong>${label}</strong> (${mech.hasUpkeep ? "até desativar" : `${mech.zoneRounds} rodada(s)`}) — afeta quem permanecer nela no início do próprio turno.</p>`
     });
     return true;
   }
@@ -1290,6 +1294,7 @@ async function applySkillEffectsArea(sourceActor, skill, mech, label, targetActo
 export async function advanceZones(scene) {
   for (const template of zonesOnScene(scene)) {
     const zone = foundry.utils.deepClone(template.getFlag(SYSTEM_ID, "zone"));
+    if (zone.untilDeactivated) continue; // vive até a Skill Ativa ser desligada
     zone.roundsRemaining -= 1;
     if (zone.roundsRemaining <= 0) await template.delete();
     else await template.setFlag(SYSTEM_ID, "zone", zone);
@@ -1313,10 +1318,13 @@ export async function tickZonesForCombatant(combatant) {
     const zone = template.getFlag(SYSTEM_ID, "zone");
     const sourceActor = await fromUuid(zone.sourceUuid);
     const skill = sourceActor?.items.get(zone.skillId);
-    if (!skill) continue;
-
-    const sub = zone.subSkillIndex != null ? skill.system.subSkills?.[zone.subSkillIndex] : null;
-    const mech = sub ?? skill.system;
+    const sub = skill && zone.subSkillIndex != null ? skill.system.subSkills?.[zone.subSkillIndex] : null;
+    const mech = sub ?? skill?.system;
+    // Zona de Skill Ativa cujo dono desligou (ou apagou) a Skill por outro caminho: limpa aqui.
+    if (!mech || (zone.untilDeactivated && !mech.active)) {
+      if (zone.untilDeactivated) await template.delete();
+      continue;
+    }
     const label = zone.label;
 
     if (mech.effectType === "damage") {

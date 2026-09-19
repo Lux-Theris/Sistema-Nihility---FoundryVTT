@@ -14,6 +14,8 @@
 
   <section class="sheet-body">
 
+    {{!-- Skill edita a Descrição dentro de Detalhes: dois <prose-mirror name="system.description" /> no mesmo form duplicariam o texto a cada salvamento. --}}
+    {{#unless (eq itemType "skill")}}
     <div class="tab {{#unless (eq activeTab "description")}}hidden{{/unless}}">
       {{#if owner}}
       <prose-mirror name="system.description" value="{{system.description}}"></prose-mirror>
@@ -21,6 +23,7 @@
       <div class="rich-text-readonly">{{{system.description}}}</div>
       {{/if}}
     </div>
+    {{/unless}}
 
     <div class="tab {{#unless (eq activeTab "details")}}hidden{{/unless}}">
 

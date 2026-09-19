@@ -57,6 +57,23 @@ const HANDLERS = {
    * forma é validada e limitada aqui, e a origem tem de ser um Ator que existe.
    * @param {{sceneId:string, data:object, zone:object}} payload
    */
+  /**
+   * Registra no Compêndio de mundo um Item que um jogador criou (o jogador não pode escrever lá).
+   * O payload é reduzido a name/img/type/system — nada de ids, ownership ou flags vindos de fora.
+   * @param {{itemData:object}} payload
+   */
+  async registerCompendiumItem({ itemData }) {
+    if (!itemData || typeof itemData.name !== "string") return;
+    const { registerItemInCompendium, getCompendiumForItemType } = await import("../compendium.js");
+    if (!getCompendiumForItemType(itemData.type)) return;
+    await registerItemInCompendium({
+      name: itemData.name,
+      img: typeof itemData.img === "string" ? itemData.img : undefined,
+      type: itemData.type,
+      system: itemData.system ?? {}
+    });
+  },
+
   async removeZones({ sourceUuid, skillId, subSkillIndex }) {
     for (const scene of game.scenes) {
       for (const template of scene.templates) {

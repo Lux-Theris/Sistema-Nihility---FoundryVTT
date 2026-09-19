@@ -6,6 +6,7 @@
  */
 import { SYSTEM_ID, MEU_SISTEMA } from "./config.js";
 import { compendiumCollectionClass } from "./helpers/foundry-compat.js";
+import { runAsGm } from "./helpers/gm-relay.js";
 
 const COMPENDIUM_TYPE_MAP = {
   skill: MEU_SISTEMA.COMPENDIUM.skills,
@@ -64,6 +65,10 @@ function itemFingerprint(itemData) {
  * assinatura existir) continuam sendo encontradas pelo nome, pra não duplicar de uma vez tudo
  * que já está no Compêndio de mundos existentes.
  * @param {object} itemData - dados no formato source (ex: item.toObject())
+ * Jogador não tem permissão de criar dentro do Compêndio de mundo: reaproveitar uma entrada que
+ * já existe continua funcionando (é só leitura), mas registrar uma NOVA vai pelo Mestre
+ * (`runAsGm`) e devolve `null` — o Item já existe na ficha do jogador, o registro é só o
+ * arquivo global e não bloqueia nada.
  * @returns {Promise<Item|null>}
  */
 export async function registerItemInCompendium(itemData) {
@@ -76,6 +81,11 @@ export async function registerItemInCompendium(itemData) {
     index.find(e => itemFingerprint({ name: e.name, system: e.system ?? {} }) === fingerprint) ??
     index.find(e => e.name === itemData.name && e.system?.tier === undefined);
   if (existing) return pack.getDocument(existing._id);
+
+  if (!game.user.isGM) {
+    await runAsGm("registerCompendiumItem", { itemData });
+    return null;
+  }
 
   const [doc] = await pack.documentClass.createDocuments([itemData], { pack: pack.collection });
   return doc;

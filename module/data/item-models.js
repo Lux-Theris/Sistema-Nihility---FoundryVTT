@@ -160,13 +160,14 @@ function subSkillSchema() {
     isMagicDamage: new fields.BooleanField({ required: false, initial: false }),
     damageElements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
     effects: new fields.ArrayField(effectEntrySchema(), { required: false, initial: [] }),
-    targetType: new fields.StringField({ required: false, initial: "targeted", choices: ["targeted", "self", "emission"] }),
+    targetType: new fields.StringField({ required: false, initial: "targeted", choices: ["targeted", "self", "emission", "zone"] }),
     // `blank: true` é obrigatório aqui: um StringField com `choices` some com o `blank: true`
     // implícito que todo StringField normal tem — sem isso, o próprio "" inicial falha a
     // validação ("may not be a blank string") assim que o campo não é setado explicitamente.
     areaShape: new fields.StringField({ required: false, initial: "", blank: true, choices: ["", "circle", "cone", "ray"] }),
     areaDistance: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
-    areaAngle: new fields.NumberField({ required: false, integer: true, initial: 53, min: 1, max: 360 })
+    areaAngle: new fields.NumberField({ required: false, integer: true, initial: 53, min: 1, max: 360 }),
+    zoneRounds: new fields.NumberField({ required: false, integer: true, initial: 3, min: 1 })
   });
 }
 
@@ -284,7 +285,7 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
       targetType: new fields.StringField({
         required: true,
         initial: "targeted",
-        choices: ["targeted", "self", "emission"]
+        choices: ["targeted", "self", "emission", "zone"]
       }),
 
       /** Só relevante quando targetType === "emission". "" = ainda não configurada. */
@@ -298,6 +299,9 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
 
       /** Só relevante pra areaShape "cone" — ângulo em graus. */
       areaAngle: new fields.NumberField({ required: false, integer: true, initial: 53, min: 1, max: 360 }),
+
+      /** Só relevante quando targetType === "zone": por quantas rodadas de combate a Zona fica na cena. */
+      zoneRounds: new fields.NumberField({ required: false, integer: true, initial: 3, min: 1 }),
 
       /** Modificador PERMANENTE de HP/Mana, sempre ativo enquanto a skill estiver na ficha. */
       statModifiers: statModifiersSchema(),

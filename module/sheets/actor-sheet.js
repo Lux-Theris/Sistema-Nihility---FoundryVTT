@@ -28,8 +28,9 @@ import { rollAttribute, buildAttributeRollFormula } from "../dice.js";
 import { rollInitiativeForActor, getInitiativeLabel } from "../combat.js";
 import { pickTargetActor } from "../helpers/target-picker.js";
 import { useSkillEffect, tickPeriodicEffect } from "../skill-effects.js";
-import { areaEffectsSupported, pickAreaTargets } from "../area-effects.js";
+import { areaEffectsSupported, pickAreaTargets, pickZonePlacement } from "../area-effects.js";
 import { openSkillEditorDialog } from "../apps/skill-editor-dialog.js";
+import { editPortraitFrameAction, CLEAR_PORTRAIT_FRAME } from "../helpers/portrait-frame.js";
 import { pickImageFile } from "../helpers/foundry-compat.js";
 
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
@@ -112,6 +113,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       rollInitiative: NihilityActorSheet.#onRollInitiative,
       grantXp: NihilityActorSheet.#onGrantXp,
       editImage: NihilityActorSheet.#onEditImage,
+      editPortraitFrame: editPortraitFrameAction,
       applyManualTick: NihilityActorSheet.#onApplyManualTick,
       deleteCondition: NihilityActorSheet.#onDeleteCondition,
       openPad: NihilityActorSheet.#onOpenPad
@@ -146,7 +148,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
   static async #onEditImage(event, target) {
     const field = target.dataset.edit || "img";
     const current = foundry.utils.getProperty(this.actor, field);
-    pickImageFile(current, path => this.actor.update({ [field]: path }));
+    // Imagem nova = enquadramento novo: o recorte da anterior não vale pra ela.
+    pickImageFile(current, path => this.actor.update({ [field]: path, ...(field === "img" ? CLEAR_PORTRAIT_FRAME : {}) }));
   }
 
   /**
@@ -398,7 +401,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         targetType: MEU_SISTEMA.SKILL_TARGET_TYPES.includes(s.targetType) ? s.targetType : "targeted",
         areaShape: s.areaShape || "",
         areaDistance: Number(s.areaDistance) || 0,
-        areaAngle: Number(s.areaAngle) || 53
+        areaAngle: Number(s.areaAngle) || 53,
+        zoneRounds: Number(s.zoneRounds) || 3
       }
     }));
     if (newSkillsData.length) {
@@ -811,7 +815,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             targetType: data.targetType,
             areaShape: data.areaShape,
             areaDistance: data.areaDistance,
-            areaAngle: data.areaAngle
+            areaAngle: data.areaAngle,
+            zoneRounds: data.zoneRounds
           }
         }
       ]);
@@ -898,7 +903,12 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     }
 
     try {
-      if (mech.targetType === "emission" && isAreaEffectsEnabled()) {
+      if (mech.targetType === "zone" && isAreaEffectsEnabled() && areaEffectsSupported()) {
+        // Zona: posiciona a área (fica na cena) — quem cair dentro dela sofre no início do turno.
+        const zonePlacement = await pickZonePlacement({ system: mech });
+        if (!zonePlacement) return;
+        await useSkillEffect(this.actor, itemId, { zonePlacement, subSkillIndex });
+      } else if (mech.targetType === "emission" && isAreaEffectsEnabled()) {
         // Sem alvo manual — o usuário posiciona a forma no canvas e a Skill afeta quem
         // estiver dentro dela, sem etapa de revisão (decisão explícita: aplica direto).
         // Com o bloco de Emissão desligado na campanha, a Skill não quebra: cai no fluxo de

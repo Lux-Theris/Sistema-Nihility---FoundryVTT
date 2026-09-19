@@ -37,7 +37,7 @@ import { StatusConditionsConfigApp } from "./apps/status-conditions-config.js";
 import { NihilityMenuApp } from "./apps/nihility-menu.js";
 import { FeatureConfigApp } from "./apps/feature-config.js";
 import { AttributeConfigApp } from "./apps/attribute-config.js";
-import { tickCombatRoundEffects, tickActorUpkeepSkills } from "./skill-effects.js";
+import { tickCombatRoundEffects, tickActorUpkeepSkills, advanceZones, tickZonesForCombatant } from "./skill-effects.js";
 import { tickStarshipPower } from "./starship-power.js";
 import { requestShipRepair, approveShipRepairRoll, restoreShipRepairTarget } from "./starship-repair.js";
 import { registerGmRelay } from "./helpers/gm-relay.js";
@@ -46,6 +46,7 @@ import { registerStatusConditions, interceptManualCondition } from "./conditions
 import { renderDamageControls } from "./damage-apply.js";
 import { notifyIncomingPadMessage } from "./pad/pad-messaging.js";
 import { isEnergyPoolEnabled } from "./config.js";
+import { registerPortraitHelper } from "./helpers/portrait-frame.js";
 import {
   actorsCollection,
   itemsCollection,
@@ -54,6 +55,7 @@ import {
 } from "./helpers/foundry-compat.js";
 
 Hooks.once("init", () => {
+  registerPortraitHelper();
   console.log(`${SYSTEM_ID} | Inicializando sistema...`);
 
   // Namespace público para macros, módulos externos e o AI Helper (game.nihility.ai).
@@ -489,6 +491,13 @@ Hooks.on("updateCombat", async (combat, changed) => {
 
   const actor = combat.combatant?.actor;
   if (!actor) return;
+
+  try {
+    if (changed.round !== undefined && combat.scene) await advanceZones(combat.scene);
+    await tickZonesForCombatant(combat.combatant);
+  } catch (err) {
+    console.error(`${SYSTEM_ID} | Falha ao processar Zonas no início do turno.`, err);
+  }
 
   try {
     await tickCombatRoundEffects(actor);

@@ -39,7 +39,8 @@ export function buildSubSkillsFromSources(sources) {
         targetType: source.system.targetType,
         areaShape: source.system.areaShape,
         areaDistance: source.system.areaDistance,
-        areaAngle: source.system.areaAngle
+        areaAngle: source.system.areaAngle,
+        zoneRounds: source.system.zoneRounds
       }
     ];
   });

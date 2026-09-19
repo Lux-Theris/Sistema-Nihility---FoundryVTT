@@ -13,6 +13,9 @@
  * recebem a lista final de Atores já resolvida, sem saber nada de geometria.
  */
 
+import { SYSTEM_ID } from "./config.js";
+import { runAsGm } from "./helpers/gm-relay.js";
+
 /** Measured Templates existem em qualquer Foundry suportado por este sistema (mínimo V12) — sem necessidade de feature-detection de versão. */
 export function areaEffectsSupported() {
   return typeof canvas !== "undefined" && !!canvas?.templates && !!CONFIG.MeasuredTemplate?.documentClass;
@@ -56,12 +59,10 @@ function snapToGrid(point) {
 
 /**
  * Deixa o usuário posicionar a forma da Skill no canvas — segue o mouse, roda do mouse gira
- * Cone/Linha, clique esquerdo confirma, clique direito ou Esc cancela — e devolve os Atores
- * dos Tokens encontrados dentro dela.
- * @param {{system: object}} skill - objeto com `.system` = `skill.system` ou snapshot de Sub-Skill
- * @returns {Promise<Actor[]>}
+ * Cone/Linha, clique esquerdo confirma, clique direito ou Esc cancela. Devolve a posição final
+ * ({shape, x, y, direction}) ou null se cancelado.
  */
-export async function pickAreaTargets(skill) {
+async function placeShape(skill) {
   if (!areaEffectsSupported()) {
     throw new Error("Skills de Emissão precisam do sistema de Measured Templates do Foundry (canvas indisponível).");
   }
@@ -105,7 +106,7 @@ export async function pickAreaTargets(skill) {
     const onConfirm = event => {
       if (event.button !== 0) return;
       finish();
-      resolve({ shape: preview.shape, x: preview.document.x, y: preview.document.y });
+      resolve({ shape: preview.shape, x: preview.document.x, y: preview.document.y, direction: preview.document.direction });
     };
 
     const onCancel = event => {
@@ -137,10 +138,68 @@ export async function pickAreaTargets(skill) {
   preview.destroy();
   initialLayer?.activate();
 
+  return placement;
+}
+
+/**
+ * Emissão instantânea: posiciona a forma e devolve os Atores dos Tokens dentro dela.
+ * @param {{system: object}} skill - objeto com `.system` = `skill.system` ou snapshot de Sub-Skill
+ * @returns {Promise<Actor[]>}
+ */
+export async function pickAreaTargets(skill) {
+  const placement = await placeShape(skill);
   if (!placement) return [];
 
   return canvas.tokens.placeables
     .filter(token => placement.shape.contains(token.center.x - placement.x, token.center.y - placement.y))
     .map(token => token.actor)
     .filter(Boolean);
+}
+
+/* -------------------------------------------- */
+/*  Zonas: área que fica na cena                 */
+/* -------------------------------------------- */
+
+/**
+ * Posiciona uma Zona (mesma interação da Emissão) e devolve os dados crus dela, prontos pra
+ * `createZoneTemplate` — ou null se o usuário cancelou. Nada é criado aqui.
+ */
+export async function pickZonePlacement(skill) {
+  const placement = await placeShape(skill);
+  if (!placement) return null;
+  const data = buildTemplateData(skill.system, { x: placement.x, y: placement.y });
+  return { ...data, direction: placement.direction ?? 0, author: undefined };
+}
+
+/**
+ * Cria a Zona como um Measured Template DE VERDADE na cena (ao contrário da Emissão, que some ao
+ * confirmar), marcado com uma flag que diz quem a lançou, qual Skill e quantas rodadas restam.
+ * A criação vai pelo Mestre (`runAsGm`): jogador nem sempre pode escrever na Scene.
+ */
+export async function createZoneTemplate(placementData, { sourceActor, skillId, subSkillIndex, label, rounds }) {
+  if (!canvas?.scene) return;
+  await runAsGm("createZone", {
+    sceneId: canvas.scene.id,
+    data: placementData,
+    zone: {
+      sourceUuid: sourceActor.uuid,
+      skillId,
+      subSkillIndex: subSkillIndex ?? null,
+      label,
+      roundsRemaining: Math.max(1, Number(rounds) || 1)
+    }
+  });
+}
+
+/** Zonas (templates marcados) da cena ativa. */
+export function zonesOnScene(scene = canvas?.scene) {
+  return (scene?.templates ?? []).filter(t => t.getFlag(SYSTEM_ID, "zone"));
+}
+
+/** O centro do Token está dentro da forma da Zona? */
+export function zoneContainsToken(templateDoc, tokenDoc) {
+  const placeable = templateDoc.object;
+  const token = tokenDoc.object;
+  if (!placeable?.shape || !token) return false;
+  return placeable.shape.contains(token.center.x - templateDoc.x, token.center.y - templateDoc.y);
 }

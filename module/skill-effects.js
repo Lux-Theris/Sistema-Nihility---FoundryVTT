@@ -23,6 +23,7 @@ import {
   getResistanceLearnThreshold
 } from "./config.js";
 import { runAsGm } from "./helpers/gm-relay.js";
+import { createZoneTemplate, zonesOnScene, zoneContainsToken } from "./area-effects.js";
 import { announceVoiceOfTheWorld } from "./voice-of-the-world.js";
 import { playSkillAnimation } from "./vfx.js";
 import { damageApplyFlags } from "./damage-apply.js";
@@ -204,6 +205,24 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
 
   // Dispara e esquece — nunca aguardado, a animação não deve atrasar a mecânica/chat.
   playSkillAnimation(sourceActor, mech, { targetActor: options.targetActor ?? options.targetActors?.[0] ?? null });
+
+  if (mech.targetType === "zone") {
+    // Zona: nada é aplicado agora — o efeito só cai em quem estiver DENTRO dela no início do
+    // próprio turno (ver `tickZonesForCombatant`). Aqui só nasce a área na cena.
+    if (!options.zonePlacement) return null;
+    await createZoneTemplate(options.zonePlacement, {
+      sourceActor,
+      skillId,
+      subSkillIndex: options.subSkillIndex ?? null,
+      label,
+      rounds: mech.zoneRounds
+    });
+    await ChatMessage.create({
+      speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
+      content: `<p><strong>${sourceActor.name}</strong> criou a zona <strong>${label}</strong> (${mech.zoneRounds} rodada(s)) — afeta quem permanecer nela no início do próprio turno.</p>`
+    });
+    return true;
+  }
 
   const isEmission = mech.targetType === "emission";
 
@@ -1257,4 +1276,58 @@ async function applySkillEffectsArea(sourceActor, skill, mech, label, targetActo
   });
 
   return true;
+}
+
+/* -------------------------------------------- */
+/*  Zonas (área persistente na cena)             */
+/* -------------------------------------------- */
+
+/**
+ * Nova rodada de combate: cada Zona da cena perde 1 rodada e some quando zera. GM-only.
+ * Roda ANTES de aplicar os efeitos do primeiro turno da rodada, então uma Zona de N rodadas
+ * atinge exatamente N rodadas de turnos, contando a do lançamento.
+ */
+export async function advanceZones(scene) {
+  for (const template of zonesOnScene(scene)) {
+    const zone = foundry.utils.deepClone(template.getFlag(SYSTEM_ID, "zone"));
+    zone.roundsRemaining -= 1;
+    if (zone.roundsRemaining <= 0) await template.delete();
+    else await template.setFlag(SYSTEM_ID, "zone", zone);
+  }
+}
+
+/**
+ * Início do turno de `combatant`: se o Token dele está dentro de alguma Zona da cena, a Skill que
+ * criou a Zona é resolvida nele — dano (rolado de novo a cada turno) ou os Efeitos. Sair da Zona
+ * antes do próprio turno escapa; ficar nela sofre. Buff/debuff de duração cai pra 1 rodada por
+ * aplicação, senão reaplicar todo turno empilharia cópias do mesmo efeito. GM-only.
+ */
+export async function tickZonesForCombatant(combatant) {
+  const scene = combatant.scene;
+  const tokenDoc = combatant.token;
+  const targetActor = combatant.actor;
+  if (!scene || !tokenDoc || !targetActor || scene.id !== canvas?.scene?.id) return;
+
+  for (const template of zonesOnScene(scene)) {
+    if (!zoneContainsToken(template, tokenDoc)) continue;
+    const zone = template.getFlag(SYSTEM_ID, "zone");
+    const sourceActor = await fromUuid(zone.sourceUuid);
+    const skill = sourceActor?.items.get(zone.skillId);
+    if (!skill) continue;
+
+    const sub = zone.subSkillIndex != null ? skill.system.subSkills?.[zone.subSkillIndex] : null;
+    const mech = sub ?? skill.system;
+    const label = zone.label;
+
+    if (mech.effectType === "damage") {
+      await rollSkillDamage(sourceActor, mech, label, targetActor);
+    } else if (mech.effectType === "temporary") {
+      const zoned = {
+        ...mech,
+        level: mech.level,
+        effects: (mech.effects ?? []).map(e => (e.periodic ? e : { ...e, durationRounds: 1 }))
+      };
+      await applySkillEffects(sourceActor, skill, zoned, label, targetActor, zone.subSkillIndex ?? null);
+    }
+  }
 }

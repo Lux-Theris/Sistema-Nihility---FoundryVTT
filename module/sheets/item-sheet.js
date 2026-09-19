@@ -162,7 +162,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         sys.effectType
       );
       context.skillTargetTypeOptions = pick(
-        MEU_SISTEMA.SKILL_TARGET_TYPES.filter(t => isAreaEffectsEnabled() || t !== "emission" || sys.targetType === t)
+        MEU_SISTEMA.SKILL_TARGET_TYPES.filter(t => isAreaEffectsEnabled() || !["emission", "zone"].includes(t) || sys.targetType === t)
           .map(t => [t, MEU_SISTEMA.SKILL_TARGET_TYPE_LABELS[t]]),
         sys.targetType
       );

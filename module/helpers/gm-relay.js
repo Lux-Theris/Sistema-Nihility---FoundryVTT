@@ -50,6 +50,42 @@ const HANDLERS = {
     if (!actor) return;
     const { applyResistanceExposure } = await import("../skill-effects.js");
     await applyResistanceExposure(actor, elements);
+  },
+
+  /**
+   * Cria uma Zona (Measured Template persistente) na cena. O payload vem de outro cliente: a
+   * forma é validada e limitada aqui, e a origem tem de ser um Ator que existe.
+   * @param {{sceneId:string, data:object, zone:object}} payload
+   */
+  async createZone({ sceneId, data, zone }) {
+    const scene = game.scenes.get(sceneId);
+    const source = zone?.sourceUuid ? await fromUuid(zone.sourceUuid) : null;
+    if (!scene || !source || !["circle", "cone", "ray"].includes(data?.t)) return;
+
+    const num = (v, max) => Math.min(Math.max(Number(v) || 0, 0), max);
+    await scene.createEmbeddedDocuments("MeasuredTemplate", [
+      {
+        t: data.t,
+        x: num(data.x, 1e6),
+        y: num(data.y, 1e6),
+        direction: Number(data.direction) || 0,
+        distance: num(data.distance, 1000),
+        angle: num(data.angle, 360) || 53,
+        width: num(data.width, 1000) || 1,
+        fillColor: typeof data.fillColor === "string" ? data.fillColor : "#ff0000",
+        flags: {
+          [SYSTEM_ID]: {
+            zone: {
+              sourceUuid: source.uuid,
+              skillId: String(zone.skillId ?? ""),
+              subSkillIndex: Number.isInteger(zone.subSkillIndex) ? zone.subSkillIndex : null,
+              label: String(zone.label ?? "Zona"),
+              roundsRemaining: Math.min(Math.max(Number(zone.roundsRemaining) || 1, 1), 100)
+            }
+          }
+        }
+      }
+    ]);
   }
 };
 

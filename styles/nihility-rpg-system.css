@@ -79,6 +79,10 @@
   width: 84px;
   height: 84px;
   flex-shrink: 0;
+  /* Retrato alto/largo demais era espremido pra caber no quadrado; cover recorta em vez de deformar,
+     e o foco no alto do enquadramento preserva o rosto em retratos de corpo inteiro. */
+  object-fit: cover;
+  object-position: center 15%;
   border: 2px solid var(--nihility-accent-2);
   border-radius: 10px;
   box-shadow: 0 0 0 4px rgba(192, 132, 252, 0.08), 0 10px 20px -6px rgba(0, 0, 0, 0.6);
@@ -86,6 +90,74 @@
   transition: filter 0.15s ease;
 }
 .nihility-sheet .profile-img:hover { filter: brightness(1.15); }
+
+/* Retrato de Ator com enquadramento ajustável (zoom/posição — ver helpers/portrait-frame.js).
+   O quadro recorta; a imagem dentro é deslocada/ampliada por transform inline. */
+.nihility-sheet .profile-frame {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 2px solid var(--nihility-accent-2);
+  border-radius: 10px;
+  box-shadow: 0 0 0 4px rgba(192, 132, 252, 0.08), 0 10px 20px -6px rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+}
+.nihility-sheet .profile-frame-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: 0;
+  transition: filter 0.15s ease;
+}
+.nihility-sheet .profile-frame:hover .profile-frame-img { filter: brightness(1.15); }
+/* Botão de ajuste: só aparece ao passar o mouse; o núcleo dá altura fixa a todo <button>. */
+.nihility-sheet .profile-frame-adjust {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+  padding: 0;
+  line-height: 1;
+  font-size: 0.7rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(10, 10, 18, 0.8);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.nihility-sheet .profile-frame:hover .profile-frame-adjust { opacity: 1; }
+
+/* Editor de enquadramento (janela própria — cor explícita, nunca herdada do núcleo). */
+.nihility-portrait-editor { display: flex; flex-direction: column; align-items: center; gap: 10px; color: #e6e6f0; }
+.nihility-portrait-editor .pe-stage {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 2px solid var(--nihility-accent-2, #c084fc);
+  background: #0b0b14;
+  cursor: grab;
+  touch-action: none;
+}
+.nihility-portrait-editor .pe-stage.dragging { cursor: grabbing; }
+.nihility-portrait-editor .pe-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+  pointer-events: none;
+}
+.nihility-portrait-editor .pe-zoom { display: flex; align-items: center; gap: 10px; width: 100%; color: #e6e6f0; }
+.nihility-portrait-editor .pe-zoom input { flex: 1; }
+.nihility-portrait-editor .pe-hint { margin: 0; font-size: 0.78rem; color: #a8a8c0; text-align: center; }
 
 .nihility-sheet .header-fields {
   flex: 1;

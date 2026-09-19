@@ -13,6 +13,7 @@ import { useSkillEffect, fireStarshipWeapon } from "../skill-effects.js";
 import { moduleCanRestart } from "../starship-power.js";
 import { syncLibraryOwnershipToCrew } from "../pad/pad-library.js";
 import { pickTargetActor } from "../helpers/target-picker.js";
+import { editPortraitFrameAction, CLEAR_PORTRAIT_FRAME } from "../helpers/portrait-frame.js";
 import { pickImageFile, getDragEventData } from "../helpers/foundry-compat.js";
 
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
@@ -202,7 +203,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
   static async onEditImage(event, target) {
     const field = target.dataset.edit || "img";
     const current = foundry.utils.getProperty(this.actor, field);
-    pickImageFile(current, path => this.actor.update({ [field]: path }));
+    pickImageFile(current, path => this.actor.update({ [field]: path, ...(field === "img" ? CLEAR_PORTRAIT_FRAME : {}) }));
   }
 
   /**
@@ -586,6 +587,7 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
       toggleModuleVitalAdjust: TabbedActorSheetV2.onToggleModuleVitalAdjust,
       adjustModuleVital: TabbedActorSheetV2.onAdjustModuleVital,
       editImage: TabbedActorSheetV2.onEditImage,
+      editPortraitFrame: editPortraitFrameAction,
       removeCrew: TabbedActorSheetV2.onRemoveCrew
     }
   };
@@ -637,6 +639,7 @@ export class NihilityVehicleSheet extends TabbedActorSheetV2 {
       toggleModuleVitalAdjust: TabbedActorSheetV2.onToggleModuleVitalAdjust,
       adjustModuleVital: TabbedActorSheetV2.onAdjustModuleVital,
       editImage: TabbedActorSheetV2.onEditImage,
+      editPortraitFrame: editPortraitFrameAction,
       removeCrew: TabbedActorSheetV2.onRemoveCrew
     }
   };

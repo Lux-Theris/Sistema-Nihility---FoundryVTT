@@ -531,12 +531,13 @@ export const MEU_SISTEMA = {
   },
 
   /** Ver module/area-effects.js. */
-  SKILL_TARGET_TYPES: ["targeted", "self", "emission"],
+  SKILL_TARGET_TYPES: ["targeted", "self", "emission", "zone"],
 
   SKILL_TARGET_TYPE_LABELS: {
     targeted: "Targetada (escolhe 1 Ator)",
     self: "Si mesmo (sem escolher alvo)",
-    emission: "Emissão (posiciona uma área no canvas)"
+    emission: "Emissão (atinge na hora quem está na área)",
+    zone: "Zona (área que fica na cena e afeta quem permanecer nela)"
   },
 
   SKILL_AREA_SHAPES: ["", "circle", "cone", "ray"],

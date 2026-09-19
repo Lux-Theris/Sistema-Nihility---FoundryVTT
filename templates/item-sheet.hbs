@@ -105,7 +105,12 @@
         </select>
       </label>
 
-      {{#if (eq system.targetType "emission")}}
+      {{#if (or (eq system.targetType "emission") (eq system.targetType "zone"))}}
+      {{#if (eq system.targetType "zone")}}
+      <label>Duração da Zona <span class="hint-inline">(rodadas de combate — só avança em combate; o Mestre pode apagar o template antes)</span>
+        <input type="number" name="system.zoneRounds" value="{{system.zoneRounds}}" min="1"/>
+      </label>
+      {{/if}}
       <label>Formato de Área
         <select name="system.areaShape">
           {{#each skillAreaShapeOptions as |opt|}}

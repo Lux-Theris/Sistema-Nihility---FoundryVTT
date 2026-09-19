@@ -1,7 +1,10 @@
 <div class="nihility-sheet starship-sheet">
 
   <header class="sheet-header">
-    <img class="profile-img" src="{{actor.img}}" data-edit="img" data-action="editImage" title="{{actor.name}}"/>
+    <div class="profile-frame" data-edit="img" data-action="editImage" title="{{actor.name}} — clique para trocar a imagem">
+      <img class="profile-frame-img" src="{{actor.img}}" style="{{portraitStyle actor}}"/>
+      <button type="button" class="profile-frame-adjust" data-action="editPortraitFrame" title="Ajustar enquadramento (zoom e posição)"><i class="fas fa-crop-simple"></i></button>
+    </div>
     <div class="header-fields">
       <input name="name" type="text" value="{{actor.name}}" placeholder="Nome"/>
       <div class="header-row">

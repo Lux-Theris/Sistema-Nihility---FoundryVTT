@@ -153,6 +153,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     areaShape: initialData.areaShape ?? "",
     areaDistance: initialData.areaDistance ?? 0,
     areaAngle: initialData.areaAngle ?? 53,
+    zoneRounds: initialData.zoneRounds ?? 3,
     subSkills: Array.isArray(initialData.subSkills) ? initialData.subSkills : [],
     fusionSources: Array.isArray(initialData.fusionSources) ? initialData.fusionSources : [],
     evolvedFrom: initialData.evolvedFrom ?? ""
@@ -193,7 +194,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
 
   const availableTargetTypes = isAreaEffectsEnabled()
     ? MEU_SISTEMA.SKILL_TARGET_TYPES
-    : MEU_SISTEMA.SKILL_TARGET_TYPES.filter(t => t !== "emission");
+    : MEU_SISTEMA.SKILL_TARGET_TYPES.filter(t => t !== "emission" && t !== "zone");
   const targetTypeOptions = availableTargetTypes.map(
     t => `<option value="${t}" ${t === data.targetType ? "selected" : ""}>${MEU_SISTEMA.SKILL_TARGET_TYPE_LABELS[t]}</option>`
   ).join("");
@@ -307,6 +308,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
       <div class="se-range-section">
         <div class="form-group"><label>Tipo de Alvo</label><select name="targetType">${targetTypeOptions}</select></div>
         <div class="mechanic-panel se-emission-panel">
+          <div class="form-group se-zone-rounds-field"><label>Duração da Zona <span class="hint-inline" style="display:inline;">(rodadas de combate)</span></label><input type="number" name="zoneRounds" value="${data.zoneRounds}" min="1"/></div>
           <div class="form-group"><label>Formato de Área</label><select name="areaShape">${areaShapeOptions}</select></div>
           <div class="row-2">
             <div class="form-group"><label>Distância <span class="hint-inline" style="display:inline;">(unidades de grid)</span></label><input type="number" name="areaDistance" value="${data.areaDistance}" min="0"/></div>
@@ -402,8 +404,13 @@ function setupSkillEditorInteractivity(root, data) {
     };
     // Primeira medição só depois de um paint (rAF) em vez de síncrona dentro do `render:` do
     // DialogV2 — dá tempo da janela assentar no tamanho real antes de medir `root`.
-    requestAnimationFrame(fitScroll);
-    new ResizeObserver(fitScroll).observe(root);
+    // Numa janela destacada (Pop Out) o elemento vive em OUTRA window: o rAF/ResizeObserver da
+    // janela principal não dispara pra ela (pausa quando a principal fica atrás), o máximo de
+    // altura nunca era aplicado e o form vazava sem scroll. Usa sempre a window dona do elemento.
+    const ownerWindow = root.ownerDocument?.defaultView ?? window;
+    ownerWindow.requestAnimationFrame(fitScroll);
+    fitScroll();
+    new ownerWindow.ResizeObserver(fitScroll).observe(root);
 
     // Sem isso, o `wheel` disparado sobre o form (que já tem overflow-y:auto e scrolla
     // normalmente) continua BORBULHANDO pro document depois — e o listener global de zoom/pan
@@ -437,7 +444,9 @@ function setupSkillEditorInteractivity(root, data) {
   const angleField = root.querySelector(".se-area-angle-field");
 
   function applyTargetType() {
-    emissionPanel.style.display = targetTypeSelect.value === "emission" ? "flex" : "none";
+    const isArea = targetTypeSelect.value === "emission" || targetTypeSelect.value === "zone";
+    emissionPanel.style.display = isArea ? "flex" : "none";
+    root.querySelector(".se-zone-rounds-field").style.display = targetTypeSelect.value === "zone" ? "flex" : "none";
   }
   function applyAreaShape() {
     angleField.style.display = areaShapeSelect.value === "cone" ? "flex" : "none";
@@ -567,7 +576,7 @@ function readSkillEditorForm(root, lockTier) {
   const resistChecked = root.querySelector('[name="resistTarget"]:checked');
   const hasRange = effectType !== "none";
   const targetType = hasRange ? root.querySelector('[name="targetType"]').value : "targeted";
-  const isEmission = hasRange && targetType === "emission";
+  const isEmission = hasRange && (targetType === "emission" || targetType === "zone");
   const hasUpkeep = root.querySelector('[name="hasUpkeep"]').checked;
   const scalingAttribute = root.querySelector('[name="scalingAttribute"]')?.value ?? "";
 
@@ -586,6 +595,7 @@ function readSkillEditorForm(root, lockTier) {
     areaShape: isEmission ? root.querySelector('[name="areaShape"]').value : "",
     areaDistance: isEmission ? Number(root.querySelector('[name="areaDistance"]').value) || 0 : 0,
     areaAngle: isEmission ? Number(root.querySelector('[name="areaAngle"]').value) || 53 : 53,
+    zoneRounds: targetType === "zone" ? Math.max(1, Number(root.querySelector('[name="zoneRounds"]').value) || 3) : 3,
     damageFormula: effectType === "damage" ? root.querySelector('[name="damageFormula"]').value.trim() : "",
     scalingAttribute: effectType === "damage" ? scalingAttribute : "",
     isMagicDamage: effectType === "damage" && root.querySelector('[name="isMagicDamage"]').checked,

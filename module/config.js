@@ -531,10 +531,11 @@ export const MEU_SISTEMA = {
   },
 
   /** Ver module/area-effects.js. */
-  SKILL_TARGET_TYPES: ["targeted", "emission"],
+  SKILL_TARGET_TYPES: ["targeted", "self", "emission"],
 
   SKILL_TARGET_TYPE_LABELS: {
     targeted: "Targetada (escolhe 1 Ator)",
+    self: "Si mesmo (sem escolher alvo)",
     emission: "Emissão (posiciona uma área no canvas)"
   },
 

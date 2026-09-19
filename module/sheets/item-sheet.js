@@ -8,7 +8,12 @@ import {
   getStarshipEnergyAbbr,
   isResistancesEnabled,
   getVisibleAttributes,
+  getAttributeLabel,
   getEffectTargetLabels,
+  getActiveStatusConditions,
+  getCharacterEnergyLabel,
+  isStatusConditionsEnabled,
+  isAreaEffectsEnabled,
   debugLog
 } from "../config.js";
 import { createGrantedSkill, removeGrantedSkill, evolveSkill } from "../skill-economy.js";
@@ -28,12 +33,13 @@ const { ItemSheetV2 } = foundry.applications.sheets;
  * default (grava direto no Item) — se algum campo parar de salvar sozinho ao editar, esse é
  * o primeiro lugar a olhar.
  *
- * Skill é a exceção: Tier/Nível/Custo/Resistência/Mecânica ao Usar (Dano/Efeito Temporário)
- * NÃO são campos inline aqui — ficam atrás do botão "Editar Skill", que abre o mesmo
- * `openSkillEditorDialog` usado pra criar uma Skill Racial (species-config.js) e pra
- * "+ Nova Habilidade (direto)" (actor-sheet.js). Um só editor, usado nos três lugares onde
- * uma Skill é criada/tem sua mecânica definida — só Sub-Skills/linhagem de fusão/Descrição
- * rica (que o modal nunca cobriu) continuam editadas direto aqui na ficha.
+ * Skill: TODOS os campos (Tier/Nível/Custo/Ativa/Descrição/Resistência/Mecânica ao Usar/
+ * Alcance/Efeitos) são editados inline na aba Detalhes — não existe segunda camada de edição.
+ * `openSkillEditorDialog` só sobrevive como formulário de CRIAÇÃO (Skill Racial em
+ * species-config.js, "+ Nova Habilidade (direto)" em actor-sheet.js) e de Evolução. Os
+ * Efeitos (`system.effects[]`) não usam `name=` de formulário: um array submetido por linhas
+ * parciais perderia os campos que a linha não renderiza (ícone, elementos), então cada
+ * controle é gravado por `_onSkillEffectFieldChange`, que reescreve só o campo tocado.
  */
 export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   static DEFAULT_OPTIONS = {
@@ -43,7 +49,10 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     actions: {
       addSubSkill: NihilityItemSheet.#onSubSkillAdd,
       deleteSubSkill: NihilityItemSheet.#onSubSkillDelete,
-      openSkillEditor: NihilityItemSheet.#onOpenSkillEditor,
+      addSkillEffect: NihilityItemSheet.#onSkillEffectAdd,
+      deleteSkillEffect: NihilityItemSheet.#onSkillEffectDelete,
+      toggleSkillElement: NihilityItemSheet.#onSkillElementToggle,
+      toggleEffectElement: NihilityItemSheet.#onEffectElementToggle,
       evolveSkill: NihilityItemSheet.#onEvolveSkill,
       addInstalledMod: NihilityItemSheet.#onInstalledModAdd,
       deleteInstalledMod: NihilityItemSheet.#onInstalledModDelete,
@@ -71,9 +80,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     // ApplicationV2 não herda o mixin de abas do AppV1 — mesmo padrão manual já usado em
     // NihilityMenuApp (activeTab + ação "selectTab"), em vez de depender da config de
     // tabs nova (ainda não validada neste sistema).
-    // Skill não tem a aba "Descrição" (esse campo agora só é editado dentro do modal
-    // "Editar Skill", num <prose-mirror> — ter os dois ao mesmo tempo seria uma segunda
-    // fonte de verdade pro mesmo campo).
+    // Skill não tem a aba "Descrição": o <prose-mirror> dela mora dentro de Detalhes.
     this.activeTab = this.item?.type === "skill" ? "details" : "description";
   }
 
@@ -126,31 +133,91 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     if (this.item.type === "skill") {
       const sys = this.item.system;
 
-      // Tier/Nível/Custo/Resistência/Mecânica não são mais campos inline — só um resumo
-      // read-only + o botão "Editar Skill" (abre openSkillEditorDialog, o mesmo editor usado
-      // em toda parte onde uma Skill é criada). O resumo ainda precisa de tudo isso pronto:
       const owner = this.item.parent;
       const hasUltimate = owner?.system?.hasUltimateSkill ?? sys.tier === "ultimate";
       const ultimateVisible = hasUltimate || game.user.isGM;
       context.visibleSkillTiers = MEU_SISTEMA.SKILL_TIERS.filter(t => t !== "ultimate" || ultimateVisible);
 
-      if (sys.effectType === "damage") {
-        const elementLabels = (sys.damageElements ?? [])
-          .map(id => getActiveDamageElements().find(el => el.id === id)?.label)
-          .filter(Boolean);
-        context.skillMechanicSummary =
-          `Dano: ${sys.damageFormula || "(sem fórmula)"}` +
-          (sys.isMagicDamage ? " · Mágico" : "") +
-          (elementLabels.length ? ` · ${elementLabels.join("+")}` : "");
-      } else if (sys.effectType === "temporary") {
-        const count = (sys.effects ?? []).length;
-        context.skillMechanicSummary = `Efeito Temporário: ${count} efeito${count === 1 ? "" : "s"}`;
-      } else {
-        context.skillMechanicSummary = "Descritiva (sem mecânica)";
-      }
-      if (sys.hasUpkeep) {
-        context.skillMechanicSummary += ` · Ativa (${sys.upkeepCost}/rodada${sys.active ? ", ligada agora" : ""})`;
-      }
+      const pick = (list, current) => list.map(([value, label]) => ({ value, label, selected: value === current }));
+      const elements = getActiveDamageElements();
+      const visibleAttrs = context.visibleAttributes;
+
+      context.energyLabel = getCharacterEnergyLabel();
+      context.isRacialSkill = sys.tier === "racial";
+      context.skillTierOptions = pick(
+        context.visibleSkillTiers.filter(t => t !== "racial").map(t => [t, MEU_SISTEMA.SKILL_TIER_LABELS[t]]),
+        sys.tier
+      );
+      context.skillEffectTypeOptions = pick(
+        MEU_SISTEMA.SKILL_EFFECT_TYPES.map(t => [t, MEU_SISTEMA.SKILL_EFFECT_TYPE_LABELS[t]]),
+        sys.effectType
+      );
+      context.skillTargetTypeOptions = pick(
+        MEU_SISTEMA.SKILL_TARGET_TYPES.filter(t => isAreaEffectsEnabled() || t !== "emission" || sys.targetType === t)
+          .map(t => [t, MEU_SISTEMA.SKILL_TARGET_TYPE_LABELS[t]]),
+        sys.targetType
+      );
+      context.skillAreaShapeOptions = pick(
+        MEU_SISTEMA.SKILL_AREA_SHAPES.map(s => [s, MEU_SISTEMA.SKILL_AREA_SHAPE_LABELS[s]]),
+        sys.areaShape
+      );
+      // Atributo escondido pela campanha continua listado se a Skill JÁ escala por ele.
+      context.skillScalingOptions = pick(
+        [["", "— sem escala —"]]
+          .concat(visibleAttrs.map(a => [a.key, a.label]))
+          .concat(
+            sys.scalingAttribute && !visibleAttrs.some(a => a.key === sys.scalingAttribute)
+              ? [[sys.scalingAttribute, `${getAttributeLabel(sys.scalingAttribute)} (oculto)`]]
+              : []
+          ),
+        sys.scalingAttribute ?? ""
+      );
+      context.skillResistanceOptions = pick(
+        [["", "— nenhuma —"]].concat(resistanceTargets.map(o => [o.value, o.label])),
+        sys.resistanceTarget ?? ""
+      );
+      context.skillElementChips = elements.map(el => ({
+        id: el.id, label: el.label, color: el.color, checked: (sys.damageElements ?? []).includes(el.id)
+      }));
+
+      // Efeitos Temporários: uma linha pronta por entrada (opções já com `selected`, pra o
+      // template não depender da profundidade de {{#each}} aninhado).
+      const targetLabels = getEffectTargetLabels();
+      const hiddenAttrs = new Set(MEU_SISTEMA.COMBAT_ATTRIBUTES.filter(k => !visibleAttrs.some(a => a.key === k)));
+      context.conditionsEnabled = isStatusConditionsEnabled();
+      const conditions = getActiveStatusConditions();
+      context.skillEffects = (sys.effects ?? []).map((entry, index) => {
+        const acceptsPeriodic = entry.target === "hp" || entry.target === "energy";
+        const entryElements = entry.damageElements ?? [];
+        return {
+          index,
+          amount: entry.amount,
+          durationRounds: entry.durationRounds,
+          icon: entry.icon ?? "",
+          periodic: acceptsPeriodic && Boolean(entry.periodic),
+          acceptsPeriodic,
+          isShipTarget: MEU_SISTEMA.SHIP_EFFECT_TARGETS.includes(entry.target),
+          targetOptions: pick(
+            MEU_SISTEMA.EFFECT_TARGETS.filter(t => !hiddenAttrs.has(t) || t === entry.target).map(t => [t, targetLabels[t]]),
+            entry.target
+          ),
+          conditionOptions: pick(
+            [["", "— sem Condição —"]].concat(conditions.map(c => [c.id, c.label])),
+            entry.conditionId ?? ""
+          ),
+          tickUnitOptions: pick(
+            MEU_SISTEMA.PERIODIC_TICK_UNITS.map(u => [u, MEU_SISTEMA.PERIODIC_TICK_UNIT_LABELS[u]]),
+            entry.tickUnit
+          ),
+          modifierTypeOptions: pick(
+            MEU_SISTEMA.EFFECT_MODIFIER_TYPES.map(m => [m, MEU_SISTEMA.EFFECT_MODIFIER_TYPE_LABELS[m]]),
+            entry.modifierType || "flat"
+          ),
+          elementChips: elements.map(el => ({
+            id: el.id, label: el.label, color: el.color, checked: entryElements.includes(el.id)
+          }))
+        };
+      });
 
       const resistanceTarget = sys.resistanceTarget ?? "";
       context.isResistanceSkill = resistanceTarget !== "";
@@ -204,6 +271,10 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       checkbox.addEventListener("change", this._onEquipToggle.bind(this));
     });
 
+    this.element.querySelectorAll(".skill-effect-input").forEach(input => {
+      input.addEventListener("change", this._onSkillEffectFieldChange.bind(this));
+    });
+
     if (this.item.type === "starship_module") {
       const presetChange = this._onModulePresetChange.bind(this);
       this.element.querySelector('[name="system.category"]')?.addEventListener("change", presetChange);
@@ -239,77 +310,86 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     await this.item.update(updates);
   }
 
+  /* -------------------------------------------- */
+  /*  Efeitos Temporários da Skill (edição inline) */
+  /* -------------------------------------------- */
+
+  /** Cópia editável de `system.effects` (objetos simples, nunca o Data Model vivo). */
+  #cloneEffects() {
+    return foundry.utils.deepClone(this.item.toObject().system.effects ?? []);
+  }
+
   /**
-   * Abre o editor único de Skill (mesmo modal usado pra Skills Raciais e "+ Nova Habilidade
-   * (direto)") pré-preenchido com os dados atuais do Item, e aplica o resultado de volta nele.
-   * Tier trava em "Racial" se já for Racial (nunca escolhido à mão); Nível trava pro jogador
-   * (só o Mestre sobe nível — mesma regra do botão de Level Up, que continua fora do modal).
-   * Sub-Skills/Linhagem de Fusão/"Evoluiu de" vão junto só pra exibição (o modal nunca deixa
-   * editá-los) — por isso não entram nem são lidos de volta em `updates`.
+   * Grava UM campo de UMA linha de Efeito. Alvo que não aceita Periódico desliga o Periódico e
+   * alvo que não é "de Nave" volta o modificador pra "flat" — o mesmo saneamento que o antigo
+   * modal fazia ao trocar o Alvo.
    */
-  static async #onOpenSkillEditor(event, target) {
+  async _onSkillEffectFieldChange(event) {
+    event.stopPropagation();
+    const input = event.currentTarget;
+    const index = Number(input.closest("[data-index]").dataset.index);
+    const effects = this.#cloneEffects();
+    const entry = effects[index];
+    if (!entry) return;
+
+    const field = input.dataset.effectField;
+    if (input.type === "checkbox") entry[field] = input.checked;
+    else if (input.type === "number") entry[field] = Number(input.value) || 0;
+    else entry[field] = input.value.trim();
+
+    if (field === "target") {
+      if (entry.target !== "hp" && entry.target !== "energy") entry.periodic = false;
+      if (!MEU_SISTEMA.SHIP_EFFECT_TARGETS.includes(entry.target)) entry.modifierType = "flat";
+    }
+    await this.item.update({ "system.effects": effects });
+  }
+
+  static async #onSkillEffectAdd(event, target) {
     event.preventDefault();
-    const sys = this.item.system;
-    const isRacial = sys.tier === "racial";
-    const owner = this.item.parent;
-    const hasUltimate = owner?.system?.hasUltimateSkill ?? isRacial;
-    const ultimateVisible = hasUltimate || game.user.isGM;
-    const tierChoices = MEU_SISTEMA.SKILL_TIERS.filter(t => t !== "racial" && (t !== "ultimate" || ultimateVisible));
+    const effects = this.#cloneEffects();
+    effects.push({
+      target: MEU_SISTEMA.EFFECT_TARGETS[0],
+      amount: 1,
+      modifierType: "flat",
+      durationRounds: 1,
+      conditionId: "",
+      icon: "",
+      periodic: false,
+      tickUnit: "combatRound",
+      damageElements: []
+    });
+    await this.item.update({ "system.effects": effects });
+  }
 
-    const result = await openSkillEditorDialog(
-      {
-        name: this.item.name,
-        tier: sys.tier,
-        level: sys.level,
-        cost: sys.cost,
-        hasUpkeep: sys.hasUpkeep,
-        upkeepCost: sys.upkeepCost,
-        animationPath: sys.animationPath,
-        description: sys.description,
-        resistanceTarget: sys.resistanceTarget,
-        effectType: sys.effectType,
-        damageFormula: sys.damageFormula,
-        scalingAttribute: sys.scalingAttribute,
-        isMagicDamage: sys.isMagicDamage,
-        damageElements: sys.damageElements,
-        effects: sys.effects,
-        targetType: sys.targetType,
-        areaShape: sys.areaShape,
-        areaDistance: sys.areaDistance,
-        areaAngle: sys.areaAngle,
-        subSkills: sys.subSkills,
-        fusionSources: sys.fusionSources,
-        evolvedFrom: sys.evolvedFrom
-      },
-      { lockTier: isRacial ? "racial" : null, tierChoices, levelReadonly: !game.user.isGM }
-    );
-    if (!result) return;
+  static async #onSkillEffectDelete(event, target) {
+    event.preventDefault();
+    const index = Number(target.closest("[data-index]").dataset.index);
+    const effects = this.#cloneEffects();
+    effects.splice(index, 1);
+    await this.item.update({ "system.effects": effects });
+  }
 
-    const updates = {
-      name: result.name,
-      "system.cost": result.cost,
-      "system.hasUpkeep": result.hasUpkeep,
-      "system.upkeepCost": result.upkeepCost,
-      "system.animationPath": result.animationPath,
-      // Desligar "Habilidade Ativa" no editor não pode deixar uma skill presa em `active:true`
-      // sem mais nenhum jeito de desativar (o botão "Usar" só sabe alternar quando hasUpkeep é true).
-      "system.active": result.hasUpkeep ? this.item.system.active : false,
-      "system.description": result.description,
-      "system.resistanceTarget": result.resistanceTarget,
-      "system.effectType": result.effectType,
-      "system.damageFormula": result.damageFormula,
-      "system.scalingAttribute": result.scalingAttribute,
-      "system.isMagicDamage": result.isMagicDamage,
-      "system.damageElements": result.damageElements,
-      "system.effects": result.effects,
-      "system.targetType": result.targetType,
-      "system.areaShape": result.areaShape,
-      "system.areaDistance": result.areaDistance,
-      "system.areaAngle": result.areaAngle
-    };
-    if (!isRacial) updates["system.tier"] = result.tier;
-    if (game.user.isGM) updates["system.level"] = result.level;
-    await this.item.update(updates);
+  /** Liga/desliga um Elemento no dano da Skill (chips não são campos de formulário). */
+  static async #onSkillElementToggle(event, target) {
+    event.preventDefault();
+    const elements = new Set(this.item.system.damageElements ?? []);
+    const id = target.dataset.element;
+    if (!elements.delete(id)) elements.add(id);
+    await this.item.update({ "system.damageElements": [...elements] });
+  }
+
+  /** Liga/desliga um Elemento no tick de dano de uma linha de Efeito Periódico. */
+  static async #onEffectElementToggle(event, target) {
+    event.preventDefault();
+    const index = Number(target.closest("[data-index]").dataset.index);
+    const effects = this.#cloneEffects();
+    const entry = effects[index];
+    if (!entry) return;
+    const elements = new Set(entry.damageElements ?? []);
+    const id = target.dataset.element;
+    if (!elements.delete(id)) elements.add(id);
+    entry.damageElements = [...elements];
+    await this.item.update({ "system.effects": effects });
   }
 
   /**

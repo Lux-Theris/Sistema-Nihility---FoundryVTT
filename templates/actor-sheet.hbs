@@ -184,7 +184,7 @@
               </li>
               {{/each}}
             </ol>
-            <a class="item-create" data-action="createItem" data-type="title">+ Novo Título</a>
+            {{#if isGM}}<a class="item-create" data-action="createItem" data-type="title">+ Novo Título</a>{{/if}}
           </div>
           {{/if}}
         </div>
@@ -223,6 +223,12 @@
                   <button type="button" class="sp-break" data-action="breakSkillPoints" title="Quebrar 1 em 3 do tier abaixo">▼</button>
                   <button type="button" class="sp-merge" data-action="mergeSkillPoints" title="Fundir 3 em 1 do tier acima">▲</button>
                 </div>
+                {{#if ../isGM}}
+                <div class="sp-actions sp-gm-actions">
+                  <button type="button" data-action="adjustSkillPoints" data-delta="-1" title="Mestre: tirar 1 ponto">−</button>
+                  <button type="button" data-action="adjustSkillPoints" data-delta="1" title="Mestre: dar 1 ponto">+</button>
+                </div>
+                {{/if}}
               </div>
               {{/each}}
             </div>
@@ -286,7 +292,7 @@
               </li>
               {{/each}}
             </ol>
-            <a class="item-create" data-action="createItem" data-type="item">+ Novo Item</a>
+            {{#if isGM}}<a class="item-create" data-action="createItem" data-type="item">+ Novo Item</a>{{/if}}
           </div>
 
           {{#if economyEnabled}}

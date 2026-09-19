@@ -102,6 +102,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       resetAttributePoints: NihilityActorSheet.#onResetAttributePoints,
       breakSkillPoints: NihilityActorSheet.#onBreakSkillPoints,
       mergeSkillPoints: NihilityActorSheet.#onMergeSkillPoints,
+      adjustSkillPoints: NihilityActorSheet.#onAdjustSkillPoints,
       convertCurrency: NihilityActorSheet.#onConvertCurrency,
       sendCurrency: NihilityActorSheet.#onSendCurrency,
       levelUpActor: NihilityActorSheet.#onLevelUpActor,
@@ -394,7 +395,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         damageElements: Array.isArray(s.damageElements) ? s.damageElements : [],
         effects: Array.isArray(s.effects) ? s.effects : [],
         resistanceTarget: s.resistanceTarget || "",
-        targetType: s.targetType === "emission" ? "emission" : "targeted",
+        targetType: MEU_SISTEMA.SKILL_TARGET_TYPES.includes(s.targetType) ? s.targetType : "targeted",
         areaShape: s.areaShape || "",
         areaDistance: Number(s.areaDistance) || 0,
         areaAngle: Number(s.areaAngle) || 53
@@ -634,6 +635,16 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     }
   }
 
+  /** Mestre dá (+1) ou tira (−1) um Ponto de Habilidade do tier, sem passar pela economia de quebra/fusão. */
+  static async #onAdjustSkillPoints(event, target) {
+    event.preventDefault();
+    if (!game.user.isGM) return;
+    const tier = target.closest("[data-tier]").dataset.tier;
+    const delta = Number(target.dataset.delta) || 0;
+    const current = this.actor.system.skillPoints[tier] ?? 0;
+    await this.actor.update({ [`system.skillPoints.${tier}`]: Math.max(0, current + delta) });
+  }
+
   /** Jogador pede pra criar uma skill gastando 1 Ponto de Habilidade — precisa de aprovação do Mestre. */
   static async #onRequestSkillCreation(event, target) {
     event.preventDefault();
@@ -764,9 +775,11 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     event.preventDefault();
     const type = target.dataset.type;
     if (!CREATABLE_ITEM_TYPES.includes(type)) return;
+    // Título e Item só o Mestre cria (o botão some da ficha do jogador; isto fecha a porta dos fundos).
+    if ((type === "title" || type === "item") && !game.user.isGM) return;
 
     // Skill é o único tipo criado através do editor único (mesmo modal usado por Skills
-    // Raciais em species-config.js e pelo botão "Editar Skill" na ficha de Item) — os
+    // Raciais em species-config.js e pela ficha de Item (que agora edita tudo inline)) — os
     // outros tipos continuam nascendo em branco e abrindo a própria ficha pra preencher.
     if (type === "skill") {
       const hasUltimate = this.actor.system.hasUltimateSkill;
@@ -896,6 +909,9 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         }
         const targetActors = await pickAreaTargets({ system: mech });
         await useSkillEffect(this.actor, itemId, { targetActors, subSkillIndex });
+      } else if (mech.targetType === "self") {
+        // "Si mesmo": sem diálogo de alvo — a Skill age sobre quem a usa.
+        await useSkillEffect(this.actor, itemId, { targetActor: this.actor, subSkillIndex });
       } else {
         // Todo dano pode ser reduzido (Defesa Mágica, e/ou Resistência Geral/Elemental do
         // alvo — inclusive dano puramente físico, se o alvo tiver Resistência Física) — então

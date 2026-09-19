@@ -297,7 +297,7 @@ export async function breakSkillPoints(actor, tier) {
   await actor.update({
     [`system.skillPoints.${tier}`]: current - 1,
     [`system.skillPoints.${lowerTier}`]:
-      (actor.system.skillPoints[lowerTier] ?? 0) + MEU_SISTEMA.MEU_SISTEMA.SKILL_POINT_CONVERSION_RATE
+      (actor.system.skillPoints[lowerTier] ?? 0) + MEU_SISTEMA.SKILL_POINT_CONVERSION_RATE
   });
 }
 

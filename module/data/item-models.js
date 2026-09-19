@@ -160,7 +160,7 @@ function subSkillSchema() {
     isMagicDamage: new fields.BooleanField({ required: false, initial: false }),
     damageElements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
     effects: new fields.ArrayField(effectEntrySchema(), { required: false, initial: [] }),
-    targetType: new fields.StringField({ required: false, initial: "targeted", choices: ["targeted", "emission"] }),
+    targetType: new fields.StringField({ required: false, initial: "targeted", choices: ["targeted", "self", "emission"] }),
     // `blank: true` é obrigatório aqui: um StringField com `choices` some com o `blank: true`
     // implícito que todo StringField normal tem — sem isso, o próprio "" inicial falha a
     // validação ("may not be a blank string") assim que o campo não é setado explicitamente.
@@ -284,7 +284,7 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
       targetType: new fields.StringField({
         required: true,
         initial: "targeted",
-        choices: ["targeted", "emission"]
+        choices: ["targeted", "self", "emission"]
       }),
 
       /** Só relevante quando targetType === "emission". "" = ainda não configurada. */
@@ -301,6 +301,12 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
 
       /** Modificador PERMANENTE de HP/Mana, sempre ativo enquanto a skill estiver na ficha. */
       statModifiers: statModifiersSchema(),
+
+      /**
+       * Bônus/penalidade PERMANENTE de Atributo (Passiva sem ativar): mesma regra dos Itens
+       * equipados — soma por fora na rolagem (`itemBonus`), nunca entra em HP/Mana.
+       */
+      attributeBonuses: attributeBonusesSchema(),
 
       /**
        * "" = não é Skill de Resistência (a maioria das skills). "general" = reduz qualquer

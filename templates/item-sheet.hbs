@@ -25,40 +25,208 @@
     <div class="tab {{#unless (eq activeTab "details")}}hidden{{/unless}}">
 
       {{#if (eq itemType "skill")}}
-      <div class="skill-summary-card">
-        <div class="skill-summary-row">
-          <span class="skill-summary-tier tier-{{system.tier}}">{{lookup config.SKILL_TIER_LABELS system.tier}}</span>
-          <span class="skill-summary-level">
-            Nível {{system.level}}
-            {{#if isGM}}<button type="button" class="level-up-button" data-action="levelUpSkill" title="Level Up (Voz do Mundo avisa)">+</button>{{/if}}
-          </span>
-          <span class="skill-summary-cost">Custo {{system.cost}}</span>
-        </div>
-        <p class="skill-summary-mechanic">{{skillMechanicSummary}}</p>
-        {{#if isResistanceSkill}}
-        <p class="skill-summary-resist">{{skillResistanceSummary}}</p>
+      {{#if system.isItemGranted}}
+      <p class="hint-inline">⚙ Concedida automaticamente por um Item/Módulo — não pode ser fundida, e some se a fonte for desequipada/removida.</p>
+      {{/if}}
+      {{#if system.evolvedFrom}}
+      <p class="skill-summary-resist">Evoluiu de: {{system.evolvedFrom}}</p>
+      {{/if}}
+
+      <div class="skill-summary-row">
+        {{#if isRacialSkill}}
+        <span class="skill-summary-tier tier-racial" title="Tier travado: Racial">🔒 {{lookup config.SKILL_TIER_LABELS system.tier}}</span>
+        {{else}}
+        <label>Tier
+          <select name="system.tier">
+            {{#each skillTierOptions as |opt|}}
+            <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+            {{/each}}
+          </select>
+        </label>
         {{/if}}
-        {{#if system.subSkills.length}}
-        <p class="skill-summary-resist">Fusão: {{system.subSkills.length}} componente(s) — ver Sub-Skills em "Editar Skill"</p>
+        {{#if isGM}}<button type="button" class="level-up-button" data-action="levelUpSkill" title="Level Up (Voz do Mundo avisa)">+ Nível</button>{{/if}}
+        {{#if item.parent}}
+        <button type="button" class="skill-evolve-button" data-action="evolveSkill" title="Vira uma Skill nova, mantém só o registro histórico"><i class="fas fa-level-up-alt"></i> Evoluir</button>
         {{/if}}
-        {{#if system.evolvedFrom}}
-        <p class="skill-summary-resist">Evoluiu de: {{system.evolvedFrom}}</p>
-        {{/if}}
-        <div class="skill-summary-actions">
-          <button type="button" class="skill-edit-button" data-action="openSkillEditor"><i class="fas fa-edit"></i> Editar Skill</button>
-          {{#if item.parent}}
-          <button type="button" class="skill-evolve-button" data-action="evolveSkill" title="Vira uma Skill nova, mantém só o registro histórico"><i class="fas fa-level-up-alt"></i> Evoluir</button>
-          {{/if}}
-        </div>
       </div>
       {{#unless (eq system.tier "ultimate")}}
       <p class="hint-inline">"Ultimate" só aparece pro jogador se o Ator já possuir uma Skill Ultimate — o Mestre sempre vê essa opção.</p>
       {{/unless}}
 
-      <label>Gatilho Emocional <input type="text" name="system.emotionTrigger" value="{{system.emotionTrigger}}"/></label>
-      {{#if system.isItemGranted}}
-      <p class="hint-inline">⚙ Concedida automaticamente por um Item/Módulo — não pode ser fundida, e some se a fonte for desequipada/removida.</p>
+      <label>Nível <input type="number" name="system.level" value="{{system.level}}" min="1" {{#unless isGM}}readonly{{/unless}}/></label>
+      <label>Custo de {{energyLabel}} <input type="number" name="system.cost" value="{{system.cost}}" min="0"/></label>
+
+      <label class="checkbox-line"><input type="checkbox" name="system.hasUpkeep" {{#if system.hasUpkeep}}checked{{/if}}/> Habilidade Ativa</label>
+      {{#if system.hasUpkeep}}
+      <label>Custo de {{energyLabel}} por Rodada <input type="number" name="system.upkeepCost" value="{{system.upkeepCost}}" min="0"/></label>
       {{/if}}
+
+      <label>Animação <input type="text" name="system.animationPath" value="{{system.animationPath}}" placeholder="modules/jb2a_patreon/Library/.../explosion.webm"/></label>
+
+      <h3>Descrição</h3>
+      {{#if owner}}
+      <prose-mirror name="system.description" value="{{system.description}}"></prose-mirror>
+      {{else}}
+      <div class="rich-text-readonly">{{{system.description}}}</div>
+      {{/if}}
+
+      <label>Gatilho Emocional <input type="text" name="system.emotionTrigger" value="{{system.emotionTrigger}}"/></label>
+
+      {{#if resistancesEnabled}}
+      <h3>Resistência/Imunidade passiva <span class="hint-inline">(independente da Mecânica ao Usar abaixo — pode ter as duas)</span></h3>
+      <label>Alvo
+        <select name="system.resistanceTarget">
+          {{#each skillResistanceOptions as |opt|}}
+          <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+          {{/each}}
+        </select>
+      </label>
+      {{#if isResistanceSkill}}
+      <p class="skill-summary-resist">{{skillResistanceSummary}}</p>
+      {{/if}}
+      {{/if}}
+
+      <h3>Mecânica ao Usar</h3>
+      <label>Tipo
+        <select name="system.effectType">
+          {{#each skillEffectTypeOptions as |opt|}}
+          <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+          {{/each}}
+        </select>
+      </label>
+
+      {{#unless (eq system.effectType "none")}}
+      <label>Tipo de Alvo
+        <select name="system.targetType">
+          {{#each skillTargetTypeOptions as |opt|}}
+          <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+          {{/each}}
+        </select>
+      </label>
+
+      {{#if (eq system.targetType "emission")}}
+      <label>Formato de Área
+        <select name="system.areaShape">
+          {{#each skillAreaShapeOptions as |opt|}}
+          <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+          {{/each}}
+        </select>
+      </label>
+      <label>Distância <span class="hint-inline">(raio do Círculo ou distância do Cone/Linha, em unidades de grid)</span>
+        <input type="number" name="system.areaDistance" value="{{system.areaDistance}}" min="0"/>
+      </label>
+      {{#if (eq system.areaShape "cone")}}
+      <label>Ângulo <span class="hint-inline">(graus)</span>
+        <input type="number" name="system.areaAngle" value="{{system.areaAngle}}" min="1" max="360"/>
+      </label>
+      {{/if}}
+      {{/if}}
+      {{/unless}}
+
+      {{#if (eq system.effectType "damage")}}
+      <label>Fórmula de Dano <input type="text" name="system.damageFormula" value="{{system.damageFormula}}" placeholder="2d6+3"/></label>
+      <label>Atributo de Escala
+        <select name="system.scalingAttribute">
+          {{#each skillScalingOptions as |opt|}}
+          <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+          {{/each}}
+        </select>
+        <span class="hint-inline">Multiplica o dano por (Atributo.Total)² ÷ divisor. Sem escala, a fórmula vale como escrita.</span>
+      </label>
+      <label class="checkbox-line"><input type="checkbox" name="system.isMagicDamage" {{#if system.isMagicDamage}}checked{{/if}}/> Dano Mágico</label>
+      <div class="field-hint-label">Elemento(s)</div>
+      <div class="element-grid">
+        {{#each skillElementChips as |el|}}
+        <a class="element-chip {{#if el.checked}}checked{{/if}}" data-action="toggleSkillElement" data-element="{{el.id}}"><span class="dot" style="background:{{el.color}}"></span>{{el.label}}</a>
+        {{else}}
+        <span class="hint-inline">Nenhum elemento configurado.</span>
+        {{/each}}
+      </div>
+      {{/if}}
+
+      {{#if (eq system.effectType "temporary")}}
+      <h4>Efeitos <span class="hint-inline">(pode combinar quantos alvos quiser)</span></h4>
+      {{#if system.hasUpkeep}}
+      <p class="hint-inline">Habilidade Ativa marcada: todo Efeito abaixo dura até desativar em vez da "Duração" configurada — Periódico continua tickando normalmente, só não conta pra expirar sozinho.</p>
+      {{/if}}
+      <ol class="sub-list">
+        {{#each skillEffects as |eff|}}
+        <li class="effect-row" data-index="{{eff.index}}">
+          <div class="effect-row-main">
+            <select class="skill-effect-input" data-effect-field="target" title="Alvo">
+              {{#each eff.targetOptions as |opt|}}
+              <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+              {{/each}}
+            </select>
+            <input type="number" class="skill-effect-input" data-effect-field="amount" value="{{eff.amount}}" placeholder="Qtd." title="Quantidade"/>
+            <input type="number" class="skill-effect-input" data-effect-field="durationRounds" value="{{eff.durationRounds}}" min="0" placeholder="Rounds/Ticks" title="Duração (rounds, ou ticks se Periódico)"/>
+            <a data-action="deleteSkillEffect" title="Remover"><i class="fas fa-trash"></i></a>
+          </div>
+          <div class="effect-row-extra">
+            {{#if ../conditionsEnabled}}
+            <select class="skill-effect-input" data-effect-field="conditionId" title="Condição nomeada (ícone de status no token — opcional)">
+              {{#each eff.conditionOptions as |opt|}}
+              <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+              {{/each}}
+            </select>
+            <input type="text" class="skill-effect-input" data-effect-field="icon" value="{{eff.icon}}" placeholder="herdar ícone" title="Em branco herda o da Condição (e, sem Condição, o da própria Skill)."/>
+            {{/if}}
+            {{#if eff.acceptsPeriodic}}
+            <label class="checkbox-line small"><input type="checkbox" class="skill-effect-input" data-effect-field="periodic" {{#if eff.periodic}}checked{{/if}}/> Periódico</label>
+            {{#if eff.periodic}}
+            <select class="skill-effect-input" data-effect-field="tickUnit" title="Unidade de tick">
+              {{#each eff.tickUnitOptions as |opt|}}
+              <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+              {{/each}}
+            </select>
+            {{/if}}
+            {{/if}}
+            {{#if eff.isShipTarget}}
+            <select class="skill-effect-input" data-effect-field="modifierType" title="Fixo soma direto no resultado; Multiplicador lê Quantidade como percentual (20 = ×1.20)">
+              {{#each eff.modifierTypeOptions as |opt|}}
+              <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+              {{/each}}
+            </select>
+            {{/if}}
+          </div>
+          {{#if eff.periodic}}
+          {{#if eff.acceptsPeriodic}}
+          <div class="effect-row-periodic-extra">
+            <span class="hint-inline">Elemento(s) do tick de dano (ignorado se o tick for cura):</span>
+            <div class="element-grid">
+              {{#each eff.elementChips as |el|}}
+              <a class="element-chip {{#if el.checked}}checked{{/if}}" data-action="toggleEffectElement" data-element="{{el.id}}"><span class="dot" style="background:{{el.color}}"></span>{{el.label}}</a>
+              {{/each}}
+            </div>
+          </div>
+          {{/if}}
+          {{/if}}
+        </li>
+        {{/each}}
+      </ol>
+      <a class="sub-skill-add" data-action="addSkillEffect">+ Efeito</a>
+      <p class="hint-inline">Quantidade negativa = debuff/drawback. Escudo ignora Duração (some só ao absorver dano). "Periódico" (só HP/{{energyLabel}}) aplica a Quantidade a CADA tick — Duração vira "quantos ticks". Reaplicar a MESMA Condição em quem já a tem apenas ESTENDE a duração.</p>
+      {{/if}}
+
+      <h4>Modificador Permanente <span class="hint-inline">(soma direto no HP/Mana Máximo enquanto a Skill estiver na ficha, sempre — sem duração)</span></h4>
+      <label>HP <input type="number" name="system.statModifiers.hp" value="{{system.statModifiers.hp}}"/></label>
+      <label>Mana/Energia <input type="number" name="system.statModifiers.energy" value="{{system.statModifiers.energy}}"/></label>
+
+      <h4>Bônus de Atributo Passivo <span class="hint-inline">(sempre ativo enquanto a Skill estiver na ficha, sem usar nem escolher alvo — negativo = penalidade; soma na rolagem, nunca no HP/Mana)</span></h4>
+      <ol class="sub-list">
+        {{#each system.attributeBonuses as |bonus index|}}
+        <li data-index="{{index}}" class="effect-row">
+          <select name="system.attributeBonuses.{{index}}.attribute">
+            {{#each ../visibleAttributes as |attr|}}
+            <option value="{{attr.key}}" {{#if (eq attr.key bonus.attribute)}}selected{{/if}}>{{attr.label}}</option>
+            {{/each}}
+          </select>
+          <input type="number" name="system.attributeBonuses.{{index}}.amount" value="{{bonus.amount}}"/>
+          <a data-action="deleteItemAttrBonus" title="Remover"><i class="fas fa-trash"></i></a>
+        </li>
+        {{/each}}
+      </ol>
+      <a class="item-attr-bonus-add" data-action="addItemAttrBonus">+ Bônus de Atributo</a>
 
       <h3>Sub-Skills</h3>
       <ol class="sub-list">
@@ -76,42 +244,6 @@
       <h3>Linhagem de Fusão</h3>
       <p>{{#each system.fusionSources}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</p>
       {{/if}}
-
-      <h3>Alcance <span class="hint-inline">(a mecânica em si — Dano/Efeito Temporário/Resistência — é editada em "Editar Skill", acima)</span></h3>
-      {{#if (eq system.effectType "none")}}
-      <p class="hint-inline">Mecânica atual é "Descritiva" — não há alcance pra configurar.</p>
-      {{/if}}
-      {{#unless (eq system.effectType "none")}}
-      <label>Tipo de Alvo
-        <select name="system.targetType">
-          {{#each config.SKILL_TARGET_TYPES as |t|}}
-          <option value="{{t}}" {{#if (eq t ../system.targetType)}}selected{{/if}}>{{lookup ../config.SKILL_TARGET_TYPE_LABELS t}}</option>
-          {{/each}}
-        </select>
-      </label>
-
-      {{#if (eq system.targetType "emission")}}
-      <label>Formato de Área
-        <select name="system.areaShape">
-          {{#each config.SKILL_AREA_SHAPES as |s|}}
-          <option value="{{s}}" {{#if (eq s ../system.areaShape)}}selected{{/if}}>{{lookup ../config.SKILL_AREA_SHAPE_LABELS s}}</option>
-          {{/each}}
-        </select>
-      </label>
-      <label>Distância <span class="hint-inline">(raio do Círculo ou distância do Cone/Linha, em unidades de grid)</span>
-        <input type="number" name="system.areaDistance" value="{{system.areaDistance}}" min="0"/>
-      </label>
-      {{#if (eq system.areaShape "cone")}}
-      <label>Ângulo <span class="hint-inline">(graus)</span>
-        <input type="number" name="system.areaAngle" value="{{system.areaAngle}}" min="1" max="360"/>
-      </label>
-      {{/if}}
-      {{/if}}
-      {{/unless}}
-
-      <h4>Modificador Permanente <span class="hint-inline">(soma direto no HP/Mana Máximo enquanto a Skill estiver na ficha, sempre — sem duração)</span></h4>
-      <label>HP <input type="number" name="system.statModifiers.hp" value="{{system.statModifiers.hp}}"/></label>
-      <label>Mana/Energia <input type="number" name="system.statModifiers.energy" value="{{system.statModifiers.energy}}"/></label>
       {{/if}}
 
       {{#if (eq itemType "body_part")}}

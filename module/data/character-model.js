@@ -128,7 +128,11 @@ function sumTitleBonuses(actor, target) {
 function sumItemAttributeBonus(actor, key) {
   let sum = 0;
   for (const item of actor.items) {
-    if (item.type === "item" && item.system.equipped) {
+    if (item.type === "skill") {
+      for (const entry of item.system.attributeBonuses ?? []) {
+        if (entry.attribute === key) sum += Number(entry.amount) || 0;
+      }
+    } else if (item.type === "item" && item.system.equipped) {
       for (const entry of item.system.attributeBonuses ?? []) {
         if (entry.attribute === key) sum += Number(entry.amount) || 0;
       }

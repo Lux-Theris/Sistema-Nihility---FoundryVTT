@@ -142,6 +142,19 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
   }
 
   /**
+   * @override
+   * O retrato só muda pelo FilePicker (`editImage`), nunca pelo envio do formulário. Se `img`
+   * chegar aqui, é eco do valor atual — e um retrato cujo caminho não tem extensão de arquivo
+   * válida (URL sem extensão, por exemplo) reprovava a validação e impedia salvar QUALQUER
+   * campo da ficha, inclusive o nome.
+   */
+  _prepareSubmitData(event, form, formData, updateData) {
+    const data = super._prepareSubmitData(event, form, formData, updateData);
+    delete data.img;
+    return data;
+  }
+
+  /**
    * Clique no retrato abre o FilePicker de imagem — no ApplicationV2 isso não é mais
    * automático só por causa do atributo `data-edit`; precisa de uma action de verdade.
    */

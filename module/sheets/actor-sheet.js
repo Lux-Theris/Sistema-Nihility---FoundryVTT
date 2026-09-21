@@ -149,6 +149,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
    * campo da ficha, inclusive o nome.
    */
   _prepareSubmitData(event, form, formData, updateData) {
+    // Tem que sair ANTES do super: é ele quem valida o diff inteiro contra o schema.
+    if (formData?.object) delete formData.object.img;
     const data = super._prepareSubmitData(event, form, formData, updateData);
     delete data.img;
     return data;

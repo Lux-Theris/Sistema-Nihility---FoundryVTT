@@ -723,6 +723,38 @@ async function rollSkillDamage(actor, mech, label, targetActor = null) {
 }
 
 /**
+ * Ataque com uma Arma (Item Geral com `system.weapon.enabled`). Reaproveita `rollSkillDamage`
+ * inteiro — Escala por Atributo, Defesa Mágica, Resistências, cascata de Nave e botões de Aplicar
+ * dano valem igual a uma Skill de dano — montando um `mech` sintético com os mesmos campos.
+ * `level: 1` fica de fora do ciclo Poder/Desconto (arma não sobe de nível), e nenhum Custo de
+ * Energia é cobrado. Só o alvo único é suportado: arma de área continua sendo uma Skill.
+ * @param {Actor} sourceActor
+ * @param {Item} weaponItem
+ * @param {Actor|null} targetActor
+ */
+export async function useWeaponAttack(sourceActor, weaponItem, targetActor = null) {
+  const weapon = weaponItem?.system?.weapon;
+  if (!weapon?.enabled) return null;
+  if (!weapon.damageFormula?.trim()) {
+    ui.notifications?.warn(`${weaponItem.name} não tem uma Fórmula de Dano configurada.`);
+    return null;
+  }
+
+  return rollSkillDamage(
+    sourceActor,
+    {
+      damageFormula: weapon.damageFormula,
+      scalingAttribute: weapon.scalingAttribute,
+      isMagicDamage: weapon.isMagicDamage,
+      damageElements: weapon.damageElements,
+      level: 1
+    },
+    weaponItem.name,
+    targetActor
+  );
+}
+
+/**
  * Versão em Emissão (área) de `rollSkillDamage`: rola o dano UMA VEZ (mesmo resultado bruto
  * pra todo mundo pego na área), mas cada Ator aplica sua própria redução em cima desse mesmo
  * total — tudo numa única mensagem de chat consolidada, não uma por alvo.

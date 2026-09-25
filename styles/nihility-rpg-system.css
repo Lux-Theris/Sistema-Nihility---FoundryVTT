@@ -1090,6 +1090,8 @@ form.nihility-config-app {
 .nihility-sheet .btn-mini.reset:hover { border-color: var(--nihility-danger); color: var(--nihility-danger); }
 .nihility-sheet .btn-mini.confirm { background: linear-gradient(120deg, var(--nihility-gold), #f0d48f); color: #201a0c; }
 .nihility-sheet .btn-mini.confirm:hover { filter: brightness(1.08); }
+.nihility-sheet .btn-mini.gm-attr-reset { height: auto; min-height: 0; line-height: normal; margin-top: 6px; }
+.nihility-sheet .item-weapon-formula { font-size: 0.76rem; color: var(--nihility-text-dim); white-space: nowrap; }
 
 .nihility-sheet .attribute-roll {
   background: transparent;

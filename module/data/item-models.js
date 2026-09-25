@@ -564,6 +564,23 @@ export class GenericItemDataModel extends foundry.abstract.TypeDataModel {
        */
       isPadDevice: new fields.BooleanField({ required: false, initial: false }),
 
+      /**
+       * Arma: quando `enabled`, a ficha do Personagem ganha um botão "Atacar" nesta linha, que
+       * rola `damageFormula` pelo MESMO caminho do dano de Skill (Escala por Atributo, Defesa
+       * Mágica, Resistências, botões de Aplicar dano no chat — ver `useWeaponAttack` em
+       * skill-effects.js). Não é um tipo de Item à parte: uma espada é um Item Geral com este
+       * bloco ligado, o que mantém peso/valor/equipar/bônus de atributo iguais aos de qualquer item.
+       * Sem nível nem Custo de Energia — arma não sobe de nível nem gasta Mana. Todo item criado
+       * antes deste campo nasce `enabled: false`, então nada existente muda.
+       */
+      weapon: new fields.SchemaField({
+        enabled: new fields.BooleanField({ required: false, initial: false }),
+        damageFormula: new fields.StringField({ required: false, initial: "" }),
+        scalingAttribute: new fields.StringField({ required: false, initial: "", blank: true }),
+        isMagicDamage: new fields.BooleanField({ required: false, initial: false }),
+        damageElements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] })
+      }),
+
       /** Habilidade opcional concedida ao dono enquanto o item estiver "equipado" (ver grantedSkillSchema). */
       grantsSkill: grantedSkillSchema(),
 

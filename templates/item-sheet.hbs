@@ -49,9 +49,9 @@
         {{/if}}
         {{#if isGM}}<button type="button" class="level-up-button" data-action="levelUpSkill" title="Level Up (Voz do Mundo avisa)">+ Nível</button>{{/if}}
         {{#if canSpendPointLevel}}<button type="button" class="level-up-button" data-action="spendPointLevelUp" title="Gasta 1 Ponto de Habilidade do tier desta Skill ({{levelPointBalance}} disponível)">Subir nível (1 Ponto)</button>{{/if}}
-        {{#if item.parent}}
+        {{#if isGM}}{{#if item.parent}}
         <button type="button" class="skill-evolve-button" data-action="evolveSkill" title="Vira uma Skill nova, mantém só o registro histórico"><i class="fas fa-level-up-alt"></i> Evoluir</button>
-        {{/if}}
+        {{/if}}{{/if}}
       </div>
       {{#unless (eq system.tier "ultimate")}}
       <p class="hint-inline">"Ultimate" só aparece pro jogador se o Ator já possuir uma Skill Ultimate — o Mestre sempre vê essa opção.</p>
@@ -486,6 +486,29 @@
           {{/each}}
         </select>
       </label>
+      <h3>Arma <span class="hint-inline">(liga o botão "Atacar" na ficha do dono)</span></h3>
+      <label class="checkbox-line"><input type="checkbox" name="system.weapon.enabled" {{#if system.weapon.enabled}}checked{{/if}}/> Este item é uma arma</label>
+      {{#if system.weapon.enabled}}
+      <label>Fórmula de Dano <input type="text" name="system.weapon.damageFormula" value="{{system.weapon.damageFormula}}" placeholder="1d8+2"/></label>
+      <label>Atributo de Escala
+        <select name="system.weapon.scalingAttribute">
+          {{#each weaponScalingOptions as |opt|}}
+          <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+          {{/each}}
+        </select>
+        <span class="hint-inline">Multiplica o dano por (Atributo.Total)² ÷ divisor — igual às Skills. Sem escala, a fórmula vale como escrita.</span>
+      </label>
+      <label class="checkbox-line"><input type="checkbox" name="system.weapon.isMagicDamage" {{#if system.weapon.isMagicDamage}}checked{{/if}}/> Dano Mágico</label>
+      <div class="field-hint-label">Elemento(s)</div>
+      <div class="element-grid">
+        {{#each weaponElementChips as |el|}}
+        <a class="element-chip {{#if el.checked}}checked{{/if}}" data-action="toggleWeaponElement" data-element="{{el.id}}"><span class="dot" style="background:{{el.color}}"></span>{{el.label}}</a>
+        {{else}}
+        <span class="hint-inline">Nenhum elemento configurado.</span>
+        {{/each}}
+      </div>
+      {{/if}}
+
       {{#if isGM}}
       <label>Dispositivo PAD? <input type="checkbox" name="system.isPadDevice" {{#if system.isPadDevice}}checked{{/if}}/></label>
       <p class="hint-inline">Marca este Item como um PAD físico — quem possuir ao menos um ganha o botão "Abrir PAD" na própria ficha (não precisa estar equipado).</p>

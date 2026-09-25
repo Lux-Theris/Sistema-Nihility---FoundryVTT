@@ -27,7 +27,8 @@ import { convertActorCurrency, transferCurrency } from "../currency.js";
 import { rollAttribute, buildAttributeRollFormula } from "../dice.js";
 import { rollInitiativeForActor, getInitiativeLabel } from "../combat.js";
 import { pickTargetActor } from "../helpers/target-picker.js";
-import { useSkillEffect, tickPeriodicEffect } from "../skill-effects.js";
+import { useSkillEffect, useWeaponAttack, tickPeriodicEffect } from "../skill-effects.js";
+import { announceVoiceOfTheWorld } from "../voice-of-the-world.js";
 import { areaEffectsSupported, pickAreaTargets, pickZonePlacement } from "../area-effects.js";
 import { openSkillEditorDialog } from "../apps/skill-editor-dialog.js";
 import { editPortraitFrameAction, CLEAR_PORTRAIT_FRAME } from "../helpers/portrait-frame.js";
@@ -101,6 +102,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       decrementAttributePoint: NihilityActorSheet.#onDecrementAttributePoint,
       confirmAttributePoints: NihilityActorSheet.#onConfirmAttributePoints,
       resetAttributePoints: NihilityActorSheet.#onResetAttributePoints,
+      gmResetAllAttributePoints: NihilityActorSheet.#onGmResetAllAttributePoints,
+      attackWithWeapon: NihilityActorSheet.#onAttackWithWeapon,
       breakSkillPoints: NihilityActorSheet.#onBreakSkillPoints,
       mergeSkillPoints: NihilityActorSheet.#onMergeSkillPoints,
       adjustSkillPoints: NihilityActorSheet.#onAdjustSkillPoints,
@@ -630,6 +633,48 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     if (Object.keys(updates).length) await this.actor.update(updates);
   }
 
+  /**
+   * Só Mestre: zera TODOS os pontos de atributo do Personagem — confirmados E pendentes — de volta
+   * pro Pool livre, pra o jogador realocar do zero (ex.: distribuiu errado e não tem como desfazer,
+   * já que "Resetar" comum só descarta o que ainda não foi confirmado). Nada além de `points`/
+   * `pendingPoints` é tocado: Nível, Título, Skills e Itens ficam como estão, então o Pool total
+   * devolvido é exatamente o que o Mestre concede pelo nível atual. Só faz sentido com o Pool ligado
+   * — sem ele os pontos são digitados à mão e o Mestre já edita o número direto.
+   */
+  static async #onGmResetAllAttributePoints(event, target) {
+    event.preventDefault();
+    if (!game.user.isGM || !isAttributePoolEnabled()) return;
+
+    const combat = this.actor.system.attributes.combat;
+    const refunded = MEU_SISTEMA.COMBAT_ATTRIBUTES.reduce(
+      (sum, key) => sum + (combat[key].points ?? 0) + (combat[key].pendingPoints ?? 0),
+      0
+    );
+    if (!refunded) {
+      ui.notifications.info(`${this.actor.name} não tem pontos de atributo alocados.`);
+      return;
+    }
+
+    const confirmed = await DialogV2.confirm({
+      window: { title: "Zerar Pontos de Atributo" },
+      content: `<p>Zerar os <strong>${refunded}</strong> pontos de atributo alocados por <strong>${this.actor.name}</strong>? Todos voltam pro Pool livre pra serem distribuídos de novo. Nível, Títulos, Habilidades e Itens não mudam.</p>`
+    });
+    if (!confirmed) return;
+
+    const updates = {};
+    for (const key of MEU_SISTEMA.COMBAT_ATTRIBUTES) {
+      updates[`system.attributes.combat.${key}.points`] = 0;
+      updates[`system.attributes.combat.${key}.pendingPoints`] = 0;
+    }
+    await this.actor.update(updates);
+
+    await announceVoiceOfTheWorld(this.actor, {
+      kind: "attribute-reset",
+      title: "Pontos de Atributo devolvidos",
+      body: `O Mestre devolveu ${refunded} ponto(s) de atributo de ${this.actor.name} ao Pool — distribua-os de novo.`
+    });
+  }
+
   /* -------------------------------------------- */
   /*  Pontos de Habilidade                         */
   /* -------------------------------------------- */
@@ -868,6 +913,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
    */
   static async #onEvolveSkill(event, target) {
     event.preventDefault();
+    // Só Mestre: o botão some da ficha do jogador; isto fecha a porta dos fundos.
+    if (!game.user.isGM) return;
     const itemId = target.closest(".item-row").dataset.itemId;
 
     const hasUltimate = this.actor.system.hasUltimateSkill;
@@ -947,6 +994,29 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       }
     } catch (err) {
       console.error(`${SYSTEM_ID} | Falha ao usar habilidade.`, err);
+    }
+  }
+
+  /**
+   * "Atacar" numa Arma (Item Geral com `system.weapon.enabled`). Sempre pede alvo, igual uma
+   * Skill de dano: mesmo golpe puramente físico precisa de alguém pra Resistência checar.
+   */
+  static async #onAttackWithWeapon(event, target) {
+    event.preventDefault();
+    const itemId = target.closest(".item-row").dataset.itemId;
+    const weapon = this.actor.items.get(itemId);
+    if (!weapon?.system.weapon?.enabled) return;
+
+    try {
+      if (!weapon.system.weapon.damageFormula?.trim()) {
+        ui.notifications.warn(`${weapon.name} não tem uma Fórmula de Dano configurada.`);
+        return;
+      }
+      const targetActor = await pickTargetActor({ self: this.actor, title: `Atacar com ${weapon.name}`, confirmLabel: "Atacar" });
+      if (!targetActor) return;
+      await useWeaponAttack(this.actor, weapon, targetActor);
+    } catch (err) {
+      console.error(`${SYSTEM_ID} | Falha ao atacar com arma.`, err);
     }
   }
 

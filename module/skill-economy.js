@@ -228,6 +228,10 @@ export async function fuseSkills(actor, sourceItemIds, options = {}) {
  * @returns {Promise<Item>} o Item criado na ficha do Ator
  */
 export async function evolveSkill(actor, sourceItemId, newSkillData) {
+  if (!game.user.isGM) {
+    ui.notifications?.warn("Só o Mestre pode Evoluir uma Habilidade.");
+    throw new Error("Regra violada: Evolução de Skill é ação exclusiva do Mestre.");
+  }
   const source = actor.items.get(sourceItemId);
   if (!source) throw new Error("Skill de origem não encontrada.");
   if (source.system.isItemGranted) {

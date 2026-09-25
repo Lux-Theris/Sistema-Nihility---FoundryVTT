@@ -54,6 +54,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       deleteSkillEffect: NihilityItemSheet.#onSkillEffectDelete,
       toggleSkillElement: NihilityItemSheet.#onSkillElementToggle,
       toggleEffectElement: NihilityItemSheet.#onEffectElementToggle,
+      toggleWeaponElement: NihilityItemSheet.#onWeaponElementToggle,
       evolveSkill: NihilityItemSheet.#onEvolveSkill,
       addInstalledMod: NihilityItemSheet.#onInstalledModAdd,
       deleteInstalledMod: NihilityItemSheet.#onInstalledModDelete,
@@ -237,6 +238,22 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       }
     }
 
+    if (this.item.type === "item") {
+      const weapon = this.item.system.weapon;
+      const visibleAttrs = context.visibleAttributes;
+      const scalingChoices = [["", "— sem escala —"]].concat(visibleAttrs.map(a => [a.key, a.label]));
+      // Atributo escondido pela campanha continua listado se a arma JÁ escala por ele.
+      if (weapon.scalingAttribute && !visibleAttrs.some(a => a.key === weapon.scalingAttribute)) {
+        scalingChoices.push([weapon.scalingAttribute, `${getAttributeLabel(weapon.scalingAttribute)} (oculto)`]);
+      }
+      context.weaponScalingOptions = scalingChoices.map(([value, label]) => ({
+        value, label, selected: value === (weapon.scalingAttribute ?? "")
+      }));
+      context.weaponElementChips = getActiveDamageElements().map(el => ({
+        id: el.id, label: el.label, color: el.color, checked: (weapon.damageElements ?? []).includes(el.id)
+      }));
+    }
+
     if (this.item.type === "starship_module" && this.item.system.category === "distributor") {
       // "Fator 5" não diz nada sozinho: a Capacidade de Transferência sai de
       // `baseline(Porte) × fator`, e a tabela de baseline mora no código. Sem ver o RESULTADO,
@@ -387,6 +404,15 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     await this.item.update({ "system.damageElements": [...elements] });
   }
 
+  /** Liga/desliga um Elemento no dano de uma Arma (Item Geral). */
+  static async #onWeaponElementToggle(event, target) {
+    event.preventDefault();
+    const elements = new Set(this.item.system.weapon.damageElements ?? []);
+    const id = target.dataset.element;
+    if (!elements.delete(id)) elements.add(id);
+    await this.item.update({ "system.weapon.damageElements": [...elements] });
+  }
+
   /** Liga/desliga um Elemento no tick de dano de uma linha de Efeito Periódico. */
   static async #onEffectElementToggle(event, target) {
     event.preventDefault();
@@ -408,6 +434,8 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
    */
   static async #onEvolveSkill(event, target) {
     event.preventDefault();
+    // Só Mestre: o botão some da ficha do jogador; isto fecha a porta dos fundos.
+    if (!game.user.isGM) return;
     const actor = this.item.parent;
     if (!actor) {
       ui.notifications?.warn("Só é possível Evoluir uma Skill que já está numa ficha de Ator.");

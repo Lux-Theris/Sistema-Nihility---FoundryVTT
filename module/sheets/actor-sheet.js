@@ -1012,7 +1012,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         ui.notifications.warn(`${weapon.name} não tem uma Fórmula de Dano configurada.`);
         return;
       }
-      const targetActor = await pickTargetActor({ self: this.actor, title: `Atacar com ${weapon.name}`, confirmLabel: "Atacar" });
+      const targetActor = await pickTargetActor({ self: this.actor, title: `Atacar com ${weapon.name}`, confirmLabel: "Atacar", preferMap: true });
       if (!targetActor) return;
       await useWeaponAttack(this.actor, weapon, targetActor);
     } catch (err) {

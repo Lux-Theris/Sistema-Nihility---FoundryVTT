@@ -3854,3 +3854,29 @@ form.nihility-config-app {
    deixa de ter largura própria e passa a caber no que precisa. */
 .nihility-sheet .module-hp-cell { min-width: 0; }
 .nihility-sheet .module-hp-cell small { white-space: nowrap; }
+
+/* Aviso "clique no alvo no mapa" (helpers/target-picker.js). Fica fora de qualquer Application,
+   então define a própria cor — nada aqui pode herdar do tema do core. */
+.nihility-target-banner {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--nihility-bg-panel);
+  border: 1px solid var(--nihility-border);
+  border-radius: 6px;
+  color: var(--nihility-text);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+.nihility-target-banner button {
+  height: auto;
+  min-height: 0;
+  line-height: normal;
+  padding: 4px 10px;
+  width: auto;
+}

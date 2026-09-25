@@ -73,6 +73,85 @@ function optionsFor(actors, self, seen) {
     .join("");
 }
 
+/** Sentinela: o usuário pediu a lista em vez de clicar no mapa. */
+const USE_LIST = Symbol("use-list");
+
+/** Token visível sob um ponto do canvas (o de cima, quando há vários empilhados). */
+function tokenAtPoint(point, types) {
+  const hits = (canvas.tokens?.placeables ?? []).filter(
+    token => token.actor && token.visible && token.bounds.contains(point.x, point.y)
+  );
+  hits.sort((a, b) => (a.document.elevation - b.document.elevation) || (a.document.sort - b.document.sort));
+  const top = hits.at(-1);
+  if (!top) return null;
+  if (types && !types.includes(top.actor.type)) return null;
+  return top;
+}
+
+/**
+ * Modo "clique no alvo": mostra um aviso no topo e espera o usuário clicar num Token do mapa (ou
+ * marcá-lo com T, o gesto nativo). Devolve o Ator, `null` (cancelou) ou `USE_LIST`.
+ *
+ * O clique é interceptado em fase de captura pra não selecionar/arrastar o Token clicado — o
+ * usuário está escolhendo um alvo, não mexendo no mapa. Só o botão esquerdo é capturado, então
+ * pan e zoom seguem funcionando durante a escolha.
+ */
+function pickTargetOnMap({ types, title }) {
+  return new Promise(resolve => {
+    const board = document.getElementById("board");
+    if (!board) return resolve(USE_LIST);
+
+    const banner = document.createElement("div");
+    banner.className = "nihility-target-banner";
+    banner.innerHTML = `
+      <span class="nihility-target-banner-text"><strong>${escapeHtml(title)}</strong> — clique no alvo no mapa</span>
+      <button type="button" data-choice="list">Escolher da lista</button>
+      <button type="button" data-choice="cancel">${escapeHtml("Cancelar")}</button>`;
+    document.body.appendChild(banner);
+
+    let finished = false;
+    const finish = value => {
+      if (finished) return;
+      finished = true;
+      board.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("keydown", onKeyDown, true);
+      Hooks.off("targetToken", hookId);
+      banner.remove();
+      resolve(value);
+    };
+
+    const onPointerDown = event => {
+      if (event.button !== 0) return;
+      const point = canvas.canvasCoordinatesFromClient({ x: event.clientX, y: event.clientY });
+      const token = tokenAtPoint(point, types);
+      // Clique no vazio (ou em Token de tipo que não serve) não faz nada: segue esperando.
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (token) finish(token.actor);
+      else ui.notifications.info("Nenhum alvo válido ali — clique em um Token.");
+    };
+    const onKeyDown = event => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      finish(null);
+    };
+    const hookId = Hooks.on("targetToken", (user, token, targeted) => {
+      if (user.id !== game.user.id || !targeted || !token.actor) return;
+      if (types && !types.includes(token.actor.type)) return;
+      finish(token.actor);
+    });
+
+    banner.addEventListener("click", event => {
+      const choice = event.target.closest("[data-choice]")?.dataset.choice;
+      if (choice === "list") finish(USE_LIST);
+      else if (choice === "cancel") finish(null);
+    });
+    board.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("keydown", onKeyDown, true);
+  });
+}
+
 /**
  * Abre a escolha de alvo e devolve o Ator escolhido (ou `null`).
  *
@@ -82,14 +161,23 @@ function optionsFor(actors, self, seen) {
  * @param {string[]} [options.types] - filtra por `actor.type`
  * @param {string} [options.title]
  * @param {string} [options.confirmLabel]
+ * @param {boolean} [options.preferMap] - com a setting de alvo sem Token DESLIGADA e uma cena
+ *   aberta, em vez do diálogo espera um clique num Token do mapa (o diálogo segue disponível pelo
+ *   botão "Escolher da lista"). Com a setting ligada — mesa de teatro da mente — vai direto pra lista.
  * @returns {Promise<Actor|null>}
  */
-export async function pickTargetActor({ self = null, types = null, title = "Escolher Alvo", confirmLabel = "Confirmar" } = {}) {
+export async function pickTargetActor({ self = null, types = null, title = "Escolher Alvo", confirmLabel = "Confirmar", preferMap = false } = {}) {
   // 1) Alvo já marcado no mapa vence tudo — nem abre diálogo.
   const targeted = Array.from(game.user.targets ?? [])
     .map(token => token.actor)
     .filter(actor => actor && (!types || types.includes(actor.type)));
   if (targeted.length) return targeted[0];
+
+  // 1b) Mesa com mapa: clicar no Token é o gesto natural, a lista vira plano B.
+  if (preferMap && !offSceneAllowed() && canvas?.ready && canvas.scene) {
+    const picked = await pickTargetOnMap({ types, title });
+    if (picked !== USE_LIST) return picked;
+  }
 
   const seen = new Set();
   const groups = buildGroups(self, types);
@@ -117,7 +205,7 @@ export async function pickTargetActor({ self = null, types = null, title = "Esco
         ${searchHtml}
         <div class="form-group">
           <label>Alvo</label>
-          <select name="targetId" size="8">${optionsHtml}</select>
+          <select name="targetId">${optionsHtml}</select>
         </div>
       </form>`,
     buttons: [

@@ -25,7 +25,11 @@ import {
   resistanceXpGain,
   movementAllowance,
   describeMovement,
-  getMovementConfig
+  getMovementConfig,
+  engineRatio,
+  shipMovementCells,
+  shipEvasionFraction,
+  getShipManeuverConfig
 } from "../module/config.js";
 import { computeResistancePercent, computeResistanceName, resistanceMaxLevel } from "../module/skill-effects.js";
 import { buildSubSkillsFromSources } from "../module/skill-snapshot.js";
@@ -534,4 +538,42 @@ test("deslocamento: descrição da ficha diz de onde vem o número", () => {
 
 test("deslocamento: sem settings registradas, a configuração cai nos padrões da tabela", () => {
   assert.deepEqual(getMovementConfig(), { base: 6, step: 10, cap: 18, gmIgnores: true });
+});
+
+/* -------------------------------------------- */
+/*  Movimento e Evasão de naves                  */
+/* -------------------------------------------- */
+
+test("nave: razão do Motor é efetivo ÷ referência do Porte, e 0 sem Motor", () => {
+  assert.equal(engineRatio(40, 40), 1);
+  assert.equal(engineRatio(28, 40), 0.7);
+  assert.equal(engineRatio(48, 40), 1.2);
+  assert.equal(engineRatio(0, 40), 0);
+  assert.equal(engineRatio(40, 0), 0);
+});
+
+test("nave: movimento em casas é a base do Porte × razão, arredondado para baixo", () => {
+  assert.equal(shipMovementCells(6, 1), 6);
+  assert.equal(shipMovementCells(6, 0.7), 4);
+  assert.equal(shipMovementCells(6, 1.2), 7);
+  assert.equal(shipMovementCells(6, 0), 0);
+  // 5 × 0.6 dá 2.9999… em ponto flutuante: não pode perder uma casa por isso.
+  assert.equal(shipMovementCells(5, 0.6), 3);
+});
+
+test("nave: Evasão é a base do Porte × razão da Rotação, com teto", () => {
+  assert.equal(shipEvasionFraction(22, 1, 40), 0.22);
+  assert.ok(Math.abs(shipEvasionFraction(22, 0.7, 40) - 0.154) < 1e-9);
+  assert.equal(shipEvasionFraction(30, 2, 40), 0.4);
+  assert.equal(shipEvasionFraction(22, 0, 40), 0);
+});
+
+test("nave: sem settings, Porte maior anda menos e desvia menos", () => {
+  const config = getShipManeuverConfig();
+  const sizes = ["mini", "pequeno", "medio", "grande", "capital"];
+  for (let i = 1; i < sizes.length; i++) {
+    assert.ok(config.movement[sizes[i]] < config.movement[sizes[i - 1]], `${sizes[i]} anda menos que ${sizes[i - 1]}`);
+    assert.ok(config.evasion[sizes[i]] < config.evasion[sizes[i - 1]], `${sizes[i]} desvia menos que ${sizes[i - 1]}`);
+  }
+  assert.equal(config.evasionCap, 40);
 });

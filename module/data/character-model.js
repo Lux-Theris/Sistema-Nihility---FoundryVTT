@@ -63,6 +63,13 @@ function baseActorSchema() {
       xp: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
 
       /**
+       * Pontos de Atributo extras concedidos pelo Mestre a este personagem, somados ao orçamento
+       * do nível (`attributePointsPool.total`). Só o Mestre edita (ver a ficha); pode ser negativo
+       * para retirar pontos.
+       */
+      bonusAttributePoints: new fields.NumberField({ required: true, integer: true, initial: 0 }),
+
+      /**
        * Atributos de combate: `points` é editável (pontos investidos na criação/level-up).
        * `total` (points + bônus permanentes de Títulos) é o que entra na fórmula de HP/Mana.
        * `effectiveTotal` (total + buffDelta temporário) e `bonus` (floor(effectiveTotal/3))
@@ -213,20 +220,21 @@ function deriveCombatAttributes(dataModel) {
     spent += attr.points + attr.pendingPoints;
   }
 
-  // Quanto o Mestre concede vs. quanto já foi investido (confirmado + pendente) nos 7
+  // Quanto o Mestre concede vs. quanto já foi investido (confirmado + pendente) nos
   // atributos — os botões +/- da ficha usam `remaining` pra travar a alocação (ver
   // incrementAttributePoint em actor-sheet.js). Título não conta como "gasto" (é bônus,
   // não escolha do jogador).
   const level = dataModel.attributes.level;
-  const total = getAttributePointsStarting() + Math.max(0, level - 1) * getAttributePointsPerLevel();
-  dataModel.attributePointsPool = { total, spent, remaining: total - spent };
+  const bonus = dataModel.attributes.bonusAttributePoints || 0;
+  const total = getAttributePointsStarting() + Math.max(0, level - 1) * getAttributePointsPerLevel() + bonus;
+  dataModel.attributePointsPool = { total, spent, remaining: total - spent, bonus };
 }
 
 /**
  * HP Máximo = (Atributo A).Total × (Atributo B).Total × Multiplicador; Mana Máxima segue a
  * mesma forma com o outro par de atributos — usando só a base PERMANENTE dos atributos (buffs
  * temporários de atributo nunca entram aqui). A fórmula em si nunca fica abaixo do Piso (mesmo
- * com os 7 atributos zerados); modificadores permanentes (Título/Skill/Item/Modificação) e o
+ * com todos os atributos zerados); modificadores permanentes (Título/Skill/Item/Modificação) e o
  * buffDelta temporário de HP/Mana somam por cima desse piso, sem limite próprio.
  *
  * QUAIS atributos entram, o multiplicador e o piso vêm de `getVitalFormula()` (settings do

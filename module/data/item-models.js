@@ -386,7 +386,7 @@ export class TitleDataModel extends foundry.abstract.TypeDataModel {
       grantedBy: new fields.StringField({ required: false, initial: "" }),
       rarity: new fields.StringField({ required: false, initial: "comum" }),
 
-      /** Bônus permanentes concedidos: [{ attribute, amount }], attribute em MEU_SISTEMA.TITLE_BONUS_TARGETS (os 7 atributos + hp/energy diretos). */
+      /** Bônus permanentes concedidos: [{ attribute, amount }], attribute em MEU_SISTEMA.TITLE_BONUS_TARGETS (os atributos de combate + hp/energy diretos). */
       bonuses: new fields.ArrayField(
         new fields.SchemaField({
           attribute: new fields.StringField({ required: true, choices: MEU_SISTEMA.TITLE_BONUS_TARGETS }),

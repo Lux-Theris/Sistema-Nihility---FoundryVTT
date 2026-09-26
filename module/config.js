@@ -201,6 +201,25 @@ export const MEU_SISTEMA = {
         movementCap: { label: "Teto (m)", hint: "Máximo alcançável só com Destreza permanente (pontos e Títulos). Destreza vinda de Skills passa por cima.", type: "number", default: 18, min: 0 },
         movementGmIgnores: { label: "Mestre ignora o limite", hint: "O Mestre move tokens sem gastar nem respeitar o deslocamento.", type: "boolean", default: true }
       }
+    },
+    shipManeuver: {
+      setting: "shipManeuverEnabled",
+      name: "Movimento e Evasão de naves",
+      hint: "Em combate, Nave/Veículo só anda as casas da rodada (Porte × Motor) e a Manobra vira Evasão: um percentual do dano dos tiros que ele evita antes do Escudo. Motor menor, throttle baixo ou falta de energia diminuem os dois.",
+      default: false,
+      options: {
+        shipMoveMini: { label: "Movimento — Mini (casas)", hint: "Casas por rodada de uma nave Mini com o Motor do tamanho esperado a 100%.", type: "number", default: 8, min: 0 },
+        shipMovePequeno: { label: "Movimento — Pequeno (casas)", hint: "Casas por rodada de uma nave Pequeno com o Motor do tamanho esperado a 100%.", type: "number", default: 6, min: 0 },
+        shipMoveMedio: { label: "Movimento — Médio (casas)", hint: "Casas por rodada de uma nave Médio com o Motor do tamanho esperado a 100%.", type: "number", default: 5, min: 0 },
+        shipMoveGrande: { label: "Movimento — Grande (casas)", hint: "Casas por rodada de uma nave Grande com o Motor do tamanho esperado a 100%.", type: "number", default: 4, min: 0 },
+        shipMoveCapital: { label: "Movimento — Capital (casas)", hint: "Casas por rodada de uma nave Capital com o Motor do tamanho esperado a 100%.", type: "number", default: 3, min: 0 },
+        shipEvasionMini: { label: "Evasão — Mini (%)", hint: "Dano evitado por uma nave Mini com o Motor do tamanho esperado a 100%.", type: "number", default: 30, min: 0 },
+        shipEvasionPequeno: { label: "Evasão — Pequeno (%)", hint: "Dano evitado por uma nave Pequeno com o Motor do tamanho esperado a 100%.", type: "number", default: 22, min: 0 },
+        shipEvasionMedio: { label: "Evasão — Médio (%)", hint: "Dano evitado por uma nave Médio com o Motor do tamanho esperado a 100%.", type: "number", default: 15, min: 0 },
+        shipEvasionGrande: { label: "Evasão — Grande (%)", hint: "Dano evitado por uma nave Grande com o Motor do tamanho esperado a 100%.", type: "number", default: 8, min: 0 },
+        shipEvasionCapital: { label: "Evasão — Capital (%)", hint: "Dano evitado por uma nave Capital com o Motor do tamanho esperado a 100%.", type: "number", default: 3, min: 0 },
+        shipEvasionCap: { label: "Teto de Evasão (%)", hint: "Nenhuma nave evita mais que isso, nem com overclock.", type: "number", default: 40, min: 0 }
+      }
     }
   },
 
@@ -217,7 +236,7 @@ export const MEU_SISTEMA = {
       features: {
         economy: true, titles: true, anatomy: true, vessels: false, skillFusion: true,
         skillPoints: true, attributePool: true, resistances: true, statusConditions: true,
-        areaEffects: true, aiAssistant: true, pad: false, movement: true
+        areaEffects: true, aiAssistant: true, pad: false, movement: true, shipManeuver: false
       }
     },
     scifi: {
@@ -226,7 +245,7 @@ export const MEU_SISTEMA = {
       features: {
         economy: true, titles: false, anatomy: true, vessels: true, skillFusion: false,
         skillPoints: true, attributePool: true, resistances: true, statusConditions: true,
-        areaEffects: true, aiAssistant: true, pad: true, movement: true
+        areaEffects: true, aiAssistant: true, pad: true, movement: true, shipManeuver: true
       }
     },
     misto: {
@@ -235,7 +254,7 @@ export const MEU_SISTEMA = {
       features: {
         economy: true, titles: true, anatomy: true, vessels: true, skillFusion: true,
         skillPoints: true, attributePool: true, resistances: true, statusConditions: true,
-        areaEffects: true, aiAssistant: true, pad: true, movement: true
+        areaEffects: true, aiAssistant: true, pad: true, movement: true, shipManeuver: true
       }
     }
   },
@@ -502,7 +521,7 @@ export const MEU_SISTEMA = {
    * rolagem ganha +1d20 (todos os dados são somados). Bônus de arma/equipamento
    * NUNCA contam pra essa conta — somam por fora, sempre como número fixo.
    */
-  COMBAT_ATTRIBUTES: ["strength", "defense", "magic", "magicalDefense", "dexterity", "stealth", "precision"],
+  COMBAT_ATTRIBUTES: ["strength", "defense", "magic", "magicalDefense", "dexterity", "stealth", "perception", "precision"],
 
   /**
    * Piso da fórmula de HP/Mana Máximo (Força.Total x Defesa.Total x 10, etc.):
@@ -531,6 +550,7 @@ export const MEU_SISTEMA = {
     magicalDefense: "Defesa Mágica",
     dexterity: "Destreza",
     stealth: "Furtividade",
+    perception: "Percepção",
     precision: "Precisão"
   },
 
@@ -567,7 +587,7 @@ export const MEU_SISTEMA = {
   },
 
   /**
-   * Alvos possíveis de um Efeito Temporário: os 7 atributos de combate (afetam
+   * Alvos possíveis de um Efeito Temporário: os 8 atributos de combate (afetam
    * a rolagem via Active Effect, mas NUNCA o cálculo de HP/Mana — só a base
    * permanente do atributo conta pra isso), "hp"/"energy" (HP/Mana atuais,
    * também via Active Effect temporário) e "shield" (Escudo — tratado à parte,
@@ -580,6 +600,7 @@ export const MEU_SISTEMA = {
     "magicalDefense",
     "dexterity",
     "stealth",
+    "perception",
     "precision",
     "hp",
     "energy",
@@ -595,6 +616,7 @@ export const MEU_SISTEMA = {
     magicalDefense: "Defesa Mágica",
     dexterity: "Destreza",
     stealth: "Furtividade",
+    perception: "Percepção",
     precision: "Precisão",
     hp: "HP",
     energy: "Mana/Energia",
@@ -620,11 +642,11 @@ export const MEU_SISTEMA = {
   },
 
   /**
-   * Alvos possíveis de um bônus de Título: os 7 atributos de combate + HP/Mana
+   * Alvos possíveis de um bônus de Título: os 8 atributos de combate + HP/Mana
    * diretamente (sem passar pela fórmula — soma como um modificador permanente,
    * igual statModifiers de Skill/Item). Reaproveita EFFECT_TARGET_LABELS pros rótulos.
    */
-  TITLE_BONUS_TARGETS: ["strength", "defense", "magic", "magicalDefense", "dexterity", "stealth", "precision", "hp", "energy"],
+  TITLE_BONUS_TARGETS: ["strength", "defense", "magic", "magicalDefense", "dexterity", "stealth", "perception", "precision", "hp", "energy"],
 
   /**
    * Unidade de "tick" de um Efeito Periódico (veneno/cura contínua — ver `entry.periodic`
@@ -1330,7 +1352,7 @@ export function getAttributeLabels() {
 }
 
 /**
- * MEU_SISTEMA.EFFECT_TARGET_LABELS com os sete atributos trocados pelos rótulos ativos — os
+ * MEU_SISTEMA.EFFECT_TARGET_LABELS com os atributos trocados pelos rótulos ativos — os
  * alvos que não são atributo (hp/energy/shield/os de Nave) ficam como estão.
  */
 export function getEffectTargetLabels() {
@@ -1575,6 +1597,42 @@ export function movementAllowance({ permanentDexterity = 0, skillDexterity = 0 }
   };
 }
 
+/**
+ * Quão perto do desempenho de referência do Porte o Motor da nave está (1 = Motor do tamanho
+ * esperado, a 100% de throttle, com energia e sem dano). Motor menor, throttle baixo, falta de
+ * energia ou dano baixam; overclock sobe. Nave sem Motor (referência ou efetivo zerado) dá 0.
+ *
+ * Existe porque a Aceleração/Rotação crua dobra a cada Porte de Motor (20 → 320): usada direto,
+ * a nave Capital andaria dezesseis vezes mais que a Mini, o oposto do que se quer.
+ */
+export function engineRatio(effectiveStat, referenceStat) {
+  if (!(referenceStat > 0) || !(effectiveStat > 0)) return 0;
+  return effectiveStat / referenceStat;
+}
+
+/** Casas por rodada de uma nave: base do Porte × razão do Motor, arredondado para baixo. */
+export function shipMovementCells(baseCells, ratio) {
+  return Math.max(0, Math.floor(baseCells * ratio + 1e-9));
+}
+
+/** Evasão de uma nave como fração 0-1 (base do Porte × razão da Rotação), limitada ao teto em %. */
+export function shipEvasionFraction(basePercent, ratio, capPercent) {
+  return Math.min(Math.max(0, basePercent * ratio), Math.max(0, capPercent)) / 100;
+}
+
+const SHIP_SIZE_SUFFIX = { mini: "Mini", pequeno: "Pequeno", medio: "Medio", grande: "Grande", capital: "Capital" };
+
+/** Movimento e Evasão base por Porte de nave, mais o teto de Evasão (todos editáveis no menu). */
+export function getShipManeuverConfig() {
+  const movement = {};
+  const evasion = {};
+  for (const [size, suffix] of Object.entries(SHIP_SIZE_SUFFIX)) {
+    movement[size] = getFeatureOption("shipManeuver", `shipMove${suffix}`);
+    evasion[size] = getFeatureOption("shipManeuver", `shipEvasion${suffix}`);
+  }
+  return { movement, evasion, evasionCap: getFeatureOption("shipManeuver", "shipEvasionCap") };
+}
+
 /** Texto da ficha para um resultado de `movementAllowance`: o total e de onde ele vem. */
 export function describeMovement(movement) {
   if (!movement) return null;
@@ -1613,6 +1671,9 @@ export async function applyCampaignPreset(presetKey) {
 
 /* Atalhos nomeados — mantidos porque metade do sistema já os importa, mas todos delegam pro
    mesmo `isFeatureEnabled` acima (nenhuma leitura paralela de setting). */
+export function isShipManeuverEnabled() {
+  return isFeatureEnabled("shipManeuver");
+}
 export function isMovementEnabled() {
   return isFeatureEnabled("movement");
 }
@@ -1766,7 +1827,7 @@ export function registerSystemSettings() {
     }
   }
 
-  // Rótulo/visibilidade dos sete atributos (editados pela tela "Configurar Atributos").
+  // Rótulo/visibilidade dos atributos (editados pela tela "Configurar Atributos").
   // Registrada ANTES das settings de fórmula vital de propósito: os `choices` daquelas são
   // montados a partir dos rótulos ATIVOS, então esta precisa já existir pra ser lida.
   game.settings.register(SYSTEM_ID, S.attributesData, {
@@ -1993,7 +2054,7 @@ export function registerSystemSettings() {
 
   game.settings.register(SYSTEM_ID, S.attributePointsStarting, {
     name: "Pontos de Atributo — Criação (Nível 1)",
-    hint: "Quantos pontos o jogador tem pra distribuir entre os 7 atributos ao criar o personagem.",
+    hint: "Quantos pontos o jogador tem pra distribuir entre os atributos ao criar o personagem.",
     scope: "world",
     config: true,
     type: Number,

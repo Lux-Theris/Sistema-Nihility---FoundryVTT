@@ -80,6 +80,9 @@
         <i class="fas fa-moon"></i> Descanso Completo <span class="hint-inline">(restaura HP e {{energyLabel}} ao máximo)</span>
       </button>
       <button type="button" class="initiative-button" data-action="rollInitiative" title="Rola {{initiativeLabel}} no pool de dados e lança no rastreador de combate">⚔ Iniciativa</button>
+      {{#if movementDash}}
+      <button type="button" class="initiative-button dash-button {{#if movementDash.active}}is-active{{/if}}" data-action="toggleDash" {{#unless movementDash.canToggle}}disabled{{/unless}} title="Dobra o deslocamento deste turno. Só no seu turno.">🏃 {{#if movementDash.active}}Correndo (×2){{else}}Correr{{/if}}</button>
+      {{/if}}
 
       {{#if activeConditions.length}}
       <div class="active-conditions">
@@ -127,6 +130,12 @@
               <span class="attr-pool-readout">{{system.attributePointsPool.remaining}}<span class="of"> / {{system.attributePointsPool.total}} livres</span></span>
               <span class="attr-pool-track"><span class="attr-pool-fill" style="width:{{attributePoolPercent}}%"></span></span>
             </div>
+            {{#if isGM}}
+            <label class="attr-pool-gm" title="Pontos de Atributo extras para este personagem, somados ao orçamento do nível. Use um valor negativo para retirar.">
+              Pontos extras (Mestre)
+              <input type="number" name="system.attributes.bonusAttributePoints" value="{{system.attributes.bonusAttributePoints}}" step="1"/>
+            </label>
+            {{/if}}
             {{/if}}
 
             {{#each attributeLabels as |attr|}}

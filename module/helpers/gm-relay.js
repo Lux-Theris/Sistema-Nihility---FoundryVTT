@@ -42,6 +42,19 @@ const HANDLERS = {
   },
 
   /**
+   * Liga/desliga o Correr (deslocamento ×2) do Combatant que está no turno.
+   * @param {{combatantUuid:string, value:boolean}} payload
+   */
+  async setMovementDash({ combatantUuid, value }) {
+    const combatant = await fromUuid(combatantUuid);
+    if (combatant?.documentName !== "Combatant") return;
+    // Só quem está no seu turno pode declarar Correr — o payload vem de outro cliente.
+    const combat = combatant.combat;
+    if (!combat?.started || combat.combatant?.id !== combatant.id) return;
+    await combatant.setFlag(SYSTEM_ID, "movementDash", Boolean(value));
+  },
+
+  /**
    * Contabiliza exposição a um tipo de dano (ver `registerResistanceExposure` em skill-effects.js).
    * @param {{actorUuid:string, elements:string[]}} payload
    */

@@ -5,6 +5,7 @@ import {
   getStarshipEnergyAbbr,
   getModuleSizePreset,
   isPadShipEnabled,
+  isShipManeuverEnabled,
   debugLog
 } from "../config.js";
 import { registerItemInCompendium } from "../compendium.js";
@@ -438,7 +439,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   /** Escolhe o alvo de uma Arma/Habilidade — ver helpers/target-picker.js (compartilhado com a ficha de Personagem). */
   async _promptSkillTarget() {
-    return pickTargetActor({ self: this.actor, title: "Escolher Alvo", confirmLabel: "Usar Habilidade" });
+    return pickTargetActor({ self: this.actor, title: "Escolher Alvo", confirmLabel: "Usar Habilidade", preferMap: true });
   }
 
   /**
@@ -607,6 +608,8 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
     context.system = actor.system;
     context.config = MEU_SISTEMA;
     context.shipSizeOptions = sizeOptions(MEU_SISTEMA.SHIP_SIZES);
+    context.shipManeuverEnabled = isShipManeuverEnabled();
+    context.evasionPercent = Math.round(actor.system.evasion * 100);
 
     this._prepareShipSystemsContext(context);
 
@@ -660,6 +663,8 @@ export class NihilityVehicleSheet extends TabbedActorSheetV2 {
     context.config = MEU_SISTEMA;
     context.isVehicle = true;
     context.shipSizeOptions = sizeOptions(MEU_SISTEMA.VEHICLE_SIZES);
+    context.shipManeuverEnabled = isShipManeuverEnabled();
+    context.evasionPercent = Math.round(actor.system.evasion * 100);
     context.parts = actor.system.parts;
     context.fuelPercent = percentOf(actor.system.fuel.value, actor.system.fuel.max);
 

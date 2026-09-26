@@ -1,4 +1,13 @@
-import { MEU_SISTEMA, getStarshipEnergyLabel, effectiveSkillCost } from "../config.js";
+import {
+  MEU_SISTEMA,
+  getStarshipEnergyLabel,
+  effectiveSkillCost,
+  isShipManeuverEnabled,
+  getShipManeuverConfig,
+  engineRatio,
+  shipMovementCells,
+  shipEvasionFraction
+} from "../config.js";
 
 const fields = foundry.data.fields;
 
@@ -209,6 +218,36 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
   /** Único Módulo instalado de uma categoria de slot único, ou `null` se vazio. */
   singleSlotModule(category) {
     return this.modules.find(m => m.system.category === category) ?? null;
+  }
+
+  /**
+   * Razão do Motor para `field` ("acceleration" | "rotation"): o valor EFETIVO do Motor instalado
+   * (throttle, energia e Vida já aplicados) dividido pelo do Motor que o Porte da nave pede — a
+   * posição do Porte na escala de Módulos (Mini → Compacto … Capital → Colossal). Ver `engineRatio`.
+   */
+  engineRatioFor(field) {
+    const engine = this.engineModule;
+    if (!engine) return 0;
+    const moduleSize = MEU_SISTEMA.MODULE_SIZES[MEU_SISTEMA.SHIP_SIZE_RANK[this.shipSize]];
+    const reference = MEU_SISTEMA.MODULE_SIZE_PRESETS.engine?.[moduleSize]?.[field] ?? 0;
+    return engineRatio(this.effectiveModuleStat(engine, field), reference);
+  }
+
+  /** Casas por rodada em combate: base do Porte × razão da Aceleração. 0 sem Motor. */
+  get movementCells() {
+    const base = getShipManeuverConfig().movement[this.shipSize] ?? 0;
+    return shipMovementCells(base, this.engineRatioFor("acceleration"));
+  }
+
+  /**
+   * Evasão (fração 0-1 do dano dos tiros evitada antes do Escudo): base do Porte × razão da
+   * Rotação, com teto. É 0 com o bloco "Movimento e Evasão de naves" desligado — a Manobra volta a
+   * ser só o número de sempre e a cascata de dano não muda.
+   */
+  get evasion() {
+    if (!isShipManeuverEnabled()) return 0;
+    const config = getShipManeuverConfig();
+    return shipEvasionFraction(config.evasion[this.shipSize] ?? 0, this.engineRatioFor("rotation"), config.evasionCap);
   }
 
   get reactorModule() { return this.singleSlotModule("reactor"); }

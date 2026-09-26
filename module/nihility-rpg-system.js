@@ -86,7 +86,7 @@ Hooks.once("init", () => {
   game.settings.registerMenu(SYSTEM_ID, "attributeConfigMenu", {
     name: "Configurar Atributos",
     label: "Configurar Atributos",
-    hint: "Renomeie os sete Atributos de Combate ou esconda os que esta campanha não usa.",
+    hint: "Renomeie os Atributos de Combate ou esconda os que esta campanha não usa.",
     icon: "fas fa-chart-simple",
     type: AttributeConfigApp,
     restricted: true

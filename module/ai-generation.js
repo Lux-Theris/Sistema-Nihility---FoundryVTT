@@ -314,7 +314,7 @@ export async function editDocumentWithAI(doc, instruction) {
  * HP e Mana NÃO são pedidos à IA: os dois são DERIVADOS dos atributos
  * (`Atributo × Atributo × multiplicador`, ver `deriveVitalStats`). Antes o prompt pedia
  * "hp"/"energy" e o resultado era descartado na preparação da ficha — como nada preenchia
- * `attributes.combat.*.points`, todo NPC gerado nascia com os 7 atributos zerados e HP no piso.
+ * `attributes.combat.*.points`, todo NPC gerado nascia com todos os atributos zerados e HP no piso.
  * Agora a IA distribui PONTOS DE ATRIBUTO, que é o que o sistema realmente usa.
  */
 const ATTRIBUTE_POINTS_FORMAT =

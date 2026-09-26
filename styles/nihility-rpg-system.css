@@ -3184,6 +3184,16 @@ form.nihility-config-app {
   box-shadow: 0 0 0 1px rgba(232, 193, 112, 0.3);
 }
 
+/* Correr: mesmo botão da Iniciativa, em verde quando ativo e apagado fora do turno. */
+.nihility-sheet .dash-button.is-active {
+  border-color: var(--nihility-ok);
+  color: var(--nihility-ok);
+}
+.nihility-sheet .dash-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* Peso das moedas — coluna discreta à direita do saldo; é só informação, não há limite de carga. */
 .nihility-sheet .currency-row .currency-weight {
   font-family: var(--nihility-font-data);
@@ -3931,4 +3941,21 @@ form.nihility-config-app {
   border-radius: 4px;
   padding: 1px 7px;
   white-space: nowrap;
+}
+
+/* Pontos de Atributo extras dados pelo Mestre: campo só do Mestre (o jogador só vê o total). */
+.nihility-sheet .attr-pool-gm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 4px 0 8px;
+  font-size: 0.78rem;
+  color: var(--nihility-gold);
+}
+.nihility-sheet .attr-pool-gm input {
+  width: 64px;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
 }

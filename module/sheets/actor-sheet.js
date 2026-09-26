@@ -28,6 +28,7 @@ import { registerItemInCompendium } from "../compendium.js";
 import { convertActorCurrency, transferCurrency } from "../currency.js";
 import { rollAttribute, buildAttributeRollFormula } from "../dice.js";
 import { rollInitiativeForActor, getInitiativeLabel } from "../combat.js";
+import { getMovementDashStatus, toggleMovementDash } from "../movement.js";
 import { pickTargetActor } from "../helpers/target-picker.js";
 import { useSkillEffect, useWeaponAttack, tickPeriodicEffect } from "../skill-effects.js";
 import { announceVoiceOfTheWorld } from "../voice-of-the-world.js";
@@ -116,6 +117,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       adjustVital: NihilityActorSheet.#onAdjustVital,
       restActor: NihilityActorSheet.#onRest,
       rollInitiative: NihilityActorSheet.#onRollInitiative,
+      toggleDash: NihilityActorSheet.#onToggleDash,
       grantXp: NihilityActorSheet.#onGrantXp,
       editImage: NihilityActorSheet.#onEditImage,
       editPortraitFrame: editPortraitFrameAction,
@@ -250,6 +252,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       actor.system.attributePointsPool.total
     );
     context.initiativeLabel = getInitiativeLabel();
+    context.movementDash = getMovementDashStatus(actor);
 
     // Experiência — bloco SÓ do Mestre (o jogador nem sabe que existe). Uma linha pro Personagem
     // e uma por Skill, todas já com o teto do nível atual calculado em prepareDerivedData.
@@ -521,6 +524,15 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
   }
 
   /** Rola a iniciativa deste Ator e lança no rastreador de combate (ver module/combat.js). */
+  static async #onToggleDash(event, target) {
+    event.preventDefault();
+    try {
+      await toggleMovementDash(this.actor);
+    } catch (err) {
+      console.error(`${SYSTEM_ID} | Falha ao alternar o Correr.`, err);
+    }
+  }
+
   static async #onRollInitiative(event, target) {
     event.preventDefault();
     try {
@@ -1053,7 +1065,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
    * diretório) mora em helpers/target-picker.js, compartilhada com a ficha de Nave.
    */
   async _promptSkillTarget() {
-    return pickTargetActor({ self: this.actor, title: "Escolher Alvo", confirmLabel: "Usar Habilidade" });
+    return pickTargetActor({ self: this.actor, title: "Escolher Alvo", confirmLabel: "Usar Habilidade", preferMap: true });
   }
 
   /* -------------------------------------------- */

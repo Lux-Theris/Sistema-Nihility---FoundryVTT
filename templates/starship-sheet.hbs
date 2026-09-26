@@ -59,11 +59,13 @@
         </span>
         <span class="hint-inline vital-source" title="Soma da Vida dos Módulos estruturais (tudo menos Casco, Escudo e Armas) — ajuste na linha de cada Módulo.">= soma dos Módulos estruturais</span>
       </div>
-            {{#if isVehicle}}
+      {{#if isVehicle}}
+      {{#unless shipManeuverEnabled}}
       <div class="vital-row">
         <span class="vital-label">Velocidade</span>
         <span class="vital-value">{{system.speed}}{{#unless engineModule}}<span class="hint-inline" style="margin-left:4px;">(sem Motor instalado)</span>{{/unless}}</span>
       </div>
+      {{/unless}}
       <div class="vital-row">
         <span class="vital-label">{{#if (eq system.fuel.type "battery")}}Bateria{{else}}Combustível{{/if}}</span>
         <span class="vital-track"><span class="vital-fill energy" style="width:{{fuelPercent}}%"></span></span>
@@ -72,9 +74,21 @@
         </span>
       </div>
       {{else}}
+      {{#unless shipManeuverEnabled}}
       <div class="vital-row">
         <span class="vital-label">Manobra</span>
         <span class="vital-value">{{system.maneuverability}}{{#unless engineModule}}<span class="hint-inline" style="margin-left:4px;">(sem Motor instalado)</span>{{/unless}}</span>
+      </div>
+      {{/unless}}
+      {{/if}}
+      {{#if shipManeuverEnabled}}
+      <div class="vital-row" title="Casas por rodada em combate: o Porte dá o ritmo, o Motor define quão perto disso a nave chega (throttle, energia e Vida do Motor contam).">
+        <span class="vital-label">Movimento</span>
+        <span class="vital-value">{{system.movementCells}} casas por rodada{{#unless engineModule}}<span class="hint-inline" style="margin-left:4px;">(sem Motor instalado)</span>{{/unless}}</span>
+      </div>
+      <div class="vital-row" title="Percentual do dano de cada tiro que a nave evita, antes do Escudo.">
+        <span class="vital-label">Manobra</span>
+        <span class="vital-value">Evasão {{evasionPercent}}%</span>
       </div>
       {{/if}}
     </div>

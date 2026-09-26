@@ -36,6 +36,7 @@ const EFFECT_TARGET_PATHS = {
   magicalDefense: "system.attributes.combat.magicalDefense.buffDelta",
   dexterity: "system.attributes.combat.dexterity.buffDelta",
   stealth: "system.attributes.combat.stealth.buffDelta",
+  perception: "system.attributes.combat.perception.buffDelta",
   precision: "system.attributes.combat.precision.buffDelta",
   hp: "system.attributes.hp.buffDelta",
   energy: "system.attributes.energy.buffDelta"
@@ -488,10 +489,16 @@ function absorbIntoPool(amount, poolValue) {
  * @returns {{toShield:number, toCasco:number, toHull:number, appliedReductions:string[]}}
  */
 async function applyStarshipDamageCascade(rawDamage, sourceActor, targetActor, weaponModule = null) {
+  // Evasão: a nave desvia de parte do tiro antes de qualquer camada (ver `evasion` em
+  // starship-model.js). Vem antes da Penetração porque é o tiro que não chega, não a defesa.
+  const evasion = targetActor.system.evasion ?? 0;
+  if (evasion > 0) rawDamage = Math.floor(rawDamage * (1 - evasion));
+
   const penetration = shipWeaponPenetration(sourceActor, weaponModule);
   const cascoHasProtection = targetActor.system.casco.value > 0;
   const armorReduction = cascoHasProtection ? (targetActor.system.armorReductionPercent ?? 0) : 0;
   const appliedReductions = [];
+  if (evasion > 0) appliedReductions.push(`Evasão ${Math.round(evasion * 100)}%`);
   if (penetration > 0) appliedReductions.push(`Penetração ${Math.round(penetration * 100)}%`);
   if (armorReduction > 0) appliedReductions.push(`Redução de Casco ${Math.round(armorReduction * 100)}%`);
 

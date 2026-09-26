@@ -1,5 +1,5 @@
 /**
- * "Configurar Atributos" — renomear e mostrar/esconder cada um dos sete Atributos de Combate.
+ * "Configurar Atributos" — renomear e mostrar/esconder cada um dos Atributos de Combate.
  *
  * Não usa `list-config-app-factory.js` pelo mesmo motivo de `feature-config.js`: a factory monta
  * listas em que o Mestre adiciona e remove linhas, e aqui o conjunto de linhas é **fixo**. As
@@ -48,7 +48,7 @@ export class AttributeConfigApp extends HandlebarsApplicationMixin(ApplicationV2
     return context;
   }
 
-  /** Devolve os sete rótulos originais e reexibe todos — não toca em valor de ficha nenhum. */
+  /** Devolve os rótulos originais e reexibe todos — não toca em valor de ficha nenhum. */
   static async #onReset(event, target) {
     event.preventDefault();
     await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.attributesData, "[]");

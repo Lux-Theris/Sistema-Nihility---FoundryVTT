@@ -456,6 +456,14 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
         new StatusConditionsConfigApp().render(true);
         break;
       }
+      case "items-compendium": {
+        // Itens Gerais (armas, equipamentos, PAD) não têm criação automática no Compêndio — o
+        // Mestre cria/arrasta aqui dentro o que quiser ter à mão.
+        const pack = game.packs.get(`world.${MEU_SISTEMA.COMPENDIUM.items.key}`);
+        if (pack) pack.render(true);
+        else ui.notifications.warn("Compêndio de Itens ainda não existe — use 'Sincronizar' primeiro.");
+        break;
+      }
       case "titles-config": {
         // Não existe preset global de Títulos (são só Items por Ator) — o mais útil que já
         // existe é abrir o Compêndio de Títulos do mundo pra navegar/gerenciar.

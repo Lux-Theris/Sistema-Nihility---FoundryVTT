@@ -245,6 +245,7 @@ export const MEU_SISTEMA = {
     skills: { key: "meu-sistema-skills", label: "Compêndio de Habilidades", type: "Item" },
     bodyParts: { key: "meu-sistema-body-parts", label: "Compêndio de Partes do Corpo", type: "Item" },
     titles: { key: "meu-sistema-titles", label: "Compêndio de Títulos", type: "Item" },
+    items: { key: "meu-sistema-items", label: "Compêndio de Itens", type: "Item" },
     starshipModules: { key: "meu-sistema-starship-modules", label: "Compêndio de Módulos de Naves", type: "Item" },
     padLibrary: { key: "meu-sistema-pad-library", label: "Biblioteca do PAD (Naves)", type: "JournalEntry" },
     padGroups: { key: "meu-sistema-pad-groups", label: "Grupos de Mensagem do PAD", type: "JournalEntry" }

@@ -12,6 +12,7 @@ const COMPENDIUM_TYPE_MAP = {
   skill: MEU_SISTEMA.COMPENDIUM.skills,
   body_part: MEU_SISTEMA.COMPENDIUM.bodyParts,
   title: MEU_SISTEMA.COMPENDIUM.titles,
+  item: MEU_SISTEMA.COMPENDIUM.items,
   starship_module: MEU_SISTEMA.COMPENDIUM.starshipModules
 };
 

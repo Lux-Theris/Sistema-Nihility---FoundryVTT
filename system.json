@@ -2,7 +2,7 @@
   "id": "nihility-rpg-system",
   "title": "Nihility RPG System",
   "description": "Sistema customizado modular para Foundry VTT, compatível com Fantasia/Isekai e Sci-Fi Arcano. Blocos do sistema (Naves, Títulos, Anatomia, Fusão, PAD...) ligam e desligam por campanha, com presets prontos. Suporta economia dinâmica, títulos, anatomia detalhada por espécie, fusão avançada de habilidades e automações via IA. Requer Foundry V13+.",
-  "version": "1.27.0",
+  "version": "1.27.1",
   "compatibility": {
     "minimum": "13",
     "verified": "14"

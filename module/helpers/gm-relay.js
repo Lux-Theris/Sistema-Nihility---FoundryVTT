@@ -122,7 +122,7 @@ const HANDLERS = {
  * O Mestre "designado" — o de menor id entre os conectados. Com dois Mestres online, sem isso os
  * dois executariam a mesma ação e o XP seria creditado em dobro.
  */
-function isDesignatedGm() {
+export function isDesignatedGm() {
   const activeGms = game.users.filter(u => u.isGM && u.active).map(u => u.id).sort();
   return activeGms[0] === game.user.id;
 }

@@ -2938,6 +2938,47 @@ form.nihility-config-app {
   gap: 5px;
 }
 
+/* Campos numéricos sob o interruptor (ex.: Deslocamento: Base, Passo, Teto). Cada um é um
+   <label>, então a cor é explícita pelo mesmo motivo do resto desta tela. */
+.nihility-feature-config .feature-options {
+  margin: 6px 0 0 22px;
+  padding-left: 10px;
+  border-left: 2px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nihility-feature-config .feature-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--nihility-text);
+}
+
+.nihility-feature-config .feature-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.nihility-feature-config .feature-option-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--nihility-text);
+}
+
+.nihility-feature-config .feature-option input[type="number"] {
+  width: 72px;
+  flex: 0 0 auto;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+}
+
 /* Sub-feature ligada sob um pai desligado: some visualmente sem perder o estado salvo. */
 .nihility-feature-config .feature-main.child.is-inherited-off {
   opacity: 0.5;
@@ -3879,4 +3920,15 @@ form.nihility-config-app {
   line-height: normal;
   padding: 4px 10px;
   width: auto;
+}
+
+/* Chip de deslocamento na linha de Destreza da ficha. */
+.actor-sheet .attr-formula .move-chip {
+  font: 600 0.72rem var(--nihility-font-data);
+  color: var(--nihility-ok);
+  background: rgba(110, 231, 160, 0.08);
+  border: 1px solid rgba(110, 231, 160, 0.4);
+  border-radius: 4px;
+  padding: 1px 7px;
+  white-space: nowrap;
 }

@@ -17,7 +17,9 @@ import {
   isAreaEffectsEnabled,
   getVisibleAttributes,
   sceneActorCandidates,
-  debugLog
+  debugLog,
+  isMovementEnabled,
+  describeMovement
 } from "../config.js";
 import { hasPadDevice } from "../pad/pad-crew.js";
 import { getTotalUnread } from "../pad/pad-messaging.js";
@@ -234,7 +236,9 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         label,
         data,
         formula: buildAttributeRollFormula(data.bonus),
-        previewFormula: hasPending ? buildAttributeRollFormula(data.previewBonus) : null
+        previewFormula: hasPending ? buildAttributeRollFormula(data.previewBonus) : null,
+        // Só a linha de Destreza carrega o deslocamento (ver deriveMovement em character-model.js).
+        movement: key === "dexterity" && isMovementEnabled() ? describeMovement(actor.system.movement) : null
       };
     });
     context.attributePointsPending = MEU_SISTEMA.COMBAT_ATTRIBUTES.reduce(

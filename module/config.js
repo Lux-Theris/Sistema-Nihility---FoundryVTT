@@ -60,7 +60,6 @@ export const MEU_SISTEMA = {
     vitalFormulaFloor: "vitalFormulaFloor",
     completedMigrations: "completedMigrations",
     debugMode: "debugMode",
-    movementProbe: "movementProbe",
     aiProvider: "aiProvider",
     aiEndpointUrl: "aiEndpointUrl",
     aiModel: "aiModel",
@@ -186,6 +185,22 @@ export const MEU_SISTEMA = {
       name: "PAD — Mensagens",
       hint: "Troca de mensagens privadas (diretas e em grupo) entre Personagens no PAD.",
       default: true
+    },
+    movement: {
+      setting: "movementEnabled",
+      name: "Deslocamento por rodada",
+      hint: "Em combate, o token só anda até o deslocamento do turno (base + Destreza). O que passa do limite aparece pontilhado na régua e o token para no último ponto que alcança. Fora de combate o movimento é livre.",
+      // Desligado por padrão: ligar muda o comportamento dos tokens em combate, e mundos que já
+      // existem não devem ganhar uma regra nova só por atualizar o sistema.
+      default: false,
+      // Campos numéricos/booleanos que moram sob o interruptor na tela "Módulos do Sistema".
+      // A chave de cada um é também o nome da setting (world, config:false).
+      options: {
+        movementBase: { label: "Base (m)", hint: "Metros por rodada com Destreza 0.", type: "number", default: 6, min: 0 },
+        movementStep: { label: "Passo de Destreza", hint: "Pontos de Destreza para ganhar +1 m.", type: "number", default: 10, min: 1 },
+        movementCap: { label: "Teto (m)", hint: "Máximo alcançável só com Destreza permanente (pontos e Títulos). Destreza vinda de Skills passa por cima.", type: "number", default: 18, min: 0 },
+        movementGmIgnores: { label: "Mestre ignora o limite", hint: "O Mestre move tokens sem gastar nem respeitar o deslocamento.", type: "boolean", default: true }
+      }
     }
   },
 
@@ -202,7 +217,7 @@ export const MEU_SISTEMA = {
       features: {
         economy: true, titles: true, anatomy: true, vessels: false, skillFusion: true,
         skillPoints: true, attributePool: true, resistances: true, statusConditions: true,
-        areaEffects: true, aiAssistant: true, pad: false
+        areaEffects: true, aiAssistant: true, pad: false, movement: true
       }
     },
     scifi: {
@@ -211,7 +226,7 @@ export const MEU_SISTEMA = {
       features: {
         economy: true, titles: false, anatomy: true, vessels: true, skillFusion: false,
         skillPoints: true, attributePool: true, resistances: true, statusConditions: true,
-        areaEffects: true, aiAssistant: true, pad: true
+        areaEffects: true, aiAssistant: true, pad: true, movement: true
       }
     },
     misto: {
@@ -220,7 +235,7 @@ export const MEU_SISTEMA = {
       features: {
         economy: true, titles: true, anatomy: true, vessels: true, skillFusion: true,
         skillPoints: true, attributePool: true, resistances: true, statusConditions: true,
-        areaEffects: true, aiAssistant: true, pad: true
+        areaEffects: true, aiAssistant: true, pad: true, movement: true
       }
     }
   },
@@ -1512,6 +1527,73 @@ export function isFeatureEnabled(key) {
 }
 
 /**
+ * Valor atual de um campo de FEATURES (`options`). Cai no default da tabela quando a setting ainda
+ * não existe, pelo mesmo motivo de `isFeatureEnabled`, e nunca devolve abaixo do `min` declarado.
+ */
+export function getFeatureOption(featureKey, optionKey) {
+  const option = MEU_SISTEMA.FEATURES[featureKey]?.options?.[optionKey];
+  if (!option) return undefined;
+  let value;
+  try {
+    value = game.settings.get(SYSTEM_ID, optionKey);
+  } catch (err) {
+    value = option.default;
+  }
+  if (option.type === "boolean") return Boolean(value);
+  const number = Number(value);
+  const safe = Number.isFinite(number) ? number : option.default;
+  return option.min !== undefined ? Math.max(option.min, safe) : safe;
+}
+
+/**
+ * Deslocamento por rodada, em metros. Duas partes, de propósito:
+ *  - a PERMANENTE (`permanentDexterity` = pontos + Título) sobe 1 m por `step` pontos e para no
+ *    `cap`, senão o valor cruzaria o mapa em poucos níveis;
+ *  - a de SKILLS (`skillDexterity` = buffDelta temporário) soma por cima, sem teto, e é negativa
+ *    quando a Skill reduz Destreza (Lentidão desacelera sem regra nova).
+ * Bônus de Item não entra, igual ao resto do sistema. Recebe a configuração por parâmetro para
+ * poder ser testada sem Foundry.
+ * @returns {{base:number, fromDexterity:number, fromSkills:number, total:number, capped:boolean}}
+ */
+export function movementAllowance({ permanentDexterity = 0, skillDexterity = 0 } = {}, { base = 6, step = 10, cap = 18 } = {}) {
+  const safeBase = Math.max(0, Number(base) || 0);
+  const safeStep = Math.max(1, Number(step) || 1);
+  // Teto abaixo da base não faz sentido: a base é o piso da parte permanente.
+  const ceiling = Math.max(safeBase, Number(cap) || 0);
+
+  const raw = safeBase + Math.floor(Math.max(0, permanentDexterity) / safeStep);
+  const permanent = Math.min(raw, ceiling);
+  const fromSkills = Math.trunc(skillDexterity / safeStep) || 0;
+
+  return {
+    base: safeBase,
+    fromDexterity: permanent - safeBase,
+    fromSkills,
+    total: Math.max(0, permanent + fromSkills),
+    capped: raw >= ceiling
+  };
+}
+
+/** Texto da ficha para um resultado de `movementAllowance`: o total e de onde ele vem. */
+export function describeMovement(movement) {
+  if (!movement) return null;
+  let text = `${movement.base} base`;
+  if (movement.fromDexterity) text += ` + ${movement.fromDexterity} de Destreza${movement.capped ? " (no teto)" : ""}`;
+  if (movement.fromSkills) text += ` ${movement.fromSkills > 0 ? "+" : "−"} ${Math.abs(movement.fromSkills)} de Skills`;
+  return { total: movement.total, title: `Deslocamento por rodada: ${text}` };
+}
+
+/** Configuração ativa do deslocamento (Base/Passo/Teto e se o Mestre é isento). */
+export function getMovementConfig() {
+  return {
+    base: getFeatureOption("movement", "movementBase"),
+    step: getFeatureOption("movement", "movementStep"),
+    cap: getFeatureOption("movement", "movementCap"),
+    gmIgnores: getFeatureOption("movement", "movementGmIgnores")
+  };
+}
+
+/**
  * Aplica um preset de campanha (MEU_SISTEMA.CAMPAIGN_PRESETS) de uma vez só. Blocos que o preset
  * não menciona ficam como estão. Não toca em dado nenhum do mundo — só nas settings de exibição.
  * @param {keyof MEU_SISTEMA["CAMPAIGN_PRESETS"]} presetKey
@@ -1530,6 +1612,9 @@ export async function applyCampaignPreset(presetKey) {
 
 /* Atalhos nomeados — mantidos porque metade do sistema já os importa, mas todos delegam pro
    mesmo `isFeatureEnabled` acima (nenhuma leitura paralela de setting). */
+export function isMovementEnabled() {
+  return isFeatureEnabled("movement");
+}
 export function isEconomyEnabled() {
   return isFeatureEnabled("economy");
 }
@@ -1665,6 +1750,19 @@ export function registerSystemSettings() {
       default: feature.default ?? true,
       requiresReload: true
     });
+
+    // Campos sob o interruptor (ver `options` em FEATURES). Lidos em tempo de uso, então não
+    // pedem reload como o interruptor pede.
+    for (const [optionKey, option] of Object.entries(feature.options ?? {})) {
+      game.settings.register(SYSTEM_ID, optionKey, {
+        name: option.label,
+        hint: option.hint,
+        scope: "world",
+        config: false,
+        type: option.type === "boolean" ? Boolean : Number,
+        default: option.default
+      });
+    }
   }
 
   // Rótulo/visibilidade dos sete atributos (editados pela tela "Configurar Atributos").
@@ -1977,18 +2075,6 @@ export function registerSystemSettings() {
     config: true,
     type: Boolean,
     default: false
-  });
-
-  // Sonda da Fase 0 do deslocamento (module/spike/movement-probe.js). Temporária: sai junto com
-  // o arquivo quando o deslocamento de verdade entrar. Client-scope pelo mesmo motivo do debug.
-  game.settings.register(SYSTEM_ID, S.movementProbe, {
-    name: "Sonda de movimento (teste — Fase 0)",
-    hint: "Só para investigação do deslocamento por rodada. Liga a sonda no console (game.nihility.movementProbe). Desligada, não muda nada no Foundry.",
-    scope: "client",
-    config: true,
-    type: Boolean,
-    default: false,
-    requiresReload: true
   });
 
   // scope:"client" (não "world"): fica só no navegador de quem configura, nunca

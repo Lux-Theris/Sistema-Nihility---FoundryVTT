@@ -28,6 +28,24 @@
         </span>
       </label>
 
+      {{#if feature.options.length}}
+      <div class="feature-options">
+        {{#each feature.options as |option|}}
+        <label class="feature-option" title="{{option.hint}}">
+          <span class="feature-option-text">
+            <span class="feature-option-name">{{option.label}}</span>
+            <span class="feature-hint">{{option.hint}}</span>
+          </span>
+          {{#if option.isBoolean}}
+          <input type="checkbox" data-option="{{option.key}}" {{#if option.value}}checked{{/if}}/>
+          {{else}}
+          <input type="number" data-option="{{option.key}}" value="{{option.value}}" min="{{option.min}}" step="any"/>
+          {{/if}}
+        </label>
+        {{/each}}
+      </div>
+      {{/if}}
+
       {{#if feature.children.length}}
       <div class="feature-children">
         {{#each feature.children as |child|}}

@@ -4,7 +4,9 @@ import {
   getAttributePointsStarting,
   getAttributePointsPerLevel,
   getVitalFormula,
-  getXpForNextLevel
+  getXpForNextLevel,
+  movementAllowance,
+  getMovementConfig
 } from "../config.js";
 
 const fields = foundry.data.fields;
@@ -172,6 +174,19 @@ function sumPermanentStatModifier(actor, stat) {
 }
 
 /**
+ * Deslocamento por rodada, derivado da Destreza — só o número (nada é salvo). A parte permanente
+ * usa `total` (pontos + Título) e a de Skills usa `buffDelta`, exatamente a separação que
+ * `deriveCombatAttributes` já faz; ver `movementAllowance` em config.js. Precisa rodar depois dela.
+ */
+function deriveMovement(dataModel) {
+  const dexterity = dataModel.attributes.combat.dexterity;
+  dataModel.movement = movementAllowance(
+    { permanentDexterity: dexterity.total, skillDexterity: dexterity.buffDelta || 0 },
+    getMovementConfig()
+  );
+}
+
+/**
  * Calcula `total`/`effectiveTotal`/`bonus` de cada atributo de combate. `total`
  * (pontos + Título) é a base permanente usada pra fórmula de HP/Mana — Itens
  * equipados/Modificações instaladas NUNCA entram aqui, só Título conta como bônus
@@ -306,6 +321,7 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
 
   prepareDerivedData() {
     deriveCombatAttributes(this);
+    deriveMovement(this);
     deriveVitalStats(this);
     deriveExperience(this);
   }

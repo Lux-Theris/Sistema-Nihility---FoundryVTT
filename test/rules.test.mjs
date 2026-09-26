@@ -22,7 +22,10 @@ import {
   effectiveSkillCost,
   damageScalingMultiplier,
   getXpForNextLevel,
-  resistanceXpGain
+  resistanceXpGain,
+  movementAllowance,
+  describeMovement,
+  getMovementConfig
 } from "../module/config.js";
 import { computeResistancePercent, computeResistanceName, resistanceMaxLevel } from "../module/skill-effects.js";
 import { buildSubSkillsFromSources } from "../module/skill-snapshot.js";
@@ -477,4 +480,58 @@ test("snapshot de fusão: é cópia, não referência — editar a Sub-Skill nã
   const [snapshot] = buildSubSkillsFromSources([source]);
   snapshot.effects[0].amount = 999;
   assert.equal(source.system.effects[0].amount, -5);
+});
+
+/* -------------------------------------------- */
+/*  Deslocamento por rodada                      */
+/* -------------------------------------------- */
+
+const MOVE_CFG = { base: 6, step: 10, cap: 18 };
+
+test("deslocamento: base + 1 m a cada passo de Destreza permanente", () => {
+  assert.equal(movementAllowance({ permanentDexterity: 0 }, MOVE_CFG).total, 6);
+  assert.equal(movementAllowance({ permanentDexterity: 9 }, MOVE_CFG).total, 6);
+  assert.equal(movementAllowance({ permanentDexterity: 10 }, MOVE_CFG).total, 7);
+  assert.equal(movementAllowance({ permanentDexterity: 24 }, MOVE_CFG).total, 8);
+  assert.equal(movementAllowance({ permanentDexterity: 30 }, MOVE_CFG).total, 9);
+});
+
+test("deslocamento: a Destreza permanente para no teto", () => {
+  const atCap = movementAllowance({ permanentDexterity: 120 }, MOVE_CFG);
+  assert.equal(atCap.total, 18);
+  assert.equal(atCap.capped, true);
+  assert.equal(movementAllowance({ permanentDexterity: 999 }, MOVE_CFG).total, 18);
+  assert.equal(movementAllowance({ permanentDexterity: 30 }, MOVE_CFG).capped, false);
+});
+
+test("deslocamento: Destreza de Skill passa por cima do teto (exemplo do Mestre: 20 m, 200 de Destreza, +10 de Skill = 21 m)", () => {
+  const cfg = { base: 14, step: 10, cap: 20 };
+  assert.equal(movementAllowance({ permanentDexterity: 200 }, cfg).total, 20);
+  const boosted = movementAllowance({ permanentDexterity: 200, skillDexterity: 10 }, cfg);
+  assert.equal(boosted.total, 21);
+  assert.equal(boosted.fromSkills, 1);
+});
+
+test("deslocamento: Skill que reduz Destreza reduz o deslocamento, sem passar de zero", () => {
+  assert.equal(movementAllowance({ permanentDexterity: 24, skillDexterity: -10 }, MOVE_CFG).total, 7);
+  // Menos que um passo não muda nada (e não vira -0).
+  assert.equal(Object.is(movementAllowance({ permanentDexterity: 24, skillDexterity: -5 }, MOVE_CFG).fromSkills, 0), true);
+  assert.equal(movementAllowance({ permanentDexterity: 0, skillDexterity: -500 }, MOVE_CFG).total, 0);
+});
+
+test("deslocamento: configuração absurda não quebra (passo zero, teto abaixo da base)", () => {
+  assert.equal(movementAllowance({ permanentDexterity: 5 }, { base: 6, step: 0, cap: 18 }).total, 11);
+  assert.equal(movementAllowance({ permanentDexterity: 500 }, { base: 6, step: 10, cap: 2 }).total, 6);
+  assert.equal(movementAllowance({ permanentDexterity: -20 }, MOVE_CFG).total, 6);
+});
+
+test("deslocamento: descrição da ficha diz de onde vem o número", () => {
+  const text = describeMovement(movementAllowance({ permanentDexterity: 24, skillDexterity: 10 }, MOVE_CFG));
+  assert.equal(text.total, 9);
+  assert.match(text.title, /6 base \+ 2 de Destreza \+ 1 de Skills/);
+  assert.equal(describeMovement(null), null);
+});
+
+test("deslocamento: sem settings registradas, a configuração cai nos padrões da tabela", () => {
+  assert.deepEqual(getMovementConfig(), { base: 6, step: 10, cap: 18, gmIgnores: true });
 });

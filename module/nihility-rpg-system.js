@@ -42,7 +42,7 @@ import { tickStarshipPower } from "./starship-power.js";
 import { requestShipRepair, approveShipRepairRoll, restoreShipRepairTarget } from "./starship-repair.js";
 import { registerGmRelay } from "./helpers/gm-relay.js";
 import { registerInitiative } from "./combat.js";
-import { registerMovementProbe } from "./spike/movement-probe.js";
+import { registerMovementLimit } from "./movement.js";
 import { registerStatusConditions, interceptManualCondition } from "./conditions.js";
 import { renderDamageControls } from "./damage-apply.js";
 import { notifyIncomingPadMessage } from "./pad/pad-messaging.js";
@@ -132,8 +132,9 @@ Hooks.once("init", () => {
   // antes de qualquer Combate existir.
   registerInitiative();
 
-  // Fase 0 do deslocamento: sonda temporária, só se instala com a setting `movementProbe` ligada.
-  registerMovementProbe();
+  // Deslocamento por rodada (ver module/movement.js). Instala a classe de Token e os hooks no
+  // `init`; cada um confere `isMovementEnabled()` na hora de agir, então o toggle vale sem reload.
+  registerMovementLimit();
 
   // Campos que o Foundry oferece nos seletores de barra de token. Sem isso ele lista o schema
   // cru, onde "shields.regenRate" aparece como se fosse uma barra plausível.

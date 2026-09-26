@@ -156,6 +156,7 @@
                 <span class="formula-arrow">&rarr;</span>
                 <span class="dice-pill preview">{{attr.previewFormula}}</span>
                 {{/if}}
+                {{#if attr.movement}}<span class="move-chip" title="{{attr.movement.title}}">🏃 {{attr.movement.total}} m/rodada</span>{{/if}}
                 {{#if attr.data.itemBonus}}<span class="attr-item-bonus" title="Bônus de Item/Modificação — soma por fora na rolagem, não entra no Pool de d20">+{{attr.data.itemBonus}} item</span>{{/if}}
                 <button type="button" class="attribute-roll" data-action="rollAttribute" title="Rolar (Bônus de Item incluso como número fixo)">🎲</button>
               </div>

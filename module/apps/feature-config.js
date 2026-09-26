@@ -10,7 +10,7 @@
  * Toda a tela é derivada de `MEU_SISTEMA.FEATURES`/`CAMPAIGN_PRESETS`: adicionar um bloco novo
  * na tabela de config faz ele aparecer aqui sozinho, sem tocar neste arquivo nem no template.
  */
-import { SYSTEM_ID, MEU_SISTEMA, isFeatureEnabled, applyCampaignPreset, debugLog } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, isFeatureEnabled, applyCampaignPreset, getFeatureOption, debugLog } from "../config.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 
@@ -45,7 +45,16 @@ export class FeatureConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
       enabled: isFeatureEnabled(key),
       // O estado CRU da setting, sem herdar o pai: uma sub-feature ligada sob um pai desligado
       // precisa continuar aparecendo marcada, senão salvar a tela a apagaria silenciosamente.
-      checked: this._rawSetting(feature.setting)
+      checked: this._rawSetting(feature.setting),
+      // Campos numéricos/booleanos sob o interruptor (ver `options` em FEATURES).
+      options: Object.entries(feature.options ?? {}).map(([optionKey, option]) => ({
+        key: optionKey,
+        label: option.label,
+        hint: option.hint,
+        isBoolean: option.type === "boolean",
+        min: option.min,
+        value: getFeatureOption(key, optionKey)
+      }))
     }));
 
     context.features = entries.filter(e => !e.parent).map(parent => ({
@@ -105,6 +114,19 @@ export class FeatureConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
       const checkbox = this.element.querySelector(`[data-feature="${key}"]`);
       if (!checkbox) continue;
       await game.settings.set(SYSTEM_ID, feature.setting, checkbox.checked);
+
+      for (const [optionKey, option] of Object.entries(feature.options ?? {})) {
+        const input = this.element.querySelector(`[data-option="${optionKey}"]`);
+        if (!input) continue;
+        if (option.type === "boolean") {
+          await game.settings.set(SYSTEM_ID, optionKey, input.checked);
+          continue;
+        }
+        // Campo vazio ou inválido volta ao padrão em vez de gravar NaN.
+        const parsed = Number(input.value);
+        const value = input.value.trim() !== "" && Number.isFinite(parsed) ? parsed : option.default;
+        await game.settings.set(SYSTEM_ID, optionKey, option.min !== undefined ? Math.max(option.min, value) : value);
+      }
     }
 
     ui.notifications.info("Módulos do sistema salvos. Recarregue o mundo (F5) para a interface acompanhar.");

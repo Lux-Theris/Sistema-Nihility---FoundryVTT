@@ -42,6 +42,7 @@ import { tickStarshipPower } from "./starship-power.js";
 import { requestShipRepair, approveShipRepairRoll, restoreShipRepairTarget } from "./starship-repair.js";
 import { registerGmRelay } from "./helpers/gm-relay.js";
 import { registerInitiative } from "./combat.js";
+import { registerMovementProbe } from "./spike/movement-probe.js";
 import { registerStatusConditions, interceptManualCondition } from "./conditions.js";
 import { renderDamageControls } from "./damage-apply.js";
 import { notifyIncomingPadMessage } from "./pad/pad-messaging.js";
@@ -130,6 +131,9 @@ Hooks.once("init", () => {
   // Iniciativa pelo pool de dados do Ator (ver module/combat.js) — precisa rodar no `init`,
   // antes de qualquer Combate existir.
   registerInitiative();
+
+  // Fase 0 do deslocamento: sonda temporária, só se instala com a setting `movementProbe` ligada.
+  registerMovementProbe();
 
   // Campos que o Foundry oferece nos seletores de barra de token. Sem isso ele lista o schema
   // cru, onde "shields.regenRate" aparece como se fosse uma barra plausível.

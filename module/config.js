@@ -60,6 +60,7 @@ export const MEU_SISTEMA = {
     vitalFormulaFloor: "vitalFormulaFloor",
     completedMigrations: "completedMigrations",
     debugMode: "debugMode",
+    movementProbe: "movementProbe",
     aiProvider: "aiProvider",
     aiEndpointUrl: "aiEndpointUrl",
     aiModel: "aiModel",
@@ -1976,6 +1977,18 @@ export function registerSystemSettings() {
     config: true,
     type: Boolean,
     default: false
+  });
+
+  // Sonda da Fase 0 do deslocamento (module/spike/movement-probe.js). Temporária: sai junto com
+  // o arquivo quando o deslocamento de verdade entrar. Client-scope pelo mesmo motivo do debug.
+  game.settings.register(SYSTEM_ID, S.movementProbe, {
+    name: "Sonda de movimento (teste — Fase 0)",
+    hint: "Só para investigação do deslocamento por rodada. Liga a sonda no console (game.nihility.movementProbe). Desligada, não muda nada no Foundry.",
+    scope: "client",
+    config: true,
+    type: Boolean,
+    default: false,
+    requiresReload: true
   });
 
   // scope:"client" (não "world"): fica só no navegador de quem configura, nunca

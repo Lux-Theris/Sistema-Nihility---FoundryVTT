@@ -27,7 +27,8 @@ import {
   getFeatureOption,
   actorScaleIndex,
   isStructureMechanic,
-  scaleIndexOf
+  scaleIndexOf,
+  combatantIsActor
 } from "./config.js";
 import { runAsGm } from "./helpers/gm-relay.js";
 import { createZoneTemplate, removeZonesFor, zonesOnScene, zoneContainsToken } from "./area-effects.js";
@@ -1517,7 +1518,7 @@ const PENDING_UPKEEP_FLAG = "pendingUpkeepRemoval";
 
 /** O Ator está num combate iniciado? */
 function actorInStartedCombat(actor) {
-  return (game.combats ?? []).some(combat => combat.started && combat.combatants.some(c => c.actorId === actor.id));
+  return (game.combats ?? []).some(combat => combat.started && combat.combatants.some(c => combatantIsActor(c, actor)));
 }
 
 /**

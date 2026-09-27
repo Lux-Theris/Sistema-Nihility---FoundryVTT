@@ -14,7 +14,7 @@
  *  3. O resto do mundo só existe atrás da busca, e com teto — é o que impede a lista de virar
  *     centenas de linhas num mundo com muitos NPCs.
  */
-import { SYSTEM_ID, MEU_SISTEMA, sceneActorCandidates } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, sceneActorCandidates, sameActor, actorDisplayName } from "../config.js";
 
 const { DialogV2 } = foundry.applications.api;
 
@@ -45,8 +45,8 @@ function offSceneAllowed() {
 function buildGroups(self, types) {
   const matchesType = actor => !types || types.includes(actor.type);
 
-  const scene = sceneActorCandidates({ types, excludeActorId: null });
-  const mine = game.actors.filter(a => matchesType(a) && a.isOwner && a.id !== self?.id);
+  const scene = sceneActorCandidates({ types });
+  const mine = game.actors.filter(a => matchesType(a) && a.isOwner && !sameActor(a, self));
   const pcs = game.actors.filter(
     a => matchesType(a) && a.type === "character" && a.system?.isPlayerCharacter === true && a.testUserPermission(game.user, "LIMITED")
   );
@@ -58,17 +58,21 @@ function buildGroups(self, types) {
   ].filter(group => group.actors.length);
 }
 
-/** Monta as <option> de um grupo, marcando o próprio Ator quando ele aparece. */
+/**
+ * Monta as <option> de um grupo, marcando o próprio Ator quando ele aparece. O valor é o `uuid`
+ * (e o Ator fica em `seen`): Tokens não vinculados da mesma ficha — "Drone (1)" e "Drone (2)" —
+ * são pessoas diferentes, com o mesmo `id` e `uuid`s diferentes.
+ */
 function optionsFor(actors, self, seen) {
   return actors
     .filter(actor => {
-      if (seen.has(actor.id)) return false;
-      seen.add(actor.id);
+      if (seen.has(actor.uuid)) return false;
+      seen.set(actor.uuid, actor);
       return true;
     })
     .map(actor => {
-      const isSelf = actor.id === self?.id;
-      return `<option value="${actor.id}" ${isSelf ? "selected" : ""}>${escapeHtml(actor.name)}${isSelf ? " (você mesmo)" : ""}</option>`;
+      const isSelf = sameActor(actor, self);
+      return `<option value="${escapeHtml(actor.uuid)}" ${isSelf ? "selected" : ""}>${escapeHtml(actorDisplayName(actor))}${isSelf ? " (você mesmo)" : ""}</option>`;
     })
     .join("");
 }
@@ -179,7 +183,7 @@ export async function pickTargetActor({ self = null, types = null, title = "Esco
     if (picked !== USE_LIST) return picked;
   }
 
-  const seen = new Set();
+  const seen = new Map(); // uuid → Ator
   const groups = buildGroups(self, types);
 
   // O próprio Ator entra sempre, no topo, mesmo sem Token na cena.
@@ -198,7 +202,7 @@ export async function pickTargetActor({ self = null, types = null, title = "Esco
        </div>`
     : "";
 
-  const chosenId = await DialogV2.wait({
+  const chosenUuid = await DialogV2.wait({
     window: { title },
     content: `
       <div class="nihility-target-picker">
@@ -235,7 +239,7 @@ export async function pickTargetActor({ self = null, types = null, title = "Esco
         if (query.length < SEARCH_MIN) return;
 
         const matches = game.actors.filter(
-          a => (!types || types.includes(a.type)) && a.name.toLowerCase().includes(query) && !seen.has(a.id)
+          a => (!types || types.includes(a.type)) && a.name.toLowerCase().includes(query) && !seen.has(a.uuid)
         );
         if (!matches.length) return;
 
@@ -247,7 +251,7 @@ export async function pickTargetActor({ self = null, types = null, title = "Esco
             : `Diretório — ${shown.length}`;
         for (const actor of shown) {
           const option = document.createElement("option");
-          option.value = actor.id;
+          option.value = actor.uuid;
           option.textContent = actor.name;
           directoryGroup.appendChild(option);
         }
@@ -256,6 +260,7 @@ export async function pickTargetActor({ self = null, types = null, title = "Esco
     }
   });
 
-  if (!chosenId) return null;
-  return game.actors.get(chosenId) ?? null;
+  if (!chosenUuid) return null;
+  // O Ator que foi listado (o sintético do Token, quando não vinculado) — nunca a ficha do Diretório.
+  return seen.get(chosenUuid) ?? fromUuidSync(chosenUuid) ?? null;
 }

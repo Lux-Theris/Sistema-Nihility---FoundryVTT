@@ -7,7 +7,7 @@
  *  - Item Geral: só equipado (mesma regra de bônus de atributo e Habilidade Concedida);
  *  - Skill: sempre, a menos que seja Habilidade Ativa — aí só enquanto ligada.
  */
-import { SYSTEM_ID, actorTraits } from "./config.js";
+import { SYSTEM_ID, actorTraits, combatantIsActor } from "./config.js";
 import { sumConditionalModifiers } from "./conditional-modifiers.js";
 
 /** Todas as regras das fontes ativas do Ator. */
@@ -40,7 +40,7 @@ function conditionIds(actor) {
 export function isInCombat(actor) {
   if (!actor) return false;
   for (const combat of game.combats ?? []) {
-    if (combat.started && combat.combatants.some(c => c.actorId === actor.id)) return true;
+    if (combat.started && combat.combatants.some(c => combatantIsActor(c, actor))) return true;
   }
   return false;
 }

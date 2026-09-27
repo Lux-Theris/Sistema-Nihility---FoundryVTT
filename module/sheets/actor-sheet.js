@@ -23,7 +23,8 @@ import {
   getAttributeLabel,
   getScaleConfig,
   isScaleEnabled,
-  isStructureMechanic
+  isStructureMechanic,
+  actorDisplayName
 } from "../config.js";
 import { hasPadDevice } from "../pad/pad-crew.js";
 import { getTotalUnread } from "../pad/pad-messaging.js";
@@ -843,7 +844,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     const data = await this._promptCurrencyTransfer();
     if (!data) return;
 
-    const toActor = game.actors.get(data.toActorId);
+    const toActor = data.toActorUuid ? fromUuidSync(data.toActorUuid) : null;
     if (!toActor) {
       ui.notifications.warn("Destinatário inválido.");
       return;
@@ -862,8 +863,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     const currencyOpts = currencies.map(c => `<option value="${c.id}">${c.label}</option>`).join("");
     // Só Personagens na mesma cena — Nave/Veículo não tem conceito de moeda própria, e listar
     // o mundo inteiro (em vez de só quem está na cena) deixava mandar dinheiro pra qualquer um.
-    const recipients = sceneActorCandidates({ types: ["character"], excludeActorId: this.actor.id });
-    const recipientOpts = recipients.map(a => `<option value="${a.id}">${a.name}</option>`).join("");
+    const recipients = sceneActorCandidates({ types: ["character"], exclude: this.actor });
+    const recipientOpts = recipients.map(a => `<option value="${a.uuid}">${actorDisplayName(a)}</option>`).join("");
 
     if (!recipients.length) {
       ui.notifications.warn("Nenhum outro Personagem na cena atual pra receber a transferência.");
@@ -880,7 +881,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
           <div class="form-group"><label>Quantidade</label><input type="number" name="amount" value="1" min="1"/></div>
         </form>`,
       onConfirm: form => ({
-        toActorId: form.querySelector("[name=toActorId]").value,
+        toActorUuid: form.querySelector("[name=toActorId]").value,
         currencyId: form.querySelector("[name=currencyId]").value,
         amount: Number(form.querySelector("[name=amount]").value) || 0
       })

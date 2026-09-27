@@ -45,6 +45,22 @@ export function registerCompendiumCreateDefaults() {
       return super.createDialog(data, createOptions, options);
     }
   };
+
+  // Rede de segurança que não depende do diálogo (o caminho de criação muda entre versões do
+  // Foundry, e o `createDialog` acima não foi pego em pelo menos uma): Item NOVO e EM BRANCO — sem
+  // dados de sistema, que é como o diálogo o cria — que nasce num Compêndio do sistema com o tipo
+  // errado é recriado no tipo daquele Compêndio. Item arrastado/importado com conteúdo nunca é mexido.
+  Hooks.on("preCreateItem", (item, data, options, userId) => {
+    if (userId !== game.user.id) return;
+    const packType = itemTypeForPack(options?.pack);
+    if (!packType || item.type === packType) return;
+    if (data?.system && Object.keys(data.system).length) return;
+    CONFIG.Item.documentClass.create(
+      { name: data?.name || item.name, type: packType, ...(data?.folder ? { folder: data.folder } : {}) },
+      { pack: options.pack, renderSheet: options.renderSheet ?? true }
+    );
+    return false;
+  });
 }
 
 /**

@@ -18,7 +18,7 @@
  *
  * A geometria (cortar a forma no tamanho máximo) é pura e testada: structure-geometry.js.
  */
-import { SYSTEM_ID, getStructures, getEnergyLabelForActor } from "./config.js";
+import { SYSTEM_ID, getStructures, getEnergyLabelForActor, actorToken } from "./config.js";
 import { runAsGm, isDesignatedGm } from "./helpers/gm-relay.js";
 import { structureSegments, capPolyline, pointsAlongPolyline, firstStructureOnPath, splitStructureHit } from "./structure-geometry.js";
 import { lightSourceData } from "./lights.js";
@@ -314,19 +314,8 @@ export function structureSegmentsOf(scene, instance) {
 
 /* ------------------------------------------------------------------ Bloquear ataques */
 
-/**
- * Token do Ator na Cena aberta. Com vários Tokens do mesmo Ator, o que a pessoa escolheu ganha:
- * `preferred` (os selecionados, pra quem ataca; os marcados como alvo, pro alvo) — senão o Token
- * sintético do próprio Ator, senão o primeiro.
- */
-function tokenOnCanvas(actor, preferred = []) {
-  if (!actor) return null;
-  const chosen = preferred.find(token => token.actor === actor || token.actor?.id === actor.id);
-  if (chosen) return chosen;
-  const own = actor.token?.object;
-  if (own && own.scene?.id === canvas?.scene?.id) return own;
-  return actor.getActiveTokens?.()?.[0] ?? null;
-}
+/** Token do Ator na Cena aberta (ver actorToken em config.js). */
+const tokenOnCanvas = actorToken;
 
 /** Quanto a Estrutura ainda segura: a Vida dela, ou a Mana de quem conjurou (barreira de mana). */
 function structureCapacity(instance) {

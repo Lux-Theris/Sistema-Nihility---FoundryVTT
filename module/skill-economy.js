@@ -371,14 +371,20 @@ async function createSkillRequestMessage(actor, req) {
     content,
     whisper,
     speaker: ChatMessage.getSpeaker({ actor }),
-    flags: { [SYSTEM_ID]: { skillRequest: { actorId: actor.id, ...req } } }
+    // `actorUuid` (e não só o id): pedido feito da ficha de um Token não vinculado é daquele Token.
+    flags: { [SYSTEM_ID]: { skillRequest: { actorId: actor.id, actorUuid: actor.uuid, ...req } } }
   });
+}
+
+/** O Ator de um pedido de Skill: pelo uuid (Token não vinculado); pedidos antigos só têm o id. */
+function requestActor(req) {
+  return (req?.actorUuid ? fromUuidSync(req.actorUuid) : null) ?? game.actors.get(req?.actorId) ?? null;
 }
 
 async function updateSkillRequestMessage(message, status) {
   const req = { ...message.flags[SYSTEM_ID].skillRequest, status };
   const content = await renderSystemTemplate(`systems/${SYSTEM_ID}/templates/chat/skill-request.hbs`, {
-    actorName: game.actors.get(req.actorId)?.name ?? "?",
+    actorName: requestActor(req)?.name ?? "?",
     tierLabel: MEU_SISTEMA.SKILL_TIER_LABELS[req.tier],
     ...req
   });
@@ -398,7 +404,7 @@ export async function approveSkillCreationRequest(message) {
   const req = message.flags?.[SYSTEM_ID]?.skillRequest;
   if (!req || req.status !== "pending") return;
 
-  const actor = game.actors.get(req.actorId);
+  const actor = requestActor(req);
   if (!actor) return;
 
   const available = actor.system.skillPoints[req.tier] ?? 0;

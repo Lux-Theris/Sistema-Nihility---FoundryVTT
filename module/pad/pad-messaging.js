@@ -294,7 +294,7 @@ export async function removeSavedContact(actor, contactActorUuid) {
  * não é automático, senão um jogador não teria como recusar um contato indesejado.
  */
 export async function shareContactWithScene(senderActor) {
-  const recipients = sceneActorCandidates({ types: ["character"], excludeActorId: senderActor.id, permission: "NONE" });
+  const recipients = sceneActorCandidates({ types: ["character"], exclude: senderActor, permission: "NONE" });
   if (!recipients.length) {
     ui.notifications.warn("Nenhum outro Personagem na cena atual pra compartilhar o contato.");
     return false;

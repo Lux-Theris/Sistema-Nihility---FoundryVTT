@@ -23,7 +23,7 @@
  *    grid), atrás do bloco `shipManeuver`. As casas viram unidades da cena multiplicando por
  *    `grid.distance`, então funciona com o grid de 1 m ou com uma cena espacial em outra escala.
  */
-import { SYSTEM_ID, isMovementEnabled, isShipManeuverEnabled, getMovementConfig } from "./config.js";
+import { SYSTEM_ID, isMovementEnabled, isShipManeuverEnabled, getMovementConfig, combatantIsActor } from "./config.js";
 import { isDesignatedGm, runAsGm } from "./helpers/gm-relay.js";
 
 const USED_FLAG = "movementUsed";
@@ -209,7 +209,7 @@ export function getMovementDashStatus(actor) {
   if (!isMovementEnabled() || !Number.isFinite(actor?.system?.movement?.total)) return null;
   for (const combat of game.combats) {
     if (!combat.started) continue;
-    const combatant = combat.combatants.find(c => c.actorId === actor.id);
+    const combatant = combat.combatants.find(c => combatantIsActor(c, actor));
     if (!combatant || combatant.isDefeated) continue;
     return {
       combatantUuid: combatant.uuid,

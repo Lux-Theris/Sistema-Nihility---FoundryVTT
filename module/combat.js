@@ -10,7 +10,7 @@
  * bônus de Item somado por fora — antes disso, iniciativa era um `1d20` pelado, que não conversava
  * com atributo nenhum do sistema.
  */
-import { SYSTEM_ID, MEU_SISTEMA, getAttributeLabel } from "./config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getAttributeLabel, combatantIsActor, actorToken } from "./config.js";
 import { buildAttributeRollFormula } from "./dice.js";
 import { buildModifiedFormula, describeRollOptions, isNeutralRollOptions } from "./roll-modifiers.js";
 
@@ -71,7 +71,8 @@ export async function rollInitiativeForActor(actor, rollOptions = null) {
     return null;
   }
 
-  let combatant = combat.combatants.find(c => c.actorId === actor.id);
+  // Por Ator de verdade, não por id: com dois Tokens não vinculados da mesma ficha, cada um é um combatente.
+  let combatant = combat.combatants.find(c => combatantIsActor(c, actor));
 
   if (!combatant) {
     if (!game.user.isGM) {
@@ -79,7 +80,7 @@ export async function rollInitiativeForActor(actor, rollOptions = null) {
       return null;
     }
 
-    const token = actor.getActiveTokens()[0];
+    const token = actorToken(actor, canvas.tokens?.controlled ?? []);
     if (!token) {
       ui.notifications.warn(`${actor.name} precisa de um Token na cena atual para entrar no combate.`);
       return null;

@@ -8,7 +8,7 @@
  * warning nem erro. A Skill continua funcionando 100% normalmente (custo, dano, efeitos), só
  * sem o efeito visual. Nunca deixe isso bloquear ou atrasar "Usar Habilidade".
  */
-import { SYSTEM_ID } from "./config.js";
+import { SYSTEM_ID, actorToken } from "./config.js";
 
 /** true = o módulo Sequencer está instalado e ativo neste mundo. */
 export function sequencerAvailable() {
@@ -28,11 +28,11 @@ export function playSkillAnimation(sourceActor, mech, options = {}) {
   if (!path || !sequencerAvailable()) return;
 
   try {
-    const sourceToken = sourceActor.getActiveTokens()[0];
+    const sourceToken = actorToken(sourceActor, canvas.tokens?.controlled ?? []);
     if (!sourceToken) return; // sem Token na cena ativa — nada pra animar a partir daqui.
 
     const seq = new Sequence().effect().file(path).atLocation(sourceToken);
-    const targetToken = options.targetActor?.getActiveTokens()[0];
+    const targetToken = actorToken(options.targetActor, [...(game.user.targets ?? [])]);
     if (targetToken) seq.stretchTo(targetToken);
 
     seq.play();

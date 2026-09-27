@@ -1833,26 +1833,63 @@ export function getCrewRoles() {
   return readCatalog("crewRolesData", MEU_SISTEMA.DEFAULT_CREW_ROLES).map(r => ({ ...r, label: r.label || r.id }));
 }
 
+/*
+ * Tokens NÃO vinculados ("Drone (1)", "Drone (2)") são pessoas diferentes com a mesma ficha-base:
+ * cada um tem o próprio Ator sintético, com `uuid` próprio mas o MESMO `id` da ficha do Diretório.
+ * Comparar por `id` (ou buscar com `game.actors.get(id)`) mistura os dois — o dano ia pra ficha
+ * do Diretório, a iniciativa rolava pro combatente errado. Compare sempre por `uuid` (um Token
+ * vinculado dá o mesmo `uuid` da ficha, então continua contando uma vez só).
+ */
+
+/** Mesmo Ator? Por `uuid`: distingue Tokens não vinculados da mesma ficha. */
+export function sameActor(a, b) {
+  return Boolean(a && b) && (a === b || a.uuid === b.uuid);
+}
+
+/** Este Combatant é este Ator (o Token dele, no caso não vinculado)? */
+export function combatantIsActor(combatant, actor) {
+  return sameActor(combatant?.actor, actor);
+}
+
+/** Nome pra listas: o do Token quando não vinculado ("Drone (2)"), senão o da ficha. */
+export function actorDisplayName(actor) {
+  return (actor?.isToken ? actor.token?.name : null) || actor?.name || "?";
+}
+
+/**
+ * O Token do Ator na Cena aberta. Não vinculado: o próprio Token. Vinculado com vários Tokens: o
+ * de `preferred` que for dele (os selecionados, os marcados como alvo), senão o primeiro.
+ */
+export function actorToken(actor, preferred = []) {
+  if (!actor) return null;
+  const chosen = preferred.find(token => sameActor(token.actor, actor));
+  if (chosen) return chosen;
+  const own = actor.isToken ? actor.token?.object : null;
+  if (own) return own.scene?.id === canvas?.scene?.id ? own : null;
+  return actor.getActiveTokens?.()?.[0] ?? null;
+}
+
 /**
  * Atores candidatos a alvo/destinatário: só quem tem um Token na CENA atualmente aberta
  * (`canvas.scene`), não o Diretório de Atores do mundo inteiro — evita listar gente que nem
  * está na cena (ex: mandar dinheiro pra um Ator noutra sessão de jogo, ou mirar Habilidade
- * numa Nave que não está nem por perto). Tokens duplicados do mesmo Ator (vários NPCs iguais)
- * contam uma vez só. `types` (opcional) filtra por `actor.type`; `excludeActorId` tira um Ator
- * específico da lista; `permission` (padrão "OBSERVER") é o nível mínimo exigido.
+ * numa Nave que não está nem por perto). Vários Tokens VINCULADOS ao mesmo Ator contam uma vez só;
+ * Tokens NÃO vinculados ("Drone (1)", "Drone (2)") são pessoas diferentes e aparecem cada um (a
+ * chave é o `uuid`). `types` (opcional) filtra por `actor.type`; `exclude` tira um Ator (por
+ * `uuid`); `permission` (padrão "OBSERVER") é o nível mínimo exigido.
  */
-export function sceneActorCandidates({ types = null, excludeActorId = null, permission = "OBSERVER" } = {}) {
+export function sceneActorCandidates({ types = null, exclude = null, permission = "OBSERVER" } = {}) {
   const scene = canvas?.scene;
   if (!scene) return [];
   const seen = new Set();
   const candidates = [];
   for (const token of scene.tokens) {
     const actor = token.actor;
-    if (!actor || seen.has(actor.id)) continue;
-    if (actor.id === excludeActorId) continue;
+    if (!actor || seen.has(actor.uuid)) continue;
+    if (exclude && sameActor(actor, exclude)) continue;
     if (types && !types.includes(actor.type)) continue;
     if (!actor.testUserPermission(game.user, permission)) continue;
-    seen.add(actor.id);
+    seen.add(actor.uuid);
     candidates.push(actor);
   }
   return candidates;

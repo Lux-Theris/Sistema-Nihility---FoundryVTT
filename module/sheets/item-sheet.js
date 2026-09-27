@@ -15,7 +15,6 @@ import {
   getCharacterEnergyLabel,
   isStatusConditionsEnabled,
   isAreaEffectsEnabled,
-  getActiveDamageElements,
   getScaleConfig,
   isScaleEnabled,
   getActiveTraits,

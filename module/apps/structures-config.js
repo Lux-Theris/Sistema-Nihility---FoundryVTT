@@ -1,9 +1,10 @@
 import { MEU_SISTEMA, getStructures } from "../config.js";
 import { createCardListConfigApp, escapeHtml, optionsHtml } from "./card-list-config-factory.js";
+import { openLightConfigDialog, describeLight } from "../lights.js";
 
 /**
  * Editor do catálogo de Estruturas (Parede de Pedra, Bloco de Gelo, Barreira de Mana…) que as
- * Skills com Tipo de Alvo "Estrutura" erguem no mapa. Regras em structures.js.
+ * Skills com Mecânica "Estrutura" erguem no mapa. Regras em structures.js; luz em lights.js.
  */
 
 function renderStructure(values) {
@@ -25,7 +26,38 @@ function renderStructure(values) {
       <label><input type="checkbox" data-field="blocksSight" ${values.blocksSight ? "checked" : ""}/> Bloqueia visão</label>
       <input type="text" data-field="img" value="${escapeHtml(values.img ?? "")}" placeholder="Imagem (opcional, círculo/quadrado)"/>
       <a class="card-config-pick" data-action="pickIcon" data-field="img" title="Escolher imagem"><i class="fas fa-image"></i></a>
+    </div>
+    <div class="card-config-row">
+      <input type="hidden" data-field="light" value="${escapeHtml(JSON.stringify(values.light ?? null))}"/>
+      <span class="structure-light-summary"><i class="fas fa-lightbulb"></i> Luz: <span class="structure-light-text">${escapeHtml(describeLight(values.light))}</span></span>
+      <button type="button" class="structure-light-edit">Configurar luz…</button>
     </div>`;
+}
+
+/** Botão "Configurar luz…": abre o editor (com pré-visualização no mapa) e guarda no campo oculto. */
+function wireStructure(card) {
+  const field = card.querySelector('[data-field="light"]');
+  const text = card.querySelector(".structure-light-text");
+  card.querySelector(".structure-light-edit")?.addEventListener("click", async event => {
+    event.preventDefault();
+    let current = null;
+    try {
+      current = JSON.parse(field.value || "null");
+    } catch (err) {
+      current = null;
+    }
+    const size = Number(card.querySelector('[data-field="size"]')?.value) || 3;
+    const name = card.querySelector('[data-field="label"]')?.value || "Estrutura";
+    const light = await openLightConfigDialog(current, {
+      title: `Luz — ${name}`,
+      autoHint: "Raio 0 = automático: cobre a forma (círculo/quadrado) ou brilha ao longo da parede",
+      previewRadius: { dim: size + 1, bright: size / 2 }
+    });
+    if (!light) return;
+    const stored = light.enabled ? light : null;
+    field.value = JSON.stringify(stored);
+    text.textContent = describeLight(stored);
+  });
 }
 
 function readStructure(card) {
@@ -42,7 +74,14 @@ function readStructure(card) {
     durationRounds: Math.max(0, Math.round(Number(el("durationRounds").value) || 0)),
     blocksMove: el("blocksMove").checked,
     blocksSight: el("blocksSight").checked,
-    img: el("img").value.trim()
+    img: el("img").value.trim(),
+    light: (() => {
+      try {
+        return JSON.parse(el("light")?.value || "null");
+      } catch (err) {
+        return null;
+      }
+    })()
   };
 }
 
@@ -59,5 +98,6 @@ export const StructuresConfigApp = createCardListConfigApp({
     "<strong>Forma livre</strong>: quem usa a Skill desenha clicando ponto a ponto, até o tamanho máximo.",
   getActiveList: getStructures,
   renderCard: renderStructure,
-  readCard: readStructure
+  readCard: readStructure,
+  wireCard: wireStructure
 });

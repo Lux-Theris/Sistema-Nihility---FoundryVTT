@@ -41,6 +41,7 @@ import { announceVoiceOfTheWorld } from "../voice-of-the-world.js";
 import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../skill-effects.js";
 import { openSkillEditorDialog, mechanicSummaryFor } from "../apps/skill-editor-dialog.js";
 import { pickDamageElements, selectedElementChips } from "../apps/checklist-picker.js";
+import { openLightConfigDialog, describeLight } from "../lights.js";
 import { pickImageFile } from "../helpers/foundry-compat.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -294,6 +295,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       pickElements: NihilityItemSheet.#onPickElements,
       removeElement: NihilityItemSheet.#onRemoveElement,
       showEffectCondition: NihilityItemSheet.#onShowEffectCondition,
+      editEffectLight: NihilityItemSheet.#onEditEffectLight,
       addConditionalModifier: NihilityItemSheet.#onConditionalModifierAdd,
       editSubSkill: NihilityItemSheet.#onSubSkillEdit,
       deleteConditionalModifier: NihilityItemSheet.#onConditionalModifierDelete,
@@ -558,7 +560,10 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         isShipTarget,
         showCondition,
         canOpenCondition: context.conditionsEnabled && !showCondition && context.editable,
-        hasExtras: showCondition || acceptsPeriodic || isShipTarget,
+        isShieldTarget: entry.target === "shield",
+        lightSummary: describeLight(entry.light),
+        lightOn: Boolean(entry.light?.enabled),
+        hasExtras: showCondition || acceptsPeriodic || isShipTarget || entry.target === "shield",
         conditionOptions: [{ value: "", label: "— sem Condição —", selected: !entry.conditionId }].concat(
           conditions.map(c => ({ value: c.id, label: c.label, selected: c.id === entry.conditionId }))
         ),
@@ -920,6 +925,23 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     if (!this.isEditable) return;
     const path = target.dataset.path;
     await this.#writeElementList(path, this.#readElementList(path).filter(id => id !== target.dataset.element));
+  }
+
+  /** Luz do Escudo pessoal (Efeito de alvo "Escudo"): editor com pré-visualização no mapa. */
+  static async #onEditEffectLight(event, target) {
+    event.preventDefault();
+    if (!this.isEditable) return;
+    const index = Number(target.closest("[data-index]").dataset.index);
+    const effects = this.#cloneEffects();
+    const entry = effects[index];
+    if (!entry) return;
+    const light = await openLightConfigDialog(entry.light, {
+      title: `Luz do Escudo — ${this.item.name}`,
+      autoHint: "Raio 0 = automático (2 m em volta do Token)"
+    });
+    if (!light) return;
+    entry.light = light.enabled ? light : null;
+    await this.item.update({ "system.effects": effects });
   }
 
   /** "+ Condição" numa linha de Efeito: só abre os campos (estado de tela). */

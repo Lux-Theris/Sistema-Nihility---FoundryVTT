@@ -18,6 +18,7 @@ import {
 } from "../config.js";
 import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../skill-effects.js";
 import { pickerFieldHtml, readPickerField, wireElementPickerField } from "./checklist-picker.js";
+import { openLightConfigDialog, describeLight } from "../lights.js";
 
 const { DialogV2 } = foundry.applications.api;
 
@@ -86,6 +87,10 @@ function buildEffectRowHtml(entry) {
     <div class="effect-row-periodic-extra" style="display:${periodicVisible && entry.periodic ? "flex" : "none"};">
       <span class="hint-inline" style="display:inline;">Elemento do tick (ignorado se o tick for cura):</span>
       ${pickerFieldHtml(entryElements, "se-effect-elements")}
+    </div>
+    <div class="effect-row-light" style="display:${entry.target === "shield" ? "flex" : "none"};" data-light="${escapeHtml(JSON.stringify(entry.light ?? null))}">
+      <span class="hint-inline" style="display:inline;" title="Acende no Token de quem recebe o Escudo; é apagada quando o Escudo chega a 0 ou a Skill Ativa é desligada.">Luz do escudo: <span class="se-light-text">${escapeHtml(describeLight(entry.light))}</span></span>
+      <button type="button" class="se-light-edit">Configurar luz…</button>
     </div>
   `;
 }
@@ -571,6 +576,25 @@ function setupSkillEditorInteractivity(root, data) {
     }
     targetSelect.addEventListener("change", applyPeriodicVisibility);
     targetSelect.addEventListener("change", applyModifierTypeVisibility);
+    // Luz do Escudo pessoal: só pro alvo Escudo; a luz fica em `data-light` (JSON) até salvar.
+    const lightRow = li.querySelector(".effect-row-light");
+    targetSelect.addEventListener("change", () => {
+      lightRow.style.display = targetSelect.value === "shield" ? "flex" : "none";
+    });
+    li.querySelector(".se-light-edit").addEventListener("click", async event => {
+      event.preventDefault();
+      let current = null;
+      try {
+        current = JSON.parse(lightRow.dataset.light || "null");
+      } catch (err) {
+        current = null;
+      }
+      const light = await openLightConfigDialog(current, { title: "Luz do Escudo", autoHint: "Raio 0 = automático (2 m em volta do Token)" });
+      if (!light) return;
+      const stored = light.enabled ? light : null;
+      lightRow.dataset.light = JSON.stringify(stored);
+      lightRow.querySelector(".se-light-text").textContent = describeLight(stored);
+    });
     targetSelect.addEventListener("change", () => {
       li.querySelector(".se-effect-element-id").style.display = targetSelect.value === "weaponElement" ? "inline-block" : "none";
     });
@@ -643,7 +667,15 @@ function readSkillEditorForm(root, lockTier) {
             icon: row.querySelector(".se-effect-icon")?.value.trim() || "",
             periodic: row.querySelector(".se-effect-periodic").checked,
             tickUnit: row.querySelector(".se-effect-tick-unit").value,
-            damageElements: readPickerField(row.querySelector(".se-effect-elements"))
+            damageElements: readPickerField(row.querySelector(".se-effect-elements")),
+            light: (() => {
+              if (row.querySelector(".se-effect-target").value !== "shield") return null;
+              try {
+                return JSON.parse(row.querySelector(".effect-row-light")?.dataset.light || "null");
+              } catch (err) {
+                return null;
+              }
+            })()
           }))
         : []
   };

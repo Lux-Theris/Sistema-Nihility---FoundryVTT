@@ -164,7 +164,12 @@ function effectEntrySchema() {
       blank: true,
       choices: MEU_SISTEMA.PERIODIC_TICK_UNITS
     }),
-    damageElements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] })
+    damageElements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
+    /**
+     * Só pro alvo "shield": luz acesa no Token de quem recebe o Escudo (ver lights.js), no formato
+     * de `normalizeLightConfig`. `null` = sem luz.
+     */
+    light: new fields.ObjectField({ required: false, nullable: true, initial: null })
   });
 }
 

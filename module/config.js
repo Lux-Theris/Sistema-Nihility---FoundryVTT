@@ -1724,12 +1724,41 @@ export function getStructures() {
     durationRounds: Math.max(0, Math.round(Number(s.durationRounds) || 0)),
     blocksMove: s.blocksMove !== false,
     blocksSight: Boolean(s.blocksSight),
-    color: s.color || "#9aa1c2"
+    color: s.color || "#9aa1c2",
+    // Luz opcional (Barreira de energia com Campo de Energia etc.) — ver lights.js.
+    light: normalizeLightConfig(s.light)
   }));
 }
 
 export function isStructuresEnabled() {
   return isFeatureEnabled("structures");
+}
+
+/**
+ * Luz de uma Estrutura ou de um Escudo pessoal, como guardada no catálogo/Efeito: `null` quando
+ * não emite luz. `dim`/`bright` em unidades da cena (0 = automático: quem usa decide o raio);
+ * `alpha` é a intensidade da cor (0–1); `animation` é uma chave de CONFIG.Canvas.lightAnimations
+ * ("" = sem animação), com velocidade e intensidade 1–10 como no editor de luz do Foundry.
+ */
+export function normalizeLightConfig(raw) {
+  if (!raw || typeof raw !== "object" || !raw.enabled) return null;
+  const num = (value, fallback, min, max) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
+  };
+  const dim = num(raw.dim, 0, 0, 1000);
+  const bright = num(raw.bright, 0, 0, 1000);
+  return {
+    enabled: true,
+    color: /^#[0-9a-f]{6}$/i.test(raw.color ?? "") ? raw.color : "#6ee7ff",
+    alpha: num(raw.alpha, 0.5, 0, 1),
+    dim,
+    // Luz forte maior que a fraca não existe no Foundry (a fraca é o limite de fora).
+    bright: dim > 0 ? Math.min(bright, dim) : bright,
+    animation: typeof raw.animation === "string" ? raw.animation : "",
+    speed: Math.round(num(raw.speed, 5, 1, 10)),
+    intensity: Math.round(num(raw.intensity, 5, 1, 10))
+  };
 }
 
 /**

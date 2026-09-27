@@ -53,6 +53,8 @@ import { registerInitiative } from "./combat.js";
 import { registerMovementLimit } from "./movement.js";
 import { registerConditionalRefresh } from "./conditional-context.js";
 import { advanceStructures, collapseStructuresOfCaster, renderStructureControls } from "./structures.js";
+import { registerStructureRendering } from "./structure-render.js";
+import { registerShieldLightHooks } from "./lights.js";
 import { registerStatusConditions, interceptManualCondition } from "./conditions.js";
 import { renderDamageControls } from "./damage-apply.js";
 import { notifyIncomingPadMessage } from "./pad/pad-messaging.js";
@@ -143,6 +145,8 @@ Hooks.once("init", () => {
   // antes de qualquer Combate existir.
   registerInitiative();
   registerCompendiumCreateDefaults();
+  registerStructureRendering();
+  registerShieldLightHooks();
 
   // Partials reaproveitados entre templates (hoje só a Habilidade Concedida, usada 3x na ficha
   // de Item). Precisa estar registrado antes da primeira ficha abrir.

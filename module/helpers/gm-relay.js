@@ -94,6 +94,19 @@ const HANDLERS = {
     await createStructureAsGm(payload);
   },
 
+  /** Acende a luz de um Escudo pessoal nos Tokens do alvo (ver lights.js). */
+  async setShieldLight(payload) {
+    const { setShieldLightAsGm } = await import("../lights.js");
+    await setShieldLightAsGm(payload ?? {});
+  },
+
+  /** Apaga as luzes de Escudo que uma Skill Ativa acendeu (ao desligá-la). */
+  async clearShieldLights({ actorUuid, skillId, subSkillIndex }) {
+    if (typeof actorUuid !== "string") return;
+    const { clearShieldLightsFromSourceAsGm } = await import("../lights.js");
+    await clearShieldLightsFromSourceAsGm({ actorUuid, skillId: String(skillId ?? ""), subSkillIndex: Number.isInteger(subSkillIndex) ? subSkillIndex : null });
+  },
+
   /** Derruba as Estruturas que uma Skill Ativa mantinha (ao desligá-la). */
   async removeStructures({ sourceUuid, skillId, subSkillIndex }) {
     if (typeof sourceUuid !== "string") return;

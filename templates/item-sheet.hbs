@@ -242,6 +242,13 @@
               <div class="fld span-all"><span class="fld-label">Elemento do tick <span class="help" title="Ignorado se o tick for cura.">?</span></span>{{> nihility.elementChips field=eff.elementField path=eff.elementPath editable=../editable}}</div>
               {{/if}}
               {{/if}}
+              {{#if eff.isShieldTarget}}
+              <div class="fld-row span-all light-row">
+                <span class="fld-label">Luz do escudo <span class="help" title="Acende no Token de quem recebe o Escudo. É apagada quando o Escudo chega a 0 ou quando esta Skill Ativa é desligada.">?</span></span>
+                <span class="light-summary {{#if eff.lightOn}}on{{/if}}"><i class="fas fa-lightbulb"></i> {{eff.lightSummary}}</span>
+                {{#if ../editable}}<button type="button" class="btn" data-action="editEffectLight">Configurar luz…</button>{{/if}}
+              </div>
+              {{/if}}
               {{#if eff.isShipTarget}}
               <div class="fld-row span-all">
                 <span class="fld-label">Modo</span>

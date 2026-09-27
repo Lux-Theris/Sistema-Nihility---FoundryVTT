@@ -48,6 +48,8 @@ Sistema customizado para [Foundry VTT](https://foundryvtt.com/) (requer **V13+**
 - **Estruturas**: Skills cuja Mecânica ao Usar é *Estrutura* erguem Parede de Pedra, Bloco de Gelo, Barreira de Mana… como paredes de verdade no mapa.
   - Formas: linha, círculo, quadrado ou **desenhada à mão**, até o tamanho máximo.
   - Vida 0 = barreira de mana: o dano sai da Mana de quem conjurou.
+  - Visível pra todos no mapa (faixa na cor da Estrutura, nome e barra de Vida) e, se quiser, com **luz animada** (Campo de Energia, Domo Hexagonal…), com pré-visualização no mapa antes de salvar.
+- **Escudo pessoal com luz**: um Efeito de Escudo pode acender uma luz no Token de quem recebe; ela é apagada quando o Escudo acaba ou a Skill é desligada.
 - **Condições no HUD do token**: marque "Envenenado" clicando no token, usando o efeito padrão da Condição ou outro valor.
 - **Anatomia por Espécie**: ao trocar a espécie, o sistema aplica o preset de Partes do Corpo (HP próprio, próteses/modificações), as Skills Raciais e os Traços.
 - **Fusão e Evolução de Skills** (só Mestre). Sub-Skills são sempre uma lista plana que o jogador escolhe ao usar.

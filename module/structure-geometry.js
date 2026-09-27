@@ -78,3 +78,34 @@ export function structureSegments(shape, points, sizePx, sides = 16) {
   }
   return [];
 }
+
+/**
+ * `count` pontos espalhados por igual ao longo de uma linha quebrada (no meio de cada trecho de
+ * mesmo comprimento) — onde vão as luzes de uma parede longa, pra ela brilhar inteira em vez de
+ * ter um ponto de luz só no meio.
+ * @param {Array<[number, number]>} points
+ * @param {number} count
+ * @returns {Array<[number, number]>}
+ */
+export function pointsAlongPolyline(points, count) {
+  const n = Math.max(1, Math.floor(Number(count) || 1));
+  if (!points?.length) return [];
+  if (points.length === 1) return [[Math.round(points[0][0]) || 0, Math.round(points[0][1]) || 0]];
+  const total = polylineLength(points);
+  const result = [];
+  for (let i = 0; i < n; i++) {
+    let target = total * ((i + 0.5) / n);
+    for (let k = 1; k < points.length; k++) {
+      const [x1, y1] = points[k - 1];
+      const [x2, y2] = points[k];
+      const seg = Math.hypot(x2 - x1, y2 - y1);
+      if (target <= seg || k === points.length - 1) {
+        const t = seg ? Math.min(1, target / seg) : 0;
+        result.push([Math.round(x1 + (x2 - x1) * t) || 0, Math.round(y1 + (y2 - y1) * t) || 0]);
+        break;
+      }
+      target -= seg;
+    }
+  }
+  return result;
+}

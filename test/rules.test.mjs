@@ -35,7 +35,8 @@ import {
   fundByPriority,
   isStructureMechanic,
   migrateStructureTarget,
-  getActiveDamageElements
+  getActiveDamageElements,
+  normalizeLightConfig
 } from "../module/config.js";
 import { computeResistancePercent, computeResistanceName, resistanceMaxLevel } from "../module/skill-effects.js";
 import { buildSubSkillsFromSources, buildGrantedSkillData } from "../module/skill-snapshot.js";
@@ -902,7 +903,7 @@ test("classes: a Classe sobrescreve as vagas da Categoria; Distribuição é sem
 /*  Estruturas: geometria                        */
 /* -------------------------------------------- */
 
-import { capPolyline, polylineLength, structureSegments } from "../module/structure-geometry.js";
+import { capPolyline, polylineLength, structureSegments, pointsAlongPolyline } from "../module/structure-geometry.js";
 
 test("estrutura: traçado livre para no comprimento máximo", () => {
   const capped = capPolyline([[0, 0], [100, 0], [100, 100]], 150);
@@ -1016,4 +1017,21 @@ test("Estrutura: é Mecânica ao Usar, e a forma de 1.37 (Tipo de Alvo) é conve
 test("elementos sem grupo salvo herdam o grupo do padrão de mesmo id", () => {
   // Sem setting (o stub lança), a lista é a padrão: todo elemento tem grupo e nada cai em "Outros".
   assert.ok(getActiveDamageElements().every(el => el.group && el.group !== "Outros"));
+});
+
+test("luz: sem 'enabled' não há luz; valores fora da faixa são limitados", () => {
+  assert.equal(normalizeLightConfig(null), null);
+  assert.equal(normalizeLightConfig({ enabled: false, color: "#ff0000" }), null);
+  const light = normalizeLightConfig({ enabled: true, color: "vermelho", alpha: 3, dim: 4, bright: 9, speed: 50, intensity: -2, animation: "energy" });
+  assert.deepEqual(light, { enabled: true, color: "#6ee7ff", alpha: 1, dim: 4, bright: 4, animation: "energy", speed: 10, intensity: 1 });
+  // Raio 0 = automático: a luz forte não é cortada por um raio fraco que ainda não existe.
+  assert.equal(normalizeLightConfig({ enabled: true, dim: 0, bright: 2 }).bright, 2);
+});
+
+test("luzes ao longo da parede: espalhadas por igual pelo comprimento", () => {
+  assert.deepEqual(pointsAlongPolyline([[0, 0], [100, 0]], 2), [[25, 0], [75, 0]]);
+  // Linha quebrada: o meio de 200 de comprimento cai na quina.
+  assert.deepEqual(pointsAlongPolyline([[0, 0], [100, 0], [100, 100]], 1), [[100, 0]]);
+  assert.deepEqual(pointsAlongPolyline([[5, 5]], 3), [[5, 5]]);
+  assert.deepEqual(pointsAlongPolyline([], 3), []);
 });

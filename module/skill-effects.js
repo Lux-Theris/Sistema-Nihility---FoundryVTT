@@ -39,6 +39,7 @@ import { applyAdvantageToFormula, applyRollModifiers, describeRollOptions, norma
 import { splitDamageParts, resolveDamageParts, scaleMultiplier, resolveConditionEffect, refreshReapplication, rollChance } from "./damage-rules.js";
 import { conditionalBonus } from "./conditional-context.js";
 import { requestStructure, removeStructuresFor } from "./structures.js";
+import { requestShieldLight } from "./lights.js";
 
 const EFFECT_TARGET_PATHS = {
   strength: "system.attributes.combat.strength.buffDelta",
@@ -186,6 +187,8 @@ async function removeUpkeepLinkedEffects(skill, subSkillIndex) {
   // Zona e Estrutura mantidas por esta Skill Ativa somem junto com ela.
   if (skill.parent) await removeZonesFor(skill.parent, skill.id, subSkillIndex);
   if (skill.parent) await removeStructuresFor(skill.parent, skill.id, subSkillIndex);
+  // Luz de Escudo que esta Skill acendeu é APAGADA (o Token volta à luz de antes), não desligada.
+  if (skill.parent) await runAsGm("clearShieldLights", { actorUuid: skill.parent.uuid, skillId: skill.id, subSkillIndex: subSkillIndex ?? null });
 
   const isThisSource = flags => flags.sourceSkillId === skill.id && (flags.sourceSubSkillIndex ?? null) === subSkillIndex;
 
@@ -1227,6 +1230,15 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor, subSki
       await targetActor.update({
         "system.attributes.shield.value": Math.max(0, current + entry.amount)
       });
+      // Luz do Escudo (opcional, ver lights.js): acende no Token do alvo; é apagada quando o
+      // Escudo chega a 0 ou quando a Skill Ativa que o deu é desligada.
+      if (entry.amount > 0 && entry.light?.enabled) {
+        await requestShieldLight(targetActor, entry.light, {
+          actorUuid: originSkill?.parent?.uuid ?? "",
+          skillId: origin.id ?? "",
+          subSkillIndex
+        });
+      }
       summary.push(`Escudo ${sign}${entry.amount}`);
       continue;
     }

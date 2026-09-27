@@ -4870,3 +4870,42 @@ button.prio-chip { cursor: pointer; }
 .nihility-picker .picker-option:has(input:checked) { background: rgba(192, 132, 252, 0.1); }
 .nihility-picker .picker-option .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .nihility-picker .hint { margin: 0; font-size: 0.74rem; color: var(--nihility-text-dim); }
+
+/* Editor de luz (module/lights.js) — Estrutura e Escudo pessoal. Cor explícita (tema do core). */
+.nihility-light-editor,
+.nihility-light-editor label { color: var(--nihility-text); }
+.nihility-light-editor { display: flex; flex-direction: column; gap: 10px; }
+.nihility-light-editor .light-enable { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+.nihility-light-editor .light-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+.nihility-light-editor .light-fields label { display: flex; flex-direction: column; gap: 3px; font-size: 0.76rem; color: var(--nihility-text-dim); }
+.nihility-light-editor .light-fields .light-wide { grid-column: 1 / -1; }
+.nihility-light-editor input[type="number"],
+.nihility-light-editor select {
+  height: 28px;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+}
+.nihility-light-editor input[type="color"] { width: 100%; height: 28px; padding: 0; }
+.nihility-light-editor .hint { margin: 0; font-size: 0.74rem; color: var(--nihility-text-dim); }
+.nihility-light-editor .light-preview-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.nihility-light-editor .light-preview-toggle,
+.nihility-card-config .structure-light-edit,
+.skill-editor-form .se-light-edit {
+  height: auto;
+  min-height: 0;
+  line-height: normal;
+  width: auto;
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--nihility-accent);
+  background: rgba(110, 231, 255, 0.08);
+  color: var(--nihility-accent);
+  cursor: pointer;
+}
+.nihility-card-config .structure-light-summary,
+.nihility-sheet .light-summary { font-size: 0.78rem; color: var(--nihility-text-dim); }
+.nihility-sheet .light-summary.on { color: var(--nihility-warn); }
+.nihility-sheet.item-sheet .light-row { align-items: center; }
+.skill-editor-form .effect-row-light { align-items: center; gap: 8px; flex-wrap: wrap; }

@@ -3,7 +3,8 @@
  *
  * Uma Estrutura vira **Paredes de verdade** do Foundry (bloqueiam movimento e, se a Estrutura
  * disser, visão — e o deslocamento limitado já respeita parede, então ela trava o token de
- * graça) mais um Desenho que mostra onde ela está. Quem cria é o Mestre designado (via relay):
+ * graça). Parede é invisível pra jogador: o que aparece no mapa é desenhado por cada cliente a
+ * partir do registro (structure-render.js), sem documento nenhum. Quem cria é o Mestre designado (via relay):
  * jogador não pode criar Parede. O registro de cada Estrutura em pé mora num flag da Cena
  * (`structures`), e um cartão no chat mostra a Vida e dá ao Mestre os botões de dano e remover.
  *
@@ -19,7 +20,8 @@
  */
 import { SYSTEM_ID, getStructures, getEnergyLabelForActor } from "./config.js";
 import { runAsGm, isDesignatedGm } from "./helpers/gm-relay.js";
-import { structureSegments, capPolyline } from "./structure-geometry.js";
+import { structureSegments, capPolyline, pointsAlongPolyline } from "./structure-geometry.js";
+import { lightSourceData } from "./lights.js";
 
 const FLAG = "structures";
 const MAX_POINTS = 60;
@@ -188,8 +190,12 @@ export async function requestStructure({ sourceActor, skillId, subSkillIndex = n
 }
 
 /**
- * Lado do Mestre: valida o pedido (a Estrutura vem do catálogo, NUNCA do payload), cria Paredes e
- * Desenho, registra na Cena e posta o cartão. O payload vem de outro cliente.
+ * Lado do Mestre: valida o pedido (a Estrutura vem do catálogo, NUNCA do payload), cria as
+ * Paredes, registra na Cena e posta o cartão. O payload vem de outro cliente.
+ *
+ * O registro vem LOGO depois das Paredes: é ele que permite derrubar a Estrutura (desligar a
+ * Skill, dano, rodadas). Na 1.37 um Desenho era criado entre os dois, a criação dele falhava e as
+ * Paredes ficavam órfãs — sem registro, nada as removia.
  */
 export async function createStructureAsGm(payload) {
   const scene = game.scenes.get(payload?.sceneId);
@@ -213,19 +219,25 @@ export async function createStructureAsGm(payload) {
       c,
       move: structure.blocksMove ? M.NORMAL : M.NONE,
       sight: structure.blocksSight ? S.NORMAL : S.NONE,
-      light: structure.blocksSight ? S.NORMAL : S.NONE,
+      // Estrutura que brilha não pode bloquear a própria luz (metade dela sumiria atrás da parede).
+      light: structure.blocksSight && !structure.light ? S.NORMAL : S.NONE,
       sound: S.NONE,
       flags: { [SYSTEM_ID]: { structureInstance: id } }
     }))
   );
-  const drawings = await scene.createEmbeddedDocuments("Drawing", [drawingData(structure, segments, id)]);
+  const lights = structure.light ? await createStructureLights(scene, structure, segments, id) : [];
 
   const instance = {
     id,
     structureId: structure.id,
     label: structure.label,
     wallIds: walls.map(w => w.id),
-    drawingIds: drawings.map(d => d.id),
+    lightIds: lights.map(l => l.id),
+    // O visual (structure-render.js) desenha a partir daqui em todo cliente.
+    segments,
+    shape: structure.shape,
+    color: structure.color,
+    img: structure.img || "",
     manaBarrier: structure.hp === 0,
     hp: structure.hp,
     hpMax: structure.hp,
@@ -244,33 +256,47 @@ export async function createStructureAsGm(payload) {
   });
 }
 
-/** Desenho que marca a Estrutura no mapa (as Paredes em si quase não aparecem pra jogador). */
-function drawingData(structure, segments, id) {
-  const xs = segments.flatMap(([x1, , x2]) => [x1, x2]);
-  const ys = segments.flatMap(([, y1, , y2]) => [y1, y2]);
-  const minX = Math.min(...xs);
-  const minY = Math.min(...ys);
-  const width = Math.max(1, Math.max(...xs) - minX);
-  const height = Math.max(1, Math.max(...ys) - minY);
+/**
+ * Luzes da Estrutura: forma fechada ganha uma luz no centro, cobrindo a forma; linha e forma
+ * livre ganham várias ao longo do caminho, pra brilhar inteira. Raio 0 no catálogo = automático.
+ * Uma luz que falhe não pode derrubar a Estrutura: as Paredes já existem e o registro vem logo
+ * depois (foi exatamente assim que a 1.37 deixou Paredes órfãs).
+ */
+async function createStructureLights(scene, structure, segments, id) {
+  const light = structure.light;
+  const unit = Number(scene.grid?.distance) || 1;
   const closed = structure.shape === "circle" || structure.shape === "rect";
-  const fill = CONST.DRAWING_FILL_TYPES;
-  const points = [segments[0][0] - minX, segments[0][1] - minY, ...segments.flatMap(([, , x2, y2]) => [x2 - minX, y2 - minY])];
-  return {
-    x: minX,
-    y: minY,
-    shape: { type: CONST.DRAWING_TYPES.POLYGON, width, height, points },
-    strokeWidth: 10,
-    strokeColor: structure.color,
-    strokeAlpha: 0.9,
-    fillType: closed ? (structure.img ? fill.PATTERN : fill.SOLID) : fill.NONE,
-    fillColor: structure.color,
-    fillAlpha: 0.25,
-    texture: closed && structure.img ? structure.img : null,
-    text: structure.label,
-    fontSize: 20,
-    textColor: "#ffffff",
-    flags: { [SYSTEM_ID]: { structureInstance: id } }
-  };
+  const path = [[segments[0][0], segments[0][1]], ...segments.map(([, , x2, y2]) => [x2, y2])];
+  let positions;
+  let radius;
+  if (closed) {
+    const xs = path.map(p => p[0]);
+    const ys = path.map(p => p[1]);
+    positions = [[(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2]];
+    const reach = structure.shape === "circle" ? structure.size : structure.size * 0.75;
+    radius = light.dim ? { dim: light.dim, bright: light.bright } : { dim: reach + unit, bright: reach / 2 };
+  } else {
+    radius = light.dim ? { dim: light.dim, bright: light.bright } : { dim: unit * 1.5, bright: unit * 0.5 };
+    const spacingPx = metersToPx(scene, radius.dim * 1.5);
+    const lengthPx = segments.reduce((sum, [x1, y1, x2, y2]) => sum + Math.hypot(x2 - x1, y2 - y1), 0);
+    positions = pointsAlongPolyline(path, Math.min(12, Math.max(1, Math.ceil(lengthPx / spacingPx))));
+  }
+  try {
+    return await scene.createEmbeddedDocuments(
+      "AmbientLight",
+      positions.map(([x, y]) => ({
+        x,
+        y,
+        walls: true,
+        vision: false,
+        config: lightSourceData(light, radius),
+        flags: { [SYSTEM_ID]: { structureInstance: id } }
+      }))
+    );
+  } catch (err) {
+    console.error(`${SYSTEM_ID} | Falha ao criar a luz da Estrutura ${structure.label}.`, err);
+    return [];
+  }
 }
 
 /* ------------------------------------------------------------------ Registro na Cena */
@@ -280,16 +306,40 @@ export function structuresOnScene(scene) {
   return Object.values(scene?.getFlag(SYSTEM_ID, FLAG) ?? {}).filter(Boolean);
 }
 
-/** Derruba uma Estrutura: apaga Paredes e Desenho e tira o registro. Só o Mestre chama. */
+/** Derruba uma Estrutura: apaga as Paredes (e o Desenho de registros antigos) e tira o registro. Só o Mestre chama. */
 export async function removeStructureInstance(scene, instanceId) {
   const instance = scene?.getFlag(SYSTEM_ID, FLAG)?.[instanceId];
   if (!instance) return;
   const wallIds = (instance.wallIds ?? []).filter(id => scene.walls.has(id));
+  // Luz é APAGADA junto com a Estrutura (não desligada/escondida).
+  const lightIds = (instance.lightIds ?? []).filter(id => scene.lights.has(id));
+  if (lightIds.length) await scene.deleteEmbeddedDocuments("AmbientLight", lightIds);
   const drawingIds = (instance.drawingIds ?? []).filter(id => scene.drawings.has(id));
   if (wallIds.length) await scene.deleteEmbeddedDocuments("Wall", wallIds);
   if (drawingIds.length) await scene.deleteEmbeddedDocuments("Drawing", drawingIds);
   await scene.unsetFlag(SYSTEM_ID, `${FLAG}.${instanceId}`);
   refreshStructureCards(scene.id, instanceId);
+}
+
+/**
+ * Paredes marcadas como parte de uma Estrutura que não está mais no registro da Cena: sobras da
+ * 1.37, quando a criação parava no meio (Paredes criadas, registro não). Sem registro nada as
+ * derrubaria nunca. Só o Mestre designado, ao abrir a Cena.
+ */
+export async function removeOrphanStructureWalls(scene) {
+  if (!scene || !isDesignatedGm()) return;
+  const known = new Set(structuresOnScene(scene).map(i => i.id));
+  const isOrphan = doc => {
+    const instanceId = doc.getFlag(SYSTEM_ID, "structureInstance");
+    return instanceId && !known.has(instanceId);
+  };
+  const walls = scene.walls.filter(isOrphan);
+  const lights = scene.lights.filter(isOrphan);
+  if (walls.length) await scene.deleteEmbeddedDocuments("Wall", walls.map(w => w.id));
+  if (lights.length) await scene.deleteEmbeddedDocuments("AmbientLight", lights.map(l => l.id));
+  if (walls.length || lights.length) {
+    console.log(`${SYSTEM_ID} | ${walls.length} Parede(s) e ${lights.length} luz(es) de Estrutura sem registro removida(s) da Cena ${scene.name}.`);
+  }
 }
 
 /** Redesenha os cartões de uma Estrutura (Vida/estado mudaram). */

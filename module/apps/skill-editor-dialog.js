@@ -13,9 +13,11 @@ import {
   isScaleEnabled,
   getEffectTargetGroups,
   getStructures,
-  isStructuresEnabled
+  isStructuresEnabled,
+  isStructureMechanic
 } from "../config.js";
 import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../skill-effects.js";
+import { pickerFieldHtml, readPickerField, wireElementPickerField } from "./checklist-picker.js";
 
 const { DialogV2 } = foundry.applications.api;
 
@@ -61,15 +63,6 @@ function buildEffectRowHtml(entry) {
   const periodicVisible = targetAcceptsPeriodic(entry.target);
   const modifierTypeVisible = MEU_SISTEMA.SHIP_EFFECT_TARGETS.includes(entry.target);
   const entryElements = Array.isArray(entry.damageElements) ? entry.damageElements : [];
-  const elementChipsHtml = getActiveDamageElements()
-    .map(
-      el =>
-        `<label class="element-chip se-effect-element-chip ${entryElements.includes(el.id) ? "checked" : ""}">
-          <input type="checkbox" class="se-effect-element" value="${el.id}" ${entryElements.includes(el.id) ? "checked" : ""}/>
-          <span class="dot" style="background:${el.color}"></span>${el.label}
-        </label>`
-    )
-    .join("");
 
   return `
     <div class="effect-row-main">
@@ -91,8 +84,8 @@ function buildEffectRowHtml(entry) {
       <select class="se-effect-modifier-type" style="display:${modifierTypeVisible ? "inline-block" : "none"};" title="Fixo soma direto no resultado; Multiplicador lê Quantidade como percentual (20 = ×1.20)">${modifierTypeOptions}</select>
     </div>
     <div class="effect-row-periodic-extra" style="display:${periodicVisible && entry.periodic ? "flex" : "none"};">
-      <span class="hint-inline" style="display:inline;">Elemento(s) do tick de dano (ignorado se o tick for cura):</span>
-      <div class="element-grid">${elementChipsHtml || "<span class=\"hint-inline\">Nenhum elemento configurado.</span>"}</div>
+      <span class="hint-inline" style="display:inline;">Elemento do tick (ignorado se o tick for cura):</span>
+      ${pickerFieldHtml(entryElements, "se-effect-elements")}
     </div>
   `;
 }
@@ -108,6 +101,9 @@ export function mechanicSummaryFor(mech) {
   if (mech.effectType === "temporary") {
     const count = (mech.effects ?? []).length;
     return `Efeito Temporário: ${count} efeito${count === 1 ? "" : "s"}`;
+  }
+  if (isStructureMechanic(mech)) {
+    return `Estrutura: ${getStructures().find(st => st.id === mech.structureId)?.label ?? "(nenhuma escolhida)"}`;
   }
   return "Descritiva (sem mecânica)";
 }
@@ -169,6 +165,11 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     fusionSources: Array.isArray(initialData.fusionSources) ? initialData.fusionSources : [],
     evolvedFrom: initialData.evolvedFrom ?? ""
   };
+  // Estrutura era um Tipo de Alvo em 1.37; hoje é uma Mecânica ao Usar.
+  if (data.targetType === "structure") {
+    data.effectType = "structure";
+    data.targetType = "targeted";
+  }
 
   const tierField = lockTier
     ? `<div class="skill-editor-tier-lock"><i class="fas fa-lock"></i> Tier travado: ${MEU_SISTEMA.SKILL_TIER_LABELS[lockTier] ?? lockTier}</div>`
@@ -198,16 +199,14 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
       .map(a => `<option value="${a.key}" ${a.key === data.scalingAttribute ? "selected" : ""}>${a.label}</option>`)
       .join("");
 
-  const effectTypeOptions = MEU_SISTEMA.SKILL_EFFECT_TYPES.map(
+  const effectTypeOptions = MEU_SISTEMA.SKILL_EFFECT_TYPES.filter(t => t !== "structure" || isStructuresEnabled() || data.effectType === "structure").map(
     t => `<option value="${t}" ${t === data.effectType ? "selected" : ""}>${MEU_SISTEMA.SKILL_EFFECT_TYPE_LABELS[t]}</option>`
   ).join("");
 
 
   // Tipo desligado pela campanha sai da lista — a menos que a Skill já esteja nele.
   const availableTargetTypes = MEU_SISTEMA.SKILL_TARGET_TYPES.filter(
-    t =>
-      t === data.targetType ||
-      ((isAreaEffectsEnabled() || (t !== "emission" && t !== "zone")) && (isStructuresEnabled() || t !== "structure"))
+    t => t === data.targetType || isAreaEffectsEnabled() || (t !== "emission" && t !== "zone")
   );
   const structureOptions =
     `<option value="">— escolha —</option>` +
@@ -220,20 +219,6 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     s => `<option value="${s}" ${s === data.areaShape ? "selected" : ""}>${MEU_SISTEMA.SKILL_AREA_SHAPE_LABELS[s]}</option>`
   ).join("");
 
-  // Agrupados por Grupo (Físico, Fantasia, Energia…), na ordem do catálogo.
-  const elementGroups = new Map();
-  for (const el of getActiveDamageElements()) {
-    if (!elementGroups.has(el.group)) elementGroups.set(el.group, []);
-    elementGroups.get(el.group).push(
-      `<label class="element-chip ${data.damageElements.includes(el.id) ? "checked" : ""}">
-          <input type="checkbox" name="damageElements" value="${el.id}" ${data.damageElements.includes(el.id) ? "checked" : ""}/>
-          <span class="dot" style="background:${el.color}"></span>${escapeHtml(el.label)}
-        </label>`
-    );
-  }
-  const elementChips = [...elementGroups]
-    .map(([group, chips]) => `<div class="element-group"><span class="element-group-label">${escapeHtml(group)}</span><div class="element-grid">${chips.join("")}</div></div>`)
-    .join("");
   const scaleField = isScaleEnabled()
     ? `<div class="form-group"><label>Escala do golpe</label><select name="damageScale">
         ${[{ id: "", label: "— a de quem usa —" }, ...getScaleConfig().scales]
@@ -300,7 +285,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
 
   const energyLabel = getCharacterEnergyLabel();
   const content = `
-    <form class="skill-editor-form">
+    <div class="skill-editor-form">
       <div class="form-group"><label>Nome</label><input type="text" name="name" value="${escapeHtml(data.name)}"/></div>
       ${tierField}
       ${evolvedField}
@@ -336,7 +321,6 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
 
       <div class="se-range-section">
         <div class="form-group"><label>Tipo de Alvo</label><select name="targetType">${targetTypeOptions}</select></div>
-        <div class="form-group se-structure-field"><label>Estrutura</label><select name="structureId">${structureOptions}</select></div>
         <div class="mechanic-panel se-emission-panel">
           <div class="form-group se-zone-rounds-field"><label>Duração da Zona <span class="hint-inline" style="display:inline;">(rodadas de combate)</span></label><input type="number" name="zoneRounds" value="${data.zoneRounds}" min="1"/></div>
           <div class="form-group"><label>Formato de Área</label><select name="areaShape">${areaShapeOptions}</select></div>
@@ -344,6 +328,12 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
             <div class="form-group"><label>Distância <span class="hint-inline" style="display:inline;">(unidades de grid)</span></label><input type="number" name="areaDistance" value="${data.areaDistance}" min="0"/></div>
             <div class="form-group se-area-angle-field"><label>Ângulo <span class="hint-inline" style="display:inline;">(graus)</span></label><input type="number" name="areaAngle" value="${data.areaAngle}" min="1" max="360"/></div>
           </div>
+        </div>
+      </div>
+
+      <div class="mechanic-panel se-structure-panel">
+        <div class="form-group"><label>Estrutura</label><select name="structureId">${structureOptions}</select>
+          <span class="hint-inline">Formato, tamanho e Vida vêm do catálogo (Configurações Gerais › Estruturas). Skill Ativa com Estrutura sem prazo: ela fica até a Skill ser desligada.</span>
         </div>
       </div>
 
@@ -357,7 +347,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
         <label class="checkbox-line"><input type="checkbox" name="isMagicDamage" ${data.isMagicDamage ? "checked" : ""}/> Dano Mágico</label>
         <label class="checkbox-line" title="Não pode ser resistido (Defesa Mágica, Resistências, Imunidade, Escudo pessoal). Contra Nave, a Evasão ainda vale e o resto vai direto na Integridade Estrutural."><input type="checkbox" name="isAbsoluteDamage" ${data.isAbsoluteDamage ? "checked" : ""}/> Dano Absoluto</label>
         ${scaleField}
-        <div class="form-group"><label>Elemento(s)</label><div class="element-groups">${elementChips || "<span class=\"hint-inline\">Nenhum elemento configurado.</span>"}</div></div>
+        <div class="form-group"><label>Elemento(s)</label>${pickerFieldHtml(data.damageElements, "se-damage-elements")}</div>
       </div>
 
       <div class="mechanic-panel se-temp-panel">
@@ -374,10 +364,10 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
           Quantidade negativa = debuff/drawback. Escudo ignora Duração (some só ao absorver dano).
           Condição dá ícone reconhecível no token (opcional). "Periódico" (só HP/${energyLabel}) aplica a
           Quantidade a CADA tick em vez de uma vez só — Duração vira "quantos ticks". Reaplicar a
-          MESMA Condição em quem já a tem apenas ESTENDE a duração/ticks (soma), não duplica.
+          MESMA Condição em quem já a tem RENOVA a duração (não soma) e fica com o valor mais forte.
         </p>
       </div>
-    </form>`;
+    </div>`;
 
   return DialogV2.wait({
     window: {
@@ -461,10 +451,13 @@ function setupSkillEditorInteractivity(root, data) {
   const effectList = root.querySelector(".se-effect-list");
   const levelInput = root.querySelector('[name="level"]');
 
+  const structurePanel = root.querySelector(".se-structure-panel");
   function applyMechanic() {
     const value = mechanicSelect.value;
-    // O Tipo de Alvo aparece sempre: uma Skill "Descritiva" ainda pode erguer uma Estrutura.
-    rangeSection.style.display = "flex";
+    // Tipo de Alvo só existe pra quem acerta alguém: Dano e Efeito. Descritiva não usa alvo, e
+    // Estrutura tira o formato do catálogo.
+    rangeSection.style.display = value === "damage" || value === "temporary" ? "flex" : "none";
+    structurePanel.style.display = value === "structure" ? "flex" : "none";
     damagePanel.style.display = value === "damage" ? "flex" : "none";
     tempPanel.style.display = value === "temporary" ? "flex" : "none";
   }
@@ -479,7 +472,6 @@ function setupSkillEditorInteractivity(root, data) {
   function applyTargetType() {
     const isArea = targetTypeSelect.value === "emission" || targetTypeSelect.value === "zone";
     emissionPanel.style.display = isArea ? "flex" : "none";
-    root.querySelector(".se-structure-field").style.display = targetTypeSelect.value === "structure" ? "flex" : "none";
     root.querySelector(".se-zone-rounds-field").style.display = targetTypeSelect.value === "zone" ? "flex" : "none";
   }
   function applyAreaShape() {
@@ -532,9 +524,7 @@ function setupSkillEditorInteractivity(root, data) {
   levelInput.addEventListener("input", updateResistInfo);
   updateResistInfo();
 
-  root.querySelectorAll('[name="damageElements"]').forEach(cb => {
-    cb.addEventListener("change", () => cb.closest(".element-chip")?.classList.toggle("checked", cb.checked));
-  });
+  wireElementPickerField(root.querySelector(".se-damage-elements"));
 
   // Sub-Skills: clicar no nome/linha abre a Descrição rica original daquele componente (só leitura).
   root.querySelectorAll(".subskill-mini-row").forEach(row => {
@@ -586,9 +576,7 @@ function setupSkillEditorInteractivity(root, data) {
     });
     periodicCheckbox.addEventListener("change", applyPeriodicVisibility);
 
-    li.querySelectorAll(".se-effect-element").forEach(cb => {
-      cb.addEventListener("change", () => cb.closest(".se-effect-element-chip")?.classList.toggle("checked", cb.checked));
-    });
+    wireElementPickerField(li.querySelector(".se-effect-elements"));
 
     effectList.appendChild(li);
   }
@@ -611,10 +599,10 @@ function readSkillEditorForm(root, lockTier) {
   // simplesmente não ganha/perde Resistência por aqui (o valor já salvo continua intocado).
   const resistEnabled = Boolean(root.querySelector('[name="resistEnable"]')?.checked);
   const resistChecked = root.querySelector('[name="resistTarget"]:checked');
-  const hasRange = effectType !== "none";
+  const hasRange = effectType === "damage" || effectType === "temporary";
   const chosenTargetType = root.querySelector('[name="targetType"]').value;
-  // Sem mecânica, o único Tipo de Alvo que faz algo é Estrutura; o resto volta pro padrão.
-  const targetType = hasRange || chosenTargetType === "structure" ? chosenTargetType : "targeted";
+  // Descritiva e Estrutura não têm alvo: o Tipo de Alvo volta pro padrão.
+  const targetType = hasRange ? chosenTargetType : "targeted";
   const isEmission = hasRange && (targetType === "emission" || targetType === "zone");
   const hasUpkeep = root.querySelector('[name="hasUpkeep"]').checked;
   const scalingAttribute = root.querySelector('[name="scalingAttribute"]')?.value ?? "";
@@ -631,7 +619,7 @@ function readSkillEditorForm(root, lockTier) {
     resistanceTarget: resistEnabled ? resistChecked?.value ?? "general" : "",
     effectType,
     targetType,
-    structureId: targetType === "structure" ? root.querySelector('[name="structureId"]').value : "",
+    structureId: effectType === "structure" ? root.querySelector('[name="structureId"]').value : "",
     areaShape: isEmission ? root.querySelector('[name="areaShape"]').value : "",
     areaDistance: isEmission ? Number(root.querySelector('[name="areaDistance"]').value) || 0 : 0,
     areaAngle: isEmission ? Number(root.querySelector('[name="areaAngle"]').value) || 53 : 53,
@@ -642,7 +630,7 @@ function readSkillEditorForm(root, lockTier) {
     isAbsoluteDamage: effectType === "damage" && Boolean(root.querySelector('[name="isAbsoluteDamage"]')?.checked),
     damageScale: effectType === "damage" ? root.querySelector('[name="damageScale"]')?.value ?? "" : "",
     damageElements:
-      effectType === "damage" ? Array.from(root.querySelectorAll('[name="damageElements"]:checked')).map(el => el.value) : [],
+      effectType === "damage" ? readPickerField(root.querySelector(".se-damage-elements")) : [],
     effects:
       effectType === "temporary"
         ? Array.from(root.querySelectorAll(".se-effect-list .effect-row")).map(row => ({
@@ -655,7 +643,7 @@ function readSkillEditorForm(root, lockTier) {
             icon: row.querySelector(".se-effect-icon")?.value.trim() || "",
             periodic: row.querySelector(".se-effect-periodic").checked,
             tickUnit: row.querySelector(".se-effect-tick-unit").value,
-            damageElements: Array.from(row.querySelectorAll(".se-effect-element:checked")).map(el => el.value)
+            damageElements: readPickerField(row.querySelector(".se-effect-elements"))
           }))
         : []
   };

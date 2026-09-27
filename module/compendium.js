@@ -16,6 +16,37 @@ const COMPENDIUM_TYPE_MAP = {
   starship_module: MEU_SISTEMA.COMPENDIUM.starshipModules
 };
 
+/** Tipo de Item que um Compêndio do sistema guarda (`world.meu-sistema-items` → "item"), ou null. */
+export function itemTypeForPack(packId) {
+  if (!packId) return null;
+  const key = String(packId).replace(/^world\./, "");
+  return Object.entries(COMPENDIUM_TYPE_MAP).find(([, def]) => def.key === key)?.[0] ?? null;
+}
+
+/**
+ * "Criar Item" dentro de um Compêndio do sistema já vem no tipo daquele Compêndio (e só nele):
+ * sem isso o diálogo abria em Skill — o primeiro tipo de `system.json` — e o Compêndio de Itens
+ * enchia de Skills criadas por engano. Estende `CONFIG.Item.documentClass` (em vez da classe
+ * global) pra encadear com qualquer módulo que já o tenha trocado, igual `registerInitiative`.
+ * Criar pela aba Itens, fora de Compêndio, continua oferecendo todos os tipos. Chamado no `init`.
+ */
+export function registerCompendiumCreateDefaults() {
+  const BaseItem = CONFIG.Item.documentClass;
+  CONFIG.Item.documentClass = class NihilityItem extends BaseItem {
+    static async createDialog(data = {}, createOptions = {}, options = {}) {
+      const pack = createOptions?.pack;
+      const type = itemTypeForPack(typeof pack === "string" ? pack : pack?.collection);
+      if (type) {
+        data = { ...(data ?? {}) };
+        data.type ??= type;
+        options = { ...(options ?? {}) };
+        options.types ??= [type];
+      }
+      return super.createDialog(data, createOptions, options);
+    }
+  };
+}
+
 /**
  * Garante que todos os Compêndios de World do sistema existam.
  * Só o GM pode criá-los (permissão do Foundry); chamado no hook `ready`.

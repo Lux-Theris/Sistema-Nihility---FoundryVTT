@@ -8,6 +8,7 @@ import {
   isShipManeuverEnabled,
   moduleRole,
   moduleCategoryLabel,
+  powerPriorityGroup,
   getVesselClasses,
   getCrewRoles,
   debugLog
@@ -20,7 +21,7 @@ import { moduleCanRestart } from "../starship-power.js";
 import { syncLibraryOwnershipToCrew } from "../pad/pad-library.js";
 import { pickTargetActor } from "../helpers/target-picker.js";
 import { rollOptionsFromEvent } from "../apps/roll-options-dialog.js";
-import { traitContext, changeTrait } from "../helpers/traits-ui.js";
+import { traitContext, changeTrait, pickActorTraits } from "../helpers/traits-ui.js";
 import { editPortraitFrameAction, CLEAR_PORTRAIT_FRAME } from "../helpers/portrait-frame.js";
 import { pickImageFile, getDragEventData } from "../helpers/foundry-compat.js";
 
@@ -141,7 +142,13 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
   _onRender(context, options) {
     super._onRender(context, options);
     this._onRenderThrottleInputs();
-    this.element.querySelector(".trait-add-select")?.addEventListener("change", event => changeTrait(this.actor, event.target.value, "add"));
+    // Clique direito no chip de prioridade sobe um grupo (o clique normal desce, via action).
+    this.element.querySelectorAll(".prio-chip[data-action]").forEach(chip => {
+      chip.addEventListener("contextmenu", event => {
+        event.preventDefault();
+        this._shiftPriority(chip, -1);
+      });
+    });
     // Função de Tripulação: cada tripulante troca a própria (ver _onChangeCrewRole).
     this.element.querySelectorAll(".crew-role-input").forEach(input => {
       input.addEventListener("change", this._onChangeCrewRole.bind(this));
@@ -443,22 +450,30 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     await changeTrait(this.actor, target.dataset.trait, "remove");
   }
 
-  /** Sobe/desce um Módulo na ordem de prioridade de energia e renumera todos (10, 20, 30…). */
-  static async onMovePriority(event, target) {
+  static async onPickTraits(event) {
     event.preventDefault();
+    await pickActorTraits(this.actor);
+  }
+
+  /**
+   * Chip "P1…P5" da grade de Módulos: clique desce um grupo (P1 → P2 … P5 → P1), clique direito
+   * sobe. P1 recebe energia primeiro quando falta; o mesmo grupo divide o que sobra por igual
+   * (ver fundByPriority em config.js). É decisão da tripulação de CADA Nave, então mora aqui e não
+   * na ficha do Módulo.
+   */
+  static async onCyclePriority(event, target) {
+    event.preventDefault();
+    await this._shiftPriority(target, 1);
+  }
+
+  async _shiftPriority(target, step) {
     if (!canAdjustThrottle(this.actor)) return;
-    const ordered = this.actor.items
-      .filter(i => i.type === "starship_module" && (i.system.powerConsumption ?? 0) > 0)
-      .sort((a, b) => (a.system.powerPriority ?? 0) - (b.system.powerPriority ?? 0));
-    const index = ordered.findIndex(m => m.id === target.dataset.itemId);
-    const to = index + Number(target.dataset.dir);
-    if (index < 0 || to < 0 || to >= ordered.length) return;
-    const [moved] = ordered.splice(index, 1);
-    ordered.splice(to, 0, moved);
-    await this.actor.updateEmbeddedDocuments(
-      "Item",
-      ordered.map((m, i) => ({ _id: m.id, "system.powerPriority": (i + 1) * 10 }))
-    );
+    const module = this.actor.items.get(target.closest("[data-item-id]")?.dataset.itemId);
+    if (!module) return;
+    const groups = MEU_SISTEMA.POWER_PRIORITY_GROUPS;
+    const current = powerPriorityGroup(module.system.powerPriority);
+    const next = ((current - 1 + step + groups) % groups) + 1;
+    await module.update({ "system.powerPriority": next });
   }
 
   /** Dispara uma Arma nativa (Overhaul de Naves, Fase 5) — sempre pede alvo, igual "damage" de Skill. */
@@ -541,6 +556,9 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
         consumption: Math.round((sys.powerConsumption ?? 0) * (throttle / 100)),
         starved: ratio < 100,
         powerRatio: ratio,
+        // Grupo de prioridade de energia (chip P1…P5); só aparece pra quem consome energia.
+        priority: powerPriorityGroup(sys.powerPriority),
+        hasDemand: (sys.powerConsumption ?? 0) > 0,
         // Só Arma
         damageFormula: sys.damageFormula,
         penetration: sys.penetration,
@@ -566,21 +584,6 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
         .filter(i => i.type === "starship_module")
         .map(m => [m.id, Math.round(actor.system.powerRatioFor(m) * 100)])
     );
-
-    // Prioridade de energia é decisão da tripulação de CADA Nave (não especificação do Módulo):
-    // lista ordenada, o primeiro recebe energia primeiro quando falta.
-    context.priorityRows = actor.items
-      .filter(i => i.type === "starship_module" && (i.system.powerConsumption ?? 0) > 0)
-      .sort((a, b) => (a.system.powerPriority ?? 0) - (b.system.powerPriority ?? 0))
-      .map((m, index, all) => ({
-        id: m.id,
-        name: m.name,
-        categoryLabel: moduleCategoryLabel(m.system.category),
-        position: index + 1,
-        first: index === 0,
-        last: index === all.length - 1,
-        online: m.system.status === "online"
-      }));
 
     // Classe (catálogo de Nave ou de Veículo) — só o Mestre troca.
     const kind = actor.type === "vehicle" ? "vehicle" : "ship";
@@ -666,7 +669,8 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
       useSkill: TabbedActorSheetV2.onUseSkill,
       fireWeapon: TabbedActorSheetV2.onFireWeapon,
       removeTrait: TabbedActorSheetV2.onRemoveTrait,
-      movePriority: TabbedActorSheetV2.onMovePriority,
+      pickTraits: TabbedActorSheetV2.onPickTraits,
+      cyclePriority: TabbedActorSheetV2.onCyclePriority,
       toggleModuleVitalAdjust: TabbedActorSheetV2.onToggleModuleVitalAdjust,
       adjustModuleVital: TabbedActorSheetV2.onAdjustModuleVital,
       editImage: TabbedActorSheetV2.onEditImage,
@@ -724,7 +728,8 @@ export class NihilityVehicleSheet extends TabbedActorSheetV2 {
       useSkill: TabbedActorSheetV2.onUseSkill,
       fireWeapon: TabbedActorSheetV2.onFireWeapon,
       removeTrait: TabbedActorSheetV2.onRemoveTrait,
-      movePriority: TabbedActorSheetV2.onMovePriority,
+      pickTraits: TabbedActorSheetV2.onPickTraits,
+      cyclePriority: TabbedActorSheetV2.onCyclePriority,
       toggleModuleVitalAdjust: TabbedActorSheetV2.onToggleModuleVitalAdjust,
       adjustModuleVital: TabbedActorSheetV2.onAdjustModuleVital,
       editImage: TabbedActorSheetV2.onEditImage,

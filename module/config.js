@@ -696,23 +696,46 @@ export const MEU_SISTEMA = {
    * elemento é um sub-campo); "temporary" cobre buffs/debuffs/escudos/drawbacks
    * como uma lista de Efeitos (ver EFFECT_TARGETS).
    */
-  SKILL_EFFECT_TYPES: ["none", "damage", "temporary"],
+  /** Grupos de prioridade de energia de Módulo (1 recebe primeiro). Ver powerPriorityGroup. */
+  POWER_PRIORITY_GROUPS: 5,
+
+  SKILL_EFFECT_TYPES: ["none", "damage", "temporary", "structure"],
 
   SKILL_EFFECT_TYPE_LABELS: {
     none: "Descritiva (sem mecânica)",
     damage: "Dano",
-    temporary: "Efeito Temporário (buff/debrawback/escudo)"
+    temporary: "Efeito Temporário (buff/debuff/escudo)",
+    structure: "Estrutura (parede, bloco, barreira no mapa)"
   },
 
-  /** Ver module/area-effects.js. */
-  SKILL_TARGET_TYPES: ["targeted", "self", "emission", "zone", "structure"],
+  /** Rótulos curtos, pro controle segmentado da ficha de Item. */
+  SKILL_EFFECT_TYPE_SHORT_LABELS: {
+    none: "Descritiva",
+    damage: "Dano",
+    temporary: "Efeito Temporário",
+    structure: "Estrutura"
+  },
+
+  /**
+   * Ver module/area-effects.js. Estrutura NÃO é um Tipo de Alvo: é uma Mecânica ao Usar
+   * (`effectType: "structure"`), porque o formato vem do catálogo de Estruturas, não de um alvo.
+   * O schema ainda aceita `targetType: "structure"` só pra ler Skills salvas assim (1.37) — ver
+   * `isStructureMechanic` e o `migrateData` de SkillDataModel.
+   */
+  SKILL_TARGET_TYPES: ["targeted", "self", "emission", "zone"],
 
   SKILL_TARGET_TYPE_LABELS: {
     targeted: "Targetada (escolhe 1 Ator)",
     self: "Si mesmo (sem escolher alvo)",
     emission: "Emissão (atinge na hora quem está na área)",
-    zone: "Zona (área que fica na cena e afeta quem permanecer nela)",
-    structure: "Estrutura (parede, bloco, barreira no mapa)"
+    zone: "Zona (área que fica na cena e afeta quem permanecer nela)"
+  },
+
+  SKILL_TARGET_TYPE_SHORT_LABELS: {
+    targeted: "Targetada",
+    self: "Si mesmo",
+    emission: "Emissão",
+    zone: "Zona"
   },
 
   SKILL_AREA_SHAPES: ["", "circle", "cone", "ray"],
@@ -1364,8 +1387,17 @@ export function getActiveDamageElements() {
   } catch (err) {
     console.warn(`${SYSTEM_ID} | JSON de elementos de dano inválido, usando padrão.`, err);
   }
-  // Listas salvas antes de grupos/efeitos existirem continuam valendo: sem grupo e sem efeito.
-  return list.map(el => ({ ...el, group: el.group || "Outros", effects: Array.isArray(el.effects) ? el.effects : [] }));
+  // Listas salvas antes de grupos/efeitos existirem continuam valendo, sem efeito. O grupo vem do
+  // elemento padrão de mesmo id (Fogo → Fantasia, Phaser → Energia…); só o que o Mestre criou
+  // sem grupo cai em "Outros".
+  const knownGroups = new Map(
+    [...MEU_SISTEMA.DEFAULT_DAMAGE_ELEMENTS, ...MEU_SISTEMA.SCIFI_DAMAGE_ELEMENTS].map(el => [el.id, el.group])
+  );
+  return list.map(el => ({
+    ...el,
+    group: el.group || knownGroups.get(el.id) || "Outros",
+    effects: Array.isArray(el.effects) ? el.effects : []
+  }));
 }
 
 /** Um elemento pelo id, já normalizado (ver `getActiveDamageElements`). */
@@ -1698,6 +1730,73 @@ export function getStructures() {
 
 export function isStructuresEnabled() {
   return isFeatureEnabled("structures");
+}
+
+/**
+ * Grupo de prioridade de energia (1 = recebe primeiro … 5 = por último), no modelo do Elite
+ * Dangerous: cada Módulo tem um grupo, e a tripulação ajusta no chip "P1…P5" da grade de
+ * Módulos da Nave. Substituiu a lista ordenada com setas, que crescia uma linha por Módulo e
+ * pedia um clique por posição. Valores antigos fora de 1–5 (o padrão 50, ou a numeração
+ * 10/20/30 da lista) caem no grupo do meio; 0 vira 1.
+ */
+export function powerPriorityGroup(value) {
+  const n = Math.round(Number(value));
+  if (n >= 1 && n <= MEU_SISTEMA.POWER_PRIORITY_GROUPS) return n;
+  if (n === 0) return 1;
+  return Math.ceil(MEU_SISTEMA.POWER_PRIORITY_GROUPS / 2);
+}
+
+/**
+ * Divide a energia disponível entre os Módulos por grupo de prioridade: grupo 1 inteiro primeiro,
+ * depois o 2… Quando o que sobra não cobre um grupo inteiro, todos os Módulos DESSE grupo recebem
+ * a mesma fração (ninguém do mesmo grupo passa na frente do outro), e os grupos seguintes ficam
+ * sem nada. Módulo sem demanda recebe 1.
+ * @param {{id: string, demand: number, priority: number}[]} entries
+ * @param {number} available
+ * @returns {Map<string, number>} id → fração (0-1)
+ */
+export function fundByPriority(entries, available) {
+  const ratios = new Map();
+  const groups = new Map();
+  for (const entry of entries) {
+    if (!(entry.demand > 0)) {
+      ratios.set(entry.id, 1);
+      continue;
+    }
+    const group = powerPriorityGroup(entry.priority);
+    if (!groups.has(group)) groups.set(group, []);
+    groups.get(group).push(entry);
+  }
+  let left = Math.max(0, Number(available) || 0);
+  for (const group of [...groups.keys()].sort((a, b) => a - b)) {
+    const list = groups.get(group);
+    const need = list.reduce((sum, e) => sum + e.demand, 0);
+    const ratio = left >= need ? 1 : left / need;
+    for (const e of list) ratios.set(e.id, ratio);
+    left = Math.max(0, left - need);
+  }
+  return ratios;
+}
+
+/**
+ * A Skill (ou Sub-Skill, ou Habilidade Concedida) ergue uma Estrutura ao ser usada? Aceita as
+ * duas formas: a atual (`effectType: "structure"`) e a de 1.37, quando Estrutura era um Tipo de
+ * Alvo (`targetType: "structure"`) — uma Skill guardada assim continua funcionando.
+ */
+export function isStructureMechanic(mech) {
+  return mech?.effectType === "structure" || mech?.targetType === "structure";
+}
+
+/**
+ * Converte a forma de 1.37 (Estrutura como Tipo de Alvo) na atual, no próprio objeto. Usado no
+ * `migrateData` das Skills e dos moldes de Habilidade Concedida.
+ */
+export function migrateStructureTarget(mech) {
+  if (mech && typeof mech === "object" && mech.targetType === "structure") {
+    mech.effectType = "structure";
+    mech.targetType = "targeted";
+  }
+  return mech;
 }
 
 /** Catálogo de Funções de Tripulação. */

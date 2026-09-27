@@ -45,7 +45,7 @@ Sistema customizado para [Foundry VTT](https://foundryvtt.com/) (requer **V13+**
   - As Condições do elemento só entram quando o acerto é confirmado.
 - **Armas de Personagem**: qualquer Item vira arma. Só arma **equipada** ataca. Skills podem **aprimorar as armas equipadas**: mais dano, trocar o elemento, dano mágico ou absoluto.
 - **Habilidades Ativas** com custo por rodada. Mana em 0 desliga todas as Habilidades Ativas do personagem; os efeitos somem no início do próximo turno.
-- **Estruturas**: Skills que erguem Parede de Pedra, Bloco de Gelo, Barreira de Mana… como paredes de verdade no mapa.
+- **Estruturas**: Skills cuja Mecânica ao Usar é *Estrutura* erguem Parede de Pedra, Bloco de Gelo, Barreira de Mana… como paredes de verdade no mapa.
   - Formas: linha, círculo, quadrado ou **desenhada à mão**, até o tamanho máximo.
   - Vida 0 = barreira de mana: o dano sai da Mana de quem conjurou.
 - **Condições no HUD do token**: marque "Envenenado" clicando no token, usando o efeito padrão da Condição ou outro valor.
@@ -61,7 +61,7 @@ Sistema customizado para [Foundry VTT](https://foundryvtt.com/) (requer **V13+**
 - **Categorias de Módulo personalizáveis**: cada categoria aponta para uma **Função** (Geração de Energia, Propulsão, FTL, Escudo, Blindagem, Arma…).
   - Dois núcleos de dobra somam; impulso + manobradores somam; dobra e transdobra são independentes.
   - Comunicações, Defletor e afins existem só se a campanha quiser (Função Utilidade).
-- **Grid de Energia** inspirado em Elite Dangerous (Reator → Distribuidor → Bateria): throttle por Módulo, e prioridade de energia ordenada na ficha da Nave quando falta capacidade.
+- **Grid de Energia** inspirado em Elite Dangerous (Reator → Distribuidor → Bateria): throttle por Módulo e **grupos de prioridade P1…P5** (chip em cada Módulo da ficha da Nave): quando falta energia, P1 recebe primeiro e o mesmo grupo divide o que sobra por igual.
 - **Cascata de dano** em 3 camadas (Escudo → Casco → Integridade Estrutural), com Penetração, Recarga de Escudo e **Evasão** (a Manobra da nave vira dano evitado).
 - **Movimento por rodada** (Porte × Motor), com o mesmo limite na régua do personagem.
 - **Tripulação com postos** (Capitão, Piloto, Engenheiro…) que são só "quem está onde". Qualquer tripulante opera a nave inteira e troca o próprio posto na hora.

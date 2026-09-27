@@ -24,7 +24,7 @@ import {
   GenericItemDataModel
 } from "./data/item-models.js";
 import { AIHelper } from "./ai-helper.js";
-import { ensureSystemCompendiums } from "./compendium.js";
+import { ensureSystemCompendiums, registerCompendiumCreateDefaults } from "./compendium.js";
 import { approveSkillCreationRequest, rejectSkillCreationRequest, removeGrantedSkill } from "./skill-economy.js";
 import { announceLevelUp, announceVoiceOfTheWorld } from "./voice-of-the-world.js";
 import { NihilityActorSheet } from "./sheets/actor-sheet.js";
@@ -142,6 +142,7 @@ Hooks.once("init", () => {
   // Iniciativa pelo pool de dados do Ator (ver module/combat.js) — precisa rodar no `init`,
   // antes de qualquer Combate existir.
   registerInitiative();
+  registerCompendiumCreateDefaults();
 
   // Partials reaproveitados entre templates (hoje só a Habilidade Concedida, usada 3x na ficha
   // de Item). Precisa estar registrado antes da primeira ficha abrir.

@@ -255,7 +255,7 @@ async function pickTransferKeys({ title, hint, rows, confirmLabel }) {
     window: { title },
     classes: ["nihility-transfer-dialog"],
     position: { width: 520 },
-    content: `<form class="nihility-transfer">${hint ? `<p class="hint">${hint}</p>` : ""}${html}</form>`,
+    content: `<div class="nihility-transfer">${hint ? `<p class="hint">${hint}</p>` : ""}${html}</div>`,
     buttons: [
       {
         action: "ok",

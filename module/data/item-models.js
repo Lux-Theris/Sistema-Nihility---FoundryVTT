@@ -1,4 +1,4 @@
-import { MEU_SISTEMA, getXpForNextLevel } from "../config.js";
+import { MEU_SISTEMA, getXpForNextLevel, migrateStructureTarget } from "../config.js";
 
 const fields = foundry.data.fields;
 
@@ -207,7 +207,7 @@ function skillMechanicsFields() {
     damageElements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
     effects: new fields.ArrayField(effectEntrySchema(), { required: false, initial: [] }),
     targetType: new fields.StringField({ required: false, initial: "targeted", choices: ["targeted", "self", "emission", "zone", "structure"] }),
-    /** Só pro alvo "structure": id do catálogo de Estruturas (getStructures em config.js). */
+    /** Só pra Mecânica "structure": id do catálogo de Estruturas (getStructures em config.js). */
     structureId: new fields.StringField({ required: false, initial: "", blank: true }),
     // `blank: true` é obrigatório aqui: um StringField com `choices` some com o `blank: true`
     // implícito que todo StringField normal tem — sem isso, o próprio "" inicial falha a
@@ -226,7 +226,23 @@ function skillMechanicsFields() {
  * não `fusionSources`), usada pelo AI Helper e pela regra geral de consumo por tier (uma
  * skill só funde fontes de tier ≤ o dela).
  */
+/**
+ * Estrutura deixou de ser Tipo de Alvo e virou Mecânica ao Usar (1.38). Converte o molde da
+ * Skill e as Sub-Skills dele, onde quer que estejam guardados.
+ */
+function migrateGrantedStructure(grant) {
+  if (!grant || typeof grant !== "object") return;
+  migrateStructureTarget(grant);
+  for (const sub of grant.subSkills ?? []) migrateStructureTarget(sub);
+}
+
 export class SkillDataModel extends foundry.abstract.TypeDataModel {
+  /** @override */
+  static migrateData(source) {
+    migrateGrantedStructure(source);
+    return super.migrateData(source);
+  }
+
   /** Mesmo teto do XP de Personagem, aplicado na preparação — ver `deriveExperience` em character-model.js. */
   prepareDerivedData() {
     const max = getXpForNextLevel(this.level);
@@ -349,7 +365,7 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
         choices: ["targeted", "self", "emission", "zone", "structure"]
       }),
 
-      /** Só pro alvo "structure": id do catálogo de Estruturas (getStructures em config.js). */
+      /** Só pra Mecânica "structure": id do catálogo de Estruturas (getStructures em config.js). */
       structureId: new fields.StringField({ required: false, initial: "", blank: true }),
 
       /** Só relevante quando targetType === "emission". "" = ainda não configurada. */
@@ -395,6 +411,12 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
  * Parte do Corpo. HP próprio, estado de dano e slot de modificações/próteses instaladas.
  */
 export class BodyPartDataModel extends foundry.abstract.TypeDataModel {
+  /** @override */
+  static migrateData(source) {
+    for (const mod of source?.installedMods ?? []) migrateGrantedStructure(mod?.grantsSkill);
+    return super.migrateData(source);
+  }
+
   static defineSchema() {
     return {
       slot: new fields.StringField({ required: true, initial: "torso" }),
@@ -482,6 +504,12 @@ export class TitleDataModel extends foundry.abstract.TypeDataModel {
 
 /** Módulo instalável em uma Nave Espacial (arma, escudo, motor, utilidade...). */
 export class StarshipModuleDataModel extends foundry.abstract.TypeDataModel {
+  /** @override */
+  static migrateData(source) {
+    migrateGrantedStructure(source?.grantsSkill);
+    return super.migrateData(source);
+  }
+
   static defineSchema() {
     return {
       /**
@@ -546,7 +574,8 @@ export class StarshipModuleDataModel extends foundry.abstract.TypeDataModel {
        * Bateria cobre o déficit (ver `powerShortfall` em starship-model.js). Editável, sem
        * tabela fixa por categoria: quem decide a ordem é o jogador/Mestre.
        */
-      powerPriority: new fields.NumberField({ required: true, integer: true, initial: 50, min: 0 }),
+      /** Grupo de prioridade de energia, 1 (recebe primeiro) a 5 — ver powerPriorityGroup em config.js. */
+      powerPriority: new fields.NumberField({ required: true, integer: true, initial: 3, min: 0 }),
 
       /**
        * Só relevante pra category "shield" — Vida Máxima e Regen do Escudo a 100% de throttle,
@@ -616,6 +645,12 @@ export class StarshipModuleDataModel extends foundry.abstract.TypeDataModel {
 
 /** Item genérico (equipamento, consumível, tesouro...). */
 export class GenericItemDataModel extends foundry.abstract.TypeDataModel {
+  /** @override */
+  static migrateData(source) {
+    migrateGrantedStructure(source?.grantsSkill);
+    return super.migrateData(source);
+  }
+
   static defineSchema() {
     return {
       description: new fields.HTMLField({ required: false, initial: "" }),

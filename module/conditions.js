@@ -165,7 +165,7 @@ async function promptManualCondition(actor, conditionId) {
   const data = await DialogV2.wait({
     window: { title: `Aplicar Condição — ${condition.label}` },
     content: `
-      <form class="nihility-condition-dialog">
+      <div class="nihility-condition-dialog">
         <p class="hint">
           <strong>${escapeHtml(condition.label)}</strong> em <strong>${escapeHtml(actor.name)}</strong>.
           Deixe Alvo e Valor em branco para aplicar só o ícone, sem mecânica nenhuma.
@@ -187,7 +187,7 @@ async function promptManualCondition(actor, conditionId) {
           <input type="checkbox" name="periodic"/>
           Periódico — aplica o Valor a cada rodada (só HP/Energia), em vez de uma vez só
         </label>
-      </form>`,
+      </div>`,
     buttons: [
       {
         action: "confirm",

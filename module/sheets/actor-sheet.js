@@ -22,7 +22,8 @@ import {
   describeMovement,
   getAttributeLabel,
   getScaleConfig,
-  isScaleEnabled
+  isScaleEnabled,
+  isStructureMechanic
 } from "../config.js";
 import { hasPadDevice } from "../pad/pad-crew.js";
 import { getTotalUnread } from "../pad/pad-messaging.js";
@@ -34,7 +35,7 @@ import { rollInitiativeForActor, getInitiativeLabel } from "../combat.js";
 import { getMovementDashStatus, toggleMovementDash } from "../movement.js";
 import { pickTargetActor } from "../helpers/target-picker.js";
 import { rollOptionsFromEvent } from "../apps/roll-options-dialog.js";
-import { traitContext, changeTrait } from "../helpers/traits-ui.js";
+import { traitContext, changeTrait, pickActorTraits } from "../helpers/traits-ui.js";
 import { getStructure, pickStructurePlacement } from "../structures.js";
 import { useSkillEffect, useWeaponAttack, tickPeriodicEffect } from "../skill-effects.js";
 import { announceVoiceOfTheWorld } from "../voice-of-the-world.js";
@@ -131,7 +132,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       deleteCondition: NihilityActorSheet.#onDeleteCondition,
       openPad: NihilityActorSheet.#onOpenPad,
       removeTrait: NihilityActorSheet.#onRemoveTrait,
-      restoreTrait: NihilityActorSheet.#onRestoreTrait
+      restoreTrait: NihilityActorSheet.#onRestoreTrait,
+      pickTraits: NihilityActorSheet.#onPickTraits
     }
   };
 
@@ -358,12 +360,16 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     if (!this.isEditable) return;
 
     this.element.querySelector(".species-select")?.addEventListener("change", this._onSpeciesChange.bind(this));
-    this.element.querySelector(".trait-add-select")?.addEventListener("change", event => changeTrait(this.actor, event.target.value, "add"));
   }
 
   static async #onRemoveTrait(event, target) {
     event.preventDefault();
     await changeTrait(this.actor, target.dataset.trait, "remove");
+  }
+
+  static async #onPickTraits(event) {
+    event.preventDefault();
+    await pickActorTraits(this.actor);
   }
 
   static async #onRestoreTrait(event, target) {
@@ -442,7 +448,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         upkeepCost: Number(s.upkeepCost) || 0,
         animationPath: s.animationPath || "",
         description: s.description || "",
-        effectType: MEU_SISTEMA.SKILL_EFFECT_TYPES.includes(s.effectType) ? s.effectType : "none",
+        // Skill Racial salva em 1.37 com Estrutura como Tipo de Alvo vira a Mecânica Estrutura.
+        effectType: isStructureMechanic(s) ? "structure" : MEU_SISTEMA.SKILL_EFFECT_TYPES.includes(s.effectType) ? s.effectType : "none",
         damageFormula: s.damageFormula || "",
         isMagicDamage: Boolean(s.isMagicDamage),
         isAbsoluteDamage: Boolean(s.isAbsoluteDamage),
@@ -1009,7 +1016,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
     // Estrutura: posiciona (ou desenha) no mapa e o Mestre ergue — ver structures.js. Sem mapa,
     // a Skill só posta o cartão.
-    if (!isDeactivating && mech.targetType === "structure") {
+    if (!isDeactivating && isStructureMechanic(mech)) {
       try {
         let structurePlacement = null;
         if (canvas?.ready && canvas.scene) {

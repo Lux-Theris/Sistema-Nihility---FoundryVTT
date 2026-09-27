@@ -24,6 +24,7 @@ import {
   moduleRole,
   getStructures,
   isStructuresEnabled,
+  isStructureMechanic,
   debugLog
 } from "../config.js";
 import {
@@ -39,6 +40,7 @@ import { createGrantedSkill, removeGrantedSkill, refreshGrantedSkill, evolveSkil
 import { announceVoiceOfTheWorld } from "../voice-of-the-world.js";
 import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../skill-effects.js";
 import { openSkillEditorDialog, mechanicSummaryFor } from "../apps/skill-editor-dialog.js";
+import { pickDamageElements, selectedElementChips } from "../apps/checklist-picker.js";
 import { pickImageFile } from "../helpers/foundry-compat.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -52,8 +54,9 @@ const { ItemSheetV2 } = foundry.applications.sheets;
  * default (grava direto no Item) — se algum campo parar de salvar sozinho ao editar, esse é
  * o primeiro lugar a olhar.
  *
- * Skill: TODOS os campos (Tier/Nível/Custo/Ativa/Descrição/Resistência/Mecânica ao Usar/
- * Alcance/Efeitos) são editados inline na aba Detalhes — não existe segunda camada de edição.
+ * Layout do redesenho aprovado (artifact "Redesenho da Ficha de Item"): abas por pergunta
+ * (`tabsFor`), chips-resumo no cabeçalho (`headerChipsFor`) e seções em grade. Skill: todos os
+ * campos são editados inline nas abas Geral/Mecânica/Passivos/Sub-Skills.
  * `openSkillEditorDialog` só sobrevive como formulário de CRIAÇÃO (Skill Racial em
  * species-config.js, "+ Nova Habilidade (direto)" em actor-sheet.js) e de Evolução. Os
  * Efeitos (`system.effects[]`) não usam `name=` de formulário: um array submetido por linhas
@@ -84,44 +87,142 @@ function mergeSubmittedArrays(data, document) {
 }
 
 /**
- * Chips do cabeçalho: o Item resumido sem abrir aba (Tier, Nível, Custo, Ativa; Categoria e
- * Porte; Equipado, arma; Raridade…). `tone` só muda a cor.
+ * Chips do cabeçalho: o Item resumido sem abrir aba (princípio A do redesenho) — Tier, Nível,
+ * Custo, Ativa, mecânica e Resistência numa Skill; Categoria, Porte, consumo e o número-chave da
+ * Função num Módulo; Equipado, quantidade, valor e arma num Item. Só leitura; `tone` muda a cor.
  */
 function headerChipsFor(item) {
   const sys = item.system;
   const chips = [];
   const add = (label, title = "", tone = "") => chips.push({ label, title, tone });
+  const fmt = n => String(n).replace(".", ",");
   switch (item.type) {
-    case "skill":
+    case "skill": {
       add(MEU_SISTEMA.SKILL_TIER_LABELS[sys.tier] ?? sys.tier, "Tier", "violet");
       add(`Nv ${sys.level}`, "Nível");
-      if (sys.cost) add(`Custo ${sys.cost}`, "Custo ao usar");
-      if (sys.hasUpkeep) add(`Ativa · ${sys.upkeepCost}/rodada`, "Habilidade Ativa", sys.active ? "ok" : "");
-      if (sys.effectType === "damage") add(`Dano ${sys.damageFormula || "?"}`, "Mecânica ao usar", "hp");
-      if (sys.effectType === "temporary") add(`${(sys.effects ?? []).length} efeito(s)`, "Mecânica ao usar");
-      if (sys.resistanceTarget) add("Resistência", "Resistência passiva", "gold");
+      if (sys.cost) add(`${sys.cost} ${getCharacterEnergyLabel()}`, "Custo ao usar");
+      if (sys.hasUpkeep) add(`Ativa · ${sys.upkeepCost}/rod.`, "Habilidade Ativa", sys.active ? "ok" : "accent");
+      const target = MEU_SISTEMA.SKILL_TARGET_TYPE_SHORT_LABELS[sys.targetType] ?? "";
+      if (isStructureMechanic(sys)) add("Estrutura", "Mecânica ao usar");
+      else if (sys.effectType === "damage") add(`Dano · ${target}`, "Mecânica ao usar", "hp");
+      else if (sys.effectType === "temporary") add(`Efeito · ${target}`, "Mecânica ao usar");
+      if (sys.resistanceTarget) {
+        const percent = Math.round(computeResistancePercent(sys.resistanceTarget, sys.level) * 100);
+        const element = sys.resistanceTarget === "general" ? "Geral" : getActiveDamageElements().find(el => el.id === sys.resistanceTarget)?.label ?? sys.resistanceTarget;
+        add(`Resist. ${element} ${percent}%`, "Resistência passiva", "gold");
+      }
+      if ((sys.fusionSources ?? []).length) add(`Fusão de ${sys.fusionSources.length}`, "Linhagem de fusão");
       if (sys.isItemGranted) add("Concedida", "Concedida por Item/Módulo — fixa");
       break;
-    case "starship_module":
+    }
+    case "starship_module": {
+      const role = moduleRole(sys.category);
       add(getModuleCategories().find(c => c.id === sys.category)?.label ?? sys.category, "Categoria", "violet");
-      add(MEU_SISTEMA.MODULE_ROLES[moduleRole(sys.category)]?.label ?? "", "Função");
       add(MEU_SISTEMA.MODULE_SIZE_LABELS[sys.moduleSize] ?? sys.moduleSize, "Porte");
-      if (sys.powerConsumption) add(`Consumo ${sys.powerConsumption}`, "Consumo de energia a 100%");
+      if (sys.powerConsumption) add(`${sys.powerConsumption} ${getStarshipEnergyAbbr()}`, "Consumo de energia a 100%");
+      add(`Vida ${sys.hp?.max ?? 0}`, "Vida máxima");
+      const key = {
+        weapon: () => `${sys.damageFormula || "?"} · Pen ${sys.penetration ?? 0}%`,
+        power: () => `gera ${sys.reactorOutput ?? 0}`,
+        storage: () => `guarda ${sys.batteryCapacity ?? 0}`,
+        distribution: () => `Fator ×${fmt(sys.transferFactor ?? 1)}`,
+        shield: () => `Escudo ${sys.shieldCapacity ?? 0}`,
+        propulsion: () => `Acel ${sys.acceleration ?? 0} · Rot ${sys.rotation ?? 0}`,
+        armor: () => `Redução ${sys.armorReduction ?? 0}%`,
+        ftl: () => (sys.ftlType === "jump" ? `Salto ${sys.jumpRange ?? 0}` : `Dobra ${fmt(sys.warpFactor ?? 1)}`)
+      }[role];
+      if (key) add(key(), "Número-chave da Função", "accent");
       break;
-    case "item":
+    }
+    case "item": {
       if (sys.equipped) add("Equipado", "", "ok");
-      if (sys.weapon?.enabled) add(`Arma ${sys.weapon.damageFormula || "?"}`, "Dano", "hp");
-      if (sys.grantsSkill?.name) add(`Concede ${sys.grantsSkill.name}`, "Habilidade Concedida", "violet");
       if (sys.quantity > 1) add(`×${sys.quantity}`, "Quantidade");
+      if (sys.value?.amount) {
+        const currency = getActiveCurrencies().find(c => c.id === sys.value.currency)?.label ?? sys.value.currency;
+        add(`${sys.value.amount} ${currency}`, "Valor");
+      }
+      if (sys.weapon?.enabled) add(`Arma · ${sys.weapon.damageFormula || "?"}`, "Dano", "accent");
+      if (sys.grantsSkill?.name) add(`concede: ${sys.grantsSkill.name}`, "Habilidade Concedida", "violet");
       break;
-    case "title":
+    }
+    case "title": {
       if (sys.rarity) add(sys.rarity, "Raridade", "gold");
+      if (sys.grantedBy) add(sys.grantedBy, "Concedido por");
       if ((sys.bonuses ?? []).length) add(`${sys.bonuses.length} bônus`, "Bônus permanentes");
       if ((sys.resistances ?? []).length) add(`${sys.resistances.length} resistência(s)`, "Resistências");
       break;
+    }
+    case "body_part": {
+      if (sys.slot) add(sys.slot, "Slot", "violet");
+      add(`Vida ${sys.hp?.value ?? 0}/${sys.hp?.max ?? 0}`, "Vida");
+      if (sys.isProsthetic) add("Protética", "", "accent");
+      if ((sys.installedMods ?? []).length) add(`${sys.installedMods.length} modificação(ões)`, "Modificações instaladas");
+      break;
+    }
   }
   if ((sys.conditionalModifiers ?? []).length) add(`${sys.conditionalModifiers.length} condicional(is)`, "Bônus Condicionais", "gold");
   return chips;
+}
+
+/**
+ * Abas por tipo, cada uma respondendo uma pergunta (princípio B): "o que é", "o que faz ao
+ * usar", "o que dá sempre". A primeira é a que abre — nunca a Descrição. `count` é o número ou
+ * a nota ao lado do nome ("dano", "3", "—"); `led` é o indicador de ligado/desligado.
+ */
+function tabsFor(item) {
+  const sys = item.system;
+  const n = value => (value ? String(value) : "");
+  switch (item.type) {
+    case "skill": {
+      const mechanic = isStructureMechanic(sys)
+        ? "estrutura"
+        : { damage: "dano", temporary: `${(sys.effects ?? []).length} ef.` }[sys.effectType] ?? "";
+      const passives =
+        (sys.resistanceTarget ? 1 : 0) +
+        (sys.statModifiers?.hp ? 1 : 0) +
+        (sys.statModifiers?.energy ? 1 : 0) +
+        (sys.attributeBonuses ?? []).length +
+        (sys.conditionalModifiers ?? []).length;
+      return [
+        { id: "general", label: "Geral" },
+        { id: "mechanic", label: "Mecânica", count: mechanic },
+        { id: "passive", label: "Passivos", count: n(passives) },
+        { id: "subskills", label: "Sub-Skills", count: n((sys.subSkills ?? []).length) },
+        { id: "description", label: "Descrição" }
+      ];
+    }
+    case "item": {
+      const whileEquipped =
+        (sys.grantsSkill?.name ? 1 : 0) +
+        (sys.statModifiers?.hp ? 1 : 0) +
+        (sys.statModifiers?.energy ? 1 : 0) +
+        (sys.attributeBonuses ?? []).length +
+        (sys.conditionalModifiers ?? []).length;
+      return [
+        { id: "general", label: "Geral" },
+        { id: "weapon", label: "Arma", led: true, ledOn: Boolean(sys.weapon?.enabled) },
+        { id: "equipped", label: "Enquanto equipado", count: n(whileEquipped) },
+        { id: "description", label: "Descrição" }
+      ];
+    }
+    case "starship_module":
+      return [
+        { id: "spec", label: "Especificação" },
+        { id: "grant", label: "Habilidade Concedida", count: sys.grantsSkill?.name ? "1" : "—" },
+        { id: "description", label: "Descrição" }
+      ];
+    case "body_part":
+      return [
+        { id: "details", label: "Detalhes" },
+        { id: "mods", label: "Modificações", count: n((sys.installedMods ?? []).length) },
+        { id: "description", label: "Descrição" }
+      ];
+    default:
+      return [
+        { id: "details", label: "Detalhes" },
+        { id: "description", label: "Descrição" }
+      ];
+  }
 }
 
 /** Linhas prontas do editor de Bônus Condicionais (opções já com `selected`). */
@@ -157,17 +258,6 @@ function conditionalModifierRows(list) {
   });
 }
 
-/** Chips de Elemento agrupados por Grupo (ordem do catálogo), com os escolhidos marcados. */
-function groupedElementChips(selected = []) {
-  const chosen = new Set(selected ?? []);
-  const groups = new Map();
-  for (const el of getActiveDamageElements()) {
-    if (!groups.has(el.group)) groups.set(el.group, []);
-    groups.get(el.group).push({ id: el.id, label: el.label, color: el.color, checked: chosen.has(el.id) });
-  }
-  return [...groups].map(([group, chips]) => ({ group, chips }));
-}
-
 /**
  * Resumo de uma Habilidade Concedida pra ficha: nome, tier, custo, a mecânica numa linha e as
  * Sub-Skills. `null` quando o molde está vazio (sem nome) — a ficha mostra "+ Conceder".
@@ -201,10 +291,9 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       deleteSubSkill: NihilityItemSheet.#onSubSkillDelete,
       addSkillEffect: NihilityItemSheet.#onSkillEffectAdd,
       deleteSkillEffect: NihilityItemSheet.#onSkillEffectDelete,
-      toggleSkillElement: NihilityItemSheet.#onSkillElementToggle,
-      toggleEffectElement: NihilityItemSheet.#onEffectElementToggle,
-      toggleWeaponElement: NihilityItemSheet.#onWeaponElementToggle,
-      toggleElement: NihilityItemSheet.#onElementToggle,
+      pickElements: NihilityItemSheet.#onPickElements,
+      removeElement: NihilityItemSheet.#onRemoveElement,
+      showEffectCondition: NihilityItemSheet.#onShowEffectCondition,
       addConditionalModifier: NihilityItemSheet.#onConditionalModifierAdd,
       editSubSkill: NihilityItemSheet.#onSubSkillEdit,
       deleteConditionalModifier: NihilityItemSheet.#onConditionalModifierDelete,
@@ -236,14 +325,18 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     body: { template: `systems/${SYSTEM_ID}/templates/item-sheet.hbs`, scrollable: [".sheet-body"] }
   };
 
+  /**
+   * Linhas de Efeito com "+ Condição" aberto (estado de tela, nada é salvo): a Condição e o Ícone
+   * ficam dobrados até alguém pedir ou até a linha já ter um dos dois.
+   */
+  #openConditionRows = new Set();
+
   constructor(options = {}) {
     super(options);
     // ApplicationV2 não herda o mixin de abas do AppV1 — mesmo padrão manual já usado em
-    // NihilityMenuApp (activeTab + ação "selectTab"), em vez de depender da config de
-    // tabs nova (ainda não validada neste sistema).
-    // Skill não tem a aba "Descrição": o <prose-mirror> dela mora dentro de Detalhes.
-    // Abre direto nos campos (antes abria na Descrição); Skill abre na aba Geral.
-    this.activeTab = this.item?.type === "skill" ? "general" : "details";
+    // NihilityMenuApp (activeTab + ação "selectTab"). `null` = a primeira aba do tipo (ver
+    // tabsFor), que é sempre a dos campos.
+    this.activeTab = null;
   }
 
   /**
@@ -271,179 +364,252 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   /** @override */
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
-    context.system = this.item.system;
+    const item = this.item;
+    const sys = item.system;
+    context.system = sys;
     context.config = MEU_SISTEMA;
-    context.itemType = this.item.type;
-    context.activeTab = this.activeTab;
+    context.itemType = item.type;
     context.currencies = getActiveCurrencies();
-    context.item = this.item;
-    context.owner = this.item.isOwner;
+    context.item = item;
+    context.owner = item.isOwner;
     context.isGM = game.user.isGM;
     context.resistancesEnabled = isResistancesEnabled();
-    // Jogador pode comprar 1 nível de Skill com 1 Ponto de Habilidade do tier dela (Racial/
-    // Ultimate não têm Pontos). O Mestre já tem o "+ Nível" livre, então o botão é só do jogador.
-    const pointTier = this.item.system?.tier;
-    context.canSpendPointLevel =
-      this.item.type === "skill" && !game.user.isGM && this.item.isOwner && Boolean(this.item.parent) &&
-      isSkillPointsEnabled() && MEU_SISTEMA.SKILL_POINT_TIERS.includes(pointTier);
-    context.levelPointBalance = this.item.parent?.system?.skillPoints?.[pointTier] ?? 0;
+    context.conditionsEnabled = isStatusConditionsEnabled();
+    context.scaleEnabled = isScaleEnabled();
+    context.energyLabel = getCharacterEnergyLabel();
+    context.energyAbbr = getStarshipEnergyAbbr();
     // Seletores de bônus de Atributo (Título, Item, Modificação) usam os rótulos e a
     // visibilidade atuais — atributo oculto sai da lista de opções novas.
     context.visibleAttributes = getVisibleAttributes();
     context.effectTargetLabels = getEffectTargetLabels();
-    context.titleBonusTargets = MEU_SISTEMA.TITLE_BONUS_TARGETS.filter(
-      t => !MEU_SISTEMA.COMBAT_ATTRIBUTES.includes(t) || context.visibleAttributes.some(a => a.key === t)
+
+    const helpers = {
+      pick: (list, current) => list.map(([value, label]) => ({ value, label, selected: value === current })),
+      seg: (list, current) => list.map(([value, label, title]) => ({ value, label, title: title ?? "", checked: value === current })),
+      scaleOptions: current =>
+        [{ id: "", label: "— a de quem ataca —" }, ...getScaleConfig().scales].map(s => ({ ...s, selected: s.id === (current ?? "") })),
+      // Atributo escondido pela campanha continua listado se o dano JÁ escala por ele.
+      scalingOptions: current => {
+        const visible = context.visibleAttributes;
+        const choices = [["", "— sem escala —"], ...visible.map(a => [a.key, a.label])];
+        if (current && !visible.some(a => a.key === current)) choices.push([current, `${getAttributeLabel(current)} (oculto)`]);
+        return choices.map(([value, label]) => ({ value, label, selected: value === (current ?? "") }));
+      }
+    };
+
+    if (item.type === "skill") this.#prepareSkillContext(context, helpers);
+    if (item.type === "item") this.#prepareGenericItemContext(context, helpers);
+    if (item.type === "starship_module") this.#prepareModuleContext(context, helpers);
+    if (item.type === "title") this.#prepareTitleContext(context);
+    if (item.type === "body_part") {
+      context.modGrantSummaries = (sys.installedMods ?? []).map((mod, index) =>
+        grantedSkillSummary(mod.grantsSkill, `system.installedMods.${index}.grantsSkill`)
+      );
+    }
+    if (["title", "skill", "item"].includes(item.type)) {
+      context.conditionalRows = conditionalModifierRows(sys.conditionalModifiers ?? []);
+    }
+
+    context.headerChips = headerChipsFor(item);
+    context.tabs = tabsFor(item);
+    // Aba guardada que não existe neste tipo (ou primeira abertura): cai na primeira, que é
+    // sempre a dos campos — nunca a Descrição.
+    if (!context.tabs.some(tab => tab.id === this.activeTab)) this.activeTab = context.tabs[0].id;
+    context.activeTab = this.activeTab;
+
+    debugLog(`${SYSTEM_ID} | NihilityItemSheet._prepareContext (${item.type}):`, item.name);
+    return context;
+  }
+
+  #prepareSkillContext(context, { pick, seg, scaleOptions, scalingOptions }) {
+    const sys = this.item.system;
+    const owner = this.item.parent;
+
+    // Jogador pode comprar 1 nível de Skill com 1 Ponto de Habilidade do tier dela (Racial/
+    // Ultimate não têm Pontos). O Mestre já tem o "+ Nível" livre, então o botão é só do jogador.
+    context.canSpendPointLevel =
+      !game.user.isGM && this.item.isOwner && Boolean(owner) && isSkillPointsEnabled() && MEU_SISTEMA.SKILL_POINT_TIERS.includes(sys.tier);
+    context.levelPointBalance = owner?.system?.skillPoints?.[sys.tier] ?? 0;
+
+    const hasUltimate = owner?.system?.hasUltimateSkill ?? sys.tier === "ultimate";
+    const visibleTiers = MEU_SISTEMA.SKILL_TIERS.filter(t => t !== "ultimate" || hasUltimate || game.user.isGM);
+    context.isRacialSkill = sys.tier === "racial";
+    context.skillTierOptions = pick(visibleTiers.filter(t => t !== "racial").map(t => [t, MEU_SISTEMA.SKILL_TIER_LABELS[t]]), sys.tier);
+
+    // Mecânica ao Usar: Estrutura é uma mecânica (não um Tipo de Alvo). Bloco desligado pela
+    // campanha sai da lista, a não ser que a Skill já esteja nele.
+    const mechanicType = isStructureMechanic(sys) ? "structure" : sys.effectType;
+    context.skillMechanicType = mechanicType;
+    context.skillEffectTypeSeg = seg(
+      MEU_SISTEMA.SKILL_EFFECT_TYPES.filter(t => t !== "structure" || isStructuresEnabled() || mechanicType === "structure").map(t => [
+        t,
+        MEU_SISTEMA.SKILL_EFFECT_TYPE_SHORT_LABELS[t],
+        MEU_SISTEMA.SKILL_EFFECT_TYPE_LABELS[t]
+      ]),
+      mechanicType
+    );
+    context.skillShowsTarget = mechanicType === "damage" || mechanicType === "temporary";
+    const areaOn = isAreaEffectsEnabled();
+    context.skillTargetTypeSeg = seg(
+      MEU_SISTEMA.SKILL_TARGET_TYPES.filter(t => areaOn || !["emission", "zone"].includes(t) || t === sys.targetType).map(t => [
+        t,
+        MEU_SISTEMA.SKILL_TARGET_TYPE_SHORT_LABELS[t],
+        MEU_SISTEMA.SKILL_TARGET_TYPE_LABELS[t]
+      ]),
+      sys.targetType
+    );
+    context.skillIsArea = sys.targetType === "emission" || sys.targetType === "zone";
+    context.skillAreaShapeSeg = seg(
+      MEU_SISTEMA.SKILL_AREA_SHAPES.filter(Boolean).map(s => [s, MEU_SISTEMA.SKILL_AREA_SHAPE_LABELS[s]]),
+      sys.areaShape
     );
 
-    // Alvos de Resistência (Geral + cada Elemento ativo) — usado pela Skill (com "Nenhuma"
-    // na frente) e pelo Título (uma entrada sempre tem um alvo, sem opção "Nenhuma").
-    const resistanceTargets = getResistanceTargetOptions();
-
-    if (this.item.type === "skill") {
-      const sys = this.item.system;
-
-      const owner = this.item.parent;
-      const hasUltimate = owner?.system?.hasUltimateSkill ?? sys.tier === "ultimate";
-      const ultimateVisible = hasUltimate || game.user.isGM;
-      context.visibleSkillTiers = MEU_SISTEMA.SKILL_TIERS.filter(t => t !== "ultimate" || ultimateVisible);
-
-      const pick = (list, current) => list.map(([value, label]) => ({ value, label, selected: value === current }));
-      const elements = getActiveDamageElements();
-      const visibleAttrs = context.visibleAttributes;
-
-      context.energyLabel = getCharacterEnergyLabel();
-      context.isRacialSkill = sys.tier === "racial";
-      context.skillTierOptions = pick(
-        context.visibleSkillTiers.filter(t => t !== "racial").map(t => [t, MEU_SISTEMA.SKILL_TIER_LABELS[t]]),
-        sys.tier
-      );
-      context.skillEffectTypeOptions = pick(
-        MEU_SISTEMA.SKILL_EFFECT_TYPES.map(t => [t, MEU_SISTEMA.SKILL_EFFECT_TYPE_LABELS[t]]),
-        sys.effectType
-      );
-      context.skillStructureOptions = getStructures().map(st => ({ value: st.id, label: st.label, selected: st.id === sys.structureId }));
-      context.skillTargetTypeOptions = pick(
-        MEU_SISTEMA.SKILL_TARGET_TYPES.filter(
-          t =>
-            sys.targetType === t ||
-            ((isAreaEffectsEnabled() || !["emission", "zone"].includes(t)) && (isStructuresEnabled() || t !== "structure"))
-        )
-          .map(t => [t, MEU_SISTEMA.SKILL_TARGET_TYPE_LABELS[t]]),
-        sys.targetType
-      );
-      context.skillAreaShapeOptions = pick(
-        MEU_SISTEMA.SKILL_AREA_SHAPES.map(s => [s, MEU_SISTEMA.SKILL_AREA_SHAPE_LABELS[s]]),
-        sys.areaShape
-      );
-      // Atributo escondido pela campanha continua listado se a Skill JÁ escala por ele.
-      context.skillScalingOptions = pick(
-        [["", "— sem escala —"]]
-          .concat(visibleAttrs.map(a => [a.key, a.label]))
-          .concat(
-            sys.scalingAttribute && !visibleAttrs.some(a => a.key === sys.scalingAttribute)
-              ? [[sys.scalingAttribute, `${getAttributeLabel(sys.scalingAttribute)} (oculto)`]]
-              : []
-          ),
-        sys.scalingAttribute ?? ""
-      );
-      context.skillResistanceOptions = pick(
-        [["", "— nenhuma —"]].concat(resistanceTargets.map(o => [o.value, o.label])),
-        sys.resistanceTarget ?? ""
-      );
-      context.skillElementChips = elements.map(el => ({
-        id: el.id, label: el.label, color: el.color, checked: (sys.damageElements ?? []).includes(el.id)
-      }));
-
-      // Efeitos Temporários: uma linha pronta por entrada (opções já com `selected`, pra o
-      // template não depender da profundidade de {{#each}} aninhado).
-      const targetLabels = getEffectTargetLabels();
-      const hiddenAttrs = new Set(MEU_SISTEMA.COMBAT_ATTRIBUTES.filter(k => !visibleAttrs.some(a => a.key === k)));
-      context.conditionsEnabled = isStatusConditionsEnabled();
-      const conditions = getActiveStatusConditions();
-      context.skillEffects = (sys.effects ?? []).map((entry, index) => {
-        const acceptsPeriodic = entry.target === "hp" || entry.target === "energy";
-        const entryElements = entry.damageElements ?? [];
-        return {
-          index,
-          amount: entry.amount,
-          durationRounds: entry.durationRounds,
-          icon: entry.icon ?? "",
-          periodic: acceptsPeriodic && Boolean(entry.periodic),
-          acceptsPeriodic,
-          isShipTarget: MEU_SISTEMA.SHIP_EFFECT_TARGETS.includes(entry.target),
-          targetGroups: getEffectTargetGroups(entry.target),
-          isElementTarget: entry.target === "weaponElement",
-          elementIdOptions: getActiveDamageElements().map(el => ({ value: el.id, label: el.label, selected: el.id === entry.elementId })),
-          targetOptions: pick(
-            MEU_SISTEMA.EFFECT_TARGETS.filter(t => !hiddenAttrs.has(t) || t === entry.target).map(t => [t, targetLabels[t]]),
-            entry.target
-          ),
-          conditionOptions: pick(
-            [["", "— sem Condição —"]].concat(conditions.map(c => [c.id, c.label])),
-            entry.conditionId ?? ""
-          ),
-          tickUnitOptions: pick(
-            MEU_SISTEMA.PERIODIC_TICK_UNITS.map(u => [u, MEU_SISTEMA.PERIODIC_TICK_UNIT_LABELS[u]]),
-            entry.tickUnit
-          ),
-          modifierTypeOptions: pick(
-            MEU_SISTEMA.EFFECT_MODIFIER_TYPES.map(m => [m, MEU_SISTEMA.EFFECT_MODIFIER_TYPE_LABELS[m]]),
-            entry.modifierType || "flat"
-          ),
-          elementChips: elements.map(el => ({
-            id: el.id, label: el.label, color: el.color, checked: entryElements.includes(el.id)
-          }))
-        };
-      });
-
-      const resistanceTarget = sys.resistanceTarget ?? "";
-      context.isResistanceSkill = resistanceTarget !== "";
-      if (context.isResistanceSkill) {
-        context.resistanceMaxLevel = resistanceMaxLevel(resistanceTarget);
-        context.resistancePercent = Math.round(computeResistancePercent(resistanceTarget, sys.level) * 100);
-        context.skillResistanceSummary = `${computeResistanceName(resistanceTarget, sys.level)} — ${context.resistancePercent}% (nível ${sys.level}/${context.resistanceMaxLevel})`;
-      }
+    const structures = getStructures();
+    context.skillStructureOptions = structures.map(st => ({ value: st.id, label: st.label, selected: st.id === sys.structureId }));
+    const structure = structures.find(st => st.id === sys.structureId);
+    if (structure) {
+      const life = structure.hp > 0 ? `Vida ${structure.hp}` : `barreira de mana (o dano sai da ${context.energyLabel} de quem ergueu)`;
+      const duration = structure.durationRounds > 0 ? `${structure.durationRounds} rodada(s)` : sys.hasUpkeep ? "até desligar a Skill" : "até o Mestre derrubar";
+      context.skillStructureSummary = `${MEU_SISTEMA.STRUCTURE_SHAPE_LABELS[structure.shape] ?? structure.shape} · tamanho ${structure.size} · ${life} · ${duration}`;
     }
 
-    if (this.item.type === "item") {
-      const weapon = this.item.system.weapon;
-      const visibleAttrs = context.visibleAttributes;
-      const scalingChoices = [["", "— sem escala —"]].concat(visibleAttrs.map(a => [a.key, a.label]));
-      // Atributo escondido pela campanha continua listado se a arma JÁ escala por ele.
-      if (weapon.scalingAttribute && !visibleAttrs.some(a => a.key === weapon.scalingAttribute)) {
-        scalingChoices.push([weapon.scalingAttribute, `${getAttributeLabel(weapon.scalingAttribute)} (oculto)`]);
-      }
-      context.weaponScalingOptions = scalingChoices.map(([value, label]) => ({
-        value, label, selected: value === (weapon.scalingAttribute ?? "")
-      }));
-      context.weaponElementChips = getActiveDamageElements().map(el => ({
-        id: el.id, label: el.label, color: el.color, checked: (weapon.damageElements ?? []).includes(el.id)
-      }));
+    context.skillScalingOptions = scalingOptions(sys.scalingAttribute);
+    context.damageScaleOptions = scaleOptions(sys.damageScale);
+    context.skillElementField = selectedElementChips(sys.damageElements);
+
+    context.skillResistanceOptions = pick(
+      [["", "— nenhuma —"], ...getResistanceTargetOptions().map(o => [o.value, o.label])],
+      sys.resistanceTarget ?? ""
+    );
+    const resistanceTarget = sys.resistanceTarget ?? "";
+    context.isResistanceSkill = resistanceTarget !== "";
+    if (context.isResistanceSkill) {
+      context.resistanceMaxLevel = resistanceMaxLevel(resistanceTarget);
+      context.resistancePercent = Math.round(computeResistancePercent(resistanceTarget, sys.level) * 100);
+      context.skillResistanceName = computeResistanceName(resistanceTarget, sys.level);
     }
 
-    if (this.item.type === "starship_module") {
-      // Categoria do catálogo editável; os campos da ficha seguem a FUNÇÃO dela (ver MODULE_ROLES).
-      const current = this.item.system.category;
-      const categories = getModuleCategories();
-      context.moduleRole = moduleRole(current);
-      context.moduleRoleLabel = MEU_SISTEMA.MODULE_ROLES[context.moduleRole]?.label ?? context.moduleRole;
-      context.moduleCategoryOptions = categories.map(c => ({
-        id: c.id, label: c.label, roleLabel: MEU_SISTEMA.MODULE_ROLES[c.role]?.label ?? c.role, selected: c.id === current
-      }));
-      // Categoria que sumiu do catálogo continua na lista, senão salvar a ficha a trocaria.
-      if (!categories.some(c => c.id === current)) {
-        context.moduleCategoryOptions.push({ id: current, label: `${current} (fora do catálogo)`, roleLabel: context.moduleRoleLabel, selected: true });
-      }
-    }
+    context.skillEffects = this.#effectCards(context);
+    context.subSkillRows = (sys.subSkills ?? []).map((sub, index) => ({
+      index,
+      name: sub.name,
+      tier: sub.tier,
+      tierLabel: MEU_SISTEMA.SKILL_TIER_LABELS[sub.tier] ?? sub.tier,
+      mechanic: mechanicSummaryFor(sub)
+    }));
+  }
 
-    if (this.item.type === "starship_module" && moduleRole(this.item.system.category) === "distribution") {
+  /**
+   * Um card por Efeito Temporário: selo do grupo do alvo, frase-resumo montada dos próprios
+   * campos e só os extras que o alvo pede (prancheta 5 do redesenho). As opções já vêm com
+   * `selected`, pro template não depender da profundidade de {{#each}} aninhado.
+   */
+  #effectCards(context) {
+    const sys = this.item.system;
+    const labels = getEffectTargetLabels();
+    const conditions = getActiveStatusConditions();
+    const elements = getActiveDamageElements();
+    const groupClasses = ["attr", "vit", "arma", "nave"];
+    const onShip = ["starship", "vehicle"].includes(this.item.parent?.type);
+    const signed = n => (n > 0 ? `+${n}` : `${n}`);
+
+    return (sys.effects ?? []).map((entry, index) => {
+      const acceptsPeriodic = entry.target === "hp" || entry.target === "energy";
+      const periodic = acceptsPeriodic && Boolean(entry.periodic);
+      const isShipTarget = MEU_SISTEMA.SHIP_EFFECT_TARGETS.includes(entry.target);
+      const groupIndex = MEU_SISTEMA.EFFECT_TARGET_GROUPS.findIndex(g => g.targets.includes(entry.target));
+      const amount = Number(entry.amount) || 0;
+      const targetLabel = labels[entry.target] ?? entry.target;
+      const condition = conditions.find(c => c.id === entry.conditionId);
+
+      let summary;
+      if (entry.target === "weaponElement") summary = `${targetLabel} → ${elements.find(el => el.id === entry.elementId)?.label ?? "?"}`;
+      else if (isShipTarget && entry.modifierType === "multiplier") summary = `${targetLabel} ×${(1 + amount / 100).toFixed(2).replace(".", ",")}`;
+      else summary = `${targetLabel} ${signed(amount)}${periodic ? " por tick" : ""}`;
+      const extra = [];
+      if (sys.hasUpkeep) extra.push("enquanto ativa");
+      else if (entry.target === "shield") extra.push("até absorver");
+      else extra.push(`${entry.durationRounds} ${periodic ? "tick(s)" : "rodada(s)"}`);
+      if (condition) extra.push(condition.label);
+      if (periodic && entry.damageElements?.length) {
+        extra.push(entry.damageElements.map(id => elements.find(el => el.id === id)?.label ?? id).join(" + "));
+      }
+
+      // Nave primeiro numa Skill de Nave; num Personagem, na ordem de sempre.
+      let targetGroups = getEffectTargetGroups(entry.target);
+      if (onShip) targetGroups = [...targetGroups.filter(g => g.label === "Nave"), ...targetGroups.filter(g => g.label !== "Nave")];
+
+      const showCondition = context.conditionsEnabled && Boolean(entry.conditionId || entry.icon || this.#openConditionRows.has(index));
+      return {
+        index,
+        amount,
+        durationRounds: entry.durationRounds,
+        durationUnit: sys.hasUpkeep ? "ativa" : periodic ? "ticks" : "rod.",
+        icon: entry.icon ?? "",
+        summary,
+        summaryExtra: extra.join(" · "),
+        groupLabel: MEU_SISTEMA.EFFECT_TARGET_GROUPS[groupIndex]?.label ?? "—",
+        groupClass: groupClasses[groupIndex] ?? "",
+        targetGroups,
+        isElementTarget: entry.target === "weaponElement",
+        elementIdOptions: elements.map(el => ({ value: el.id, label: el.label, selected: el.id === entry.elementId })),
+        acceptsPeriodic,
+        periodic,
+        isShipTarget,
+        showCondition,
+        canOpenCondition: context.conditionsEnabled && !showCondition && context.editable,
+        hasExtras: showCondition || acceptsPeriodic || isShipTarget,
+        conditionOptions: [{ value: "", label: "— sem Condição —", selected: !entry.conditionId }].concat(
+          conditions.map(c => ({ value: c.id, label: c.label, selected: c.id === entry.conditionId }))
+        ),
+        tickUnitOptions: MEU_SISTEMA.PERIODIC_TICK_UNITS.map(u => ({
+          value: u, label: MEU_SISTEMA.PERIODIC_TICK_UNIT_LABELS[u], selected: u === entry.tickUnit
+        })),
+        modifierTypeOptions: MEU_SISTEMA.EFFECT_MODIFIER_TYPES.map(m => ({
+          value: m, label: MEU_SISTEMA.EFFECT_MODIFIER_TYPE_LABELS[m], selected: m === (entry.modifierType || "flat")
+        })),
+        elementField: selectedElementChips(entry.damageElements),
+        elementPath: `system.effects.${index}.damageElements`
+      };
+    });
+  }
+
+  #prepareGenericItemContext(context, { scaleOptions, scalingOptions }) {
+    const weapon = this.item.system.weapon;
+    context.weaponScalingOptions = scalingOptions(weapon.scalingAttribute);
+    context.weaponScaleOptions = scaleOptions(weapon.damageScale);
+    context.weaponElementField = selectedElementChips(weapon.damageElements);
+    context.grantSummary = grantedSkillSummary(this.item.system.grantsSkill, "system.grantsSkill");
+  }
+
+  #prepareModuleContext(context, { seg }) {
+    const sys = this.item.system;
+    // Categoria do catálogo editável; os campos da ficha seguem a FUNÇÃO dela (ver MODULE_ROLES).
+    const categories = getModuleCategories();
+    context.moduleRole = moduleRole(sys.category);
+    context.moduleRoleLabel = MEU_SISTEMA.MODULE_ROLES[context.moduleRole]?.label ?? context.moduleRole;
+    context.moduleCategoryOptions = categories.map(c => ({
+      id: c.id,
+      label: c.label,
+      slots: Number(c.slots) || 0,
+      roleLabel: MEU_SISTEMA.MODULE_ROLES[c.role]?.label ?? c.role,
+      selected: c.id === sys.category
+    }));
+    // Categoria que sumiu do catálogo continua na lista, senão salvar a ficha a trocaria.
+    if (!categories.some(c => c.id === sys.category)) {
+      context.moduleCategoryOptions.push({ id: sys.category, label: `${sys.category} (fora do catálogo)`, slots: 0, roleLabel: context.moduleRoleLabel, selected: true });
+    }
+    context.moduleSizeSeg = seg(MEU_SISTEMA.MODULE_SIZES.map(size => [size, MEU_SISTEMA.MODULE_SIZE_LABELS[size]]), sys.moduleSize);
+    context.moduleElementField = selectedElementChips(sys.damageElements);
+    context.grantSummary = grantedSkillSummary(sys.grantsSkill, "system.grantsSkill");
+
+    if (context.moduleRole === "distribution") {
       // "Fator 5" não diz nada sozinho: a Capacidade de Transferência sai de
       // `baseline(Porte) × fator`, e a tabela de baseline mora no código. Sem ver o RESULTADO,
       // não há como calibrar o número — nem quem escreveu o Módulo, nem quem recebe ele pronto.
-      const factor = Number(this.item.system.transferFactor) || 0;
-      const abbr = getStarshipEnergyAbbr();
+      const factor = Number(sys.transferFactor) || 0;
       context.distributorPreview = {
-        abbr,
+        abbr: context.energyAbbr,
         rows: MEU_SISTEMA.SHIP_SIZES.map(size => ({
           label: MEU_SISTEMA.SHIP_SIZE_LABELS[size],
           baseline: MEU_SISTEMA.DISTRIBUTOR_BASELINE_BY_SHIP_SIZE[size] ?? 0,
@@ -453,57 +619,34 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         }))
       };
     }
+  }
 
-    if (this.item.type === "title") {
-      // Cada entrada de Resistência do Título já tem um alvo escolhido — sem opção "Nenhuma".
-      context.titleResistances = (this.item.system.resistances ?? []).map(entry => ({
-        ...entry,
-        targetOptions: resistanceTargets.map(opt => ({ ...opt, selected: opt.value === entry.target }))
-      }));
-    }
-
-    context.headerChips = headerChipsFor(this.item);
-    if (this.item.type === "skill") {
-      context.subSkillRows = (this.item.system.subSkills ?? []).map((sub, index) => ({
-        index,
-        name: sub.name,
-        mechanic: mechanicSummaryFor(sub)
-      }));
-    }
-
-    // Elementos agrupados (Físico, Fantasia, Energia…) e Escalas, pros campos de dano.
-    context.scaleEnabled = isScaleEnabled();
-    const scaleChoices = [{ id: "", label: "— a de quem ataca —" }].concat(getScaleConfig().scales);
-    const scaleOptions = current => scaleChoices.map(s => ({ ...s, selected: s.id === (current ?? "") }));
-    if (this.item.type === "skill") {
-      context.skillElementGroups = groupedElementChips(this.item.system.damageElements);
-      context.damageScaleOptions = scaleOptions(this.item.system.damageScale);
-    }
-    if (this.item.type === "item") {
-      context.weaponElementGroups = groupedElementChips(this.item.system.weapon?.damageElements);
-      context.weaponScaleOptions = scaleOptions(this.item.system.weapon?.damageScale);
-    }
-    if (this.item.type === "starship_module") {
-      context.moduleElementGroups = groupedElementChips(this.item.system.damageElements);
-    }
-
-    if (["title", "skill", "item"].includes(this.item.type)) {
-      context.conditionalRows = conditionalModifierRows(this.item.system.conditionalModifiers ?? []);
-    }
-
-    // Habilidade Concedida: resumo pronto pro template (Item Geral e Módulo têm uma; Parte do
-    // Corpo tem uma por Modificação instalada).
-    if (this.item.type === "item" || this.item.type === "starship_module") {
-      context.grantSummary = grantedSkillSummary(this.item.system.grantsSkill, "system.grantsSkill");
-    }
-    if (this.item.type === "body_part") {
-      context.modGrantSummaries = (this.item.system.installedMods ?? []).map((mod, index) =>
-        grantedSkillSummary(mod.grantsSkill, `system.installedMods.${index}.grantsSkill`)
+  #prepareTitleContext(context) {
+    const sys = this.item.system;
+    const labels = context.effectTargetLabels;
+    const visible = new Set(context.visibleAttributes.map(a => a.key));
+    // Alvos agrupados como no editor de Efeito, limitados a TITLE_BONUS_TARGETS. Atributo oculto
+    // pela campanha sai da lista, a não ser que a linha já o use.
+    context.titleBonusRows = (sys.bonuses ?? []).map((bonus, index) => {
+      const allowed = MEU_SISTEMA.TITLE_BONUS_TARGETS.filter(
+        t => !MEU_SISTEMA.COMBAT_ATTRIBUTES.includes(t) || visible.has(t) || t === bonus.attribute
       );
-    }
-
-    debugLog(`${SYSTEM_ID} | NihilityItemSheet._prepareContext (${this.item.type}):`, this.item.name);
-    return context;
+      const option = t => ({ value: t, label: labels[t] ?? t, selected: t === bonus.attribute });
+      return {
+        index,
+        amount: bonus.amount,
+        groups: [
+          { label: "Atributos", options: allowed.filter(t => MEU_SISTEMA.COMBAT_ATTRIBUTES.includes(t)).map(option) },
+          { label: "Vitais", options: allowed.filter(t => !MEU_SISTEMA.COMBAT_ATTRIBUTES.includes(t)).map(option) }
+        ].filter(group => group.options.length)
+      };
+    });
+    // Cada entrada de Resistência do Título já tem um alvo escolhido — sem opção "Nenhuma".
+    const resistanceTargets = getResistanceTargetOptions();
+    context.titleResistances = (sys.resistances ?? []).map(entry => ({
+      ...entry,
+      targetOptions: resistanceTargets.map(opt => ({ ...opt, selected: opt.value === entry.target }))
+    }));
   }
 
   /* -------------------------------------------- */
@@ -628,9 +771,11 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     });
 
     if (this.item.type === "starship_module") {
+      // Categoria e Porte são grupos de rádio (blocos e régua): o listener vai em cada opção.
       const presetChange = this._onModulePresetChange.bind(this);
-      this.element.querySelector('[name="system.category"]')?.addEventListener("change", presetChange);
-      this.element.querySelector('[name="system.moduleSize"]')?.addEventListener("change", presetChange);
+      this.element
+        .querySelectorAll('[name="system.category"], [name="system.moduleSize"]')
+        .forEach(input => input.addEventListener("change", presetChange));
     }
   }
 
@@ -645,8 +790,8 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   async _onModulePresetChange(event) {
     event.stopPropagation();
     const form = event.currentTarget.closest("form");
-    const category = form.querySelector('[name="system.category"]').value;
-    const moduleSize = form.querySelector('[name="system.moduleSize"]').value;
+    const category = form.querySelector('[name="system.category"]:checked')?.value ?? this.item.system.category;
+    const moduleSize = form.querySelector('[name="system.moduleSize"]:checked')?.value ?? this.item.system.moduleSize;
 
     const sys = this.item.system;
     const updates = { "system.category": category, "system.moduleSize": moduleSize };
@@ -718,16 +863,8 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const index = Number(target.closest("[data-index]").dataset.index);
     const effects = this.#cloneEffects();
     effects.splice(index, 1);
+    this.#openConditionRows.clear();
     await this.item.update({ "system.effects": effects });
-  }
-
-  /** Liga/desliga um Elemento no dano da Skill (chips não são campos de formulário). */
-  static async #onSkillElementToggle(event, target) {
-    event.preventDefault();
-    const elements = new Set(this.item.system.damageElements ?? []);
-    const id = target.dataset.element;
-    if (!elements.delete(id)) elements.add(id);
-    await this.item.update({ "system.damageElements": [...elements] });
   }
 
   static async #onConditionalModifierAdd(event) {
@@ -744,38 +881,52 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     await this.item.update({ "system.conditionalModifiers": list });
   }
 
-  /** Liga/desliga um Elemento numa lista qualquer do Item (`data-path`: system.damageElements, system.weapon.damageElements…). */
-  static async #onElementToggle(event, target) {
-    event.preventDefault();
-    const path = target.dataset.path;
+  /*  Elementos de Dano: chips dos escolhidos + janela de escolha (apps/checklist-picker.js)  */
+
+  /**
+   * Lê a lista de Elementos de um campo. `system.effects.N.damageElements` mora dentro de um
+   * array que não pode ser gravado por caminho (o Foundry trocaria a lista inteira), então é
+   * tratado à parte.
+   */
+  #readElementList(path) {
+    const effect = path?.match(/^system\.effects\.(\d+)\.damageElements$/);
+    if (effect) return this.item.system.effects?.[Number(effect[1])]?.damageElements ?? [];
+    return foundry.utils.getProperty(this.item, path) ?? [];
+  }
+
+  async #writeElementList(path, list) {
+    const effect = path?.match(/^system\.effects\.(\d+)\.damageElements$/);
+    if (effect) {
+      const effects = this.#cloneEffects();
+      const entry = effects[Number(effect[1])];
+      if (!entry) return;
+      entry.damageElements = list;
+      return this.item.update({ "system.effects": effects });
+    }
     if (!path?.startsWith("system.")) return;
-    const elements = new Set(foundry.utils.getProperty(this.item, path) ?? []);
-    const id = target.dataset.element;
-    if (!elements.delete(id)) elements.add(id);
-    await this.item.update({ [path]: [...elements] });
+    return this.item.update({ [path]: list });
   }
 
-  /** Liga/desliga um Elemento no dano de uma Arma (Item Geral). */
-  static async #onWeaponElementToggle(event, target) {
+  static async #onPickElements(event, target) {
     event.preventDefault();
-    const elements = new Set(this.item.system.weapon.damageElements ?? []);
-    const id = target.dataset.element;
-    if (!elements.delete(id)) elements.add(id);
-    await this.item.update({ "system.weapon.damageElements": [...elements] });
+    if (!this.isEditable) return;
+    const path = target.dataset.path;
+    const picked = await pickDamageElements(this.#readElementList(path));
+    if (picked) await this.#writeElementList(path, picked);
   }
 
-  /** Liga/desliga um Elemento no tick de dano de uma linha de Efeito Periódico. */
-  static async #onEffectElementToggle(event, target) {
+  static async #onRemoveElement(event, target) {
     event.preventDefault();
-    const index = Number(target.closest("[data-index]").dataset.index);
-    const effects = this.#cloneEffects();
-    const entry = effects[index];
-    if (!entry) return;
-    const elements = new Set(entry.damageElements ?? []);
-    const id = target.dataset.element;
-    if (!elements.delete(id)) elements.add(id);
-    entry.damageElements = [...elements];
-    await this.item.update({ "system.effects": effects });
+    if (!this.isEditable) return;
+    const path = target.dataset.path;
+    await this.#writeElementList(path, this.#readElementList(path).filter(id => id !== target.dataset.element));
+  }
+
+  /** "+ Condição" numa linha de Efeito: só abre os campos (estado de tela). */
+  static #onShowEffectCondition(event, target) {
+    event.preventDefault();
+    this.#openConditionRows.add(Number(target.closest("[data-index]").dataset.index));
+    this.render();
   }
 
   /**

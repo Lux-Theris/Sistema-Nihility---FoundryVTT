@@ -4236,7 +4236,20 @@ form.nihility-config-app {
 .nihility-sheet .trait-chip.from-species { border-color: rgba(192, 132, 252, 0.5); color: var(--nihility-accent-2); }
 .nihility-sheet .trait-chip.removed { opacity: 0.5; text-decoration: line-through; }
 .nihility-sheet .trait-chip a { color: var(--nihility-text-dim); font-size: 0.65rem; }
-.nihility-sheet .trait-add-select,
+.nihility-sheet .trait-pick {
+  height: auto;
+  min-height: 0;
+  line-height: normal;
+  width: auto;
+  flex: 0 0 auto;
+  padding: 1px 9px;
+  font-size: 0.72rem;
+  border-radius: 999px;
+  border: 1px dashed var(--nihility-accent);
+  background: transparent;
+  color: var(--nihility-accent);
+  cursor: pointer;
+}
 .nihility-sheet .actor-scale select {
   height: auto;
   font-size: 0.74rem;
@@ -4296,22 +4309,27 @@ form.nihility-config-app {
 .nihility-sheet .conditional-warning { flex: 1 1 100%; font-size: 0.72rem; color: var(--nihility-warn); }
 .nihility-sheet .conditional-add { align-self: flex-start; font-size: 0.8rem; color: var(--nihility-accent); }
 
-/* Prioridade de energia na ficha da Nave (lista ordenável). */
-.nihility-sheet .power-priority { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; color: var(--nihility-text); }
-.nihility-sheet .power-priority-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-.nihility-sheet .power-priority-row {
-  display: grid;
-  grid-template-columns: 22px 1fr auto 16px 16px;
-  gap: 6px;
-  align-items: center;
-  padding: 2px 6px;
-  border-radius: 3px;
+/* Prioridade de energia: chip P1…P5 na linha de cada Módulo (grupos do Elite Dangerous). */
+.nihility-sheet .module-name-line { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.nihility-sheet .prio-chip {
+  flex: 0 0 auto;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  line-height: normal;
+  padding: 0 6px;
+  border-radius: 4px;
+  border: 1px solid var(--nihility-border);
   background: var(--nihility-bg-panel-alt);
+  font: 600 0.64rem var(--nihility-font-data);
+  color: var(--nihility-text-dim);
 }
-.nihility-sheet .power-priority-row.is-offline { opacity: 0.5; }
-.nihility-sheet .power-priority-pos { font-family: var(--nihility-font-data); color: var(--nihility-gold); text-align: center; }
-.nihility-sheet .power-priority-row a { color: var(--nihility-text-dim); }
-.nihility-sheet .power-priority-row a[hidden] { visibility: hidden; display: inline; }
+button.prio-chip { cursor: pointer; }
+.nihility-sheet .prio-chip.p1 { color: var(--nihility-ok); border-color: rgba(110, 231, 160, 0.5); }
+.nihility-sheet .prio-chip.p2 { color: var(--nihility-accent); border-color: rgba(110, 231, 255, 0.45); }
+.nihility-sheet .prio-chip.p4 { color: var(--nihility-warn); border-color: rgba(255, 207, 92, 0.45); }
+.nihility-sheet .prio-chip.p5 { color: var(--nihility-danger); border-color: rgba(255, 92, 92, 0.45); }
+.nihility-sheet .demand-prio-note { color: var(--nihility-text-faint); }
 .nihility-sheet .vessel-class-note { margin: 2px 0 0; }
 .nihility-sheet .crew-row select.crew-role-input {
   width: auto;
@@ -4408,22 +4426,447 @@ form.nihility-config-app {
 .nihility-table-rules .rule-input input[type="checkbox"] { width: auto; }
 .nihility-table-rules .hint { color: var(--nihility-text-dim); }
 
-/* Ficha de Item: cabeçalho com resumo e abas da Skill. */
-.nihility-sheet.item-sheet .item-header-fields { display: flex; flex-direction: column; gap: 4px; flex: 1 1 auto; min-width: 0; }
-.nihility-sheet .item-header-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+/* ==========================================================================
+   Ficha de Item — redesenho aprovado (artifact "Redesenho da Ficha de Item").
+   Seções com título e grade, rótulo acima do campo, ajuda no (?), controle segmentado,
+   blocos de Categoria, interruptores e o campo compacto de Elementos. Tudo com cor explícita
+   (armadilha do tema do core) e botões com altura livre (armadilha da altura fixa de botão).
+   ========================================================================== */
+.nihility-sheet.item-sheet .item-header-fields { display: flex; flex-direction: column; gap: 6px; flex: 1 1 auto; min-width: 0; }
+.nihility-sheet.item-sheet .item-header-fields > input[name="name"] { font: 600 1.05rem var(--nihility-font); padding: 4px 8px; }
+.nihility-sheet .item-header-chips { display: flex; flex-wrap: wrap; gap: 5px; }
 .nihility-sheet .item-chip {
   font: 500 0.7rem var(--nihility-font-data);
-  padding: 0 7px;
+  line-height: 16px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text-dim);
+  white-space: nowrap;
+}
+.nihility-sheet .item-chip.violet { color: var(--nihility-accent-2); border-color: rgba(192, 132, 252, 0.5); }
+.nihility-sheet .item-chip.gold { color: var(--nihility-gold); border-color: rgba(232, 193, 112, 0.45); }
+.nihility-sheet .item-chip.ok { color: var(--nihility-ok); border-color: rgba(110, 231, 160, 0.45); }
+.nihility-sheet .item-chip.hp { color: var(--nihility-hp); border-color: rgba(239, 83, 80, 0.45); }
+.nihility-sheet .item-chip.accent { color: var(--nihility-accent); border-color: rgba(110, 231, 255, 0.4); }
+
+/* Abas com contador/indicador. */
+.nihility-sheet .item-tabs { align-items: flex-end; background: #141722; padding: 6px 10px 0; gap: 2px; }
+.nihility-sheet .item-tabs .item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; border: 1px solid transparent; border-bottom: none; }
+.nihility-sheet .tab-count { font: 0.66rem var(--nihility-font-data); color: var(--nihility-text-faint); }
+.nihility-sheet .tab-led { width: 7px; height: 7px; border-radius: 50%; background: var(--nihility-border); }
+.nihility-sheet .tab-led.on { background: var(--nihility-ok); box-shadow: 0 0 5px var(--nihility-ok); }
+
+/* Cada aba é uma coluna de seções. `.hidden` precisa ganhar do `display:flex` daqui. */
+.nihility-sheet.item-sheet .tab { display: flex; flex-direction: column; gap: 12px; }
+.nihility-sheet.item-sheet .tab.hidden { display: none; }
+.nihility-sheet.item-sheet .tab-description prose-mirror { min-height: 320px; }
+
+.nihility-sheet.item-sheet .sec {
+  border: 1px solid rgba(58, 65, 102, 0.55);
+  border-radius: 8px;
+  background: rgba(31, 35, 51, 0.45);
+  color: var(--nihility-text);
+}
+.nihility-sheet.item-sheet .sec.var { border-color: rgba(110, 231, 255, 0.35); }
+.nihility-sheet.item-sheet .sec.gm-sec { border-color: rgba(232, 193, 112, 0.45); }
+.nihility-sheet.item-sheet .sec-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-bottom: 1px solid rgba(58, 65, 102, 0.45);
+  font: 500 0.68rem var(--nihility-font-data);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--nihility-text-dim);
+}
+.nihility-sheet.item-sheet .sec.gm-sec .sec-head { color: var(--nihility-gold); }
+.nihility-sheet.item-sheet .sec-head-note { text-transform: none; letter-spacing: 0; color: var(--nihility-text-faint); }
+.nihility-sheet.item-sheet .sec-head-input { flex: 1 1 auto; text-transform: none; letter-spacing: 0; font: 600 0.85rem var(--nihility-font); }
+.nihility-sheet.item-sheet .sp { flex-grow: 1; }
+.nihility-sheet.item-sheet .sec-body { padding: 10px; display: grid; gap: 10px; }
+.nihility-sheet.item-sheet .sec-body.tight { gap: 6px; }
+.nihility-sheet.item-sheet .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.nihility-sheet.item-sheet .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.nihility-sheet.item-sheet .inner-grid { display: grid; gap: 10px; }
+.nihility-sheet.item-sheet .inventory-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.6fr); }
+.nihility-sheet.item-sheet .span-all { grid-column: 1 / -1; }
+
+/* Campo: rótulo sempre acima; números à direita em fonte mono. */
+.nihility-sheet.item-sheet .fld { display: flex; flex-direction: column; gap: 4px; min-width: 0; color: var(--nihility-text); }
+.nihility-sheet.item-sheet .fld-label { display: flex; align-items: center; gap: 5px; font-size: 0.72rem; color: var(--nihility-text-dim); }
+.nihility-sheet.item-sheet .fld-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.nihility-sheet.item-sheet .fld input[type="text"],
+.nihility-sheet.item-sheet .fld input[type="number"],
+.nihility-sheet.item-sheet .fld select,
+.nihility-sheet.item-sheet .pair-row select,
+.nihility-sheet.item-sheet .pair-row input,
+.nihility-sheet.item-sheet .effect-card select,
+.nihility-sheet.item-sheet .effect-card input[type="number"],
+.nihility-sheet.item-sheet .effect-card input[type="text"] {
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  box-sizing: border-box;
+  padding: 4px 8px;
+  font-size: 0.82rem;
+}
+.nihility-sheet.item-sheet .fld-row input.narrow { width: 64px; }
+.nihility-sheet.item-sheet .narrow-fld { max-width: 220px; }
+.nihility-sheet.item-sheet input.num { font-family: var(--nihility-font-data); text-align: right; }
+.nihility-sheet.item-sheet input.mono { font-family: var(--nihility-font-data); font-size: 0.76rem; }
+.nihility-sheet.item-sheet .of { color: var(--nihility-text-faint); }
+
+/* Sufixo/prefixo dentro do campo ("%", "rod.", "EPS", "×"). */
+.nihility-sheet.item-sheet .suffix {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  border-radius: 4px;
+  min-width: 0;
+}
+.nihility-sheet.item-sheet .suffix input {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  font-family: var(--nihility-font-data);
+  text-align: right;
+}
+.nihility-sheet.item-sheet .suffix:focus-within { border-color: var(--nihility-accent); }
+.nihility-sheet.item-sheet .suffix > span { font: 0.7rem var(--nihility-font-data); color: var(--nihility-text-faint); white-space: nowrap; }
+
+/* Valor + moeda colados. */
+.nihility-sheet.item-sheet .joined { display: flex; }
+.nihility-sheet.item-sheet .joined input { border-radius: 4px 0 0 4px; flex: 1 1 0; }
+.nihility-sheet.item-sheet .joined select { border-radius: 0 4px 4px 0; border-left: none; flex: 1 1 0; }
+
+/* Ajuda (?) com title. */
+.nihility-sheet.item-sheet .help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 1px solid var(--nihility-text-faint);
+  color: var(--nihility-text-faint);
+  font: 9px var(--nihility-font-data);
+  cursor: help;
+  text-transform: none;
+}
+
+/* Selo "muda com X". */
+.nihility-sheet.item-sheet .depends {
+  font: 500 0.62rem var(--nihility-font-data);
+  letter-spacing: 0.03em;
+  text-transform: none;
+  color: var(--nihility-accent);
+  border: 1px solid rgba(110, 231, 255, 0.35);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+/* Faixas: estado que muda o que se pode fazer (continuam visíveis, não viram (?)). */
+.nihility-sheet.item-sheet .strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+.nihility-sheet.item-sheet .strip.info { background: rgba(110, 231, 255, 0.07); border: 1px solid rgba(110, 231, 255, 0.25); color: var(--nihility-text-dim); }
+.nihility-sheet.item-sheet .strip.gold { background: rgba(232, 193, 112, 0.07); border: 1px solid rgba(232, 193, 112, 0.3); color: var(--nihility-gold); }
+.nihility-sheet.item-sheet .strip.dim { background: rgba(31, 35, 51, 0.6); border: 1px solid rgba(58, 65, 102, 0.5); color: var(--nihility-text-dim); }
+.nihility-sheet.item-sheet .strip.split { justify-content: space-between; }
+.nihility-sheet.item-sheet .strip .mono { font: 0.7rem var(--nihility-font-data); }
+.nihility-sheet.item-sheet .empty-note { margin: 0; font-size: 0.76rem; line-height: 1.45; color: var(--nihility-text-dim); }
+.nihility-sheet.item-sheet .empty-note a,
+.nihility-sheet.item-sheet .link-add { color: var(--nihility-accent); cursor: pointer; font-size: 0.78rem; justify-self: start; }
+.nihility-sheet.item-sheet .locked-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 4px;
+  border: 1px dashed var(--nihility-accent-2);
+  color: var(--nihility-accent-2);
+  font-size: 0.82rem;
+}
+
+/* Botões pequenos (o core fixa a altura de todo <button>). */
+.nihility-sheet.item-sheet .btn {
+  height: auto;
+  min-height: 0;
+  line-height: normal;
+  width: auto;
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  font: 500 0.76rem var(--nihility-font);
+  border-radius: 4px;
+  border: 1px solid var(--nihility-border);
+  background: var(--nihility-bg-panel-alt);
+  color: var(--nihility-text);
+  white-space: nowrap;
+  justify-self: start;
+}
+.nihility-sheet.item-sheet .btn.gm { border-color: var(--nihility-gold); color: var(--nihility-gold); background: rgba(232, 193, 112, 0.06); }
+
+/* Controle segmentado: rádios com cara de régua. */
+.nihility-sheet.item-sheet .seg {
+  display: flex;
+  border: 1px solid var(--nihility-border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--nihility-bg-panel);
+}
+.nihility-sheet.item-sheet .seg-opt {
+  position: relative;
+  flex: 1 1 0;
+  padding: 6px 4px;
+  text-align: center;
+  font-size: 0.76rem;
+  color: var(--nihility-text-dim);
+  border-left: 1px solid var(--nihility-border);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.nihility-sheet.item-sheet .seg-opt:first-child { border-left: none; }
+.nihility-sheet.item-sheet .seg-opt.on { background: rgba(110, 231, 255, 0.12); color: var(--nihility-accent); }
+.nihility-sheet.item-sheet .seg-opt:hover { color: var(--nihility-text); }
+.nihility-sheet.item-sheet .seg-opt input,
+.nihility-sheet.item-sheet .tile input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+.nihility-sheet.item-sheet .seg-opt:has(input:focus-visible),
+.nihility-sheet.item-sheet .tile:has(input:focus-visible) { outline: 2px solid var(--nihility-accent); outline-offset: -2px; }
+.nihility-sheet.item-sheet .seg.compact { display: inline-flex; }
+.nihility-sheet.item-sheet .seg.compact .seg-opt { flex: 0 0 auto; padding: 4px 10px; }
+
+/* Área dentro de Alvo: Formato | Distância | Ângulo/Duração. */
+.nihility-sheet.item-sheet .area-box {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(58, 65, 102, 0.5);
+  border-radius: 6px;
+}
+
+/* Categoria do Módulo em blocos; o número é quantas cabem por Nave. */
+.nihility-sheet.item-sheet .tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.nihility-sheet.item-sheet .tile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 6px;
+  border: 1px solid var(--nihility-border);
+  border-radius: 6px;
+  background: var(--nihility-bg-panel);
+  color: var(--nihility-text-dim);
+  font-size: 0.76rem;
+  text-align: center;
+  cursor: pointer;
+}
+.nihility-sheet.item-sheet .tile.on { border-color: var(--nihility-accent); color: var(--nihility-accent); background: rgba(110, 231, 255, 0.1); }
+.nihility-sheet.item-sheet .tile-slots {
+  font: 600 0.6rem var(--nihility-font-data);
+  color: var(--nihility-gold);
+  border: 1px solid rgba(232, 193, 112, 0.5);
+  border-radius: 999px;
+  padding: 0 5px;
+}
+
+/* Interruptor (checkbox de verdade, com cara de chave). */
+.nihility-sheet.item-sheet .toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  font-size: 0.82rem;
+  color: var(--nihility-text);
+  cursor: pointer;
+  justify-self: start;
+}
+.nihility-sheet.item-sheet .toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.nihility-sheet.item-sheet .toggle-track {
+  position: relative;
+  width: 30px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--nihility-border);
+  transition: background 0.12s ease;
+}
+.nihility-sheet.item-sheet .toggle-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--nihility-text-dim);
+  transition: left 0.12s ease;
+}
+.nihility-sheet.item-sheet .toggle input:checked + .toggle-track { background: rgba(110, 231, 255, 0.35); }
+.nihility-sheet.item-sheet .toggle input:checked + .toggle-track::after { left: 16px; background: var(--nihility-accent); }
+.nihility-sheet.item-sheet .toggle input:focus-visible + .toggle-track { outline: 2px solid var(--nihility-accent); outline-offset: 2px; }
+
+/* Listas "Atributo | Valor | lixeira" com cabeçalho de colunas. */
+.nihility-sheet.item-sheet .col-head {
+  display: grid;
+  gap: 6px;
+  font: 0.62rem var(--nihility-font-data);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--nihility-text-faint);
+}
+.nihility-sheet.item-sheet .pair-cols,
+.nihility-sheet.item-sheet .pair-row { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) 22px; }
+.nihility-sheet.item-sheet .pair-cols span:nth-child(2) { text-align: right; }
+.nihility-sheet.item-sheet .pair-row { display: grid; gap: 6px; align-items: center; }
+.nihility-sheet.item-sheet .row-delete { color: var(--nihility-text-faint); text-align: center; cursor: pointer; }
+.nihility-sheet.item-sheet .row-delete:hover { color: var(--nihility-danger); }
+
+/* Efeitos em card com frase-resumo e selo do grupo. */
+.nihility-sheet.item-sheet .effect-cols { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) 20px; padding: 0 10px; }
+.nihility-sheet.item-sheet .effect-cols span:nth-child(2),
+.nihility-sheet.item-sheet .effect-cols span:nth-child(3) { text-align: right; }
+.nihility-sheet.item-sheet .effect-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 1px solid rgba(58, 65, 102, 0.6);
+  border-radius: 8px;
+  background: rgba(31, 35, 51, 0.5);
+}
+.nihility-sheet.item-sheet .effect-card-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.nihility-sheet.item-sheet .effect-sum { font-size: 0.8rem; color: var(--nihility-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nihility-sheet.item-sheet .effect-sum em { font-style: normal; color: var(--nihility-text-dim); }
+.nihility-sheet.item-sheet .effect-card-main { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) 20px; gap: 6px; align-items: center; }
+.nihility-sheet.item-sheet .effect-card-extra {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: end;
+  padding-top: 6px;
+  border-top: 1px solid rgba(58, 65, 102, 0.45);
+}
+.nihility-sheet.item-sheet .group-tag {
+  flex-shrink: 0;
+  font: 600 0.58rem var(--nihility-font-data);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text-dim);
+  white-space: nowrap;
+}
+.nihility-sheet.item-sheet .group-tag.attr { color: var(--nihility-accent); border-color: rgba(110, 231, 255, 0.45); }
+.nihility-sheet.item-sheet .group-tag.vit { color: var(--nihility-hp); border-color: rgba(239, 83, 80, 0.5); }
+.nihility-sheet.item-sheet .group-tag.arma { color: var(--nihility-accent-2); border-color: rgba(192, 132, 252, 0.55); }
+.nihility-sheet.item-sheet .group-tag.nave { color: var(--nihility-gold); border-color: rgba(232, 193, 112, 0.5); }
+
+/* Sub-Skills. */
+.nihility-sheet.item-sheet .subskill-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1.2fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  border: 1px solid rgba(58, 65, 102, 0.5);
+  border-radius: 6px;
+}
+.nihility-sheet.item-sheet .subskill-row input { height: 28px; }
+.nihility-sheet.item-sheet .subskill-mechanic { font-size: 0.74rem; color: var(--nihility-text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nihility-sheet.item-sheet .subskill-row a { color: var(--nihility-text-faint); cursor: pointer; }
+.nihility-sheet.item-sheet .tier-chip {
+  font: 600 0.62rem var(--nihility-font-data);
+  padding: 1px 7px;
   border-radius: 999px;
   border: 1px solid var(--nihility-border);
   color: var(--nihility-text-dim);
 }
-.nihility-sheet .item-chip.violet { color: var(--nihility-accent-2); border-color: rgba(192, 132, 252, 0.45); }
-.nihility-sheet .item-chip.gold { color: var(--nihility-gold); border-color: rgba(232, 193, 112, 0.45); }
-.nihility-sheet .item-chip.ok { color: var(--nihility-ok); border-color: rgba(110, 231, 160, 0.45); }
-.nihility-sheet .item-chip.hp { color: var(--nihility-hp); border-color: rgba(239, 83, 80, 0.45); }
-.nihility-sheet .skill-pane { display: flex; flex-direction: column; gap: 6px; }
-.nihility-sheet .skill-pane.hidden { display: none; }
-.nihility-sheet .sub-skill-row { display: flex; align-items: center; gap: 6px; }
-.nihility-sheet .sub-skill-row input { flex: 0 1 40%; }
-.nihility-sheet .sub-skill-mechanic { flex: 1 1 auto; font-size: 0.76rem; color: var(--nihility-text-dim); }
+.nihility-sheet.item-sheet .tier-chip.tier-extra { color: var(--nihility-accent); border-color: rgba(110, 231, 255, 0.4); }
+.nihility-sheet.item-sheet .tier-chip.tier-unique,
+.nihility-sheet.item-sheet .tier-chip.tier-ultimate { color: var(--nihility-accent-2); border-color: rgba(192, 132, 252, 0.5); }
+.nihility-sheet.item-sheet .chip-row { display: flex; flex-wrap: wrap; gap: 5px; }
+
+/* Campo compacto de Elementos: só os escolhidos + botão que abre a janela de escolha. */
+.element-field { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.element-field .element-chip { cursor: default; }
+.element-field .element-chip-remove { color: var(--nihility-text-dim); font-size: 0.65rem; cursor: pointer; margin-left: 2px; }
+.element-field .element-chip-remove:hover { color: var(--nihility-danger); }
+.element-field-empty { font-size: 0.76rem; color: var(--nihility-text-faint); }
+.element-field-add {
+  height: auto;
+  min-height: 0;
+  line-height: normal;
+  width: auto;
+  flex: 0 0 auto;
+  padding: 3px 10px;
+  font: 500 0.74rem var(--nihility-font);
+  border-radius: 999px;
+  border: 1px dashed var(--nihility-accent);
+  background: transparent;
+  color: var(--nihility-accent);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* Janela de escolha (apps/checklist-picker.js). */
+.nihility-picker,
+.nihility-picker label,
+.nihility-picker legend { color: var(--nihility-text); }
+.nihility-picker { display: flex; flex-direction: column; gap: 8px; }
+.nihility-picker .picker-filter {
+  width: 100%;
+  height: 30px;
+  box-sizing: border-box;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+}
+.nihility-picker .picker-count { font: 0.7rem var(--nihility-font-data); color: var(--nihility-accent-2); }
+.nihility-picker .picker-list { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; }
+.nihility-picker .picker-group { border: 1px solid var(--nihility-border-soft); border-radius: 6px; padding: 4px 8px 6px; margin: 0; }
+.nihility-picker .picker-group[hidden] { display: none; }
+.nihility-picker .picker-group legend {
+  padding: 0 4px;
+  font: 600 0.62rem var(--nihility-font-data);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--nihility-text-faint);
+}
+.nihility-picker .picker-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 8px; }
+.nihility-picker .picker-option { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 4px; font-size: 0.82rem; cursor: pointer; }
+.nihility-picker .picker-option[hidden] { display: none; }
+.nihility-picker .picker-option:hover { background: rgba(110, 231, 255, 0.06); }
+.nihility-picker .picker-option:has(input:checked) { background: rgba(192, 132, 252, 0.1); }
+.nihility-picker .picker-option .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.nihility-picker .hint { margin: 0; font-size: 0.74rem; color: var(--nihility-text-dim); }

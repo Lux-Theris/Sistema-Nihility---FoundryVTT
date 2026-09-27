@@ -52,12 +52,12 @@ export async function promptRollOptions({ title = "Modificar rolagem", allowAdva
     window: { title },
     classes: ["nihility-roll-dialog"],
     content: `
-      <form class="nihility-roll-options">
+      <div class="nihility-roll-options">
         ${advantageHtml}
         <div class="roll-mod-list"></div>
         <a class="roll-mod-add"><i class="fas fa-plus"></i> Modificador</a>
         <p class="hint-inline">Aplicados na ordem da lista: "+5" e depois "×2" dá (rolagem + 5) × 2.</p>
-      </form>`,
+      </div>`,
     buttons: [
       {
         action: "roll",

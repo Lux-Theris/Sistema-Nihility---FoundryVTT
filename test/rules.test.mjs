@@ -30,7 +30,12 @@ import {
   engineRatio,
   shipMovementCells,
   shipEvasionFraction,
-  getShipManeuverConfig
+  getShipManeuverConfig,
+  powerPriorityGroup,
+  fundByPriority,
+  isStructureMechanic,
+  migrateStructureTarget,
+  getActiveDamageElements
 } from "../module/config.js";
 import { computeResistancePercent, computeResistanceName, resistanceMaxLevel } from "../module/skill-effects.js";
 import { buildSubSkillsFromSources, buildGrantedSkillData } from "../module/skill-snapshot.js";
@@ -970,4 +975,45 @@ test("presets: Sci-Fi carrega elementos de energia + os de fantasia, sem id repe
   assert.equal(new Set(ids).size, ids.length);
   assert.ok(content.moduleCategoriesData.some(c => c.id === "thrusters"));
   assert.deepEqual(Object.keys(presetContent("inexistente")), []);
+});
+
+test("prioridade de energia: grupos 1–5, valores antigos caem no meio", () => {
+  assert.equal(powerPriorityGroup(1), 1);
+  assert.equal(powerPriorityGroup(5), 5);
+  assert.equal(powerPriorityGroup(0), 1);
+  assert.equal(powerPriorityGroup(50), 3); // padrão antigo do schema
+  assert.equal(powerPriorityGroup(20), 3); // numeração 10/20/30 da lista antiga
+  assert.equal(powerPriorityGroup(undefined), 3);
+});
+
+test("prioridade de energia: P1 primeiro, o mesmo grupo divide por igual", () => {
+  const entries = [
+    { id: "escudo", demand: 40, priority: 1 },
+    { id: "motor", demand: 30, priority: 2 },
+    { id: "arma", demand: 30, priority: 2 },
+    { id: "hangar", demand: 20, priority: 5 },
+    { id: "casco", demand: 0, priority: 5 }
+  ];
+  const ratios = fundByPriority(entries, 70);
+  assert.equal(ratios.get("escudo"), 1);
+  assert.equal(ratios.get("motor"), 0.5); // sobram 30 pra 60 pedidos: metade pra cada
+  assert.equal(ratios.get("arma"), 0.5);
+  assert.equal(ratios.get("hangar"), 0);
+  assert.equal(ratios.get("casco"), 1); // sem demanda, nunca passa fome
+  assert.ok([...fundByPriority(entries, 1000).values()].every(r => r === 1));
+});
+
+test("Estrutura: é Mecânica ao Usar, e a forma de 1.37 (Tipo de Alvo) é convertida", () => {
+  assert.equal(isStructureMechanic({ effectType: "structure" }), true);
+  assert.equal(isStructureMechanic({ effectType: "damage", targetType: "structure" }), true);
+  assert.equal(isStructureMechanic({ effectType: "damage", targetType: "targeted" }), false);
+  const legacy = migrateStructureTarget({ effectType: "none", targetType: "structure", structureId: "stone-wall" });
+  assert.deepEqual(legacy, { effectType: "structure", targetType: "targeted", structureId: "stone-wall" });
+  assert.ok(!MEU_SISTEMA.SKILL_TARGET_TYPES.includes("structure"));
+  assert.ok(MEU_SISTEMA.SKILL_EFFECT_TYPES.includes("structure"));
+});
+
+test("elementos sem grupo salvo herdam o grupo do padrão de mesmo id", () => {
+  // Sem setting (o stub lança), a lista é a padrão: todo elemento tem grupo e nada cai em "Outros".
+  assert.ok(getActiveDamageElements().every(el => el.group && el.group !== "Outros"));
 });

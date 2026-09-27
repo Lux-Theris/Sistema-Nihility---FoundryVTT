@@ -1,5 +1,6 @@
-import { SYSTEM_ID, MEU_SISTEMA, getActiveSpeciesPresets, getActiveTraits, debugLog } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getActiveSpeciesPresets, debugLog } from "../config.js";
 import { openSkillEditorDialog } from "./skill-editor-dialog.js";
+import { readPickerField, wireTraitPickerField } from "./checklist-picker.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -45,7 +46,6 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
     const context = await super._prepareContext(options);
     const presets = getActiveSpeciesPresets();
     const species = {};
-    const traits = getActiveTraits();
     for (const [key, def] of Object.entries(presets)) {
       species[key] = {
         label: def.label ?? key,
@@ -54,7 +54,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
         // Ausente conta como disponível: espécie criada à mão não some do seletor sem querer.
         availableAtCreation: def.availableAtCreation !== false,
         // Traços que a Espécie dá a quem a tem (Dracônico, Voador…) — ver actorTraits em config.js.
-        traitOptions: traits.map(t => ({ id: t.id, label: t.label, checked: (def.traits ?? []).includes(t.id) })),
+        traitsJson: JSON.stringify(def.traits ?? []),
         parts: (def.parts ?? []).map(p => ({ ...p, tagsText: (p.tags ?? []).join(", ") })),
         skills: (def.skills ?? []).map(s => ({ ...s, dataJson: JSON.stringify(s) }))
       };
@@ -63,6 +63,12 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
     context.config = MEU_SISTEMA; // o template lê SPECIES_GROUP_LABELS pra montar o seletor de grupo
     debugLog(`${SYSTEM_ID} | SpeciesConfigApp._prepareContext:`, Object.keys(species).length, "espécie(s).");
     return context;
+  }
+
+  /** @override Liga o campo de Traços de cada Espécie (chips + janela de escolha). */
+  _onRender(context, options) {
+    super._onRender(context, options);
+    this.element.querySelectorAll(".species-trait-field").forEach(field => wireTraitPickerField(field));
   }
 
   static #onAddSpecies(event, target) {
@@ -76,6 +82,10 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
         <input type="text" class="species-label-input" value="Nova Espécie" placeholder="Nome exibido"/>
         <a class="species-delete" data-action="deleteSpecies" title="Remover Espécie"><i class="fas fa-trash"></i></a>
       </legend>
+      <div class="species-traits" title="Traços que esta Espécie dá a quem a tem. A ficha pode acrescentar ou retirar.">
+        <span class="species-traits-label">Traços</span>
+        <div class="element-field species-trait-field" data-selected="[]"></div>
+      </div>
       <div class="config-list-header part-header">
         <span>Chave</span><span>Nome</span><span>Slot</span><span>HP</span><span>Tags</span><span></span>
       </div>
@@ -87,6 +97,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
       <a class="config-add-row" data-action="addRacialSkill">+ Nova Skill Racial</a>
     `;
     this.element.querySelector(".species-list")?.appendChild(block);
+    wireTraitPickerField(block.querySelector(".species-trait-field"));
   }
 
   static #onDeleteSpecies(event, target) {
@@ -192,7 +203,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
         label,
         group: block.querySelector(".species-group")?.value ?? "",
         availableAtCreation: block.querySelector(".species-at-creation")?.checked !== false,
-        traits: Array.from(block.querySelectorAll(".species-trait:checked")).map(cb => cb.value),
+        traits: readPickerField(block.querySelector(".species-trait-field")),
         parts,
         skills
       };

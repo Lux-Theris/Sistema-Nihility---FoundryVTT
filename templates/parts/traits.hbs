@@ -19,12 +19,7 @@
       <a data-action="restoreTrait" data-trait="{{trait.id}}" title="Restaurar"><i class="fas fa-undo"></i></a>
     </span>
     {{/each}}
-    {{#if traits.addOptions.length}}
-    <select class="trait-add-select">
-      <option value="">+ Traço…</option>
-      {{#each traits.addOptions as |opt|}}<option value="{{opt.id}}">{{opt.label}}</option>{{/each}}
-    </select>
-    {{/if}}
+    <button type="button" class="trait-pick" data-action="pickTraits" title="Escolher Traços numa lista com filtro">+ Traço · {{traits.total}}</button>
     {{#if scaleOptions}}
     <label class="actor-scale">Escala
       <select name="system.scale">

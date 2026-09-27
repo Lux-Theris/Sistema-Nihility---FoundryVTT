@@ -28,9 +28,8 @@
 
     <div class="species-traits" title="Traços que esta Espécie dá a quem a tem. A ficha pode acrescentar ou retirar.">
       <span class="species-traits-label">Traços</span>
-      {{#each sp.traitOptions as |trait|}}
-      <label class="species-trait-chip"><input type="checkbox" class="species-trait" value="{{trait.id}}" {{#if trait.checked}}checked{{/if}}/> {{trait.label}}</label>
-      {{/each}}
+      {{!-- Chips dos escolhidos + "+ Traço" (janela com filtro): a fileira de checkboxes crescia com o catálogo. --}}
+      <div class="element-field species-trait-field" data-selected="{{sp.traitsJson}}"></div>
     </div>
 
     <div class="config-list-header part-header">

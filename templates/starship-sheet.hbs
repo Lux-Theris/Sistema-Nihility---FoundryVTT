@@ -156,30 +156,13 @@
             <span><b class="swatch used"></b>consumo dos Módulos online</span>
             {{#if demandSlack}}<span><b class="swatch free"></b>folga de {{demandSlack}} {{energyAbbr}}</span>{{/if}}
             {{#if isOverloaded}}<span class="demand-over">⚠ demanda acima do que a Nave entrega</span>{{/if}}
+            <span class="demand-prio-note">Chip <b>P1…P5</b> em cada Módulo: quando falta energia, P1 recebe primeiro.</span>
           </div>
         </div>
         </div>
 
         <button type="button" class="power-grid-tick" data-action="powerGridTick">Recalcular Grid de Energia</button>
 
-        {{#if priorityRows.length}}
-        <div class="power-priority">
-          <p class="chain-label">Prioridade de energia <span class="hint-inline" style="display:inline;">(quando falta energia, o primeiro da lista recebe primeiro)</span></p>
-          <ol class="power-priority-list">
-            {{#each priorityRows as |row|}}
-            <li class="power-priority-row {{#unless row.online}}is-offline{{/unless}}">
-              <span class="power-priority-pos">{{row.position}}</span>
-              <span class="power-priority-name">{{row.name}}</span>
-              <span class="hint-inline">{{row.categoryLabel}}</span>
-              {{#if ../canAdjustThrottle}}
-              <a data-action="movePriority" data-item-id="{{row.id}}" data-dir="-1" title="Subir" {{#if row.first}}hidden{{/if}}><i class="fas fa-arrow-up"></i></a>
-              <a data-action="movePriority" data-item-id="{{row.id}}" data-dir="1" title="Descer" {{#if row.last}}hidden{{/if}}><i class="fas fa-arrow-down"></i></a>
-              {{/if}}
-            </li>
-            {{/each}}
-          </ol>
-        </div>
-        {{/if}}
       </div>
 
       <div class="block">
@@ -193,7 +176,10 @@
             <span class="cat-pill cat-{{row.category}}" title="{{row.categoryLabel}} · Porte {{row.sizeLabel}}">{{row.categoryLabel}}</span>
 
             <span class="module-name-cell">
-              <span class="module-name">{{row.name}}</span>
+              <span class="module-name-line">
+                {{#if row.hasDemand}}{{#if ../canAdjustThrottle}}<button type="button" class="prio-chip p{{row.priority}}" data-action="cyclePriority" title="Prioridade de energia P{{row.priority}} — P1 recebe primeiro quando falta energia. Clique: desce um grupo; clique direito: sobe.">P{{row.priority}}</button>{{else}}<span class="prio-chip p{{row.priority}}" title="Prioridade de energia P{{row.priority}} — P1 recebe primeiro quando falta energia.">P{{row.priority}}</span>{{/if}}{{/if}}
+                <span class="module-name">{{row.name}}</span>
+              </span>
               {{#if row.starved}}
               <small class="module-starved">⚠ recebendo {{row.powerRatio}}% da energia pedida</small>
               {{else}}
@@ -257,7 +243,10 @@
             <span class="cat-pill cat-{{row.category}}" title="{{row.categoryLabel}} · Porte {{row.sizeLabel}}">{{row.categoryLabel}}</span>
 
             <span class="module-name-cell">
-              <span class="module-name">{{row.name}}</span>
+              <span class="module-name-line">
+                {{#if row.hasDemand}}{{#if ../canAdjustThrottle}}<button type="button" class="prio-chip p{{row.priority}}" data-action="cyclePriority" title="Prioridade de energia P{{row.priority}} — P1 recebe primeiro quando falta energia. Clique: desce um grupo; clique direito: sobe.">P{{row.priority}}</button>{{else}}<span class="prio-chip p{{row.priority}}" title="Prioridade de energia P{{row.priority}} — P1 recebe primeiro quando falta energia.">P{{row.priority}}</span>{{/if}}{{/if}}
+                <span class="module-name">{{row.name}}</span>
+              </span>
               {{#if row.starved}}
               <small class="module-starved">⚠ recebendo {{row.powerRatio}}% da energia pedida</small>
               {{else}}
@@ -340,7 +329,10 @@
             <span class="cat-pill cat-weapon" title="Porte {{row.sizeLabel}}">{{row.sizeLabel}}</span>
 
             <span class="module-name-cell">
-              <span class="module-name">{{row.name}}</span>
+              <span class="module-name-line">
+                {{#if row.hasDemand}}{{#if ../canAdjustThrottle}}<button type="button" class="prio-chip p{{row.priority}}" data-action="cyclePriority" title="Prioridade de energia P{{row.priority}} — P1 recebe primeiro quando falta energia. Clique: desce um grupo; clique direito: sobe.">P{{row.priority}}</button>{{else}}<span class="prio-chip p{{row.priority}}" title="Prioridade de energia P{{row.priority}} — P1 recebe primeiro quando falta energia.">P{{row.priority}}</span>{{/if}}{{/if}}
+                <span class="module-name">{{row.name}}</span>
+              </span>
               {{#if row.starved}}
               <small class="module-starved">⚠ recebendo {{row.powerRatio}}% da energia pedida</small>
               {{else}}

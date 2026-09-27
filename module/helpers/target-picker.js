@@ -201,13 +201,13 @@ export async function pickTargetActor({ self = null, types = null, title = "Esco
   const chosenId = await DialogV2.wait({
     window: { title },
     content: `
-      <form class="nihility-target-picker">
+      <div class="nihility-target-picker">
         ${searchHtml}
         <div class="form-group">
           <label>Alvo</label>
           <select name="targetId">${optionsHtml}</select>
         </div>
-      </form>`,
+      </div>`,
     buttons: [
       {
         action: "confirm",

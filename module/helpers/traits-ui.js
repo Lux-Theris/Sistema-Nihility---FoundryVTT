@@ -6,8 +6,9 @@
  * `traitsRemoved` e volta com "restaurar". Só o Mestre edita; o jogador só vê.
  */
 import { getActiveTraits, getTraitLabel, getActiveSpeciesPresets, actorTraits } from "../config.js";
+import { pickTraits } from "../apps/checklist-picker.js";
 
-/** Dados pro template: chips efetivos, retirados (só Mestre) e opções pra acrescentar. */
+/** Dados pro template: chips efetivos, retirados (só Mestre) e o tamanho do catálogo (botão "+ Traço · N"). */
 export function traitContext(actor) {
   const fromSpecies = new Set(getActiveSpeciesPresets()?.[actor.system?.species]?.traits ?? []);
   const effective = actorTraits(actor);
@@ -16,8 +17,25 @@ export function traitContext(actor) {
   return {
     chips: effective.map(id => ({ id, label: getTraitLabel(id), fromSpecies: fromSpecies.has(id) })),
     removed: removed.map(id => ({ id, label: getTraitLabel(id) })),
-    addOptions: getActiveTraits().filter(t => !present.has(t.id)).map(t => ({ id: t.id, label: t.label }))
+    total: getActiveTraits().length
   };
+}
+
+/**
+ * "+ Traço": abre a janela de escolha com os Traços efetivos marcados e grava a diferença em
+ * relação à Espécie — o que a Espécie não dá vira `traits`, o que ela dá e foi desmarcado vira
+ * `traitsRemoved`. A Espécie em si nunca muda.
+ */
+export async function pickActorTraits(actor) {
+  if (!game.user.isGM) return;
+  const picked = await pickTraits(actorTraits(actor), { title: `Traços — ${actor.name}` });
+  if (!picked) return;
+  const chosen = new Set(picked);
+  const fromSpecies = new Set(getActiveSpeciesPresets()?.[actor.system?.species]?.traits ?? []);
+  const update = { "system.traits": picked.filter(id => !fromSpecies.has(id)) };
+  // Nave/Veículo não têm `traitsRemoved` (nem Espécie) — só grava onde o campo existe.
+  if ("traitsRemoved" in actor.system) update["system.traitsRemoved"] = [...fromSpecies].filter(id => !chosen.has(id));
+  await actor.update(update);
 }
 
 /**

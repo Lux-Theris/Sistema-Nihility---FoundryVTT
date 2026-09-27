@@ -26,6 +26,7 @@ import {
   isScaleEnabled,
   getFeatureOption,
   actorScaleIndex,
+  isStructureMechanic,
   scaleIndexOf
 } from "./config.js";
 import { runAsGm } from "./helpers/gm-relay.js";
@@ -278,7 +279,7 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
   // Dispara e esquece — nunca aguardado, a animação não deve atrasar a mecânica/chat.
   playSkillAnimation(sourceActor, mech, { targetActor: options.targetActor ?? options.targetActors?.[0] ?? null });
 
-  if (mech.targetType === "structure") {
+  if (isStructureMechanic(mech)) {
     // Estrutura: a Skill ergue parede/bloco no mapa (ver structures.js). Sem mapa, só o cartão.
     return requestStructure({
       sourceActor,

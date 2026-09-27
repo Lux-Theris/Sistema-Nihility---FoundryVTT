@@ -1,18 +1,13 @@
 {{!--
-  Seletor de Elementos agrupado (Físico, Fantasia, Energia…). Recebe `groups` (ver
-  groupedElementChips em item-sheet.js) e `path`, o campo do Item que a lista grava.
+  Elementos de Dano de um campo: só os escolhidos (chip com ×) e o botão que abre a janela de
+  escolha com filtro e grupos (apps/checklist-picker.js). Recebe `field` ({chips, total}, ver
+  selectedElementChips), `path` (o campo do Item, ex.: system.damageElements) e `editable`.
 --}}
-<div class="element-groups">
-  {{#each groups as |group|}}
-  <div class="element-group">
-    <span class="element-group-label">{{group.group}}</span>
-    <div class="element-grid">
-      {{#each group.chips as |el|}}
-      <a class="element-chip {{#if el.checked}}checked{{/if}}" data-action="toggleElement" data-path="{{../../path}}" data-element="{{el.id}}"><span class="dot" style="background:{{el.color}}"></span>{{el.label}}</a>
-      {{/each}}
-    </div>
-  </div>
+<div class="element-field">
+  {{#each field.chips as |el|}}
+  <span class="element-chip checked"><span class="dot" style="background:{{el.color}}"></span>{{el.label}}{{#if ../editable}}<a class="element-chip-remove" data-action="removeElement" data-path="{{../path}}" data-element="{{el.id}}" title="Tirar {{el.label}}" aria-label="Tirar {{el.label}}"><i class="fas fa-times"></i></a>{{/if}}</span>
   {{else}}
-  <span class="hint-inline">Nenhum elemento configurado.</span>
+  <span class="element-field-empty">nenhum</span>
   {{/each}}
+  {{#if editable}}<button type="button" class="element-field-add" data-action="pickElements" data-path="{{path}}">+ Elemento · {{field.total}}</button>{{/if}}
 </div>

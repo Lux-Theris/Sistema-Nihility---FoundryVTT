@@ -8,7 +8,8 @@ import {
   shipMovementCells,
   shipEvasionFraction,
   moduleRole,
-  getVesselClasses
+  getVesselClasses,
+  fundByPriority
 } from "../config.js";
 
 const fields = foundry.data.fields;
@@ -396,8 +397,8 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
    * Estado ao vivo do Distribuidor (Overhaul de Naves, Fase 3) — recalculado a cada leitura,
    * nunca armazenado: quanto cada Módulo "online" está pedindo agora, quanto a Capacidade de
    * Transferência + a Reserva da Bateria conseguem cobrir, e — se nem isso bastar — a fração
-   * (0-1) que cada Módulo de fato recebe nesta rodada, financiando em ordem de `powerPriority`
-   * (menor primeiro). Isso é FOME DE ENERGIA, não dano: não persiste entre recálculos, não
+   * (0-1) que cada Módulo de fato recebe nesta rodada, financiando por grupo de `powerPriority`
+   * (P1 primeiro; dentro do grupo, todos recebem a mesma fração — ver fundByPriority). Isso é FOME DE ENERGIA, não dano: não persiste entre recálculos, não
    * desliga o Módulo sozinho, só reduz o que ele entrega enquanto a demanda continuar acima do
    * que a Nave/Veículo consegue entregar — se resolve sozinho assim que a demanda cair.
    */
@@ -405,24 +406,15 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
     if (this.#shortfallCache) return this.#shortfallCache;
 
     const online = this.modules.filter(m => m.system.status === "online");
-    const sorted = [...online].sort((a, b) => a.system.powerPriority - b.system.powerPriority);
-    let available = Math.min(this.powerGrid.reactorOutput, this.transferCapacity) + this.powerGrid.capacitor.value;
-
-    const ratios = new Map();
-    for (const module of sorted) {
-      const demand = (module.system.powerConsumption ?? 0) * ((module.system.powerAllocationPercent ?? 100) / 100);
-      if (demand <= 0) {
-        ratios.set(module.id, 1);
-        continue;
-      }
-      if (available >= demand) {
-        available -= demand;
-        ratios.set(module.id, 1);
-      } else {
-        ratios.set(module.id, Math.max(0, available / demand));
-        available = 0;
-      }
-    }
+    const available = Math.min(this.powerGrid.reactorOutput, this.transferCapacity) + this.powerGrid.capacitor.value;
+    const ratios = fundByPriority(
+      online.map(module => ({
+        id: module.id,
+        demand: (module.system.powerConsumption ?? 0) * ((module.system.powerAllocationPercent ?? 100) / 100),
+        priority: module.system.powerPriority
+      })),
+      available
+    );
 
     this.#shortfallCache = { ratios, totalDemand: this.totalConsumption, capacity: this.transferCapacity };
     return this.#shortfallCache;

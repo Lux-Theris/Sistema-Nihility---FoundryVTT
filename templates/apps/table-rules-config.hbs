@@ -1,0 +1,35 @@
+<div class="config-editor-body table-rules-body">
+  <p class="hint">
+    As regras da campanha num lugar só. Configurações de cada navegador (IA, Debug) continuam na tela
+    nativa de Configurações do Foundry. <span class="rule-reload-mark">↻</span> = precisa recarregar o mundo.
+  </p>
+  {{#each groups as |group|}}
+  <fieldset class="rules-group">
+    <legend>{{group.label}}</legend>
+    {{#each group.rows as |row|}}
+    <div class="rule-row">
+      <div class="rule-text">
+        <span class="rule-name">{{row.name}}{{#if row.reload}} <span class="rule-reload-mark" title="Precisa recarregar">↻</span>{{/if}}</span>
+        {{#if row.hint}}<span class="rule-hint">{{row.hint}}</span>{{/if}}
+      </div>
+      <div class="rule-input">
+        {{#if row.isBoolean}}
+        <input type="checkbox" data-rule="{{row.key}}" {{#if row.value}}checked{{/if}}/>
+        {{else if row.choices}}
+        <select data-rule="{{row.key}}">
+          {{#each row.choices as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+        </select>
+        {{else if row.isNumber}}
+        <input type="number" step="any" data-rule="{{row.key}}" value="{{row.value}}"/>
+        {{else}}
+        <input type="text" data-rule="{{row.key}}" value="{{row.value}}"/>
+        {{/if}}
+      </div>
+    </div>
+    {{/each}}
+  </fieldset>
+  {{/each}}
+  <footer class="sheet-footer">
+    <button type="submit"><i class="fas fa-save"></i> Salvar</button>
+  </footer>
+</div>

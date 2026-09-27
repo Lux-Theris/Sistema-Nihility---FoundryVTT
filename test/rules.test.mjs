@@ -26,16 +26,18 @@ import {
   movementAllowance,
   describeMovement,
   getMovementConfig,
+  resolveActorTraits,
   engineRatio,
   shipMovementCells,
   shipEvasionFraction,
   getShipManeuverConfig
 } from "../module/config.js";
 import { computeResistancePercent, computeResistanceName, resistanceMaxLevel } from "../module/skill-effects.js";
-import { buildSubSkillsFromSources } from "../module/skill-snapshot.js";
+import { buildSubSkillsFromSources, buildGrantedSkillData } from "../module/skill-snapshot.js";
 import { buildBatchPrompt, summarizeCreatedDocument } from "../module/ai-generation.js";
 import { moduleIntegrityRatio } from "../module/data/starship-model.js";
 import { splitStructuralDamage } from "../module/starship-power.js";
+import { splitShieldDamage } from "../module/damage-apply.js";
 
 /* -------------------------------------------- */
 /*  Pool de dados de Atributo                    */
@@ -124,12 +126,10 @@ test("preset de Módulo: campos de tempo/percentual NÃO seguem a curva de dobra
 });
 
 test("preset de Módulo: categoria/Porte desconhecido não quebra — só não sugere stat nenhum", () => {
-  // Categoria inexistente: sem stats próprios, mas a Vida ainda vem do Porte (ela é igual pra
-  // toda categoria, então não depende de MODULE_SIZE_PRESETS).
-  assert.deepEqual(getModuleSizePreset("categoria-que-nao-existe", "standard"), {
-    "system.hp.max": MEU_SISTEMA.MODULE_HP_BY_SIZE.standard,
-    "system.hp.value": MEU_SISTEMA.MODULE_HP_BY_SIZE.standard
-  });
+  // Categoria que não está no catálogo vira Utilidade (Módulo órfão perde a mecânica, nunca
+  // quebra a Nave) — e a Vida continua vindo do Porte.
+  assert.deepEqual(getModuleSizePreset("categoria-que-nao-existe", "standard"), getModuleSizePreset("utility", "standard"));
+  assert.equal(getModuleSizePreset("categoria-que-nao-existe", "standard")["system.hp.max"], MEU_SISTEMA.MODULE_HP_BY_SIZE.standard);
   // Porte inexistente: não há nem stats nem Vida a sugerir.
   assert.deepEqual(getModuleSizePreset("shield", "porte-que-nao-existe"), {});
 });
@@ -576,4 +576,398 @@ test("nave: sem settings, Porte maior anda menos e desvia menos", () => {
     assert.ok(config.evasion[sizes[i]] < config.evasion[sizes[i - 1]], `${sizes[i]} desvia menos que ${sizes[i - 1]}`);
   }
   assert.equal(config.evasionCap, 40);
+});
+
+/* -------------------------------------------- */
+/*  Escudo pessoal absorve antes da Vida         */
+/* -------------------------------------------- */
+
+test("escudo pessoal: absorve até acabar, o resto vai pra Vida", () => {
+  assert.deepEqual(splitShieldDamage(20, 10), { toShield: 10, toHp: 10 });
+  assert.deepEqual(splitShieldDamage(5, 10), { toShield: 5, toHp: 0 });
+  assert.deepEqual(splitShieldDamage(20, 0), { toShield: 0, toHp: 20 });
+});
+
+test("escudo pessoal: Dano Absoluto passa direto", () => {
+  assert.deepEqual(splitShieldDamage(20, 10, { bypassShield: true }), { toShield: 0, toHp: 20 });
+});
+
+test("escudo pessoal: valores estranhos não quebram", () => {
+  assert.deepEqual(splitShieldDamage(0, 10), { toShield: 0, toHp: 0 });
+  assert.deepEqual(splitShieldDamage(10, -5), { toShield: 0, toHp: 10 });
+  assert.deepEqual(splitShieldDamage(10.6, undefined), { toShield: 0, toHp: 11 });
+});
+
+/* -------------------------------------------- */
+/*  Habilidade Concedida completa                */
+/* -------------------------------------------- */
+
+const GRANTABLE = ["extra", "normal", "racial"];
+
+test("habilidade concedida: sem nome não cria nada", () => {
+  assert.equal(buildGrantedSkillData({ name: "  " }, GRANTABLE), null);
+  assert.equal(buildGrantedSkillData(null, GRANTABLE), null);
+});
+
+test("habilidade concedida: a mecânica inteira vai para a Skill da ficha", () => {
+  const data = buildGrantedSkillData(
+    {
+      name: "Lâmina Flamejante", tier: "extra", level: 3, cost: 4, hasUpkeep: true, upkeepCost: 2,
+      effectType: "damage", damageFormula: "2d6", isMagicDamage: true, damageElements: ["fire"],
+      targetType: "emission", areaShape: "cone", areaDistance: 6
+    },
+    GRANTABLE
+  );
+  assert.equal(data.name, "Lâmina Flamejante");
+  assert.equal(data.type, "skill");
+  assert.equal(data.system.tier, "extra");
+  assert.equal(data.system.level, 3);
+  assert.equal(data.system.damageFormula, "2d6");
+  assert.deepEqual(data.system.damageElements, ["fire"]);
+  assert.equal(data.system.areaShape, "cone");
+  assert.equal(data.system.upkeepCost, 2);
+  assert.equal(data.system.isItemGranted, true);
+});
+
+test("habilidade concedida: começa desligada, inclusive as Sub-Skills, e é cópia", () => {
+  const source = { name: "Arsenal", active: true, subSkills: [{ name: "Tiro", active: true, effects: [{ amount: 1 }] }] };
+  const data = buildGrantedSkillData(source, GRANTABLE);
+  assert.equal(data.system.active, false);
+  assert.equal(data.system.subSkills[0].active, false);
+  data.system.subSkills[0].effects[0].amount = 99;
+  assert.equal(source.subSkills[0].effects[0].amount, 1);
+});
+
+test("habilidade concedida: tier fora da lista vira Normal; formato antigo (4 campos) continua valendo", () => {
+  const data = buildGrantedSkillData({ name: "Velha", tier: "ultimate", cost: 2, description: "<p>x</p>" }, GRANTABLE);
+  assert.equal(data.system.tier, "normal");
+  assert.equal(data.system.cost, 2);
+  assert.equal(data.system.level, 1);
+  assert.equal(data.system.description, "<p>x</p>");
+});
+
+/* -------------------------------------------- */
+/*  Modificadores de rolagem (shift+clique)      */
+/* -------------------------------------------- */
+
+import {
+  normalizeRollOptions,
+  isNeutralRollOptions,
+  applyAdvantageToFormula,
+  buildModifiedFormula,
+  applyRollModifiers,
+  describeRollOptions
+} from "../module/roll-modifiers.js";
+
+test("rolagem: vantagem rola o pool inteiro duas vezes e fica com o maior", () => {
+  assert.equal(applyAdvantageToFormula("2d20+5", "advantage"), "{2d20+5, 2d20+5}kh");
+  assert.equal(applyAdvantageToFormula("2d20+5", "disadvantage"), "{2d20+5, 2d20+5}kl");
+  assert.equal(applyAdvantageToFormula("2d20+5", "normal"), "2d20+5");
+});
+
+test("rolagem: operações valem na ordem em que foram escritas", () => {
+  const plusThenTimes = { modifiers: [{ op: "add", value: 5 }, { op: "mul", value: 2 }] };
+  const timesThenPlus = { modifiers: [{ op: "mul", value: 2 }, { op: "add", value: 5 }] };
+  assert.equal(applyRollModifiers(10, plusThenTimes), 30);
+  assert.equal(applyRollModifiers(10, timesThenPlus), 25);
+  assert.equal(buildModifiedFormula("1d20", plusThenTimes), "((1d20) + 5) * 2");
+});
+
+test("rolagem: divisão arredonda pra baixo e o dano nunca fica negativo", () => {
+  assert.equal(applyRollModifiers(15, { modifiers: [{ op: "div", value: 2 }] }), 7);
+  assert.equal(applyRollModifiers(5, { modifiers: [{ op: "sub", value: 10 }] }), 0);
+  assert.equal(buildModifiedFormula("1d20", { modifiers: [{ op: "div", value: 2 }] }), "floor((1d20) / 2)");
+});
+
+test("rolagem: valores inválidos, operação desconhecida e divisão por zero são descartados", () => {
+  const { modifiers, advantage } = normalizeRollOptions({
+    advantage: "talvez",
+    modifiers: [{ op: "add", value: "abc" }, { op: "pow", value: 2 }, { op: "div", value: 0 }, { op: "sub", value: "3" }]
+  });
+  assert.equal(advantage, "normal");
+  assert.deepEqual(modifiers, [{ op: "sub", value: 3, label: "" }]);
+  assert.equal(isNeutralRollOptions(null), true);
+  assert.equal(isNeutralRollOptions({ advantage: "advantage" }), false);
+});
+
+test("rolagem: texto do chat lista vantagem e cada modificador com o motivo", () => {
+  const text = describeRollOptions({ advantage: "advantage", modifiers: [{ op: "add", value: 5, label: "boa interpretação" }, { op: "mul", value: 2 }] });
+  assert.equal(text, "Vantagem · +5 (boa interpretação) · ×2");
+  assert.equal(describeRollOptions(null), "");
+});
+
+/* -------------------------------------------- */
+/*  Dano por elemento, Imunidade, Escala         */
+/* -------------------------------------------- */
+
+import {
+  splitDamageParts,
+  resolveDamageParts,
+  scaleMultiplier,
+  resolveConditionEffect,
+  refreshReapplication,
+  rollChance
+} from "../module/damage-rules.js";
+
+test("elementos: o golpe é dividido em partes iguais", () => {
+  assert.deepEqual(splitDamageParts(100, ["fire", "ice"]), [{ elementId: "fire", raw: 50 }, { elementId: "ice", raw: 50 }]);
+  assert.deepEqual(splitDamageParts(100, []), [{ elementId: null, raw: 100 }]);
+  assert.deepEqual(splitDamageParts(90, ["fire", "fire", "ice", "acid"]).map(p => p.raw), [30, 30, 30]);
+});
+
+test("imunidade zera só a parte do próprio elemento", () => {
+  const parts = splitDamageParts(100, ["fire", "ice"]);
+  const result = resolveDamageParts({ parts, resistanceFor: id => (id === "fire" ? 1 : 0) });
+  assert.equal(result.final, 50);
+  assert.equal(result.parts[0].immune, true);
+});
+
+test("resistências valem por parte, não em cadeia sobre o golpe inteiro", () => {
+  const parts = splitDamageParts(100, ["fire", "ice"]);
+  const result = resolveDamageParts({ parts, resistanceFor: () => 0.5 });
+  assert.equal(result.final, 50);
+});
+
+test("penetração amolece Defesa Mágica e Resistências, mas nunca atravessa Imunidade", () => {
+  const soft = resolveDamageParts({ parts: [{ elementId: "fire", raw: 100, penetration: 0.5 }], general: 0.5, resistanceFor: () => 0 });
+  assert.equal(soft.final, 75);
+  const immune = resolveDamageParts({ parts: [{ elementId: "fire", raw: 100, penetration: 1 }], resistanceFor: () => 1 });
+  assert.equal(immune.final, 0);
+});
+
+test("Dano Absoluto ignora Defesa Mágica, Resistências e Imunidade", () => {
+  const result = resolveDamageParts({
+    parts: [{ elementId: "fire", raw: 100 }],
+    magicDefense: 0.6,
+    general: 0.5,
+    resistanceFor: () => 1,
+    absolute: true
+  });
+  assert.equal(result.final, 100);
+});
+
+test("bônus contra Traço multiplica a parte antes das defesas", () => {
+  const result = resolveDamageParts({ parts: [{ elementId: "polaron", raw: 100, bonus: 0.2 }], general: 0.5 });
+  assert.equal(result.final, 60);
+});
+
+test("resistências registram quanto cada uma bloqueou (XP de Resistência)", () => {
+  const result = resolveDamageParts({ parts: [{ elementId: "fire", raw: 100 }], general: 0.5, resistanceFor: () => 0.5 });
+  assert.equal(result.parts[0].blockedGeneral, 50);
+  assert.equal(result.parts[0].blockedElement, 25);
+});
+
+test("escala: fator elevado à diferença de degraus", () => {
+  assert.equal(scaleMultiplier(0, 2, 10), 0.01);
+  assert.equal(scaleMultiplier(2, 0, 10), 100);
+  assert.equal(scaleMultiplier(1, 1, 10), 1);
+  assert.equal(scaleMultiplier(undefined, 1, 10), 0.1);
+});
+
+test("condição padrão: Queimadura em % do dano do golpe", () => {
+  const burn = { id: "burn", effect: { kind: "tick", tickTarget: "hp", tickSign: "damage", valueMode: "hitPercent", value: 10, durationRounds: 2 } };
+  assert.deepEqual(resolveConditionEffect(burn, { hitDamage: 5000 }), {
+    target: "hp", amount: -500, periodic: true, durationRounds: 2, tickUnit: "combatRound", conditionId: "burn"
+  });
+  // Sem golpe (marcação à mão, Skill sem dano): fica só o ícone.
+  assert.equal(resolveConditionEffect(burn, {}), null);
+});
+
+test("condição padrão: % da Vida máxima, cura, e Lentidão no Deslocamento", () => {
+  const regen = { id: "regen", effect: { kind: "tick", tickTarget: "hp", tickSign: "heal", valueMode: "maxPercent", value: 5, durationRounds: 3 } };
+  assert.equal(resolveConditionEffect(regen, { targetMax: { hp: 1000 } }).amount, 50);
+  const slow = { id: "slow", effect: { kind: "modifier", modTarget: "movement", value: -50, durationRounds: 2 } };
+  assert.deepEqual(resolveConditionEffect(slow, {}), {
+    target: "movement", amount: -50, periodic: false, durationRounds: 2, tickUnit: "combatRound", conditionId: "slow"
+  });
+  const weak = { id: "weak", effect: { kind: "modifier", modTarget: "strength", modMode: "percent", value: -20, durationRounds: 2 } };
+  assert.equal(resolveConditionEffect(weak, { attributeTotal: () => 50 }).amount, -10);
+  assert.equal(resolveConditionEffect({ id: "blind" }, {}), null);
+});
+
+test("reaplicar renova (não soma) e fica com o valor mais forte", () => {
+  assert.deepEqual(refreshReapplication({ rounds: 1, amount: -500 }, { rounds: 3, amount: -20 }), { rounds: 3, amount: -500 });
+  assert.deepEqual(refreshReapplication({ rounds: 5, amount: -10 }, { rounds: 2, amount: -40 }), { rounds: 5, amount: -40 });
+});
+
+test("chance: 0 nunca, 100 sempre, o resto pelo sorteio", () => {
+  assert.equal(rollChance(0), false);
+  assert.equal(rollChance(100), true);
+  assert.equal(rollChance(25, () => 0.1), true);
+  assert.equal(rollChance(25, () => 0.9), false);
+});
+
+test("deslocamento: efeito percentual vale sobre o total", () => {
+  assert.equal(movementAllowance({ permanentDexterity: 24, percent: -50 }, MOVE_CFG).total, 4);
+  assert.equal(movementAllowance({ permanentDexterity: 24, percent: -100 }, MOVE_CFG).total, 0);
+});
+
+test("escudo pessoal: dreno bate só no Escudo e nunca passa pra Vida", () => {
+  assert.deepEqual(splitShieldDamage(20, 15, { shieldExtra: 10 }), { toShield: 15, toHp: 15 });
+  assert.deepEqual(splitShieldDamage(20, 0, { shieldExtra: 10 }), { toShield: 0, toHp: 20 });
+});
+
+test("traços: os da Espécie, mais os da ficha, menos os retirados", () => {
+  const presets = { dragoide: { traits: ["organic", "draconic", "wingless"] } };
+  assert.deepEqual(
+    resolveActorTraits({ species: "dragoide", traits: ["flying"], traitsRemoved: ["wingless"] }, presets),
+    ["organic", "draconic", "flying"]
+  );
+  assert.deepEqual(resolveActorTraits({ traits: ["mechanical"] }, presets), ["mechanical"]);
+});
+
+/* -------------------------------------------- */
+/*  Modificadores Condicionais                   */
+/* -------------------------------------------- */
+
+import { matchesWhen, sumConditionalModifiers, perEachCount } from "../module/conditional-modifiers.js";
+
+const DRAGON_SLAYER = { when: { kind: "otherTrait", value: "draconic" }, then: { kind: "damagePercent", value: 25 } };
+
+test("condicional: Caçador de Dragões só vale contra quem tem o Traço", () => {
+  const vsDragon = { otherTraits: new Set(["draconic", "organic"]) };
+  const vsHuman = { otherTraits: new Set(["organic"]) };
+  assert.equal(sumConditionalModifiers([DRAGON_SLAYER], "damagePercent", vsDragon), 25);
+  assert.equal(sumConditionalModifiers([DRAGON_SLAYER], "damagePercent", vsHuman), 0);
+});
+
+test("condicional: condições sobre si mesmo (Vida baixa, Condição, combate)", () => {
+  assert.equal(matchesWhen({ kind: "selfHpBelow", threshold: 50 }, { selfHpPercent: 30 }), true);
+  assert.equal(matchesWhen({ kind: "selfHpBelow", threshold: 50 }, { selfHpPercent: 80 }), false);
+  assert.equal(matchesWhen({ kind: "selfCondition", value: "burn" }, { selfConditions: new Set(["burn"]) }), true);
+  assert.equal(matchesWhen({ kind: "selfInCombat" }, { inCombat: false }), false);
+  assert.equal(matchesWhen({ kind: "element", value: "fire" }, { elements: new Set(["fire"]) }), true);
+  assert.equal(matchesWhen({ kind: "otherIsShip" }, { otherIsShip: true }), true);
+  assert.equal(matchesWhen({}, {}), true);
+});
+
+test("condicional: '+N por cada Condição no oponente' multiplica pela contagem", () => {
+  const perCondition = { when: { kind: "always" }, then: { kind: "damagePercent", value: 5 }, perEach: "otherConditions" };
+  assert.equal(sumConditionalModifiers([perCondition], "damagePercent", { otherConditions: new Set(["burn", "slow", "poison"]) }), 15);
+  assert.equal(perEachCount("", {}), 1);
+});
+
+test("condicional: rolagem e atributo filtram por atributo ('any' vale pra todos)", () => {
+  const mods = [
+    { when: { kind: "always" }, then: { kind: "rollFlat", target: "perception", value: 3 } },
+    { when: { kind: "always" }, then: { kind: "rollFlat", target: "any", value: 1 } }
+  ];
+  assert.equal(sumConditionalModifiers(mods, "rollFlat", {}, { attribute: "perception" }), 4);
+  assert.equal(sumConditionalModifiers(mods, "rollFlat", {}, { attribute: "strength" }), 1);
+});
+
+test("condicional: bônus contínuo de atributo só aceita condições sobre si mesmo", () => {
+  const rage = { when: { kind: "selfHpBelow", threshold: 50 }, then: { kind: "attributeFlat", target: "strength", value: 10 } };
+  const vsDragon = { when: { kind: "otherTrait", value: "draconic" }, then: { kind: "attributeFlat", target: "strength", value: 10 } };
+  const ctx = { selfHpPercent: 20, otherTraits: new Set(["draconic"]) };
+  assert.equal(sumConditionalModifiers([rage, vsDragon], "attributeFlat", ctx, { attribute: "strength" }), 10);
+});
+
+test("condicional: Resistência filtra pelo alvo da Resistência", () => {
+  const mods = [{ when: { kind: "always" }, then: { kind: "resistancePercent", target: "fire", value: 20 } }];
+  assert.equal(sumConditionalModifiers(mods, "resistancePercent", {}, { element: "fire" }), 20);
+  assert.equal(sumConditionalModifiers(mods, "resistancePercent", {}, { element: "general" }), 0);
+});
+
+/* -------------------------------------------- */
+/*  Categorias de Módulo e Classes               */
+/* -------------------------------------------- */
+
+import { moduleRole, categorySlotLimit, getModuleCategories } from "../module/config.js";
+
+test("categorias: as 9 de sempre têm Função e ids antigos continuam válidos", () => {
+  assert.equal(moduleRole("reactor"), "power");
+  assert.equal(moduleRole("engine"), "propulsion");
+  assert.equal(moduleRole("distributor"), "distribution");
+  assert.equal(moduleRole("sumiu-do-catalogo"), "utility");
+  assert.equal(getModuleCategories().length, 9);
+});
+
+test("classes: a Classe sobrescreve as vagas da Categoria; Distribuição é sempre 1", () => {
+  const armor = { id: "armor", role: "armor", slots: 1 };
+  const distributor = { id: "distributor", role: "distribution", slots: 1 };
+  const battleship = { slots: { armor: 2, distributor: 3 } };
+  assert.equal(categorySlotLimit(armor, null), 1);
+  assert.equal(categorySlotLimit(armor, battleship), 2);
+  assert.equal(categorySlotLimit(distributor, battleship), 1);
+  assert.equal(categorySlotLimit({ id: "weapon", role: "weapon", slots: 0 }, battleship), 0);
+});
+
+/* -------------------------------------------- */
+/*  Estruturas: geometria                        */
+/* -------------------------------------------- */
+
+import { capPolyline, polylineLength, structureSegments } from "../module/structure-geometry.js";
+
+test("estrutura: traçado livre para no comprimento máximo", () => {
+  const capped = capPolyline([[0, 0], [100, 0], [100, 100]], 150);
+  assert.deepEqual(capped, [[0, 0], [100, 0], [100, 50]]);
+  assert.equal(polylineLength(capped), 150);
+});
+
+test("estrutura: linha usa só início e fim, cortada no tamanho", () => {
+  assert.deepEqual(structureSegments("line", [[0, 0], [500, 0], [999, 999]], 200), [[0, 0, 200, 0]]);
+});
+
+test("estrutura: forma livre em L vira dois segmentos", () => {
+  assert.deepEqual(structureSegments("free", [[0, 0], [100, 0], [100, 100]], 1000), [[0, 0, 100, 0], [100, 0, 100, 100]]);
+});
+
+test("estrutura: quadrado fecha 4 lados; círculo vira polígono fechado", () => {
+  assert.equal(structureSegments("rect", [[0, 0]], 100).length, 4);
+  const circle = structureSegments("circle", [[0, 0]], 100, 16);
+  assert.equal(circle.length, 16);
+  assert.deepEqual(circle[0].slice(0, 2), circle.at(-1).slice(2, 4));
+});
+
+test("estrutura: sem ponto ou tamanho, nenhuma parede", () => {
+  assert.deepEqual(structureSegments("free", [[0, 0]], 100), []);
+  assert.deepEqual(structureSegments("circle", [], 100), []);
+  assert.deepEqual(structureSegments("line", [[0, 0], [10, 0]], 0), []);
+});
+
+/* -------------------------------------------- */
+/*  Exportar/Importar e presets                  */
+/* -------------------------------------------- */
+
+import { readTransferBundle, diffTransfer, transferGroup } from "../module/config-transfer.js";
+import { presetContent } from "../module/config.js";
+
+test("importar: formato atual traz o mapa de settings, sem o registro de migrações", () => {
+  const bundle = { _system: "nihility-rpg-system", settings: { xpFormula: "100 * @nivel", completedMigrations: "[]" } };
+  assert.deepEqual(readTransferBundle(bundle, "nihility-rpg-system"), { xpFormula: "100 * @nivel" });
+});
+
+test("importar: arquivo antigo (4 listas parseadas) continua aceito", () => {
+  const legacy = { currenciesData: [{ id: "gold" }], damageElementsData: [{ id: "fire" }] };
+  const read = readTransferBundle(legacy, "nihility-rpg-system");
+  assert.deepEqual(Object.keys(read).sort(), ["currenciesData", "damageElementsData"]);
+  assert.equal(typeof read.currenciesData, "string");
+});
+
+test("importar: arquivo de outro sistema ou sem nada reconhecível é recusado", () => {
+  assert.equal(readTransferBundle({ _system: "dnd5e", settings: {} }, "nihility-rpg-system"), null);
+  assert.equal(readTransferBundle({ foo: 1 }, "nihility-rpg-system"), null);
+});
+
+test("importar: diferença ignora formatação de JSON e chaves desconhecidas", () => {
+  const current = { a: '[{"id":1}]', b: 5 };
+  const incoming = { a: '[\n  {"id": 1}\n]', b: 6, desconhecida: 1 };
+  assert.deepEqual(diffTransfer(current, incoming), [{ key: "a", changed: false }, { key: "b", changed: true }]);
+});
+
+test("importar: grupos dos diálogos", () => {
+  const features = new Set(["movementEnabled"]);
+  assert.equal(transferGroup("movementEnabled", features), "Módulos do Sistema");
+  assert.equal(transferGroup("traitsData", features), "Catálogos");
+  assert.equal(transferGroup("xpFormula", features), "Regras");
+});
+
+test("presets: Sci-Fi carrega elementos de energia + os de fantasia, sem id repetido", () => {
+  const content = presetContent("scifi");
+  const ids = content.damageElementsData.map(e => e.id);
+  assert.ok(ids.includes("phaser") && ids.includes("fire"));
+  assert.equal(new Set(ids).size, ids.length);
+  assert.ok(content.moduleCategoriesData.some(c => c.id === "thrusters"));
+  assert.deepEqual(Object.keys(presetContent("inexistente")), []);
 });

@@ -6,7 +6,9 @@ import {
   getShipManeuverConfig,
   engineRatio,
   shipMovementCells,
-  shipEvasionFraction
+  shipEvasionFraction,
+  moduleRole,
+  getVesselClasses
 } from "../config.js";
 
 const fields = foundry.data.fields;
@@ -27,7 +29,7 @@ const fields = foundry.data.fields;
  * (são as duas primeiras camadas da cascata), e Arma é equipamento pendurado no casco, não
  * estrutura — derrubar todas as armas não deveria partir a nave ao meio.
  */
-const NON_STRUCTURAL_CATEGORIES = ["armor", "shield", "weapon"];
+const NON_STRUCTURAL_ROLES = ["armor", "shield", "weapon"];
 
 /**
  * Categorias que não recebem dano espalhado pela Integridade. **Só o Casco** — ele já absorveu
@@ -35,7 +37,7 @@ const NON_STRUCTURAL_CATEGORIES = ["armor", "shield", "weapon"];
  * duas vezes. Escudo e Arma, apesar de ficarem FORA da soma, recebem esse dano na própria Vida:
  * um tiro que atravessa o casco pode muito bem acertar o emissor de escudo ou uma torre.
  */
-const SPREAD_IMMUNE_CATEGORIES = ["armor"];
+const SPREAD_IMMUNE_ROLES = ["armor"];
 
 export function moduleIntegrityRatio(module) {
   const max = module?.system?.hp?.max ?? 0;
@@ -56,6 +58,12 @@ function shipSystemsSchema({ sizeChoices }) {
   return {
     /** Porte da Nave/Veículo — só o Mestre edita (mesmo padrão de Nível). */
     shipSize: new fields.StringField({ required: true, initial: sizeChoices[0], choices: sizeChoices }),
+
+    /** Classe (Encouraçado, Cargueiro… / Tanque, Carro…) — id do catálogo; vazio = sem Classe. */
+    shipClass: new fields.StringField({ required: false, initial: "", blank: true }),
+
+    /** Traços da Nave/Veículo, marcados à mão (Mecânico, Orgânico numa nave viva…). */
+    traits: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
 
     /** Estrutura/Integridade Estrutural — última camada da cascata de dano, nunca reduzida por nada própria. */
     hull: new fields.SchemaField({
@@ -125,7 +133,16 @@ function shipSystemsSchema({ sizeChoices }) {
       weaponDamageFlat: new fields.NumberField({ required: true, integer: true, initial: 0 }),
       weaponDamageMultiplier: new fields.NumberField({ required: true, initial: 1, min: 0 }),
       weaponPenetrationFlat: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
-      weaponPenetrationMultiplier: new fields.NumberField({ required: true, initial: 1, min: 0 })
+      weaponPenetrationMultiplier: new fields.NumberField({ required: true, initial: 1, min: 0 }),
+      // Aprimoramento das Armas da Nave (mesmos alvos "weapon*" da arma pessoal).
+      weaponElementOverride: new fields.StringField({ required: false, initial: "", blank: true }),
+      weaponAbsolute: new fields.NumberField({ required: true, initial: 0 }),
+      // Melhorias temporárias de sistema, em % somado (várias Skills empilham): +20 = ×1.2.
+      // Podem vir de uma Skill da própria Nave OU de um tripulante mirando a Nave.
+      shieldCapacityPercent: new fields.NumberField({ required: true, initial: 0 }),
+      shieldRegenPercent: new fields.NumberField({ required: true, initial: 0 }),
+      reactorOutputPercent: new fields.NumberField({ required: true, initial: 0 }),
+      propulsionPercent: new fields.NumberField({ required: true, initial: 0 })
     }),
 
     /**
@@ -148,13 +165,11 @@ function shipSystemsSchema({ sizeChoices }) {
 }
 
 /**
- * Base compartilhada por Nave Espacial e Veículo (overhaul de Porte, Fase 2-3) — os dois tipos
- * usam o MESMO Grid de Energia e o mesmo conceito de Módulos de slot único (Reator/Bateria/
- * Distribuidor/Escudo/Motor/Casco/FTL, ver MEU_SISTEMA.STARSHIP_SINGLE_SLOT_CATEGORIES) em vez
- * de cada um reimplementar os mesmos getters. `armorModule` substitui o antigo campo solto
- * `armorModuleId`: como só pode existir UM Módulo "armor" por vez (garantido pelo hook de
- * compatibilidade em nihility-rpg-system.js), basta procurar pela categoria — nada de manter
- * um id sincronizado à mão.
+ * Base compartilhada por Nave Espacial e Veículo — os dois tipos usam o MESMO Grid de Energia e
+ * leem os Módulos pela FUNÇÃO da Categoria (MEU_SISTEMA.MODULE_ROLES: `modulesByRole`,
+ * `sumRoleStat`), não por um id de categoria fixo: dois Núcleos de Dobra somam Geração, impulso +
+ * manobradores somam Propulsão. Os getters `reactorModule`/`shieldModule`/… devolvem o primeiro
+ * Módulo da Função, pra ficha mostrar o nome.
  */
 class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
   /** Rótulo de energia atual (setting compartilhada entre Nave e Veículo). */
@@ -215,9 +230,35 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
     return Math.min(this.powerGrid.reactorOutput, this.transferCapacity) + this.powerGrid.capacitor.value - this.totalConsumption;
   }
 
-  /** Único Módulo instalado de uma categoria de slot único, ou `null` se vazio. */
+  /** Primeiro Módulo instalado de uma categoria, ou `null` — pra quem ainda pensa em "o" Módulo. */
   singleSlotModule(category) {
     return this.modules.find(m => m.system.category === category) ?? null;
+  }
+
+  /**
+   * Módulos de uma Função mecânica (MEU_SISTEMA.MODULE_ROLES), de qualquer Categoria: "Motor de
+   * Impulso" e "Manobradores" são os dois Propulsão. É o que as capacidades derivadas leem — dois
+   * Núcleos de Dobra somam Geração, dois Escudos somam capacidade.
+   */
+  modulesByRole(role) {
+    return this.modules.filter(m => moduleRole(m.system.category) === role);
+  }
+
+  /** Primeiro Módulo de uma Função (o que a ficha mostra pelo nome), ou `null`. */
+  firstModuleOfRole(role) {
+    return this.modulesByRole(role)[0] ?? null;
+  }
+
+  /** Soma de um campo efetivo (throttle, energia e Vida já aplicados) de todos os Módulos de uma Função. */
+  sumRoleStat(role, field) {
+    return this.modulesByRole(role).reduce((sum, m) => sum + this.effectiveModuleStat(m, field), 0);
+  }
+
+  /** Classe desta Nave/Veículo (catálogo), ou `null`. */
+  get vesselClass() {
+    if (!this.shipClass) return null;
+    const kind = this.parent?.type === "vehicle" ? "vehicle" : "ship";
+    return getVesselClasses(kind).find(c => c.id === this.shipClass) ?? null;
   }
 
   /**
@@ -226,17 +267,23 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
    * posição do Porte na escala de Módulos (Mini → Compacto … Capital → Colossal). Ver `engineRatio`.
    */
   engineRatioFor(field) {
-    const engine = this.engineModule;
-    if (!engine) return 0;
+    // Todos os Módulos de Propulsão somam: impulso dá Aceleração, manobradores dão Rotação.
+    const propulsion = this.modulesByRole("propulsion");
+    if (!propulsion.length) return 0;
     const moduleSize = MEU_SISTEMA.MODULE_SIZES[MEU_SISTEMA.SHIP_SIZE_RANK[this.shipSize]];
     const reference = MEU_SISTEMA.MODULE_SIZE_PRESETS.engine?.[moduleSize]?.[field] ?? 0;
-    return engineRatio(this.effectiveModuleStat(engine, field), reference);
+    return engineRatio(this.sumRoleStat("propulsion", field) * this.bonusFactor("propulsionPercent"), reference);
+  }
+
+  /** Fator de uma melhoria temporária em % (`combatBonuses.*Percent`): +20 → 1.2; nunca negativo. */
+  bonusFactor(field) {
+    return Math.max(0, 1 + (Number(this.combatBonuses?.[field]) || 0) / 100);
   }
 
   /** Casas por rodada em combate: base do Porte × razão da Aceleração. 0 sem Motor. */
   get movementCells() {
     const base = getShipManeuverConfig().movement[this.shipSize] ?? 0;
-    return shipMovementCells(base, this.engineRatioFor("acceleration"));
+    return shipMovementCells(base * (this.vesselClass?.movementMultiplier ?? 1), this.engineRatioFor("acceleration"));
   }
 
   /**
@@ -247,21 +294,40 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
   get evasion() {
     if (!isShipManeuverEnabled()) return 0;
     const config = getShipManeuverConfig();
-    return shipEvasionFraction(config.evasion[this.shipSize] ?? 0, this.engineRatioFor("rotation"), config.evasionCap);
+    const base = (config.evasion[this.shipSize] ?? 0) * (this.vesselClass?.evasionMultiplier ?? 1);
+    return shipEvasionFraction(base, this.engineRatioFor("rotation"), config.evasionCap);
   }
 
-  get reactorModule() { return this.singleSlotModule("reactor"); }
-  get batteryModule() { return this.singleSlotModule("battery"); }
-  get distributorModule() { return this.singleSlotModule("distributor"); }
-  get shieldModule() { return this.singleSlotModule("shield"); }
-  get engineModule() { return this.singleSlotModule("engine"); }
-  get ftlModule() { return this.singleSlotModule("ftl"); }
-
-  /** O único Módulo "armor" instalado (Casco), ou `null` se o slot estiver vazio. */
-  get armorModule() { return this.singleSlotModule("armor"); }
+  // "O" Módulo de cada Função — o primeiro instalado. A ficha mostra o nome dele; as contas usam
+  // a Função inteira (modulesByRole/sumRoleStat), então dois Reatores somam mesmo assim.
+  get reactorModule() { return this.firstModuleOfRole("power"); }
+  get batteryModule() { return this.firstModuleOfRole("storage"); }
+  get shieldModule() { return this.firstModuleOfRole("shield"); }
+  get engineModule() { return this.firstModuleOfRole("propulsion"); }
+  get ftlModule() { return this.firstModuleOfRole("ftl"); }
 
   /**
-   * Redução de dano do Casco instalado, em fração (0-1) — 0 se o slot estiver vazio.
+   * O Distribuidor ativo: só um vale (somar dois dobraria o teto de transferência) — o primeiro
+   * online; sem nenhum online, o primeiro instalado.
+   */
+  get distributorModule() {
+    const all = this.modulesByRole("distribution");
+    return all.find(m => m.system.status === "online") ?? all[0] ?? null;
+  }
+
+  /**
+   * O Módulo de Blindagem que absorve AGORA: com duas ou mais, uma de cada vez, a mais
+   * danificada primeiro (a mais inteira fica por último). Blindagem já zerada não absorve.
+   */
+  get armorModule() {
+    const armors = this.modulesByRole("armor");
+    const standing = armors.filter(m => (m.system.hp?.value ?? 0) > 0);
+    const pool = standing.length ? standing : armors;
+    return [...pool].sort((a, b) => this.integrityRatioFor(a) - this.integrityRatioFor(b))[0] ?? null;
+  }
+
+  /**
+   * Redução de dano da Blindagem que está absorvendo, em fração (0-1) — 0 sem Blindagem.
    * Degrada com a Vida do Módulo, como todo o resto: placa amassada protege menos.
    */
   get armorReductionPercent() {
@@ -278,7 +344,7 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
    * a ser a mesma frase.
    */
   get structuralModules() {
-    return this.modules.filter(m => !NON_STRUCTURAL_CATEGORIES.includes(m.system.category));
+    return this.modules.filter(m => !NON_STRUCTURAL_ROLES.includes(moduleRole(m.system.category)));
   }
 
   /**
@@ -287,12 +353,12 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
    * SOMA da Integridade.
    */
   get spreadDamageTargets() {
-    return this.modules.filter(m => !SPREAD_IMMUNE_CATEGORIES.includes(m.system.category));
+    return this.modules.filter(m => !SPREAD_IMMUNE_ROLES.includes(moduleRole(m.system.category)));
   }
 
   /** Armas instaladas (category "weapon") — múltiplas, ao contrário dos slots únicos acima. */
   get weaponModules() {
-    return this.modules.filter(m => m.system.category === "weapon");
+    return this.modulesByRole("weapon");
   }
 
   /**
@@ -302,7 +368,9 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
    * orçamento não bloqueia nada, em vez de zerar e impedir qualquer Arma.
    */
   get weaponSlotBudget() {
-    return MEU_SISTEMA.WEAPON_SLOT_BUDGET_BY_SHIP_SIZE?.[this.shipSize] ?? Infinity;
+    const base = MEU_SISTEMA.WEAPON_SLOT_BUDGET_BY_SHIP_SIZE?.[this.shipSize] ?? Infinity;
+    // A Classe muda o espaço: Cruzador ×1.5, Cargueiro ×0.25 — arredondado pra baixo.
+    return Number.isFinite(base) ? Math.floor(base * (this.vesselClass?.weaponBudgetMultiplier ?? 1)) : base;
   }
 
   /** Espaço de Arma já ocupado — cada Arma consome (rank do seu Porte + 1) unidades (Compacto = 1). */
@@ -431,14 +499,14 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
     // `reactorBaseOutput` é a geração ANTES do desconto de Habilidades Ativas (não faz parte do
     // schema salvo, mesmo padrão de `attributePointsPool` em character-model.js); `reactorOutput`
     // é o que sobra de fato pros Módulos depois que as Skills Ativas reservam a parte delas.
-    this.powerGrid.reactorBaseOutput = this.effectiveModuleStat(this.reactorModule, "reactorOutput");
+    this.powerGrid.reactorBaseOutput = Math.round(this.sumRoleStat("power", "reactorOutput") * this.bonusFactor("reactorOutputPercent"));
     this.powerGrid.reactorOutput = Math.max(0, this.powerGrid.reactorBaseOutput - this.activeUpkeepDrain);
     // Capacitor: o mínimo dos conduítes do casco é o piso natural de toda Nave/Veículo; o
     // Módulo de Bateria SUBSTITUI esse valor (não soma) quando instalado. A tabela de conduíte
     // fica toda abaixo da menor Bateria instalável, então trocar nunca piora — ver
     // MEU_SISTEMA.CONDUIT_CAPACITOR_BY_SHIP_SIZE.
-    this.powerGrid.capacitor.max = this.batteryModule
-      ? this.effectiveModuleStat(this.batteryModule, "batteryCapacity")
+    this.powerGrid.capacitor.max = this.modulesByRole("storage").length
+      ? this.sumRoleStat("storage", "batteryCapacity")
       : MEU_SISTEMA.CONDUIT_CAPACITOR_BY_SHIP_SIZE[this.shipSize] ?? 0;
     // Clampar a reserva AQUI (e não junto dos outros clamps lá embaixo) é deliberado:
     // `powerShortfall` soma `capacitor.value` na energia disponível, e financiar Módulo com
@@ -452,16 +520,18 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
     this.#invalidatePowerCache();
 
     // FASE B — capacidades derivadas, todas lendo a fome de energia já resolvida e estável.
-    this.shields.max = this.effectiveModuleStat(this.shieldModule, "shieldCapacity");
-    this.shields.regenRate = this.effectiveModuleStat(this.shieldModule, "shieldRegen");
+    this.shields.max = Math.round(this.sumRoleStat("shield", "shieldCapacity") * this.bonusFactor("shieldCapacityPercent"));
+    this.shields.regenRate = Math.round(this.sumRoleStat("shield", "shieldRegen") * this.bonusFactor("shieldRegenPercent"));
 
     // Casco e Integridade não são mais números próprios da Nave: são VISÕES sobre a Vida dos
     // Módulos. O Casco é literalmente a Vida do Módulo de armadura (danificar o pool é danificar
     // o Módulo), e a Integridade é a soma da Vida dos Módulos estruturais. Os campos continuam
     // no schema por compatibilidade com mundos salvos antes desta regra, mas o valor guardado
     // deixou de ser consultado — quem manda é o Módulo.
-    this.casco.value = this.armorModule?.system.hp.value ?? 0;
-    this.casco.max = this.armorModule?.system.hp.max ?? 0;
+    // Várias Blindagens somam no Casco (o dano entra numa de cada vez, ver `armorModule`).
+    const armors = this.modulesByRole("armor");
+    this.casco.value = armors.reduce((sum, m) => sum + (m.system.hp.value ?? 0), 0);
+    this.casco.max = armors.reduce((sum, m) => sum + (m.system.hp.max ?? 0), 0);
 
     const structural = this.structuralModules;
     this.hull.value = structural.reduce((sum, m) => sum + (m.system.hp.value ?? 0), 0);
@@ -511,7 +581,7 @@ export class StarshipDataModel extends ShipSystemsDataModel {
 
   /** Manobra = Rotação do Motor instalado, já escalada por throttle e fome de energia (Fase 3) — 0 sem Motor. */
   get maneuverability() {
-    return this.effectiveModuleStat(this.engineModule, "rotation");
+    return this.sumRoleStat("propulsion", "rotation");
   }
 }
 
@@ -542,7 +612,7 @@ export class VehicleDataModel extends ShipSystemsDataModel {
 
   /** Velocidade = Aceleração do Motor instalado, já escalada por throttle e fome de energia (Fase 3) — 0 sem Motor. */
   get speed() {
-    return this.effectiveModuleStat(this.engineModule, "acceleration");
+    return this.sumRoleStat("propulsion", "acceleration");
   }
 
   prepareDerivedData() {

@@ -12,6 +12,7 @@ import {
   getActiveSpeciesPresets,
   getModuleSizePreset
 } from "./config.js";
+import { getModuleCategories, categorySlotLimit } from "./config.js";
 import { callAIProvider } from "./ai/providers.js";
 import { buildSubSkillsFromSources } from "./skill-snapshot.js";
 import { ensureSystemCompendiums, registerItemInCompendium } from "./compendium.js";
@@ -456,25 +457,27 @@ export async function generateActorFromAI(prompt, options = {}) {
  * "inventando" o mesmo número de forma inconsistente.
  */
 function buildVesselSystemPrompt(sizeChoices) {
+  // Montado na hora (não no carregamento do módulo): as Categorias são um catálogo editável.
+  const categories = getModuleCategories();
+  const limited = categories.filter(c => categorySlotLimit(c, null) > 0);
+  const free = categories.filter(c => categorySlotLimit(c, null) === 0);
+  const describe = c => `"${c.id}" (${c.label} — ${MEU_SISTEMA.MODULE_ROLES[c.role]?.label ?? c.role})`;
   return (
     "Você é o motor de regras de um RPG de Foundry VTT (Sci-Fi Arcano), gerando uma Nave/Veículo " +
-    "para o sistema de Overhaul de Naves (Porte + Módulos de slot único + Grid de Energia). " +
+    "para o sistema de Overhaul de Naves (Porte + Módulos por Categoria + Grid de Energia). " +
     'Responda SEMPRE com um único objeto JSON estrito, sem markdown, no formato: {"name": string, ' +
     `"shipSize": ${sizeChoices.map(s => `"${s}"`).join("|")}, "biography": string (HTML curto), ` +
-    '"modules": [{"name": string, "category": "reactor"|"battery"|"distributor"|"shield"|' +
-    '"engine"|"armor"|"weapon"|"utility", "moduleSize": "compact"|"standard"|"reinforced"|' +
-    '"industrial"|"colossal", "description": string (HTML curto)}]}. Inclua exatamente um ' +
-    'Módulo de cada categoria de slot único (reactor/battery/distributor/shield/engine/armor) — ' +
-    "nunca duas do mesmo tipo — coerente com o Porte da Nave: Naves maiores usam Módulos de " +
-    'Porte maior (ex: "capital" pede Módulos "industrial"/"colossal", não "compact"). Pode ' +
-    'incluir "weapon" (0 ou mais, sem limite de contagem aqui) e "utility" (0 ou mais) à ' +
-    "vontade, coerentes com o tema da Nave. NÃO invente números de stat (Vida/Consumo/Dano/" +
-    "Penetração/etc.) — o sistema preenche isso sozinho a partir da Categoria e do Porte."
+    `"modules": [{"name": string, "category": ${categories.map(c => `"${c.id}"`).join("|")}, ` +
+    '"moduleSize": "compact"|"standard"|"reinforced"|"industrial"|"colossal", "description": string (HTML curto)}]}. ' +
+    `Categorias com vaga limitada (no máximo o número indicado de cada): ${limited.map(c => `${describe(c)} ×${categorySlotLimit(c, null)}`).join(", ")}. ` +
+    "Inclua pelo menos um Módulo de cada Função de Geração de Energia, Distribuição, Escudo, Propulsão e Blindagem, " +
+    "coerente com o Porte da Nave: Naves maiores usam Módulos de Porte maior " +
+    '(ex: "capital" pede Módulos "industrial"/"colossal", não "compact"). ' +
+    `Sem limite de contagem: ${free.map(describe).join(", ")}. ` +
+    "NÃO invente números de stat (Vida/Consumo/Dano/Penetração/etc.) — o sistema preenche isso sozinho " +
+    "a partir da Categoria e do Porte."
   );
 }
-
-const STARSHIP_SYSTEM_PROMPT = buildVesselSystemPrompt(MEU_SISTEMA.SHIP_SIZES);
-const VEHICLE_SYSTEM_PROMPT = buildVesselSystemPrompt(MEU_SISTEMA.VEHICLE_SIZES);
 
 /**
  * Gera uma Nave Espacial ou Veículo Terrestre via IA — cria o Actor (Porte + biografia) e, em
@@ -490,7 +493,7 @@ export async function generateVesselFromAI(prompt, vesselType, options = {}) {
   const { folder = null } = options;
   const isStarship = vesselType === "starship";
   const sizeChoices = isStarship ? MEU_SISTEMA.SHIP_SIZES : MEU_SISTEMA.VEHICLE_SIZES;
-  const parsed = await generateJSON(isStarship ? STARSHIP_SYSTEM_PROMPT : VEHICLE_SYSTEM_PROMPT, prompt);
+  const parsed = await generateJSON(buildVesselSystemPrompt(sizeChoices), prompt);
 
   const shipSize = sizeChoices.includes(parsed?.shipSize) ? parsed.shipSize : sizeChoices[0];
   const created = await Actor.create({
@@ -504,20 +507,23 @@ export async function generateVesselFromAI(prompt, vesselType, options = {}) {
   // exemplo). O hook `preCreateItem` que normalmente barra isso não enxerga os irmãos do MESMO
   // `createEmbeddedDocuments`, então os dois passariam — a deduplicação tem que acontecer aqui,
   // antes de criar: vale o primeiro de cada categoria de slot único.
-  const usedSingleSlots = new Set();
+  const categories = getModuleCategories();
+  const usedSlots = new Map();
   const modulesData = Array.isArray(parsed?.modules)
     ? parsed.modules
-        .filter(m => MEU_SISTEMA.STARSHIP_MODULE_CATEGORIES.includes(m?.category))
+        .filter(m => categories.some(c => c.id === m?.category))
         .filter(m => {
-          if (!MEU_SISTEMA.STARSHIP_SINGLE_SLOT_CATEGORIES.includes(m.category)) return true;
-          if (usedSingleSlots.has(m.category)) return false;
-          usedSingleSlots.add(m.category);
+          const limit = categorySlotLimit(categories.find(c => c.id === m.category), null);
+          if (!limit) return true;
+          const used = usedSlots.get(m.category) ?? 0;
+          if (used >= limit) return false;
+          usedSlots.set(m.category, used + 1);
           return true;
         })
         .map(m => {
           const moduleSize = MEU_SISTEMA.MODULE_SIZES.includes(m.moduleSize) ? m.moduleSize : "standard";
           return {
-            name: m.name || MEU_SISTEMA.STARSHIP_MODULE_CATEGORY_LABELS[m.category],
+            name: m.name || categories.find(c => c.id === m.category)?.label || m.category,
             type: "starship_module",
             "system.category": m.category,
             "system.description": m.description || "",

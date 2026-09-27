@@ -1,4 +1,4 @@
-import { MEU_SISTEMA } from "./config.js";
+import { MEU_SISTEMA, moduleRole } from "./config.js";
 
 /**
  * Reparte `amount` de dano entre Módulos, em pedaços de tamanho ALEATÓRIO e em ordem ALEATÓRIA —
@@ -68,13 +68,17 @@ export async function applyStructuralDamage(actor, amount) {
  * nunca sofrem dano por sobrecarga; Arma tem regra própria (sobrecarregar aumenta a Recarga em
  * vez de danificar o Módulo, ver Fase 5) — também fica de fora do tick de sobrecarga comum.
  */
-const OVERLOAD_EXEMPT_CATEGORIES = ["battery", "distributor", "weapon"];
-
-/** Limiar de `powerAllocationPercent` (%) a partir do qual a categoria sofre dano por sobrecarga. */
+/**
+ * Limiar de `powerAllocationPercent` (%) a partir do qual o Módulo sofre dano por sobrecarga, pela
+ * Função da Categoria (MEU_SISTEMA.MODULE_ROLES[role].overload). `null` = nunca sobrecarrega
+ * (Armazenamento/Distribuição não têm throttle; Arma troca sobrecarga por Recarga mais longa).
+ */
 function overloadThreshold(category) {
-  if (category === "reactor") return MEU_SISTEMA.OVERLOAD_THRESHOLD_REACTOR;
-  if (category === "shield") return MEU_SISTEMA.OVERLOAD_THRESHOLD_SHIELD;
-  return MEU_SISTEMA.OVERLOAD_THRESHOLD_DEFAULT;
+  const role = moduleRole(category);
+  if (role === "power") return MEU_SISTEMA.OVERLOAD_THRESHOLD_REACTOR;
+  if (role === "shield") return MEU_SISTEMA.OVERLOAD_THRESHOLD_SHIELD;
+  const threshold = MEU_SISTEMA.MODULE_ROLES[role]?.overload;
+  return threshold === null ? null : MEU_SISTEMA.OVERLOAD_THRESHOLD_DEFAULT;
 }
 
 /**
@@ -90,18 +94,19 @@ function computeModuleTickPatch(module) {
 
   // Carga de Salto (sub-tipo FTL "jump") decrementa por rodada — mesmo padrão de
   // cooldownRemaining de Arma, até chegar a 0.
-  if (sys.category === "ftl" && sys.ftlType === "jump" && sys.chargeRemaining > 0) {
+  const role = moduleRole(sys.category);
+  if (role === "ftl" && sys.ftlType === "jump" && sys.chargeRemaining > 0) {
     patch["system.chargeRemaining"] = Math.max(0, sys.chargeRemaining - 1);
   }
 
   // Recarga de Arma (Fase 5) decrementa por rodada — mesmo padrão da Carga de Salto acima.
-  if (sys.category === "weapon" && sys.cooldownRemaining > 0) {
+  if (role === "weapon" && sys.cooldownRemaining > 0) {
     patch["system.cooldownRemaining"] = Math.max(0, sys.cooldownRemaining - 1);
   }
 
   let hpValue = sys.hp.value;
-  if (sys.status === "online" && !OVERLOAD_EXEMPT_CATEGORIES.includes(sys.category)) {
-    const threshold = overloadThreshold(sys.category);
+  const threshold = overloadThreshold(sys.category);
+  if (sys.status === "online" && threshold !== null) {
     const excess = sys.powerAllocationPercent - threshold;
     if (excess > 0) {
       const damage = Math.round((excess / 100) * sys.hp.max * MEU_SISTEMA.OVERLOAD_DAMAGE_PERCENT_OF_MAX_PER_ROUND);
@@ -131,8 +136,8 @@ function computeModuleTickPatch(module) {
  * desligado (manual ou por Vida zerada) não regenera nem recarrega sozinho.
  */
 function computeShieldTickPatch(actor) {
-  const shieldModule = actor.system.shieldModule;
-  if (!shieldModule || shieldModule.system.status !== "online") return null;
+  // Com vários Escudos, basta um online pra regenerar/recarregar.
+  if (!actor.system.modulesByRole("shield").some(m => m.system.status === "online")) return null;
 
   const shields = actor.system.shields;
   const patch = {};

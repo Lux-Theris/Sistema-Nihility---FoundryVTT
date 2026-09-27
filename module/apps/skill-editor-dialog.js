@@ -7,9 +7,13 @@ import {
   isResistancesEnabled,
   isStatusConditionsEnabled,
   isAreaEffectsEnabled,
-  getEffectTargetLabels,
   getVisibleAttributes,
-  getAttributeLabel
+  getAttributeLabel,
+  getScaleConfig,
+  isScaleEnabled,
+  getEffectTargetGroups,
+  getStructures,
+  isStructuresEnabled
 } from "../config.js";
 import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../skill-effects.js";
 
@@ -27,14 +31,17 @@ function targetAcceptsPeriodic(target) {
 
 function buildEffectRowHtml(entry) {
   // Atributo oculto pela campanha sai da lista de alvos — mas uma entrada JÁ salva apontando
-  // pra ele continua na lista, senão editar a Skill apagaria o alvo dela sem avisar.
-  const labels = getEffectTargetLabels();
-  const hiddenAttributes = new Set(
-    MEU_SISTEMA.COMBAT_ATTRIBUTES.filter(k => !getVisibleAttributes().some(a => a.key === k))
-  );
-  const options = MEU_SISTEMA.EFFECT_TARGETS.filter(t => !hiddenAttributes.has(t) || t === entry.target)
-    .map(t => `<option value="${t}" ${t === entry.target ? "selected" : ""}>${labels[t]}</option>`)
+  // pra ele continua na lista, senão editar a Skill apagaria o alvo dela sem avisar (a regra
+  // mora em getEffectTargetGroups).
+  // Agrupado (Atributos / Vitais / Arma / Nave) — ver EFFECT_TARGET_GROUPS em config.js.
+  const options = getEffectTargetGroups(entry.target)
+    .map(group => `<optgroup label="${escapeHtml(group.label)}">${group.options
+      .map(opt => `<option value="${opt.value}" ${opt.selected ? "selected" : ""}>${escapeHtml(opt.label)}</option>`)
+      .join("")}</optgroup>`)
     .join("");
+  const elementIdOptions =
+    `<option value="">— elemento —</option>` +
+    getActiveDamageElements().map(el => `<option value="${el.id}" ${el.id === entry.elementId ? "selected" : ""}>${escapeHtml(el.label)}</option>`).join("");
   // Campanha sem Condições nomeadas: o <select> continua existindo (o resto do editor e o
   // `readForm` contam com ele), mas fica escondido e só com a opção vazia — o efeito numérico
   // da entrada continua funcionando igual, sem ganhar nome/ícone de status.
@@ -67,6 +74,7 @@ function buildEffectRowHtml(entry) {
   return `
     <div class="effect-row-main">
       <select class="se-effect-target">${options}</select>
+      <select class="se-effect-element-id" title="Elemento que as armas passam a causar" style="display:${entry.target === "weaponElement" ? "inline-block" : "none"};">${elementIdOptions}</select>
       <input type="number" class="se-effect-amount" value="${entry.amount}" placeholder="Qtd."/>
       <input type="number" class="se-effect-duration" value="${entry.durationRounds}" min="0" placeholder="Rounds/Ticks"/>
       <a class="se-effect-delete" title="Remover"><i class="fas fa-trash"></i></a>
@@ -90,7 +98,7 @@ function buildEffectRowHtml(entry) {
 }
 
 /** Resumo de uma linha de mecânica (Sub-Skill ou Skill inteira) pra mostrar na lista só-leitura. */
-function mechanicSummaryFor(mech) {
+export function mechanicSummaryFor(mech) {
   if (mech.effectType === "damage") {
     const elLabels = (mech.damageElements ?? [])
       .map(id => getActiveDamageElements().find(el => el.id === id)?.label)
@@ -147,9 +155,12 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     damageFormula: initialData.damageFormula ?? "",
     scalingAttribute: initialData.scalingAttribute ?? "",
     isMagicDamage: Boolean(initialData.isMagicDamage),
+    isAbsoluteDamage: Boolean(initialData.isAbsoluteDamage),
+    damageScale: initialData.damageScale ?? "",
     damageElements: Array.isArray(initialData.damageElements) ? initialData.damageElements : [],
     effects: Array.isArray(initialData.effects) ? foundry.utils.deepClone(initialData.effects) : [],
     targetType: initialData.targetType ?? "targeted",
+    structureId: initialData.structureId ?? "",
     areaShape: initialData.areaShape ?? "",
     areaDistance: initialData.areaDistance ?? 0,
     areaAngle: initialData.areaAngle ?? 53,
@@ -192,9 +203,15 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
   ).join("");
 
 
-  const availableTargetTypes = isAreaEffectsEnabled()
-    ? MEU_SISTEMA.SKILL_TARGET_TYPES
-    : MEU_SISTEMA.SKILL_TARGET_TYPES.filter(t => t !== "emission" && t !== "zone");
+  // Tipo desligado pela campanha sai da lista — a menos que a Skill já esteja nele.
+  const availableTargetTypes = MEU_SISTEMA.SKILL_TARGET_TYPES.filter(
+    t =>
+      t === data.targetType ||
+      ((isAreaEffectsEnabled() || (t !== "emission" && t !== "zone")) && (isStructuresEnabled() || t !== "structure"))
+  );
+  const structureOptions =
+    `<option value="">— escolha —</option>` +
+    getStructures().map(st => `<option value="${escapeHtml(st.id)}" ${st.id === data.structureId ? "selected" : ""}>${escapeHtml(st.label)}</option>`).join("");
   const targetTypeOptions = availableTargetTypes.map(
     t => `<option value="${t}" ${t === data.targetType ? "selected" : ""}>${MEU_SISTEMA.SKILL_TARGET_TYPE_LABELS[t]}</option>`
   ).join("");
@@ -203,15 +220,27 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     s => `<option value="${s}" ${s === data.areaShape ? "selected" : ""}>${MEU_SISTEMA.SKILL_AREA_SHAPE_LABELS[s]}</option>`
   ).join("");
 
-  const elementChips = getActiveDamageElements()
-    .map(
-      el =>
-        `<label class="element-chip ${data.damageElements.includes(el.id) ? "checked" : ""}">
+  // Agrupados por Grupo (Físico, Fantasia, Energia…), na ordem do catálogo.
+  const elementGroups = new Map();
+  for (const el of getActiveDamageElements()) {
+    if (!elementGroups.has(el.group)) elementGroups.set(el.group, []);
+    elementGroups.get(el.group).push(
+      `<label class="element-chip ${data.damageElements.includes(el.id) ? "checked" : ""}">
           <input type="checkbox" name="damageElements" value="${el.id}" ${data.damageElements.includes(el.id) ? "checked" : ""}/>
-          <span class="dot" style="background:${el.color}"></span>${el.label}
+          <span class="dot" style="background:${el.color}"></span>${escapeHtml(el.label)}
         </label>`
-    )
+    );
+  }
+  const elementChips = [...elementGroups]
+    .map(([group, chips]) => `<div class="element-group"><span class="element-group-label">${escapeHtml(group)}</span><div class="element-grid">${chips.join("")}</div></div>`)
     .join("");
+  const scaleField = isScaleEnabled()
+    ? `<div class="form-group"><label>Escala do golpe</label><select name="damageScale">
+        ${[{ id: "", label: "— a de quem usa —" }, ...getScaleConfig().scales]
+          .map(sc => `<option value="${escapeHtml(sc.id)}" ${sc.id === data.damageScale ? "selected" : ""}>${escapeHtml(sc.label)}</option>`)
+          .join("")}
+      </select></div>`
+    : "";
 
   const resistChips = getResistanceTargetOptions()
     .map(
@@ -307,6 +336,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
 
       <div class="se-range-section">
         <div class="form-group"><label>Tipo de Alvo</label><select name="targetType">${targetTypeOptions}</select></div>
+        <div class="form-group se-structure-field"><label>Estrutura</label><select name="structureId">${structureOptions}</select></div>
         <div class="mechanic-panel se-emission-panel">
           <div class="form-group se-zone-rounds-field"><label>Duração da Zona <span class="hint-inline" style="display:inline;">(rodadas de combate)</span></label><input type="number" name="zoneRounds" value="${data.zoneRounds}" min="1"/></div>
           <div class="form-group"><label>Formato de Área</label><select name="areaShape">${areaShapeOptions}</select></div>
@@ -325,7 +355,9 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
           <span class="hint-inline">Multiplica o dano por (Atributo.Total)² ÷ divisor. Sem escala, a fórmula vale como escrita.</span>
         </div>
         <label class="checkbox-line"><input type="checkbox" name="isMagicDamage" ${data.isMagicDamage ? "checked" : ""}/> Dano Mágico</label>
-        <div class="form-group"><label>Elemento(s)</label><div class="element-grid">${elementChips || "<span class=\"hint-inline\">Nenhum elemento configurado.</span>"}</div></div>
+        <label class="checkbox-line" title="Não pode ser resistido (Defesa Mágica, Resistências, Imunidade, Escudo pessoal). Contra Nave, a Evasão ainda vale e o resto vai direto na Integridade Estrutural."><input type="checkbox" name="isAbsoluteDamage" ${data.isAbsoluteDamage ? "checked" : ""}/> Dano Absoluto</label>
+        ${scaleField}
+        <div class="form-group"><label>Elemento(s)</label><div class="element-groups">${elementChips || "<span class=\"hint-inline\">Nenhum elemento configurado.</span>"}</div></div>
       </div>
 
       <div class="mechanic-panel se-temp-panel">
@@ -431,7 +463,8 @@ function setupSkillEditorInteractivity(root, data) {
 
   function applyMechanic() {
     const value = mechanicSelect.value;
-    rangeSection.style.display = value === "none" ? "none" : "flex";
+    // O Tipo de Alvo aparece sempre: uma Skill "Descritiva" ainda pode erguer uma Estrutura.
+    rangeSection.style.display = "flex";
     damagePanel.style.display = value === "damage" ? "flex" : "none";
     tempPanel.style.display = value === "temporary" ? "flex" : "none";
   }
@@ -446,6 +479,7 @@ function setupSkillEditorInteractivity(root, data) {
   function applyTargetType() {
     const isArea = targetTypeSelect.value === "emission" || targetTypeSelect.value === "zone";
     emissionPanel.style.display = isArea ? "flex" : "none";
+    root.querySelector(".se-structure-field").style.display = targetTypeSelect.value === "structure" ? "flex" : "none";
     root.querySelector(".se-zone-rounds-field").style.display = targetTypeSelect.value === "zone" ? "flex" : "none";
   }
   function applyAreaShape() {
@@ -547,6 +581,9 @@ function setupSkillEditorInteractivity(root, data) {
     }
     targetSelect.addEventListener("change", applyPeriodicVisibility);
     targetSelect.addEventListener("change", applyModifierTypeVisibility);
+    targetSelect.addEventListener("change", () => {
+      li.querySelector(".se-effect-element-id").style.display = targetSelect.value === "weaponElement" ? "inline-block" : "none";
+    });
     periodicCheckbox.addEventListener("change", applyPeriodicVisibility);
 
     li.querySelectorAll(".se-effect-element").forEach(cb => {
@@ -575,7 +612,9 @@ function readSkillEditorForm(root, lockTier) {
   const resistEnabled = Boolean(root.querySelector('[name="resistEnable"]')?.checked);
   const resistChecked = root.querySelector('[name="resistTarget"]:checked');
   const hasRange = effectType !== "none";
-  const targetType = hasRange ? root.querySelector('[name="targetType"]').value : "targeted";
+  const chosenTargetType = root.querySelector('[name="targetType"]').value;
+  // Sem mecânica, o único Tipo de Alvo que faz algo é Estrutura; o resto volta pro padrão.
+  const targetType = hasRange || chosenTargetType === "structure" ? chosenTargetType : "targeted";
   const isEmission = hasRange && (targetType === "emission" || targetType === "zone");
   const hasUpkeep = root.querySelector('[name="hasUpkeep"]').checked;
   const scalingAttribute = root.querySelector('[name="scalingAttribute"]')?.value ?? "";
@@ -592,6 +631,7 @@ function readSkillEditorForm(root, lockTier) {
     resistanceTarget: resistEnabled ? resistChecked?.value ?? "general" : "",
     effectType,
     targetType,
+    structureId: targetType === "structure" ? root.querySelector('[name="structureId"]').value : "",
     areaShape: isEmission ? root.querySelector('[name="areaShape"]').value : "",
     areaDistance: isEmission ? Number(root.querySelector('[name="areaDistance"]').value) || 0 : 0,
     areaAngle: isEmission ? Number(root.querySelector('[name="areaAngle"]').value) || 53 : 53,
@@ -599,12 +639,15 @@ function readSkillEditorForm(root, lockTier) {
     damageFormula: effectType === "damage" ? root.querySelector('[name="damageFormula"]').value.trim() : "",
     scalingAttribute: effectType === "damage" ? scalingAttribute : "",
     isMagicDamage: effectType === "damage" && root.querySelector('[name="isMagicDamage"]').checked,
+    isAbsoluteDamage: effectType === "damage" && Boolean(root.querySelector('[name="isAbsoluteDamage"]')?.checked),
+    damageScale: effectType === "damage" ? root.querySelector('[name="damageScale"]')?.value ?? "" : "",
     damageElements:
       effectType === "damage" ? Array.from(root.querySelectorAll('[name="damageElements"]:checked')).map(el => el.value) : [],
     effects:
       effectType === "temporary"
         ? Array.from(root.querySelectorAll(".se-effect-list .effect-row")).map(row => ({
             target: row.querySelector(".se-effect-target").value,
+            elementId: row.querySelector(".se-effect-element-id")?.value ?? "",
             amount: Number(row.querySelector(".se-effect-amount").value) || 0,
             modifierType: row.querySelector(".se-effect-modifier-type").value,
             durationRounds: Number(row.querySelector(".se-effect-duration").value) || 0,

@@ -6,7 +6,7 @@
  */
 import { SYSTEM_ID, MEU_SISTEMA } from "./config.js";
 import { ensureSystemCompendiums, getCompendiumForItemType, registerItemInCompendium } from "./compendium.js";
-import { buildSubSkillsFromSources } from "./skill-snapshot.js";
+import { buildSubSkillsFromSources, buildGrantedSkillData } from "./skill-snapshot.js";
 import { requestAISpecialSkill } from "./ai-generation.js";
 import { announceVoiceOfTheWorld } from "./voice-of-the-world.js";
 import { renderSystemTemplate } from "./helpers/foundry-compat.js";
@@ -20,28 +20,32 @@ import { renderSystemTemplate } from "./helpers/foundry-compat.js";
  * Modificação de Parte do Corpo ou Módulo de Nave), marcada como concedida por
  * item — nunca entra em fusão, e é removida junto quando a fonte é revogada.
  * @param {Actor} actor
- * @param {{name:string, description?:string, cost?:number, tier?:string}} grantsSkill
+ * @param {object} grantsSkill - a Skill inteira guardada na fonte (ver `grantedSkillSchema`)
  * @param {string} sourceKey - identifica a fonte (ex: `${itemId}` ou `${itemId}:${modIndex}`)
  * @returns {Promise<Item|null>} a Skill criada, ou null se `grantsSkill.name` estiver vazio
  */
 export async function createGrantedSkill(actor, grantsSkill, sourceKey) {
-  if (!grantsSkill?.name?.trim()) return null;
-
-  const data = {
-    name: grantsSkill.name.trim(),
-    type: "skill",
-    system: {
-      tier: MEU_SISTEMA.ITEM_GRANTABLE_SKILL_TIERS.includes(grantsSkill.tier) ? grantsSkill.tier : "normal",
-      level: 1,
-      cost: Number(grantsSkill.cost) || 0,
-      description: grantsSkill.description || "",
-      isItemGranted: true
-    },
-    flags: { [SYSTEM_ID]: { grantedBySource: sourceKey } }
-  };
+  const data = buildGrantedSkillData(grantsSkill, MEU_SISTEMA.ITEM_GRANTABLE_SKILL_TIERS);
+  if (!data) return null;
+  data.flags = { [SYSTEM_ID]: { grantedBySource: sourceKey } };
 
   const [created] = await actor.createEmbeddedDocuments("Item", [data]);
   return created;
+}
+
+/**
+ * Recria a Skill concedida por uma fonte depois que o molde dela foi editado — senão a Skill
+ * na ficha continuaria com a mecânica antiga até alguém desequipar e equipar de novo. Só age se
+ * a fonte estiver concedendo agora (existe uma Skill com essa `sourceKey` no Ator).
+ * @returns {Promise<boolean>} true se havia uma Skill concedida e ela foi recriada
+ */
+export async function refreshGrantedSkill(actor, grantsSkill, sourceKey) {
+  if (!actor) return false;
+  const current = actor.items.some(i => i.type === "skill" && i.flags?.[SYSTEM_ID]?.grantedBySource === sourceKey);
+  if (!current) return false;
+  await removeGrantedSkill(actor, sourceKey);
+  await createGrantedSkill(actor, grantsSkill, sourceKey);
+  return true;
 }
 
 /**
@@ -258,9 +262,12 @@ export async function evolveSkill(actor, sourceItemId, newSkillData) {
       damageFormula: newSkillData.damageFormula,
       scalingAttribute: newSkillData.scalingAttribute,
       isMagicDamage: newSkillData.isMagicDamage,
+      isAbsoluteDamage: newSkillData.isAbsoluteDamage,
+      damageScale: newSkillData.damageScale,
       damageElements: newSkillData.damageElements,
       effects: newSkillData.effects,
       targetType: newSkillData.targetType,
+      structureId: newSkillData.structureId,
       areaShape: newSkillData.areaShape,
       areaDistance: newSkillData.areaDistance,
       areaAngle: newSkillData.areaAngle,

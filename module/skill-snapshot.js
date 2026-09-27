@@ -34,9 +34,12 @@ export function buildSubSkillsFromSources(sources) {
         damageFormula: source.system.damageFormula,
         scalingAttribute: source.system.scalingAttribute,
         isMagicDamage: source.system.isMagicDamage,
+        isAbsoluteDamage: source.system.isAbsoluteDamage,
+        damageScale: source.system.damageScale,
         damageElements: foundry.utils.deepClone(source.system.damageElements ?? []),
         effects: foundry.utils.deepClone(source.system.effects ?? []),
         targetType: source.system.targetType,
+        structureId: source.system.structureId,
         areaShape: source.system.areaShape,
         areaDistance: source.system.areaDistance,
         areaAngle: source.system.areaAngle,
@@ -44,4 +47,38 @@ export function buildSubSkillsFromSources(sources) {
       }
     ];
   });
+}
+
+/** Campos mecânicos copiados de uma Habilidade Concedida pra Skill criada na ficha. */
+const GRANTED_MECHANIC_FIELDS = [
+  "level", "cost", "hasUpkeep", "upkeepCost", "animationPath", "description", "resistanceTarget",
+  "effectType", "damageFormula", "scalingAttribute", "isMagicDamage", "isAbsoluteDamage", "damageScale", "damageElements", "effects",
+  "targetType", "structureId", "areaShape", "areaDistance", "areaAngle", "zoneRounds", "subSkills"
+];
+
+/**
+ * Dados da Skill que uma Habilidade Concedida (`grantsSkill` de Item Geral, Modificação ou
+ * Módulo) cria no Ator: a mecânica inteira copiada, `active` sempre começando desligado e a
+ * marca `isItemGranted`. Pura — `createGrantedSkill` em skill-economy.js só a grava.
+ * @param {object} grantsSkill
+ * @param {string[]} grantableTiers - MEU_SISTEMA.ITEM_GRANTABLE_SKILL_TIERS
+ * @returns {object|null} `{name, type, system}`, ou null sem nome
+ */
+export function buildGrantedSkillData(grantsSkill, grantableTiers) {
+  const name = grantsSkill?.name?.trim();
+  if (!name) return null;
+
+  const system = { tier: grantableTiers.includes(grantsSkill.tier) ? grantsSkill.tier : "normal" };
+  for (const field of GRANTED_MECHANIC_FIELDS) {
+    if (grantsSkill[field] !== undefined) system[field] = foundry.utils.deepClone(grantsSkill[field]);
+  }
+  system.level = Math.max(1, Number(system.level) || 1);
+  system.cost = Number(system.cost) || 0;
+  system.description = system.description || "";
+  system.active = false;
+  system.isItemGranted = true;
+  // Sub-Skills nunca começam ligadas, mesmo que o molde tenha sido salvo com uma ativa.
+  if (Array.isArray(system.subSkills)) system.subSkills = system.subSkills.map(sub => ({ ...sub, active: false }));
+
+  return { name, type: "skill", system };
 }

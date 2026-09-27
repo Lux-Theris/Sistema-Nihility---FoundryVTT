@@ -96,7 +96,12 @@ export class FeatureConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
       content:
         `<p>Aplicar o preset <strong>${preset.label}</strong>?</p>` +
         `<p class="hint">${preset.hint}</p>` +
-        "<p><strong>Nenhum dado é apagado.</strong> Blocos desligados apenas somem da interface e " +
+        (preset.content
+          ? `<p><strong>Substitui catálogos:</strong> ${Object.keys(preset.content)
+              .map(k => ({ damageElementsData: "Tipos de Dano", moduleCategoriesData: "Categorias de Módulo" })[k] ?? k)
+              .join(", ")} passam a ser os do preset (Exportar Configurações antes guarda os atuais).</p>`
+          : "") +
+        "<p><strong>Nenhum dado de Ator ou Item é apagado.</strong> Blocos desligados apenas somem da interface e " +
         "não podem receber conteúdo novo — Atores, Itens e Compêndios que já existem continuam " +
         "intactos, e religar o bloco devolve tudo exatamente como estava.</p>"
     });

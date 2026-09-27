@@ -1,0 +1,36 @@
+{{!--
+  Traços na ficha. Recebe `traits` (ver traitContext em helpers/traits-ui.js), `isGM` e, opcional,
+  `scaleOptions` (Escala do Ator, só Mestre).
+--}}
+<div class="actor-traits">
+  <span class="actor-traits-label">Traços</span>
+  {{#each traits.chips as |trait|}}
+  <span class="trait-chip {{#if trait.fromSpecies}}from-species{{/if}}" title="{{#if trait.fromSpecies}}Vem da Espécie{{else}}Acrescentado na ficha{{/if}}">
+    {{trait.label}}
+    {{#if ../isGM}}<a data-action="removeTrait" data-trait="{{trait.id}}" title="Retirar"><i class="fas fa-times"></i></a>{{/if}}
+  </span>
+  {{else}}
+  <span class="hint-inline">nenhum</span>
+  {{/each}}
+  {{#if isGM}}
+    {{#each traits.removed as |trait|}}
+    <span class="trait-chip removed" title="Retirado da Espécie nesta ficha">
+      {{trait.label}}
+      <a data-action="restoreTrait" data-trait="{{trait.id}}" title="Restaurar"><i class="fas fa-undo"></i></a>
+    </span>
+    {{/each}}
+    {{#if traits.addOptions.length}}
+    <select class="trait-add-select">
+      <option value="">+ Traço…</option>
+      {{#each traits.addOptions as |opt|}}<option value="{{opt.id}}">{{opt.label}}</option>{{/each}}
+    </select>
+    {{/if}}
+    {{#if scaleOptions}}
+    <label class="actor-scale">Escala
+      <select name="system.scale">
+        {{#each scaleOptions as |opt|}}<option value="{{opt.id}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+      </select>
+    </label>
+    {{/if}}
+  {{/if}}
+</div>

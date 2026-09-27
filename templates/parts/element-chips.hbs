@@ -1,0 +1,18 @@
+{{!--
+  Seletor de Elementos agrupado (Físico, Fantasia, Energia…). Recebe `groups` (ver
+  groupedElementChips em item-sheet.js) e `path`, o campo do Item que a lista grava.
+--}}
+<div class="element-groups">
+  {{#each groups as |group|}}
+  <div class="element-group">
+    <span class="element-group-label">{{group.group}}</span>
+    <div class="element-grid">
+      {{#each group.chips as |el|}}
+      <a class="element-chip {{#if el.checked}}checked{{/if}}" data-action="toggleElement" data-path="{{../../path}}" data-element="{{el.id}}"><span class="dot" style="background:{{el.color}}"></span>{{el.label}}</a>
+      {{/each}}
+    </div>
+  </div>
+  {{else}}
+  <span class="hint-inline">Nenhum elemento configurado.</span>
+  {{/each}}
+</div>

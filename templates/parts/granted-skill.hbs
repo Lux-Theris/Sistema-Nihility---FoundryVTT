@@ -1,0 +1,51 @@
+{{!--
+  Habilidade Concedida (Item Geral, Módulo de Nave, Modificação de Parte do Corpo).
+  Recebe `grant` (ver `grantedSkillSummary` em item-sheet.js) e `editable`.
+  A Skill inteira é editada no mesmo editor de Skill da ficha; aqui só o resumo e as Sub-Skills.
+--}}
+<div class="granted-skill">
+  {{#if grant.empty}}
+    {{#if editable}}
+    <button type="button" class="granted-skill-add" data-action="editGrantedSkill" data-path="{{grant.path}}"><i class="fas fa-plus"></i> Conceder uma Habilidade</button>
+    {{else}}
+    <p class="hint-inline">Nenhuma Habilidade Concedida.</p>
+    {{/if}}
+  {{else}}
+    <div class="granted-skill-card">
+      <div class="granted-skill-head">
+        <span class="granted-skill-name">{{grant.name}}</span>
+        <span class="granted-skill-chips">
+          <span class="chip">{{grant.tierLabel}}</span>
+          <span class="chip">Nv {{grant.level}}</span>
+          <span class="chip">Custo {{grant.cost}}</span>
+          {{#if grant.upkeep}}<span class="chip">{{grant.upkeep}}/rodada</span>{{/if}}
+        </span>
+        {{#if editable}}
+        <span class="granted-skill-actions">
+          <a data-action="editGrantedSkill" data-path="{{grant.path}}" title="Editar Habilidade"><i class="fas fa-edit"></i></a>
+          <a data-action="clearGrantedSkill" data-path="{{grant.path}}" title="Remover Habilidade"><i class="fas fa-trash"></i></a>
+        </span>
+        {{/if}}
+      </div>
+      <div class="granted-skill-mechanic">{{grant.mechanic}}</div>
+
+      {{#if grant.subSkills.length}}
+      <ol class="granted-subskill-list">
+        {{#each grant.subSkills as |sub|}}
+        <li class="granted-subskill-row">
+          <span class="granted-subskill-name">{{sub.name}}</span>
+          <span class="granted-subskill-mechanic">{{sub.mechanic}}</span>
+          {{#if ../editable}}
+          <a data-action="editGrantedSubSkill" data-path="{{../grant.path}}" data-sub-index="{{sub.index}}" title="Editar Sub-Skill"><i class="fas fa-edit"></i></a>
+          <a data-action="deleteGrantedSubSkill" data-path="{{../grant.path}}" data-sub-index="{{sub.index}}" title="Excluir Sub-Skill"><i class="fas fa-trash"></i></a>
+          {{/if}}
+        </li>
+        {{/each}}
+      </ol>
+      {{/if}}
+      {{#if editable}}
+      <a class="granted-subskill-add" data-action="addGrantedSubSkill" data-path="{{grant.path}}">+ Sub-Skill</a>
+      {{/if}}
+    </div>
+  {{/if}}
+</div>

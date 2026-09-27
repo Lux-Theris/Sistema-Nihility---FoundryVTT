@@ -7,18 +7,51 @@ const fields = foundry.data.fields;
  * Nave: uma Habilidade opcional concedida enquanto equipado/instalado/online.
  * Tier travado em MEU_SISTEMA.ITEM_GRANTABLE_SKILL_TIERS (nunca Único/Ultimate —
  * essas só nascem de fusão/narrativa, nunca de um item). Presença = `name` não vazio.
+ *
+ * Carrega a Skill INTEIRA (a mesma mecânica de uma Sub-Skill — dano, efeitos, alcance, custo
+ * por rodada, animação…) mais uma lista plana de Sub-Skills. Antes guardava só nome/descrição/
+ * custo/tier, então a Skill chegava na ficha sem mecânica nenhuma, e qualquer edição feita lá
+ * se perdia ao desequipar e equipar de novo. Itens salvos no formato antigo continuam válidos:
+ * os campos novos só ganham seus valores iniciais.
  */
 function grantedSkillSchema() {
   return new fields.SchemaField({
+    ...skillMechanicsFields(),
     name: new fields.StringField({ required: false, initial: "" }),
-    description: new fields.HTMLField({ required: false, initial: "" }),
-    cost: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
     tier: new fields.StringField({
       required: true,
       initial: "normal",
       choices: MEU_SISTEMA.ITEM_GRANTABLE_SKILL_TIERS
-    })
+    }),
+    subSkills: new fields.ArrayField(subSkillSchema(), { required: false, initial: [] })
   });
+}
+
+/**
+ * Modificadores Condicionais ("Quando → Então"), em Título, Skill e Item Geral. A regra de quando
+ * cada um vale e o que faz mora em conditional-modifiers.js; aqui só a forma salva.
+ *  - `when.kind`: WHEN_KINDS; `when.value`: id de Traço/Condição/Elemento; `when.threshold`: % de Vida
+ *  - `then.kind`: THEN_KINDS; `then.target`: atributo ("any" = qualquer) ou alvo de Resistência
+ *    ("general"/id de elemento); `then.value`: número
+ *  - `perEach`: multiplica pelo número de Condições no oponente/em si mesmo
+ */
+function conditionalModifiersSchema() {
+  return new fields.ArrayField(
+    new fields.SchemaField({
+      when: new fields.SchemaField({
+        kind: new fields.StringField({ required: true, initial: "always" }),
+        value: new fields.StringField({ required: false, initial: "", blank: true }),
+        threshold: new fields.NumberField({ required: false, initial: 50 })
+      }),
+      then: new fields.SchemaField({
+        kind: new fields.StringField({ required: true, initial: "damagePercent" }),
+        target: new fields.StringField({ required: false, initial: "any", blank: true }),
+        value: new fields.NumberField({ required: false, initial: 10 })
+      }),
+      perEach: new fields.StringField({ required: false, initial: "", blank: true })
+    }),
+    { required: false, initial: [] }
+  );
 }
 
 /**
@@ -100,6 +133,8 @@ function usageFields() {
  */
 function effectEntrySchema() {
   return new fields.SchemaField({
+    /** Só pro alvo "weaponElement": o Elemento que as armas passam a causar enquanto o efeito durar. */
+    elementId: new fields.StringField({ required: false, initial: "", blank: true }),
     target: new fields.StringField({ required: true, choices: MEU_SISTEMA.EFFECT_TARGETS }),
     amount: new fields.NumberField({ required: true, integer: true, initial: 1 }),
     /**
@@ -146,7 +181,16 @@ function effectEntrySchema() {
  * final é sempre plana, nunca uma árvore.
  */
 function subSkillSchema() {
-  return new fields.SchemaField({
+  return new fields.SchemaField(skillMechanicsFields());
+}
+
+/**
+ * Os campos mecânicos de uma Skill, como objeto solto: base de `subSkillSchema` e de
+ * `grantedSkillSchema`, que precisam do mesmo conjunto (as duas são "uma Skill guardada dentro
+ * de outro documento").
+ */
+function skillMechanicsFields() {
+  return {
     name: new fields.StringField({ required: true, initial: "" }),
     tier: new fields.StringField({ required: false, initial: "normal", choices: MEU_SISTEMA.SKILL_TIERS }),
     level: new fields.NumberField({ required: false, integer: true, initial: 1, min: 1 }),
@@ -158,9 +202,13 @@ function subSkillSchema() {
     damageFormula: new fields.StringField({ required: false, initial: "" }),
     scalingAttribute: new fields.StringField({ required: false, initial: "", blank: true }),
     isMagicDamage: new fields.BooleanField({ required: false, initial: false }),
+    isAbsoluteDamage: new fields.BooleanField({ required: false, initial: false }),
+    damageScale: new fields.StringField({ required: false, initial: "", blank: true }),
     damageElements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
     effects: new fields.ArrayField(effectEntrySchema(), { required: false, initial: [] }),
-    targetType: new fields.StringField({ required: false, initial: "targeted", choices: ["targeted", "self", "emission", "zone"] }),
+    targetType: new fields.StringField({ required: false, initial: "targeted", choices: ["targeted", "self", "emission", "zone", "structure"] }),
+    /** Só pro alvo "structure": id do catálogo de Estruturas (getStructures em config.js). */
+    structureId: new fields.StringField({ required: false, initial: "", blank: true }),
     // `blank: true` é obrigatório aqui: um StringField com `choices` some com o `blank: true`
     // implícito que todo StringField normal tem — sem isso, o próprio "" inicial falha a
     // validação ("may not be a blank string") assim que o campo não é setado explicitamente.
@@ -168,7 +216,7 @@ function subSkillSchema() {
     areaDistance: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
     areaAngle: new fields.NumberField({ required: false, integer: true, initial: 53, min: 1, max: 360 }),
     zoneRounds: new fields.NumberField({ required: false, integer: true, initial: 3, min: 1 })
-  });
+  };
 }
 
 /**
@@ -236,6 +284,9 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
        */
       isItemGranted: new fields.BooleanField({ required: false, initial: false }),
 
+      /** Bônus "Quando → Então" (ver conditionalModifiersSchema). Habilidade Ativa: só enquanto ligada. */
+      conditionalModifiers: conditionalModifiersSchema(),
+
       /**
        * Mecânica ao "Usar" a skill — ver MEU_SISTEMA.SKILL_EFFECT_TYPES:
        * "none" (padrão, só descritiva), "damage" (rola damageFormula e posta no
@@ -271,6 +322,16 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
        */
       isMagicDamage: new fields.BooleanField({ required: false, initial: false }),
 
+      /**
+       * Dano Absoluto: não pode ser resistido (ignora Defesa Mágica, Resistências, Imunidade e o
+       * Escudo pessoal), só desviado — contra Nave a Evasão ainda vale, e o que acerta vai direto
+       * na Integridade Estrutural. Ver resolveDamageParts em damage-rules.js.
+       */
+      isAbsoluteDamage: new fields.BooleanField({ required: false, initial: false }),
+
+      /** Escala do golpe (id de getScaleConfig().scales); vazio = a de quem usa a Skill. */
+      damageScale: new fields.StringField({ required: false, initial: "", blank: true }),
+
       /** 0+ ids de MEU_SISTEMA/getActiveDamageElements() — só flavor no chat (pode ter vários ao mesmo tempo). */
       damageElements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
 
@@ -285,8 +346,11 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
       targetType: new fields.StringField({
         required: true,
         initial: "targeted",
-        choices: ["targeted", "self", "emission", "zone"]
+        choices: ["targeted", "self", "emission", "zone", "structure"]
       }),
+
+      /** Só pro alvo "structure": id do catálogo de Estruturas (getStructures em config.js). */
+      structureId: new fields.StringField({ required: false, initial: "", blank: true }),
 
       /** Só relevante quando targetType === "emission". "" = ainda não configurada. */
       // `blank: true` é obrigatório aqui: um StringField com `choices` some com o `blank: true`
@@ -408,7 +472,10 @@ export class TitleDataModel extends foundry.abstract.TypeDataModel {
           amount: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0, max: 100 })
         }),
         { required: false, initial: [] }
-      )
+      ),
+
+      /** Bônus "Quando → Então" (ver conditionalModifiersSchema) — ex.: Caçador de Dragões. */
+      conditionalModifiers: conditionalModifiersSchema()
     };
   }
 }
@@ -417,11 +484,12 @@ export class TitleDataModel extends foundry.abstract.TypeDataModel {
 export class StarshipModuleDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
-      category: new fields.StringField({
-        required: true,
-        initial: "utility",
-        choices: MEU_SISTEMA.STARSHIP_MODULE_CATEGORIES
-      }),
+      /**
+       * Id de uma Categoria do catálogo editável (`getModuleCategories` em config.js) — sem
+       * `choices` fixo, porque o Mestre cria Categorias novas no jogo. O que o código entende é
+       * a Função da Categoria (`moduleRole`), não o id.
+       */
+      category: new fields.StringField({ required: true, initial: "utility" }),
       description: new fields.HTMLField({ required: false, initial: "" }),
       powerConsumption: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
       status: new fields.StringField({
@@ -533,6 +601,10 @@ export class StarshipModuleDataModel extends foundry.abstract.TypeDataModel {
        */
       damageFormula: new fields.StringField({ required: false, initial: "" }),
       penetration: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0, max: 100 }),
+      /** Elementos do dano da Arma (Phaser, Plasma…) — mesma regra de elemento de Skill e arma pessoal. */
+      damageElements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
+      /** Dano Absoluto: passa por Escudo e Casco direto pra Integridade Estrutural (a Evasão ainda vale). */
+      isAbsoluteDamage: new fields.BooleanField({ required: false, initial: false }),
       cooldownRounds: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
       cooldownRemaining: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
 
@@ -578,6 +650,9 @@ export class GenericItemDataModel extends foundry.abstract.TypeDataModel {
         damageFormula: new fields.StringField({ required: false, initial: "" }),
         scalingAttribute: new fields.StringField({ required: false, initial: "", blank: true }),
         isMagicDamage: new fields.BooleanField({ required: false, initial: false }),
+        isAbsoluteDamage: new fields.BooleanField({ required: false, initial: false }),
+        /** Escala do golpe; vazio = a de quem ataca (uma bazuca anti-tanque pode ser "Veículo"). */
+        damageScale: new fields.StringField({ required: false, initial: "", blank: true }),
         damageElements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] })
       }),
 
@@ -588,7 +663,10 @@ export class GenericItemDataModel extends foundry.abstract.TypeDataModel {
       statModifiers: statModifiersSchema(),
 
       /** Bônus PERMANENTE de Atributo (rolagem) enquanto o item estiver "equipado" — nunca entra no HP/Mana. */
-      attributeBonuses: attributeBonusesSchema()
+      attributeBonuses: attributeBonusesSchema(),
+
+      /** Bônus "Quando → Então" (ver conditionalModifiersSchema), só enquanto equipado. */
+      conditionalModifiers: conditionalModifiersSchema()
     };
   }
 }

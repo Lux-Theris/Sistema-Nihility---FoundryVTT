@@ -6,3 +6,6 @@
 # SO / editor
 .DS_Store
 Thumbs.db
+
+# Anotações e planos de trabalho locais
+temp/

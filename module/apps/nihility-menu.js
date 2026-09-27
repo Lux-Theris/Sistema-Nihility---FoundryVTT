@@ -5,9 +5,28 @@
  * exclusivas do Mestre — a trilha mostra essas abas com cadeado pro jogador em vez de
  * simplesmente escondê-las, pra deixar claro que existem e são intencionalmente bloqueadas.
  */
-import { SYSTEM_ID, MEU_SISTEMA, isVesselsEnabled, isAIAssistantEnabled, debugLog } from "../config.js";
+import {
+  SYSTEM_ID,
+  MEU_SISTEMA,
+  isVesselsEnabled,
+  isAIAssistantEnabled,
+  isFeatureEnabled,
+  getActiveDamageElements,
+  getActiveStatusConditions,
+  getActiveTraits,
+  getActiveCurrencies,
+  getActiveSpeciesPresets,
+  getScaleConfig,
+  getStructures,
+  getModuleCategories,
+  getVesselClasses,
+  getCrewRoles,
+  getVisibleAttributes,
+  debugLog
+} from "../config.js";
 import { ensureSystemCompendiums, registerItemInCompendium } from "../compendium.js";
 import { saveTextToFile, readFileAsText } from "../helpers/foundry-compat.js";
+import { readTransferBundle, buildTransferBundle, diffTransfer, transferGroup } from "../config-transfer.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 
@@ -192,25 +211,95 @@ async function syncData() {
   ui.notifications.info("Compêndios do sistema sincronizados (recriados se algum estava faltando).");
 }
 
-/** Exporta as 4 configurações editáveis visualmente (Moedas/Presets de Espécie/Elementos de Dano/Condições de Status) num único JSON. */
+/** Settings do sistema que viajam num export: as de mundo, menos o registro de migrações. */
+function transferableSettings() {
+  const out = new Map();
+  for (const config of game.settings.settings.values()) {
+    if (config.namespace !== SYSTEM_ID || config.scope !== "world") continue;
+    if (config.key === "completedMigrations") continue;
+    out.set(config.key, config);
+  }
+  return out;
+}
+
+/** Chaves que pertencem a Módulos do Sistema (interruptores e seus campos). */
+function featureSettingKeys() {
+  const keys = new Set();
+  for (const feature of Object.values(MEU_SISTEMA.FEATURES)) {
+    keys.add(feature.setting);
+    for (const optionKey of Object.keys(feature.options ?? {})) keys.add(optionKey);
+  }
+  return keys;
+}
+
+/**
+ * Diálogo de escolha do que exportar/importar, agrupado (Catálogos / Módulos do Sistema /
+ * Regras). Devolve as chaves marcadas, ou `null` se cancelou.
+ */
+async function pickTransferKeys({ title, hint, rows, confirmLabel }) {
+  const features = featureSettingKeys();
+  const groups = new Map();
+  for (const row of rows) {
+    const group = transferGroup(row.key, features);
+    if (!groups.has(group)) groups.set(group, []);
+    groups.get(group).push(row);
+  }
+  const escape = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  const html = [...groups]
+    .map(([group, list]) => `<fieldset class="transfer-group"><legend><label><input type="checkbox" class="transfer-group-toggle" checked/> ${group}</label></legend>
+        ${list.map(row => `<label class="transfer-row"><input type="checkbox" name="key" value="${escape(row.key)}" ${row.checked === false ? "" : "checked"}/> ${escape(row.label)}${row.note ? ` <span class="hint-inline">${escape(row.note)}</span>` : ""}</label>`).join("")}
+      </fieldset>`)
+    .join("");
+
+  const result = await DialogV2.wait({
+    window: { title },
+    classes: ["nihility-transfer-dialog"],
+    position: { width: 520 },
+    content: `<form class="nihility-transfer">${hint ? `<p class="hint">${hint}</p>` : ""}${html}</form>`,
+    buttons: [
+      {
+        action: "ok",
+        label: confirmLabel,
+        default: true,
+        callback: (event, button, dialog) => Array.from(dialog.element.querySelectorAll('[name="key"]:checked')).map(cb => cb.value)
+      },
+      { action: "cancel", label: "Cancelar", callback: () => false }
+    ],
+    rejectClose: false,
+    render: (event, dialog) => {
+      const root = dialog?.element ?? dialog;
+      root?.querySelectorAll?.(".transfer-group-toggle").forEach(toggle => {
+        toggle.addEventListener("change", () => {
+          toggle.closest(".transfer-group").querySelectorAll('[name="key"]').forEach(cb => (cb.checked = toggle.checked));
+        });
+      });
+    }
+  });
+  return Array.isArray(result) ? result : null;
+}
+
+/**
+ * Exporta a configuração do sistema — tudo, ou só o que for marcado. O arquivo leva o valor
+ * exato de cada setting; a chave de IA (por navegador) nunca entra.
+ */
 async function exportData() {
-  const S = MEU_SISTEMA.SETTINGS;
-  const bundle = {
-    _system: SYSTEM_ID,
-    _exportedAt: new Date().toISOString(),
-    currenciesData: JSON.parse(game.settings.get(SYSTEM_ID, S.currenciesData)),
-    speciesPresetsData: JSON.parse(game.settings.get(SYSTEM_ID, S.speciesPresetsData)),
-    damageElementsData: JSON.parse(game.settings.get(SYSTEM_ID, S.damageElementsData)),
-    statusConditionsData: JSON.parse(game.settings.get(SYSTEM_ID, S.statusConditionsData))
-  };
+  const settings = transferableSettings();
+  const rows = [...settings.values()].map(config => ({ key: config.key, label: config.name || config.key }));
+  const keys = await pickTransferKeys({
+    title: "Exportar Configurações",
+    hint: "Marque o que vai no arquivo. Chave e endereço de IA ficam de fora — são de cada navegador.",
+    rows,
+    confirmLabel: "Exportar"
+  });
+  if (!keys?.length) return;
+  const values = Object.fromEntries(keys.map(key => [key, game.settings.get(SYSTEM_ID, key)]));
+  const bundle = buildTransferBundle(values, SYSTEM_ID, game.system.version);
   saveTextToFile(JSON.stringify(bundle, null, 2), "application/json", "nihility-config.json");
 }
 
 /**
- * Importa um JSON exportado por `exportData()`, sobrescrevendo as configurações após
- * confirmação. `statusConditionsData` é opcional na validação de formato (não no `hasExpectedShape`)
- * pra continuar aceitando exports antigos, de antes dela existir — se não vier no arquivo, as
- * Condições de Status atuais do mundo simplesmente não são tocadas.
+ * Importa um arquivo de configurações (o formato atual ou o antigo, de 4 listas). Mostra só o
+ * que MUDA em relação ao mundo, deixa escolher, e grava.
  */
 async function importData() {
   const input = document.createElement("input");
@@ -221,32 +310,30 @@ async function importData() {
     if (!file) return;
 
     try {
-      const text = await readFileAsText(file);
-      const bundle = JSON.parse(text);
-      const hasExpectedShape =
-        bundle && typeof bundle === "object" && "currenciesData" in bundle && "speciesPresetsData" in bundle && "damageElementsData" in bundle;
-      if (!hasExpectedShape) {
+      const incoming = readTransferBundle(JSON.parse(await readFileAsText(file)), SYSTEM_ID);
+      if (!incoming) {
         ui.notifications.error("Arquivo inválido — não parece ser uma exportação de configurações do Nihility RPG System.");
         return;
       }
-
-      const confirmed = await DialogV2.confirm({
-        window: { title: "Importar Configurações" },
-        content:
-          "<p>Isso substitui Moedas, Presets de Espécie, Elementos de Dano" +
-          (bundle.statusConditionsData ? " e Condições de Status" : "") +
-          " atuais do mundo pelos dados desse arquivo. Confirma?</p>"
-      });
-      if (!confirmed) return;
-
-      const S = MEU_SISTEMA.SETTINGS;
-      await game.settings.set(SYSTEM_ID, S.currenciesData, JSON.stringify(bundle.currenciesData, null, 2));
-      await game.settings.set(SYSTEM_ID, S.speciesPresetsData, JSON.stringify(bundle.speciesPresetsData, null, 2));
-      await game.settings.set(SYSTEM_ID, S.damageElementsData, JSON.stringify(bundle.damageElementsData, null, 2));
-      if (bundle.statusConditionsData) {
-        await game.settings.set(SYSTEM_ID, S.statusConditionsData, JSON.stringify(bundle.statusConditionsData, null, 2));
+      const settings = transferableSettings();
+      const current = Object.fromEntries([...settings.keys()].map(key => [key, game.settings.get(SYSTEM_ID, key)]));
+      const diff = diffTransfer(current, incoming);
+      const changed = diff.filter(d => d.changed);
+      if (!changed.length) {
+        ui.notifications.info("Nada muda: o mundo já tem exatamente essas configurações.");
+        return;
       }
-      ui.notifications.info("Configurações importadas com sucesso.");
+
+      const keys = await pickTransferKeys({
+        title: "Importar Configurações",
+        hint: `${changed.length} configuração(ões) mudam (${diff.length - changed.length} já iguais ficam de fora). Marque o que substituir no mundo.`,
+        rows: changed.map(d => ({ key: d.key, label: settings.get(d.key)?.name || d.key })),
+        confirmLabel: "Importar"
+      });
+      if (!keys?.length) return;
+
+      for (const key of keys) await game.settings.set(SYSTEM_ID, key, incoming[key]);
+      ui.notifications.info(`${keys.length} configuração(ões) importada(s). Recarregue o mundo (F5) para tudo acompanhar.`);
     } catch (err) {
       console.error(`${SYSTEM_ID} | Falha ao importar configurações.`, err);
       ui.notifications.error(`Falha ao importar: ${err.message}`);
@@ -291,13 +378,15 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
     // o cadeado): não é "existe mas você não pode", é "esta campanha não usa isso".
     const aiEnabled = isAIAssistantEnabled();
     context.vesselsEnabled = isVesselsEnabled();
+    context.structuresEnabled = isFeatureEnabled("structures");
     context.aiAssistantEnabled = aiEnabled;
 
     context.railItems = [
       { id: "fichas", label: "Fichas", icon: "fas fa-users" },
       { id: "system", label: "Configurações Gerais", icon: "fas fa-cog", gmOnly: true },
-      { id: "ai", label: "Assistente de IA", icon: "fas fa-robot", gmOnly: true, feature: aiEnabled },
-      { id: "generation", label: "Geração Automática", icon: "fas fa-magic", gmOnly: true, feature: aiEnabled },
+      // "Assistente de IA" e "Geração Automática" abriam o mesmo assistente (e o NPC aparecia
+      // duas vezes) — viraram uma aba só.
+      { id: "ai", label: "Criar com IA", icon: "fas fa-wand-magic-sparkles", gmOnly: true, feature: aiEnabled },
       { id: "tools", label: "Ferramentas de Admin", icon: "fas fa-tools", gmOnly: true }
     ]
       .filter(item => item.feature !== false)
@@ -311,9 +400,117 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
 
     context.actors = this._getVisibleActors();
+    if (isGM) {
+      context.settingsSections = this._settingsSections();
+      context.disabledFeatures = Object.entries(MEU_SISTEMA.FEATURES)
+        .filter(([key, feature]) => !feature.parent && !isFeatureEnabled(key))
+        .map(([, feature]) => feature.name);
+      context.aiSections = this._aiSections();
+    }
 
     debugLog(`${SYSTEM_ID} | NihilityMenuApp._prepareContext, aba ativa:`, this.activeTab);
     return context;
+  }
+
+  /**
+   * Configurações Gerais em seções por assunto. Cada linha diz o estado atual ("14 tipos ·
+   * 4 grupos") pra o Mestre saber o que tem sem abrir. Linha de bloco desligado some — o rodapé
+   * lista o que a campanha desligou (é "não usa", não "não pode").
+   */
+  _settingsSections() {
+    const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+    const elements = getActiveDamageElements();
+    const conditions = getActiveStatusConditions();
+    const categories = getModuleCategories();
+    const featuresOn = Object.entries(MEU_SISTEMA.FEATURES).filter(([key, f]) => !f.parent && isFeatureEnabled(key)).length;
+    const featuresTotal = Object.values(MEU_SISTEMA.FEATURES).filter(f => !f.parent).length;
+    const rulesCount = [...game.settings.settings.values()].filter(c => c.namespace === SYSTEM_ID && c.scope === "world" && c.config).length;
+
+    const sections = [
+      {
+        label: "Campanha",
+        rows: [
+          { action: "feature-config", icon: "fas fa-toggle-on", title: "Módulos do Sistema", desc: "Ligar/desligar blocos e aplicar presets de campanha.", state: `${featuresOn} de ${featuresTotal} ligados` },
+          { action: "rules-config", icon: "fas fa-scale-balanced", title: "Regras da Mesa", desc: "XP, pontos por nível, fórmulas de Vida/Mana, iniciativa e as outras regras numéricas.", state: count(rulesCount, "regra", "regras") }
+        ]
+      },
+      {
+        label: "Personagem",
+        rows: [
+          { action: "attribute-config", icon: "fas fa-chart-simple", title: "Atributos", desc: "Renomear ou esconder os Atributos de Combate.", state: `${getVisibleAttributes().length} visíveis` },
+          { action: "anatomy-config", icon: "fas fa-dna", title: "Espécies", desc: "Partes do Corpo, Skills Raciais e Traços de cada Espécie.", state: count(Object.keys(getActiveSpeciesPresets()).length, "espécie", "espécies"), feature: "anatomy" },
+          { action: "traits-config", icon: "fas fa-tags", title: "Traços", desc: "Dracônico, Voador, Orgânico… usados por Elementos e bônus condicionais.", state: count(getActiveTraits().length, "traço", "traços") },
+          { action: "economy-config", icon: "fas fa-coins", title: "Moedas", desc: "Moedas, valores e conversão.", state: count(getActiveCurrencies().length, "moeda", "moedas"), feature: "economy" },
+          { action: "titles-config", icon: "fas fa-crown", title: "Compêndio de Títulos", desc: "Títulos do mundo.", feature: "titles" },
+          { action: "items-compendium", icon: "fas fa-suitcase", title: "Compêndio de Itens", desc: "Armas, equipamentos e itens gerais." }
+        ]
+      },
+      {
+        label: "Combate e Dano",
+        rows: [
+          { action: "damage-elements-config", icon: "fas fa-fire", title: "Tipos de Dano", desc: "Elementos por grupo e o que cada um causa ao acertar.", state: `${count(elements.length, "tipo", "tipos")} · ${count(new Set(elements.map(e => e.group)).size, "grupo", "grupos")}` },
+          { action: "status-conditions-config", icon: "fas fa-skull-crossbones", title: "Condições", desc: "Queimadura, Lentidão, Veneno… com efeito padrão.", state: `${conditions.length} · ${conditions.filter(c => c.effect?.kind).length} com efeito`, feature: "statusConditions" },
+          { action: "scales-config", icon: "fas fa-up-right-and-down-left-from-center", title: "Escalas", desc: "Pessoal, Veículo, Nave, Capital — quanto o dano muda entre elas.", state: count(getScaleConfig().scales.length, "escala", "escalas"), feature: "scale" },
+          { action: "structures-config", icon: "fas fa-dungeon", title: "Estruturas", desc: "Paredes, blocos e barreiras que as Skills erguem no mapa.", state: count(getStructures().length, "estrutura", "estruturas"), feature: "structures" }
+        ]
+      },
+      {
+        label: "Naves",
+        feature: "vessels",
+        rows: [
+          { action: "module-categories-config", icon: "fas fa-microchip", title: "Categorias de Módulo", desc: "Reator, Impulso, Manobradores, Transdobra… com Função e vagas.", state: `${count(categories.length, "categoria", "categorias")} · ${count(new Set(categories.map(c => c.role)).size, "função", "funções")}` },
+          { action: "ship-classes-config", icon: "fas fa-shuttle-space", title: "Classes de Nave", desc: "Encouraçado, Cruzador, Cargueiro…", state: count(getVesselClasses("ship").length, "classe", "classes") },
+          { action: "vehicle-classes-config", icon: "fas fa-truck-monster", title: "Classes de Veículo", desc: "Carro, Tanque, Moto…", state: count(getVesselClasses("vehicle").length, "classe", "classes") },
+          { action: "crew-roles-config", icon: "fas fa-users-gear", title: "Postos de Tripulação", desc: "Quem está em qual posto (não é permissão).", state: count(getCrewRoles().length, "posto", "postos") }
+        ]
+      }
+    ];
+
+    return sections
+      .filter(section => !section.feature || isFeatureEnabled(section.feature))
+      .map(section => ({
+        ...section,
+        rows: section.rows
+          .filter(row => !row.feature || isFeatureEnabled(row.feature))
+          .map(row => ({ ...row, search: `${row.title} ${row.desc}`.toLowerCase() }))
+      }))
+      .filter(section => section.rows.length);
+  }
+
+  /** "Criar com IA" em grupos (tudo abre o mesmo Assistente, com a tarefa já escolhida). */
+  _aiSections() {
+    const vessels = isVesselsEnabled();
+    return [
+      {
+        label: "Assistente",
+        rows: [
+          { action: "open-ai-assistant", icon: "fas fa-robot", title: "Assistente Completo", desc: "Criar, Editar Existente e Agente (vários documentos de uma vez, com desfazer)." },
+          { action: "freeform", icon: "fas fa-comment-dots", title: "Pergunta Livre", desc: "Consulta à IA sem criar nada." }
+        ]
+      },
+      {
+        label: "Personagens e Criaturas",
+        rows: [
+          { action: "generate-npc", icon: "fas fa-user", title: "Personagem / NPC", desc: "A partir de uma descrição, com pontos de atributo." },
+          { action: "generate-mount", icon: "fas fa-horse", title: "Montaria", desc: "Montarias e bestas de carga." }
+        ]
+      },
+      vessels && {
+        label: "Naves",
+        rows: [
+          { action: "generate-starship", icon: "fas fa-rocket", title: "Nave Espacial", desc: "Porte e Módulos escolhidos pela IA; os números vêm dos presets." },
+          { action: "generate-vehicle", icon: "fas fa-car", title: "Veículo Terrestre", desc: "Mesma ideia, nos Portes de Veículo." }
+        ]
+      },
+      {
+        label: "Conteúdo",
+        rows: [
+          { action: "generate-skill", icon: "fas fa-bolt", title: "Habilidade", desc: "Skill avulsa, direto no Compêndio." },
+          { action: "generate-item", icon: "fas fa-shield-halved", title: "Item", desc: "Itens e equipamentos." },
+          { action: "generate-note", icon: "fas fa-book", title: "Nota", desc: "Nota narrativa no Diário." }
+        ]
+      }
+    ].filter(Boolean);
   }
 
   /** Atores que este usuário pode abrir: o Mestre vê todo mundo, o jogador só quem possui/tem Observador. */
@@ -366,6 +563,24 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
         this._filterActorGrid();
       });
     });
+    this.element.querySelector(".nm-settings-search")?.addEventListener("input", event => this._filterSettings(event.target.value));
+  }
+
+  /** Busca em Configurações Gerais: esconde linhas (e seções vazias) que não batem com o texto. */
+  _filterSettings(text) {
+    const query = String(text ?? "").trim().toLowerCase();
+    let visible = 0;
+    this.element.querySelectorAll(".nm-pane:not(.hidden) .nm-settings-section").forEach(section => {
+      let inSection = 0;
+      section.querySelectorAll(".nm-settings-row[data-search]").forEach(row => {
+        const show = !query || row.dataset.search.includes(query);
+        row.classList.toggle("hidden", !show);
+        if (show) inSection++;
+      });
+      section.classList.toggle("hidden", inSection === 0);
+      visible += inSection;
+    });
+    this.element.querySelector(".nm-settings-empty")?.classList.toggle("hidden", visible > 0);
   }
 
   _filterActorGrid() {
@@ -425,6 +640,11 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
         new AIAssistantApp({ initialMode: "agent" }).render(true);
         break;
       }
+      case "rules-config": {
+        const { TableRulesConfigApp } = await import("./table-rules-config.js");
+        new TableRulesConfigApp().render(true);
+        break;
+      }
       case "feature-config": {
         const { FeatureConfigApp } = await import("./feature-config.js");
         new FeatureConfigApp().render(true);
@@ -454,6 +674,35 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
       case "status-conditions-config": {
         const { StatusConditionsConfigApp } = await import("./status-conditions-config.js");
         new StatusConditionsConfigApp().render(true);
+        break;
+      }
+      case "module-categories-config":
+      case "ship-classes-config":
+      case "vehicle-classes-config":
+      case "crew-roles-config": {
+        const apps = await import("./vessel-catalogs-config.js");
+        const App = {
+          "module-categories-config": apps.ModuleCategoriesConfigApp,
+          "ship-classes-config": apps.ShipClassesConfigApp,
+          "vehicle-classes-config": apps.VehicleClassesConfigApp,
+          "crew-roles-config": apps.CrewRolesConfigApp
+        }[action];
+        new App().render(true);
+        break;
+      }
+      case "structures-config": {
+        const { StructuresConfigApp } = await import("./structures-config.js");
+        new StructuresConfigApp().render(true);
+        break;
+      }
+      case "traits-config": {
+        const { TraitsConfigApp } = await import("./traits-config.js");
+        new TraitsConfigApp().render(true);
+        break;
+      }
+      case "scales-config": {
+        const { ScalesConfigApp } = await import("./scales-config.js");
+        new ScalesConfigApp().render(true);
         break;
       }
       case "items-compendium": {

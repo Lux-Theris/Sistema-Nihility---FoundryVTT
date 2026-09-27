@@ -26,6 +26,13 @@
       <a class="species-delete" data-action="deleteSpecies" title="Remover Espécie"><i class="fas fa-trash"></i></a>
     </legend>
 
+    <div class="species-traits" title="Traços que esta Espécie dá a quem a tem. A ficha pode acrescentar ou retirar.">
+      <span class="species-traits-label">Traços</span>
+      {{#each sp.traitOptions as |trait|}}
+      <label class="species-trait-chip"><input type="checkbox" class="species-trait" value="{{trait.id}}" {{#if trait.checked}}checked{{/if}}/> {{trait.label}}</label>
+      {{/each}}
+    </div>
+
     <div class="config-list-header part-header">
       <span>Chave</span><span>Nome</span><span>Slot</span><span>HP</span><span>Tags</span><span></span>
     </div>

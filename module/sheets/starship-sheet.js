@@ -6,14 +6,21 @@ import {
   getModuleSizePreset,
   isPadShipEnabled,
   isShipManeuverEnabled,
+  moduleRole,
+  moduleCategoryLabel,
+  getVesselClasses,
+  getCrewRoles,
   debugLog
 } from "../config.js";
+import { syncShipOwnershipToCrew } from "../helpers/crew-ownership.js";
 import { registerItemInCompendium } from "../compendium.js";
 import { createGrantedSkill, removeGrantedSkill } from "../skill-economy.js";
 import { useSkillEffect, fireStarshipWeapon } from "../skill-effects.js";
 import { moduleCanRestart } from "../starship-power.js";
 import { syncLibraryOwnershipToCrew } from "../pad/pad-library.js";
 import { pickTargetActor } from "../helpers/target-picker.js";
+import { rollOptionsFromEvent } from "../apps/roll-options-dialog.js";
+import { traitContext, changeTrait } from "../helpers/traits-ui.js";
 import { editPortraitFrameAction, CLEAR_PORTRAIT_FRAME } from "../helpers/portrait-frame.js";
 import { pickImageFile, getDragEventData } from "../helpers/foundry-compat.js";
 
@@ -53,16 +60,18 @@ function moduleDetail(actor, module, abbr) {
   const sys = module.system;
   const stat = field => actor.system.effectiveModuleStat(module, field);
 
-  switch (sys.category) {
-    case "reactor":
+  switch (moduleRole(sys.category)) {
+    case "power":
       return `gera ${stat("reactorOutput")} ${abbr}`;
-    case "battery":
+    case "storage":
       return `reserva ${stat("batteryCapacity")} ${abbr}`;
-    case "distributor":
-      return `teto de ${actor.system.transferCapacity} ${abbr}/rodada`;
+    case "distribution":
+      return actor.system.distributorModule?.id === module.id
+        ? `teto de ${actor.system.transferCapacity} ${abbr}/rodada`
+        : "reserva (só um Distribuidor fica ativo)";
     case "shield":
       return `capacidade ${stat("shieldCapacity")} · regen ${stat("shieldRegen")}/rodada`;
-    case "engine":
+    case "propulsion":
       return `aceleração ${stat("acceleration")} · rotação ${stat("rotation")}`;
     case "armor":
       return `redução ${sys.armorReduction}%`;
@@ -132,6 +141,11 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
   _onRender(context, options) {
     super._onRender(context, options);
     this._onRenderThrottleInputs();
+    this.element.querySelector(".trait-add-select")?.addEventListener("change", event => changeTrait(this.actor, event.target.value, "add"));
+    // Função de Tripulação: cada tripulante troca a própria (ver _onChangeCrewRole).
+    this.element.querySelectorAll(".crew-role-input").forEach(input => {
+      input.addEventListener("change", this._onChangeCrewRole.bind(this));
+    });
     if (!game.user.isGM) return;
 
     const dropzone = this.element.querySelector(".crew-dropzone");
@@ -140,9 +154,6 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
       dropzone.addEventListener("drop", this._onDropCrewMember.bind(this));
     }
 
-    this.element.querySelectorAll(".crew-role-input").forEach(input => {
-      input.addEventListener("change", this._onChangeCrewRole.bind(this));
-    });
   }
 
   /**
@@ -180,12 +191,16 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     await this.actor.update({ "system.crewMembers": [...current, { actorUuid: doc.uuid, role: "" }] });
     await syncLibraryOwnershipToCrew(this.actor);
+    await syncShipOwnershipToCrew(this.actor);
   }
 
   /** Edita o cargo (rótulo livre) de um tripulante já designado — sempre ler-array-inteiro/patch-por-uuid/regravar. */
   async _onChangeCrewRole(event) {
     const input = event.currentTarget;
     const actorUuid = input.dataset.actorUuid;
+    // Qualquer tripulante troca a PRÓPRIA função ("assumo o leme"); o Mestre troca qualquer uma.
+    const crewActor = fromUuidSync(actorUuid);
+    if (!game.user.isGM && !crewActor?.isOwner) return;
     const current = this.actor.system.crewMembers;
     const patched = current.map(entry => entry.actorUuid === actorUuid ? { ...entry, role: input.value } : entry);
     await this.actor.update({ "system.crewMembers": patched });
@@ -198,6 +213,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     const current = this.actor.system.crewMembers;
     await this.actor.update({ "system.crewMembers": current.filter(entry => entry.actorUuid !== actorUuid) });
     await syncLibraryOwnershipToCrew(this.actor);
+    await syncShipOwnershipToCrew(this.actor);
   }
 
   /** Clique no retrato abre o FilePicker de imagem — precisa de action explícita no ApplicationV2. */
@@ -372,9 +388,11 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     try {
       if (mech.effectType === "damage") {
+        const { cancelled, options } = await rollOptionsFromEvent(event, `Dano — ${skill.name}`);
+        if (cancelled) return;
         const targetActor = await this._promptSkillTarget();
         if (!targetActor) return;
-        await useSkillEffect(this.actor, itemId, { targetActor });
+        await useSkillEffect(this.actor, itemId, { targetActor, rollOptions: options });
       } else {
         await useSkillEffect(this.actor, itemId, { targetActor: this.actor });
       }
@@ -420,6 +438,29 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     await doc.update({ [`system.${field}`]: newValue });
   }
 
+  static async onRemoveTrait(event, target) {
+    event.preventDefault();
+    await changeTrait(this.actor, target.dataset.trait, "remove");
+  }
+
+  /** Sobe/desce um Módulo na ordem de prioridade de energia e renumera todos (10, 20, 30…). */
+  static async onMovePriority(event, target) {
+    event.preventDefault();
+    if (!canAdjustThrottle(this.actor)) return;
+    const ordered = this.actor.items
+      .filter(i => i.type === "starship_module" && (i.system.powerConsumption ?? 0) > 0)
+      .sort((a, b) => (a.system.powerPriority ?? 0) - (b.system.powerPriority ?? 0));
+    const index = ordered.findIndex(m => m.id === target.dataset.itemId);
+    const to = index + Number(target.dataset.dir);
+    if (index < 0 || to < 0 || to >= ordered.length) return;
+    const [moved] = ordered.splice(index, 1);
+    ordered.splice(to, 0, moved);
+    await this.actor.updateEmbeddedDocuments(
+      "Item",
+      ordered.map((m, i) => ({ _id: m.id, "system.powerPriority": (i + 1) * 10 }))
+    );
+  }
+
   /** Dispara uma Arma nativa (Overhaul de Naves, Fase 5) — sempre pede alvo, igual "damage" de Skill. */
   static async onFireWeapon(event, target) {
     event.preventDefault();
@@ -427,11 +468,13 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     const weaponModule = this.actor.items.get(itemId);
     if (!weaponModule) return;
 
+    const { cancelled, options } = await rollOptionsFromEvent(event, `Disparar ${weaponModule.name}`);
+    if (cancelled) return;
     const targetActor = await this._promptSkillTarget();
     if (!targetActor) return;
 
     try {
-      await fireStarshipWeapon(this.actor, weaponModule, targetActor);
+      await fireStarshipWeapon(this.actor, weaponModule, targetActor, options);
     } catch (err) {
       console.error(`${SYSTEM_ID} | Falha ao disparar Arma.`, err);
     }
@@ -451,11 +494,12 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.isGM = game.user.isGM;
     context.energyLabel = getStarshipEnergyLabel();
 
-    // Módulos de slot único (Reator/Bateria/Distribuidor/Escudo/Motor/Casco/FTL) ganham um
-    // bloco dedicado próprio — saem da lista genérica de Módulos pra não duplicar.
-    const specialModules = MEU_SISTEMA.STARSHIP_SINGLE_SLOT_CATEGORIES
-      .map(category => actor.system.singleSlotModule(category))
-      .filter(Boolean);
+    // Módulos de sistema (toda Função menos Arma e Utilidade) ganham um bloco próprio — podem ser
+    // vários da mesma Função agora (dois Núcleos de Dobra, impulso + manobradores).
+    const SYSTEM_ROLES = ["power", "storage", "distribution", "shield", "propulsion", "armor", "ftl"];
+    const specialModules = actor.items.filter(
+      i => i.type === "starship_module" && SYSTEM_ROLES.includes(moduleRole(i.system.category))
+    );
     context.specialModules = specialModules;
     context.weaponModules = actor.system.weaponModules;
     const excludedIds = new Set([...specialModules, ...context.weaponModules].map(m => m.id));
@@ -479,8 +523,9 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
         id: module.id,
         name: module.name,
         img: module.img,
-        category: sys.category,
-        categoryLabel: MEU_SISTEMA.STARSHIP_MODULE_CATEGORY_LABELS[sys.category],
+        // A cor da pílula segue a Função (as classes CSS são as dos ids de sempre).
+        category: MEU_SISTEMA.MODULE_ROLES[moduleRole(sys.category)]?.presetKey ?? "utility",
+        categoryLabel: moduleCategoryLabel(sys.category),
         sizeLabel: MEU_SISTEMA.MODULE_SIZE_LABELS[sys.moduleSize],
         detail: moduleDetail(actor, module, abbr),
         online: sys.status === "online",
@@ -521,6 +566,41 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
         .filter(i => i.type === "starship_module")
         .map(m => [m.id, Math.round(actor.system.powerRatioFor(m) * 100)])
     );
+
+    // Prioridade de energia é decisão da tripulação de CADA Nave (não especificação do Módulo):
+    // lista ordenada, o primeiro recebe energia primeiro quando falta.
+    context.priorityRows = actor.items
+      .filter(i => i.type === "starship_module" && (i.system.powerConsumption ?? 0) > 0)
+      .sort((a, b) => (a.system.powerPriority ?? 0) - (b.system.powerPriority ?? 0))
+      .map((m, index, all) => ({
+        id: m.id,
+        name: m.name,
+        categoryLabel: moduleCategoryLabel(m.system.category),
+        position: index + 1,
+        first: index === 0,
+        last: index === all.length - 1,
+        online: m.system.status === "online"
+      }));
+
+    // Classe (catálogo de Nave ou de Veículo) — só o Mestre troca.
+    const kind = actor.type === "vehicle" ? "vehicle" : "ship";
+    context.classOptions = [{ id: "", label: "— sem Classe —" }, ...getVesselClasses(kind)].map(c => ({
+      id: c.id, label: c.label, selected: c.id === (actor.system.shipClass ?? "")
+    }));
+    context.vesselClass = actor.system.vesselClass;
+
+    // Funções de Tripulação: catálogo + a função salva, mesmo se saiu do catálogo.
+    const roles = getCrewRoles();
+    context.crewRows = actor.system.crewActors.map(entry => {
+      const options = roles.map(r => ({ id: r.id, label: r.label, selected: r.id === entry.role }));
+      if (entry.role && !roles.some(r => r.id === entry.role)) options.push({ id: entry.role, label: entry.role, selected: true });
+      return {
+        ...entry,
+        roleLabel: roles.find(r => r.id === entry.role)?.label ?? entry.role,
+        roleOptions: options,
+        canChangeRole: game.user.isGM || entry.actor.isOwner
+      };
+    });
 
     context.skills = actor.system.skills;
     context.padShipEnabled = isPadShipEnabled();
@@ -585,6 +665,8 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
       powerGridTick: TabbedActorSheetV2.onPowerGridTick,
       useSkill: TabbedActorSheetV2.onUseSkill,
       fireWeapon: TabbedActorSheetV2.onFireWeapon,
+      removeTrait: TabbedActorSheetV2.onRemoveTrait,
+      movePriority: TabbedActorSheetV2.onMovePriority,
       toggleModuleVitalAdjust: TabbedActorSheetV2.onToggleModuleVitalAdjust,
       adjustModuleVital: TabbedActorSheetV2.onAdjustModuleVital,
       editImage: TabbedActorSheetV2.onEditImage,
@@ -609,6 +691,8 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
     context.config = MEU_SISTEMA;
     context.shipSizeOptions = sizeOptions(MEU_SISTEMA.SHIP_SIZES);
     context.shipManeuverEnabled = isShipManeuverEnabled();
+    context.traits = traitContext(actor);
+    context.isGM = game.user.isGM;
     context.evasionPercent = Math.round(actor.system.evasion * 100);
 
     this._prepareShipSystemsContext(context);
@@ -639,6 +723,8 @@ export class NihilityVehicleSheet extends TabbedActorSheetV2 {
       powerGridTick: TabbedActorSheetV2.onPowerGridTick,
       useSkill: TabbedActorSheetV2.onUseSkill,
       fireWeapon: TabbedActorSheetV2.onFireWeapon,
+      removeTrait: TabbedActorSheetV2.onRemoveTrait,
+      movePriority: TabbedActorSheetV2.onMovePriority,
       toggleModuleVitalAdjust: TabbedActorSheetV2.onToggleModuleVitalAdjust,
       adjustModuleVital: TabbedActorSheetV2.onAdjustModuleVital,
       editImage: TabbedActorSheetV2.onEditImage,
@@ -664,6 +750,8 @@ export class NihilityVehicleSheet extends TabbedActorSheetV2 {
     context.isVehicle = true;
     context.shipSizeOptions = sizeOptions(MEU_SISTEMA.VEHICLE_SIZES);
     context.shipManeuverEnabled = isShipManeuverEnabled();
+    context.traits = traitContext(actor);
+    context.isGM = game.user.isGM;
     context.evasionPercent = Math.round(actor.system.evasion * 100);
     context.parts = actor.system.parts;
     context.fuelPercent = percentOf(actor.system.fuel.value, actor.system.fuel.max);

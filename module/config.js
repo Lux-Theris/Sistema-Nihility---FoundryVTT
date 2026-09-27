@@ -26,6 +26,13 @@ export const MEU_SISTEMA = {
     skillPointsPerLevel: "skillPointsPerLevel",
     damageElementsData: "damageElementsData",
     statusConditionsData: "statusConditionsData",
+    traitsData: "traitsData",
+    scalesData: "scalesData",
+    moduleCategoriesData: "moduleCategoriesData",
+    shipClassesData: "shipClassesData",
+    vehicleClassesData: "vehicleClassesData",
+    crewRolesData: "crewRolesData",
+    structuresData: "structuresData",
     // Blocos ligáveis/desligáveis por campanha (ver MEU_SISTEMA.FEATURES). As chaves dos blocos
     // que já existiam mantêm o nome original de storage de propósito — mundos que já tinham
     // essas settings configuradas não perdem o valor ao atualizar.
@@ -202,6 +209,21 @@ export const MEU_SISTEMA = {
         movementGmIgnores: { label: "Mestre ignora o limite", hint: "O Mestre move tokens sem gastar nem respeitar o deslocamento.", type: "boolean", default: true }
       }
     },
+    structures: {
+      setting: "structuresEnabled",
+      name: "Estruturas (manipulação do ambiente)",
+      hint: "Skills que criam paredes e blocos no mapa (Parede de Pedra, Bloco de Gelo, Barreira de Mana), com forma escolhida ou desenhada à mão. As Estruturas bloqueiam movimento e visão como paredes de verdade. Catálogo em Configurações Gerais › Estruturas.",
+      default: true
+    },
+    scale: {
+      setting: "scaleEnabled",
+      name: "Escala (Personagem × Nave)",
+      hint: "Dano entre escalas diferentes (Pessoal, Veículo, Nave, Capital) é multiplicado ou dividido pelo fator a cada degrau: uma pistola faz quase nada numa Nave, um canhão de Nave vaporiza uma pessoa. As escalas e o Porte de cada uma ficam em Configurações Gerais › Escalas.",
+      default: false,
+      options: {
+        scaleFactor: { label: "Fator por degrau", hint: "Quanto o dano muda a cada degrau de diferença (10 = ×10 / ÷10).", type: "number", default: 10, min: 1 }
+      }
+    },
     shipManeuver: {
       setting: "shipManeuverEnabled",
       name: "Movimento e Evasão de naves",
@@ -232,29 +254,39 @@ export const MEU_SISTEMA = {
   CAMPAIGN_PRESETS: {
     medieval: {
       label: "Fantasia Medieval",
+      // Conteúdo que o preset carrega (substitui o catálogo): nome da(s) lista(s) de MEU_SISTEMA.
+      content: { damageElementsData: ["DEFAULT_DAMAGE_ELEMENTS"] },
       hint: "Isekai/fantasia: Títulos, Anatomia, Fusão e Magia ligados; nada de Naves, Veículos ou PAD.",
       features: {
         economy: true, titles: true, anatomy: true, vessels: false, skillFusion: true,
         skillPoints: true, attributePool: true, resistances: true, statusConditions: true,
-        areaEffects: true, aiAssistant: true, pad: false, movement: true, shipManeuver: false
+        areaEffects: true, aiAssistant: true, pad: false, movement: true, shipManeuver: false, scale: false, structures: true
       }
     },
     scifi: {
       label: "Sci-Fi Arcano",
+      content: {
+        damageElementsData: ["SCIFI_DAMAGE_ELEMENTS", "DEFAULT_DAMAGE_ELEMENTS"],
+        moduleCategoriesData: ["SCIFI_MODULE_CATEGORIES"]
+      },
       hint: "Naves, Veículos e PAD ligados; Títulos e Fusão de Habilidades desligados (são convenções de isekai).",
       features: {
         economy: true, titles: false, anatomy: true, vessels: true, skillFusion: false,
         skillPoints: true, attributePool: true, resistances: true, statusConditions: true,
-        areaEffects: true, aiAssistant: true, pad: true, movement: true, shipManeuver: true
+        areaEffects: true, aiAssistant: true, pad: true, movement: true, shipManeuver: true, scale: true, structures: true
       }
     },
     misto: {
       label: "Misto (tudo ligado)",
+      content: {
+        damageElementsData: ["DEFAULT_DAMAGE_ELEMENTS", "SCIFI_DAMAGE_ELEMENTS"],
+        moduleCategoriesData: ["SCIFI_MODULE_CATEGORIES"]
+      },
       hint: "O sistema inteiro disponível — fantasia e sci-fi coexistindo na mesma campanha.",
       features: {
         economy: true, titles: true, anatomy: true, vessels: true, skillFusion: true,
         skillPoints: true, attributePool: true, resistances: true, statusConditions: true,
-        areaEffects: true, aiAssistant: true, pad: true, movement: true, shipManeuver: true
+        areaEffects: true, aiAssistant: true, pad: true, movement: true, shipManeuver: true, scale: true, structures: true
       }
     }
   },
@@ -374,6 +406,111 @@ export const MEU_SISTEMA = {
   },
 
   STARSHIP_SINGLE_SLOT_CATEGORIES: ["reactor", "battery", "distributor", "shield", "engine", "armor", "ftl"],
+
+  /**
+   * FUNÇÕES MECÂNICAS de Módulo — o que o código de fato entende. As Categorias (catálogo
+   * editável, `moduleCategoriesData`) são nomes livres que apontam pra uma Função: "Motor de
+   * Impulso" e "Manobradores" são as duas Propulsão; "Núcleo de Dobra" e "Contêiner da
+   * Protoestrela" as duas Geração de Energia. Como várias da mesma Função se combinam é da
+   * Função, não da Categoria (senão duas Categorias de Propulsão com regras diferentes brigariam):
+   *  - sum: somam (Geração, Armazenamento, Escudo, Propulsão, Blindagem);
+   *  - independent: cada uma é usada por si (FTL — dobra, transdobra —, Arma);
+   *  - single: só uma ativa (Distribuição; somar dois dobraria o teto de transferência);
+   *  - none: sem mecânica (Utilidade/Narrativo — Comunicações, Defletor… só Vida, consumo e
+   *    Habilidade Concedida).
+   * `presetKey` aponta pra linha de MODULE_SIZE_PRESETS (indexada pelos ids antigos).
+   */
+  MODULE_ROLES: {
+    power: { label: "Geração de Energia", combine: "sum", presetKey: "reactor", overload: 100 },
+    storage: { label: "Armazenamento", combine: "sum", presetKey: "battery", overload: null },
+    distribution: { label: "Distribuição", combine: "single", presetKey: "distributor", overload: null },
+    shield: { label: "Escudo", combine: "sum", presetKey: "shield", overload: 500 },
+    propulsion: { label: "Propulsão", combine: "sum", presetKey: "engine", overload: 200 },
+    ftl: { label: "FTL", combine: "independent", presetKey: "ftl", overload: 200 },
+    armor: { label: "Blindagem", combine: "sum", presetKey: "armor", overload: 200 },
+    weapon: { label: "Arma", combine: "independent", presetKey: "weapon", overload: null },
+    utility: { label: "Utilidade/Narrativo", combine: "none", presetKey: "utility", overload: 200 }
+  },
+
+  /**
+   * Catálogo padrão de Categorias — as 9 de sempre, com os MESMOS ids, então Naves salvas antes
+   * das Categorias personalizáveis continuam funcionando sem migração. `slots`: quantas cabem por
+   * padrão (a Classe pode mudar); 0 = sem limite de contagem (Arma usa o orçamento de espaço).
+   */
+  DEFAULT_MODULE_CATEGORIES: [
+    { id: "reactor", label: "Reator", role: "power", slots: 1 },
+    { id: "battery", label: "Bateria", role: "storage", slots: 1 },
+    { id: "distributor", label: "Distribuidor", role: "distribution", slots: 1 },
+    { id: "shield", label: "Escudo", role: "shield", slots: 1 },
+    { id: "engine", label: "Motor", role: "propulsion", slots: 1 },
+    { id: "armor", label: "Casco (Armadura)", role: "armor", slots: 1 },
+    { id: "ftl", label: "FTL", role: "ftl", slots: 1 },
+    { id: "weapon", label: "Arma", role: "weapon", slots: 0 },
+    { id: "utility", label: "Utilidade", role: "utility", slots: 0 }
+  ],
+
+  /** Categorias estilo Star Trek — carregadas pelo preset Sci-Fi (impulso + manobradores, dobra…). */
+  SCIFI_MODULE_CATEGORIES: [
+    { id: "reactor", label: "Núcleo de Dobra", role: "power", slots: 1 },
+    { id: "battery", label: "Bancos de Energia", role: "storage", slots: 1 },
+    { id: "distributor", label: "Rede EPS", role: "distribution", slots: 1 },
+    { id: "shield", label: "Escudos Defletores", role: "shield", slots: 1 },
+    { id: "engine", label: "Motor de Impulso", role: "propulsion", slots: 1 },
+    { id: "thrusters", label: "Manobradores (RCS)", role: "propulsion", slots: 1 },
+    { id: "armor", label: "Blindagem Ablativa", role: "armor", slots: 1 },
+    { id: "ftl", label: "Motor de Dobra", role: "ftl", slots: 1 },
+    { id: "transwarp", label: "Transdobra", role: "ftl", slots: 0 },
+    { id: "weapon", label: "Arma", role: "weapon", slots: 0 },
+    { id: "utility", label: "Utilidade", role: "utility", slots: 0 }
+  ],
+
+  /**
+   * Classes de Nave (Porte = tamanho, Classe = papel). Multiplicadores sobre o que o Porte dá e
+   * vagas por Categoria (`slots`: {categoriaId: n}, sobrescreve o padrão da Categoria). "Parrudo"
+   * vem de mais vagas de Blindagem/Escudo. `maxWeaponSize`: id de MODULE_SIZES ("" = sem limite).
+   */
+  DEFAULT_SHIP_CLASSES: [
+    { id: "explorer", label: "Exploradora", description: "Equilibrada.", evasionMultiplier: 1, movementMultiplier: 1, weaponBudgetMultiplier: 1, maxWeaponSize: "", slots: {} },
+    { id: "battleship", label: "Encouraçado", description: "Blindagem e escudos dobrados, lento e fácil de acertar.", evasionMultiplier: 0.6, movementMultiplier: 0.75, weaponBudgetMultiplier: 1.5, maxWeaponSize: "", slots: { armor: 2, shield: 2 } },
+    { id: "cruiser", label: "Cruzador", description: "Mais armas que o normal para o Porte.", evasionMultiplier: 0.9, movementMultiplier: 1, weaponBudgetMultiplier: 1.5, maxWeaponSize: "", slots: {} },
+    { id: "freighter", label: "Cargueiro", description: "Pouca arma, mais espaço de Utilidade.", evasionMultiplier: 0.8, movementMultiplier: 0.9, weaponBudgetMultiplier: 0.25, maxWeaponSize: "standard", slots: {} },
+    { id: "interceptor", label: "Interceptador", description: "Rápido e difícil de acertar, frágil.", evasionMultiplier: 1.4, movementMultiplier: 1.3, weaponBudgetMultiplier: 0.75, maxWeaponSize: "", slots: {} }
+  ],
+
+  DEFAULT_VEHICLE_CLASSES: [
+    { id: "car", label: "Carro", description: "Leve e rápido.", evasionMultiplier: 1.2, movementMultiplier: 1.2, weaponBudgetMultiplier: 0.5, maxWeaponSize: "compact", slots: {} },
+    { id: "tank", label: "Tanque", description: "Blindagem dobrada, lento, armado.", evasionMultiplier: 0.5, movementMultiplier: 0.6, weaponBudgetMultiplier: 2, maxWeaponSize: "", slots: { armor: 2 } },
+    { id: "bike", label: "Moto", description: "Muito rápida, quase sem proteção.", evasionMultiplier: 1.6, movementMultiplier: 1.5, weaponBudgetMultiplier: 0.5, maxWeaponSize: "compact", slots: {} }
+  ],
+
+  /**
+   * Funções de Tripulação: dizem QUEM ESTÁ EM QUAL POSTO — não são permissão. Com poucos
+   * jogadores, o engenheiro tem que conseguir assumir o leme se o piloto cair; qualquer
+   * tripulante opera qualquer coisa e troca a própria função na hora.
+   */
+  /**
+   * Estruturas que uma Skill pode criar no mapa. `shape`: line (dois cliques), free (traçado ponto
+   * a ponto), circle (centro, `size` = raio), rect (centro, `size` = lado). `size` em metros —
+   * comprimento máximo pra linha/livre. `hp` 0 = **barreira de mana**: o dano que ela leva sai da
+   * Mana de quem conjurou. `durationRounds` 0 = sem prazo (some com a Skill Ativa desligada, ou
+   * quando o Mestre remove, ou quando a Vida/Mana de quem conjurou chega a 0).
+   */
+  DEFAULT_STRUCTURES: [
+    { id: "stone-wall", label: "Parede de Pedra", img: "", color: "#8d8471", shape: "free", size: 10, blocksMove: true, blocksSight: true, hp: 60, durationRounds: 0 },
+    { id: "ice-block", label: "Bloco de Gelo", img: "", color: "#6ee7ff", shape: "rect", size: 2, blocksMove: true, blocksSight: false, hp: 30, durationRounds: 3 },
+    { id: "mana-barrier", label: "Barreira de Mana", img: "", color: "#c084fc", shape: "circle", size: 3, blocksMove: true, blocksSight: false, hp: 0, durationRounds: 0 }
+  ],
+  STRUCTURE_SHAPES: ["line", "free", "circle", "rect"],
+  STRUCTURE_SHAPE_LABELS: { line: "Linha reta", free: "Forma livre (desenhar)", circle: "Círculo", rect: "Quadrado" },
+
+  DEFAULT_CREW_ROLES: [
+    { id: "captain", label: "Capitão" },
+    { id: "pilot", label: "Piloto" },
+    { id: "engineer", label: "Engenheiro" },
+    { id: "tactical", label: "Tático" },
+    { id: "science", label: "Ciências" },
+    { id: "medic", label: "Médico" }
+  ],
 
   /**
    * Limiar de `powerAllocationPercent` (%) acima do qual um Módulo sofre dano por sobrecarga a
@@ -568,13 +705,14 @@ export const MEU_SISTEMA = {
   },
 
   /** Ver module/area-effects.js. */
-  SKILL_TARGET_TYPES: ["targeted", "self", "emission", "zone"],
+  SKILL_TARGET_TYPES: ["targeted", "self", "emission", "zone", "structure"],
 
   SKILL_TARGET_TYPE_LABELS: {
     targeted: "Targetada (escolhe 1 Ator)",
     self: "Si mesmo (sem escolher alvo)",
     emission: "Emissão (atinge na hora quem está na área)",
-    zone: "Zona (área que fica na cena e afeta quem permanecer nela)"
+    zone: "Zona (área que fica na cena e afeta quem permanecer nela)",
+    structure: "Estrutura (parede, bloco, barreira no mapa)"
   },
 
   SKILL_AREA_SHAPES: ["", "circle", "cone", "ray"],
@@ -605,8 +743,17 @@ export const MEU_SISTEMA = {
     "hp",
     "energy",
     "shield",
+    "movement",
+    "weaponDamage",
+    "weaponElement",
+    "weaponMagic",
+    "weaponAbsolute",
     "shipWeaponDamage",
-    "shipWeaponPenetration"
+    "shipWeaponPenetration",
+    "shipShieldCapacity",
+    "shipShieldRegen",
+    "shipReactorOutput",
+    "shipPropulsion"
   ],
 
   EFFECT_TARGET_LABELS: {
@@ -621,12 +768,33 @@ export const MEU_SISTEMA = {
     hp: "HP",
     energy: "Mana/Energia",
     shield: "Escudo",
+    movement: "Deslocamento (%)",
+    weaponDamage: "Dano das Armas equipadas",
+    weaponElement: "Elemento das Armas (substitui)",
+    weaponMagic: "Armas causam dano Mágico",
+    weaponAbsolute: "Armas causam Dano Absoluto",
     shipWeaponDamage: "Dano de Arma (Nave)",
-    shipWeaponPenetration: "Penetração de Arma (Nave)"
+    shipWeaponPenetration: "Penetração de Arma (Nave)",
+    shipShieldCapacity: "Capacidade do Escudo (Nave, %)",
+    shipShieldRegen: "Regeneração do Escudo (Nave, %)",
+    shipReactorOutput: "Geração de Energia (Nave, %)",
+    shipPropulsion: "Propulsão (Nave, %)"
   },
 
+  /**
+   * Grupos do seletor de Alvo de um Efeito — só organização. `actor` diz em que tipo de Ator o
+   * alvo faz sentido: aplicar um alvo de Nave num Personagem (ou vice-versa) é recusado com aviso
+   * no chat, em vez de gravar um efeito que não faz nada.
+   */
+  EFFECT_TARGET_GROUPS: [
+    { label: "Atributos", actor: "character", targets: ["strength", "defense", "magic", "magicalDefense", "dexterity", "stealth", "perception", "precision"] },
+    { label: "Vitais", actor: "character", targets: ["hp", "energy", "shield", "movement"] },
+    { label: "Arma", actor: "any", targets: ["weaponDamage", "weaponElement", "weaponMagic", "weaponAbsolute"] },
+    { label: "Nave", actor: "ship", targets: ["shipWeaponDamage", "shipWeaponPenetration", "shipShieldCapacity", "shipShieldRegen", "shipReactorOutput", "shipPropulsion"] }
+  ],
+
   /** Alvos "de Nave" de EFFECT_TARGETS — só fazem sentido numa Skill usada por uma Nave. */
-  SHIP_EFFECT_TARGETS: ["shipWeaponDamage", "shipWeaponPenetration"],
+  SHIP_EFFECT_TARGETS: ["shipWeaponDamage", "shipWeaponPenetration", "weaponDamage"],
 
   /**
    * Só relevante pros dois EFFECT_TARGETS "de Nave" acima: uma Skill de aprimoramento de arma
@@ -665,14 +833,73 @@ export const MEU_SISTEMA = {
 
   /** Tipos de dano elemental padrão, sobrescritos pela setting `damageElementsData` (editor visual). */
   DEFAULT_DAMAGE_ELEMENTS: [
-    { id: "physical", label: "Físico", color: "#9aa1c2" },
-    { id: "fire", label: "Fogo", color: "#ff7043" },
-    { id: "ice", label: "Gelo", color: "#6ee7ff" },
-    { id: "lightning", label: "Elétrico", color: "#ffe066" },
-    { id: "acid", label: "Ácido", color: "#8bc34a" },
-    { id: "dark", label: "Sombrio", color: "#7b5ea7" },
-    { id: "holy", label: "Sagrado", color: "#e8c170" }
+    { id: "physical", label: "Físico", color: "#9aa1c2", group: "Físico", effects: [] },
+    { id: "fire", label: "Fogo", color: "#ff7043", group: "Fantasia", effects: [{ type: "condition", conditionId: "burn", chance: 25 }] },
+    { id: "ice", label: "Gelo", color: "#6ee7ff", group: "Fantasia", effects: [{ type: "condition", conditionId: "slow", chance: 25 }] },
+    { id: "lightning", label: "Elétrico", color: "#ffe066", group: "Fantasia", effects: [] },
+    { id: "acid", label: "Ácido", color: "#8bc34a", group: "Fantasia", effects: [] },
+    { id: "dark", label: "Sombrio", color: "#7b5ea7", group: "Fantasia", effects: [] },
+    { id: "holy", label: "Sagrado", color: "#e8c170", group: "Fantasia", effects: [] }
   ],
+
+  /**
+   * Tipos de Efeito ao acertar que um Elemento pode ter (tela Tipos de Dano). O código entende
+   * só estes tipos; os números ficam com o Mestre.
+   *  - condition: aplica uma Condição (com chance %), usando o efeito padrão dela;
+   *  - traitBonus: +X% de dano se o alvo tiver o Traço;
+   *  - shieldDrain: +X% de dano só contra Escudo (camada de Escudo da Nave ou Escudo pessoal);
+   *  - penetration: ignora X% das defesas do alvo (nunca atravessa Imunidade).
+   */
+  ELEMENT_EFFECT_TYPES: ["condition", "traitBonus", "shieldDrain", "penetration"],
+  ELEMENT_EFFECT_TYPE_LABELS: {
+    condition: "Aplicar Condição",
+    traitBonus: "Dano extra contra Traço",
+    shieldDrain: "Dano extra em Escudo",
+    penetration: "Penetração"
+  },
+
+  /** Elementos de energia estilo Star Trek Online — carregados pelo preset Sci-Fi. */
+  SCIFI_DAMAGE_ELEMENTS: [
+    { id: "kinetic", label: "Cinético", color: "#b0b7d6", group: "Físico", effects: [] },
+    { id: "phaser", label: "Phaser", color: "#ff9f43", group: "Energia", effects: [] },
+    { id: "disruptor", label: "Disruptor", color: "#6ee7a0", group: "Energia", effects: [{ type: "penetration", percent: 10 }] },
+    { id: "plasma", label: "Plasma", color: "#7bed9f", group: "Energia", effects: [{ type: "condition", conditionId: "burn", chance: 25 }] },
+    { id: "polaron", label: "Pólaron", color: "#a29bfe", group: "Energia", effects: [{ type: "traitBonus", trait: "organic", percent: 20 }] },
+    { id: "tetryon", label: "Táquion", color: "#74b9ff", group: "Energia", effects: [{ type: "shieldDrain", percent: 30 }] },
+    { id: "antiproton", label: "Antiprótons", color: "#fd79a8", group: "Energia", effects: [] },
+    { id: "transphasic", label: "Transfásico", color: "#e8c170", group: "Exótico", effects: [{ type: "penetration", percent: 40 }] }
+  ],
+
+  /**
+   * Traços (Dracônico, Voador, Orgânico…): etiquetas que uma Espécie dá a quem a tem, e que a
+   * ficha pode acrescentar ou retirar. Usados por Elementos ("+X% contra Orgânico") e, depois,
+   * pelos Modificadores Condicionais ("Caçador de Dragões"). Sobrescritos pela setting `traitsData`.
+   */
+  DEFAULT_TRAITS: [
+    { id: "organic", label: "Orgânico" },
+    { id: "mechanical", label: "Mecânico" },
+    { id: "draconic", label: "Dracônico" },
+    { id: "flying", label: "Voador" },
+    { id: "wingless", label: "Sem Asas" },
+    { id: "undead", label: "Morto-vivo" },
+    { id: "beast", label: "Besta" }
+  ],
+
+  /**
+   * Escala (Pessoal → Veículo → Nave → Capital): dano entre escalas diferentes é multiplicado ou
+   * dividido pelo fator a cada degrau (ver `scaleMultiplier` em damage-rules.js). A ordem da
+   * lista É a ordem dos degraus. Porte de Nave/Veículo aponta pra uma escala.
+   */
+  DEFAULT_SCALES: {
+    scales: [
+      { id: "personal", label: "Pessoal" },
+      { id: "vehicle", label: "Veículo" },
+      { id: "ship", label: "Nave" },
+      { id: "capital", label: "Capital" }
+    ],
+    shipSizeMap: { mini: "vehicle", pequeno: "vehicle", medio: "ship", grande: "ship", capital: "capital" },
+    vehicleSizeMap: { mini: "vehicle", pequeno: "vehicle" }
+  },
 
   /**
    * Condições nomeadas padrão, sobrescritas pela setting `statusConditionsData` (editor
@@ -685,13 +912,20 @@ export const MEU_SISTEMA = {
    */
   DEFAULT_STATUS_CONDITIONS: [
     { id: "blindness", label: "Cegueira", icon: "icons/svg/blind.svg" },
-    { id: "poison", label: "Veneno", icon: "icons/svg/poison.svg" },
+    { id: "poison", label: "Veneno", icon: "icons/svg/poison.svg",
+      effect: { kind: "tick", tickTarget: "hp", tickSign: "damage", valueMode: "hitPercent", value: 5, durationRounds: 3, tickUnit: "combatRound" } },
+    { id: "burn", label: "Queimadura", icon: "icons/svg/fire.svg",
+      effect: { kind: "tick", tickTarget: "hp", tickSign: "damage", valueMode: "hitPercent", value: 10, durationRounds: 2, tickUnit: "combatRound" } },
+    { id: "slow", label: "Lentidão", icon: "icons/svg/frozen.svg",
+      effect: { kind: "modifier", modTarget: "movement", modMode: "percent", value: -50, durationRounds: 2 } },
     { id: "stun", label: "Atordoamento", icon: "icons/svg/daze.svg" },
     { id: "silence", label: "Silêncio", icon: "icons/svg/silenced.svg" },
     { id: "paralysis", label: "Paralisia", icon: "icons/svg/paralysis.svg" },
     { id: "fear", label: "Medo", icon: "icons/svg/terror.svg" },
-    { id: "bleeding", label: "Sangramento", icon: "icons/svg/blood.svg" },
-    { id: "regeneration", label: "Regeneração", icon: "icons/svg/regen.svg" }
+    { id: "bleeding", label: "Sangramento", icon: "icons/svg/blood.svg",
+      effect: { kind: "tick", tickTarget: "hp", tickSign: "damage", valueMode: "hitPercent", value: 5, durationRounds: 3, tickUnit: "combatRound" } },
+    { id: "regeneration", label: "Regeneração", icon: "icons/svg/regen.svg",
+      effect: { kind: "tick", tickTarget: "hp", tickSign: "heal", valueMode: "maxPercent", value: 5, durationRounds: 3, tickUnit: "combatRound" } }
   ],
 
   /** Valores padrão (fallback) dos rótulos de energia — Personagens e Naves usam energias diferentes. */
@@ -738,6 +972,7 @@ export const MEU_SISTEMA = {
     humano: {
       label: "Humano",
       group: "fantasia",
+      traits: ["organic"],
       availableAtCreation: true,
       parts: [
         { key: "head", label: "Cabeça", slot: "head", hpMax: 10, tags: ["vital"] },
@@ -754,6 +989,7 @@ export const MEU_SISTEMA = {
     elfo: {
       label: "Elfo",
       group: "fantasia",
+      traits: ["organic"],
       availableAtCreation: true,
       parts: [
         { key: "head", label: "Cabeça", slot: "head", hpMax: 8, tags: ["vital"] },
@@ -771,6 +1007,7 @@ export const MEU_SISTEMA = {
     anao: {
       label: "Anão",
       group: "fantasia",
+      traits: ["organic"],
       availableAtCreation: true,
       parts: [
         { key: "head", label: "Cabeça", slot: "head", hpMax: 12, tags: ["vital"] },
@@ -788,6 +1025,7 @@ export const MEU_SISTEMA = {
     orc: {
       label: "Orc",
       group: "fantasia",
+      traits: ["organic"],
       availableAtCreation: true,
       parts: [
         { key: "head", label: "Cabeça", slot: "head", hpMax: 12, tags: ["vital"] },
@@ -805,6 +1043,7 @@ export const MEU_SISTEMA = {
     goblin: {
       label: "Goblin",
       group: "fantasia",
+      traits: ["organic"],
       availableAtCreation: true,
       parts: [
         { key: "head", label: "Cabeça", slot: "head", hpMax: 6, tags: ["vital"] },
@@ -822,6 +1061,7 @@ export const MEU_SISTEMA = {
     halfling: {
       label: "Pequenino",
       group: "fantasia",
+      traits: ["organic"],
       availableAtCreation: true,
       parts: [
         { key: "head", label: "Cabeça", slot: "head", hpMax: 7, tags: ["vital"] },
@@ -839,6 +1079,7 @@ export const MEU_SISTEMA = {
     slime: {
       label: "Slime",
       group: "isekai",
+      traits: ["organic"],
       availableAtCreation: true,
       parts: [
         { key: "core", label: "Núcleo", slot: "core", hpMax: 30, tags: ["vital", "regenerative"] },
@@ -851,6 +1092,7 @@ export const MEU_SISTEMA = {
     dragoide: {
       label: "Dragoide",
       group: "isekai",
+      traits: ["organic", "draconic", "wingless"],
       availableAtCreation: true,
       parts: [
         { key: "head", label: "Cabeça", slot: "head", hpMax: 14, tags: ["vital"] },
@@ -871,6 +1113,7 @@ export const MEU_SISTEMA = {
     ogro: {
       label: "Ogro",
       group: "isekai",
+      traits: ["organic"],
       availableAtCreation: true,
       parts: [
         { key: "head", label: "Cabeça", slot: "head", hpMax: 16, tags: ["vital"] },
@@ -888,6 +1131,7 @@ export const MEU_SISTEMA = {
     lobo_tempestade: {
       label: "Lobo Tempestade",
       group: "isekai",
+      traits: ["organic", "beast"],
       availableAtCreation: true,
       parts: [
         { key: "head", label: "Cabeça", slot: "head", hpMax: 12, tags: ["vital"] },
@@ -906,6 +1150,7 @@ export const MEU_SISTEMA = {
     harpia: {
       label: "Harpia",
       group: "isekai",
+      traits: ["organic", "flying"],
       availableAtCreation: true,
       parts: [
         { key: "head", label: "Cabeça", slot: "head", hpMax: 8, tags: ["vital"] },
@@ -923,6 +1168,7 @@ export const MEU_SISTEMA = {
     ciborgue: {
       label: "Ciborgue",
       group: "scifi",
+      traits: ["organic", "mechanical"],
       availableAtCreation: true,
       parts: [
         { key: "head", label: "Cabeça", slot: "head", hpMax: 10, tags: ["vital"] },
@@ -939,6 +1185,7 @@ export const MEU_SISTEMA = {
     androide: {
       label: "Androide",
       group: "scifi",
+      traits: ["mechanical"],
       availableAtCreation: true,
       parts: [
         { key: "core", label: "Núcleo de Processamento", slot: "core", hpMax: 18, tags: ["vital", "mechanical"] },
@@ -957,6 +1204,7 @@ export const MEU_SISTEMA = {
     mutante: {
       label: "Mutante",
       group: "scifi",
+      traits: ["organic"],
       availableAtCreation: true,
       parts: [
         { key: "head", label: "Cabeça", slot: "head", hpMax: 10, tags: ["vital"] },
@@ -974,6 +1222,7 @@ export const MEU_SISTEMA = {
     simbionte: {
       label: "Simbionte",
       group: "scifi",
+      traits: ["organic"],
       availableAtCreation: true,
       parts: [
         { key: "head", label: "Cabeça", slot: "head", hpMax: 10, tags: ["vital"] },
@@ -992,6 +1241,7 @@ export const MEU_SISTEMA = {
     cavalo: {
       label: "Cavalo",
       group: "besta",
+      traits: ["organic", "beast"],
       availableAtCreation: false,
       parts: [
         { key: "head", label: "Cabeça", slot: "head", hpMax: 10, tags: ["vital"] },
@@ -1009,6 +1259,7 @@ export const MEU_SISTEMA = {
     lobo_gigante: {
       label: "Lobo Gigante",
       group: "besta",
+      traits: ["organic", "beast"],
       availableAtCreation: false,
       parts: [
         { key: "head", label: "Cabeça", slot: "head", hpMax: 14, tags: ["vital"] },
@@ -1027,6 +1278,7 @@ export const MEU_SISTEMA = {
     grifo: {
       label: "Grifo",
       group: "besta",
+      traits: ["organic", "beast", "flying"],
       availableAtCreation: false,
       parts: [
         { key: "head", label: "Cabeça de Águia", slot: "head", hpMax: 12, tags: ["vital", "sensory"] },
@@ -1046,6 +1298,7 @@ export const MEU_SISTEMA = {
     inseto_de_carga: {
       label: "Inseto de Carga",
       group: "besta",
+      traits: ["organic", "beast"],
       availableAtCreation: false,
       parts: [
         { key: "head", label: "Cabeça", slot: "head", hpMax: 10, tags: ["vital"] },
@@ -1101,16 +1354,97 @@ export function convertCurrencyAmount(fromId, toId, amount) {
  * @returns {Array<{id:string,label:string,color:string}>}
  */
 export function getActiveDamageElements() {
+  let list = MEU_SISTEMA.DEFAULT_DAMAGE_ELEMENTS;
   try {
     const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.damageElementsData);
     if (raw) {
       const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-      if (Array.isArray(parsed) && parsed.length) return parsed;
+      if (Array.isArray(parsed) && parsed.length) list = parsed;
     }
   } catch (err) {
     console.warn(`${SYSTEM_ID} | JSON de elementos de dano inválido, usando padrão.`, err);
   }
-  return MEU_SISTEMA.DEFAULT_DAMAGE_ELEMENTS;
+  // Listas salvas antes de grupos/efeitos existirem continuam valendo: sem grupo e sem efeito.
+  return list.map(el => ({ ...el, group: el.group || "Outros", effects: Array.isArray(el.effects) ? el.effects : [] }));
+}
+
+/** Um elemento pelo id, já normalizado (ver `getActiveDamageElements`). */
+export function getDamageElement(id) {
+  return getActiveDamageElements().find(el => el.id === id) ?? null;
+}
+
+/** Catálogo de Traços (setting > padrão). */
+export function getActiveTraits() {
+  try {
+    const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.traitsData);
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (Array.isArray(parsed)) return parsed.filter(t => t?.id);
+  } catch (err) {
+    /* setting ausente/inválida — cai no padrão */
+  }
+  return MEU_SISTEMA.DEFAULT_TRAITS;
+}
+
+/** Rótulo de um Traço (cai no id se o Traço sumiu do catálogo). */
+export function getTraitLabel(id) {
+  return getActiveTraits().find(t => t.id === id)?.label ?? id;
+}
+
+/**
+ * Traços efetivos de um Ator: os da Espécie, mais os acrescentados na ficha, menos os retirados
+ * na ficha. Nave/Veículo só têm os da ficha. Pura sobre os dados que recebe.
+ * @param {{species?:string, traits?:string[], traitsRemoved?:string[]}} system
+ * @param {Record<string, {traits?:string[]}>} speciesPresets
+ * @returns {string[]}
+ */
+export function resolveActorTraits(system, speciesPresets = {}) {
+  const fromSpecies = speciesPresets?.[system?.species]?.traits ?? [];
+  const removed = new Set(system?.traitsRemoved ?? []);
+  return [...new Set([...fromSpecies, ...(system?.traits ?? [])])].filter(t => !removed.has(t));
+}
+
+/** `resolveActorTraits` para um Ator de verdade. */
+export function actorTraits(actor) {
+  return resolveActorTraits(actor?.system, getActiveSpeciesPresets());
+}
+
+/** Configuração de Escala (setting > padrão), sempre com as três chaves. */
+export function getScaleConfig() {
+  let saved = null;
+  try {
+    const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.scalesData);
+    saved = typeof raw === "string" ? JSON.parse(raw) : raw;
+  } catch (err) {
+    /* setting ausente/inválida — cai no padrão */
+  }
+  const fallback = MEU_SISTEMA.DEFAULT_SCALES;
+  const scales = Array.isArray(saved?.scales) && saved.scales.length ? saved.scales : fallback.scales;
+  return {
+    scales,
+    shipSizeMap: { ...fallback.shipSizeMap, ...(saved?.shipSizeMap ?? {}) },
+    vehicleSizeMap: { ...fallback.vehicleSizeMap, ...(saved?.vehicleSizeMap ?? {}) }
+  };
+}
+
+/**
+ * Índice de Escala de um Ator: Personagem usa `system.scale` (vazio = a primeira, Pessoal);
+ * Nave/Veículo seguem o Porte. Escala desconhecida cai no 0.
+ */
+export function actorScaleIndex(actor) {
+  const config = getScaleConfig();
+  let id = "";
+  if (actor?.type === "starship") id = config.shipSizeMap[actor.system?.shipSize];
+  else if (actor?.type === "vehicle") id = config.vehicleSizeMap[actor.system?.shipSize];
+  else id = actor?.system?.scale;
+  const index = config.scales.findIndex(s => s.id === id);
+  return index >= 0 ? index : 0;
+}
+
+/** Índice de uma Escala pelo id, ou `null` se vazio/desconhecido (quem chama usa a de quem ataca). */
+export function scaleIndexOf(id) {
+  if (!id) return null;
+  const index = getScaleConfig().scales.findIndex(s => s.id === id);
+  return index >= 0 ? index : null;
 }
 
 /**
@@ -1268,7 +1602,9 @@ export function getEnergyLabelForActor(actor) {
  */
 export function getModuleSizePreset(category, moduleSize) {
   const preset = {};
-  for (const [field, value] of Object.entries(MEU_SISTEMA.MODULE_SIZE_PRESETS[category]?.[moduleSize] ?? {})) {
+  // Presets são por Função (a Categoria "Manobradores" usa a linha de Propulsão/"engine").
+  const presetKey = MEU_SISTEMA.MODULE_ROLES[moduleRole(category)]?.presetKey ?? category;
+  for (const [field, value] of Object.entries(MEU_SISTEMA.MODULE_SIZE_PRESETS[presetKey]?.[moduleSize] ?? {})) {
     preset[`system.${field}`] = value;
   }
   const hp = MEU_SISTEMA.MODULE_HP_BY_SIZE[moduleSize];
@@ -1277,6 +1613,96 @@ export function getModuleSizePreset(category, moduleSize) {
     preset["system.hp.value"] = hp;
   }
   return preset;
+}
+
+/** Lê uma lista JSON de uma setting; cai no padrão se vazia/inválida/ausente. */
+function readCatalog(settingKey, fallback) {
+  try {
+    const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[settingKey]);
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (Array.isArray(parsed) && parsed.length) return parsed.filter(e => e?.id);
+  } catch (err) {
+    /* setting ausente/inválida — cai no padrão */
+  }
+  return fallback;
+}
+
+/** Catálogo de Categorias de Módulo (setting > padrão), com Função válida em toda entrada. */
+export function getModuleCategories() {
+  return readCatalog("moduleCategoriesData", MEU_SISTEMA.DEFAULT_MODULE_CATEGORIES).map(c => ({
+    ...c,
+    label: c.label || c.id,
+    role: MEU_SISTEMA.MODULE_ROLES[c.role] ? c.role : "utility",
+    slots: Math.max(0, Math.round(Number(c.slots) || 0))
+  }));
+}
+
+/**
+ * Função mecânica de uma Categoria. Id que sumiu do catálogo: tenta a Categoria padrão de mesmo
+ * id (Naves antigas), senão Utilidade — um Módulo órfão nunca quebra a Nave, só perde a mecânica.
+ */
+export function moduleRole(categoryId) {
+  const found = getModuleCategories().find(c => c.id === categoryId)
+    ?? MEU_SISTEMA.DEFAULT_MODULE_CATEGORIES.find(c => c.id === categoryId);
+  return found?.role ?? "utility";
+}
+
+/** Rótulo de uma Categoria (cai no id). */
+export function moduleCategoryLabel(categoryId) {
+  return getModuleCategories().find(c => c.id === categoryId)?.label
+    ?? MEU_SISTEMA.STARSHIP_MODULE_CATEGORY_LABELS[categoryId] ?? categoryId;
+}
+
+/** Catálogo de Classes: `"ship"` (Nave) ou `"vehicle"` (Veículo). */
+export function getVesselClasses(kind) {
+  const list = kind === "vehicle"
+    ? readCatalog("vehicleClassesData", MEU_SISTEMA.DEFAULT_VEHICLE_CLASSES)
+    : readCatalog("shipClassesData", MEU_SISTEMA.DEFAULT_SHIP_CLASSES);
+  return list.map(c => ({
+    ...c,
+    label: c.label || c.id,
+    evasionMultiplier: Number(c.evasionMultiplier) >= 0 ? Number(c.evasionMultiplier) : 1,
+    movementMultiplier: Number(c.movementMultiplier) >= 0 ? Number(c.movementMultiplier) : 1,
+    weaponBudgetMultiplier: Number(c.weaponBudgetMultiplier) >= 0 ? Number(c.weaponBudgetMultiplier) : 1,
+    slots: c.slots && typeof c.slots === "object" ? c.slots : {}
+  }));
+}
+
+/**
+ * Quantas vagas uma Categoria tem nesta Nave: a da Classe, se a Classe disser; senão a da
+ * Categoria. Distribuição é sempre 1 (somar dois dobraria o teto). Pura.
+ * @returns {number} 0 = sem limite de contagem
+ */
+export function categorySlotLimit(category, vesselClass) {
+  if (!category) return 0;
+  if (category.role === "distribution") return 1;
+  const override = vesselClass?.slots?.[category.id];
+  if (override !== undefined && override !== null && override !== "") return Math.max(0, Math.round(Number(override) || 0));
+  return category.slots ?? 0;
+}
+
+/** Catálogo de Estruturas (setting > padrão), com números saneados. */
+export function getStructures() {
+  return readCatalog("structuresData", MEU_SISTEMA.DEFAULT_STRUCTURES).map(s => ({
+    ...s,
+    label: s.label || s.id,
+    shape: MEU_SISTEMA.STRUCTURE_SHAPES.includes(s.shape) ? s.shape : "line",
+    size: Math.max(0.5, Number(s.size) || 1),
+    hp: Math.max(0, Math.round(Number(s.hp) || 0)),
+    durationRounds: Math.max(0, Math.round(Number(s.durationRounds) || 0)),
+    blocksMove: s.blocksMove !== false,
+    blocksSight: Boolean(s.blocksSight),
+    color: s.color || "#9aa1c2"
+  }));
+}
+
+export function isStructuresEnabled() {
+  return isFeatureEnabled("structures");
+}
+
+/** Catálogo de Funções de Tripulação. */
+export function getCrewRoles() {
+  return readCatalog("crewRolesData", MEU_SISTEMA.DEFAULT_CREW_ROLES).map(r => ({ ...r, label: r.label || r.id }));
 }
 
 /**
@@ -1357,6 +1783,22 @@ export function getAttributeLabels() {
  */
 export function getEffectTargetLabels() {
   return { ...MEU_SISTEMA.EFFECT_TARGET_LABELS, ...getAttributeLabels() };
+}
+
+/**
+ * Opções do seletor de Alvo de Efeito, agrupadas (EFFECT_TARGET_GROUPS). Atributo escondido pela
+ * campanha sai da lista — a não ser que seja o alvo já escolhido, senão editar a Skill o apagaria.
+ * @returns {Array<{label:string, options:Array<{value:string,label:string,selected:boolean}>}>}
+ */
+export function getEffectTargetGroups(current) {
+  const labels = getEffectTargetLabels();
+  const visible = new Set(getVisibleAttributes().map(a => a.key));
+  return MEU_SISTEMA.EFFECT_TARGET_GROUPS.map(group => ({
+    label: group.label,
+    options: group.targets
+      .filter(t => !MEU_SISTEMA.COMBAT_ATTRIBUTES.includes(t) || visible.has(t) || t === current)
+      .map(t => ({ value: t, label: labels[t] ?? t, selected: t === current }))
+  })).filter(group => group.options.length);
 }
 
 /**
@@ -1578,7 +2020,7 @@ export function getFeatureOption(featureKey, optionKey) {
  * poder ser testada sem Foundry.
  * @returns {{base:number, fromDexterity:number, fromSkills:number, total:number, capped:boolean}}
  */
-export function movementAllowance({ permanentDexterity = 0, skillDexterity = 0 } = {}, { base = 6, step = 10, cap = 18 } = {}) {
+export function movementAllowance({ permanentDexterity = 0, skillDexterity = 0, percent = 0 } = {}, { base = 6, step = 10, cap = 18 } = {}) {
   const safeBase = Math.max(0, Number(base) || 0);
   const safeStep = Math.max(1, Number(step) || 1);
   // Teto abaixo da base não faz sentido: a base é o piso da parte permanente.
@@ -1588,11 +2030,16 @@ export function movementAllowance({ permanentDexterity = 0, skillDexterity = 0 }
   const permanent = Math.min(raw, ceiling);
   const fromSkills = Math.trunc(skillDexterity / safeStep) || 0;
 
+  // Efeitos percentuais (Lentidão −50%) valem sobre o total, depois da Destreza.
+  const factor = Math.max(0, 1 + (Number(percent) || 0) / 100);
+  const beforePercent = Math.max(0, permanent + fromSkills);
+
   return {
     base: safeBase,
     fromDexterity: permanent - safeBase,
     fromSkills,
-    total: Math.max(0, permanent + fromSkills),
+    percent: Number(percent) || 0,
+    total: Math.floor(beforePercent * factor + 1e-9),
     capped: raw >= ceiling
   };
 }
@@ -1657,6 +2104,22 @@ export function getMovementConfig() {
  * não menciona ficam como estão. Não toca em dado nenhum do mundo — só nas settings de exibição.
  * @param {keyof MEU_SISTEMA["CAMPAIGN_PRESETS"]} presetKey
  */
+/**
+ * Conteúdo que um preset carrega, já resolvido: `{settingKey: lista}`, com as listas de
+ * MEU_SISTEMA juntadas na ordem e sem id repetido (a primeira vence). Pura.
+ */
+export function presetContent(presetKey) {
+  const content = MEU_SISTEMA.CAMPAIGN_PRESETS[presetKey]?.content ?? {};
+  const out = {};
+  for (const [settingKey, names] of Object.entries(content)) {
+    const seen = new Set();
+    out[settingKey] = names
+      .flatMap(name => MEU_SISTEMA[name] ?? [])
+      .filter(entry => entry?.id && !seen.has(entry.id) && seen.add(entry.id));
+  }
+  return out;
+}
+
 export async function applyCampaignPreset(presetKey) {
   const preset = MEU_SISTEMA.CAMPAIGN_PRESETS[presetKey];
   if (!preset) throw new Error(`Preset de campanha desconhecido: "${presetKey}".`);
@@ -1666,6 +2129,10 @@ export async function applyCampaignPreset(presetKey) {
     if (!feature) continue;
     await game.settings.set(SYSTEM_ID, feature.setting, Boolean(enabled));
   }
+  // Conteúdo do preset (elementos de energia, categorias estilo Star Trek…): SUBSTITUI o catálogo.
+  for (const [settingKey, lists] of Object.entries(presetContent(presetKey))) {
+    await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS[settingKey], JSON.stringify(lists, null, 2));
+  }
   return preset;
 }
 
@@ -1673,6 +2140,9 @@ export async function applyCampaignPreset(presetKey) {
    mesmo `isFeatureEnabled` acima (nenhuma leitura paralela de setting). */
 export function isShipManeuverEnabled() {
   return isFeatureEnabled("shipManeuver");
+}
+export function isScaleEnabled() {
+  return isFeatureEnabled("scale");
 }
 export function isMovementEnabled() {
   return isFeatureEnabled("movement");
@@ -2117,6 +2587,25 @@ export function registerSystemSettings() {
     type: String,
     default: JSON.stringify(MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS, null, 2)
   });
+
+  game.settings.register(SYSTEM_ID, S.traitsData, {
+    scope: "world",
+    config: false,
+    type: String,
+    default: JSON.stringify(MEU_SISTEMA.DEFAULT_TRAITS, null, 2)
+  });
+
+  game.settings.register(SYSTEM_ID, S.scalesData, {
+    scope: "world",
+    config: false,
+    type: String,
+    default: JSON.stringify(MEU_SISTEMA.DEFAULT_SCALES, null, 2)
+  });
+
+  // Catálogos de Nave (vazio = padrão do código; ver readCatalog).
+  for (const key of ["moduleCategoriesData", "shipClassesData", "vehicleClassesData", "crewRolesData", "structuresData"]) {
+    game.settings.register(SYSTEM_ID, S[key], { scope: "world", config: false, type: String, default: "" });
+  }
 
   // Chaves das migrações únicas (ver runMigrationIfNeeded em nihility-rpg-system.js) já
   // executadas com sucesso neste mundo — sem isso, cada migração reescanearia todos os

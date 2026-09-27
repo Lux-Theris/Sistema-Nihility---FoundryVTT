@@ -16,8 +16,17 @@
             {{/each}}
           </select>
         </label>
+        <label class="ship-size-field">Classe
+          <select name="system.shipClass" {{#unless isGM}}disabled{{/unless}}>
+            {{#each classOptions as |opt|}}
+            <option value="{{opt.id}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+            {{/each}}
+          </select>
+        </label>
         {{#unless isGM}}<span class="hint-inline" style="margin:0;">(só o Mestre edita)</span>{{/unless}}
       </div>
+      {{#if vesselClass.description}}<p class="hint-inline vessel-class-note">{{vesselClass.label}}: {{vesselClass.description}}</p>{{/if}}
+      {{> nihility.traits traits=traits isGM=isGM}}
     </div>
 
     <div class="resources">
@@ -152,10 +161,29 @@
         </div>
 
         <button type="button" class="power-grid-tick" data-action="powerGridTick">Recalcular Grid de Energia</button>
+
+        {{#if priorityRows.length}}
+        <div class="power-priority">
+          <p class="chain-label">Prioridade de energia <span class="hint-inline" style="display:inline;">(quando falta energia, o primeiro da lista recebe primeiro)</span></p>
+          <ol class="power-priority-list">
+            {{#each priorityRows as |row|}}
+            <li class="power-priority-row {{#unless row.online}}is-offline{{/unless}}">
+              <span class="power-priority-pos">{{row.position}}</span>
+              <span class="power-priority-name">{{row.name}}</span>
+              <span class="hint-inline">{{row.categoryLabel}}</span>
+              {{#if ../canAdjustThrottle}}
+              <a data-action="movePriority" data-item-id="{{row.id}}" data-dir="-1" title="Subir" {{#if row.first}}hidden{{/if}}><i class="fas fa-arrow-up"></i></a>
+              <a data-action="movePriority" data-item-id="{{row.id}}" data-dir="1" title="Descer" {{#if row.last}}hidden{{/if}}><i class="fas fa-arrow-down"></i></a>
+              {{/if}}
+            </li>
+            {{/each}}
+          </ol>
+        </div>
+        {{/if}}
       </div>
 
       <div class="block">
-        <p class="block-title">Módulos Especiais <span class="hint-inline" style="margin:0">(slot único cada)</span></p>
+        <p class="block-title">Módulos de Sistema <span class="hint-inline" style="margin:0">(vagas por Categoria e Classe)</span></p>
         <div class="module-grid">
           <div class="module-grid-head">
             <span>Categoria</span><span>Módulo</span><span>Vida</span><span>Consumo</span><span>Throttle</span><span class="acts-head">Ações</span>
@@ -400,20 +428,26 @@
       <div class="block">
         <p class="block-title">Tripulação</p>
         <ol class="item-list crew-list">
-          {{#each crewActors as |entry|}}
+          {{#each crewRows as |entry|}}
           <li class="item-row crew-row">
             <img src="{{entry.actor.img}}" width="24" height="24"/>
             <span class="item-name">{{entry.actor.name}}</span>
-            {{#if ../isGM}}
-            <input type="text" class="crew-role-input" data-actor-uuid="{{entry.actorUuid}}" value="{{entry.role}}" placeholder="Cargo (ex: Piloto)"/>
-            <a class="item-delete" data-action="removeCrew" data-actor-uuid="{{entry.actorUuid}}" title="Remover tripulante"><i class="fas fa-trash"></i></a>
+            {{#if entry.canChangeRole}}
+            <select class="crew-role-input" data-actor-uuid="{{entry.actorUuid}}" title="Posto atual — qualquer tripulante troca o próprio">
+              <option value="">— sem posto —</option>
+              {{#each entry.roleOptions as |opt|}}<option value="{{opt.id}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+            </select>
             {{else}}
-            {{#if entry.role}}<span class="cat-pill">{{entry.role}}</span>{{/if}}
+            {{#if entry.roleLabel}}<span class="cat-pill">{{entry.roleLabel}}</span>{{/if}}
+            {{/if}}
+            {{#if ../isGM}}
+            <a class="item-delete" data-action="removeCrew" data-actor-uuid="{{entry.actorUuid}}" title="Remover tripulante"><i class="fas fa-trash"></i></a>
             {{/if}}
           </li>
           {{/each}}
         </ol>
         {{#unless crewActors.length}}<p class="hint-inline">Nenhum tripulante designado.</p>{{/unless}}
+        <p class="hint-inline">O posto só diz quem está onde. Qualquer tripulante opera a Nave inteira (move, dispara, ajusta a energia) e troca o próprio posto na hora.</p>
 
         {{#if isGM}}
         <div class="crew-dropzone">Arraste um Personagem (PJ ou NPC) aqui pra designá-lo como tripulante.</div>

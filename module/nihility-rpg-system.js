@@ -37,22 +37,33 @@ import { StatusConditionsConfigApp } from "./apps/status-conditions-config.js";
 import { NihilityMenuApp } from "./apps/nihility-menu.js";
 import { FeatureConfigApp } from "./apps/feature-config.js";
 import { AttributeConfigApp } from "./apps/attribute-config.js";
-import { tickCombatRoundEffects, tickActorUpkeepSkills, advanceZones, tickZonesForCombatant } from "./skill-effects.js";
+import {
+  tickCombatRoundEffects,
+  tickActorUpkeepSkills,
+  advanceZones,
+  tickZonesForCombatant,
+  shutdownActiveSkillsOnDepletion,
+  processPendingUpkeepRemoval
+} from "./skill-effects.js";
+import { isDesignatedGm } from "./helpers/gm-relay.js";
 import { tickStarshipPower } from "./starship-power.js";
 import { requestShipRepair, approveShipRepairRoll, restoreShipRepairTarget } from "./starship-repair.js";
 import { registerGmRelay } from "./helpers/gm-relay.js";
 import { registerInitiative } from "./combat.js";
 import { registerMovementLimit } from "./movement.js";
+import { registerConditionalRefresh } from "./conditional-context.js";
+import { advanceStructures, collapseStructuresOfCaster, renderStructureControls } from "./structures.js";
 import { registerStatusConditions, interceptManualCondition } from "./conditions.js";
 import { renderDamageControls } from "./damage-apply.js";
 import { notifyIncomingPadMessage } from "./pad/pad-messaging.js";
-import { isEnergyPoolEnabled } from "./config.js";
+import { isEnergyPoolEnabled, getModuleCategories, categorySlotLimit, moduleRole } from "./config.js";
 import { registerPortraitHelper } from "./helpers/portrait-frame.js";
 import {
   actorsCollection,
   itemsCollection,
   coreActorSheetClass,
-  coreItemSheetClass
+  coreItemSheetClass,
+  registerSystemPartials
 } from "./helpers/foundry-compat.js";
 
 Hooks.once("init", () => {
@@ -132,9 +143,21 @@ Hooks.once("init", () => {
   // antes de qualquer Combate existir.
   registerInitiative();
 
+  // Partials reaproveitados entre templates (hoje só a Habilidade Concedida, usada 3x na ficha
+  // de Item). Precisa estar registrado antes da primeira ficha abrir.
+  registerSystemPartials({
+    "nihility.grantedSkill": `systems/${SYSTEM_ID}/templates/parts/granted-skill.hbs`,
+    "nihility.elementChips": `systems/${SYSTEM_ID}/templates/parts/element-chips.hbs`,
+    "nihility.traits": `systems/${SYSTEM_ID}/templates/parts/traits.hbs`,
+    "nihility.conditionalModifiers": `systems/${SYSTEM_ID}/templates/parts/conditional-modifiers.hbs`
+  });
+
   // Deslocamento por rodada (ver module/movement.js). Instala a classe de Token e os hooks no
   // `init`; cada um confere `isMovementEnabled()` na hora de agir, então o toggle vale sem reload.
   registerMovementLimit();
+
+  // Bônus condicionais que dependem de "estou em combate" (ver conditional-context.js).
+  registerConditionalRefresh();
 
   // Campos que o Foundry oferece nos seletores de barra de token. Sem isso ele lista o schema
   // cru, onde "shields.regenRate" aparece como se fosse uma barra plausível.
@@ -383,6 +406,27 @@ Hooks.on("preCreateActiveEffect", (effect, data, options, userId) => interceptMa
 // cliente do destinatário sabe se a conversa está aberta na tela — ver notifyIncomingPadMessage.
 Hooks.on("createChatMessage", message => notifyIncomingPadMessage(message));
 
+// Vida ou Mana de quem conjurou em 0 derruba as Estruturas dele que dependem disso (ver
+// collapseStructuresOfCaster em structures.js).
+Hooks.on("updateActor", (actor, changes) => {
+  if (actor.type !== "character") return;
+  const hp = foundry.utils.getProperty(changes, "system.attributes.hp.value");
+  const energy = foundry.utils.getProperty(changes, "system.attributes.energy.value");
+  const hpZero = hp !== undefined && hp <= 0;
+  const energyZero = energy !== undefined && energy <= 0;
+  if (!hpZero && !energyZero) return;
+  collapseStructuresOfCaster(actor, { hpZero, energyZero }).catch(err => console.error(`${SYSTEM_ID} | Falha ao derrubar Estruturas.`, err));
+});
+
+// Mana em 0 desliga todas as Habilidades Ativas (ver shutdownActiveSkillsOnDepletion). Roda só
+// no Mestre designado, pra dois Mestres conectados não desligarem/avisarem em dobro.
+Hooks.on("updateActor", (actor, changes) => {
+  if (actor.type !== "character" || !isEnergyPoolEnabled() || !isDesignatedGm()) return;
+  const energy = foundry.utils.getProperty(changes, "system.attributes.energy.value");
+  if (energy === undefined || energy > 0) return;
+  shutdownActiveSkillsOnDepletion(actor).catch(err => console.error(`${SYSTEM_ID} | Falha ao desligar Habilidades Ativas sem Mana.`, err));
+});
+
 Hooks.on("updateActor", (actor, changes) => {
   if (foundry.utils.getProperty(changes, "system.attributes.xp") === undefined) return;
   announceXpReadyIfJustFilled(actor, actor.name, actor.system.attributes.xp, actor.system.attributes.xpMax);
@@ -419,21 +463,25 @@ function checkModuleSizeCompatibility(actor, moduleSize) {
 }
 
 /**
- * Overhaul de Naves (Fase 2) — categorias de slot único (Reator/Bateria/Distribuidor/Escudo/
- * Motor/Casco/FTL, ver MEU_SISTEMA.STARSHIP_SINGLE_SLOT_CATEGORIES) só podem ter UM Módulo
- * instalado por vez na mesma Nave/Veículo — trocar exige remover o antigo primeiro.
+ * Vagas por Categoria: cada Categoria do catálogo diz quantos Módulos dela cabem (0 = sem limite),
+ * e a Classe da Nave pode mudar isso (ver categorySlotLimit em config.js). Cheio, instalar outro
+ * exige remover um antes.
  */
 function checkSingleSlotAvailable(actor, category, excludeItemId) {
   if (!actor || !["starship", "vehicle"].includes(actor.type)) return true;
-  if (!MEU_SISTEMA.STARSHIP_SINGLE_SLOT_CATEGORIES.includes(category)) return true;
+  // Vagas por Categoria: a da Classe da Nave, se ela disser; senão a da Categoria (0 = sem limite).
+  const categoryDef = getModuleCategories().find(c => c.id === category);
+  if (!categoryDef) return true;
+  const limit = categorySlotLimit(categoryDef, actor.system.vesselClass);
+  if (!limit) return true;
 
-  const existing = actor.items.find(
+  const used = actor.items.filter(
     i => i.type === "starship_module" && i.id !== excludeItemId && i.system.category === category
-  );
-  if (!existing) return true;
+  ).length;
+  if (used < limit) return true;
 
   ui.notifications.error(
-    `${actor.name}: já existe um Módulo de "${MEU_SISTEMA.STARSHIP_MODULE_CATEGORY_LABELS[category]}" instalado — remova-o antes de instalar outro.`
+    `${actor.name}: sem vaga de "${categoryDef.label}" (${used} de ${limit}) — remova um Módulo antes de instalar outro.`
   );
   return false;
 }
@@ -446,13 +494,20 @@ function checkSingleSlotAvailable(actor, category, excludeItemId) {
  */
 function checkWeaponBudget(actor, category, moduleSize, excludeItemId) {
   if (!actor || !["starship", "vehicle"].includes(actor.type)) return true;
-  if (category !== "weapon") return true;
+  if (moduleRole(category) !== "weapon") return true;
+
+  // Porte máximo de Arma da Classe (um Cargueiro não monta canhão Colossal).
+  const maxSize = actor.system.vesselClass?.maxWeaponSize;
+  if (maxSize && MEU_SISTEMA.MODULE_SIZE_RANK[moduleSize] > MEU_SISTEMA.MODULE_SIZE_RANK[maxSize]) {
+    ui.notifications.error(`${actor.name}: a Classe desta Nave não comporta Arma maior que ${MEU_SISTEMA.MODULE_SIZE_LABELS[maxSize]}.`);
+    return false;
+  }
 
   const budget = actor.system.weaponSlotBudget;
   if (!Number.isFinite(budget)) return true;
 
   const usedByOthers = actor.items
-    .filter(i => i.type === "starship_module" && i.id !== excludeItemId && i.system.category === "weapon")
+    .filter(i => i.type === "starship_module" && i.id !== excludeItemId && moduleRole(i.system.category) === "weapon")
     .reduce((sum, i) => sum + MEU_SISTEMA.MODULE_SIZE_RANK[i.system.moduleSize] + 1, 0);
   const thisUnit = MEU_SISTEMA.MODULE_SIZE_RANK[moduleSize] + 1;
   if (usedByOthers + thisUnit <= budget) return true;
@@ -499,6 +554,7 @@ Hooks.on("updateCombat", async (combat, changed) => {
 
   try {
     if (changed.round !== undefined && combat.scene) await advanceZones(combat.scene);
+    if (changed.round !== undefined && combat.scene) await advanceStructures(combat.scene);
     await tickZonesForCombatant(combat.combatant);
   } catch (err) {
     console.error(`${SYSTEM_ID} | Falha ao processar Zonas no início do turno.`, err);
@@ -508,6 +564,13 @@ Hooks.on("updateCombat", async (combat, changed) => {
     await tickCombatRoundEffects(actor);
   } catch (err) {
     console.error(`${SYSTEM_ID} | Falha ao ticar Efeitos Periódicos no início do turno.`, err);
+  }
+
+  try {
+    // Efeitos das Skills que a Mana em 0 desligou no turno anterior somem agora.
+    await processPendingUpkeepRemoval(actor);
+  } catch (err) {
+    console.error(`${SYSTEM_ID} | Falha ao remover efeitos de Habilidades desligadas por falta de Mana.`, err);
   }
 
   try {
@@ -530,6 +593,9 @@ Hooks.on("updateCombat", async (combat, changed) => {
 // HTMLElement puro em vez de jQuery, então tudo aqui é DOM nativo.
 Hooks.on("renderChatMessageHTML", (message, html) => {
   const on = (selector, handler) => html.querySelectorAll(selector).forEach(el => el.addEventListener("click", handler));
+
+  // Cartão de Estrutura (Vida, dano, derrubar) — ver structures.js.
+  renderStructureControls(message, html);
 
   on(".skill-request-approve", () => approveSkillCreationRequest(message));
   on(".skill-request-reject", () => rejectSkillCreationRequest(message));

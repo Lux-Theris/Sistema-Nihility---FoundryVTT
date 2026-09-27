@@ -3959,3 +3959,471 @@ form.nihility-config-app {
   border: 1px solid var(--nihility-border);
   color: var(--nihility-text);
 }
+
+/* Habilidade Concedida (templates/parts/granted-skill.hbs): resumo da Skill guardada no
+   Item/Módulo/Modificação. A Skill em si é editada no editor de Skill; aqui só o cartão. */
+.nihility-sheet .granted-skill {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 100%;
+  color: var(--nihility-text);
+}
+.nihility-sheet .granted-skill-add {
+  height: auto;
+  min-height: 0;
+  line-height: normal;
+  align-self: flex-start;
+  padding: 5px 11px;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px dashed var(--nihility-border);
+  color: var(--nihility-text-dim);
+  border-radius: 4px;
+}
+.nihility-sheet .granted-skill-card {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px 10px;
+  border: 1px solid var(--nihility-border);
+  border-radius: 5px;
+  background: var(--nihility-bg-panel-alt);
+}
+.nihility-sheet .granted-skill-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.nihility-sheet .granted-skill-name {
+  font-weight: 600;
+  color: var(--nihility-text);
+}
+.nihility-sheet .granted-skill-chips {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  flex: 1 1 auto;
+}
+.nihility-sheet .granted-skill-chips .chip {
+  font: 500 0.7rem var(--nihility-font-data);
+  color: var(--nihility-text-dim);
+  border: 1px solid var(--nihility-border-soft);
+  border-radius: 999px;
+  padding: 0 7px;
+}
+.nihility-sheet .granted-skill-actions {
+  display: flex;
+  gap: 8px;
+  color: var(--nihility-text-dim);
+}
+.nihility-sheet .granted-skill-mechanic,
+.nihility-sheet .granted-subskill-mechanic {
+  font-size: 0.78rem;
+  color: var(--nihility-text-dim);
+}
+.nihility-sheet .granted-subskill-list {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0 0 0 10px;
+  border-left: 2px solid var(--nihility-border-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.nihility-sheet .granted-subskill-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--nihility-text);
+}
+.nihility-sheet .granted-subskill-name {
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+.nihility-sheet .granted-subskill-mechanic {
+  flex: 1 1 auto;
+}
+.nihility-sheet .granted-subskill-add {
+  align-self: flex-start;
+  font-size: 0.78rem;
+  color: var(--nihility-accent);
+}
+.nihility-sheet .mod-grant-fields:has(.granted-skill) {
+  flex-wrap: wrap;
+}
+
+/* Diálogo de shift+clique (apps/roll-options-dialog.js). Fora das fichas: cor explícita em tudo,
+   pelas armadilhas do tema do core (labels e campos escuro-no-escuro). */
+.nihility-roll-options,
+.nihility-roll-options label {
+  color: var(--nihility-text);
+}
+.nihility-roll-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.nihility-roll-options .roll-advantage {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.nihility-roll-options .roll-advantage label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.nihility-roll-options .roll-mod-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.nihility-roll-options .roll-mod-row {
+  display: grid;
+  grid-template-columns: 130px 80px 1fr auto;
+  gap: 6px;
+  align-items: center;
+}
+.nihility-roll-options select,
+.nihility-roll-options input[type="number"],
+.nihility-roll-options input[type="text"] {
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+}
+.nihility-roll-options .roll-mod-remove,
+.nihility-roll-options .roll-mod-add {
+  color: var(--nihility-accent);
+  cursor: pointer;
+}
+.nihility-roll-options .hint-inline {
+  color: var(--nihility-text-dim);
+  font-size: 0.75rem;
+}
+
+/* ==========================================================================
+   Catálogos em cartão (Condições, Tipos de Dano), Escalas, Traços e Elementos agrupados.
+   Todas as telas próprias pintam a cor explicitamente — armadilha do tema do core.
+   ========================================================================== */
+.nihility-card-config .card-config-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+}
+.nihility-card-config .card-config-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+.nihility-card-config .card-config-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 32px 8px 10px;
+  border: 1px solid var(--nihility-border);
+  border-radius: 5px;
+  background: var(--nihility-bg-panel-alt);
+  color: var(--nihility-text);
+}
+.nihility-card-config .card-config-card label,
+.nihility-scales-config label,
+.nihility-condition-dialog fieldset,
+.nihility-condition-dialog fieldset label {
+  color: var(--nihility-text);
+}
+.nihility-card-config .card-config-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: center;
+}
+.nihility-card-config .card-config-row[hidden] { display: none; }
+.nihility-card-config .card-config-row label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+}
+.nihility-card-config .card-config-row-main input[type="text"] { flex: 1 1 110px; }
+.nihility-card-config .card-config-row-main input[type="color"] { width: 44px; height: 26px; padding: 0; }
+.nihility-card-config input[type="number"] { width: 70px; }
+.nihility-card-config input,
+.nihility-card-config select,
+.nihility-scales-config input,
+.nihility-scales-config select {
+  background: var(--nihility-bg-panel);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+}
+.nihility-card-config .card-config-delete {
+  position: absolute;
+  top: 8px;
+  right: 9px;
+  color: var(--nihility-text-dim);
+}
+.nihility-card-config .card-config-pick { color: var(--nihility-accent); }
+.nihility-card-config .element-effect-list { display: flex; flex-direction: column; gap: 4px; }
+.nihility-card-config .element-effect-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding-left: 10px;
+  border-left: 2px solid var(--nihility-border-soft);
+}
+.nihility-card-config .element-effect-row [hidden] { display: none; }
+.nihility-card-config .element-effect-row label { display: flex; align-items: center; gap: 4px; font-size: 0.8rem; }
+.nihility-card-config .element-effect-add,
+.nihility-card-config .element-effect-remove { color: var(--nihility-accent); cursor: pointer; font-size: 0.8rem; }
+
+.nihility-scales-config .scale-list { display: flex; flex-direction: column; gap: 4px; }
+.nihility-scales-config .scale-row {
+  display: grid;
+  grid-template-columns: 22px 1fr 1fr auto 18px 18px 18px;
+  gap: 6px;
+  align-items: center;
+  color: var(--nihility-text);
+}
+.nihility-scales-config .scale-rank { font-family: var(--nihility-font-data); color: var(--nihility-text-dim); text-align: center; }
+.nihility-scales-config .scale-row a { color: var(--nihility-text-dim); }
+.nihility-scales-config .scale-row a[hidden] { visibility: hidden; display: inline; }
+.nihility-scales-config .scale-map { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.nihility-scales-config .scale-map label { display: flex; align-items: center; gap: 6px; }
+.nihility-scales-config h3 { color: var(--nihility-text); font-size: 0.95rem; margin: 10px 0 4px; }
+.nihility-scales-config .hint,
+.nihility-scales-config .hint-inline { color: var(--nihility-text-dim); }
+
+/* Elementos agrupados (ficha de Item e editor de Skill). */
+.element-groups { display: flex; flex-direction: column; gap: 5px; }
+.element-group { display: flex; flex-direction: column; gap: 3px; }
+.element-group-label {
+  font: 600 0.66rem var(--nihility-font-data);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--nihility-text-faint);
+}
+
+/* Traços na ficha de Personagem/Nave. */
+.nihility-sheet .actor-traits {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin-top: 4px;
+  color: var(--nihility-text);
+}
+.nihility-sheet .actor-traits-label {
+  font: 600 0.66rem var(--nihility-font-data);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--nihility-text-faint);
+}
+.nihility-sheet .trait-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.74rem;
+  padding: 0 7px;
+  border-radius: 999px;
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+}
+.nihility-sheet .trait-chip.from-species { border-color: rgba(192, 132, 252, 0.5); color: var(--nihility-accent-2); }
+.nihility-sheet .trait-chip.removed { opacity: 0.5; text-decoration: line-through; }
+.nihility-sheet .trait-chip a { color: var(--nihility-text-dim); font-size: 0.65rem; }
+.nihility-sheet .trait-add-select,
+.nihility-sheet .actor-scale select {
+  height: auto;
+  font-size: 0.74rem;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+}
+.nihility-sheet .actor-scale { display: inline-flex; align-items: center; gap: 4px; font-size: 0.74rem; color: var(--nihility-text-dim); }
+
+/* Traços por Espécie. */
+.nihility-config-app .species-traits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: center;
+  margin: 4px 0 8px;
+  color: var(--nihility-text);
+}
+.nihility-config-app .species-traits-label { font-size: 0.75rem; color: var(--nihility-text-dim); }
+.nihility-config-app .species-trait-chip { display: inline-flex; align-items: center; gap: 3px; font-size: 0.78rem; color: var(--nihility-text); }
+
+/* Efeito padrão no diálogo de Condição marcada à mão. */
+.nihility-condition-dialog .condition-default {
+  border: 1px solid var(--nihility-border);
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+
+/* Bônus Condicionais (templates/parts/conditional-modifiers.hbs). */
+.nihility-sheet .conditional-modifiers { display: flex; flex-direction: column; gap: 5px; }
+.nihility-sheet .conditional-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  padding: 5px 7px;
+  border: 1px solid var(--nihility-border-soft);
+  border-radius: 4px;
+  color: var(--nihility-text);
+}
+.nihility-sheet .conditional-row select,
+.nihility-sheet .conditional-row input {
+  width: auto;
+  flex: 0 1 auto;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+}
+.nihility-sheet .conditional-row input[type="number"] { width: 60px; }
+.nihility-sheet .conditional-word {
+  font: 600 0.68rem var(--nihility-font-data);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nihility-gold);
+}
+.nihility-sheet .conditional-row a { color: var(--nihility-text-dim); }
+.nihility-sheet .conditional-warning { flex: 1 1 100%; font-size: 0.72rem; color: var(--nihility-warn); }
+.nihility-sheet .conditional-add { align-self: flex-start; font-size: 0.8rem; color: var(--nihility-accent); }
+
+/* Prioridade de energia na ficha da Nave (lista ordenável). */
+.nihility-sheet .power-priority { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; color: var(--nihility-text); }
+.nihility-sheet .power-priority-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.nihility-sheet .power-priority-row {
+  display: grid;
+  grid-template-columns: 22px 1fr auto 16px 16px;
+  gap: 6px;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--nihility-bg-panel-alt);
+}
+.nihility-sheet .power-priority-row.is-offline { opacity: 0.5; }
+.nihility-sheet .power-priority-pos { font-family: var(--nihility-font-data); color: var(--nihility-gold); text-align: center; }
+.nihility-sheet .power-priority-row a { color: var(--nihility-text-dim); }
+.nihility-sheet .power-priority-row a[hidden] { visibility: hidden; display: inline; }
+.nihility-sheet .vessel-class-note { margin: 2px 0 0; }
+.nihility-sheet .crew-row select.crew-role-input {
+  width: auto;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+}
+
+/* Vagas por Categoria no editor de Classes. */
+.nihility-card-config .class-slots label { font-size: 0.75rem; }
+.nihility-card-config .class-slots input[type="number"] { width: 50px; }
+
+/* Cartão de Estrutura no chat (structures.js) — só o Mestre vê os controles. */
+.nihility-structure-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--nihility-border-soft);
+}
+.nihility-structure-controls .structure-state { flex: 1 1 100%; font-size: 0.8rem; }
+.nihility-structure-controls .structure-damage-input { width: 70px; }
+.nihility-structure-controls button { height: auto; min-height: 0; line-height: normal; padding: 3px 9px; width: auto; }
+
+/* Diálogo de Exportar/Importar configurações. */
+.nihility-transfer,
+.nihility-transfer label,
+.nihility-transfer legend { color: var(--nihility-text); }
+.nihility-transfer { display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow-y: auto; }
+.nihility-transfer .transfer-group { border: 1px solid var(--nihility-border); border-radius: 4px; padding: 4px 8px; display: flex; flex-direction: column; gap: 2px; }
+.nihility-transfer .transfer-row { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; }
+.nihility-transfer .hint,
+.nihility-transfer .hint-inline { color: var(--nihility-text-dim); }
+
+/* Menu Principal: Configurações Gerais e Criar com IA em seções/lista (em vez de cartões soltos). */
+.nihility-menu .nm-settings-section { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
+.nihility-menu .nm-section-title {
+  margin: 0 0 2px;
+  font: 600 0.72rem var(--nihility-font-data);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--nihility-gold);
+  border: 0;
+}
+.nihility-menu .nm-settings-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.nihility-menu .nm-settings-row {
+  display: grid;
+  grid-template-columns: 26px 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--nihility-border-soft);
+  border-radius: 6px;
+  background: var(--nihility-bg-panel-alt);
+  color: var(--nihility-text);
+}
+.nihility-menu .nm-settings-row.hidden,
+.nihility-menu .nm-settings-section.hidden { display: none; }
+.nihility-menu .nm-settings-icon { color: var(--nihility-accent); text-align: center; }
+.nihility-menu .nm-settings-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.nihility-menu .nm-settings-title { font-weight: 600; color: var(--nihility-text); }
+.nihility-menu .nm-settings-desc { font-size: 0.78rem; color: var(--nihility-text-dim); }
+.nihility-menu .nm-settings-state {
+  font: 500 0.72rem var(--nihility-font-data);
+  color: var(--nihility-text-dim);
+  white-space: nowrap;
+}
+.nihility-menu .nm-settings-open {
+  height: auto;
+  min-height: 0;
+  line-height: normal;
+  width: auto;
+  padding: 4px 12px;
+  background: var(--nihility-bg-panel);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+  border-radius: 4px;
+}
+.nihility-menu .nm-disabled-note { font-size: 0.78rem; color: var(--nihility-text-faint); }
+
+/* Regras da Mesa. */
+.nihility-table-rules .rules-group { border: 1px solid var(--nihility-border); border-radius: 5px; padding: 6px 10px; margin-bottom: 10px; }
+.nihility-table-rules legend { color: var(--nihility-gold); font-weight: 600; }
+.nihility-table-rules .rule-row { display: grid; grid-template-columns: 1fr 180px; gap: 10px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--nihility-border-soft); color: var(--nihility-text); }
+.nihility-table-rules .rule-row:last-child { border-bottom: 0; }
+.nihility-table-rules .rule-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.nihility-table-rules .rule-name { font-weight: 600; font-size: 0.85rem; color: var(--nihility-text); }
+.nihility-table-rules .rule-hint { font-size: 0.72rem; color: var(--nihility-text-dim); }
+.nihility-table-rules .rule-reload-mark { color: var(--nihility-warn); }
+.nihility-table-rules .rule-input input,
+.nihility-table-rules .rule-input select { width: 100%; background: var(--nihility-bg-panel-alt); border: 1px solid var(--nihility-border); color: var(--nihility-text); }
+.nihility-table-rules .rule-input input[type="checkbox"] { width: auto; }
+.nihility-table-rules .hint { color: var(--nihility-text-dim); }
+
+/* Ficha de Item: cabeçalho com resumo e abas da Skill. */
+.nihility-sheet.item-sheet .item-header-fields { display: flex; flex-direction: column; gap: 4px; flex: 1 1 auto; min-width: 0; }
+.nihility-sheet .item-header-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.nihility-sheet .item-chip {
+  font: 500 0.7rem var(--nihility-font-data);
+  padding: 0 7px;
+  border-radius: 999px;
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text-dim);
+}
+.nihility-sheet .item-chip.violet { color: var(--nihility-accent-2); border-color: rgba(192, 132, 252, 0.45); }
+.nihility-sheet .item-chip.gold { color: var(--nihility-gold); border-color: rgba(232, 193, 112, 0.45); }
+.nihility-sheet .item-chip.ok { color: var(--nihility-ok); border-color: rgba(110, 231, 160, 0.45); }
+.nihility-sheet .item-chip.hp { color: var(--nihility-hp); border-color: rgba(239, 83, 80, 0.45); }
+.nihility-sheet .skill-pane { display: flex; flex-direction: column; gap: 6px; }
+.nihility-sheet .skill-pane.hidden { display: none; }
+.nihility-sheet .sub-skill-row { display: flex; align-items: center; gap: 6px; }
+.nihility-sheet .sub-skill-row input { flex: 0 1 40%; }
+.nihility-sheet .sub-skill-mechanic { flex: 1 1 auto; font-size: 0.76rem; color: var(--nihility-text-dim); }

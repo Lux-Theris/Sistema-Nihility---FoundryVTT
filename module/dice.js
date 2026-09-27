@@ -5,6 +5,8 @@
  * arma/equipamento NUNCA entram nessa conta: somam por fora, como número fixo.
  */
 import { MEU_SISTEMA, getAttributeLabel } from "./config.js";
+import { buildModifiedFormula, describeRollOptions } from "./roll-modifiers.js";
+import { conditionalBonus } from "./conditional-context.js";
 
 /** @returns {{diceCount:number, flat:number}} */
 export function computeAttributeDicePool(bonus) {
@@ -26,21 +28,29 @@ export function buildAttributeRollFormula(bonus, extraFlat = 0) {
  * Rola um Atributo de combate do Ator e posta o resultado no chat.
  * @param {Actor} actor
  * @param {string} attributeKey - uma chave de MEU_SISTEMA.COMBAT_ATTRIBUTES
- * @param {{extraFlat?:number, flavor?:string}} [options]
+ * @param {{extraFlat?:number, flavor?:string, rollOptions?:object}} [options] - `rollOptions`: Vantagem e
+ *   modificadores do shift+clique (ver roll-modifiers.js)
  */
 export async function rollAttribute(actor, attributeKey, options = {}) {
-  const { extraFlat = 0, flavor = "" } = options;
+  const { extraFlat = 0, flavor = "", rollOptions = null } = options;
   const attr = actor.system?.attributes?.combat?.[attributeKey];
   if (!attr) return null;
 
-  const formula = buildAttributeRollFormula(attr.bonus, extraFlat);
+  // Bônus condicional "+N na rolagem" (Título/Skill/Item), contra o alvo marcado no mapa, se houver.
+  const target = Array.from(game.user?.targets ?? [])[0]?.actor ?? null;
+  const situational = conditionalBonus(actor, target, "rollFlat", { attribute: attributeKey });
+
+  // Vantagem e modificadores do shift+clique entram na própria fórmula, pra o card mostrar o
+  // resultado final (ver roll-modifiers.js).
+  const formula = buildModifiedFormula(buildAttributeRollFormula(attr.bonus, extraFlat + situational), rollOptions);
   const label = getAttributeLabel(attributeKey);
+  const modifiersText = describeRollOptions(rollOptions);
 
   const roll = new Roll(formula);
   await roll.evaluate();
   await roll.toMessage({
     speaker: ChatMessage.getSpeaker({ actor }),
-    flavor: flavor || label
+    flavor: `${flavor || label}${modifiersText ? ` — ${modifiersText}` : ""}`
   });
   return roll;
 }

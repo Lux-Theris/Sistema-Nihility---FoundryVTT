@@ -31,7 +31,8 @@ const HANDLERS = {
 
     for (const { skillId, gain } of grants) {
       const skill = actor.items.get(skillId);
-      if (!skill || skill.type !== "skill" || !(gain > 0)) continue;
+      // Skill concedida por Item/Módulo é fixa: nunca ganha XP.
+      if (!skill || skill.type !== "skill" || skill.system.isItemGranted || !(gain > 0)) continue;
 
       const current = Number(skill.system.xp) || 0;
       const max = Number(skill.system.xpMax) || 0;
@@ -85,6 +86,19 @@ const HANDLERS = {
       type: itemData.type,
       system: itemData.system ?? {}
     });
+  },
+
+  /** Ergue uma Estrutura (Paredes + Desenho). Validação e catálogo ficam em structures.js. */
+  async createStructure(payload) {
+    const { createStructureAsGm } = await import("../structures.js");
+    await createStructureAsGm(payload);
+  },
+
+  /** Derruba as Estruturas que uma Skill Ativa mantinha (ao desligá-la). */
+  async removeStructures({ sourceUuid, skillId, subSkillIndex }) {
+    if (typeof sourceUuid !== "string") return;
+    const { removeStructuresForAsGm } = await import("../structures.js");
+    await removeStructuresForAsGm({ sourceUuid, skillId: String(skillId ?? ""), subSkillIndex: Number.isInteger(subSkillIndex) ? subSkillIndex : null });
   },
 
   async removeZones({ sourceUuid, skillId, subSkillIndex }) {

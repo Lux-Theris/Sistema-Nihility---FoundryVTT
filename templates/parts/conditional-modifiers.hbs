@@ -1,0 +1,42 @@
+{{!--
+  Bônus Condicionais ("Quando → Então") de Título, Skill e Item. Recebe `rows` (ver
+  conditionalModifierRows em item-sheet.js) e `editable`. Cada campo tem `name=`, então o
+  submitOnChange grava; trocar o tipo do "Quando"/"Então" redesenha a linha com as opções certas.
+--}}
+<div class="conditional-modifiers">
+  {{#each rows as |row|}}
+  <div class="conditional-row">
+    <span class="conditional-word">Quando</span>
+    <select name="system.conditionalModifiers.{{row.index}}.when.kind">
+      {{#each row.whenOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+    </select>
+    {{#if row.whenValueOptions}}
+    <select name="system.conditionalModifiers.{{row.index}}.when.value">
+      {{#each row.whenValueOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+    </select>
+    {{/if}}
+    {{#if row.needsThreshold}}
+    <input type="number" name="system.conditionalModifiers.{{row.index}}.when.threshold" value="{{row.threshold}}" min="0" max="100"/>
+    {{/if}}
+
+    <span class="conditional-word">Então</span>
+    <input type="number" step="any" name="system.conditionalModifiers.{{row.index}}.then.value" value="{{row.value}}"/>
+    <select name="system.conditionalModifiers.{{row.index}}.then.kind">
+      {{#each row.thenOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+    </select>
+    {{#if row.targetOptions}}
+    <select name="system.conditionalModifiers.{{row.index}}.then.target">
+      {{#each row.targetOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+    </select>
+    {{/if}}
+    <select name="system.conditionalModifiers.{{row.index}}.perEach" title="Multiplica o valor pela contagem">
+      {{#each row.perEachOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+    </select>
+    {{#if ../editable}}<a data-action="deleteConditionalModifier" data-index="{{row.index}}" title="Remover"><i class="fas fa-trash"></i></a>{{/if}}
+    {{#if row.warning}}<span class="conditional-warning">{{row.warning}}</span>{{/if}}
+  </div>
+  {{else}}
+  <p class="hint-inline">Nenhum. Ex.: "Quando o oponente tem o Traço Dracônico, então +25% de dano causado".</p>
+  {{/each}}
+  {{#if editable}}<a class="conditional-add" data-action="addConditionalModifier">+ Bônus condicional</a>{{/if}}
+</div>

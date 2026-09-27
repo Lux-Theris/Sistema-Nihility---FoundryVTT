@@ -8,6 +8,8 @@ import {
   movementAllowance,
   getMovementConfig
 } from "../config.js";
+import { collectConditionalModifiers, buildModifierContext } from "../conditional-context.js";
+import { sumConditionalModifiers } from "../conditional-modifiers.js";
 
 const fields = foundry.data.fields;
 
@@ -63,6 +65,12 @@ function baseActorSchema() {
       xp: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
 
       /**
+       * Soma dos efeitos temporários sobre o Deslocamento, em % (Lentidão −50). Mesmo papel do
+       * `buffDelta` dos atributos: só Active Effect escreve aqui. Ver `movementAllowance`.
+       */
+      movementPercent: new fields.NumberField({ required: true, integer: true, initial: 0 }),
+
+      /**
        * Pontos de Atributo extras concedidos pelo Mestre a este personagem, somados ao orçamento
        * do nível (`attributePointsPool.total`). Só o Mestre edita (ver a ficha); pode ser negativo
        * para retirar pontos.
@@ -95,6 +103,30 @@ function baseActorSchema() {
      * "—" até o jogador escolher de verdade, obrigando uma escolha explícita na criação.
      */
     species: new fields.StringField({ required: true, initial: "", blank: true }),
+
+    /**
+     * Traços acrescentados à mão (além dos que a Espécie dá) e Traços da Espécie retirados à mão.
+     * Os efetivos saem de `actorTraits` em config.js.
+     */
+    traits: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
+    traitsRemoved: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
+
+    /** Escala do Ator (id de getScaleConfig().scales); vazio = a primeira (Pessoal). Um dragão pode ser "Veículo". */
+    scale: new fields.StringField({ required: false, initial: "", blank: true }),
+
+    /**
+     * Aprimoramento das armas EQUIPADAS vindo de Skills (alvos "weapon*" de Efeito Temporário).
+     * Nunca editado à mão — só por Active Effect. Multiplicador começa em 1 (MULTIPLY multiplica
+     * o valor atual); Mágico/Absoluto são contadores (várias fontes somam, desligar uma não apaga
+     * as outras): maior que 0 = ligado. Ver useWeaponAttack em skill-effects.js.
+     */
+    weaponBonuses: new fields.SchemaField({
+      damageFlat: new fields.NumberField({ required: true, initial: 0 }),
+      damageMultiplier: new fields.NumberField({ required: true, initial: 1, min: 0 }),
+      elementOverride: new fields.StringField({ required: false, initial: "", blank: true }),
+      forceMagic: new fields.NumberField({ required: true, initial: 0 }),
+      absolute: new fields.NumberField({ required: true, initial: 0 })
+    }),
 
     /** Guarda a última espécie para a qual um preset de anatomia já foi aplicado. */
     lastAppliedSpeciesPreset: new fields.StringField({ required: false, initial: "" }),
@@ -188,9 +220,32 @@ function sumPermanentStatModifier(actor, stat) {
 function deriveMovement(dataModel) {
   const dexterity = dataModel.attributes.combat.dexterity;
   dataModel.movement = movementAllowance(
-    { permanentDexterity: dexterity.total, skillDexterity: dexterity.buffDelta || 0 },
+    { permanentDexterity: dexterity.total, skillDexterity: dexterity.buffDelta || 0, percent: dataModel.attributes.movementPercent || 0 },
     getMovementConfig()
   );
+}
+
+/**
+ * Modificadores Condicionais contínuos ("+N num atributo enquanto minha Vida < 30%"): entram como
+ * um buff temporário — só em `effectiveTotal`/`bonus` (rolagem), nunca em `total`, então nunca
+ * mexem na Vida/Mana máxima. Roda DEPOIS de deriveVitalStats porque a condição de Vida precisa
+ * do máximo já calculado; e é justamente por não voltar pro máximo que não existe o círculo
+ * "Força ↔ Vida". Ver conditional-modifiers.js.
+ */
+function deriveConditionalAttributes(dataModel) {
+  const actor = dataModel.parent;
+  const mods = collectConditionalModifiers(actor);
+  if (!mods.length) return;
+  const hp = dataModel.attributes.hp;
+  const ctx = buildModifierContext(actor, null, { hpPercent: hp.max > 0 ? (hp.value / hp.max) * 100 : 0 });
+  for (const key of MEU_SISTEMA.COMBAT_ATTRIBUTES) {
+    const attr = dataModel.attributes.combat[key];
+    const bonus = sumConditionalModifiers(mods, "attributeFlat", ctx, { attribute: key });
+    attr.conditionalBonus = bonus;
+    if (!bonus) continue;
+    attr.effectiveTotal += bonus;
+    attr.bonus = Math.floor(attr.effectiveTotal / 3);
+  }
 }
 
 /**
@@ -331,6 +386,7 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
     deriveCombatAttributes(this);
     deriveMovement(this);
     deriveVitalStats(this);
+    deriveConditionalAttributes(this);
     deriveExperience(this);
   }
 }

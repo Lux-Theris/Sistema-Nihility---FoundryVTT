@@ -1,0 +1,51 @@
+<div class="config-editor-body scales-config-body">
+  <p class="hint">
+    A ordem é a escada: cada degrau multiplica o dano por <strong>{{factor}}</strong> contra quem está um degrau abaixo
+    e divide contra quem está acima. Uma pistola (Pessoal) contra uma Nave faz 1/{{factor}}² do dano.
+    O fator fica em <strong>Módulos do Sistema › Escala</strong>.
+    {{#unless enabled}}<br><strong>O bloco Escala está desligado</strong> — nada disto vale até ligá-lo.{{/unless}}
+  </p>
+
+  <h3>Escalas</h3>
+  <div class="scale-list">
+    {{#each scales as |scale|}}
+    <div class="scale-row">
+      <span class="scale-rank">{{scale.index}}</span>
+      <input type="text" data-field="id" value="{{scale.id}}" placeholder="id (ex: ship)"/>
+      <input type="text" data-field="label" value="{{scale.label}}" placeholder="Nome"/>
+      <span class="hint-inline">{{scale.step}}</span>
+      <a data-action="moveScale" data-index="{{scale.index}}" data-dir="-1" title="Subir" {{#if scale.first}}hidden{{/if}}><i class="fas fa-arrow-up"></i></a>
+      <a data-action="moveScale" data-index="{{scale.index}}" data-dir="1" title="Descer" {{#if scale.last}}hidden{{/if}}><i class="fas fa-arrow-down"></i></a>
+      <a data-action="removeScale" data-index="{{scale.index}}" title="Remover"><i class="fas fa-trash"></i></a>
+    </div>
+    {{/each}}
+  </div>
+  <a class="config-add-row" data-action="addScale">+ Nova Escala</a>
+
+  <h3>Escala de cada Porte de Nave</h3>
+  <div class="scale-map">
+    {{#each shipSizes as |row|}}
+    <label>{{row.label}}
+      <select data-map="ship" data-size="{{row.size}}">
+        {{#each row.options as |opt|}}<option value="{{opt.id}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+      </select>
+    </label>
+    {{/each}}
+  </div>
+
+  <h3>Escala de cada Porte de Veículo</h3>
+  <div class="scale-map">
+    {{#each vehicleSizes as |row|}}
+    <label>{{row.label}}
+      <select data-map="vehicle" data-size="{{row.size}}">
+        {{#each row.options as |opt|}}<option value="{{opt.id}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+      </select>
+    </label>
+    {{/each}}
+  </div>
+  <p class="hint-inline">Personagens usam a primeira Escala, a menos que a ficha escolha outra (um dragão pode ser "Veículo").</p>
+
+  <footer class="sheet-footer">
+    <button type="submit"><i class="fas fa-save"></i> Salvar</button>
+  </footer>
+</div>

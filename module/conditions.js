@@ -115,6 +115,7 @@ function buildTargetOptions() {
     '<option value="">— nenhum (só o ícone) —</option>' +
     '<option value="hp">HP</option>' +
     `<option value="energy">${MEU_SISTEMA.EFFECT_TARGET_LABELS.energy}</option>` +
+    `<option value="movement">${MEU_SISTEMA.EFFECT_TARGET_LABELS.movement}</option>` +
     attributes
   );
 }
@@ -124,9 +125,42 @@ function buildTargetOptions() {
  * Condição vira só o ícone no token — que é exatamente o caso mais comum na mesa ("está cego",
  * "está atordoado"), onde quem arbitra o efeito é o Mestre, não o sistema.
  */
+/** "10% do dano do golpe de Vida por rodada, 2 rodadas" — pro diálogo mostrar o padrão. */
+function describeConditionEffect(effect) {
+  const rounds = `${effect.durationRounds ?? 1} rodada(s)`;
+  if (effect.kind === "tick") {
+    const what = effect.tickSign === "heal" ? "cura" : "dano";
+    const where = effect.tickTarget === "energy" ? "Mana" : "Vida";
+    const value =
+      effect.valueMode === "hitPercent" ? `${effect.value}% do dano do golpe`
+      : effect.valueMode === "maxPercent" ? `${effect.value}% do máximo`
+      : `${effect.value}`;
+    return `${what} de ${value} em ${where} por rodada, ${rounds}`;
+  }
+  if (effect.kind === "modifier") {
+    const target = effect.modTarget === "movement" ? "Deslocamento" : effect.modTarget;
+    const unit = effect.modTarget === "movement" || effect.modMode === "percent" ? "%" : "";
+    return `${target} ${effect.value > 0 ? "+" : ""}${effect.value}${unit}, ${rounds}`;
+  }
+  return "";
+}
+
 async function promptManualCondition(actor, conditionId) {
   const condition = getActiveStatusConditions().find(c => c.id === conditionId);
   if (!condition) return;
+
+  const hasDefault = Boolean(condition.effect?.kind);
+  const needsHit = condition.effect?.kind === "tick" && condition.effect.valueMode === "hitPercent";
+  const defaultHtml = hasDefault
+    ? `<fieldset class="condition-default">
+         <label class="checkbox-line">
+           <input type="checkbox" name="useDefault" checked/>
+           Usar o efeito padrão: ${escapeHtml(describeConditionEffect(condition.effect))}
+         </label>
+         ${needsHit ? `<div class="form-group"><label>Dano do golpe <span class="hint-inline">(base do %)</span></label><input type="number" name="hitDamage" value="0" min="0"/></div>` : ""}
+         <p class="hint-inline">Desmarque para escolher Alvo, Valor e Duração à mão logo abaixo.</p>
+       </fieldset>`
+    : "";
 
   const data = await DialogV2.wait({
     window: { title: `Aplicar Condição — ${condition.label}` },
@@ -136,6 +170,7 @@ async function promptManualCondition(actor, conditionId) {
           <strong>${escapeHtml(condition.label)}</strong> em <strong>${escapeHtml(actor.name)}</strong>.
           Deixe Alvo e Valor em branco para aplicar só o ícone, sem mecânica nenhuma.
         </p>
+        ${defaultHtml}
         <div class="form-group">
           <label>Alvo</label>
           <select name="target">${buildTargetOptions()}</select>
@@ -161,6 +196,8 @@ async function promptManualCondition(actor, conditionId) {
         callback: (event, button, dialog) => {
           const form = dialog.element;
           return {
+            useDefault: Boolean(form.querySelector("[name=useDefault]")?.checked),
+            hitDamage: Math.max(0, Number(form.querySelector("[name=hitDamage]")?.value) || 0),
             target: form.querySelector("[name=target]").value,
             amount: Number(form.querySelector("[name=amount]").value) || 0,
             duration: Math.max(0, Number(form.querySelector("[name=duration]").value) || 0),
@@ -174,6 +211,23 @@ async function promptManualCondition(actor, conditionId) {
   });
 
   if (!data) return;
+
+  // Efeito padrão da Condição (ver resolveConditionEffect em damage-rules.js): valor 0 na entrada
+  // faz applyEffectsToActor usar o padrão, com o dano do golpe informado como base do %.
+  if (data.useDefault) {
+    await applyManualCondition(actor, conditionId, {
+      target: "hp",
+      amount: 0,
+      durationRounds: 0,
+      periodic: false,
+      tickUnit: "combatRound",
+      damageElements: [],
+      modifierType: "flat",
+      icon: "",
+      hitDamage: data.hitDamage
+    });
+    return;
+  }
 
   // Sem alvo ou sem valor não há mecânica: cria o efeito "pelado", só com ícone e nome. Não passa
   // por applyManualCondition porque aquele caminho monta um efeito COM regra.

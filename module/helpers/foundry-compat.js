@@ -17,6 +17,14 @@ export function renderSystemTemplate(path, data) {
   return foundry.applications.handlebars.renderTemplate(path, data);
 }
 
+/**
+ * Registra templates como partials do Handlebars, com nome curto: `{nome: caminho}` vira
+ * `{{> nome}}` nos templates. Chamado no `init`.
+ */
+export function registerSystemPartials(partials) {
+  return foundry.applications.handlebars.loadTemplates(partials);
+}
+
 /** Classe de FilePicker a instanciar. */
 export function filePickerClass() {
   return foundry.applications.apps.FilePicker.implementation;

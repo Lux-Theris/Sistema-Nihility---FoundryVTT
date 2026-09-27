@@ -19,7 +19,10 @@ import {
   sceneActorCandidates,
   debugLog,
   isMovementEnabled,
-  describeMovement
+  describeMovement,
+  getAttributeLabel,
+  getScaleConfig,
+  isScaleEnabled
 } from "../config.js";
 import { hasPadDevice } from "../pad/pad-crew.js";
 import { getTotalUnread } from "../pad/pad-messaging.js";
@@ -30,6 +33,9 @@ import { rollAttribute, buildAttributeRollFormula } from "../dice.js";
 import { rollInitiativeForActor, getInitiativeLabel } from "../combat.js";
 import { getMovementDashStatus, toggleMovementDash } from "../movement.js";
 import { pickTargetActor } from "../helpers/target-picker.js";
+import { rollOptionsFromEvent } from "../apps/roll-options-dialog.js";
+import { traitContext, changeTrait } from "../helpers/traits-ui.js";
+import { getStructure, pickStructurePlacement } from "../structures.js";
 import { useSkillEffect, useWeaponAttack, tickPeriodicEffect } from "../skill-effects.js";
 import { announceVoiceOfTheWorld } from "../voice-of-the-world.js";
 import { areaEffectsSupported, pickAreaTargets, pickZonePlacement } from "../area-effects.js";
@@ -123,7 +129,9 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       editPortraitFrame: editPortraitFrameAction,
       applyManualTick: NihilityActorSheet.#onApplyManualTick,
       deleteCondition: NihilityActorSheet.#onDeleteCondition,
-      openPad: NihilityActorSheet.#onOpenPad
+      openPad: NihilityActorSheet.#onOpenPad,
+      removeTrait: NihilityActorSheet.#onRemoveTrait,
+      restoreTrait: NihilityActorSheet.#onRestoreTrait
     }
   };
 
@@ -253,6 +261,11 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     );
     context.initiativeLabel = getInitiativeLabel();
     context.movementDash = getMovementDashStatus(actor);
+    context.traits = traitContext(actor);
+    // Escala do Ator: só o Mestre escolhe, e só com o bloco ligado (um dragão pode ser "Veículo").
+    context.scaleOptions = isScaleEnabled()
+      ? getScaleConfig().scales.map((s, i) => ({ id: i === 0 ? "" : s.id, label: s.label, selected: (actor.system.scale || "") === (i === 0 ? "" : s.id) }))
+      : null;
 
     // Experiência — bloco SÓ do Mestre (o jogador nem sabe que existe). Uma linha pro Personagem
     // e uma por Skill, todas já com o teto do nível atual calculado em prepareDerivedData.
@@ -270,7 +283,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
           ready: attributes.xpReady
         },
         ...actor.items
-          .filter(i => i.type === "skill")
+          // Skill concedida por Item/Módulo é fixa: não entra na lista de quem recebe XP.
+          .filter(i => i.type === "skill" && !i.system.isItemGranted)
           .map(skill => ({
             scope: "skill",
             id: skill.id,
@@ -344,6 +358,17 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     if (!this.isEditable) return;
 
     this.element.querySelector(".species-select")?.addEventListener("change", this._onSpeciesChange.bind(this));
+    this.element.querySelector(".trait-add-select")?.addEventListener("change", event => changeTrait(this.actor, event.target.value, "add"));
+  }
+
+  static async #onRemoveTrait(event, target) {
+    event.preventDefault();
+    await changeTrait(this.actor, target.dataset.trait, "remove");
+  }
+
+  static async #onRestoreTrait(event, target) {
+    event.preventDefault();
+    await changeTrait(this.actor, target.dataset.trait, "restore");
   }
 
   static #onSelectTab(event, target) {
@@ -420,10 +445,14 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         effectType: MEU_SISTEMA.SKILL_EFFECT_TYPES.includes(s.effectType) ? s.effectType : "none",
         damageFormula: s.damageFormula || "",
         isMagicDamage: Boolean(s.isMagicDamage),
+        isAbsoluteDamage: Boolean(s.isAbsoluteDamage),
+        damageScale: s.damageScale || "",
+        scalingAttribute: s.scalingAttribute || "",
         damageElements: Array.isArray(s.damageElements) ? s.damageElements : [],
         effects: Array.isArray(s.effects) ? s.effects : [],
         resistanceTarget: s.resistanceTarget || "",
         targetType: MEU_SISTEMA.SKILL_TARGET_TYPES.includes(s.targetType) ? s.targetType : "targeted",
+        structureId: s.structureId || "",
         areaShape: s.areaShape || "",
         areaDistance: Number(s.areaDistance) || 0,
         areaAngle: Number(s.areaAngle) || 53,
@@ -535,8 +564,10 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
   static async #onRollInitiative(event, target) {
     event.preventDefault();
+    const { cancelled, options } = await rollOptionsFromEvent(event, "Iniciativa");
+    if (cancelled) return;
     try {
-      await rollInitiativeForActor(this.actor);
+      await rollInitiativeForActor(this.actor, options);
     } catch (err) {
       console.error(`${SYSTEM_ID} | Falha ao rolar iniciativa.`, err);
     }
@@ -597,8 +628,10 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     event.preventDefault();
     const key = target.closest("[data-attribute]").dataset.attribute;
     const attr = this.actor.system.attributes.combat[key];
+    const { cancelled, options } = await rollOptionsFromEvent(event, `Rolar ${getAttributeLabel(key)}`);
+    if (cancelled) return;
     // Bônus de Item/Modificação nunca entra no Pool de d20 — soma por fora, como número fixo.
-    await rollAttribute(this.actor, key, { extraFlat: attr?.itemBonus ?? 0 });
+    await rollAttribute(this.actor, key, { extraFlat: attr?.itemBonus ?? 0, rollOptions: options });
   }
 
   /* -------------------------------------------- */
@@ -886,9 +919,12 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             damageFormula: data.damageFormula,
             scalingAttribute: data.scalingAttribute,
             isMagicDamage: data.isMagicDamage,
+            isAbsoluteDamage: data.isAbsoluteDamage,
+            damageScale: data.damageScale,
             damageElements: data.damageElements,
             effects: data.effects,
             targetType: data.targetType,
+            structureId: data.structureId,
             areaShape: data.areaShape,
             areaDistance: data.areaDistance,
             areaAngle: data.areaAngle,
@@ -970,7 +1006,37 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     // Habilidade Ativa já ligada: este clique só DESATIVA — nunca re-pede alvo nem re-executa
     // a mecânica, mesmo se ela for "damage"/"temporary" (ver useSkillEffect em skill-effects.js).
     const isDeactivating = mech.hasUpkeep && mech.active;
+
+    // Estrutura: posiciona (ou desenha) no mapa e o Mestre ergue — ver structures.js. Sem mapa,
+    // a Skill só posta o cartão.
+    if (!isDeactivating && mech.targetType === "structure") {
+      try {
+        let structurePlacement = null;
+        if (canvas?.ready && canvas.scene) {
+          const structure = getStructure(mech.structureId);
+          if (!structure) {
+            ui.notifications.warn(`${skill.name} não tem uma Estrutura escolhida.`);
+            return;
+          }
+          structurePlacement = await pickStructurePlacement(structure);
+          if (!structurePlacement) return;
+        }
+        await useSkillEffect(this.actor, itemId, { structurePlacement, subSkillIndex });
+      } catch (err) {
+        console.error(`${SYSTEM_ID} | Falha ao erguer Estrutura.`, err);
+      }
+      return;
+    }
     const usesMechanic = !isDeactivating && (mech.effectType === "temporary" || mech.effectType === "damage");
+
+    // Shift+clique: modificadores de rolagem — só faz sentido quando há dano a rolar.
+    let rollOptions = null;
+    if (usesMechanic && mech.effectType === "damage") {
+      const asked = await rollOptionsFromEvent(event, `Dano — ${skill.name}`);
+      if (asked.cancelled) return;
+      rollOptions = asked.options;
+    }
+
     if (!usesMechanic) {
       try {
         await useSkillEffect(this.actor, itemId, { subSkillIndex });
@@ -985,7 +1051,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         // Zona: posiciona a área (fica na cena) — quem cair dentro dela sofre no início do turno.
         const zonePlacement = await pickZonePlacement({ system: mech });
         if (!zonePlacement) return;
-        await useSkillEffect(this.actor, itemId, { zonePlacement, subSkillIndex });
+        await useSkillEffect(this.actor, itemId, { zonePlacement, subSkillIndex, rollOptions });
       } else if (mech.targetType === "emission" && isAreaEffectsEnabled()) {
         // Sem alvo manual — o usuário posiciona a forma no canvas e a Skill afeta quem
         // estiver dentro dela, sem etapa de revisão (decisão explícita: aplica direto).
@@ -996,17 +1062,17 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
           return;
         }
         const targetActors = await pickAreaTargets({ system: mech });
-        await useSkillEffect(this.actor, itemId, { targetActors, subSkillIndex });
+        await useSkillEffect(this.actor, itemId, { targetActors, subSkillIndex, rollOptions });
       } else if (mech.targetType === "self") {
         // "Si mesmo": sem diálogo de alvo — a Skill age sobre quem a usa.
-        await useSkillEffect(this.actor, itemId, { targetActor: this.actor, subSkillIndex });
+        await useSkillEffect(this.actor, itemId, { targetActor: this.actor, subSkillIndex, rollOptions });
       } else {
         // Todo dano pode ser reduzido (Defesa Mágica, e/ou Resistência Geral/Elemental do
         // alvo — inclusive dano puramente físico, se o alvo tiver Resistência Física) — então
         // "damage" sempre pede alvo, igual "temporary" (buff/debuff) já pedia.
         const targetActor = await this._promptSkillTarget();
         if (!targetActor) return;
-        await useSkillEffect(this.actor, itemId, { targetActor, subSkillIndex });
+        await useSkillEffect(this.actor, itemId, { targetActor, subSkillIndex, rollOptions });
       }
     } catch (err) {
       console.error(`${SYSTEM_ID} | Falha ao usar habilidade.`, err);
@@ -1037,9 +1103,11 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         ui.notifications.warn(`${weapon.name} não tem uma Fórmula de Dano configurada.`);
         return;
       }
+      const { cancelled, options } = await rollOptionsFromEvent(event, `Atacar com ${weapon.name}`);
+      if (cancelled) return;
       const targetActor = await pickTargetActor({ self: this.actor, title: `Atacar com ${weapon.name}`, confirmLabel: "Atacar", preferMap: true });
       if (!targetActor) return;
-      await useWeaponAttack(this.actor, weapon, targetActor);
+      await useWeaponAttack(this.actor, weapon, targetActor, options);
     } catch (err) {
       console.error(`${SYSTEM_ID} | Falha ao atacar com arma.`, err);
     }

@@ -2,14 +2,28 @@
 
   <header class="sheet-header">
     <img class="profile-img" src="{{item.img}}" data-edit="img" data-action="editImage" title="{{item.name}}"/>
-    <input name="name" type="text" value="{{item.name}}" placeholder="Nome"/>
+    <div class="item-header-fields">
+      <input name="name" type="text" value="{{item.name}}" placeholder="Nome"/>
+      {{!-- Resumo: o que é o Item, sem abrir aba (ver headerChips em item-sheet.js). --}}
+      {{#if headerChips.length}}
+      <div class="item-header-chips">
+        {{#each headerChips as |chip|}}<span class="item-chip {{chip.tone}}" title="{{chip.title}}">{{chip.label}}</span>{{/each}}
+      </div>
+      {{/if}}
+    </div>
   </header>
 
   <nav class="sheet-tabs tabs">
-    {{#unless (eq itemType "skill")}}
-    <a class="item {{#if (eq activeTab "description")}}active{{/if}}" data-action="selectTab" data-tab="description">Descrição</a>
-    {{/unless}}
+    {{#if (eq itemType "skill")}}
+    {{!-- Skill: uma aba por pergunta, em vez de uma coluna única de ~26 campos. --}}
+    <a class="item {{#if (eq activeTab "general")}}active{{/if}}" data-action="selectTab" data-tab="general">Geral</a>
+    <a class="item {{#if (eq activeTab "mechanic")}}active{{/if}}" data-action="selectTab" data-tab="mechanic">Mecânica</a>
+    <a class="item {{#if (eq activeTab "passive")}}active{{/if}}" data-action="selectTab" data-tab="passive">Passivos</a>
+    <a class="item {{#if (eq activeTab "subskills")}}active{{/if}}" data-action="selectTab" data-tab="subskills">Sub-Skills</a>
+    {{else}}
     <a class="item {{#if (eq activeTab "details")}}active{{/if}}" data-action="selectTab" data-tab="details">Detalhes</a>
+    <a class="item {{#if (eq activeTab "description")}}active{{/if}}" data-action="selectTab" data-tab="description">Descrição</a>
+    {{/if}}
   </nav>
 
   <section class="sheet-body">
@@ -25,11 +39,12 @@
     </div>
     {{/unless}}
 
-    <div class="tab {{#unless (eq activeTab "details")}}hidden{{/unless}}">
+    <div class="tab {{#unless (or (eq itemType "skill") (eq activeTab "details"))}}hidden{{/unless}}">
 
       {{#if (eq itemType "skill")}}
+      <div class="skill-pane {{#unless (eq activeTab "general")}}hidden{{/unless}}">
       {{#if system.isItemGranted}}
-      <p class="hint-inline">⚙ Concedida automaticamente por um Item/Módulo — não pode ser fundida, e some se a fonte for desequipada/removida.</p>
+      <p class="hint-inline">⚙ Concedida por um Item/Módulo e fixa: não ganha XP, não sobe de nível, não funde nem evolui. Para mudá-la, edite a Habilidade Concedida no próprio Item/Módulo. Some se a fonte for desequipada/removida.</p>
       {{/if}}
       {{#if system.evolvedFrom}}
       <p class="skill-summary-resist">Evoluiu de: {{system.evolvedFrom}}</p>
@@ -47,17 +62,19 @@
           </select>
         </label>
         {{/if}}
+        {{#unless system.isItemGranted}}
         {{#if isGM}}<button type="button" class="level-up-button" data-action="levelUpSkill" title="Level Up (Voz do Mundo avisa)">+ Nível</button>{{/if}}
         {{#if canSpendPointLevel}}<button type="button" class="level-up-button" data-action="spendPointLevelUp" title="Gasta 1 Ponto de Habilidade do tier desta Skill ({{levelPointBalance}} disponível)">Subir nível (1 Ponto)</button>{{/if}}
         {{#if isGM}}{{#if item.parent}}
         <button type="button" class="skill-evolve-button" data-action="evolveSkill" title="Vira uma Skill nova, mantém só o registro histórico"><i class="fas fa-level-up-alt"></i> Evoluir</button>
         {{/if}}{{/if}}
+        {{/unless}}
       </div>
       {{#unless (eq system.tier "ultimate")}}
       <p class="hint-inline">"Ultimate" só aparece pro jogador se o Ator já possuir uma Skill Ultimate — o Mestre sempre vê essa opção.</p>
       {{/unless}}
 
-      <label>Nível <input type="number" name="system.level" value="{{system.level}}" min="1" {{#unless isGM}}readonly{{/unless}}/></label>
+      <label>Nível <input type="number" name="system.level" value="{{system.level}}" min="1" {{#unless isGM}}readonly{{/unless}}{{#if system.isItemGranted}} readonly{{/if}}/></label>
       <label>Custo de {{energyLabel}} <input type="number" name="system.cost" value="{{system.cost}}" min="0"/></label>
 
       <label class="checkbox-line"><input type="checkbox" name="system.hasUpkeep" {{#if system.hasUpkeep}}checked{{/if}}/> Habilidade Ativa</label>
@@ -76,20 +93,10 @@
 
       <label>Gatilho Emocional <input type="text" name="system.emotionTrigger" value="{{system.emotionTrigger}}"/></label>
 
-      {{#if resistancesEnabled}}
-      <h3>Resistência/Imunidade passiva <span class="hint-inline">(independente da Mecânica ao Usar abaixo — pode ter as duas)</span></h3>
-      <label>Alvo
-        <select name="system.resistanceTarget">
-          {{#each skillResistanceOptions as |opt|}}
-          <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
-          {{/each}}
-        </select>
-      </label>
-      {{#if isResistanceSkill}}
-      <p class="skill-summary-resist">{{skillResistanceSummary}}</p>
-      {{/if}}
-      {{/if}}
 
+      </div>
+
+      <div class="skill-pane {{#unless (eq activeTab "mechanic")}}hidden{{/unless}}">
       <h3>Mecânica ao Usar</h3>
       <label>Tipo
         <select name="system.effectType">
@@ -99,7 +106,6 @@
         </select>
       </label>
 
-      {{#unless (eq system.effectType "none")}}
       <label>Tipo de Alvo
         <select name="system.targetType">
           {{#each skillTargetTypeOptions as |opt|}}
@@ -107,6 +113,18 @@
           {{/each}}
         </select>
       </label>
+      {{#if (eq system.targetType "structure")}}
+      <label>Estrutura
+        <select name="system.structureId">
+          <option value="">— escolha —</option>
+          {{#each skillStructureOptions as |opt|}}
+          <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+          {{/each}}
+        </select>
+        <span class="hint-inline">Catálogo em Configurações Gerais › Estruturas. Skill Ativa com Estrutura sem prazo: ela fica até a Skill ser desligada.</span>
+      </label>
+      {{/if}}
+      {{#unless (eq system.effectType "none")}}
 
       {{#if (or (eq system.targetType "emission") (eq system.targetType "zone"))}}
       {{#if (eq system.targetType "zone")}}
@@ -143,14 +161,16 @@
         <span class="hint-inline">Multiplica o dano por (Atributo.Total)² ÷ divisor. Sem escala, a fórmula vale como escrita.</span>
       </label>
       <label class="checkbox-line"><input type="checkbox" name="system.isMagicDamage" {{#if system.isMagicDamage}}checked{{/if}}/> Dano Mágico</label>
+      <label class="checkbox-line" title="Não pode ser resistido (Defesa Mágica, Resistências, Imunidade, Escudo pessoal). Contra Nave, a Evasão ainda vale e o resto vai direto na Integridade Estrutural."><input type="checkbox" name="system.isAbsoluteDamage" {{#if system.isAbsoluteDamage}}checked{{/if}}/> Dano Absoluto</label>
+      {{#if scaleEnabled}}
+      <label>Escala do golpe
+        <select name="system.damageScale">
+          {{#each damageScaleOptions as |opt|}}<option value="{{opt.id}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+        </select>
+      </label>
+      {{/if}}
       <div class="field-hint-label">Elemento(s)</div>
-      <div class="element-grid">
-        {{#each skillElementChips as |el|}}
-        <a class="element-chip {{#if el.checked}}checked{{/if}}" data-action="toggleSkillElement" data-element="{{el.id}}"><span class="dot" style="background:{{el.color}}"></span>{{el.label}}</a>
-        {{else}}
-        <span class="hint-inline">Nenhum elemento configurado.</span>
-        {{/each}}
-      </div>
+      {{> nihility.elementChips groups=skillElementGroups path="system.damageElements"}}
       {{/if}}
 
       {{#if (eq system.effectType "temporary")}}
@@ -163,10 +183,22 @@
         <li class="effect-row" data-index="{{eff.index}}">
           <div class="effect-row-main">
             <select class="skill-effect-input" data-effect-field="target" title="Alvo">
-              {{#each eff.targetOptions as |opt|}}
+              {{#each eff.targetGroups as |group|}}
+              <optgroup label="{{group.label}}">
+                {{#each group.options as |opt|}}
+                <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+                {{/each}}
+              </optgroup>
+              {{/each}}
+            </select>
+            {{#if eff.isElementTarget}}
+            <select class="skill-effect-input" data-effect-field="elementId" title="Elemento que as armas passam a causar">
+              <option value="">— elemento —</option>
+              {{#each eff.elementIdOptions as |opt|}}
               <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
               {{/each}}
             </select>
+            {{/if}}
             <input type="number" class="skill-effect-input" data-effect-field="amount" value="{{eff.amount}}" placeholder="Qtd." title="Quantidade"/>
             <input type="number" class="skill-effect-input" data-effect-field="durationRounds" value="{{eff.durationRounds}}" min="0" placeholder="Rounds/Ticks" title="Duração (rounds, ou ticks se Periódico)"/>
             <a data-action="deleteSkillEffect" title="Remover"><i class="fas fa-trash"></i></a>
@@ -214,7 +246,25 @@
         {{/each}}
       </ol>
       <a class="sub-skill-add" data-action="addSkillEffect">+ Efeito</a>
-      <p class="hint-inline">Quantidade negativa = debuff/drawback. Escudo ignora Duração (some só ao absorver dano). "Periódico" (só HP/{{energyLabel}}) aplica a Quantidade a CADA tick — Duração vira "quantos ticks". Reaplicar a MESMA Condição em quem já a tem apenas ESTENDE a duração.</p>
+      <p class="hint-inline">Quantidade negativa = debuff/drawback. Escudo ignora Duração (some só ao absorver dano). "Periódico" (só HP/{{energyLabel}}) aplica a Quantidade a CADA tick — Duração vira "quantos ticks". Reaplicar a MESMA Condição em quem já a tem RENOVA a duração (não soma) e fica com o valor mais forte. Com uma Condição e Quantidade 0, vale o efeito padrão da Condição.</p>
+      {{/if}}
+
+      </div>
+
+      <div class="skill-pane {{#unless (eq activeTab "passive")}}hidden{{/unless}}">
+      <p class="hint-inline">Tudo aqui vale sempre, sem usar a Skill (Habilidade Ativa: enquanto ligada).</p>
+      {{#if resistancesEnabled}}
+      <h4>Resistência/Imunidade passiva <span class="hint-inline">(independente da Mecânica ao Usar abaixo — pode ter as duas)</span></h4>
+      <label>Alvo
+        <select name="system.resistanceTarget">
+          {{#each skillResistanceOptions as |opt|}}
+          <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+          {{/each}}
+        </select>
+      </label>
+      {{#if isResistanceSkill}}
+      <p class="skill-summary-resist">{{skillResistanceSummary}}</p>
+      {{/if}}
       {{/if}}
 
       <h4>Modificador Permanente <span class="hint-inline">(soma direto no HP/Mana Máximo enquanto a Skill estiver na ficha, sempre — sem duração)</span></h4>
@@ -237,12 +287,20 @@
       </ol>
       <a class="item-attr-bonus-add" data-action="addItemAttrBonus">+ Bônus de Atributo</a>
 
+      <h4>Bônus Condicionais <span class="hint-inline">(Quando → Então; Habilidade Ativa só vale ligada)</span></h4>
+      {{> nihility.conditionalModifiers rows=conditionalRows editable=editable}}
+
+      </div>
+
+      <div class="skill-pane {{#unless (eq activeTab "subskills")}}hidden{{/unless}}">
+      <p class="hint-inline">Componentes que o jogador escolhe ao usar a Skill — sempre uma lista plana (fundir uma fusão achata os componentes).</p>
       <h3>Sub-Skills</h3>
       <ol class="sub-list">
-        {{#each system.subSkills as |sub index|}}
-        <li data-index="{{index}}">
-          <input type="text" name="system.subSkills.{{index}}.name" value="{{sub.name}}"/>
-          <input type="text" name="system.subSkills.{{index}}.description" value="{{sub.description}}"/>
+        {{#each subSkillRows as |sub|}}
+        <li data-index="{{sub.index}}" class="sub-skill-row">
+          <input type="text" name="system.subSkills.{{sub.index}}.name" value="{{sub.name}}"/>
+          <span class="sub-skill-mechanic">{{sub.mechanic}}</span>
+          {{#if ../isGM}}<a data-action="editSubSkill" title="Editar mecânica e descrição"><i class="fas fa-edit"></i></a>{{/if}}
           <a class="sub-skill-delete" data-action="deleteSubSkill" title="Remover"><i class="fas fa-trash"></i></a>
         </li>
         {{/each}}
@@ -253,6 +311,7 @@
       <h3>Linhagem de Fusão</h3>
       <p>{{#each system.fusionSources}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</p>
       {{/if}}
+      </div>
       {{/if}}
 
       {{#if (eq itemType "body_part")}}
@@ -275,13 +334,7 @@
             <a class="mod-delete" data-action="deleteInstalledMod" title="Remover"><i class="fas fa-trash"></i></a>
           </div>
           <div class="mod-grant-fields">
-            <input type="text" name="system.installedMods.{{index}}.grantsSkill.name" value="{{mod.grantsSkill.name}}" placeholder="Habilidade Concedida (nome)"/>
-            <input type="number" name="system.installedMods.{{index}}.grantsSkill.cost" value="{{mod.grantsSkill.cost}}" placeholder="Custo"/>
-            <select name="system.installedMods.{{index}}.grantsSkill.tier">
-              {{#each ../config.ITEM_GRANTABLE_SKILL_TIERS as |t|}}
-              <option value="{{t}}" {{#if (eq t mod.grantsSkill.tier)}}selected{{/if}}>{{lookup ../../config.SKILL_TIER_LABELS t}}</option>
-              {{/each}}
-            </select>
+            {{> nihility.grantedSkill grant=(lookup ../modGrantSummaries index) editable=../editable}}
             <button type="button" class="mod-grant-toggle" data-action="toggleModGrant" data-index="{{index}}">
               {{#if mod.skillGranted}}Remover Habilidade{{else}}Conceder Habilidade{{/if}}
             </button>
@@ -354,16 +407,20 @@
       </ol>
       <a class="title-resistance-add" data-action="addTitleResistance">+ Resistência</a>
       {{/if}}
+
+      <h3>Bônus Condicionais <span class="hint-inline">(Quando → Então — ex.: Caçador de Dragões)</span></h3>
+      {{> nihility.conditionalModifiers rows=conditionalRows editable=editable}}
       {{/if}}
 
       {{#if (eq itemType "starship_module")}}
       <label>Categoria
         <select name="system.category">
-          {{#each config.STARSHIP_MODULE_CATEGORIES as |cat|}}
-          <option value="{{cat}}" {{#if (eq cat ../system.category)}}selected{{/if}}>{{lookup ../config.STARSHIP_MODULE_CATEGORY_LABELS cat}}</option>
+          {{#each moduleCategoryOptions as |cat|}}
+          <option value="{{cat.id}}" {{#if cat.selected}}selected{{/if}}>{{cat.label}} ({{cat.roleLabel}})</option>
           {{/each}}
         </select>
       </label>
+      <p class="hint-inline">Função: <strong>{{moduleRoleLabel}}</strong> — os campos abaixo mudam com a Função da Categoria. Categorias e Funções ficam em Configurações Gerais › Categorias de Módulo.</p>
       <label>Porte do Módulo
         <select name="system.moduleSize">
           {{#each config.MODULE_SIZES as |size|}}
@@ -381,28 +438,25 @@
         <input type="number" name="system.hp.max" value="{{system.hp.max}}" min="0"/>
       </label>
       <label>Slot <input type="text" name="system.slot" value="{{system.slot}}"/></label>
-      {{#if (eq system.category "armor")}}
+      {{#if (eq moduleRole "armor")}}
       <label>Redução de Dano (%) <span class="hint-inline" style="display:inline;">(reduz esse percentual de todo dano recebido pela Nave enquanto instalado no slot de Casco)</span>
         <input type="number" name="system.armorReduction" value="{{system.armorReduction}}" min="0" max="100"/>
       </label>
       {{/if}}
 
 
-      {{#unless (or (eq system.category "reactor") (eq system.category "battery") (eq system.category "distributor"))}}
-      <label>Prioridade de Energia <span class="hint-inline" style="display:inline;">(menor número = atendido primeiro pelo Distribuidor quando falta energia)</span>
-        <input type="number" name="system.powerPriority" value="{{system.powerPriority}}" min="0"/>
-      </label>
-      {{/unless}}
+      <!-- Prioridade de Energia não mora mais aqui: é decisão da tripulação de CADA Nave, então se
+           ordena no painel de Grid de Energia da ficha da Nave (ver starship-sheet.hbs). -->
 
-      {{#if (eq system.category "reactor")}}
+      {{#if (eq moduleRole "power")}}
       <label>Output (a 100% de clock) <input type="number" name="system.reactorOutput" value="{{system.reactorOutput}}" min="0"/></label>
       {{/if}}
 
-      {{#if (eq system.category "battery")}}
+      {{#if (eq moduleRole "storage")}}
       <label>Capacidade de Armazenamento <input type="number" name="system.batteryCapacity" value="{{system.batteryCapacity}}" min="0"/></label>
       {{/if}}
 
-      {{#if (eq system.category "distributor")}}
+      {{#if (eq moduleRole "distribution")}}
       <label>Fator de Distribuição <span class="hint-inline" style="display:inline;">(multiplica o baseline do Porte da Nave)</span>
         <input type="number" name="system.transferFactor" value="{{system.transferFactor}}" min="0" step="0.1"/>
       </label>
@@ -426,26 +480,29 @@
       {{/if}}
       {{/if}}
 
-      {{#if (eq system.category "shield")}}
+      {{#if (eq moduleRole "shield")}}
       <label>Vida Máxima (a 100% de throttle) <input type="number" name="system.shieldCapacity" value="{{system.shieldCapacity}}" min="0"/></label>
       <label>Regen por Rodada (a 100% de throttle) <input type="number" name="system.shieldRegen" value="{{system.shieldRegen}}" min="0"/></label>
       <label>Recarga (rodadas sem proteção após zerar) <input type="number" name="system.shieldRechargeRounds" value="{{system.shieldRechargeRounds}}" min="0"/></label>
       {{/if}}
 
-      {{#if (eq system.category "engine")}}
+      {{#if (eq moduleRole "propulsion")}}
       <label>Aceleração (a 100% de throttle) <input type="number" name="system.acceleration" value="{{system.acceleration}}" min="0"/></label>
       <label>Rotação (a 100% de throttle) <input type="number" name="system.rotation" value="{{system.rotation}}" min="0"/></label>
       {{/if}}
 
-      {{#if (eq system.category "weapon")}}
+      {{#if (eq moduleRole "weapon")}}
       <label>Fórmula de Dano <input type="text" name="system.damageFormula" value="{{system.damageFormula}}" placeholder="ex: 3d10"/></label>
       <label>Penetração (%, a 100% de throttle) <input type="number" name="system.penetration" value="{{system.penetration}}" min="0" max="100"/></label>
+      <label class="checkbox-line" title="Passa por Escudo e Casco direto pra Integridade Estrutural. A Evasão do alvo ainda vale."><input type="checkbox" name="system.isAbsoluteDamage" {{#if system.isAbsoluteDamage}}checked{{/if}}/> Dano Absoluto</label>
+      <div class="field-hint-label">Elemento(s)</div>
+      {{> nihility.elementChips groups=moduleElementGroups path="system.damageElements"}}
       <label>Recarga (rodadas, a 100% de throttle) <span class="hint-inline" style="display:inline;">(0 = sempre disponível pra disparar)</span>
         <input type="number" name="system.cooldownRounds" value="{{system.cooldownRounds}}" min="0"/>
       </label>
       {{/if}}
 
-      {{#if (eq system.category "ftl")}}
+      {{#if (eq moduleRole "ftl")}}
       <label>Sub-tipo
         <select name="system.ftlType">
           <option value="warp" {{#if (eq system.ftlType "warp")}}selected{{/if}}>Dobra Espacial</option>
@@ -461,16 +518,7 @@
       {{/if}}
 
       <h3>Habilidade Concedida <span class="hint-inline">(à Nave, enquanto o módulo estiver "online")</span></h3>
-      <label>Nome <input type="text" name="system.grantsSkill.name" value="{{system.grantsSkill.name}}"/></label>
-      <label>Descrição <input type="text" name="system.grantsSkill.description" value="{{system.grantsSkill.description}}"/></label>
-      <label>Custo <input type="number" name="system.grantsSkill.cost" value="{{system.grantsSkill.cost}}"/></label>
-      <label>Tier
-        <select name="system.grantsSkill.tier">
-          {{#each config.ITEM_GRANTABLE_SKILL_TIERS as |t|}}
-          <option value="{{t}}" {{#if (eq t ../system.grantsSkill.tier)}}selected{{/if}}>{{lookup ../config.SKILL_TIER_LABELS t}}</option>
-          {{/each}}
-        </select>
-      </label>
+      {{> nihility.grantedSkill grant=grantSummary editable=editable}}
       <p class="hint-inline">Ligar/desligar o módulo na ficha da Nave concede/remove essa Habilidade automaticamente.</p>
       {{/if}}
 
@@ -499,14 +547,17 @@
         <span class="hint-inline">Multiplica o dano por (Atributo.Total)² ÷ divisor — igual às Skills. Sem escala, a fórmula vale como escrita.</span>
       </label>
       <label class="checkbox-line"><input type="checkbox" name="system.weapon.isMagicDamage" {{#if system.weapon.isMagicDamage}}checked{{/if}}/> Dano Mágico</label>
+      <label class="checkbox-line" title="Não pode ser resistido (Defesa Mágica, Resistências, Imunidade, Escudo pessoal). Contra Nave, a Evasão ainda vale."><input type="checkbox" name="system.weapon.isAbsoluteDamage" {{#if system.weapon.isAbsoluteDamage}}checked{{/if}}/> Dano Absoluto</label>
+      {{#if scaleEnabled}}
+      <label>Escala do golpe
+        <select name="system.weapon.damageScale">
+          {{#each weaponScaleOptions as |opt|}}<option value="{{opt.id}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+        </select>
+        <span class="hint-inline">Uma bazuca anti-tanque pode ser "Veículo" mesmo na mão de uma pessoa.</span>
+      </label>
+      {{/if}}
       <div class="field-hint-label">Elemento(s)</div>
-      <div class="element-grid">
-        {{#each weaponElementChips as |el|}}
-        <a class="element-chip {{#if el.checked}}checked{{/if}}" data-action="toggleWeaponElement" data-element="{{el.id}}"><span class="dot" style="background:{{el.color}}"></span>{{el.label}}</a>
-        {{else}}
-        <span class="hint-inline">Nenhum elemento configurado.</span>
-        {{/each}}
-      </div>
+      {{> nihility.elementChips groups=weaponElementGroups path="system.weapon.damageElements"}}
       {{/if}}
 
       {{#if isGM}}
@@ -515,17 +566,12 @@
       {{/if}}
 
       <h3>Habilidade Concedida <span class="hint-inline">(ao dono, enquanto o item estiver equipado)</span></h3>
-      <label>Nome <input type="text" name="system.grantsSkill.name" value="{{system.grantsSkill.name}}"/></label>
-      <label>Descrição <input type="text" name="system.grantsSkill.description" value="{{system.grantsSkill.description}}"/></label>
-      <label>Custo <input type="number" name="system.grantsSkill.cost" value="{{system.grantsSkill.cost}}"/></label>
-      <label>Tier
-        <select name="system.grantsSkill.tier">
-          {{#each config.ITEM_GRANTABLE_SKILL_TIERS as |t|}}
-          <option value="{{t}}" {{#if (eq t ../system.grantsSkill.tier)}}selected{{/if}}>{{lookup ../config.SKILL_TIER_LABELS t}}</option>
-          {{/each}}
-        </select>
-      </label>
+      {{> nihility.grantedSkill grant=grantSummary editable=editable}}
       <p class="hint-inline">Marcar/desmarcar "Equipado" concede/remove essa Habilidade automaticamente.</p>
+
+
+      <h3>Bônus Condicionais <span class="hint-inline">(Quando → Então, enquanto equipado)</span></h3>
+      {{> nihility.conditionalModifiers rows=conditionalRows editable=editable}}
 
       <h3>Modificador Permanente <span class="hint-inline">(soma direto no HP/Mana Máximo enquanto o item estiver equipado)</span></h3>
       <label>HP <input type="number" name="system.statModifiers.hp" value="{{system.statModifiers.hp}}"/></label>

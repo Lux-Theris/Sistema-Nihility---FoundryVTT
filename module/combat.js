@@ -12,6 +12,7 @@
  */
 import { SYSTEM_ID, MEU_SISTEMA, getAttributeLabel } from "./config.js";
 import { buildAttributeRollFormula } from "./dice.js";
+import { buildModifiedFormula, describeRollOptions, isNeutralRollOptions } from "./roll-modifiers.js";
 
 /** Atributo que rege a iniciativa (setting; cai em Destreza se a setting sumir ou virar inválida). */
 export function getInitiativeAttribute() {
@@ -61,8 +62,9 @@ export function registerInitiative() {
  * ainda não está no combate recebe um aviso pra pedir ao Mestre, em vez de um erro de permissão
  * no console. Uma vez dentro, ele rola a própria iniciativa normalmente.
  * @param {Actor} actor
+ * @param {object|null} [rollOptions] - Vantagem e modificadores do shift+clique
  */
-export async function rollInitiativeForActor(actor) {
+export async function rollInitiativeForActor(actor, rollOptions = null) {
   const combat = game.combat;
   if (!combat) {
     ui.notifications.warn("Nenhum combate ativo — crie um encontro antes de rolar iniciativa.");
@@ -89,6 +91,13 @@ export async function rollInitiativeForActor(actor) {
     combatant = created;
   }
 
-  await combat.rollInitiative([combatant.id]);
+  // Shift+clique: Vantagem e modificadores entram na fórmula de iniciativa deste combatente.
+  const options = {};
+  if (!isNeutralRollOptions(rollOptions)) {
+    options.formula = buildModifiedFormula(combatant._getInitiativeFormula(), rollOptions);
+    const text = describeRollOptions(rollOptions);
+    options.messageOptions = { flavor: `${actor.name} rola Iniciativa — ${text}` };
+  }
+  await combat.rollInitiative([combatant.id], options);
   return combatant;
 }

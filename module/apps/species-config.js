@@ -1,4 +1,4 @@
-import { SYSTEM_ID, MEU_SISTEMA, getActiveSpeciesPresets, debugLog } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getActiveSpeciesPresets, getActiveTraits, debugLog } from "../config.js";
 import { openSkillEditorDialog } from "./skill-editor-dialog.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -45,6 +45,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
     const context = await super._prepareContext(options);
     const presets = getActiveSpeciesPresets();
     const species = {};
+    const traits = getActiveTraits();
     for (const [key, def] of Object.entries(presets)) {
       species[key] = {
         label: def.label ?? key,
@@ -52,6 +53,8 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
         groupLabel: MEU_SISTEMA.SPECIES_GROUP_LABELS[def.group] ?? "",
         // Ausente conta como disponível: espécie criada à mão não some do seletor sem querer.
         availableAtCreation: def.availableAtCreation !== false,
+        // Traços que a Espécie dá a quem a tem (Dracônico, Voador…) — ver actorTraits em config.js.
+        traitOptions: traits.map(t => ({ id: t.id, label: t.label, checked: (def.traits ?? []).includes(t.id) })),
         parts: (def.parts ?? []).map(p => ({ ...p, tagsText: (p.tags ?? []).join(", ") })),
         skills: (def.skills ?? []).map(s => ({ ...s, dataJson: JSON.stringify(s) }))
       };
@@ -189,6 +192,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
         label,
         group: block.querySelector(".species-group")?.value ?? "",
         availableAtCreation: block.querySelector(".species-at-creation")?.checked !== false,
+        traits: Array.from(block.querySelectorAll(".species-trait:checked")).map(cb => cb.value),
         parts,
         skills
       };

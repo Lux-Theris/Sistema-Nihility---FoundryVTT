@@ -4,23 +4,77 @@ Sistema customizado para [Foundry VTT](https://foundryvtt.com/) (requer **V13+**
 
 ## Destaques
 
-- **Totalmente modular**: cada bloco do sistema (Economia, Títulos, Anatomia, **Naves e Veículos**, Fusão de Habilidades, Pontos de Habilidade, Pool de Atributos, Resistências, Condições, Habilidades de Área, Assistente de IA e o PAD) liga e desliga por mundo, com **presets de campanha** prontos — Fantasia Medieval, Sci-Fi Arcano ou Misto. Desligar um bloco só esconde a interface e impede criar conteúdo novo daquele tipo: **nada é apagado**, e religar devolve tudo como estava.
-- **Fórmula de HP/Mana configurável**: quais Atributos multiplicam cada pool, o multiplicador e o piso são settings — dá até pra desligar o pool de Mana inteiro numa campanha sem magia (as Habilidades continuam funcionando, só deixam de custar recurso).
-- **Atributos renomeáveis**: os sete Atributos de Combate podem receber os nomes da sua campanha (ou serem escondidos da ficha) sem quebrar Efeitos, Títulos ou fórmulas já gravados — só o rótulo muda, a chave interna fica.
-- **Experiência e progressão**: Personagens **e** Habilidades acumulam XP, com a curva definida por uma fórmula configurável (padrão `100 × nível`). O sistema avisa quando a barra enche; subir de nível continua sendo decisão do Mestre. Cada nível de Habilidade segue um ciclo previsível de **Poder** (multiplica o efeito) e **Desconto** (corta o Custo), e Habilidades podem escalar o dano por um Atributo — numa curva quadrática, a única que acompanha o crescimento do HP.
-- **Resistências que aprendem sozinhas**: uma Skill de Resistência ganha XP ao efetivamente bloquear dano — proporcional à fatia da própria Vida que foi salva, então defender um golpe perigoso vale o mesmo no nível 1 e no 50, e arranhão não ensina nada. O sistema também conta quantas vezes o personagem apanhou de cada tipo de dano e **sugere** a Resistência ao Mestre.
-- **Iniciativa pelo Atributo**: a iniciativa usa o mesmo pool de d20 escalável do resto do sistema (Atributo configurável, padrão Destreza), em vez do `1d20` solto do Foundry.
-- **Dano aplicável pelo chat**: o card de dano ganha botões **Aplicar / Metade / Dobro** (só Mestre) com **Desfazer** — o número já sai com Defesa Mágica e Resistências descontadas, e nada toca a ficha sem clique.
-- **Condições no HUD do token**: o catálogo de Condições alimenta a paleta de status do token, então dá pra marcar "Envenenado" clicando no token, com uma tela opcional pra dizer o que a Condição faz (ou nada, e ela vira só o ícone).
-- **Moedas e Energia customizáveis**: defina suas próprias moedas (JSON) e o nome do sistema de energia (padrão: *Sistema Eletro-Plasmático (EPS)*).
-- **Anatomia por Espécie**: ao trocar a espécie de um personagem, o sistema aplica automaticamente o preset de Partes do Corpo (HP próprio, status Intacto/Danificado/Destruído, próteses/modificações).
-- **Fusão de Skills**: funde habilidades da ficha em uma nova, reaproveitando combinações já existentes no Compêndio quando possível. Skills Únicas nascem de gatilhos emocionais/personalidade (modo manual com aprovação do Mestre, ou automático via IA) e **não podem consumir Skills Ultimate**.
-- **Compêndios auto-geridos**: Skills, Partes do Corpo, Títulos e Módulos de Nave são registrados automaticamente em Compêndios do Mundo assim que criados — nada se perde ao remover um item de uma ficha.
-- **Naves Espaciais e Veículos Terrestres com sistema completo de Módulos**: Porte (Mini→Capital, só o Mestre edita), sete tipos de Módulo de slot único (Reator/Bateria/Distribuidor/Escudo/Motor/Casco/FTL) mais Arma (orçamento de espaço por Porte) e Utilidade, um Grid de Energia inspirado em Elite Dangerous (Reator → Distribuidor → Bateria, com throttle por Módulo e fome de energia por prioridade quando falta capacidade), cascata de dano em 3 camadas (Escudo → Casco → Integridade Estrutural, com Penetração de Arma e Recarga de Escudo), Armas nativas do Módulo (dano/penetração/recarga própria, sobrecarregar bate mais forte mas recarrega mais devagar), ferramentas de ajuste manual do Mestre e uma macro de reparo em campo (`game.nihility.requestShipRepair()`) com rolagem de Destreza. Veículo usa o mesmo sistema, só travado nos dois menores Portes.
-- **Editores visuais de Moedas e Presets de Espécie**: sem JSON à mão — telas dedicadas com linhas de add/remover (nas Configurações do Mundo).
-- **Assistente de IA (GM)**: janela com botão próprio no diretório de Atores para gerar NPCs, Montarias, Naves Espaciais, Veículos, Notas/Journal e Skills avulsas a partir de um prompt em texto livre, com geração em lote (até 10 de uma vez) e suporte nativo a múltiplos provedores (OpenAI-compatível ou Anthropic/Claude).
-- **PAD (celular in-game)**: app estilo smartphone ligado a um Personagem, com status da Nave tripulada, Biblioteca de favoritos (pessoal e compartilhada com a tripulação) e mensagens privadas diretas/em grupo entre personagens. Um jogador só tem acesso se o personagem possuir um Item marcado como dispositivo PAD.
-- **Voz do Mundo**: anúncios de nível, fusão e novas habilidades são sempre enviados por *whisper* — nunca publicamente — apenas para o Mestre e o(s) jogador(es) dono(s) do personagem.
+### Campanha e configuração
+
+- **Totalmente modular**: cada bloco do sistema liga e desliga por mundo, com **presets de campanha** prontos: Fantasia Medieval, Sci-Fi Arcano ou Misto. Os blocos são:
+  - Economia, Títulos, Anatomia, Naves e Veículos;
+  - Fusão de Habilidades, Pontos de Habilidade, Pool de Atributos;
+  - Resistências, Condições, Habilidades de Área, Estruturas;
+  - Deslocamento, Movimento e Evasão de naves, Escala;
+  - Assistente de IA e PAD.
+
+  Desligar um bloco só esconde a interface e impede criar conteúdo novo daquele tipo: **nada é apagado**, e religar devolve tudo como estava. Os presets também carregam conteúdo pronto (elementos de energia e categorias de módulo estilo Star Trek no Sci-Fi).
+- **Tudo configurável no jogo, sem JSON à mão**: moedas, espécies, Traços, tipos de dano, Condições, Escalas, Estruturas, categorias de módulo, classes de nave e de veículo, e postos de tripulação têm editores visuais próprios.
+  - As regras numéricas (XP, pontos por nível, fórmulas de Vida/Mana, iniciativa…) ficam juntas em **Regras da Mesa**.
+- **Exportar/Importar tudo**: leva catálogos, Módulos do Sistema e regras de um mundo para outro, escolhendo o que vai e vendo o que muda antes de importar. A chave de IA nunca entra no arquivo.
+- **Fórmula de HP/Mana configurável**: quais Atributos multiplicam cada pool, o multiplicador e o piso são settings. Dá até para desligar o pool de Mana numa campanha sem magia: as Habilidades continuam funcionando, só deixam de custar recurso.
+- **Atributos renomeáveis**: os oito Atributos de Combate podem receber os nomes da sua campanha, ou ser escondidos da ficha, sem quebrar Efeitos, Títulos ou fórmulas já gravados. Os oito são Força, Defesa, Magia, Defesa Mágica, Destreza, Furtividade, Percepção e Precisão.
+- **Pontos de Atributo extras do Mestre**, por personagem, somados ao orçamento do nível.
+
+### Personagens e combate
+
+- **Rolagem com modificadores**: **Shift+clique** em qualquer rolagem abre Vantagem/Desvantagem e modificadores livres (somar, subtrair, multiplicar, dividir, com o motivo). Vale para atributo, iniciativa, dano de Habilidade, ataque com arma e disparo de nave. Vantagem rola o pool inteiro duas vezes e fica com o maior.
+- **Iniciativa pelo Atributo**: usa o mesmo pool de d20 escalável do resto do sistema, em vez do `1d20` solto do Foundry. O Atributo é configurável; o padrão é Destreza.
+- **Experiência e progressão**:
+  - Personagens **e** Habilidades acumulam XP numa curva configurável (padrão `100 × nível`). O sistema avisa quando a barra enche; subir de nível continua sendo decisão do Mestre.
+  - Cada nível de Habilidade segue um ciclo previsível de **Poder** (multiplica o efeito) e **Desconto** (corta o Custo).
+  - O dano pode escalar por um Atributo, numa curva quadrática — a única que acompanha o crescimento do HP.
+- **Deslocamento por rodada**: base + Destreza, com teto só na Destreza permanente (Skills passam por cima). Em combate, a régua do token mostra o alcance, o que passa do limite fica pontilhado e o token para no último ponto que alcança. Botão **Correr** dobra o deslocamento do turno.
+- **Dano por elemento**:
+  - Um golpe com vários elementos é dividido em partes iguais, e cada parte sofre só a Resistência do seu elemento. Imunidade a Fogo não zera a parte de Gelo.
+  - Cada elemento pode ter **efeitos ao acertar**: aplicar Condição com chance, dano extra contra um Traço, dreno de Escudo, Penetração.
+- **Dano Absoluto**: não pode ser resistido, só desviado.
+- **Escala Personagem × Nave**: dano entre escalas diferentes é multiplicado ou dividido pelo fator a cada degrau. Pistola quase não arranha uma nave; canhão de nave vaporiza uma pessoa.
+- **Condições com efeito padrão**: Queimadura em % do dano do golpe, Lentidão em % do deslocamento…, definido uma vez e usado por elementos, Skills e pela marcação no token. Reaplicar renova a duração, não soma.
+- **Bônus Condicionais ("Quando → Então")** em Títulos, Skills e Itens. Por exemplo, Caçador de Dragões dá +25% de dano contra quem tem o Traço Dracônico. Também podem depender de Vida baixa, Condições, elemento ou estar em combate.
+- **Traços de criatura** (Dracônico, Voador, Orgânico…) vindos da Espécie, ajustáveis na ficha.
+- **Resistências que aprendem sozinhas**: uma Skill de Resistência ganha XP ao efetivamente bloquear dano, proporcional à fatia da própria Vida que foi salva. O sistema também **sugere** Resistências ao Mestre depois de muitos golpes do mesmo tipo.
+- **Dano aplicável pelo chat**:
+  - O card de dano ganha botões **Aplicar / Metade / Dobro** (só Mestre) com **Desfazer**.
+  - O Escudo pessoal absorve antes da Vida.
+  - As Condições do elemento só entram quando o acerto é confirmado.
+- **Armas de Personagem**: qualquer Item vira arma. Só arma **equipada** ataca. Skills podem **aprimorar as armas equipadas**: mais dano, trocar o elemento, dano mágico ou absoluto.
+- **Habilidades Ativas** com custo por rodada. Mana em 0 desliga todas as Habilidades Ativas do personagem; os efeitos somem no início do próximo turno.
+- **Estruturas**: Skills que erguem Parede de Pedra, Bloco de Gelo, Barreira de Mana… como paredes de verdade no mapa.
+  - Formas: linha, círculo, quadrado ou **desenhada à mão**, até o tamanho máximo.
+  - Vida 0 = barreira de mana: o dano sai da Mana de quem conjurou.
+- **Condições no HUD do token**: marque "Envenenado" clicando no token, usando o efeito padrão da Condição ou outro valor.
+- **Anatomia por Espécie**: ao trocar a espécie, o sistema aplica o preset de Partes do Corpo (HP próprio, próteses/modificações), as Skills Raciais e os Traços.
+- **Fusão e Evolução de Skills** (só Mestre). Sub-Skills são sempre uma lista plana que o jogador escolhe ao usar.
+- **Habilidade Concedida completa** por Item, Módulo ou Modificação, editada no mesmo editor de Skill. É fixa: não ganha XP nem sobe de nível.
+
+### Naves e Veículos
+
+- **Porte e Classe**: Porte é o tamanho (Mini→Capital); Classe é o papel.
+  - Classes de Nave: Encouraçado, Cruzador, Cargueiro…; Classes de Veículo: Tanque, Carro, Moto…
+  - A Classe muda vagas, espaço de arma, evasão e movimento.
+- **Categorias de Módulo personalizáveis**: cada categoria aponta para uma **Função** (Geração de Energia, Propulsão, FTL, Escudo, Blindagem, Arma…).
+  - Dois núcleos de dobra somam; impulso + manobradores somam; dobra e transdobra são independentes.
+  - Comunicações, Defletor e afins existem só se a campanha quiser (Função Utilidade).
+- **Grid de Energia** inspirado em Elite Dangerous (Reator → Distribuidor → Bateria): throttle por Módulo, e prioridade de energia ordenada na ficha da Nave quando falta capacidade.
+- **Cascata de dano** em 3 camadas (Escudo → Casco → Integridade Estrutural), com Penetração, Recarga de Escudo e **Evasão** (a Manobra da nave vira dano evitado).
+- **Movimento por rodada** (Porte × Motor), com o mesmo limite na régua do personagem.
+- **Tripulação com postos** (Capitão, Piloto, Engenheiro…) que são só "quem está onde". Qualquer tripulante opera a nave inteira e troca o próprio posto na hora.
+- **Armas nativas do Módulo** (sobrecarregar bate mais forte mas recarrega mais devagar), ajuste manual do Mestre e reparo em campo (`game.nihility.requestShipRepair()`).
+
+### Ferramentas
+
+- **Assistente de IA (GM)**: gera NPCs, Montarias, Naves, Veículos, Notas, Itens e Skills a partir de texto livre.
+  - Tem geração em lote, edição de documentos existentes e um modo Agente que cria vários documentos de uma vez, com desfazer.
+  - Suporta OpenAI-compatível ou Anthropic/Claude.
+- **PAD (celular in-game)**: status da Nave tripulada, Biblioteca de favoritos e mensagens privadas entre personagens.
+- **Voz do Mundo**: anúncios de nível, fusão e novas habilidades são sempre enviados por *whisper*, só para o Mestre e o dono do personagem.
+- **Compêndios auto-geridos**: Skills, Partes do Corpo, Títulos, Itens e Módulos de Nave.
 
 ## Instalação
 
@@ -34,7 +88,7 @@ https://raw.githubusercontent.com/Lux-Theris/Sistema-Nihility---FoundryVTT/main/
 
 ### Manual (upload direto)
 
-1. Copie todo o conteúdo deste repositório (system.json, module/, templates/, styles/, lang/) para `Data/systems/nihility-rpg-system/` na instalação do seu Foundry VTT.
+1. Copie `system.json`, `module/`, `templates/`, `styles/` e `lang/` deste repositório para `Data/systems/nihility-rpg-system/` na instalação do seu Foundry VTT.
 2. Reinicie o Foundry (ou atualize a lista de sistemas).
 3. Crie um novo Mundo selecionando **Nihility RPG System** como sistema.
 
@@ -44,15 +98,23 @@ https://raw.githubusercontent.com/Lux-Theris/Sistema-Nihility---FoundryVTT/main/
 ├── system.json                        # Manifesto do sistema
 ├── module/
 │   ├── nihility-rpg-system.js         # Ponto de entrada (hooks init/ready/combate/chat)
-│   ├── config.js                      # Settings, FEATURES, presets de campanha, moedas, espécies
+│   ├── config.js                      # Settings, FEATURES, presets, catálogos e seus leitores
 │   ├── dice.js                        # Pool de d20 escalável dos Atributos
+│   ├── roll-modifiers.js              # Vantagem e modificadores do shift+clique (regra pura)
+│   ├── damage-rules.js                # Dano por elemento, Imunidade, Escala, efeito de Condição (regra pura)
+│   ├── conditional-modifiers.js       # Bônus "Quando → Então" (regra pura)
+│   ├── conditional-context.js         # …e a ponte com Atores/combate
 │   ├── skill-economy.js               # Fusão, Evolução, Pontos de Habilidade, skills concedidas
-│   ├── skill-effects.js               # "Usar Habilidade": dano, efeitos, Condições, upkeep
-│   ├── skill-snapshot.js              # Snapshot de Skill em Sub-Skill (compartilhado)
-│   ├── area-effects.js                # Habilidades de Emissão (Measured Templates)
+│   ├── skill-effects.js               # "Usar Habilidade": dano, efeitos, Condições, upkeep, Mana em 0
+│   ├── skill-snapshot.js              # Snapshot de Skill em Sub-Skill e Habilidade Concedida
+│   ├── area-effects.js                # Habilidades de Emissão e Zonas (Measured Templates)
+│   ├── structures.js                  # Estruturas no mapa (paredes, blocos, barreiras)
+│   ├── structure-geometry.js          # …e a geometria delas (regra pura)
+│   ├── movement.js                    # Deslocamento por rodada e Correr
 │   ├── combat.js                      # Iniciativa pelo pool de Atributo
 │   ├── conditions.js                  # Condições na paleta do HUD do token
-│   ├── damage-apply.js                # Botões de Aplicar/Desfazer dano no chat
+│   ├── damage-apply.js                # Aplicar/Desfazer dano no chat (Escudo pessoal primeiro)
+│   ├── config-transfer.js             # Exportar/Importar configurações
 │   ├── starship-power.js              # Tick de energia/sobrecarga/recarga de Nave
 │   ├── starship-repair.js             # Macro de reparo em campo
 │   ├── currency.js                    # Conversão e transferência de moedas
@@ -63,14 +125,14 @@ https://raw.githubusercontent.com/Lux-Theris/Sistema-Nihility---FoundryVTT/main/
 │   ├── ai-helper.js                   # Montagem da API pública game.nihility.ai
 │   ├── ai/                            # Provedores, loop de agente e tools
 │   ├── pad/                           # PAD: tripulação, biblioteca e mensagens
-│   ├── helpers/                       # foundry-compat.js, world-backup.js,
-│   │                                  # gm-relay.js (socket), target-picker.js
+│   ├── helpers/                       # foundry-compat, gm-relay (socket), target-picker,
+│   │                                  # world-backup, traits-ui, crew-ownership
 │   ├── data/                          # DataModels (character, starship, item)
 │   ├── sheets/                        # Fichas de Actor/Item
-│   └── apps/                          # Menu, Assistente de IA, PAD e editores de config
-├── templates/                         # .hbs de fichas, apps e cards de chat
+│   └── apps/                          # Menu, Assistente de IA, PAD e editores de catálogo
+├── templates/                         # .hbs de fichas, apps, partials (parts/) e cards de chat
 ├── styles/nihility-rpg-system.css
-├── test/                              # Testes das funções puras (node --test test/rules.test.mjs)
+├── test/                              # Testes das regras puras (node --test test/rules.test.mjs)
 └── lang/{pt-BR,en}.json
 ```
 
@@ -81,67 +143,65 @@ https://raw.githubusercontent.com/Lux-Theris/Sistema-Nihility---FoundryVTT/main/
 
 ## Configuração
 
-Nas **Configurações do Mundo → Configurar Configurações → Nihility RPG System**
-(ou pelo botão **Nihility RPG System** no diretório de Atores → aba *Configurações Gerais*):
+Tudo parte do **Menu Principal**: botão **Nihility RPG System** no diretório de Atores (ou
+`game.nihility.openAssistant()` numa macro). A aba **Configurações Gerais** é uma lista com busca,
+em seções, e cada linha mostra o que já está configurado ("14 tipos · 4 grupos"):
+
+| Seção | O que tem |
+|---|---|
+| **Campanha** | **Módulos do Sistema** (liga/desliga blocos, campos de cada bloco e presets de campanha) e **Regras da Mesa** (todas as regras numéricas, agrupadas) |
+| **Personagem** | Atributos (renomear/esconder), Espécies (Partes do Corpo, Skills Raciais, Traços), Traços, Moedas, Compêndio de Títulos, Compêndio de Itens |
+| **Combate e Dano** | Tipos de Dano (grupo e efeitos ao acertar), Condições (efeito padrão), Escalas, Estruturas |
+| **Naves** | Categorias de Módulo (Função e vagas), Classes de Nave, Classes de Veículo, Postos de Tripulação |
+
+Blocos desligados na campanha somem da lista e aparecem citados no rodapé. Em **Ferramentas de
+Admin** ficam Exportar/Importar Configurações, Sincronizar Compêndios, Macros do Sistema e
+Conteúdo de Exemplo.
+
+**Regras da Mesa** reúne, por assunto:
+
+- **Progressão:** fórmula de XP; pontos de Atributo e de Habilidade na criação e por nível; ciclo de níveis de Habilidade; XP e aprendizado de Resistência.
+- **Vida e Energia:** fórmulas de HP/Mana (atributos, multiplicador, piso), pool de Mana ligado ou não, rótulos e sigla de energia.
+- **Combate:** atributo de iniciativa, divisor da escala de dano, alvos fora da cena.
+
+Os campos de Deslocamento, Escala e Movimento/Evasão de naves ficam dentro dos próprios blocos, em
+Módulos do Sistema.
+
+As settings de IA ficam na tela nativa de Configurações do Foundry:
 
 | Setting | Descrição |
 |---|---|
-| **Configurar Módulos do Sistema** (botão) | Liga/desliga cada bloco do sistema e aplica um **preset de campanha** (Fantasia Medieval / Sci-Fi Arcano / Misto) |
-| Fórmula de HP — 1º/2º Atributo | Quais Atributos são multiplicados para achar o HP Máximo (padrão: Força × Defesa) |
-| Usar pool de Mana/Energia | Desligue numa campanha sem magia: a barra some e nenhum Custo de Habilidade é cobrado |
-| Fórmula de Mana — 1º/2º Atributo | Idem para a Mana (padrão: Magia × Defesa Mágica) |
-| Fórmula de HP/Mana — Multiplicador / Piso | O `×10` e o mínimo de 50 da fórmula, ajustáveis |
-| Rótulo de Energia — Personagens / Naves | Nomes customizados para cada energia (ex: Mana, Ki / EPS) |
-| Sigla de Energia de Naves | Forma curta usada nas linhas de Módulo, onde o nome inteiro não cabe (padrão: EPS) |
-| Pontos de Atributo e de Habilidade (Criação / Por Nível) | Orçamento concedido na criação e a cada nível |
-| **Configurar Atributos** (botão) | Renomeia e mostra/esconde cada Atributo de Combate (a chave interna nunca muda) |
-| Fórmula de XP | Curva de XP por nível, em texto (padrão `100 * @nivel`); vale para Personagens e Habilidades |
-| Atributo de Iniciativa | Qual Atributo rege a iniciativa (padrão: Destreza) |
-| Divisor da Escala de Dano | Controla o ritmo da escala quadrática de dano por Atributo (padrão: 10) |
-| Habilidade — Poder / Desconto por Nível | Quanto cada nível de Poder multiplica o efeito e cada nível de Desconto corta o Custo |
-| Habilidade — Ciclo (Poder / Desconto) e Piso de Custo | Quantos níveis de cada tipo se alternam, e o mínimo a que o Custo pode cair |
-| XP de Resistência — Fator | Quanto XP uma Resistência ganha por fração da Vida salva |
-| Limiar de Aprendizado de Resistência | Golpes de um mesmo tipo até o sistema sugerir a Resistência ao Mestre (0 = desligado) |
-| Permitir alvos fora da cena | Libera a busca no diretório ao escolher alvo — para mesas sem mapa/token |
-| **Configurar Moedas** (botão) | Abre o editor visual de moedas (id, nome, ícone, peso, Valor-Base) |
-| **Configurar Presets de Espécie** (botão) | Abre o editor visual de espécies e suas Partes do Corpo |
-| **Configurar Tipos de Dano** (botão) | Elementos de dano usados por Habilidades e Resistências |
-| **Configurar Condições de Status** (botão) | Cegueira, Veneno, Atordoamento e outras condições |
 | Provedor de IA | `OpenAI-compatível` (OpenAI, OpenRouter, Groq, Together, LM Studio, Ollama `/v1`...) ou `Anthropic (Claude)` |
 | Endpoint de IA | URL Chat Completions — só usado no provedor OpenAI-compatível |
-| Modelo de IA | Nome do modelo (ex: `gpt-4o-mini`, ou `claude-sonnet-4-5` no provedor Anthropic) |
+| Modelo de IA | Nome do modelo (ex: `gpt-4o-mini`, ou um modelo Claude no provedor Anthropic) |
 | Chave de API de IA | Chave do provedor escolhido |
 
-> **Configurando o Claude**: escolha `Anthropic (Claude)` em Provedor de IA, coloque o nome do modelo (ex: `claude-sonnet-4-5`) e sua chave de `console.anthropic.com` em Chave de API. O Endpoint de IA é ignorado nesse modo.
+> **Configurando o Claude**: escolha `Anthropic (Claude)` em Provedor de IA, coloque o nome do modelo e sua chave de `console.anthropic.com` em Chave de API. O Endpoint de IA é ignorado nesse modo.
 
-**Sobre a chave ficar visível a jogadores**: todas as settings de IA acima usam
-`scope: "client"` — ficam salvas só no navegador de quem as configura, nunca
-sincronizam para outros usuários conectados (diferente de uma setting `scope: "world"`
-comum, que vai para todo mundo). Como só o GM usa o Assistente de IA, isso resolve o
-vazamento sem precisar de nenhuma infraestrutura extra — mas como efeito colateral,
-você precisa reconfigurar essas settings se trocar de navegador ou computador.
+**Sobre a chave ficar visível a jogadores**: todas as settings de IA usam `scope: "client"`.
+Ficam salvas só no navegador de quem as configura e nunca sincronizam para outros usuários
+conectados, e por isso também nunca entram no Exportar Configurações. Como efeito colateral, você
+precisa reconfigurá-las se trocar de navegador ou computador.
 
-## Assistente de IA (GM)
+## Criar com IA (GM)
 
-Botão **Nihility RPG System** no rodapé do diretório de Atores → aba *Assistente de IA*. O botão aparece para todo mundo (o Menu tem uma aba *Fichas* que jogadores usam), mas as abas de IA, Geração e Administração são bloqueadas para quem não é Mestre. Se não aparecer em alguma versão do Foundry, abra via macro:
-
-```js
-game.nihility.openAssistant();
-```
-
-Escolha a tarefa, escreva um prompt em texto livre e clique em Gerar:
+Menu Principal → aba **Criar com IA**. O botão do Menu aparece para todo mundo, porque a aba
+*Fichas* é usada por jogadores. As abas do Mestre aparecem com cadeado para quem não é Mestre.
 
 | Tarefa | O que cria |
 |---|---|
-| NPC (Personagem/Criatura) | Actor `character`, com espécie, atributos, biografia e 2–3 skills; aplica o preset de anatomia da espécie automaticamente |
-| Montaria | Igual ao NPC, com prompt focado em bestas/montarias |
-| Nave Espacial | Actor `starship` já com Porte + um Módulo de cada slot único (Reator/Bateria/Distribuidor/Escudo/Motor/Casco) coerente com o Porte, mais Armas/Utilidade a critério da IA — os números de cada Módulo vêm dos presets do sistema, a IA só escolhe Categoria/Porte |
-| Veículo Terrestre | Actor `vehicle` com o mesmo sistema de Módulos acima, travado nos dois Portes menores, mais Velocidade/Combustível |
-| Nota / Journal | Uma `JournalEntry` com título e conteúdo |
-| Habilidade (Skill avulsa) | Um Item `skill` direto no Compêndio de Habilidades |
+| Personagem / NPC | Actor `character`, com espécie, pontos de atributo, biografia e skills; aplica o preset da espécie automaticamente |
+| Montaria | Igual, com prompt focado em bestas/montarias |
+| Nave Espacial | Actor `starship` com Porte e Módulos escolhidos a partir do catálogo de Categorias do mundo, respeitando as vagas. Os números de cada Módulo vêm dos presets do sistema; a IA só escolhe Categoria e Porte |
+| Veículo Terrestre | Actor `vehicle` com o mesmo sistema, nos dois Portes menores |
+| Habilidade | Um Item `skill` direto no Compêndio de Habilidades |
+| Item | Itens e equipamentos |
+| Nota | Uma `JournalEntry` com título e conteúdo |
 | Pergunta Livre | Resposta em texto solto, nada é criado |
+| Assistente Completo | Os modos **Editar Existente** (arraste um documento e descreva a mudança) e **Agente** (vários documentos numa única pergunta, revisados antes de aplicar e desfeitos em lote) |
 
-O campo **Quantidade** (1–10) gera múltiplos itens da mesma tarefa em sequência — cada um é criado direto (sem prévia individual) e listado no final com um link "Abrir". Atores e Notas gerados vão para uma pasta **IA — Gerado**, mantendo o restante do diretório organizado.
+O campo **Quantidade** (1–10) gera vários itens da mesma tarefa em sequência. Atores e Notas
+gerados vão para uma pasta **IA — Gerado**.
 
 ## API pública
 
@@ -168,19 +228,26 @@ game.nihility.requestShipRepair();
 
 ## Modularidade por campanha
 
-O mesmo sistema roda campanhas muito diferentes. Em **Configurar Módulos do Sistema** você liga
-e desliga cada bloco, ou aplica um preset inteiro de uma vez:
+O mesmo sistema roda campanhas muito diferentes. Em **Módulos do Sistema** você liga e desliga
+cada bloco, ou aplica um preset inteiro de uma vez:
 
-| Preset | O que fica ligado |
-|---|---|
-| **Fantasia Medieval** | Títulos, Anatomia, Fusão de Habilidades, Economia, Resistências, Condições e Magia. Sem Naves, Veículos ou PAD. |
-| **Sci-Fi Arcano** | Naves, Veículos, PAD, Anatomia (próteses/ciborgues), Economia, Resistências e Condições. Sem Títulos nem Fusão. |
-| **Misto** | Tudo ligado — fantasia e sci-fi coexistindo na mesma campanha. |
+| Preset | O que fica ligado | Conteúdo que carrega |
+|---|---|---|
+| **Fantasia Medieval** | Títulos, Anatomia, Fusão, Economia, Resistências, Condições, Magia, Deslocamento, Estruturas. Sem Naves, Veículos ou PAD. | Tipos de Dano de fantasia |
+| **Sci-Fi Arcano** | Naves, Veículos, PAD, Anatomia (próteses/ciborgues), Economia, Resistências, Condições, Deslocamento, Movimento/Evasão de naves, Escala, Estruturas. Sem Títulos nem Fusão. | Elementos de energia estilo Star Trek (Phaser, Disruptor, Plasma, Pólaron, Táquion, Antiprótons, Transfásico, Cinético) mais os de fantasia; Categorias de Módulo estilo Star Trek (Núcleo de Dobra, Impulso, Manobradores, Transdobra…) |
+| **Misto** | Tudo ligado — fantasia e sci-fi coexistindo na mesma campanha. | Os dois conjuntos de elementos e as Categorias estilo Star Trek |
 
-> **Desligar nunca apaga nada.** O bloco some da interface e para de aceitar conteúdo novo
-> (uma Nave nova não pode ser criada com o bloco desligado), mas Atores, Itens e Compêndios que
-> já existem continuam intactos e abríveis — religar devolve tudo exatamente como estava. Isso
-> vale inclusive para trocar de preset no meio de uma campanha.
+> **Desligar nunca apaga nada.** O bloco some da interface e para de aceitar conteúdo novo, mas
+> Atores, Itens e Compêndios que já existem continuam intactos e abríveis — religar devolve tudo
+> exatamente como estava. Isso vale inclusive para trocar de preset no meio de uma campanha.
+>
+> **Presets com conteúdo substituem catálogos.** Aplicar Sci-Fi ou Misto troca a lista de Tipos
+> de Dano e de Categorias de Módulo do mundo pelas do preset. Use **Exportar Configurações** antes
+> se quiser guardar as atuais.
+
+Deslocamento, Movimento/Evasão de naves e Escala vêm **desligados** num mundo que só atualizou o
+sistema — mudam como os tokens se comportam em combate, então só entram quando você liga ou aplica
+um preset.
 
 ## Desenvolvimento
 
@@ -196,16 +263,27 @@ O `system.json` declara `flags.hotReload` para `styles/`, `templates/` e `lang/`
 `.css`, `.hbs` ou `.json` de idioma aplica na hora, sem reiniciar o mundo. Mudança em `.js`
 ainda exige recarregar (F5).
 
-Os testes cobrem só o que é chamável sem o Foundry: pool de dados e fórmula de iniciativa, curva
-de Resistência, curva de XP e XP de Resistência, ciclo de níveis de Habilidade, escala de dano,
-presets de Módulo e dano estrutural, conversão de moeda, prompts em lote da IA e snapshot de
-fusão. Tudo que envolve documento, ficha ou canvas continua sendo teste manual dentro de um mundo
-aberto.
+Os testes cobrem só o que é chamável sem o Foundry. Entram:
+
+- **Dados e rolagem:** pool de d20 e iniciativa; Vantagem e modificadores de rolagem.
+- **Progressão:** curva de Resistência, curva de XP e XP de Resistência, ciclo de níveis de Habilidade, escala de dano.
+- **Dano:** divisão por elemento, Penetração, Imunidade, Dano Absoluto, Escala; efeito padrão e renovação de Condição; Escudo pessoal no Aplicar.
+- **Bônus e Traços:** Modificadores Condicionais e Traços.
+- **Movimento:** deslocamento por rodada; movimento e Evasão de naves.
+- **Naves:** presets e categorias de Módulo, vagas por Classe, dano estrutural.
+- **Estruturas:** geometria.
+- **Configuração:** Exportar/Importar e presets de campanha.
+- **Outros:** conversão de moeda, prompts em lote da IA, snapshot de fusão e Habilidade Concedida.
+
+Tudo que envolve documento, ficha ou canvas continua sendo teste manual dentro de um mundo aberto.
 
 A versão em `system.json` é incrementada **no mesmo commit** da alteração, nunca em um commit
 separado — é o que o Foundry compara com o manifesto para oferecer atualização.
 
 ## Status
 
-Projeto em desenvolvimento ativo. Próximos passos: presets adicionais de espécie, mais automação
-de combate além dos botões de dano e da iniciativa, e testes em mundo real no Foundry.
+Projeto em desenvolvimento ativo. Próximos passos:
+
+- adaptar os Active Effects ao formato novo da V14 (`system.changes`);
+- bônus por posto de tripulação (ex.: o Piloto somando Destreza à Evasão);
+- mais testes em mundo real no Foundry.

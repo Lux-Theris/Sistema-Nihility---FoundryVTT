@@ -54,131 +54,62 @@
 
     {{#if isGM}}
     <div class="nm-pane {{#unless (eq activeTab "system")}}hidden{{/unless}}">
-      <div class="nm-content-head"><h2>Configurações Gerais</h2></div>
-      <div class="nm-card-grid">
-        <div class="nm-feature-card">
-          <div class="nm-icon-badge violet"><i class="fas fa-toggle-on"></i></div>
-          <h4>Módulos do Sistema</h4>
-          <p>Ligar/desligar blocos (Naves, Títulos, Fusão, PAD...) e aplicar presets de campanha.</p>
-          <button class="nm-card-button" data-action="runAction" data-menu-action="feature-config">Configurar</button>
-        </div>
-        <div class="nm-feature-card">
-          <div class="nm-icon-badge"><i class="fas fa-chart-simple"></i></div>
-          <h4>Atributos</h4>
-          <p>Renomear os Atributos de Combate ou esconder os que a campanha não usa.</p>
-          <button class="nm-card-button" data-action="runAction" data-menu-action="attribute-config">Configurar</button>
-        </div>
-        <div class="nm-feature-card">
-          <div class="nm-icon-badge"><i class="fas fa-fire"></i></div>
-          <h4>Tipos de Dano</h4>
-          <p>Elementos de dano disponíveis para Habilidades e Resistências.</p>
-          <button class="nm-card-button" data-action="runAction" data-menu-action="damage-elements-config">Configurar</button>
-        </div>
-        <div class="nm-feature-card">
-          <div class="nm-icon-badge"><i class="fas fa-coins"></i></div>
-          <h4>Sistema de Economia</h4>
-          <p>Gerenciar moedas e transações.</p>
-          <button class="nm-card-button" data-action="runAction" data-menu-action="economy-config">Configurar</button>
-        </div>
-        <div class="nm-feature-card">
-          <div class="nm-icon-badge gold"><i class="fas fa-crown"></i></div>
-          <h4>Sistema de Títulos</h4>
-          <p>Gerenciar títulos e honras.</p>
-          <button class="nm-card-button" data-action="runAction" data-menu-action="titles-config">Configurar</button>
-        </div>
-        <div class="nm-feature-card">
-          <div class="nm-icon-badge gold"><i class="fas fa-suitcase"></i></div>
-          <h4>Compêndio de Itens</h4>
-          <p>Armas, equipamentos e itens gerais do mundo, para arrastar para as fichas.</p>
-          <button class="nm-card-button" data-action="runAction" data-menu-action="items-compendium">Abrir</button>
-        </div>
-        <div class="nm-feature-card">
-          <div class="nm-icon-badge violet"><i class="fas fa-dna"></i></div>
-          <h4>Sistema de Anatomia</h4>
-          <p>Gerenciar partes do corpo e modificações.</p>
-          <button class="nm-card-button" data-action="runAction" data-menu-action="anatomy-config">Configurar</button>
-        </div>
-        <div class="nm-feature-card">
-          <div class="nm-icon-badge"><i class="fas fa-skull-crossbones"></i></div>
-          <h4>Condições de Status</h4>
-          <p>Cegueira, Veneno, Atordoamento e outras condições usadas em Skills.</p>
-          <button class="nm-card-button" data-action="runAction" data-menu-action="status-conditions-config">Configurar</button>
+      <div class="nm-content-head">
+        <h2>Configurações Gerais</h2>
+        <p class="nm-content-sub">Tudo que a campanha configura, por assunto. Cada linha mostra o que já tem.</p>
+      </div>
+      <div class="nm-toolbar">
+        <div class="nm-search-box">
+          <i class="fas fa-search"></i>
+          <input type="text" class="nm-settings-search" placeholder="Buscar uma regra ou catálogo..."/>
         </div>
       </div>
+      {{#each settingsSections as |section|}}
+      <section class="nm-settings-section">
+        <h3 class="nm-section-title">{{section.label}}</h3>
+        <ul class="nm-settings-list">
+          {{#each section.rows as |row|}}
+          <li class="nm-settings-row" data-search="{{row.search}}">
+            <i class="{{row.icon}} nm-settings-icon"></i>
+            <div class="nm-settings-text">
+              <span class="nm-settings-title">{{row.title}}</span>
+              <span class="nm-settings-desc">{{row.desc}}</span>
+            </div>
+            {{#if row.state}}<span class="nm-settings-state">{{row.state}}</span>{{/if}}
+            <button type="button" class="nm-settings-open" data-action="runAction" data-menu-action="{{row.action}}">Abrir</button>
+          </li>
+          {{/each}}
+        </ul>
+      </section>
+      {{/each}}
+      <p class="nm-settings-empty hint hidden">Nada encontrado.</p>
+      {{#if disabledFeatures.length}}
+      <p class="nm-disabled-note">Desligado nesta campanha: {{#each disabledFeatures as |name|}}{{name}}{{#unless @last}}, {{/unless}}{{/each}}. Religue em Módulos do Sistema.</p>
+      {{/if}}
     </div>
 
     <div class="nm-pane {{#unless (eq activeTab "ai")}}hidden{{/unless}}">
-      <div class="nm-content-head"><h2>Assistente de IA</h2></div>
-      <div class="nm-card-grid">
-        <div class="nm-feature-card">
-          <div class="nm-icon-badge violet"><i class="fas fa-robot"></i></div>
-          <h4>Assistente Completo</h4>
-          <p>Abre sem tarefa pré-escolhida — é por aqui que se chega nos modos Editar Existente e Agente.</p>
-          <button class="nm-card-button" data-action="runAction" data-menu-action="open-ai-assistant">Abrir</button>
-        </div>
-        <div class="nm-feature-card">
-          <div class="nm-icon-badge"><i class="fas fa-user"></i></div>
-          <h4>Geração de NPC</h4>
-          <p>Criar personagens com base em descrições.</p>
-          <button class="nm-card-button" data-action="runAction" data-menu-action="generate-npc">Gerar</button>
-        </div>
-        <div class="nm-feature-card">
-          <div class="nm-icon-badge"><i class="fas fa-horse"></i></div>
-          <h4>Montarias</h4>
-          <p>Criar montarias e bestas de carga.</p>
-          <button class="nm-card-button" data-action="runAction" data-menu-action="generate-mount">Gerar</button>
-        </div>
-        {{#if vesselsEnabled}}
-        <div class="nm-feature-card">
-          <div class="nm-icon-badge violet"><i class="fas fa-rocket"></i></div>
-          <h4>Naves Espaciais</h4>
-          <p>Criar naves e veículos espaciais.</p>
-          <button class="nm-card-button" data-action="runAction" data-menu-action="generate-starship">Gerar</button>
-        </div>
-        <div class="nm-feature-card">
-          <div class="nm-icon-badge"><i class="fas fa-car"></i></div>
-          <h4>Veículos Terrestres</h4>
-          <p>Criar veículos terrestres.</p>
-          <button class="nm-card-button" data-action="runAction" data-menu-action="generate-vehicle">Gerar</button>
-        </div>
-        {{/if}}
-        <div class="nm-feature-card">
-          <div class="nm-icon-badge gold"><i class="fas fa-bolt"></i></div>
-          <h4>Habilidades</h4>
-          <p>Criar habilidades avulsas.</p>
-          <button class="nm-card-button" data-action="runAction" data-menu-action="generate-skill">Gerar</button>
-        </div>
-        <div class="nm-feature-card">
-          <div class="nm-icon-badge"><i class="fas fa-comment-dots"></i></div>
-          <h4>Perguntas Livres</h4>
-          <p>Consultas livres à IA.</p>
-          <button class="nm-card-button" data-action="runAction" data-menu-action="freeform">Perguntar</button>
-        </div>
+      <div class="nm-content-head">
+        <h2>Criar com IA</h2>
+        <p class="nm-content-sub">Tudo abre o mesmo Assistente, já na tarefa escolhida.</p>
       </div>
-    </div>
-
-    <div class="nm-pane {{#unless (eq activeTab "generation")}}hidden{{/unless}}">
-      <div class="nm-content-head"><h2>Geração Automática</h2></div>
-      <div class="nm-card-grid">
-        <div class="nm-feature-card">
-          <div class="nm-icon-badge"><i class="fas fa-users"></i></div>
-          <h4>Personagens</h4>
-          <p>Criar personagens completos.</p>
-          <button class="nm-card-button" data-action="runAction" data-menu-action="generate-character">Gerar</button>
-        </div>
-        <div class="nm-feature-card">
-          <div class="nm-icon-badge violet"><i class="fas fa-book"></i></div>
-          <h4>Notas/Journal</h4>
-          <p>Criar notas narrativas.</p>
-          <button class="nm-card-button" data-action="runAction" data-menu-action="generate-note">Gerar</button>
-        </div>
-        <div class="nm-feature-card">
-          <div class="nm-icon-badge gold"><i class="fas fa-shield-alt"></i></div>
-          <h4>Itens</h4>
-          <p>Criar itens e equipamentos.</p>
-          <button class="nm-card-button" data-action="runAction" data-menu-action="generate-item">Gerar</button>
-        </div>
-      </div>
+      {{#each aiSections as |section|}}
+      <section class="nm-settings-section">
+        <h3 class="nm-section-title">{{section.label}}</h3>
+        <ul class="nm-settings-list">
+          {{#each section.rows as |row|}}
+          <li class="nm-settings-row">
+            <i class="{{row.icon}} nm-settings-icon"></i>
+            <div class="nm-settings-text">
+              <span class="nm-settings-title">{{row.title}}</span>
+              <span class="nm-settings-desc">{{row.desc}}</span>
+            </div>
+            <button type="button" class="nm-settings-open" data-action="runAction" data-menu-action="{{row.action}}">Abrir</button>
+          </li>
+          {{/each}}
+        </ul>
+      </section>
+      {{/each}}
     </div>
 
     <div class="nm-pane {{#unless (eq activeTab "tools")}}hidden{{/unless}}">
@@ -210,14 +141,14 @@
         </div>
         <div class="nm-feature-card">
           <div class="nm-icon-badge"><i class="fas fa-file-import"></i></div>
-          <h4>Importação</h4>
-          <p>Importar dados do sistema.</p>
+          <h4>Importar Configurações</h4>
+          <p>Traz catálogos, Módulos do Sistema e regras de um arquivo — mostra o que muda antes.</p>
           <button class="nm-card-button" data-action="runAction" data-menu-action="import-data">Importar</button>
         </div>
         <div class="nm-feature-card">
           <div class="nm-icon-badge"><i class="fas fa-file-export"></i></div>
-          <h4>Exportação</h4>
-          <p>Exportar dados do sistema.</p>
+          <h4>Exportar Configurações</h4>
+          <p>Leva tudo (ou o que marcar) para outro mundo. A chave de IA nunca vai junto.</p>
           <button class="nm-card-button" data-action="runAction" data-menu-action="export-data">Exportar</button>
         </div>
       </div>

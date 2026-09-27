@@ -38,7 +38,7 @@ import { applyStructuralDamage } from "./starship-power.js";
 import { applyAdvantageToFormula, applyRollModifiers, describeRollOptions, normalizeRollOptions } from "./roll-modifiers.js";
 import { splitDamageParts, resolveDamageParts, scaleMultiplier, resolveConditionEffect, refreshReapplication, rollChance } from "./damage-rules.js";
 import { conditionalBonus } from "./conditional-context.js";
-import { requestStructure, removeStructuresFor } from "./structures.js";
+import { requestStructure, removeStructuresFor, interceptingStructure, hitStructure } from "./structures.js";
 import { requestShieldLight } from "./lights.js";
 
 const EFFECT_TARGET_PATHS = {
@@ -714,8 +714,10 @@ export async function fireStarshipWeapon(sourceActor, weaponModule, targetActor 
   let messageFlags = {};
   if (targetActor) {
     const scale = damageScaleFor(sourceActor, mech, targetActor);
-    const scaledTotal = boostedTotal * scale * situationalDamageFactor(sourceActor, targetActor, mech);
     if (scale !== 1) flavor += ` — escala ×${formatScale(scale)}`;
+    const blocked = await throughStructures(sourceActor, targetActor, boostedTotal * scale * situationalDamageFactor(sourceActor, targetActor, mech));
+    const scaledTotal = blocked.damage;
+    flavor += blocked.note;
 
     if (isShipLike(targetActor)) {
       const ctx = averageElementContext(mech.damageElements, targetActor);
@@ -928,6 +930,19 @@ function damageFlavorPrefix(mech, label) {
   return elementLabels.length ? `${label} — Dano ${elementLabels.join("+")}` : `${label} — Dano`;
 }
 
+/**
+ * Estrutura no caminho (parede, barreira): ela segura o golpe primeiro, até a própria Vida — ou a
+ * Mana de quem conjurou, numa barreira de mana — e só o resto chega no alvo, ANTES das defesas
+ * dele. Vale até pra Dano Absoluto: a parede não *resiste* ao golpe, ela está na frente dele.
+ * @returns {Promise<{damage: number, note: string}>}
+ */
+async function throughStructures(attacker, targetActor, damage, { origin = null } = {}) {
+  const block = interceptingStructure(attacker, targetActor, { origin });
+  if (!block) return { damage, note: "" };
+  const { absorbed, passed, label } = await hitStructure(block, damage);
+  return { damage: passed, note: absorbed ? ` — ${label} bloqueou ${absorbed}` : "" };
+}
+
 async function rollSkillDamage(actor, mech, label, targetActor = null, rollOptions = null) {
   const formula = mech.damageFormula?.trim();
   if (!formula) {
@@ -963,8 +978,12 @@ async function rollSkillDamage(actor, mech, label, targetActor = null, rollOptio
   // Escala: pistola contra Nave, canhão contra pessoa (ver damageScaleFor).
   const scale = damageScaleFor(actor, mech, targetActor);
   const situational = situationalDamageFactor(actor, targetActor, mech);
-  const scaledDamage = boostedTotal * scale * situational;
+  const rawDamage = boostedTotal * scale * situational;
   if (scale !== 1) flavor += ` — escala ×${formatScale(scale)}`;
+  // Parede/barreira entre quem ataca e o alvo segura primeiro (ver throughStructures).
+  const blocked = targetActor ? await throughStructures(actor, targetActor, rawDamage) : { damage: rawDamage, note: "" };
+  const scaledDamage = blocked.damage;
+  flavor += blocked.note;
 
   let finalDamage;
   let reduction = null;
@@ -1081,11 +1100,25 @@ async function rollSkillDamageArea(actor, mech, label, targetActors, rollOptions
   const boostedTotal = applyRollModifiers(bonusTotal, options);
   const title = `${damageFlavorPrefix(mech, label)} (Emissão)${modifiersFlavor(options, bonusTotal, boostedTotal)}`;
   const rows = [];
+  // Estrutura entre a origem da área e um alvo: ela leva o golpe UMA vez e protege todos atrás
+  // dela na mesma proporção (a parede não apanha de novo pra cada um que está escondido).
+  const origin = targetActors.origin ?? null;
+  const shielded = new Map(); // id da Estrutura → fração que passa
+  const blockedNotes = [];
   // Nunca revela NO CHAT que/quanto de Resistência, Defesa Mágica, Penetração ou Redução de
   // Casco foi aplicada — só o número final por alvo (a redução em si continua acontecendo).
   for (const targetActor of targetActors) {
     // Escala por alvo: a mesma rolagem vale diferente contra uma pessoa e contra uma Nave.
-    const targetDamage = boostedTotal * damageScaleFor(actor, mech, targetActor) * situationalDamageFactor(actor, targetActor, mech);
+    let targetDamage = boostedTotal * damageScaleFor(actor, mech, targetActor) * situationalDamageFactor(actor, targetActor, mech);
+    const block = interceptingStructure(actor, targetActor, { origin });
+    if (block) {
+      if (!shielded.has(block.instance.id)) {
+        const { absorbed, passed, label: wall } = await hitStructure(block, targetDamage);
+        shielded.set(block.instance.id, targetDamage > 0 ? passed / targetDamage : 1);
+        if (absorbed) blockedNotes.push(`${wall} bloqueou ${absorbed}`);
+      }
+      targetDamage = Math.round(targetDamage * shielded.get(block.instance.id));
+    }
     if (isShipLike(targetActor)) {
       const ctx = averageElementContext(mech.damageElements, targetActor);
       const { toShield, toCasco, toHull, structuralHits } = await applyStarshipDamageCascade(targetDamage, actor, targetActor, null, {
@@ -1112,7 +1145,7 @@ async function rollSkillDamageArea(actor, mech, label, targetActors, rollOptions
     speaker: ChatMessage.getSpeaker({ actor }),
     rolls: [roll],
     flavor: title,
-    content: `<p>${title} — rolagem bruta: <strong>${roll.total}</strong>${boostedTotal !== roll.total ? ` (bônus de arma: ${Math.floor(boostedTotal)})` : ""}</p><ul>${rows.join("")}</ul>`
+    content: `<p>${title} — rolagem bruta: <strong>${roll.total}</strong>${boostedTotal !== roll.total ? ` (bônus de arma: ${Math.floor(boostedTotal)})` : ""}</p>${blockedNotes.length ? `<p>${blockedNotes.join(" · ")}</p>` : ""}<ul>${rows.join("")}</ul>`
   });
 
   return { roll };

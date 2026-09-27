@@ -903,7 +903,7 @@ test("classes: a Classe sobrescreve as vagas da Categoria; Distribuição é sem
 /*  Estruturas: geometria                        */
 /* -------------------------------------------- */
 
-import { capPolyline, polylineLength, structureSegments, pointsAlongPolyline } from "../module/structure-geometry.js";
+import { capPolyline, polylineLength, structureSegments, pointsAlongPolyline, segmentCrossing, firstStructureOnPath, splitStructureHit } from "../module/structure-geometry.js";
 
 test("estrutura: traçado livre para no comprimento máximo", () => {
   const capped = capPolyline([[0, 0], [100, 0], [100, 100]], 150);
@@ -1034,4 +1034,25 @@ test("luzes ao longo da parede: espalhadas por igual pelo comprimento", () => {
   assert.deepEqual(pointsAlongPolyline([[0, 0], [100, 0], [100, 100]], 1), [[100, 0]]);
   assert.deepEqual(pointsAlongPolyline([[5, 5]], 3), [[5, 5]]);
   assert.deepEqual(pointsAlongPolyline([], 3), []);
+});
+
+test("ataque atravessando Estrutura: acha a primeira no caminho", () => {
+  assert.equal(segmentCrossing([0, 0], [100, 0], [50, -10, 50, 10]), 0.5);
+  assert.equal(segmentCrossing([0, 0], [40, 0], [50, -10, 50, 10]), null); // para antes da parede
+  assert.equal(segmentCrossing([0, 0], [100, 0], [0, 5, 100, 5]), null); // paralela
+  const walls = [
+    { id: "longe", segments: [[80, -10, 80, 10]] },
+    { id: "perto", segments: [[30, -10, 30, 10]] }
+  ];
+  assert.deepEqual(firstStructureOnPath([0, 0], [100, 0], walls), { id: "perto", t: 0.3 });
+  // Alvo e atacante dentro do mesmo quadrado: nada cruza.
+  const box = { id: "caixa", segments: [[0, 0, 100, 0], [100, 0, 100, 100], [100, 100, 0, 100], [0, 100, 0, 0]] };
+  assert.equal(firstStructureOnPath([20, 20], [80, 80], [box]), null);
+  assert.equal(firstStructureOnPath([-50, 50], [50, 50], [box]).id, "caixa");
+});
+
+test("Estrutura segura até a capacidade e o resto passa", () => {
+  assert.deepEqual(splitStructureHit(117, 60), { absorbed: 60, passed: 57 });
+  assert.deepEqual(splitStructureHit(40, 60), { absorbed: 40, passed: 0 });
+  assert.deepEqual(splitStructureHit(30, 0), { absorbed: 0, passed: 30 });
 });

@@ -14,7 +14,7 @@
  * mais transparente conforme perde Vida; barreira de mana pulsa.
  */
 import { SYSTEM_ID, getStructures } from "./config.js";
-import { structuresOnScene, removeOrphanStructureWalls } from "./structures.js";
+import { structuresOnScene, removeOrphanStructureWalls, structureSegmentsOf } from "./structures.js";
 
 let container = null;
 let pulse = null;
@@ -65,12 +65,6 @@ function colorNumber(value, fallback = 0x9aa1c2) {
   }
 }
 
-/** Segmentos guardados no registro; registros antigos sem eles leem das próprias Paredes. */
-function segmentsOf(scene, instance) {
-  if (Array.isArray(instance.segments) && instance.segments.length) return instance.segments;
-  return (instance.wallIds ?? []).map(id => scene.walls.get(id)?.c).filter(Array.isArray);
-}
-
 /** Redesenha tudo da Cena atual (poucas Estruturas por cena — refazer é mais simples que diferenciar). */
 export async function drawStructures() {
   const token = ++drawToken;
@@ -99,7 +93,7 @@ export async function drawStructures() {
 
   for (const instance of instances) {
     const def = catalog.get(instance.structureId) ?? {};
-    const segments = segmentsOf(scene, instance);
+    const segments = structureSegmentsOf(scene, instance);
     if (!segments.length) continue;
     const color = colorNumber(instance.color ?? def.color);
     const img = instance.img ?? def.img;

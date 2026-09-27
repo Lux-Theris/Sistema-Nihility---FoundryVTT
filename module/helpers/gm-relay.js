@@ -94,6 +94,15 @@ const HANDLERS = {
     await createStructureAsGm(payload);
   },
 
+  /** Dano numa Estrutura que estava no caminho de um ataque (ver hitStructure em structures.js). */
+  async damageStructure({ sceneId, instanceId, amount }) {
+    const scene = typeof sceneId === "string" ? game.scenes.get(sceneId) : null;
+    const value = Math.max(0, Math.round(Number(amount) || 0));
+    if (!scene || typeof instanceId !== "string" || !value) return;
+    const { damageStructure } = await import("../structures.js");
+    await damageStructure(scene, instanceId, value);
+  },
+
   /** Acende a luz de um Escudo pessoal nos Tokens do alvo (ver lights.js). */
   async setShieldLight(payload) {
     const { setShieldLightAsGm } = await import("../lights.js");

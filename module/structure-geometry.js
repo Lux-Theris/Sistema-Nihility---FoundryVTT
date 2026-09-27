@@ -109,3 +109,48 @@ export function pointsAlongPolyline(points, count) {
   }
   return result;
 }
+
+/**
+ * Onde (0–1) o caminho `from → to` cruza o segmento `[x1, y1, x2, y2]`, ou `null` se não cruza.
+ * Encostar exatamente na ponta conta como cruzar (tiro rente à quina bate na parede).
+ */
+export function segmentCrossing(from, to, [x1, y1, x2, y2]) {
+  const [px, py] = from;
+  const rx = to[0] - px;
+  const ry = to[1] - py;
+  const sx = x2 - x1;
+  const sy = y2 - y1;
+  const denom = rx * sy - ry * sx;
+  if (Math.abs(denom) < 1e-9) return null; // paralelos (ou colineares): não é atravessar
+  const t = ((x1 - px) * sy - (y1 - py) * sx) / denom;
+  const u = ((x1 - px) * ry - (y1 - py) * rx) / denom;
+  if (t < 0 || t > 1 || u < 0 || u > 1) return null;
+  return t;
+}
+
+/**
+ * A primeira Estrutura no caminho de um ataque (a mais perto de quem ataca), ou `null`.
+ * Quem está do MESMO lado de uma forma fechada que o alvo não é bloqueado — o caminho não cruza
+ * nenhum segmento dela.
+ * @param {[number, number]} from - centro de quem ataca (ou a origem da área)
+ * @param {[number, number]} to - centro do alvo
+ * @param {{id: string, segments: number[][]}[]} structures
+ * @returns {{id: string, t: number}|null}
+ */
+export function firstStructureOnPath(from, to, structures) {
+  let best = null;
+  for (const structure of structures ?? []) {
+    for (const segment of structure.segments ?? []) {
+      const t = segmentCrossing(from, to, segment);
+      if (t !== null && (!best || t < best.t)) best = { id: structure.id, t };
+    }
+  }
+  return best;
+}
+
+/** Quanto a Estrutura segura de um golpe (até a capacidade dela) e quanto passa pra frente. */
+export function splitStructureHit(amount, capacity) {
+  const total = Math.max(0, Math.round(Number(amount) || 0));
+  const absorbed = Math.min(total, Math.max(0, Math.round(Number(capacity) || 0)));
+  return { absorbed, passed: total - absorbed };
+}

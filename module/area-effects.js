@@ -150,10 +150,14 @@ export async function pickAreaTargets(skill) {
   const placement = await placeShape(skill);
   if (!placement) return [];
 
-  return canvas.tokens.placeables
+  const actors = canvas.tokens.placeables
     .filter(token => placement.shape.contains(token.center.x - placement.x, token.center.y - placement.y))
     .map(token => token.actor)
     .filter(Boolean);
+  // A origem da área viaja junto (propriedade do array, então quem só lê a lista não muda): é
+  // dela que se traça a linha até cada alvo pra ver se uma Estrutura está no caminho.
+  actors.origin = { x: placement.x, y: placement.y };
+  return actors;
 }
 
 /* -------------------------------------------- */

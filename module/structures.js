@@ -20,7 +20,7 @@
  */
 import { SYSTEM_ID, getStructures, getEnergyLabelForActor } from "./config.js";
 import { runAsGm, isDesignatedGm } from "./helpers/gm-relay.js";
-import { structureSegments, capPolyline, pointsAlongPolyline } from "./structure-geometry.js";
+import { structureSegments, capPolyline, pointsAlongPolyline, firstStructureOnPath, splitStructureHit } from "./structure-geometry.js";
 import { lightSourceData } from "./lights.js";
 
 const FLAG = "structures";
@@ -304,6 +304,70 @@ async function createStructureLights(scene, structure, segments, id) {
 /** Estruturas em pé numa Cena. */
 export function structuresOnScene(scene) {
   return Object.values(scene?.getFlag(SYSTEM_ID, FLAG) ?? {}).filter(Boolean);
+}
+
+/** Segmentos de uma Estrutura; registros antigos sem eles leem das próprias Paredes. */
+export function structureSegmentsOf(scene, instance) {
+  if (Array.isArray(instance?.segments) && instance.segments.length) return instance.segments;
+  return (instance?.wallIds ?? []).map(id => scene?.walls?.get(id)?.c).filter(Array.isArray);
+}
+
+/* ------------------------------------------------------------------ Bloquear ataques */
+
+/**
+ * Token do Ator na Cena aberta. Com vários Tokens do mesmo Ator, o que a pessoa escolheu ganha:
+ * `preferred` (os selecionados, pra quem ataca; os marcados como alvo, pro alvo) — senão o Token
+ * sintético do próprio Ator, senão o primeiro.
+ */
+function tokenOnCanvas(actor, preferred = []) {
+  if (!actor) return null;
+  const chosen = preferred.find(token => token.actor === actor || token.actor?.id === actor.id);
+  if (chosen) return chosen;
+  const own = actor.token?.object;
+  if (own && own.scene?.id === canvas?.scene?.id) return own;
+  return actor.getActiveTokens?.()?.[0] ?? null;
+}
+
+/** Quanto a Estrutura ainda segura: a Vida dela, ou a Mana de quem conjurou (barreira de mana). */
+function structureCapacity(instance) {
+  if (instance.manaBarrier) return fromUuidSync(instance.sourceActorUuid)?.system?.attributes?.energy?.value ?? 0;
+  return instance.hp ?? 0;
+}
+
+/**
+ * A Estrutura entre quem ataca e o alvo, na Cena aberta — a primeira no caminho do centro de um
+ * Token ao centro do outro (ou da origem da área, `origin`). `null` sem mapa, sem Token ou sem
+ * nada no caminho. A Estrutura não bloqueia os ataques de quem a ergueu: quem conjura uma
+ * barreira atira de dentro dela.
+ * @returns {{scene: Scene, instance: object, capacity: number}|null}
+ */
+export function interceptingStructure(attacker, target, { origin = null } = {}) {
+  const scene = canvas?.scene;
+  if (!canvas?.ready || !scene || !target) return null;
+  const targetToken = tokenOnCanvas(target, [...(game.user?.targets ?? [])]);
+  const from = origin ?? tokenOnCanvas(attacker, canvas.tokens?.controlled ?? [])?.center;
+  if (!targetToken || !from) return null;
+  const instances = structuresOnScene(scene).filter(i => i.sourceActorUuid !== attacker?.uuid);
+  if (!instances.length) return null;
+  const hit = firstStructureOnPath(
+    [from.x, from.y],
+    [targetToken.center.x, targetToken.center.y],
+    instances.map(i => ({ id: i.id, segments: structureSegmentsOf(scene, i) }))
+  );
+  const instance = hit ? instances.find(i => i.id === hit.id) : null;
+  return instance ? { scene, instance, capacity: structureCapacity(instance) } : null;
+}
+
+/**
+ * Golpe que bate numa Estrutura: ela segura até a capacidade e o resto segue pro alvo. O dano
+ * na Estrutura é gravado na hora pelo Mestre (é o ambiente, como a cascata de uma Nave); o do
+ * alvo continua nos botões de Aplicar do chat.
+ * @returns {{absorbed: number, passed: number, label: string}}
+ */
+export async function hitStructure(block, amount) {
+  const { absorbed, passed } = splitStructureHit(amount, block.capacity);
+  if (absorbed > 0) await runAsGm("damageStructure", { sceneId: block.scene.id, instanceId: block.instance.id, amount: absorbed });
+  return { absorbed, passed, label: block.instance.label };
 }
 
 /** Derruba uma Estrutura: apaga as Paredes (e o Desenho de registros antigos) e tira o registro. Só o Mestre chama. */

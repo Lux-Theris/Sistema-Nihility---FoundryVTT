@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="430" viewBox="0 0 960 430">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#9aa1c2"/>
+    </marker>
+  </defs>
+  <style>
+    text { font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; }
+    .ti { fill: #e6e8f2; font-size: 18px; font-weight: 700; }
+    .tx { fill: #e6e8f2; font-size: 12.5px; }
+    .bd { fill: #e6e8f2; font-size: 13px; font-weight: 700; }
+    .mu { fill: #9aa1c2; font-size: 11.5px; }
+    .lb { fill: #9aa1c2; font-size: 11px; font-weight: 700; letter-spacing: .8px; }
+    .ar { stroke: #9aa1c2; stroke-width: 1.6; fill: none; marker-end: url(#a); }
+    .sk { fill: #232738; stroke: #4a5380; }
+  </style>
+  <rect width="960" height="430" rx="14" fill="#12141c"/>
+  <text x="30" y="40" class="ti">Fusão × Evolução (as duas são só do Mestre)</text>
+
+  <text x="30" y="74" class="lb">FUSÃO — 2 OU MAIS VIRAM 1, E AS FONTES CONTINUAM USÁVEIS DENTRO DELA</text>
+  <rect x="30" y="86" width="150" height="40" rx="8" class="sk"/><text x="44" y="111" class="tx">Bola de Fogo <tspan class="mu">Normal</tspan></text>
+  <rect x="30" y="134" width="150" height="40" rx="8" class="sk"/><text x="44" y="159" class="tx">Muralha de Gelo <tspan class="mu">Extra</tspan></text>
+  <rect x="30" y="182" width="150" height="40" rx="8" class="sk"/><text x="44" y="207" class="tx">Sopro Vital <tspan class="mu">Normal</tspan></text>
+  <path d="M184 106 C230 106 230 150 262 150" class="ar"/>
+  <path d="M184 154 H262" class="ar"/>
+  <path d="M184 202 C230 202 230 158 262 158" class="ar"/>
+  <text x="196" y="246" class="mu">marque as caixas → ⚡ Fundir Selecionadas → tier</text>
+  <rect x="266" y="86" width="330" height="136" rx="10" fill="#2a2346" stroke="#a78bfa" stroke-width="2"/>
+  <text x="282" y="110" class="bd">Fusão: Bola de Fogo + Muralha… <tspan class="mu">Normal</tspan></text>
+  <text x="282" y="130" class="mu">Sub-Skills (o jogador escolhe uma ao Usar):</text>
+  <rect x="282" y="140" width="94" height="24" rx="12" fill="#1b1e2b" stroke="#7c63d6"/><text x="292" y="156" class="mu" style="fill:#e6e8f2">Bola de Fogo</text>
+  <rect x="382" y="140" width="110" height="24" rx="12" fill="#1b1e2b" stroke="#7c63d6"/><text x="392" y="156" class="mu" style="fill:#e6e8f2">Muralha de Gelo</text>
+  <rect x="498" y="140" width="84" height="24" rx="12" fill="#1b1e2b" stroke="#7c63d6"/><text x="508" y="156" class="mu" style="fill:#e6e8f2">Sopro Vital</text>
+  <text x="282" y="186" class="mu">Linhagem: Bola de Fogo, Muralha de Gelo, Sopro Vital</text>
+  <text x="282" y="204" class="mu">Custo = soma dos custos · Nível = o maior das fontes</text>
+  <rect x="616" y="86" width="314" height="136" rx="10" fill="#171a26" stroke="#3a4060"/>
+  <text x="632" y="110" class="bd">Regras</text>
+  <text x="632" y="130" class="mu">• O tier do resultado só consome fontes do</text>
+  <text x="632" y="146" class="mu">   mesmo tier ou abaixo (Extra &lt; Normal &lt; Racial</text>
+  <text x="632" y="162" class="mu">   &lt; Único &lt; Ultimate).</text>
+  <text x="632" y="180" class="mu">• Skills concedidas por Item/Módulo não fundem.</text>
+  <text x="632" y="198" class="mu">• Os originais vão para o Compêndio antes de sair.</text>
+  <text x="632" y="214" class="mu">• Extra/Normal repetida reaproveita a do Compêndio.</text>
+
+  <text x="30" y="290" class="lb">EVOLUÇÃO — 1 VIRA OUTRA, SEM DEIXAR COMPONENTE</text>
+  <rect x="30" y="302" width="170" height="52" rx="8" class="sk"/><text x="44" y="324" class="tx">Faísca</text><text x="44" y="342" class="mu">Normal · nível 6</text>
+  <path d="M204 328 H262" class="ar"/>
+  <text x="208" y="318" class="mu">↑ Evoluir</text>
+  <rect x="266" y="302" width="330" height="72" rx="10" fill="#2a2618" stroke="#e8c170" stroke-width="2"/>
+  <text x="282" y="326" class="bd">Tempestade Elétrica <tspan class="mu">Único</tspan></text>
+  <text x="282" y="346" class="mu">definida do zero no editor de Skill</text>
+  <text x="282" y="364" class="mu" style="fill:#f3dca0">faixa “Evoluiu de: Faísca”</text>
+  <rect x="616" y="302" width="314" height="102" rx="10" fill="#171a26" stroke="#3a4060"/>
+  <text x="632" y="326" class="bd">Quando usar cada uma</text>
+  <text x="632" y="346" class="mu">Fusão: juntar poderes num “guarda-chuva”</text>
+  <text x="632" y="362" class="mu">   (estilo Skill Única de Tensura).</text>
+  <text x="632" y="380" class="mu">Evolução: a Skill amadureceu e virou outra</text>
+  <text x="632" y="396" class="mu">   coisa. A antiga fica guardada no Compêndio.</text>
+</svg>

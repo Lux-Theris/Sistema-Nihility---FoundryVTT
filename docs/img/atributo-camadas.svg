@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="560" viewBox="0 0 960 560">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#9aa1c2"/>
+    </marker>
+  </defs>
+  <style>
+    text { font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; }
+    .ti { fill: #e6e8f2; font-size: 18px; font-weight: 700; }
+    .tx { fill: #e6e8f2; font-size: 13px; }
+    .big { fill: #ffffff; font-size: 20px; font-weight: 700; }
+    .mu { fill: #9aa1c2; font-size: 11.5px; }
+    .lb { fill: #9aa1c2; font-size: 11px; font-weight: 700; letter-spacing: .8px; }
+    .ar { stroke: #9aa1c2; stroke-width: 1.6; fill: none; marker-end: url(#a); }
+  </style>
+  <rect width="960" height="560" rx="14" fill="#12141c"/>
+  <text x="30" y="40" class="ti">De onde vem cada número de um Atributo</text>
+  <text x="30" y="60" class="mu">Exemplo: Magia com 12 pontos, um Título de +3, um buff de Skill de +6 e um cajado equipado de +2.</text>
+
+  <!-- Linha A: base permanente -->
+  <text x="30" y="92" class="lb">BASE PERMANENTE</text>
+  <rect x="30" y="102" width="120" height="58" rx="8" fill="#232738" stroke="#3a4060"/>
+  <text x="42" y="124" class="mu">Pontos</text><text x="42" y="148" class="big">12</text>
+  <text x="160" y="138" class="tx">+</text>
+  <rect x="176" y="102" width="120" height="58" rx="8" fill="#2a2346" stroke="#7c63d6"/>
+  <text x="188" y="124" class="mu">Títulos</text><text x="188" y="148" class="big">+3</text>
+  <path d="M300 131 H336" class="ar"/>
+  <rect x="340" y="98" width="150" height="66" rx="8" fill="#1d2744" stroke="#4f8cff" stroke-width="2"/>
+  <text x="352" y="120" class="lb" style="fill:#c4d8ff">TOTAL</text><text x="352" y="150" class="big">15</text>
+  <path d="M494 118 H556" class="ar"/>
+  <path d="M494 146 C520 146 520 174 556 174" class="ar"/>
+  <rect x="560" y="96" width="370" height="42" rx="8" fill="#2b1a1c" stroke="#e5534b"/>
+  <text x="572" y="114" class="tx">Vida / Mana Máxima</text>
+  <text x="572" y="130" class="mu">A.Total × B.Total × 10 (mínimo 50) — só o TOTAL entra aqui</text>
+  <rect x="560" y="152" width="370" height="42" rx="8" fill="#172340" stroke="#4f8cff" stroke-opacity=".6"/>
+  <text x="572" y="170" class="tx">Deslocamento (só Destreza)</text>
+  <text x="572" y="186" class="mu">parte permanente, com teto</text>
+
+  <!-- Linha B: rolagem -->
+  <text x="30" y="232" class="lb">O QUE A ROLAGEM USA</text>
+  <rect x="30" y="242" width="120" height="58" rx="8" fill="#1d2744" stroke="#4f8cff"/>
+  <text x="42" y="264" class="mu">Total</text><text x="42" y="288" class="big">15</text>
+  <text x="160" y="278" class="tx">+</text>
+  <rect x="176" y="242" width="120" height="58" rx="8" fill="#1f3a2e" stroke="#5fd08f"/>
+  <text x="188" y="264" class="mu">Buffs de Skill</text><text x="188" y="288" class="big">+6</text>
+  <text x="306" y="278" class="tx">+</text>
+  <rect x="322" y="242" width="130" height="58" rx="8" fill="#1f3a2e" stroke="#5fd08f" stroke-dasharray="4 3"/>
+  <text x="334" y="264" class="mu">Bônus condicional</text><text x="334" y="288" class="big">+0</text>
+  <path d="M456 271 H486" class="ar"/>
+  <rect x="490" y="238" width="140" height="66" rx="8" fill="#232738" stroke="#9aa1c2" stroke-width="2"/>
+  <text x="502" y="260" class="lb">TOTAL EFETIVO</text><text x="502" y="290" class="big">21</text>
+  <path d="M634 271 H664" class="ar"/>
+  <rect x="668" y="238" width="110" height="66" rx="8" fill="#2a2346" stroke="#a78bfa" stroke-width="2"/>
+  <text x="680" y="260" class="lb" style="fill:#c9b8ff">BÔNUS</text><text x="680" y="290" class="big">7</text>
+  <text x="712" y="290" class="mu">= ⌊21 ÷ 3⌋</text>
+  <path d="M782 271 H812" class="ar"/>
+  <rect x="816" y="238" width="114" height="66" rx="8" fill="#2a2346" stroke="#a78bfa" stroke-width="2"/>
+  <text x="828" y="260" class="lb" style="fill:#c9b8ff">POOL</text><text x="828" y="290" class="big">1d20+7</text>
+
+  <!-- Linha C: item -->
+  <text x="30" y="346" class="lb">SOMA POR FORA</text>
+  <rect x="30" y="356" width="266" height="58" rx="8" fill="#3a2317" stroke="#ff9f43"/>
+  <text x="42" y="378" class="mu">Itens equipados · modificações · passivos</text><text x="42" y="402" class="big">+2</text>
+  <path d="M300 385 H486" class="ar" stroke-dasharray="5 4"/>
+  <text x="318" y="376" class="mu">fora do Pool e da Vida/Mana</text>
+  <rect x="490" y="352" width="440" height="66" rx="8" fill="#171a26" stroke="#e8c170" stroke-width="2"/>
+  <text x="502" y="374" class="lb" style="fill:#e8c170">ROLAGEM FINAL NO CHAT</text>
+  <text x="502" y="404" class="big">1d20 + 7 + 2</text>
+  <text x="652" y="404" class="tx">(+ modificadores do Shift+clique, se houver)</text>
+
+  <!-- Tabela do pool -->
+  <text x="30" y="456" class="lb">BÔNUS → DADOS  (a cada 10 de Bônus, +1d20; o resto vira número fixo)</text>
+  <g>
+    <rect x="30" y="466" width="215" height="66" rx="8" fill="#20243a"/>
+    <text x="44" y="490" class="tx">Bônus 0 a 9</text><text x="44" y="518" class="big">1d20 + Bônus</text>
+    <rect x="255" y="466" width="215" height="66" rx="8" fill="#20243a"/>
+    <text x="269" y="490" class="tx">Bônus 10 a 19</text><text x="269" y="518" class="big">2d20 + (B − 10)</text>
+    <rect x="480" y="466" width="215" height="66" rx="8" fill="#20243a"/>
+    <text x="494" y="490" class="tx">Bônus 20 a 29</text><text x="494" y="518" class="big">3d20 + (B − 20)</text>
+    <rect x="705" y="466" width="225" height="66" rx="8" fill="#20243a"/>
+    <text x="719" y="490" class="tx">Exemplos</text>
+    <text x="719" y="510" class="mu">Bônus 13 → 2d20+3</text>
+    <text x="719" y="525" class="mu">Bônus 25 → 3d20+5   ·   Bônus 30 → 4d20</text>
+  </g>
+</svg>

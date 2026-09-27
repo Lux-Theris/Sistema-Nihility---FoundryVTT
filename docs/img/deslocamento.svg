@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="420" viewBox="0 0 960 420">
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0 H0 V40" fill="none" stroke="#262a3c"/>
+    </pattern>
+  </defs>
+  <style>
+    text { font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; }
+    .ti { fill: #e6e8f2; font-size: 18px; font-weight: 700; }
+    .tx { fill: #e6e8f2; font-size: 13px; }
+    .bd { fill: #e6e8f2; font-size: 13px; font-weight: 700; }
+    .big { fill: #fff; font-size: 20px; font-weight: 700; }
+    .mu { fill: #9aa1c2; font-size: 11.5px; }
+    .lb { fill: #9aa1c2; font-size: 11px; font-weight: 700; letter-spacing: .8px; }
+  </style>
+  <rect width="960" height="420" rx="14" fill="#12141c"/>
+  <text x="30" y="40" class="ti">Deslocamento por rodada (quando o Mestre liga a regra)</text>
+
+  <text x="30" y="74" class="lb">A CONTA (padrão da mesa)</text>
+  <rect x="30" y="84" width="120" height="62" rx="8" fill="#232738" stroke="#9aa1c2"/>
+  <text x="44" y="106" class="mu">base</text><text x="44" y="134" class="big">6 m</text>
+  <text x="160" y="122" class="tx">+</text>
+  <rect x="176" y="84" width="190" height="62" rx="8" fill="#1d2744" stroke="#4f8cff"/>
+  <text x="190" y="106" class="mu">1 m a cada 10 de Destreza</text><text x="190" y="134" class="big">⌊Total ÷ 10⌋</text>
+  <text x="376" y="122" class="tx">≤</text>
+  <rect x="392" y="84" width="96" height="62" rx="8" fill="#2b1a1c" stroke="#e5534b"/>
+  <text x="406" y="106" class="mu">teto</text><text x="406" y="134" class="big">18 m</text>
+  <text x="498" y="122" class="tx">+</text>
+  <rect x="514" y="84" width="176" height="62" rx="8" fill="#1f3a2e" stroke="#5fd08f"/>
+  <text x="528" y="106" class="mu">Destreza vinda de Skills</text><text x="528" y="134" class="big">sem teto</text>
+  <text x="700" y="122" class="tx">×</text>
+  <rect x="716" y="84" width="214" height="62" rx="8" fill="#3a2317" stroke="#ff9f43"/>
+  <text x="730" y="106" class="mu">efeitos em % (Lentidão −50%)</text><text x="730" y="134" class="big">% de Deslocamento</text>
+  <text x="30" y="172" class="mu">Exemplo: Destreza 30 → 6 + 3 = 9 m. Uma Skill de +20 de Destreza → +2 m (11 m). Com Lentidão (−50%) → 5 m. Itens equipados não contam aqui.</text>
+  <text x="30" y="190" class="mu">O número aparece como chip “9 m/rodada” na linha de Destreza da ficha.</text>
+
+  <text x="30" y="226" class="lb">NO MAPA, EM COMBATE</text>
+  <rect x="30" y="236" width="560" height="160" rx="10" fill="url(#grid)" stroke="#343a55"/>
+  <circle cx="90" cy="316" r="17" fill="#3b2f63" stroke="#a78bfa" stroke-width="2"/>
+  <text x="84" y="321" class="bd">A</text>
+  <path d="M107 310 L210 276 L330 276" stroke="#5fd08f" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path d="M330 276 L450 316 L540 316" stroke="#e5534b" stroke-width="4" fill="none" stroke-dasharray="8 7" stroke-linecap="round"/>
+  <circle cx="330" cy="276" r="17" fill="none" stroke="#a78bfa" stroke-width="2" stroke-dasharray="4 3"/>
+  <rect x="268" y="244" width="124" height="20" rx="4" fill="#12141c" stroke="#5fd08f"/>
+  <text x="280" y="258" class="mu" style="fill:#bff0d3">9 / 9 m (gasto/máx.)</text>
+  <text x="430" y="352" class="mu" style="fill:#ffb199">passa do limite:</text>
+  <text x="430" y="366" class="mu" style="fill:#ffb199">pontilhado</text>
+
+  <rect x="610" y="236" width="320" height="160" rx="10" fill="#171a26" stroke="#3a4060"/>
+  <text x="626" y="260" class="bd">Regras do limite</text>
+  <text x="626" y="282" class="mu">• Só vale em combate iniciado, para quem está nele.</text>
+  <text x="626" y="300" class="mu">• O token para no último ponto que alcança.</text>
+  <text x="626" y="318" class="mu">• O gasto zera quando começa o SEU turno; o que</text>
+  <text x="626" y="334" class="mu">   sobrar pode ser usado fora do seu turno.</text>
+  <text x="626" y="352" class="mu">• Correr (botão na ficha, só no seu turno)</text>
+  <text x="626" y="368" class="mu">   dobra o deslocamento deste turno.</text>
+  <text x="626" y="386" class="mu">• Fora de combate o movimento é livre.</text>
+</svg>

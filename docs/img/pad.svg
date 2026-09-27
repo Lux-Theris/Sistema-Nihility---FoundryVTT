@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="480" viewBox="0 0 960 480">
+  <style>
+    text { font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; }
+    .ti { fill: #e6e8f2; font-size: 18px; font-weight: 700; }
+    .tx { fill: #e6e8f2; font-size: 12.5px; }
+    .bd { fill: #e6e8f2; font-size: 13px; font-weight: 700; }
+    .mu { fill: #9aa1c2; font-size: 11px; }
+    .c { text-anchor: middle; }
+    .phone { fill: #0c0e14; stroke: #3a4060; stroke-width: 3; }
+    .scr { fill: #161a28; }
+  </style>
+  <rect width="960" height="480" rx="14" fill="#12141c"/>
+  <text x="30" y="40" class="ti">PAD — o “celular” do personagem</text>
+  <text x="30" y="60" class="mu">Abre pelo botão PAD na ficha. Aparece se o personagem carrega um Item marcado como Dispositivo PAD (o Mestre sempre vê).</text>
+
+  <!-- Tela inicial -->
+  <rect x="40" y="80" width="250" height="380" rx="28" class="phone"/>
+  <rect x="54" y="96" width="222" height="348" rx="18" class="scr"/>
+  <text x="68" y="116" class="mu">▮▮▮▮ Aria</text><text x="252" y="116" class="mu">▭</text>
+  <text x="165" y="150" class="mu c">Vinculado à USS Andrômeda · sinal estável</text>
+  <g>
+    <rect x="72" y="176" width="56" height="56" rx="14" fill="#3a2317" stroke="#ff9f43"/>
+    <text x="100" y="210" class="bd c">▲</text><text x="100" y="250" class="tx c">Nave</text>
+    <rect x="138" y="176" width="56" height="56" rx="14" fill="#1d2744" stroke="#4f8cff"/>
+    <text x="166" y="210" class="bd c">❑</text><text x="166" y="250" class="tx c">Biblioteca</text>
+    <rect x="204" y="176" width="56" height="56" rx="14" fill="#2a2346" stroke="#a78bfa"/>
+    <text x="232" y="210" class="bd c">✉</text><text x="232" y="250" class="tx c">Mensagens</text>
+  </g>
+  <text x="165" y="424" class="mu c">Tela inicial</text>
+
+  <!-- Nave -->
+  <rect x="355" y="80" width="250" height="380" rx="28" class="phone"/>
+  <rect x="369" y="96" width="222" height="348" rx="18" class="scr"/>
+  <text x="383" y="122" class="mu">‹</text><text x="480" y="122" class="bd c">Nave</text>
+  <rect x="383" y="134" width="194" height="38" rx="8" fill="#20243a"/>
+  <text x="395" y="151" class="bd">USS Andrômeda</text><text x="395" y="165" class="mu">Nave Estelar</text>
+  <text x="383" y="194" class="mu">INTEGRIDADE</text>
+  <text x="383" y="212" class="tx">Casco</text><text x="577" y="212" class="mu" text-anchor="end">180 / 200</text>
+  <rect x="383" y="218" width="194" height="6" rx="3" fill="#2e3350"/><rect x="383" y="218" width="175" height="6" rx="3" fill="#ff9f43"/>
+  <text x="383" y="242" class="tx">Escudo</text><text x="577" y="242" class="mu" text-anchor="end">90 / 200</text>
+  <rect x="383" y="248" width="194" height="6" rx="3" fill="#2e3350"/><rect x="383" y="248" width="87" height="6" rx="3" fill="#4f8cff"/>
+  <text x="383" y="280" class="mu">REATOR · CONSUMO</text>
+  <text x="383" y="298" class="tx">500 EPS · 380 EPS</text>
+  <text x="383" y="326" class="mu">MÓDULOS · TRIPULAÇÃO</text>
+  <text x="383" y="344" class="tx">Escudo Defletor · online</text>
+  <text x="383" y="362" class="tx">Aria — Engenheira</text>
+  <text x="480" y="424" class="mu c">Status da Nave tripulada</text>
+
+  <!-- Mensagens -->
+  <rect x="670" y="80" width="250" height="380" rx="28" class="phone"/>
+  <rect x="684" y="96" width="222" height="348" rx="18" class="scr"/>
+  <text x="698" y="122" class="mu">‹</text><text x="795" y="122" class="bd c">Kael</text>
+  <rect x="698" y="140" width="150" height="40" rx="12" fill="#232738"/>
+  <text x="710" y="158" class="tx">Viu o sinal no setor 7?</text><text x="710" y="173" class="mu">Kael · 14:02</text>
+  <rect x="742" y="192" width="150" height="40" rx="12" fill="#3b2f63"/>
+  <text x="754" y="210" class="tx">Vi. Vou avisar a ponte.</text><text x="754" y="225" class="mu">você · 14:03</text>
+  <rect x="698" y="244" width="150" height="40" rx="12" fill="#232738"/>
+  <text x="710" y="262" class="tx">Discrição, por favor.</text><text x="710" y="277" class="mu">Kael · 14:03</text>
+  <rect x="698" y="390" width="194" height="30" rx="15" fill="#20243a" stroke="#3a4060"/>
+  <text x="712" y="409" class="mu">Mensagem…</text>
+  <text x="795" y="378" class="mu c">Conversa direta</text>
+</svg>

@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="420" viewBox="0 0 960 420">
+  <style>
+    text { font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; }
+    .ti { fill: #e6e8f2; font-size: 18px; font-weight: 700; }
+    .tx { fill: #e6e8f2; font-size: 12.5px; }
+    .mu { fill: #9aa1c2; font-size: 11.5px; }
+    .c { text-anchor: middle; }
+  </style>
+  <rect width="960" height="420" rx="14" fill="#12141c"/>
+  <text x="30" y="40" class="ti">Skills de Resistência: 10% por nível</text>
+  <text x="30" y="60" class="mu">Resistência Geral para no nível 5 (50%) — não existe Imunidade Geral. Resistência a um elemento chega a 100% no nível 10 e vira “Imunidade: Elemento”.</text>
+  <rect x="30" y="76" width="14" height="14" rx="3" fill="#a78bfa"/><text x="50" y="88" class="tx">Geral (qualquer dano)</text>
+  <rect x="220" y="76" width="14" height="14" rx="3" fill="#ff7043"/><text x="240" y="88" class="tx">Elemental (ex.: Fogo)</text>
+  <rect x="74" y="300.0" width="24" height="20.0" rx="3" fill="#a78bfa"/>
+  <text x="86" y="294.0" class="mu c" style="fill:#c9b8ff">10%</text>
+  <rect x="102" y="300.0" width="24" height="20.0" rx="3" fill="#ff7043"/>
+  <text x="114" y="294.0" class="mu c" style="fill:#ffb199">10%</text>
+  <text x="100" y="340" class="tx c" style="font-weight:700">Nível 1</text>
+  <rect x="158" y="280.0" width="24" height="40.0" rx="3" fill="#a78bfa"/>
+  <text x="170" y="274.0" class="mu c" style="fill:#c9b8ff">20%</text>
+  <rect x="186" y="280.0" width="24" height="40.0" rx="3" fill="#ff7043"/>
+  <text x="198" y="274.0" class="mu c" style="fill:#ffb199">20%</text>
+  <text x="184" y="340" class="tx c" style="font-weight:700">Nível 2</text>
+  <rect x="242" y="260.0" width="24" height="60.0" rx="3" fill="#a78bfa"/>
+  <text x="254" y="254.0" class="mu c" style="fill:#c9b8ff">30%</text>
+  <rect x="270" y="260.0" width="24" height="60.0" rx="3" fill="#ff7043"/>
+  <text x="282" y="254.0" class="mu c" style="fill:#ffb199">30%</text>
+  <text x="268" y="340" class="tx c" style="font-weight:700">Nível 3</text>
+  <rect x="326" y="240.0" width="24" height="80.0" rx="3" fill="#a78bfa"/>
+  <text x="338" y="234.0" class="mu c" style="fill:#c9b8ff">40%</text>
+  <rect x="354" y="240.0" width="24" height="80.0" rx="3" fill="#ff7043"/>
+  <text x="366" y="234.0" class="mu c" style="fill:#ffb199">40%</text>
+  <text x="352" y="340" class="tx c" style="font-weight:700">Nível 4</text>
+  <rect x="410" y="220.0" width="24" height="100.0" rx="3" fill="#a78bfa"/>
+  <text x="422" y="214.0" class="mu c" style="fill:#c9b8ff">50%</text>
+  <rect x="438" y="220.0" width="24" height="100.0" rx="3" fill="#ff7043"/>
+  <text x="450" y="214.0" class="mu c" style="fill:#ffb199">50%</text>
+  <text x="436" y="340" class="tx c" style="font-weight:700">Nível 5</text>
+  <rect x="494" y="220.0" width="24" height="100.0" rx="3" fill="none" stroke="#3a4060" stroke-dasharray="3 3"/>
+  <text x="506" y="214.0" class="mu c">teto</text>
+  <rect x="522" y="200.0" width="24" height="120.0" rx="3" fill="#ff7043"/>
+  <text x="534" y="194.0" class="mu c" style="fill:#ffb199">60%</text>
+  <text x="520" y="340" class="tx c" style="font-weight:700">Nível 6</text>
+  <rect x="578" y="220.0" width="24" height="100.0" rx="3" fill="none" stroke="#3a4060" stroke-dasharray="3 3"/>
+  <text x="590" y="214.0" class="mu c">teto</text>
+  <rect x="606" y="180.0" width="24" height="140.0" rx="3" fill="#ff7043"/>
+  <text x="618" y="174.0" class="mu c" style="fill:#ffb199">70%</text>
+  <text x="604" y="340" class="tx c" style="font-weight:700">Nível 7</text>
+  <rect x="662" y="220.0" width="24" height="100.0" rx="3" fill="none" stroke="#3a4060" stroke-dasharray="3 3"/>
+  <text x="674" y="214.0" class="mu c">teto</text>
+  <rect x="690" y="160.0" width="24" height="160.0" rx="3" fill="#ff7043"/>
+  <text x="702" y="154.0" class="mu c" style="fill:#ffb199">80%</text>
+  <text x="688" y="340" class="tx c" style="font-weight:700">Nível 8</text>
+  <rect x="746" y="220.0" width="24" height="100.0" rx="3" fill="none" stroke="#3a4060" stroke-dasharray="3 3"/>
+  <text x="758" y="214.0" class="mu c">teto</text>
+  <rect x="774" y="140.0" width="24" height="180.0" rx="3" fill="#ff7043"/>
+  <text x="786" y="134.0" class="mu c" style="fill:#ffb199">90%</text>
+  <text x="772" y="340" class="tx c" style="font-weight:700">Nível 9</text>
+  <rect x="830" y="220.0" width="24" height="100.0" rx="3" fill="none" stroke="#3a4060" stroke-dasharray="3 3"/>
+  <text x="842" y="214.0" class="mu c">teto</text>
+  <rect x="858" y="120.0" width="24" height="200.0" rx="3" fill="#e8c170"/>
+  <text x="870" y="114.0" class="mu c" style="fill:#ffb199">100%</text>
+  <text x="856" y="340" class="tx c" style="font-weight:700">Nível 10</text>
+  <line x1="50" y1="320" x2="930" y2="320" stroke="#3a4060"/>
+  <text x="870" y="97" class="mu c" style="fill:#e8c170">Imunidade</text>
+  <text x="30" y="370" class="tx">Títulos também dão Resistência (um % fixo, sem nível). Para o mesmo alvo, Skill + Título <tspan style="font-weight:700">somam</tspan>; duas Skills (ou dois Títulos)</text>
+  <text x="30" y="388" class="tx">do mesmo alvo não somam — vale só a melhor de cada tipo. A Skill ganha XP ao bloquear dano, na proporção da Vida que salvou.</text>
+</svg>

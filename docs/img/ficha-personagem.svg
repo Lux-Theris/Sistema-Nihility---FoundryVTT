@@ -1,0 +1,226 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="740" viewBox="0 0 960 740">
+  <style>
+    text { font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; }
+    .tx { fill: #e6e8f2; font-size: 13px; }
+    .sm { fill: #e6e8f2; font-size: 12px; }
+    .mu { fill: #9aa1c2; font-size: 11px; }
+    .hd { fill: #c9b8ff; font-size: 11px; font-weight: 700; letter-spacing: 1px; }
+    .panel { fill: #1b1e2b; stroke: #343a55; }
+    .box { fill: #232738; stroke: #3a4060; }
+    .btn { fill: #2b3150; stroke: #4a5380; }
+    .gm { fill: #3a3020; stroke: #e8c170; stroke-dasharray: 3 2; }
+    .pill { fill: #2a2346; stroke: #7c63d6; }
+    .co circle { fill: #e8c170; stroke: #12141c; stroke-width: 2; }
+    .co text { fill: #12141c; font-size: 12px; font-weight: 700; text-anchor: middle; }
+  </style>
+
+  <rect width="960" height="740" rx="14" fill="#12141c"/>
+  <rect x="20" y="20" width="920" height="700" rx="10" class="panel"/>
+  <rect x="20" y="20" width="920" height="28" rx="10" fill="#252a40"/>
+  <rect x="20" y="36" width="920" height="12" fill="#252a40"/>
+  <text x="36" y="39" class="mu">Aria Ventoleste</text>
+  <text x="900" y="39" class="mu">✕</text>
+
+  <!-- Retrato -->
+  <rect x="40" y="62" width="110" height="130" rx="8" class="box"/>
+  <circle cx="95" cy="108" r="24" fill="#3a4060"/>
+  <path d="M55 185 Q95 130 135 185 Z" fill="#3a4060"/>
+  <rect x="124" y="166" width="20" height="20" rx="4" class="btn"/>
+  <text x="129" y="180" class="mu">⌗</text>
+
+  <!-- Campos do cabeçalho -->
+  <rect x="165" y="62" width="335" height="30" rx="5" class="box"/>
+  <text x="175" y="82" class="tx" style="font-size:15px">Aria Ventoleste</text>
+
+  <text x="165" y="115" class="mu">Espécie</text>
+  <rect x="210" y="102" width="80" height="22" rx="4" class="box"/>
+  <text x="218" y="117" class="sm">Elfo  ▾</text>
+  <text x="300" y="115" class="mu">Nível</text>
+  <rect x="332" y="102" width="34" height="22" rx="4" class="box"/>
+  <text x="344" y="117" class="sm">3</text>
+  <rect x="370" y="102" width="22" height="22" rx="4" class="gm"/>
+  <text x="376" y="118" class="sm" style="fill:#e8c170">+</text>
+  <rect x="405" y="102" width="62" height="22" rx="11" class="btn"/>
+  <text x="422" y="117" class="sm">PAD</text>
+
+  <rect x="165" y="134" width="170" height="20" rx="10" fill="#2a2346" stroke="#7c63d6"/>
+  <text x="176" y="148" class="mu" style="fill:#c9b8ff">1 Título(s) sempre ativo(s)</text>
+
+  <text x="165" y="180" class="mu">Traços</text>
+  <rect x="207" y="167" width="68" height="20" rx="10" fill="#1f3a2e" stroke="#5fd08f"/>
+  <text x="217" y="181" class="mu" style="fill:#bff0d3">Orgânico</text>
+  <rect x="281" y="167" width="60" height="20" rx="10" fill="#1f3a2e" stroke="#5fd08f"/>
+  <text x="292" y="181" class="mu" style="fill:#bff0d3">Voador</text>
+
+  <!-- Recursos -->
+  <text x="520" y="80" class="sm" style="font-weight:700">HP</text>
+  <rect x="560" y="68" width="230" height="14" rx="7" fill="#2b1a1c"/>
+  <rect x="560" y="68" width="163" height="14" rx="7" fill="#e5534b"/>
+  <text x="800" y="80" class="sm">340 / 480</text>
+  <circle cx="900" cy="75" r="9" class="btn"/>
+  <text x="896" y="79" class="sm">+</text>
+
+  <text x="520" y="108" class="sm" style="font-weight:700">Mana</text>
+  <rect x="560" y="96" width="230" height="14" rx="7" fill="#172340"/>
+  <rect x="560" y="96" width="161" height="14" rx="7" fill="#4f8cff"/>
+  <text x="800" y="108" class="sm">210 / 300</text>
+  <circle cx="900" cy="103" r="9" class="btn"/>
+  <text x="896" y="107" class="sm">+</text>
+
+  <text x="520" y="136" class="sm" style="font-weight:700">Escudo</text>
+  <rect x="575" y="123" width="46" height="20" rx="4" class="box"/>
+  <text x="588" y="137" class="sm">25</text>
+
+  <rect x="520" y="152" width="170" height="26" rx="5" class="btn"/>
+  <text x="533" y="169" class="sm">Descanso Completo</text>
+  <rect x="698" y="152" width="94" height="26" rx="5" class="btn"/>
+  <text x="714" y="169" class="sm">Iniciativa</text>
+  <rect x="800" y="152" width="80" height="26" rx="5" class="btn"/>
+  <text x="820" y="169" class="sm">Correr</text>
+
+  <rect x="520" y="188" width="210" height="24" rx="12" fill="#3a2317" stroke="#ff9f43"/>
+  <circle cx="534" cy="200" r="7" fill="#ff9f43"/>
+  <text x="548" y="204" class="mu" style="fill:#ffd9b3">Queimadura · 2 round(s)</text>
+  <text x="712" y="204" class="mu" style="fill:#ffd9b3">✕</text>
+
+  <!-- Abas -->
+  <line x1="30" y1="226" x2="930" y2="226" stroke="#343a55"/>
+  <text x="44" y="248" class="tx" style="font-weight:700">Ficha</text>
+  <rect x="40" y="254" width="42" height="3" fill="#a78bfa"/>
+  <text x="104" y="248" class="tx" style="fill:#9aa1c2">Anatomia</text>
+  <text x="188" y="248" class="tx" style="fill:#9aa1c2">Biografia</text>
+
+  <!-- Trilho de Atributos -->
+  <rect x="36" y="270" width="416" height="438" rx="8" fill="#171a26" stroke="#2e3350"/>
+  <text x="50" y="292" class="hd">ATRIBUTOS</text>
+  <rect x="50" y="302" width="388" height="28" rx="6" fill="#20243a"/>
+  <text x="60" y="321" class="tx" style="font-weight:700">12</text>
+  <text x="80" y="321" class="mu">/ 45 livres</text>
+  <rect x="160" y="312" width="266" height="8" rx="4" fill="#2e3350"/>
+  <rect x="160" y="312" width="195" height="8" rx="4" fill="#a78bfa"/>
+
+  <!-- linhas de atributo: y base 342, passo 56 -->
+  <g>
+    <text x="54" y="356" class="tx">Força</text><text x="54" y="371" class="mu">12 pts</text>
+    <rect x="330" y="344" width="22" height="20" rx="4" class="btn"/><text x="337" y="358" class="sm">−</text>
+    <text x="362" y="358" class="sm">0</text>
+    <rect x="376" y="344" width="22" height="20" rx="4" class="btn"/><text x="382" y="358" class="sm">+</text>
+    <rect x="150" y="360" width="64" height="20" rx="10" class="pill"/><text x="160" y="374" class="sm">1d20+4</text>
+    <rect x="410" y="360" width="26" height="20" rx="4" class="btn"/><text x="415" y="374" class="mu">d20</text>
+  </g>
+  <g>
+    <text x="54" y="412" class="tx">Magia</text><text x="54" y="427" class="mu">15 pts</text>
+    <rect x="330" y="400" width="22" height="20" rx="4" class="btn"/><text x="337" y="414" class="sm">−</text>
+    <text x="362" y="414" class="sm">0</text>
+    <rect x="376" y="400" width="22" height="20" rx="4" class="btn"/><text x="382" y="414" class="sm">+</text>
+    <rect x="150" y="416" width="64" height="20" rx="10" class="pill"/><text x="160" y="430" class="sm">1d20+5</text>
+    <rect x="222" y="416" width="58" height="20" rx="10" fill="#1f3a2e" stroke="#5fd08f"/><text x="229" y="430" class="mu" style="fill:#bff0d3">+2 item</text>
+    <rect x="410" y="416" width="26" height="20" rx="4" class="btn"/><text x="415" y="430" class="mu">d20</text>
+  </g>
+  <g>
+    <text x="54" y="468" class="tx">Destreza</text><text x="54" y="483" class="mu">30 pts</text>
+    <rect x="330" y="456" width="22" height="20" rx="4" class="btn"/><text x="337" y="470" class="sm">−</text>
+    <text x="362" y="470" class="sm">0</text>
+    <rect x="376" y="456" width="22" height="20" rx="4" class="btn"/><text x="382" y="470" class="sm">+</text>
+    <rect x="150" y="472" width="56" height="20" rx="10" class="pill"/><text x="161" y="486" class="sm">2d20</text>
+    <rect x="214" y="472" width="96" height="20" rx="10" fill="#172340" stroke="#4f8cff"/><text x="222" y="486" class="mu" style="fill:#c4d8ff">9 m/rodada</text>
+    <rect x="410" y="472" width="26" height="20" rx="4" class="btn"/><text x="415" y="486" class="mu">d20</text>
+  </g>
+  <g>
+    <rect x="46" y="506" width="396" height="50" rx="6" fill="#2a2618" stroke="#e8c170" stroke-opacity="0.5"/>
+    <text x="54" y="524" class="tx">Precisão</text><text x="54" y="539" class="mu">7 pts <tspan style="fill:#e8c170">+2</tspan></text>
+    <rect x="330" y="512" width="22" height="20" rx="4" class="btn"/><text x="337" y="526" class="sm">−</text>
+    <text x="358" y="526" class="sm" style="fill:#e8c170">+2</text>
+    <rect x="376" y="512" width="22" height="20" rx="4" class="btn"/><text x="382" y="526" class="sm">+</text>
+    <rect x="150" y="528" width="64" height="20" rx="10" class="pill"/><text x="160" y="542" class="sm">1d20+2</text>
+    <text x="221" y="542" class="sm" style="fill:#e8c170">→</text>
+    <rect x="236" y="528" width="64" height="20" rx="10" fill="#2a2618" stroke="#e8c170"/><text x="246" y="542" class="sm">1d20+3</text>
+    <rect x="410" y="528" width="26" height="20" rx="4" class="btn"/><text x="415" y="542" class="mu">d20</text>
+  </g>
+  <text x="54" y="578" class="mu">… Defesa, Defesa Mágica, Furtividade, Percepção</text>
+
+  <rect x="50" y="592" width="388" height="34" rx="6" fill="#20243a"/>
+  <text x="62" y="614" class="sm"><tspan style="font-weight:700">2</tspan> pts pendentes</text>
+  <rect x="262" y="598" width="76" height="22" rx="4" class="btn"/><text x="276" y="613" class="sm">Resetar</text>
+  <rect x="346" y="598" width="84" height="22" rx="4" fill="#3b2f63" stroke="#a78bfa"/><text x="357" y="613" class="sm">Confirmar</text>
+
+  <rect x="50" y="640" width="180" height="24" rx="4" class="gm"/>
+  <text x="60" y="656" class="mu" style="fill:#e8c170">↺ Zerar pontos (Mestre)</text>
+  <text x="50" y="690" class="mu">Moldura tracejada dourada = só o Mestre vê</text>
+
+  <!-- Coluna direita -->
+  <rect x="468" y="270" width="456" height="72" rx="8" fill="#171a26" stroke="#2e3350"/>
+  <text x="482" y="290" class="hd">PONTOS DE HABILIDADE</text>
+  <g>
+    <rect x="482" y="300" width="136" height="32" rx="6" fill="#20243a"/>
+    <text x="492" y="321" class="sm">Extra</text><text x="542" y="321" class="tx" style="font-weight:700">2</text>
+    <text x="566" y="321" class="mu">▼ ▲</text>
+    <rect x="626" y="300" width="136" height="32" rx="6" fill="#20243a"/>
+    <text x="636" y="321" class="sm">Normal</text><text x="690" y="321" class="tx" style="font-weight:700">3</text>
+    <text x="712" y="321" class="mu">▼ ▲</text>
+    <rect x="770" y="300" width="140" height="32" rx="6" fill="#20243a"/>
+    <text x="780" y="321" class="sm">Único</text><text x="830" y="321" class="tx" style="font-weight:700">0</text>
+    <text x="854" y="321" class="mu">▼ ▲</text>
+  </g>
+
+  <rect x="468" y="352" width="456" height="196" rx="8" fill="#171a26" stroke="#2e3350"/>
+  <text x="482" y="372" class="hd">HABILIDADES</text>
+  <rect x="482" y="382" width="428" height="100" rx="6" fill="none" stroke="#3a4060"/>
+  <rect x="494" y="375" width="50" height="14" fill="#171a26"/>
+  <text x="498" y="386" class="mu" style="fill:#c9b8ff">Normal</text>
+  <rect x="494" y="396" width="18" height="18" rx="3" fill="#3a4060"/>
+  <text x="520" y="410" class="sm">Lâmina de Vento</text>
+  <text x="660" y="410" class="mu">Custo: 12</text>
+  <rect x="806" y="394" width="64" height="22" rx="4" class="btn"/><text x="822" y="409" class="sm">Usar</text>
+  <text x="880" y="409" class="mu">✎ 🗑</text>
+  <rect x="494" y="426" width="18" height="18" rx="3" fill="#3a4060"/>
+  <text x="520" y="440" class="sm">Aura Protetora</text>
+  <text x="660" y="440" class="mu">Custo: 10 + 3/rodada</text>
+  <rect x="790" y="424" width="80" height="22" rx="4" fill="#4a2020" stroke="#e5534b"/><text x="799" y="439" class="sm">Desativar</text>
+  <text x="880" y="439" class="mu">✎ 🗑</text>
+  <rect x="494" y="456" width="18" height="18" rx="3" fill="#3a4060"/>
+  <text x="520" y="470" class="sm">Lança Arcana</text>
+  <text x="660" y="470" class="mu">Custo: 8</text>
+  <rect x="806" y="454" width="64" height="22" rx="4" class="btn"/><text x="822" y="469" class="sm">Usar</text>
+  <text x="880" y="469" class="mu">✎ 🗑</text>
+
+  <rect x="482" y="490" width="428" height="30" rx="6" fill="none" stroke="#3a4060"/>
+  <text x="498" y="510" class="mu" style="fill:#c9b8ff">Racial</text>
+  <text x="560" y="510" class="sm">Visão Élfica</text>
+  <text x="660" y="510" class="mu">Custo: 0</text>
+  <text x="482" y="538" class="mu" style="fill:#a78bfa">+ Pedir Criação com Pontos</text>
+
+  <rect x="468" y="558" width="456" height="72" rx="8" fill="#171a26" stroke="#2e3350"/>
+  <text x="482" y="578" class="hd">ITENS GERAIS</text>
+  <text x="482" y="600" class="sm">Arco Longo</text><text x="560" y="600" class="mu">x1</text>
+  <text x="590" y="600" class="mu" style="fill:#ffd9b3">1d8+2</text>
+  <rect x="806" y="586" width="64" height="22" rx="4" class="btn"/><text x="818" y="601" class="sm">Atacar</text>
+  <text x="482" y="622" class="sm">Poção de Cura</text><text x="580" y="622" class="mu">x3</text>
+
+  <rect x="468" y="640" width="456" height="68" rx="8" fill="#171a26" stroke="#2e3350"/>
+  <text x="482" y="660" class="hd">ECONOMIA</text>
+  <text x="482" y="682" class="sm">Ouro 12   ·   Prata 40   ·   Cobre 5</text>
+  <rect x="712" y="668" width="92" height="22" rx="4" class="btn"/><text x="728" y="683" class="sm">Converter</text>
+  <rect x="808" y="668" width="96" height="22" rx="4" class="btn"/><text x="816" y="683" class="sm">Enviar Dinheiro</text>
+
+  <!-- Chamadas -->
+  <g class="co"><circle cx="40" cy="62" r="11"/><text x="40" y="66">1</text></g>
+  <g class="co"><circle cx="210" cy="100" r="11"/><text x="210" y="104">2</text></g>
+  <g class="co"><circle cx="394" cy="100" r="11"/><text x="394" y="104">3</text></g>
+  <g class="co"><circle cx="468" cy="100" r="11"/><text x="468" y="104">4</text></g>
+  <g class="co"><circle cx="350" cy="177" r="11"/><text x="350" y="181">5</text></g>
+  <g class="co"><circle cx="512" cy="64" r="11"/><text x="512" y="68">6</text></g>
+  <g class="co"><circle cx="912" cy="90" r="11"/><text x="912" y="94">7</text></g>
+  <g class="co"><circle cx="888" cy="165" r="11"/><text x="888" y="169">8</text></g>
+  <g class="co"><circle cx="740" cy="200" r="11"/><text x="740" y="204">9</text></g>
+  <g class="co"><circle cx="270" cy="246" r="11"/><text x="270" y="250">10</text></g>
+  <g class="co"><circle cx="446" cy="316" r="11"/><text x="446" y="320">11</text></g>
+  <g class="co"><circle cx="405" cy="340" r="11"/><text x="405" y="344">12</text></g>
+  <g class="co"><circle cx="132" cy="370" r="11"/><text x="132" y="374">13</text></g>
+  <g class="co"><circle cx="440" cy="609" r="11"/><text x="440" y="613">14</text></g>
+  <g class="co"><circle cx="916" cy="316" r="11"/><text x="916" y="320">15</text></g>
+  <g class="co"><circle cx="916" cy="405" r="11"/><text x="916" y="409">16</text></g>
+  <g class="co"><circle cx="668" cy="534" r="11"/><text x="668" y="538">17</text></g>
+  <g class="co"><circle cx="916" cy="597" r="11"/><text x="916" y="601">18</text></g>
+  <g class="co"><circle cx="916" cy="679" r="11"/><text x="916" y="683">19</text></g>
+</svg>

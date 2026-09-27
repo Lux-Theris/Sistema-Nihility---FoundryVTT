@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="400" viewBox="0 0 960 400">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#9aa1c2"/>
+    </marker>
+  </defs>
+  <style>
+    text { font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; }
+    .ti { fill: #e6e8f2; font-size: 18px; font-weight: 700; }
+    .tx { fill: #e6e8f2; font-size: 13px; }
+    .bd { fill: #e6e8f2; font-size: 13px; font-weight: 700; }
+    .mu { fill: #9aa1c2; font-size: 11.5px; }
+    .mono { fill: #e6e8f2; font-size: 13px; font-family: Consolas, 'Courier New', monospace; }
+    .box { fill: #232738; stroke: #3a4060; }
+    .btn { fill: #2b3150; stroke: #4a5380; }
+    .ar { stroke: #9aa1c2; stroke-width: 1.6; fill: none; marker-end: url(#a); }
+  </style>
+  <rect width="960" height="400" rx="14" fill="#12141c"/>
+  <text x="30" y="40" class="ti">Shift + clique: Vantagem e modificadores</text>
+  <text x="30" y="60" class="mu">Segure Shift ao clicar em qualquer rolagem (Atributo, Iniciativa, Usar de dano, Atacar, Disparar). Clique normal rola sem perguntar nada.</text>
+
+  <!-- janela -->
+  <rect x="30" y="80" width="430" height="296" rx="10" fill="#1b1e2b" stroke="#343a55"/>
+  <rect x="30" y="80" width="430" height="28" rx="10" fill="#252a40"/>
+  <rect x="30" y="96" width="430" height="12" fill="#252a40"/>
+  <text x="44" y="99" class="mu">Rolar Destreza</text>
+  <circle cx="54" cy="130" r="6" fill="none" stroke="#9aa1c2"/><text x="66" y="134" class="tx">Desvantagem</text>
+  <circle cx="170" cy="130" r="6" fill="none" stroke="#9aa1c2"/><text x="182" y="134" class="tx">Normal</text>
+  <circle cx="254" cy="130" r="6" fill="none" stroke="#a78bfa"/><circle cx="254" cy="130" r="3" fill="#a78bfa"/><text x="266" y="134" class="tx">Vantagem</text>
+  <text x="44" y="156" class="mu">Vantagem rola o pool inteiro duas vezes e fica com o maior.</text>
+
+  <rect x="44" y="170" width="92" height="26" rx="4" class="box"/><text x="54" y="188" class="tx">+ Somar ▾</text>
+  <rect x="142" y="170" width="54" height="26" rx="4" class="box"/><text x="162" y="188" class="tx">5</text>
+  <rect x="202" y="170" width="220" height="26" rx="4" class="box"/><text x="212" y="188" class="tx">boa interpretação</text>
+  <text x="432" y="188" class="mu">✕</text>
+  <rect x="44" y="204" width="92" height="26" rx="4" class="box"/><text x="54" y="222" class="tx">× Multiplicar ▾</text>
+  <rect x="142" y="204" width="54" height="26" rx="4" class="box"/><text x="162" y="222" class="tx">2</text>
+  <rect x="202" y="204" width="220" height="26" rx="4" class="box"/><text x="212" y="222" class="tx">ponto fraco</text>
+  <text x="432" y="222" class="mu">✕</text>
+  <text x="44" y="252" class="tx" style="fill:#a78bfa">+ Modificador</text>
+  <text x="44" y="276" class="mu">Aplicados na ordem da lista: “+5” e depois “×2” dá (rolagem + 5) × 2.</text>
+  <rect x="44" y="296" width="200" height="30" rx="5" fill="#3b2f63" stroke="#a78bfa"/><text x="124" y="316" class="bd">Rolar</text>
+  <rect x="252" y="296" width="194" height="30" rx="5" class="btn"/><text x="322" y="316" class="tx">Cancelar</text>
+  <text x="44" y="356" class="mu">Operações: Somar, Subtrair, Multiplicar, Dividir (arredonda para baixo).</text>
+
+  <path d="M470 228 H500" class="ar"/>
+
+  <rect x="504" y="80" width="426" height="142" rx="10" fill="#171a26" stroke="#4f8cff"/>
+  <text x="520" y="104" class="bd">Atributo e Iniciativa</text>
+  <text x="520" y="122" class="mu">os modificadores entram na própria fórmula:</text>
+  <rect x="520" y="134" width="394" height="30" rx="5" class="box"/>
+  <text x="530" y="154" class="mono">(({2d20, 2d20}kh) + 5) * 2</text>
+  <text x="520" y="186" class="mu">O card do chat já mostra o resultado final,</text>
+  <text x="520" y="202" class="mu">com “Vantagem · +5 (boa interpretação) · ×2”.</text>
+
+  <rect x="504" y="234" width="426" height="142" rx="10" fill="#171a26" stroke="#e5534b"/>
+  <text x="520" y="258" class="bd">Dano</text>
+  <text x="520" y="276" class="mu">Vantagem entra na fórmula; as operações entram no NÚMERO,</text>
+  <text x="520" y="292" class="mu">depois da escala por Atributo, do nível e dos bônus de arma,</text>
+  <text x="520" y="308" class="mu">e antes das defesas do alvo. Dano nunca fica negativo.</text>
+  <rect x="520" y="322" width="394" height="30" rx="5" class="box"/>
+  <text x="530" y="342" class="mono">… — +5 (…) · ×2 (40 → 90)</text>
+</svg>

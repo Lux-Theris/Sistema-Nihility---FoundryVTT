@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="520" viewBox="0 0 960 520">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#9aa1c2"/>
+    </marker>
+  </defs>
+  <style>
+    text { font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; }
+    .ti { fill: #e6e8f2; font-size: 18px; font-weight: 700; }
+    .tx { fill: #e6e8f2; font-size: 13px; }
+    .bd { fill: #e6e8f2; font-size: 13px; font-weight: 700; }
+    .big { fill: #fff; font-size: 20px; font-weight: 700; }
+    .mu { fill: #9aa1c2; font-size: 11.5px; }
+    .lb { fill: #9aa1c2; font-size: 11px; font-weight: 700; letter-spacing: .8px; }
+    .ar { stroke: #9aa1c2; stroke-width: 1.6; fill: none; marker-end: url(#a); }
+    .c { text-anchor: middle; }
+  </style>
+  <rect width="960" height="520" rx="14" fill="#12141c"/>
+  <text x="30" y="40" class="ti">Grid de Energia da Nave: Reator → Distribuidor → Módulos</text>
+  <text x="30" y="60" class="mu">Exemplo de uma nave Média. A energia é o “EPS” (o nome é configurável pelo Mestre).</text>
+
+  <rect x="30" y="80" width="200" height="92" rx="10" fill="#3a2317" stroke="#ff9f43" stroke-width="2"/>
+  <text x="46" y="104" class="lb" style="fill:#ffd9b3">REATOR · GERAÇÃO</text>
+  <text x="46" y="136" class="big">500</text><text x="100" y="136" class="mu">por rodada</text>
+  <text x="46" y="158" class="mu">throttle acima de 100% o danifica</text>
+  <path d="M234 126 H270" class="ar"/>
+  <rect x="274" y="80" width="200" height="92" rx="10" fill="#1d2744" stroke="#4f8cff" stroke-width="2"/>
+  <text x="290" y="104" class="lb" style="fill:#c4d8ff">DISTRIBUIDOR · TETO</text>
+  <text x="290" y="136" class="big">320</text><text x="344" y="136" class="mu">por rodada</text>
+  <text x="290" y="158" class="mu">baseline do Porte × Fator</text>
+  <path d="M478 126 H514" class="ar"/>
+  <rect x="518" y="80" width="200" height="92" rx="10" fill="#232738" stroke="#9aa1c2" stroke-width="2"/>
+  <text x="534" y="104" class="lb">MÓDULOS ONLINE PEDEM</text>
+  <text x="534" y="136" class="big">380</text><text x="588" y="136" class="mu">Consumo × throttle</text>
+  <text x="534" y="158" class="mu">acima do teto → falta energia</text>
+  <rect x="742" y="80" width="188" height="92" rx="10" fill="#1f3a2e" stroke="#5fd08f" stroke-width="2"/>
+  <text x="758" y="104" class="lb" style="fill:#bff0d3">CAPACITOR · RESERVA</text>
+  <text x="758" y="136" class="big">40</text><text x="790" y="136" class="mu">/ 250</text>
+  <text x="758" y="158" class="mu">cobre a falta; paga as Skills</text>
+  <path d="M836 176 C836 200 620 200 620 178" class="ar"/>
+
+  <rect x="30" y="192" width="560" height="40" rx="8" fill="#171a26" stroke="#3a4060"/>
+  <text x="46" y="217" class="tx">Disponível agora = menor entre Reator e Distribuidor + Capacitor = <tspan style="font-weight:700">320 + 40 = 360</tspan></text>
+
+  <text x="30" y="266" class="lb">QUANDO FALTA: GRUPOS DE PRIORIDADE P1…P5 (chip em cada Módulo da ficha)</text>
+  <!-- barra de demanda: 380 total → escala 2.2 px por EPS -->
+  <g>
+    <rect x="30" y="280" width="176" height="44" rx="4" fill="#5fd08f"/>
+    <text x="118" y="300" class="bd c" style="fill:#0f2a1c">P1 · 80</text><text x="118" y="316" class="mu c" style="fill:#0f2a1c">Escudo + Motor</text>
+    <rect x="208" y="280" width="220" height="44" rx="4" fill="#4f8cff"/>
+    <text x="318" y="300" class="bd c" style="fill:#0d1a33">P2 · 100</text><text x="318" y="316" class="mu c" style="fill:#0d1a33">Armas</text>
+    <rect x="430" y="280" width="264" height="44" rx="4" fill="#a78bfa"/>
+    <text x="562" y="300" class="bd c" style="fill:#1d1236">P3 · 120</text><text x="562" y="316" class="mu c" style="fill:#1d1236">Sensores + FTL</text>
+    <rect x="696" y="280" width="176" height="44" rx="4" fill="#3a4060"/>
+    <text x="784" y="300" class="bd c">P4 · 80</text><text x="784" y="316" class="mu c">Utilidade</text>
+  </g>
+  <line x1="822" y1="270" x2="822" y2="336" stroke="#e8c170" stroke-width="3"/>
+  <text x="828" y="350" class="mu" style="fill:#e8c170">360 disponíveis</text>
+  <rect x="30" y="356" width="176" height="22" rx="4" fill="#1f3a2e"/><text x="118" y="372" class="mu c" style="fill:#bff0d3">100% da energia</text>
+  <rect x="208" y="356" width="220" height="22" rx="4" fill="#1d2744"/><text x="318" y="372" class="mu c" style="fill:#c4d8ff">100%</text>
+  <rect x="430" y="356" width="264" height="22" rx="4" fill="#2a2346"/><text x="562" y="372" class="mu c" style="fill:#c9b8ff">100%</text>
+  <rect x="696" y="356" width="176" height="22" rx="4" fill="#3a2317"/><text x="784" y="372" class="mu c" style="fill:#ffd9b3">60 de 80 → 75% cada</text>
+
+  <text x="30" y="412" class="tx">P1 é abastecido inteiro primeiro, depois P2, e assim por diante. Quando o que sobra não cobre um grupo, <tspan style="font-weight:700">todos os Módulos</tspan></text>
+  <text x="30" y="430" class="tx"><tspan style="font-weight:700">daquele grupo recebem a mesma fração</tspan> e os grupos seguintes ficam sem nada. Um Módulo a 75% entrega 75% do que faria.</text>
+  <text x="30" y="462" class="mu">Clique no chip = desce um grupo (P1 → P2). Clique direito = sobe. A Vida do Módulo também escala o desempenho: um Módulo a 50% de Vida entrega 50%.</text>
+  <text x="30" y="482" class="mu">Throttle abaixo de 100% economiza; acima, sobrecarrega (dano por rodada acima do limite de cada Função). Armas nunca se danificam: recarregam mais devagar.</text>
+</svg>

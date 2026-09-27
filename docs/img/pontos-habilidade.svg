@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="470" viewBox="0 0 960 470">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#9aa1c2"/>
+    </marker>
+  </defs>
+  <style>
+    text { font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; }
+    .ti { fill: #e6e8f2; font-size: 18px; font-weight: 700; }
+    .tx { fill: #e6e8f2; font-size: 13px; }
+    .bd { fill: #e6e8f2; font-size: 13px; font-weight: 700; }
+    .big { fill: #fff; font-size: 20px; font-weight: 700; }
+    .mu { fill: #9aa1c2; font-size: 11.5px; }
+    .lb { fill: #9aa1c2; font-size: 11px; font-weight: 700; letter-spacing: .8px; }
+    .ar { stroke: #9aa1c2; stroke-width: 1.6; fill: none; marker-end: url(#a); }
+    .ok { stroke: #5fd08f; stroke-width: 1.6; fill: none; marker-end: url(#a); }
+  </style>
+  <rect width="960" height="470" rx="14" fill="#12141c"/>
+  <text x="30" y="40" class="ti">Pontos de Habilidade</text>
+
+  <text x="30" y="72" class="lb">CONVERSÃO (sempre 3 : 1, nos dois sentidos)</text>
+  <rect x="30" y="84" width="150" height="70" rx="10" fill="#232738" stroke="#9aa1c2"/>
+  <text x="46" y="108" class="bd">Extra</text><text x="46" y="140" class="mu">o mais barato</text>
+  <rect x="350" y="84" width="150" height="70" rx="10" fill="#1d2744" stroke="#4f8cff"/>
+  <text x="366" y="108" class="bd">Normal</text><text x="366" y="140" class="mu">ganho por nível</text>
+  <rect x="670" y="84" width="150" height="70" rx="10" fill="#2a2346" stroke="#a78bfa"/>
+  <text x="686" y="108" class="bd">Único</text><text x="686" y="140" class="mu">o mais raro</text>
+  <path d="M184 106 H346" class="ar"/><text x="200" y="100" class="mu">▲ 3 Extra → 1 Normal</text>
+  <path d="M346 134 H184" class="ar"/><text x="200" y="150" class="mu">▼ 1 Normal → 3 Extra</text>
+  <path d="M504 106 H666" class="ar"/><text x="520" y="100" class="mu">▲ 3 Normal → 1 Único</text>
+  <path d="M666 134 H504" class="ar"/><text x="520" y="150" class="mu">▼ 1 Único → 3 Normal</text>
+  <text x="836" y="104" class="mu">Racial e Ultimate</text>
+  <text x="836" y="120" class="mu">não têm Pontos:</text>
+  <text x="836" y="136" class="mu">vêm da Espécie e</text>
+  <text x="836" y="152" class="mu">da Fusão.</text>
+
+  <text x="30" y="198" class="lb">ONDE OS PONTOS SÃO GASTOS</text>
+  <rect x="30" y="210" width="430" height="100" rx="10" fill="#171a26" stroke="#3a4060"/>
+  <text x="46" y="234" class="bd">Subir 1 nível de uma Skill sua</text>
+  <text x="46" y="256" class="mu">Na ficha da Skill: botão “Subir nível (1 Ponto)”. Gasta 1 Ponto</text>
+  <text x="46" y="272" class="mu">do mesmo tier da Skill (Extra, Normal ou Único). Não depende</text>
+  <text x="46" y="288" class="mu">do XP da Skill estar cheio.</text>
+  <rect x="480" y="210" width="450" height="100" rx="10" fill="#171a26" stroke="#3a4060"/>
+  <text x="496" y="234" class="bd">Pedir uma Skill nova</text>
+  <text x="496" y="256" class="mu">“+ Pedir Criação com Pontos” na ficha: escolha o tier, o nome,</text>
+  <text x="496" y="272" class="mu">o efeito e o custo. O Mestre aprova ou recusa — o ponto só sai</text>
+  <text x="496" y="288" class="mu">da sua ficha se ele aprovar.</text>
+
+  <text x="30" y="346" class="lb">O PEDIDO, PASSO A PASSO</text>
+  <rect x="30" y="358" width="200" height="86" rx="10" fill="#232738" stroke="#4a5380"/>
+  <text x="46" y="382" class="bd">1. Você pede</text>
+  <text x="46" y="402" class="mu">tier, nome, efeito, custo</text>
+  <text x="46" y="418" class="mu">(precisa ter o Ponto)</text>
+  <path d="M234 400 H262" class="ar"/>
+  <rect x="266" y="358" width="220" height="86" rx="10" fill="#232738" stroke="#4a5380"/>
+  <text x="282" y="382" class="bd">2. Card no chat</text>
+  <text x="282" y="402" class="mu">sussurrado só para você</text>
+  <text x="282" y="418" class="mu">e para o Mestre</text>
+  <path d="M490 380 H518" class="ok"/>
+  <path d="M490 420 H518" class="ar"/>
+  <rect x="522" y="358" width="408" height="40" rx="8" fill="#1f3a2e" stroke="#5fd08f"/>
+  <text x="538" y="383" class="bd">Aprovar:</text>
+  <text x="606" y="383" class="tx">−1 Ponto, Skill criada (nível 1), Voz do Mundo avisa</text>
+  <rect x="522" y="404" width="408" height="40" rx="8" fill="#2b1a1c" stroke="#e5534b"/>
+  <text x="538" y="429" class="bd">Rejeitar:</text>
+  <text x="608" y="429" class="tx">nenhum Ponto é gasto; o card mostra a recusa</text>
+</svg>

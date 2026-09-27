@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="430" viewBox="0 0 960 430">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#9aa1c2"/>
+    </marker>
+  </defs>
+  <style>
+    text { font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; }
+    .ti { fill: #e6e8f2; font-size: 18px; font-weight: 700; }
+    .tx { fill: #e6e8f2; font-size: 12.5px; }
+    .bd { fill: #e6e8f2; font-size: 13px; font-weight: 700; }
+    .big { fill: #fff; font-size: 20px; font-weight: 700; }
+    .mu { fill: #9aa1c2; font-size: 11.5px; }
+    .lb { fill: #9aa1c2; font-size: 11px; font-weight: 700; letter-spacing: .8px; }
+    .ar { stroke: #9aa1c2; stroke-width: 1.6; fill: none; marker-end: url(#a); }
+  </style>
+  <rect width="960" height="430" rx="14" fill="#12141c"/>
+  <text x="30" y="40" class="ti">Dano em Nave/Veículo: a cascata de 3 camadas</text>
+  <text x="30" y="60" class="mu">Exemplo: tiro de 100, arma com Penetração 20%, alvo com Evasão 15%, Escudo 50/200 e Casco com Redução 20%. A nave aplica tudo sozinha.</text>
+
+  <rect x="30" y="84" width="130" height="96" rx="10" fill="#232738" stroke="#9aa1c2" stroke-width="2"/>
+  <text x="44" y="108" class="lb">TIRO</text><text x="44" y="146" class="big">100</text>
+  <path d="M164 132 H186" class="ar"/>
+
+  <rect x="190" y="84" width="140" height="96" rx="10" fill="#1f3a2e" stroke="#5fd08f" stroke-width="2"/>
+  <text x="204" y="108" class="lb" style="fill:#bff0d3">EVASÃO 15%</text><text x="204" y="146" class="big">85</text>
+  <text x="204" y="168" class="mu">15 desviados</text>
+  <path d="M334 132 H356" class="ar"/>
+
+  <rect x="360" y="84" width="180" height="96" rx="10" fill="#1d2744" stroke="#4f8cff" stroke-width="2"/>
+  <text x="374" y="108" class="lb" style="fill:#c4d8ff">ESCUDO (50)</text>
+  <text x="374" y="132" class="tx">68 miram o Escudo</text>
+  <text x="374" y="148" class="tx">→ absorve 50, vazam 18</text>
+  <text x="374" y="168" class="mu">17 penetram direto</text>
+  <path d="M544 132 H566" class="ar"/><text x="546" y="124" class="mu">35</text>
+
+  <rect x="570" y="84" width="180" height="96" rx="10" fill="#3a2317" stroke="#ff9f43" stroke-width="2"/>
+  <text x="584" y="108" class="lb" style="fill:#ffd9b3">CASCO (Redução 20%)</text>
+  <text x="584" y="132" class="tx">35 − 20% = 28</text>
+  <text x="584" y="148" class="tx">22 absorvidos</text>
+  <text x="584" y="168" class="mu">6 penetram</text>
+  <path d="M754 132 H776" class="ar"/><text x="757" y="124" class="mu">6</text>
+
+  <rect x="780" y="84" width="150" height="96" rx="10" fill="#2b1a1c" stroke="#e5534b" stroke-width="2"/>
+  <text x="794" y="108" class="lb" style="fill:#ffb3ae">INTEGRIDADE</text><text x="794" y="146" class="big">6</text>
+  <text x="794" y="168" class="mu">espalhados nos Módulos</text>
+
+  <text x="30" y="216" class="lb">O QUE CADA CAMADA É</text>
+  <rect x="30" y="226" width="290" height="180" rx="10" fill="#171a26" stroke="#4f8cff"/>
+  <text x="46" y="250" class="bd">Escudo</text>
+  <text x="46" y="272" class="mu">Pool próprio, vindo dos Módulos de Escudo.</text>
+  <text x="46" y="290" class="mu">Regenera por rodada. Se zerar, entra em</text>
+  <text x="46" y="306" class="mu">Recarga: rodadas sem proteção nenhuma.</text>
+  <text x="46" y="328" class="mu">Penetração faz parte do tiro ignorá-lo.</text>
+  <text x="46" y="346" class="mu">Elementos com “Dano extra em Escudo”</text>
+  <text x="46" y="362" class="mu">(Táquion) batem mais forte aqui.</text>
+
+  <rect x="335" y="226" width="290" height="180" rx="10" fill="#171a26" stroke="#ff9f43"/>
+  <text x="351" y="250" class="bd">Casco</text>
+  <text x="351" y="272" class="mu">É a Vida do(s) Módulo(s) de Blindagem.</text>
+  <text x="351" y="290" class="mu">Reduz o dano que chega nele pela sua</text>
+  <text x="351" y="306" class="mu">Redução % — só enquanto tiver Vida.</text>
+  <text x="351" y="328" class="mu">Casco em 0 não protege mais nada.</text>
+  <text x="351" y="346" class="mu">Com várias blindagens, a mais danificada</text>
+  <text x="351" y="362" class="mu">apanha primeiro.</text>
+
+  <rect x="640" y="226" width="290" height="180" rx="10" fill="#171a26" stroke="#e5534b"/>
+  <text x="656" y="250" class="bd">Integridade Estrutural</text>
+  <text x="656" y="272" class="mu">Soma da Vida dos Módulos (menos Casco,</text>
+  <text x="656" y="290" class="mu">Escudo e Armas). O dano cai em pedaços</text>
+  <text x="656" y="306" class="mu">aleatórios em Módulos sorteados — cada</text>
+  <text x="656" y="322" class="mu">golpe quebra sistemas diferentes.</text>
+  <text x="656" y="344" class="mu">Módulo em 0 desliga sozinho; só religa</text>
+  <text x="656" y="360" class="mu">com 15% da Vida. Dano Absoluto vem</text>
+  <text x="656" y="376" class="mu">direto para cá (a Evasão ainda vale).</text>
+</svg>

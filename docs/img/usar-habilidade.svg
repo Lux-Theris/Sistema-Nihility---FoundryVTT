@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="660" viewBox="0 0 960 660">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#9aa1c2"/>
+    </marker>
+  </defs>
+  <style>
+    text { font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; }
+    .ti { fill: #e6e8f2; font-size: 18px; font-weight: 700; }
+    .tx { fill: #e6e8f2; font-size: 13px; }
+    .bd { fill: #e6e8f2; font-size: 13px; font-weight: 700; }
+    .mu { fill: #9aa1c2; font-size: 11.5px; }
+    .yes { fill: #5fd08f; font-size: 11px; font-weight: 700; }
+    .no { fill: #e5534b; font-size: 11px; font-weight: 700; }
+    .ar { stroke: #9aa1c2; stroke-width: 1.6; fill: none; marker-end: url(#a); }
+    .node { fill: #232738; stroke: #4a5380; }
+    .dec { fill: #2a2346; stroke: #a78bfa; }
+    .end { fill: #171a26; stroke: #5fd08f; }
+  </style>
+  <rect width="960" height="660" rx="14" fill="#12141c"/>
+  <text x="30" y="40" class="ti">O que acontece quando você clica em “Usar”</text>
+
+  <!-- 1 -->
+  <rect x="30" y="60" width="250" height="40" rx="20" fill="#3b2f63" stroke="#a78bfa"/>
+  <text x="50" y="85" class="bd">Clique em Usar na Habilidade</text>
+  <path d="M155 100 V124" class="ar"/>
+
+  <!-- 2 sub-skills -->
+  <polygon points="155,128 265,158 155,188 45,158" class="dec"/>
+  <text x="104" y="162" class="tx">Tem Sub-Skills?</text>
+  <path d="M265 158 H330" class="ar"/><text x="276" y="150" class="yes">SIM</text>
+  <rect x="334" y="138" width="300" height="40" rx="8" class="node"/>
+  <text x="346" y="162" class="tx">Escolha qual componente disparar</text>
+  <path d="M484 178 V200 H160" class="ar"/>
+  <path d="M155 188 V216" class="ar"/><text x="118" y="210" class="no">NÃO</text>
+
+  <!-- 3 ativa -->
+  <polygon points="155,220 275,252 155,284 35,252" class="dec"/>
+  <text x="88" y="249" class="tx">Ativa e já ligada?</text>
+  <text x="112" y="264" class="mu">(botão Desativar)</text>
+  <path d="M275 252 H330" class="ar"/><text x="284" y="244" class="yes">SIM</text>
+  <rect x="334" y="228" width="596" height="48" rx="8" class="end"/>
+  <text x="346" y="248" class="bd">Desliga.</text>
+  <text x="402" y="248" class="tx">Para de drenar Mana por rodada e remove os efeitos que ela sustentava.</text>
+  <text x="346" y="266" class="mu">Não pede alvo, não cobra nada, não rola nada.</text>
+  <path d="M155 284 V310" class="ar"/><text x="162" y="300" class="no">NÃO</text>
+
+  <!-- 4 shift -->
+  <rect x="30" y="314" width="250" height="52" rx="8" class="node"/>
+  <text x="42" y="336" class="tx">Shift segurado? (só Dano)</text>
+  <text x="42" y="354" class="mu">abre Vantagem e modificadores</text>
+  <path d="M155 366 V390" class="ar"/>
+
+  <!-- 5 onde -->
+  <rect x="30" y="394" width="250" height="52" rx="8" class="node"/>
+  <text x="42" y="416" class="bd">Onde / em quem?</text>
+  <text x="42" y="434" class="mu">depende do Tipo de Alvo da Skill</text>
+  <path d="M280 420 H300" class="ar"/>
+  <g>
+    <rect x="304" y="320" width="300" height="58" rx="8" fill="#1d2744" stroke="#4f8cff"/>
+    <text x="316" y="340" class="bd">Targetada</text>
+    <text x="316" y="356" class="mu">clique num Token do mapa (ou tecle T),</text>
+    <text x="316" y="370" class="mu">ou use “Escolher da lista”</text>
+    <rect x="616" y="320" width="314" height="58" rx="8" fill="#1d2744" stroke="#4f8cff"/>
+    <text x="628" y="340" class="bd">Si mesmo</text>
+    <text x="628" y="356" class="mu">age em quem usa, sem perguntar nada</text>
+    <rect x="304" y="388" width="300" height="58" rx="8" fill="#1f3a2e" stroke="#5fd08f"/>
+    <text x="316" y="408" class="bd">Emissão (área)</text>
+    <text x="316" y="424" class="mu">posicione a forma: roda do mouse gira,</text>
+    <text x="316" y="438" class="mu">clique confirma — atinge quem está dentro</text>
+    <rect x="616" y="388" width="314" height="58" rx="8" fill="#1f3a2e" stroke="#5fd08f"/>
+    <text x="628" y="408" class="bd">Zona</text>
+    <text x="628" y="424" class="mu">a área fica na cena e atinge quem estiver nela</text>
+    <text x="628" y="438" class="mu">no início do próprio turno</text>
+    <rect x="304" y="456" width="626" height="44" rx="8" fill="#3a2317" stroke="#ff9f43"/>
+    <text x="316" y="476" class="bd">Estrutura</text>
+    <text x="390" y="476" class="mu">desenhe/posicione a parede, bloco ou barreira no mapa (Esc cancela)</text>
+    <text x="316" y="492" class="mu">Sem mapa aberto, só o cartão vai para o chat.</text>
+  </g>
+  <path d="M155 446 V520" class="ar"/>
+
+  <!-- 6 custo -->
+  <rect x="30" y="524" width="900" height="44" rx="8" fill="#172340" stroke="#4f8cff"/>
+  <text x="42" y="545" class="bd">Paga o Custo em Mana</text>
+  <text x="196" y="545" class="tx">— já com o desconto do nível da Skill.</text>
+  <text x="42" y="561" class="mu">Sem Mana suficiente: aparece um aviso só para você e nada acontece. Skill Ativa: passa a drenar o Custo por Rodada no início de cada turno seu.</text>
+  <path d="M155 568 V588" class="ar"/>
+
+  <!-- 7 resultado -->
+  <rect x="30" y="592" width="290" height="52" rx="8" class="end"/>
+  <text x="42" y="612" class="bd">Dano</text>
+  <text x="42" y="630" class="mu">card no chat com o dano final de cada alvo</text>
+  <rect x="330" y="592" width="300" height="52" rx="8" class="end"/>
+  <text x="342" y="612" class="bd">Efeito Temporário</text>
+  <text x="342" y="630" class="mu">buffs, debuffs, Escudo e Condições aplicados</text>
+  <rect x="640" y="592" width="290" height="52" rx="8" class="end"/>
+  <text x="652" y="612" class="bd">Descritiva</text>
+  <text x="652" y="630" class="mu">só avisa no chat que foi usada</text>
+</svg>

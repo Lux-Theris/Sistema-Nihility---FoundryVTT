@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="330" viewBox="0 0 960 330">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#9aa1c2"/>
+    </marker>
+  </defs>
+  <style>
+    text { font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; }
+    .ti { fill: #e6e8f2; font-size: 18px; font-weight: 700; }
+    .tx { fill: #e6e8f2; font-size: 12.5px; }
+    .bd { fill: #e6e8f2; font-size: 14px; font-weight: 700; }
+    .mu { fill: #9aa1c2; font-size: 11.5px; }
+    .c { text-anchor: middle; }
+    .ar { stroke: #9aa1c2; stroke-width: 1.6; fill: none; marker-end: url(#a); }
+  </style>
+  <rect width="960" height="330" rx="14" fill="#12141c"/>
+  <text x="30" y="40" class="ti">Escala: dano entre tamanhos diferentes (fator 10 por degrau)</text>
+  <text x="30" y="60" class="mu">Multiplicador = fator ^ (degrau de quem ataca − degrau do alvo). Mesmo degrau: ×1.</text>
+
+  <g>
+    <rect x="30" y="84" width="180" height="70" rx="10" fill="#1f3a2e" stroke="#5fd08f" stroke-width="2"/>
+    <text x="120" y="114" class="bd c">Pessoal</text><text x="120" y="136" class="mu c">degrau 0 · pessoas, feras</text>
+    <path d="M214 119 H268" class="ar"/><text x="241" y="110" class="mu c">×10</text>
+    <rect x="272" y="84" width="180" height="70" rx="10" fill="#1d2744" stroke="#4f8cff" stroke-width="2"/>
+    <text x="362" y="114" class="bd c">Veículo</text><text x="362" y="136" class="mu c">degrau 1 · Mini/Pequeno</text>
+    <path d="M456 119 H510" class="ar"/><text x="483" y="110" class="mu c">×10</text>
+    <rect x="514" y="84" width="180" height="70" rx="10" fill="#2a2346" stroke="#a78bfa" stroke-width="2"/>
+    <text x="604" y="114" class="bd c">Nave</text><text x="604" y="136" class="mu c">degrau 2 · Médio/Grande</text>
+    <path d="M698 119 H752" class="ar"/><text x="725" y="110" class="mu c">×10</text>
+    <rect x="756" y="84" width="174" height="70" rx="10" fill="#3a2317" stroke="#ff9f43" stroke-width="2"/>
+    <text x="843" y="114" class="bd c">Capital</text><text x="843" y="136" class="mu c">degrau 3 · Capital</text>
+  </g>
+
+  <rect x="30" y="180" width="440" height="120" rx="10" fill="#171a26" stroke="#3a4060"/>
+  <text x="46" y="204" class="bd">Exemplos</text>
+  <text x="46" y="228" class="tx">Pistola (Pessoal) em Nave Média: 0 − 2 = −2 → <tspan style="font-weight:700">÷100</tspan></text>
+  <text x="46" y="250" class="tx">Canhão de Nave em pessoa: 2 − 0 = +2 → <tspan style="font-weight:700">×100</tspan></text>
+  <text x="46" y="272" class="tx">Bazuca anti-tanque (golpe “Veículo”) em tanque: <tspan style="font-weight:700">×1</tspan></text>
+
+  <rect x="490" y="180" width="440" height="120" rx="10" fill="#171a26" stroke="#3a4060"/>
+  <text x="506" y="204" class="bd">De onde vem cada degrau</text>
+  <text x="506" y="228" class="mu">Personagem: campo Escala (só o Mestre edita; vazio = Pessoal).</text>
+  <text x="506" y="246" class="mu">Um dragão pode ser “Veículo”.</text>
+  <text x="506" y="266" class="mu">Nave/Veículo: pelo Porte (tabela editável em Escalas).</text>
+  <text x="506" y="284" class="mu">Skill/arma: campo “Escala do golpe” (vazio = a de quem ataca).</text>
+</svg>

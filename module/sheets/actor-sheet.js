@@ -1016,12 +1016,21 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
   /**
    * "Atacar" numa Arma (Item Geral com `system.weapon.enabled`). Sempre pede alvo, igual uma
    * Skill de dano: mesmo golpe puramente físico precisa de alguém pra Resistência checar.
+   *
+   * Só arma EQUIPADA ataca — mesma regra que já vale pra `attributeBonuses`/`statModifiers`/
+   * `grantsSkill` de um Item Geral (só contam "enquanto equipado"). O botão já some da ficha
+   * pra item desequipado; este `if` é a segunda checagem, pro caso do botão ter ficado no DOM
+   * de um render anterior enquanto o campo mudava.
    */
   static async #onAttackWithWeapon(event, target) {
     event.preventDefault();
     const itemId = target.closest(".item-row").dataset.itemId;
     const weapon = this.actor.items.get(itemId);
     if (!weapon?.system.weapon?.enabled) return;
+    if (!weapon.system.equipped) {
+      ui.notifications.warn(`${weapon.name} precisa estar equipada pra atacar.`);
+      return;
+    }
 
     try {
       if (!weapon.system.weapon.damageFormula?.trim()) {

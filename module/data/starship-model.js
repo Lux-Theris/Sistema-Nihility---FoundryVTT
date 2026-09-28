@@ -13,6 +13,8 @@ import {
   moduleRole,
   getVesselClasses,
   fundByPriority,
+  resolvePowerGroups,
+  powerGroupIndex,
   cargoSlotsFor,
   inventoryLoad,
   cargoMassFactor,
@@ -130,6 +132,19 @@ function shipSystemsSchema({ sizeChoices }) {
       /** true quando o consumo excedeu Reator + Capacitores no último recálculo. */
       isOverloaded: new fields.BooleanField({ required: false, initial: false })
     }),
+
+    /**
+     * Fila de prioridade de energia desta Nave (aba Prioridade): grupos em ordem, o primeiro
+     * recebe energia primeiro. Vazia = os cinco grupos padrão (MEU_SISTEMA.DEFAULT_POWER_GROUPS),
+     * que é como toda Nave salva antes da fila dinâmica continua igual. Leia por `powerGroupList`.
+     */
+    powerGroups: new fields.ArrayField(
+      new fields.SchemaField({
+        id: new fields.StringField({ required: true, blank: false }),
+        label: new fields.StringField({ required: false, initial: "", blank: true })
+      }),
+      { required: false, initial: [] }
+    ),
 
     /**
      * Bônus de arma dados por Skills de aprimoramento "Efeito Temporário" (ver
@@ -492,9 +507,31 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
   get transferCapacity() {
     const distributor = this.distributorModule;
     if (!distributor) return 0;
-    const baseline = this.vesselSize.distributorBaseline;
     // Distribuidor danificado roteia menos — mesma regra de integridade dos outros Módulos.
-    return Math.round(baseline * (distributor.system.transferFactor ?? 1) * this.integrityRatioFor(distributor));
+    return Math.round(this.transferCapacityIntact * this.integrityRatioFor(distributor));
+  }
+
+  /** O teto que o Distribuidor ativo teria com a Vida cheia — o card do Grid mostra "25 de 800". */
+  get transferCapacityIntact() {
+    const distributor = this.distributorModule;
+    if (!distributor) return 0;
+    return Math.round(this.vesselSize.distributorBaseline * (distributor.system.transferFactor ?? 1));
+  }
+
+  /** A fila de prioridade de energia desta Nave, em ordem (ver resolvePowerGroups). */
+  get powerGroupList() {
+    return resolvePowerGroups(this.powerGroups);
+  }
+
+  /** Posição (0 = primeiro) do grupo de um Módulo na fila desta Nave. */
+  powerGroupIndexFor(module) {
+    return powerGroupIndex(this.powerGroupList, module?.system?.powerGroup, module?.system?.powerPriority);
+  }
+
+  /** Id do grupo em que um Módulo está de fato (resolve Módulo antigo, sem grupo escolhido). */
+  powerGroupIdFor(module) {
+    const groups = this.powerGroupList;
+    return groups[this.powerGroupIndexFor(module)]?.id ?? "";
   }
 
   /**
@@ -511,11 +548,12 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
 
     const online = this.modules.filter(m => m.system.status === "online");
     const available = Math.min(this.powerGrid.reactorOutput, this.transferCapacity) + this.powerGrid.capacitor.value;
+    const groups = this.powerGroupList;
     const ratios = fundByPriority(
       online.map(module => ({
         id: module.id,
         demand: (module.system.powerConsumption ?? 0) * ((module.system.powerAllocationPercent ?? 100) / 100),
-        priority: module.system.powerPriority
+        priority: powerGroupIndex(groups, module.system.powerGroup, module.system.powerPriority)
       })),
       available
     );
@@ -528,6 +566,19 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
   powerRatioFor(module) {
     if (!module) return 1;
     return this.powerShortfall.ratios.get(module.id) ?? 1;
+  }
+
+  /**
+   * Módulo ligado que ficou SEM ENERGIA nenhuma (o grupo dele na fila não recebeu nada): age
+   * como desligado — não entrega nada e a ficha mostra "desligado · sem energia" —, mas o
+   * `status` salvo continua "online". É de propósito que isso não vira um `update()`: o Módulo
+   * volta sozinho quando a energia chegar ao grupo dele, e "desligado pela tripulação" continua
+   * distinguível de "sem energia".
+   */
+  isPowerStarved(module) {
+    if (!module || module.system.status !== "online") return false;
+    if (!((module.system.powerConsumption ?? 0) * ((module.system.powerAllocationPercent ?? 100) / 100) > 0)) return false;
+    return this.powerRatioFor(module) <= 0;
   }
 
   /**
@@ -636,6 +687,9 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
     this.hull.max = structural.reduce((sum, m) => sum + (m.system.hp.max ?? 0), 0);
 
     this.shields.value = Math.clamp(this.shields.value, 0, this.shields.max);
+    // Sem Escudo instalado não há o que recarregar: uma Recarga que sobrou de um Módulo removido
+    // ou destruído some da leitura (o valor salvo não é tocado — reinstalar não muda nada).
+    if (!this.modulesByRole("shield").length) this.shields.rechargeRemaining = 0;
     this.powerGrid.isOverloaded = this.availableEnergy < 0;
   }
 

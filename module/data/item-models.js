@@ -624,8 +624,18 @@ export class StarshipModuleDataModel extends foundry.abstract.TypeDataModel {
        * Bateria cobre o déficit (ver `powerShortfall` em starship-model.js). Editável, sem
        * tabela fixa por categoria: quem decide a ordem é o jogador/Mestre.
        */
-      /** Grupo de prioridade de energia, 1 (recebe primeiro) a 5 — ver powerPriorityGroup em config.js. */
+      /**
+       * Número 1–5 de antes da fila dinâmica. Só é lido quando `powerGroup` está vazio ou aponta
+       * pra um grupo que a Nave não tem (ver powerGroupIndex em config.js); nada mais o grava.
+       */
       powerPriority: new fields.NumberField({ required: true, integer: true, initial: 3, min: 0 }),
+
+      /**
+       * Grupo da fila de prioridade de energia da Nave onde este Módulo está — id de um item de
+       * `system.powerGroups` da Nave (aba Prioridade). Decisão da tripulação daquela Nave, então é
+       * trocado pelo chip de prioridade da ficha da Nave, não pela ficha do Módulo.
+       */
+      powerGroup: new fields.StringField({ required: false, initial: "", blank: true }),
 
       /**
        * Só relevante pra category "shield" — Vida Máxima e Regen do Escudo a 100% de throttle,

@@ -800,6 +800,18 @@ export const MEU_SISTEMA = {
   /** Grupos de prioridade de energia de Módulo (1 recebe primeiro). Ver powerPriorityGroup. */
   POWER_PRIORITY_GROUPS: 5,
 
+  /**
+   * Fila de prioridade de uma Nave que nunca mexeu na aba Prioridade (ver resolvePowerGroups). Os
+   * ids `p1…p5` casam com o número 1–5 que os Módulos guardavam antes da fila dinâmica.
+   */
+  DEFAULT_POWER_GROUPS: [
+    { id: "p1", label: "Essencial" },
+    { id: "p2", label: "Alta" },
+    { id: "p3", label: "Normal" },
+    { id: "p4", label: "Baixa" },
+    { id: "p5", label: "Mínima" }
+  ],
+
   SKILL_EFFECT_TYPES: ["none", "damage", "temporary", "structure"],
 
   SKILL_EFFECT_TYPE_LABELS: {
@@ -2309,10 +2321,147 @@ export function powerPriorityGroup(value) {
 }
 
 /**
- * Divide a energia disponível entre os Módulos por grupo de prioridade: grupo 1 inteiro primeiro,
- * depois o 2… Quando o que sobra não cobre um grupo inteiro, todos os Módulos DESSE grupo recebem
- * a mesma fração (ninguém do mesmo grupo passa na frente do outro), e os grupos seguintes ficam
- * sem nada. Módulo sem demanda recebe 1.
+ * Fila de prioridade de energia de UMA Nave/Veículo: a lista salva em `system.powerGroups`, em
+ * ordem (a primeira recebe energia primeiro), ou os cinco grupos padrão quando a Nave nunca mexeu
+ * nela. Os ids padrão são `p1…p5` de propósito: é o que faz um Módulo salvo antes da fila
+ * dinâmica (só com o número 1–5 em `powerPriority`) continuar no mesmo lugar. Ids repetidos ou
+ * vazios são descartados; nome vazio vira "Prioridade N".
+ * @param {Array<{id: string, label: string}>} stored
+ * @returns {Array<{id: string, label: string}>}
+ */
+export function resolvePowerGroups(stored) {
+  const seen = new Set();
+  const groups = [];
+  for (const entry of Array.isArray(stored) ? stored : []) {
+    const id = typeof entry?.id === "string" ? entry.id.trim() : "";
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    groups.push({ id, label: String(entry.label ?? "").trim() });
+  }
+  const list = groups.length ? groups : MEU_SISTEMA.DEFAULT_POWER_GROUPS.map(g => ({ ...g }));
+  return list.map((g, i) => ({ id: g.id, label: g.label || `Prioridade ${i + 1}` }));
+}
+
+/**
+ * Posição (0 = primeiro) do grupo de um Módulo na fila. Ordem de busca: o grupo escolhido
+ * (`powerGroup`); o grupo padrão do número antigo (`powerPriority` 1–5 → `p1…p5`), se a fila
+ * ainda o tiver; e, sem nenhum dos dois, o grupo do meio — mesmo lugar onde caía um Módulo novo
+ * antes da fila dinâmica. Um Módulo trazido de outra Nave, com um grupo que não existe aqui, cai
+ * no meio também.
+ */
+export function powerGroupIndex(groups, groupId, legacyPriority) {
+  if (!groups.length) return 0;
+  const chosen = groupId ? groups.findIndex(g => g.id === groupId) : -1;
+  if (chosen >= 0) return chosen;
+  const legacy = groups.findIndex(g => g.id === `p${powerPriorityGroup(legacyPriority)}`);
+  if (legacy >= 0) return legacy;
+  return Math.floor((groups.length - 1) / 2);
+}
+
+/** A fila com o grupo `id` trocado de lugar com o vizinho (`step` −1 sobe, +1 desce). Pura. */
+export function movePowerGroup(groups, id, step) {
+  const list = groups.map(g => ({ ...g }));
+  const from = list.findIndex(g => g.id === id);
+  const to = from + Math.sign(step);
+  if (from < 0 || to < 0 || to >= list.length) return list;
+  [list[from], list[to]] = [list[to], list[from]];
+  return list;
+}
+
+/**
+ * A fila sem o grupo `id`, e para onde vão os Módulos dele: o grupo seguinte, ou o anterior
+ * quando era o último. A fila nunca fica vazia — apagar o único grupo não muda nada
+ * (`fallbackId: null`).
+ * @returns {{groups: Array<{id: string, label: string}>, fallbackId: string|null}}
+ */
+export function removePowerGroup(groups, id) {
+  const index = groups.findIndex(g => g.id === id);
+  if (index < 0 || groups.length <= 1) return { groups: groups.map(g => ({ ...g })), fallbackId: null };
+  const fallback = groups[index + 1] ?? groups[index - 1];
+  return { groups: groups.filter(g => g.id !== id).map(g => ({ ...g })), fallbackId: fallback.id };
+}
+
+/**
+ * Foco de energia (Escudos/Armas/Motores) com a fila dinâmica: os Módulos da Função em foco vão
+ * pro primeiro grupo, e o grupo de onde saíram fica guardado (`moved`) pra voltarem quando o foco
+ * mudar — sem isso, focar Escudos e depois Armas deixava os dois no topo pra sempre. Os Módulos
+ * das outras Funções voltam ao grupo guardado (se tinham sido movidos) ou ficam onde estão.
+ * @param {Array<{id: string, role: string, groupId: string}>} modules  Módulos das três Funções do foco
+ * @param {string|null} focusRole  Função em foco, ou null (Equilibrado)
+ * @param {string} firstGroupId
+ * @param {Record<string, string>} previousMoved  o `moved` do foco anterior
+ * @returns {{assign: Record<string, string>, moved: Record<string, string>}}
+ */
+export function focusGroupAssignments(modules, focusRole, firstGroupId, previousMoved = {}) {
+  const assign = {};
+  const moved = {};
+  for (const module of modules) {
+    const home = previousMoved[module.id] ?? module.groupId;
+    if (focusRole && module.role === focusRole) {
+      assign[module.id] = firstGroupId;
+      if (home !== firstGroupId) moved[module.id] = home;
+    } else {
+      assign[module.id] = home;
+    }
+  }
+  return { assign, moved };
+}
+
+/**
+ * Estado de um grupo na aba Prioridade: `empty` (ninguém ali pede energia), `full` (recebe tudo),
+ * `partial` (recebe parte) ou `none` (não recebe nada — os Módulos dele ficam sem energia).
+ */
+export function powerGroupState(demand, delivered) {
+  if (!(demand > 0)) return "empty";
+  if (delivered >= demand) return "full";
+  return delivered > 0 ? "partial" : "none";
+}
+
+/**
+ * O que o card do Grid de Energia mostra desta rodada, a partir de quatro números: quanto os
+ * Módulos pedem (`demand`), quanto passa do Reator pelo Distribuidor (`generation` = o menor dos
+ * dois), e a reserva (`capacitor` de `capacitorMax`).
+ *
+ * Com sobra: `slack` vai pra reserva, e `roundsToFull` diz em quantas rodadas ela enche. Com falta:
+ * a reserva cobre o que puder (`fromReserve`), o resto é `missing`, e `roundsLeft` diz quantas
+ * rodadas inteiras ela aguenta neste ritmo (0 = acaba nesta). `afterReservePercent` é o que a Nave
+ * entrega quando a reserva acabar. Mesma conta do tick (`applyPowerGridTick`), só que prevista.
+ */
+export function powerBudget({ demand, generation, capacitor, capacitorMax }) {
+  const d = Math.max(0, Math.round(Number(demand) || 0));
+  const g = Math.max(0, Math.round(Number(generation) || 0));
+  const c = Math.max(0, Math.round(Number(capacitor) || 0));
+  const max = Math.max(0, Math.round(Number(capacitorMax) || 0));
+  const percentOf = (part, whole) => (whole > 0 ? Math.round((part / whole) * 100) : 100);
+
+  if (d <= g) {
+    const slack = g - d;
+    const room = Math.max(0, max - c);
+    return {
+      shortage: false, demand: d, generation: g, delivered: d, percent: 100,
+      fromReactor: d, fromReserve: 0, missing: 0, slack,
+      roundsToFull: room === 0 ? 0 : slack > 0 ? Math.ceil(room / slack) : null,
+      roundsLeft: null, afterReservePercent: 100
+    };
+  }
+  const deficit = d - g;
+  const fromReserve = Math.min(c, deficit);
+  const delivered = g + fromReserve;
+  return {
+    shortage: true, demand: d, generation: g, delivered, percent: percentOf(delivered, d),
+    fromReactor: g, fromReserve, missing: d - delivered, slack: 0,
+    roundsToFull: null,
+    roundsLeft: c > 0 ? Math.floor(c / deficit) : 0,
+    afterReservePercent: percentOf(g, d)
+  };
+}
+
+/**
+ * Divide a energia disponível entre os Módulos por grupo de prioridade: o primeiro grupo inteiro,
+ * depois o seguinte… Quando o que sobra não cobre um grupo inteiro, todos os Módulos DESSE grupo
+ * recebem a mesma fração (ninguém do mesmo grupo passa na frente do outro), e os grupos seguintes
+ * ficam sem nada. Módulo sem demanda recebe 1. `priority` é a POSIÇÃO do grupo na fila (menor
+ * recebe primeiro) — quem chama resolve a fila da Nave (ver powerGroupIndex).
  * @param {{id: string, demand: number, priority: number}[]} entries
  * @param {number} available
  * @returns {Map<string, number>} id → fração (0-1)
@@ -2325,7 +2474,8 @@ export function fundByPriority(entries, available) {
       ratios.set(entry.id, 1);
       continue;
     }
-    const group = powerPriorityGroup(entry.priority);
+    const rank = Number(entry.priority);
+    const group = Number.isFinite(rank) ? rank : Number.MAX_SAFE_INTEGER;
     if (!groups.has(group)) groups.set(group, []);
     groups.get(group).push(entry);
   }

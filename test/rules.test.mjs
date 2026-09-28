@@ -48,6 +48,13 @@ import {
   describeClassSizeRange,
   powerPriorityGroup,
   fundByPriority,
+  resolvePowerGroups,
+  powerGroupIndex,
+  movePowerGroup,
+  removePowerGroup,
+  focusGroupAssignments,
+  powerGroupState,
+  powerBudget,
   isStructureMechanic,
   migrateStructureTarget,
   getActiveDamageElements,
@@ -1069,6 +1076,89 @@ test("prioridade de energia: P1 primeiro, o mesmo grupo divide por igual", () =>
   assert.equal(ratios.get("hangar"), 0);
   assert.equal(ratios.get("casco"), 1); // sem demanda, nunca passa fome
   assert.ok([...fundByPriority(entries, 1000).values()].every(r => r === 1));
+});
+
+test("prioridade de energia: a posição na fila vale qualquer número de grupos", () => {
+  // Posição 0 é o primeiro grupo (a Nave passa a posição, não mais o número 1–5).
+  const ratios = fundByPriority([
+    { id: "a", demand: 30, priority: 0 },
+    { id: "b", demand: 160, priority: 1 },
+    { id: "c", demand: 130, priority: 2 },
+    { id: "d", demand: 80, priority: 7 }
+  ], 294);
+  assert.equal(ratios.get("a"), 1);
+  assert.equal(ratios.get("b"), 1);
+  assert.equal(ratios.get("c"), 0.8); // sobram 104 pra 130
+  assert.equal(ratios.get("d"), 0);
+});
+
+test("fila de prioridade: vazia = cinco grupos padrão; ids repetidos e vazios caem fora", () => {
+  const defaults = resolvePowerGroups([]);
+  assert.deepEqual(defaults.map(g => g.id), ["p1", "p2", "p3", "p4", "p5"]);
+  const custom = resolvePowerGroups([{ id: "a", label: "Vida" }, { id: "a", label: "dup" }, { id: "", label: "x" }, { id: "b", label: "" }]);
+  assert.deepEqual(custom, [{ id: "a", label: "Vida" }, { id: "b", label: "Prioridade 2" }]);
+});
+
+test("fila de prioridade: Módulo antigo (1–5) continua no mesmo grupo; sem grupo cai no meio", () => {
+  const groups = resolvePowerGroups([]);
+  assert.equal(powerGroupIndex(groups, "", 1), 0);
+  assert.equal(powerGroupIndex(groups, "", 50), 2); // padrão antigo → P3
+  assert.equal(powerGroupIndex(groups, "p5", 1), 4); // o grupo escolhido vence o número
+  const custom = [{ id: "a", label: "A" }, { id: "b", label: "B" }, { id: "c", label: "C" }, { id: "d", label: "D" }];
+  assert.equal(powerGroupIndex(custom, "sumiu", 3), 1); // grupo de outra Nave → meio
+  assert.equal(powerGroupIndex(custom, "c", 3), 2);
+});
+
+test("fila de prioridade: subir/descer e apagar mandam os Módulos pro vizinho", () => {
+  const groups = [{ id: "a", label: "A" }, { id: "b", label: "B" }, { id: "c", label: "C" }];
+  assert.deepEqual(movePowerGroup(groups, "b", -1).map(g => g.id), ["b", "a", "c"]);
+  assert.deepEqual(movePowerGroup(groups, "a", -1).map(g => g.id), ["a", "b", "c"]); // já é o primeiro
+  assert.deepEqual(removePowerGroup(groups, "b"), { groups: [{ id: "a", label: "A" }, { id: "c", label: "C" }], fallbackId: "c" });
+  assert.equal(removePowerGroup(groups, "c").fallbackId, "b"); // o último vai pro anterior
+  assert.equal(removePowerGroup([{ id: "a", label: "A" }], "a").fallbackId, null); // nunca fica vazia
+});
+
+test("foco de energia: vai pro topo e volta pro grupo de onde saiu", () => {
+  const modules = [
+    { id: "esc", role: "shield", groupId: "p3" },
+    { id: "arm", role: "weapon", groupId: "p4" }
+  ];
+  const shields = focusGroupAssignments(modules, "shield", "p1", {});
+  assert.deepEqual(shields.assign, { esc: "p1", arm: "p4" });
+  assert.deepEqual(shields.moved, { esc: "p3" });
+  // Depois de focar Escudos, o Escudo está em p1; focar Armas devolve o Escudo pra p3.
+  const after = [{ id: "esc", role: "shield", groupId: "p1" }, { id: "arm", role: "weapon", groupId: "p4" }];
+  const weapons = focusGroupAssignments(after, "weapon", "p1", shields.moved);
+  assert.deepEqual(weapons.assign, { esc: "p3", arm: "p1" });
+  assert.deepEqual(weapons.moved, { arm: "p4" });
+  assert.deepEqual(focusGroupAssignments(after, null, "p1", shields.moved).assign, { esc: "p3", arm: "p4" });
+});
+
+test("estado do grupo: cheio, parcial, sem energia e vazio", () => {
+  assert.equal(powerGroupState(0, 0), "empty");
+  assert.equal(powerGroupState(130, 130), "full");
+  assert.equal(powerGroupState(130, 104), "partial");
+  assert.equal(powerGroupState(80, 0), "none");
+});
+
+test("orçamento de energia: a reserva cobre o que puder e a previsão bate com o tick", () => {
+  // Os números do print: pedem 400, o Distribuidor deixa passar 25, a reserva tem 269.
+  const short = powerBudget({ demand: 400, generation: 25, capacitor: 269, capacitorMax: 269 });
+  assert.equal(short.shortage, true);
+  assert.equal(short.delivered, 294);
+  assert.equal(short.percent, 74);
+  assert.equal(short.fromReserve, 269);
+  assert.equal(short.missing, 106);
+  assert.equal(short.roundsLeft, 0); // acaba nesta rodada
+  assert.equal(short.afterReservePercent, 6);
+  assert.equal(powerBudget({ demand: 400, generation: 25, capacitor: 800, capacitorMax: 1000 }).roundsLeft, 2);
+
+  const ok = powerBudget({ demand: 400, generation: 750, capacitor: 120, capacitorMax: 1000 });
+  assert.equal(ok.shortage, false);
+  assert.equal(ok.slack, 350);
+  assert.equal(ok.roundsToFull, 3); // 880 que faltam ÷ 350
+  assert.equal(powerBudget({ demand: 400, generation: 750, capacitor: 1000, capacitorMax: 1000 }).roundsToFull, 0);
+  assert.equal(powerBudget({ demand: 400, generation: 400, capacitor: 10, capacitorMax: 100 }).roundsToFull, null);
 });
 
 test("Estrutura: é Mecânica ao Usar, e a forma de 1.37 (Tipo de Alvo) é convertida", () => {

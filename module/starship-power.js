@@ -1,4 +1,4 @@
-import { SYSTEM_ID, MEU_SISTEMA, moduleRole, tractorHold, getShipActionConfig } from "./config.js";
+import { SYSTEM_ID, MEU_SISTEMA, moduleRole, tractorHold, getShipActionConfig, focusGroupAssignments } from "./config.js";
 import { splitTargetedStructural, hardenedChance } from "./damage-rules.js";
 
 /**
@@ -399,32 +399,48 @@ export async function releaseTractorAsGm({ moduleUuid }) {
 /** As três Funções que o foco de energia mexe (os "pips" do Elite). */
 export const POWER_FOCUS_ROLES = { shields: "shield", weapons: "weapon", engines: "propulsion" };
 
+/** Flag da Nave: {moduleId: grupo de onde o foco tirou o Módulo} — pra devolvê-lo depois. */
+export const POWER_FOCUS_MOVED_FLAG = "powerFocusMoved";
+
 /**
  * Atalho de energia: `focus` = "shields" | "weapons" | "engines" | "balanced". No foco, os
- * Módulos daquela Função vão pra P1 e o throttle sobe pro valor de Regras da Mesa, nunca acima do
- * ponto em que a Sobrecarga começa; os das outras duas vão pra P3 e caem. Equilibrado: 100% e P3.
+ * Módulos daquela Função vão pro PRIMEIRO grupo da fila de prioridade e o throttle sobe pro valor
+ * de Regras da Mesa, nunca acima do ponto em que a Sobrecarga começa; os das outras duas caem de
+ * throttle e ficam no grupo deles. Trocar de foco (ou Equilibrado, que volta tudo a 100%) devolve
+ * cada Módulo ao grupo de onde o foco anterior o tirou (ver focusGroupAssignments).
  * Reator, Bateria, Distribuidor e o resto não mudam.
  */
 export async function applyPowerFocus(ship, focus) {
   const { focusBoost, focusCut } = getShipActionConfig();
   const focusRole = POWER_FOCUS_ROLES[focus] ?? null;
-  const updates = [];
-  for (const module of ship.system.modules) {
-    const role = moduleRole(module.system.category);
-    if (!Object.values(POWER_FOCUS_ROLES).includes(role)) continue;
+  const focusModules = ship.system.modules
+    .map(module => ({ module, role: moduleRole(module.system.category) }))
+    .filter(entry => Object.values(POWER_FOCUS_ROLES).includes(entry.role));
+  const firstGroupId = ship.system.powerGroupList[0]?.id ?? "";
+  const { assign, moved } = focusGroupAssignments(
+    focusModules.map(({ module, role }) => ({ id: module.id, role, groupId: ship.system.powerGroupIdFor(module) })),
+    focusRole,
+    firstGroupId,
+    ship.getFlag(SYSTEM_ID, POWER_FOCUS_MOVED_FLAG) ?? {}
+  );
+
+  const updates = focusModules.map(({ module, role }) => {
     let throttle = 100;
-    let priority = 3;
     if (focusRole && role === focusRole) {
       const threshold = MEU_SISTEMA.MODULE_ROLES[role]?.overload;
       throttle = threshold ? Math.min(focusBoost, threshold) : focusBoost;
-      priority = 1;
     } else if (focusRole) {
       throttle = focusCut;
     }
-    updates.push({ _id: module.id, "system.powerAllocationPercent": Math.round(throttle), "system.powerPriority": priority });
-  }
+    return { _id: module.id, "system.powerAllocationPercent": Math.round(throttle), "system.powerGroup": assign[module.id] };
+  });
   if (updates.length) await ship.updateEmbeddedDocuments("Item", updates);
-  await ship.setFlag(SYSTEM_ID, "powerFocus", focus);
+  // `-=` antes de gravar: setFlag MESCLA objetos, e um Módulo devolvido ficaria no mapa pra sempre.
+  await ship.update({
+    [`flags.${SYSTEM_ID}.powerFocus`]: focus,
+    [`flags.${SYSTEM_ID}.-=${POWER_FOCUS_MOVED_FLAG}`]: null
+  });
+  if (Object.keys(moved).length) await ship.setFlag(SYSTEM_ID, POWER_FOCUS_MOVED_FLAG, moved);
 }
 
 /** "Energia auxiliar para os Escudos": passa carga da Bateria pro Escudo, até o máximo dele. */

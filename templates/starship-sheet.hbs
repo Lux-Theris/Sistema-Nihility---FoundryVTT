@@ -108,6 +108,7 @@
   <nav class="sheet-tabs tabs">
     <a class="item {{#if (eq activeTab "sistemas")}}active{{/if}}" data-action="selectTab" data-tab="sistemas">Sistemas</a>
     <a class="item {{#if (eq activeTab "armas")}}active{{/if}}" data-action="selectTab" data-tab="armas">Armas</a>
+    <a class="item {{#if (eq activeTab "prioridade")}}active{{/if}}" data-action="selectTab" data-tab="prioridade">Prioridade</a>
     <a class="item {{#if (eq activeTab "skills")}}active{{/if}}" data-action="selectTab" data-tab="skills">Habilidades</a>
     {{#if padShipEnabled}}
     <a class="item {{#if (eq activeTab "tripulacao")}}active{{/if}}" data-action="selectTab" data-tab="tripulacao">Tripulação</a>
@@ -131,19 +132,25 @@
           {{/each}}
         </div>
         <div class="ship-power-block">
-        <div class="power-chain {{#if isOverloaded}}overloaded{{/if}}">
-          <div class="chain-node">
-            <span class="chain-label">Reator · geração</span>
+        <div class="power-chain">
+          <div class="chain-node {{#if reactorNode.limiting}}is-bottleneck{{/if}}">
+            <span class="chain-label">Reator · geração{{#if reactorNode.limiting}}<span class="chain-badge">gargalo</span>{{/if}}</span>
             <span class="chain-value">{{system.powerGrid.reactorOutput}}</span>
+            {{#if reactorNode.damaged}}
+            <span class="chain-health state-{{reactorNode.integrityState}}"><span class="chain-health-track"><span style="width:{{reactorNode.integrity}}%"></span></span>Vida {{reactorNode.integrity}}%</span>
+            {{/if}}
+            {{#if reactorNode.upkeep}}<span class="chain-cause">−{{reactorNode.upkeep}} reservados por Habilidades Ativas</span>{{/if}}
             <span class="chain-sub">{{#if reactorModule}}{{reactorModule.name}}{{else}}sem Reator instalado{{/if}}</span>
           </div>
 
-          <div class="chain-node {{#if distributorIsBottleneck}}is-bottleneck{{/if}}">
-            <span class="chain-label">Distribuidor · teto</span>
-            <span class="chain-value">{{transferCapacity}}</span>
-            <span class="chain-sub">
-              {{#if distributorIsBottleneck}}limitando — o Reator gera mais{{else}}{{#if distributorModule}}{{distributorModule.name}}{{else}}sem Distribuidor instalado{{/if}}{{/if}}
-            </span>
+          <div class="chain-node {{#if distributorNode.limiting}}is-bottleneck{{/if}}">
+            <span class="chain-label">Distribuidor · teto{{#if distributorNode.limiting}}<span class="chain-badge">gargalo</span>{{/if}}</span>
+            <span class="chain-value">{{transferCapacity}}{{#if distributorNode.damaged}}<small>de {{distributorNode.intact}}</small>{{/if}}</span>
+            {{#if distributorNode.damaged}}
+            <span class="chain-health state-{{distributorNode.integrityState}}"><span class="chain-health-track"><span style="width:{{distributorNode.integrity}}%"></span></span>Vida {{distributorNode.integrity}}%</span>
+            <span class="chain-cause">Danificado: transfere só {{distributorNode.integrity}}% do que transferiria inteiro.</span>
+            {{/if}}
+            <span class="chain-sub">{{#if distributorModule}}{{distributorModule.name}}{{else}}sem Distribuidor instalado{{/if}}</span>
           </div>
 
           <div class="chain-node">
@@ -152,28 +159,58 @@
               <input type="number" name="system.powerGrid.capacitor.value" value="{{system.powerGrid.capacitor.value}}"/>
               <small>/ {{system.powerGrid.capacitor.max}}</small>
             </span>
+            {{#if capacitorNode.damaged}}
+            <span class="chain-health state-{{capacitorNode.integrityState}}"><span class="chain-health-track"><span style="width:{{capacitorNode.integrity}}%"></span></span>Vida {{capacitorNode.integrity}}%</span>
+            <span class="chain-cause">O máximo cai com a Vida — inteira guardaria {{capacitorNode.intact}}.</span>
+            {{/if}}
             <span class="chain-sub">{{#if batteryModule}}{{batteryModule.name}}{{else}}conduítes do casco — sem Bateria{{/if}}</span>
           </div>
         </div>
 
-        <div class="power-demand {{#if isOverloaded}}overloaded{{/if}}">
+        <div class="power-demand {{#if powerBudget.shortage}}overloaded{{/if}}">
           <div class="demand-head">
-            <span class="chain-label">Demanda</span>
-            <span class="demand-figure">{{totalConsumption}} / {{powerCeiling}} {{energyAbbr}}</span>
+            <span class="chain-label">Energia desta rodada</span>
+            {{#if powerBudget.shortage}}
+            <span class="demand-figure"><b class="is-short">{{powerBudget.delivered}}</b> entregues de <b>{{powerBudget.demand}}</b> pedidos · <b class="is-short">{{powerBudget.percent}}%</b></span>
+            {{else}}
+            <span class="demand-figure"><b>{{powerBudget.demand}}</b> pedidos de <b>{{powerBudget.generation}}</b> {{energyAbbr}} · <b class="is-full">100%</b> entregue</span>
+            {{/if}}
           </div>
           <div class="demand-bar">
-            <i class="demand-used" style="width:{{demandPercent}}%"></i>
+            {{#if powerBudget.shortage}}
+            <i class="demand-reactor" style="width:{{powerBudget.reactorWidth}}%"></i>
+            <i class="demand-reserve" style="width:{{powerBudget.reserveWidth}}%"></i>
+            <i class="demand-missing" style="width:{{powerBudget.missingWidth}}%"></i>
+            {{else}}
+            <i class="demand-reactor" style="width:{{powerBudget.reactorWidth}}%"></i>
+            <i class="demand-slack" style="width:{{powerBudget.slackWidth}}%"></i>
+            {{/if}}
           </div>
           <div class="demand-legend">
-            <span><b class="swatch used"></b>consumo dos Módulos online</span>
-            {{#if demandSlack}}<span><b class="swatch free"></b>folga de {{demandSlack}} {{energyAbbr}}</span>{{/if}}
-            {{#if isOverloaded}}<span class="demand-over">⚠ demanda acima do que a Nave entrega</span>{{/if}}
-            <span class="demand-prio-note">Chip <b>P1…P5</b> em cada Módulo: quando falta energia, P1 recebe primeiro.</span>
+            {{#if powerBudget.shortage}}
+            <span><b class="swatch reactor"></b>{{#if distributorNode.limiting}}do Reator, pelo Distribuidor{{else}}do Reator{{/if}} <b class="num">{{powerBudget.fromReactor}}</b></span>
+            {{#if powerBudget.fromReserve}}<span><b class="swatch reserve"></b>da reserva <b class="num">{{powerBudget.fromReserve}}</b></span>{{/if}}
+            <span><b class="swatch missing"></b>faltando <b class="num is-short">{{powerBudget.missing}}</b></span>
+            {{else}}
+            <span><b class="swatch reactor"></b>consumo dos Módulos <b class="num">{{powerBudget.demand}}</b></span>
+            {{#if powerBudget.slack}}<span><b class="swatch slack"></b>sobra, vai pra reserva <b class="num">{{powerBudget.slack}}</b></span>{{/if}}
+            {{/if}}
           </div>
+          <p class="power-forecast tone-{{powerForecast.tone}}">
+            <i class="fas {{#if (eq powerForecast.tone "danger")}}fa-exclamation-triangle{{else}}fa-clock{{/if}}"></i>
+            <span><strong>{{powerForecast.lead}}</strong> {{powerForecast.text}}</span>
+          </p>
+          <span class="demand-prio-note">Chip <b>P</b> em cada Módulo: clique pra escolher o grupo. A fila inteira fica na aba <b>Prioridade</b>.</span>
         </div>
         </div>
 
-        <button type="button" class="power-grid-tick" data-action="powerGridTick">Recalcular Grid de Energia</button>
+        {{#if isGM}}
+        <div class="power-grid-tick-row">
+          <button type="button" class="power-grid-tick" data-action="powerGridTick"><i class="fas fa-step-forward"></i> Passar uma rodada de energia</button>
+          <span class="gm-tag"><i class="fas fa-lock"></i> Mestre</span>
+          <span class="hint-inline">Carrega ou gasta a reserva. Em combate isso já acontece sozinho no turno da Nave.</span>
+        </div>
+        {{/if}}
 
       </div>
 
@@ -210,15 +247,17 @@
             <span>Categoria</span><span>Módulo</span><span>Vida</span><span>Consumo</span><span>Throttle</span><span class="acts-head">Ações</span>
           </div>
           {{#each specialModuleRows as |row|}}
-          <div class="module-grid-row {{#unless row.online}}is-offline{{/unless}} {{#if row.starved}}is-starved{{/if}}" data-item-id="{{row.id}}">
+          <div class="module-grid-row {{#unless row.online}}is-offline{{/unless}} {{#if row.starved}}is-starved{{/if}} {{#if row.unpowered}}is-offline is-unpowered{{/if}}" data-item-id="{{row.id}}">
             <span class="cat-pill cat-{{row.category}}" title="{{row.categoryLabel}} · Porte {{row.sizeLabel}}">{{row.categoryLabel}}</span>
 
             <span class="module-name-cell">
               <span class="module-name-line">
-                {{#if row.hasDemand}}{{#if ../canAdjustThrottle}}<button type="button" class="prio-chip p{{row.priority}}" data-action="cyclePriority" title="Prioridade de energia P{{row.priority}} — P1 recebe primeiro quando falta energia. Clique: desce um grupo; clique direito: sobe.">P{{row.priority}}</button>{{else}}<span class="prio-chip p{{row.priority}}" title="Prioridade de energia P{{row.priority}} — P1 recebe primeiro quando falta energia.">P{{row.priority}}</span>{{/if}}{{/if}}
+                {{#if row.hasDemand}}{{#if ../canAdjustThrottle}}<button type="button" class="prio-chip {{row.priorityTone}}" data-action="pickPowerGroup" aria-haspopup="menu" title="Prioridade de energia: P{{row.priority}} · {{row.priorityLabel}} — clique para escolher o grupo">P{{row.priority}}</button>{{else}}<span class="prio-chip {{row.priorityTone}}" title="Prioridade de energia: P{{row.priority}} · {{row.priorityLabel}}">P{{row.priority}}</span>{{/if}}{{/if}}
                 <span class="module-name">{{row.name}}</span>
               </span>
-              {{#if row.starved}}
+              {{#if row.unpowered}}
+              <small class="module-unpowered"><i class="fas fa-power-off"></i> desligado · sem energia (grupo P{{row.priority}} não recebe nada)</small>
+              {{else if row.starved}}
               <small class="module-starved">⚠ recebendo {{row.powerRatio}}% da energia pedida</small>
               {{else}}
               <small class="module-detail">{{row.detail}}{{#unless row.online}} · desligado{{/unless}}{{#if row.tractorTargetName}} · prendendo {{row.tractorTargetName}}{{/if}}</small>
@@ -278,15 +317,17 @@
             <span>Categoria</span><span>Módulo</span><span>Vida</span><span>Consumo</span><span>Throttle</span><span class="acts-head">Ações</span>
           </div>
           {{#each moduleRows as |row|}}
-          <div class="module-grid-row {{#unless row.online}}is-offline{{/unless}} {{#if row.starved}}is-starved{{/if}}" data-item-id="{{row.id}}">
+          <div class="module-grid-row {{#unless row.online}}is-offline{{/unless}} {{#if row.starved}}is-starved{{/if}} {{#if row.unpowered}}is-offline is-unpowered{{/if}}" data-item-id="{{row.id}}">
             <span class="cat-pill cat-{{row.category}}" title="{{row.categoryLabel}} · Porte {{row.sizeLabel}}">{{row.categoryLabel}}</span>
 
             <span class="module-name-cell">
               <span class="module-name-line">
-                {{#if row.hasDemand}}{{#if ../canAdjustThrottle}}<button type="button" class="prio-chip p{{row.priority}}" data-action="cyclePriority" title="Prioridade de energia P{{row.priority}} — P1 recebe primeiro quando falta energia. Clique: desce um grupo; clique direito: sobe.">P{{row.priority}}</button>{{else}}<span class="prio-chip p{{row.priority}}" title="Prioridade de energia P{{row.priority}} — P1 recebe primeiro quando falta energia.">P{{row.priority}}</span>{{/if}}{{/if}}
+                {{#if row.hasDemand}}{{#if ../canAdjustThrottle}}<button type="button" class="prio-chip {{row.priorityTone}}" data-action="pickPowerGroup" aria-haspopup="menu" title="Prioridade de energia: P{{row.priority}} · {{row.priorityLabel}} — clique para escolher o grupo">P{{row.priority}}</button>{{else}}<span class="prio-chip {{row.priorityTone}}" title="Prioridade de energia: P{{row.priority}} · {{row.priorityLabel}}">P{{row.priority}}</span>{{/if}}{{/if}}
                 <span class="module-name">{{row.name}}</span>
               </span>
-              {{#if row.starved}}
+              {{#if row.unpowered}}
+              <small class="module-unpowered"><i class="fas fa-power-off"></i> desligado · sem energia (grupo P{{row.priority}} não recebe nada)</small>
+              {{else if row.starved}}
               <small class="module-starved">⚠ recebendo {{row.powerRatio}}% da energia pedida</small>
               {{else}}
               <small class="module-detail">{{row.detail}}{{#unless row.online}} · desligado{{/unless}}{{#if row.tractorTargetName}} · prendendo {{row.tractorTargetName}}{{/if}}</small>
@@ -386,15 +427,17 @@
             <span>Porte</span><span>Arma</span><span>Dano · Penetração</span><span>Throttle</span><span class="acts-head">Disparar · Ações</span>
           </div>
           {{#each weaponRows as |row|}}
-          <div class="module-grid-row weapon-grid-row {{#unless row.online}}is-offline{{/unless}} {{#if row.starved}}is-starved{{/if}}" data-item-id="{{row.id}}">
+          <div class="module-grid-row weapon-grid-row {{#unless row.online}}is-offline{{/unless}} {{#if row.starved}}is-starved{{/if}} {{#if row.unpowered}}is-offline is-unpowered{{/if}}" data-item-id="{{row.id}}">
             <span class="cat-pill cat-weapon" title="Porte {{row.sizeLabel}}">{{row.sizeLabel}}</span>
 
             <span class="module-name-cell">
               <span class="module-name-line">
-                {{#if row.hasDemand}}{{#if ../canAdjustThrottle}}<button type="button" class="prio-chip p{{row.priority}}" data-action="cyclePriority" title="Prioridade de energia P{{row.priority}} — P1 recebe primeiro quando falta energia. Clique: desce um grupo; clique direito: sobe.">P{{row.priority}}</button>{{else}}<span class="prio-chip p{{row.priority}}" title="Prioridade de energia P{{row.priority}} — P1 recebe primeiro quando falta energia.">P{{row.priority}}</span>{{/if}}{{/if}}
+                {{#if row.hasDemand}}{{#if ../canAdjustThrottle}}<button type="button" class="prio-chip {{row.priorityTone}}" data-action="pickPowerGroup" aria-haspopup="menu" title="Prioridade de energia: P{{row.priority}} · {{row.priorityLabel}} — clique para escolher o grupo">P{{row.priority}}</button>{{else}}<span class="prio-chip {{row.priorityTone}}" title="Prioridade de energia: P{{row.priority}} · {{row.priorityLabel}}">P{{row.priority}}</span>{{/if}}{{/if}}
                 <span class="module-name">{{row.name}}</span>
               </span>
-              {{#if row.starved}}
+              {{#if row.unpowered}}
+              <small class="module-unpowered"><i class="fas fa-power-off"></i> desligada · sem energia (grupo P{{row.priority}} não recebe nada)</small>
+              {{else if row.starved}}
               <small class="module-starved">⚠ recebendo {{row.powerRatio}}% da energia pedida</small>
               {{else}}
               <small class="module-detail">custo {{row.consumption}} {{../energyAbbr}} · Vida {{row.hpValue}}/{{row.hpMax}}{{#unless row.online}} · desligada{{/unless}}</small>
@@ -422,6 +465,8 @@
               {{#if row.cooldownRemaining}}
               <span class="cooldown-chip" title="Rodadas restantes de Recarga">⏳ {{row.cooldownRemaining}}</span>
               <button type="button" class="fire-btn" data-action="fireWeapon" disabled title="Em recarga">Disparar</button>
+              {{else if row.unpowered}}
+              <button type="button" class="fire-btn" data-action="fireWeapon" disabled title="Sem energia — o grupo desta Arma não recebe nada (aba Prioridade)">Disparar</button>
               {{else}}
               <button type="button" class="fire-btn" data-action="fireWeapon" title="Disparar">Disparar</button>
               {{/if}}
@@ -451,6 +496,72 @@
         {{#unless weaponModules.length}}<p class="hint-inline">Nenhuma Arma instalada.</p>{{/unless}}
         <a class="item-create" data-action="createItem" data-type="starship_module" data-category="weapon">+ Nova Arma</a>
       </div>
+    </div>
+
+    {{!-- Fila de prioridade de energia: um card por grupo, a energia desce do primeiro pro último. --}}
+    <div class="tab {{#unless (eq activeTab "prioridade")}}hidden{{/unless}}">
+      <div class="power-queue-summary">
+        <div class="power-queue-figure">
+          <span class="chain-label">Energia desta rodada</span>
+          <span>
+            {{#if powerBudget.shortage}}<b class="num is-short">{{powerBudget.delivered}}</b>{{else}}<b class="num">{{powerBudget.demand}}</b>{{/if}}
+            de <b class="num">{{powerBudget.demand}} {{energyAbbr}}</b> — desce de P1 para baixo; o grupo que não recebe nada fica desligado.
+          </span>
+        </div>
+        {{#if canAdjustThrottle}}
+        <button type="button" class="power-queue-add" data-action="addPowerGroup"><i class="fas fa-plus"></i> Nova prioridade</button>
+        {{/if}}
+      </div>
+
+      <div class="power-queue">
+        {{#each powerGroupCards as |card|}}
+        <section class="power-group-card state-{{card.state}}" data-group-id="{{card.id}}" aria-label="P{{card.number}} {{card.label}}">
+          <div class="power-group-bar" role="img" aria-label="{{#if (eq card.state "empty")}}sem demanda{{else}}alimentação {{card.percent}}%{{/if}}">
+            {{#if (eq card.state "partial")}}
+            <span class="bar-fed" style="width:{{card.fillWidth}}%"></span><span class="bar-missing"></span>
+            {{else}}
+            <span class="bar-fed" style="width:100%"></span>
+            {{/if}}
+          </div>
+          <header class="power-group-head">
+            <div class="power-group-title">
+              <span class="prio-chip {{card.tone}}">P{{card.number}}</span>
+              <span class="power-group-name">{{card.label}}</span>
+              {{#if ../canAdjustThrottle}}
+              <span class="power-group-tools">
+                <button type="button" data-action="movePowerGroup" data-step="-1" title="Subir (recebe antes)" aria-label="Subir prioridade" {{#if card.isFirst}}disabled{{/if}}><i class="fas fa-chevron-up"></i></button>
+                <button type="button" data-action="movePowerGroup" data-step="1" title="Descer (recebe depois)" aria-label="Descer prioridade" {{#if card.isLast}}disabled{{/if}}><i class="fas fa-chevron-down"></i></button>
+                <button type="button" data-action="renamePowerGroup" title="Renomear" aria-label="Renomear"><i class="fas fa-pen"></i></button>
+                <button type="button" data-action="deletePowerGroup" title="Apagar (os Módulos vão pro grupo seguinte)" aria-label="Apagar prioridade" {{#if (and card.isFirst card.isLast)}}disabled{{/if}}><i class="fas fa-trash"></i></button>
+              </span>
+              {{/if}}
+            </div>
+            <span class="power-group-figure">
+              {{#if (eq card.state "empty")}}{{#if card.rows.length}}nenhum Módulo ligado{{else}}nenhum Módulo{{/if}}
+              {{else if (eq card.state "none")}}<b>0</b> de {{card.demand}} {{../energyAbbr}} · sem energia — Módulos desligados
+              {{else if (eq card.state "partial")}}<b>{{card.delivered}}</b> de {{card.demand}} {{../energyAbbr}} · {{card.percent}}% — cada Módulo daqui recebe {{card.percent}}%
+              {{else}}<b>{{card.delivered}}</b> de {{card.demand}} {{../energyAbbr}} · 100%{{/if}}
+            </span>
+          </header>
+          <div class="power-group-modules">
+            {{#each card.rows as |row|}}
+            <div class="power-group-module {{#unless row.online}}is-offline{{/unless}} {{#if row.unpowered}}is-unpowered{{/if}}" data-item-id="{{row.id}}" {{#if ../../canAdjustThrottle}}draggable="true"{{/if}}>
+              {{#if ../../canAdjustThrottle}}<span class="drag-grip" title="Arraste para outro grupo"><i class="fas fa-grip-vertical"></i></span>{{/if}}
+              <span class="cat-pill cat-{{row.category}}">{{row.categoryLabel}}</span>
+              <span class="power-group-module-name" title="{{row.name}}">{{row.name}}</span>
+              {{#if row.unpowered}}<span class="power-group-module-state is-off"><i class="fas fa-power-off"></i> desligado</span>
+              {{else if row.starved}}<span class="power-group-module-state is-partial">{{row.powerRatio}}% · {{row.consumption}}</span>
+              {{else if row.online}}<span class="power-group-module-state">{{row.consumption}} {{../../energyAbbr}}</span>
+              {{else}}<span class="power-group-module-state">desligado</span>{{/if}}
+            </div>
+            {{else}}
+            <div class="power-group-empty">{{#if ../canAdjustThrottle}}Arraste um Módulo pra cá{{else}}Nenhum Módulo neste grupo{{/if}}</div>
+            {{/each}}
+          </div>
+        </section>
+        {{/each}}
+      </div>
+      {{#if powerGroupOutside}}<p class="hint-inline power-queue-outside">Fora da fila (não consomem energia): {{powerGroupOutside}}.</p>{{/if}}
     </div>
 
     <div class="tab {{#unless (eq activeTab "skills")}}hidden{{/unless}}">

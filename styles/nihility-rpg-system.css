@@ -5063,3 +5063,305 @@ button.prio-chip { cursor: pointer; }
 .nihility-config-app .affinity-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; font-size: 0.78rem; color: var(--nihility-text-dim); }
 .nihility-config-app .affinity-legend-item { display: inline-flex; align-items: center; gap: 4px; }
 .nihility-config-app .affinity-legend .affinity-cell { cursor: default; }
+
+/* ==========================================================================
+   Grid de Energia repaginado: o porquê de cada nó, de onde vem a energia da
+   rodada (Reator / reserva / faltando) e quanto tempo a reserva dura.
+   ========================================================================== */
+.nihility-sheet .chain-badge {
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 3px;
+  background: var(--nihility-warn);
+  color: var(--nihility-bg-dark);
+  font: 600 0.58rem var(--nihility-font-data);
+  letter-spacing: 0.06em;
+  vertical-align: 1px;
+}
+.nihility-sheet .chain-node.is-bottleneck { background: rgba(255, 207, 92, 0.06); }
+.nihility-sheet .chain-health {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 500 0.66rem var(--nihility-font-data);
+  color: var(--nihility-ok);
+}
+.nihility-sheet .chain-health.state-low { color: var(--nihility-warn); }
+.nihility-sheet .chain-health.state-crit { color: var(--nihility-danger); }
+.nihility-sheet .chain-health-track {
+  flex: 1 1 auto;
+  height: 5px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  display: flex;
+}
+.nihility-sheet .chain-health-track > span { background: currentColor; border-radius: 99px; }
+.nihility-sheet .chain-cause { font-size: 0.68rem; color: var(--nihility-text-dim); }
+.nihility-sheet .chain-node.is-bottleneck .chain-cause { color: #d9c48f; }
+
+.nihility-sheet .demand-bar { display: flex; }
+.nihility-sheet .demand-bar > i { display: block; height: 100%; }
+.nihility-sheet .demand-reactor { background: var(--nihility-accent); }
+.nihility-sheet .demand-reserve { background: #b8862e; }
+.nihility-sheet .demand-missing,
+.nihility-sheet .demand-legend .swatch.missing {
+  background: repeating-linear-gradient(135deg, var(--nihility-danger) 0 4px, rgba(255, 92, 92, 0.18) 4px 8px);
+}
+.nihility-sheet .demand-slack { background: rgba(110, 231, 160, 0.28); }
+.nihility-sheet .demand-legend .swatch.reactor { background: var(--nihility-accent); }
+.nihility-sheet .demand-legend .swatch.reserve { background: #b8862e; }
+.nihility-sheet .demand-legend .swatch.slack { background: rgba(110, 231, 160, 0.45); }
+.nihility-sheet .demand-legend .num,
+.nihility-sheet .demand-figure b { font-family: var(--nihility-font-data); color: var(--nihility-text); }
+.nihility-sheet .demand-figure .is-short,
+.nihility-sheet .demand-legend .num.is-short { color: var(--nihility-warn); }
+.nihility-sheet .power-demand.overloaded .demand-legend .num.is-short { color: #ff8a80; }
+.nihility-sheet .demand-figure .is-full { color: var(--nihility-ok); }
+
+.nihility-sheet .power-forecast {
+  margin: 0;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 7px 10px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  border: 1px solid rgba(110, 231, 160, 0.3);
+  background: rgba(110, 231, 160, 0.07);
+  color: #c9eed9;
+}
+.nihility-sheet .power-forecast i { margin-top: 2px; color: var(--nihility-ok); }
+.nihility-sheet .power-forecast strong { color: var(--nihility-ok); }
+.nihility-sheet .power-forecast.tone-warn { border-color: rgba(255, 207, 92, 0.35); background: rgba(255, 207, 92, 0.08); color: #f1e2b8; }
+.nihility-sheet .power-forecast.tone-warn i,
+.nihility-sheet .power-forecast.tone-warn strong { color: var(--nihility-warn); }
+.nihility-sheet .power-forecast.tone-danger { border-color: rgba(255, 92, 92, 0.4); background: rgba(255, 92, 92, 0.08); color: #f3c7c3; }
+.nihility-sheet .power-forecast.tone-danger i,
+.nihility-sheet .power-forecast.tone-danger strong { color: #ff8a80; }
+.nihility-sheet .demand-prio-note { font-size: 0.68rem; }
+.nihility-sheet .demand-prio-note b { color: var(--nihility-text-dim); }
+
+.nihility-sheet .power-grid-tick-row { display: flex; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+.nihility-sheet .power-grid-tick-row .power-grid-tick { margin-top: 0; width: auto; height: auto; min-height: 0; line-height: normal; }
+.nihility-sheet .power-grid-tick-row .hint-inline { flex: 1 1 200px; margin: 0; }
+.nihility-sheet .gm-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border: 1px solid var(--nihility-border);
+  border-radius: 99px;
+  font: 500 0.6rem var(--nihility-font-data);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nihility-text-dim);
+}
+
+/* Módulo ligado cujo grupo não recebe energia nenhuma: age como desligado. */
+.nihility-sheet .module-grid-row.is-unpowered { border-left-color: var(--nihility-danger); }
+.nihility-sheet .module-unpowered { font-size: 0.7rem; color: #ff8a80; }
+
+/* ==========================================================================
+   Aba Prioridade: um card por grupo da fila de energia.
+   ========================================================================== */
+.nihility-sheet .power-queue-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 9px 12px;
+  background: var(--nihility-bg-panel);
+  border: 1px solid var(--nihility-border-soft);
+  border-radius: 5px;
+  color: var(--nihility-text);
+}
+.nihility-sheet .power-queue-figure { flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; font-size: 0.8rem; color: var(--nihility-text-dim); }
+.nihility-sheet .power-queue-figure .num { font-family: var(--nihility-font-data); color: var(--nihility-text); }
+.nihility-sheet .power-queue-figure .num.is-short { color: var(--nihility-warn); }
+.nihility-sheet .power-queue-add {
+  flex: 0 0 auto;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  line-height: normal;
+  padding: 6px 12px;
+  border: 1px solid var(--nihility-accent);
+  border-radius: 4px;
+  background: var(--nihility-bg-panel-alt);
+  color: var(--nihility-accent);
+  font-weight: 600;
+}
+
+.nihility-sheet .power-queue { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.nihility-sheet .power-group-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--nihility-bg-panel);
+  border: 1px solid var(--nihility-border-soft);
+  border-radius: 5px;
+  overflow: hidden;
+  color: var(--nihility-text);
+}
+.nihility-sheet .power-group-card.state-partial { border-color: rgba(255, 207, 92, 0.55); }
+.nihility-sheet .power-group-card.state-none { border-color: rgba(255, 92, 92, 0.6); }
+.nihility-sheet .power-group-card.is-drop-target { border-color: var(--nihility-accent); box-shadow: 0 0 0 1px var(--nihility-accent) inset; }
+
+/* Barra de alimentação acima do nome: azul = 100%, amarelo até onde chega + resto listrado, vermelho = nada. */
+.nihility-sheet .power-group-bar { height: 8px; display: flex; background: #262b3d; }
+.nihility-sheet .power-group-bar > span { display: block; height: 100%; }
+.nihility-sheet .power-group-card.state-full .bar-fed { background: var(--nihility-accent); }
+.nihility-sheet .power-group-card.state-partial .bar-fed { background: var(--nihility-warn); }
+.nihility-sheet .power-group-card.state-none .bar-fed { background: var(--nihility-danger); }
+.nihility-sheet .power-group-card.state-empty .bar-fed { background: #262b3d; }
+.nihility-sheet .power-group-bar .bar-missing {
+  flex: 1 1 auto;
+  background: repeating-linear-gradient(135deg, var(--nihility-danger) 0 4px, rgba(255, 92, 92, 0.2) 4px 8px);
+}
+
+.nihility-sheet .power-group-head { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px 7px; border-bottom: 1px solid var(--nihility-border-soft); }
+.nihility-sheet .power-group-title { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.nihility-sheet .power-group-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--nihility-text);
+}
+.nihility-sheet .power-group-tools { display: flex; gap: 4px; flex: 0 0 auto; }
+.nihility-sheet .power-group-tools button {
+  width: 24px;
+  height: 24px;
+  min-height: 0;
+  line-height: normal;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--nihility-border);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--nihility-text-dim);
+  font-size: 0.7rem;
+}
+.nihility-sheet .power-group-tools button:disabled { opacity: 0.35; cursor: default; }
+.nihility-sheet .power-group-figure { font: 0.72rem var(--nihility-font-data); color: var(--nihility-text-faint); }
+.nihility-sheet .power-group-figure b { color: var(--nihility-accent); }
+.nihility-sheet .power-group-card.state-partial .power-group-figure b { color: var(--nihility-warn); }
+.nihility-sheet .power-group-card.state-none .power-group-figure b { color: #ff8a80; }
+
+/* Os Módulos rolam dentro do card: um grupo com muitos Módulos não empurra a fila inteira. */
+.nihility-sheet .power-group-modules { height: 118px; overflow-y: auto; display: flex; flex-direction: column; }
+.nihility-sheet .power-group-module {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--nihility-border-soft);
+  color: var(--nihility-text);
+}
+.nihility-sheet .power-group-module[draggable="true"] { cursor: grab; }
+.nihility-sheet .power-group-module.is-offline,
+.nihility-sheet .power-group-module.is-unpowered { opacity: 0.6; }
+.nihility-sheet .power-group-module .drag-grip { color: var(--nihility-text-faint); font-size: 0.72rem; }
+.nihility-sheet .power-group-module .cat-pill { flex: 0 0 auto; }
+.nihility-sheet .power-group-module-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+.nihility-sheet .power-group-module.is-unpowered .power-group-module-name { text-decoration: line-through; text-decoration-color: rgba(255, 92, 92, 0.7); }
+.nihility-sheet .power-group-module-state { flex: 0 0 auto; font: 0.7rem var(--nihility-font-data); color: var(--nihility-text-dim); }
+.nihility-sheet .power-group-module-state.is-partial { color: var(--nihility-warn); }
+.nihility-sheet .power-group-module-state.is-off { color: #ff8a80; }
+.nihility-sheet .power-group-empty {
+  margin: 10px;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--nihility-border);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  color: var(--nihility-text-faint);
+}
+.nihility-sheet .power-queue-outside { margin-top: 8px; }
+
+/* Seletor de grupo do chip de prioridade (menu solto no <body>, fora da ficha). */
+.nihility-power-group-menu {
+  position: fixed;
+  z-index: 10000;
+  min-width: 190px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: #181b26;
+  border: 1px solid #3a4166;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  color: #e6e9f5;
+  font-family: "Signika", "Segoe UI", sans-serif;
+}
+.nihility-power-group-menu .power-group-menu-title {
+  margin: 2px 6px 6px;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9aa1c2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nihility-power-group-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  line-height: normal;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: #e6e9f5;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+.nihility-power-group-menu button:hover,
+.nihility-power-group-menu button:focus-visible { background: #1f2333; border-color: #3a4166; }
+.nihility-power-group-menu button.is-current { color: #6ee7ff; }
+.nihility-power-group-menu .power-group-menu-label { flex: 1 1 auto; }
+.nihility-power-group-menu .prio-chip {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  border-radius: 4px;
+  border: 1px solid #3a4166;
+  background: #1f2333;
+  font: 600 0.64rem "JetBrains Mono", ui-monospace, monospace;
+  color: #9aa1c2;
+}
+.nihility-power-group-menu .prio-chip.p1 { color: #6ee7a0; border-color: rgba(110, 231, 160, 0.5); }
+.nihility-power-group-menu .prio-chip.p2 { color: #6ee7ff; border-color: rgba(110, 231, 255, 0.45); }
+.nihility-power-group-menu .prio-chip.p4 { color: #ffcf5c; border-color: rgba(255, 207, 92, 0.45); }
+.nihility-power-group-menu .prio-chip.p5 { color: #ff5c5c; border-color: rgba(255, 92, 92, 0.45); }
+
+/* Diálogo de nome do grupo: o <label> do core vem escuro sobre escuro. */
+.nihility-power-group-name,
+.nihility-power-group-name label { color: var(--nihility-text, #e6e9f5); display: flex; flex-direction: column; gap: 4px; }
+
+@media (max-width: 640px) {
+  .nihility-sheet .power-queue { grid-template-columns: 1fr; }
+}

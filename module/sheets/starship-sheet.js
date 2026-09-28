@@ -8,7 +8,10 @@ import {
   isShipManeuverEnabled,
   moduleRole,
   moduleCategoryLabel,
-  powerPriorityGroup,
+  movePowerGroup,
+  removePowerGroup,
+  powerGroupState,
+  powerBudget,
   getVesselClasses,
   getCrewRoles,
   debugLog,
@@ -31,7 +34,8 @@ import {
   addShipSystemEffect,
   endShipSystemEffect,
   transferCapacitorToShields,
-  modulateWeaponFrequency
+  modulateWeaponFrequency,
+  POWER_FOCUS_MOVED_FLAG
 } from "../starship-power.js";
 import { requestShipRepair } from "../starship-repair.js";
 import { runAsGm } from "../helpers/gm-relay.js";
@@ -53,6 +57,14 @@ function percentOf(value, max) {
   return Math.round(Math.clamp((value / max) * 100, 0, 100));
 }
 
+/** Texto livre (nome de grupo) dentro do HTML de um diálogo — inclusive dentro de `value="…"`. */
+function escapeText(text) {
+  return String(text ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+}
+
+/** Tipo próprio do arraste de Módulo entre grupos da aba Prioridade (não é um drop de Item). */
+const POWER_MODULE_DRAG_TYPE = "application/x-nihility-power-module";
+
 /**
  * Quem pode mexer no throttle dos Módulos. Não é permissão de edição da ficha: throttle é manobra
  * de combate — quem está a bordo decide na hora, sem esperar o dono da ficha. Por isso entra
@@ -62,6 +74,23 @@ function percentOf(value, max) {
 function canAdjustThrottle(actor) {
   if (game.user.isGM || actor.isOwner) return true;
   return actor.system.crewActors.some(entry => entry.actor?.isOwner);
+}
+
+/**
+ * Cor do chip de prioridade (classes `p1…p5`): a posição do grupo espalhada nas cinco cores, do
+ * primeiro (verde) ao último (vermelho) — com 3 grupos ou com 9, o topo e o fim da fila têm
+ * sempre as mesmas cores.
+ */
+function priorityTone(index, count) {
+  if (count <= 1) return "p1";
+  return `p${1 + Math.round((index / (count - 1)) * 4)}`;
+}
+
+/** Fração da Vida somada de vários Módulos (0-1); 1 sem Módulos ou sem máximo. */
+function combinedIntegrity(modules) {
+  const max = modules.reduce((sum, m) => sum + (m.system.hp?.max ?? 0), 0);
+  if (!max) return 1;
+  return Math.clamp(modules.reduce((sum, m) => sum + (m.system.hp?.value ?? 0), 0) / max, 0, 1);
 }
 
 /** Estado visual de uma barra de Vida/pool: verde, âmbar abaixo de 50%, vermelho abaixo de 20%. */
@@ -180,18 +209,14 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   _onRender(context, options) {
     super._onRender(context, options);
+    // O chip que abriu o seletor de grupo acabou de ser redesenhado: o menu solto ficaria órfão.
+    this._closePowerGroupMenu();
     this._onRenderThrottleInputs();
+    this._onRenderPowerGroupDrag();
     this.element.querySelectorAll(".cargo-row[draggable]").forEach(row => {
       row.addEventListener("dragstart", event => {
         const item = this.actor.items.get(row.dataset.itemId);
         if (item) event.dataTransfer.setData("text/plain", JSON.stringify(item.toDragData()));
-      });
-    });
-    // Clique direito no chip de prioridade sobe um grupo (o clique normal desce, via action).
-    this.element.querySelectorAll(".prio-chip[data-action]").forEach(chip => {
-      chip.addEventListener("contextmenu", event => {
-        event.preventDefault();
-        this._shiftPriority(chip, -1);
       });
     });
     // Função de Tripulação: cada tripulante troca a própria (ver _onChangeCrewRole).
@@ -221,6 +246,223 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     this.element.querySelectorAll(".module-hp-input").forEach(input => {
       input.addEventListener("change", this._onModuleHpInput.bind(this));
     });
+  }
+
+  /** @override Fecha o seletor de grupo, que mora no `<body>` e não sai junto com a janela. */
+  _onClose(options) {
+    this._closePowerGroupMenu();
+    super._onClose?.(options);
+  }
+
+  /**
+   * Aba Prioridade: arrastar um Módulo de um card de grupo pra outro. O arraste leva um tipo
+   * próprio (não o de Item), e o drop no card para a propagação — senão o drop da ficha inteira
+   * (`_onDropItem`) trataria o Módulo como Item novo sendo solto na Nave.
+   */
+  _onRenderPowerGroupDrag() {
+    if (!canAdjustThrottle(this.actor)) return;
+    this.element.querySelectorAll(".power-group-module[draggable]").forEach(row => {
+      row.addEventListener("dragstart", event => {
+        event.dataTransfer.setData(POWER_MODULE_DRAG_TYPE, row.dataset.itemId);
+        event.dataTransfer.setData("text/plain", JSON.stringify({ type: "NihilityPowerModule", itemId: row.dataset.itemId }));
+        event.dataTransfer.effectAllowed = "move";
+      });
+    });
+    this.element.querySelectorAll(".power-group-card[data-group-id]").forEach(card => {
+      card.addEventListener("dragover", event => {
+        if (!event.dataTransfer.types.includes(POWER_MODULE_DRAG_TYPE)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        card.classList.add("is-drop-target");
+      });
+      card.addEventListener("dragleave", () => card.classList.remove("is-drop-target"));
+      card.addEventListener("drop", event => {
+        card.classList.remove("is-drop-target");
+        const itemId = event.dataTransfer.getData(POWER_MODULE_DRAG_TYPE);
+        if (!itemId) return;
+        event.preventDefault();
+        event.stopPropagation();
+        this._setModulePowerGroup(this.actor.items.get(itemId), card.dataset.groupId);
+      });
+    });
+  }
+
+  /* ------------------------------------------------------------------ Fila de prioridade */
+
+  /**
+   * Grava a fila de prioridade inteira. A primeira edição de uma Nave que ainda usava os cinco
+   * grupos padrão é o que os torna salvos — `powerGroupList` já os devolve prontos pra isso.
+   */
+  async _writePowerGroups(groups) {
+    await this.actor.update({ "system.powerGroups": groups.map(g => ({ id: g.id, label: g.label })) });
+  }
+
+  /**
+   * Põe um Módulo num grupo da fila. Escolher à mão também tira o Módulo da memória do foco de
+   * energia: quem escolheu o grupo foi a tripulação, e trocar de foco depois não pode desfazer isso.
+   */
+  async _setModulePowerGroup(module, groupId) {
+    if (!module || !canAdjustThrottle(this.actor)) return;
+    if (!this.actor.system.powerGroupList.some(g => g.id === groupId)) return;
+    if (module.system.powerGroup !== groupId) await module.update({ "system.powerGroup": groupId });
+    const moved = this.actor.getFlag(SYSTEM_ID, POWER_FOCUS_MOVED_FLAG);
+    if (moved && module.id in moved) {
+      await this.actor.update({ [`flags.${SYSTEM_ID}.${POWER_FOCUS_MOVED_FLAG}.-=${module.id}`]: null });
+    }
+  }
+
+  /** Pede o nome de um grupo (criar ou renomear). `null` = cancelado. */
+  async _promptPowerGroupName(title, current) {
+    const name = await promptDialog({
+      title,
+      content: `<div class="nihility-power-group-name"><label>Nome do grupo<input type="text" name="label" value="${escapeText(current)}" autofocus/></label></div>`,
+      confirmLabel: "Salvar",
+      onConfirm: element => element.querySelector('[name="label"]')?.value ?? ""
+    });
+    if (name === false || name === null || name === undefined) return null;
+    return String(name).trim();
+  }
+
+  static async onAddPowerGroup(event) {
+    event.preventDefault();
+    if (!canAdjustThrottle(this.actor)) return;
+    const groups = this.actor.system.powerGroupList;
+    const label = await this._promptPowerGroupName("Nova prioridade", `Prioridade ${groups.length + 1}`);
+    if (label === null) return;
+    await this._writePowerGroups([...groups, { id: foundry.utils.randomID(8), label: label || `Prioridade ${groups.length + 1}` }]);
+  }
+
+  static async onRenamePowerGroup(event, target) {
+    event.preventDefault();
+    if (!canAdjustThrottle(this.actor)) return;
+    const id = target.closest("[data-group-id]")?.dataset.groupId;
+    const groups = this.actor.system.powerGroupList;
+    const group = groups.find(g => g.id === id);
+    if (!group) return;
+    const label = await this._promptPowerGroupName("Renomear prioridade", group.label);
+    if (!label) return;
+    await this._writePowerGroups(groups.map(g => (g.id === id ? { ...g, label } : g)));
+  }
+
+  /** Sobe (`data-step="-1"`) ou desce (`1`) um grupo na fila. */
+  static async onMovePowerGroup(event, target) {
+    event.preventDefault();
+    if (!canAdjustThrottle(this.actor)) return;
+    const id = target.closest("[data-group-id]")?.dataset.groupId;
+    await this._writePowerGroups(movePowerGroup(this.actor.system.powerGroupList, id, Number(target.dataset.step) || 0));
+  }
+
+  /**
+   * Apaga um grupo: os Módulos dele vão pro grupo seguinte (ou pro anterior, se era o último).
+   * Os Módulos são movidos ANTES do grupo sumir — na ordem inversa, um Módulo antigo sem grupo
+   * escolhido cairia no grupo do meio em vez do vizinho.
+   */
+  static async onDeletePowerGroup(event, target) {
+    event.preventDefault();
+    if (!canAdjustThrottle(this.actor)) return;
+    const id = target.closest("[data-group-id]")?.dataset.groupId;
+    const system = this.actor.system;
+    const groups = system.powerGroupList;
+    const { groups: remaining, fallbackId } = removePowerGroup(groups, id);
+    if (!fallbackId) {
+      ui.notifications.info("A fila precisa de pelo menos um grupo.");
+      return;
+    }
+    const members = system.modules.filter(m => system.powerGroupIdFor(m) === id);
+    const group = groups.find(g => g.id === id);
+    const fallback = groups.find(g => g.id === fallbackId);
+    if (members.length) {
+      const confirmed = await DialogV2.confirm({
+        window: { title: `Apagar ${group.label}` },
+        content: `<p>${members.length} Módulo(s) deste grupo vão para <strong>${escapeText(fallback.label)}</strong>.</p>`,
+        rejectClose: false
+      });
+      if (!confirmed) return;
+      await this.actor.updateEmbeddedDocuments("Item", members.map(m => ({ _id: m.id, "system.powerGroup": fallbackId })));
+    }
+    await this._writePowerGroups(remaining);
+  }
+
+  /** Chip de prioridade na linha do Módulo: abre o seletor de grupo logo abaixo dele. */
+  static onPickPowerGroup(event, target) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!canAdjustThrottle(this.actor)) return;
+    const module = this.actor.items.get(target.closest("[data-item-id]")?.dataset.itemId);
+    if (module) this._openPowerGroupMenu(target, module);
+  }
+
+  /**
+   * O seletor é um menu solto no `<body>` (posição fixa, logo abaixo do chip), não uma janela:
+   * escolher um grupo é um clique só. Fecha ao escolher, com Esc, ou clicando fora.
+   */
+  _openPowerGroupMenu(anchor, module) {
+    this._closePowerGroupMenu();
+    const system = this.actor.system;
+    const groups = system.powerGroupList;
+    const current = system.powerGroupIdFor(module);
+
+    const menu = document.createElement("div");
+    menu.className = "nihility-power-group-menu";
+    menu.setAttribute("role", "menu");
+    const title = document.createElement("p");
+    title.className = "power-group-menu-title";
+    title.textContent = `Prioridade — ${module.name}`;
+    menu.append(title);
+    groups.forEach((group, index) => {
+      const option = document.createElement("button");
+      option.type = "button";
+      option.setAttribute("role", "menuitemradio");
+      option.setAttribute("aria-checked", String(group.id === current));
+      option.className = group.id === current ? "is-current" : "";
+      const chip = document.createElement("span");
+      chip.className = `prio-chip ${priorityTone(index, groups.length)}`;
+      chip.textContent = `P${index + 1}`;
+      const label = document.createElement("span");
+      label.className = "power-group-menu-label";
+      label.textContent = group.label;
+      option.append(chip, label);
+      if (group.id === current) {
+        const check = document.createElement("i");
+        check.className = "fas fa-check";
+        option.append(check);
+      }
+      option.addEventListener("click", async () => {
+        this._closePowerGroupMenu();
+        await this._setModulePowerGroup(module, group.id);
+      });
+      menu.append(option);
+    });
+    document.body.append(menu);
+
+    // Logo abaixo do chip; se não couber embaixo, abre pra cima.
+    const rect = anchor.getBoundingClientRect();
+    const { offsetWidth: width, offsetHeight: height } = menu;
+    const left = Math.min(rect.left, window.innerWidth - width - 8);
+    const below = rect.bottom + 4;
+    const top = below + height > window.innerHeight - 8 ? Math.max(8, rect.top - height - 4) : below;
+    menu.style.left = `${Math.max(8, left)}px`;
+    menu.style.top = `${top}px`;
+    menu.querySelector("[aria-checked=true]")?.focus();
+
+    const onPointerDown = event => {
+      if (!menu.contains(event.target)) this._closePowerGroupMenu();
+    };
+    const onKeyDown = event => {
+      if (event.key === "Escape") this._closePowerGroupMenu();
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("keydown", onKeyDown, true);
+    this._powerGroupMenu = { menu, onPointerDown, onKeyDown };
+  }
+
+  _closePowerGroupMenu() {
+    const open = this._powerGroupMenu;
+    if (!open) return;
+    open.menu.remove();
+    document.removeEventListener("pointerdown", open.onPointerDown, true);
+    document.removeEventListener("keydown", open.onKeyDown, true);
+    this._powerGroupMenu = null;
   }
 
   /** Recebe um Ator (PJ ou NPC) arrastado da barra lateral/ficha como novo tripulante da aba Tripulação. */
@@ -392,9 +634,15 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     await module.update({ "system.powerAllocationPercent": value });
   }
 
-  /** Recalcula o Grid de Energia: excedente carrega os capacitores, déficit os drena. */
+  /**
+   * "Passar uma rodada de energia": excedente carrega a reserva, déficit a drena — o mesmo passo
+   * que o combate já dá sozinho no turno da Nave. Só o Mestre: o botão se chamava "Recalcular" e
+   * gastava a reserva de verdade a cada clique, o que fora de combate era só um jeito de esvaziar a
+   * Bateria sem querer.
+   */
   static async onPowerGridTick(event, target) {
     event.preventDefault();
+    if (!game.user.isGM) return;
     // Clicar logo após editar Reator/Capacitores dispara o "change" (submitOnChange) e este
     // "click" quase ao mesmo tempo; como o update do actor é assíncrono, ler
     // `this.actor.system.powerGrid` aqui podia pegar o valor ainda não salvo. `submit()` força
@@ -640,27 +888,6 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     await pickActorTraits(this.actor);
   }
 
-  /**
-   * Chip "P1…P5" da grade de Módulos: clique desce um grupo (P1 → P2 … P5 → P1), clique direito
-   * sobe. P1 recebe energia primeiro quando falta; o mesmo grupo divide o que sobra por igual
-   * (ver fundByPriority em config.js). É decisão da tripulação de CADA Nave, então mora aqui e não
-   * na ficha do Módulo.
-   */
-  static async onCyclePriority(event, target) {
-    event.preventDefault();
-    await this._shiftPriority(target, 1);
-  }
-
-  async _shiftPriority(target, step) {
-    if (!canAdjustThrottle(this.actor)) return;
-    const module = this.actor.items.get(target.closest("[data-item-id]")?.dataset.itemId);
-    if (!module) return;
-    const groups = MEU_SISTEMA.POWER_PRIORITY_GROUPS;
-    const current = powerPriorityGroup(module.system.powerPriority);
-    const next = ((current - 1 + step + groups) % groups) + 1;
-    await module.update({ "system.powerPriority": next });
-  }
-
   /** Dispara uma Arma nativa (Overhaul de Naves, Fase 5) — sempre pede alvo, igual "damage" de Skill. */
   static async onFireWeapon(event, target) {
     event.preventDefault();
@@ -708,6 +935,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     const abbr = getStarshipEnergyAbbr();
     context.energyAbbr = abbr;
     context.canAdjustThrottle = canAdjustThrottle(actor);
+    const powerGroups = actor.system.powerGroupList;
 
     /**
      * Cada linha da grade já vem calculada daqui — o template não faz conta nenhuma. Foi o que
@@ -719,6 +947,8 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
       const hpPercent = percentOf(sys.hp.value, sys.hp.max);
       const throttle = sys.powerAllocationPercent ?? 100;
       const ratio = Math.round(actor.system.powerRatioFor(module) * 100);
+      const unpowered = actor.system.isPowerStarved(module);
+      const groupIndex = actor.system.powerGroupIndexFor(module);
       return {
         id: module.id,
         name: module.name,
@@ -739,10 +969,14 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
         throttleState: throttle > 100 ? "over" : throttle < 100 ? "under" : "",
         // Consumo REAL (já escalado pelo throttle) — é este que pesa no Grid, não o valor base.
         consumption: Math.round((sys.powerConsumption ?? 0) * (throttle / 100)),
-        starved: ratio < 100,
+        // Parcial = "recebendo X%"; zero = sem energia, age como desligado (ver isPowerStarved).
+        starved: ratio < 100 && !unpowered,
+        unpowered,
         powerRatio: ratio,
-        // Grupo de prioridade de energia (chip P1…P5); só aparece pra quem consome energia.
-        priority: powerPriorityGroup(sys.powerPriority),
+        // Grupo da fila de prioridade (chip Pn, clique abre o seletor); só pra quem consome energia.
+        priority: groupIndex + 1,
+        priorityTone: priorityTone(groupIndex, powerGroups.length),
+        priorityLabel: powerGroups[groupIndex]?.label ?? "",
         hasDemand: (sys.powerConsumption ?? 0) > 0,
         // Raio Trator: botão de prender/soltar e quem está preso agora.
         isTractor: moduleRole(sys.category) === "tractor",
@@ -761,6 +995,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.specialModuleRows = specialModules.map(buildRow);
     context.moduleRows = context.modules.map(buildRow);
     context.weaponRows = context.weaponModules.map(buildRow);
+    this._preparePowerGroupContext(context, powerGroups, buildRow);
 
     const budgetUsed = actor.system.weaponSpaceUsed;
     const budget = actor.system.weaponSlotBudget;
@@ -850,13 +1085,129 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.cascoState = meterState(context.cascoPercent);
     context.structureState = meterState(context.structurePercent);
 
-    // Grid de Energia desenhado como corrente: quem é o gargalo agora, o Reator ou o Distribuidor?
-    const generation = actor.system.powerGrid.reactorOutput;
-    const transfer = actor.system.transferCapacity;
-    context.powerCeiling = Math.min(generation, transfer);
-    context.distributorIsBottleneck = transfer < generation;
-    context.demandPercent = percentOf(actor.system.totalConsumption, context.powerCeiling);
-    context.demandSlack = Math.max(0, context.powerCeiling - actor.system.totalConsumption);
+    this._preparePowerGridContext(context);
+  }
+
+  /**
+   * Aba Prioridade: um card por grupo da fila, na ordem, com os Módulos que pedem energia dentro.
+   * A barra de cada card sai da fração que o grupo recebe (todos os Módulos ligados de um grupo
+   * recebem a mesma, ver fundByPriority). Módulos que não consomem nada (Reator, Bateria…) nunca
+   * passam fome, então ficam fora da fila e só são citados embaixo.
+   */
+  _preparePowerGroupContext(context, groups, buildRow) {
+    const system = this.actor.system;
+    const cards = groups.map((group, index) => ({
+      id: group.id,
+      label: group.label,
+      number: index + 1,
+      tone: priorityTone(index, groups.length),
+      isFirst: index === 0,
+      isLast: index === groups.length - 1,
+      demand: 0,
+      delivered: 0,
+      rows: []
+    }));
+    const outside = [];
+    for (const module of system.modules) {
+      const row = buildRow(module);
+      if (!row.hasDemand) {
+        outside.push(module.name);
+        continue;
+      }
+      const card = cards[system.powerGroupIndexFor(module)];
+      card.rows.push(row);
+      if (row.online) {
+        card.demand += row.consumption;
+        card.delivered += row.consumption * system.powerRatioFor(module);
+      }
+    }
+    for (const card of cards) {
+      card.delivered = Math.round(card.delivered);
+      card.state = powerGroupState(card.demand, card.delivered);
+      card.percent = card.demand > 0 ? Math.round((card.delivered / card.demand) * 100) : 0;
+      // Largura da parte alimentada da barra: cheia (azul) ou até onde chega (amarelo).
+      card.fillWidth = card.state === "full" ? 100 : card.state === "partial" ? card.percent : 0;
+    }
+    context.powerGroupCards = cards;
+    context.powerGroupOutside = outside.join(", ");
+  }
+
+  /**
+   * Card do Grid de Energia: a corrente Reator → Distribuidor → reserva, com o PORQUÊ de cada nó
+   * (Vida do Módulo, Habilidades Ativas reservando geração) e a barra "de onde vem a energia desta
+   * rodada" — Reator, reserva e o que falta —, que bate com o % de cada Módulo. Os números vêm de
+   * powerBudget (config.js), a mesma conta do tick, só que prevista.
+   */
+  _preparePowerGridContext(context) {
+    const system = this.actor.system;
+    const abbr = context.energyAbbr;
+    const reactor = system.powerGrid.reactorOutput;
+    const transfer = system.transferCapacity;
+    const generation = Math.min(reactor, transfer);
+    const capacitor = system.powerGrid.capacitor;
+    const budget = powerBudget({ demand: system.totalConsumption, generation, capacitor: capacitor.value, capacitorMax: capacitor.max });
+
+    // Só um nó é "gargalo", e só quando está de fato segurando a demanda.
+    const limiting = budget.shortage ? (transfer < reactor ? "distributor" : "reactor") : null;
+
+    const reactors = system.modulesByRole("power");
+    const reactorIntegrity = combinedIntegrity(reactors);
+    context.reactorNode = {
+      limiting: limiting === "reactor",
+      damaged: reactors.length > 0 && reactorIntegrity < 1,
+      integrity: Math.round(reactorIntegrity * 100),
+      integrityState: meterState(Math.round(reactorIntegrity * 100)),
+      upkeep: system.activeUpkeepDrain
+    };
+
+    const distributor = system.distributorModule;
+    const distributorIntegrity = distributor ? system.integrityRatioFor(distributor) : 1;
+    context.distributorNode = {
+      limiting: limiting === "distributor",
+      damaged: Boolean(distributor) && distributorIntegrity < 1,
+      integrity: Math.round(distributorIntegrity * 100),
+      integrityState: meterState(Math.round(distributorIntegrity * 100)),
+      intact: system.transferCapacityIntact
+    };
+
+    const batteries = system.modulesByRole("storage");
+    const batteryIntegrity = combinedIntegrity(batteries);
+    context.capacitorNode = {
+      damaged: batteries.length > 0 && batteryIntegrity < 1,
+      integrity: Math.round(batteryIntegrity * 100),
+      integrityState: meterState(Math.round(batteryIntegrity * 100)),
+      intact: batteries.reduce((sum, m) => sum + Math.round((m.system.batteryCapacity ?? 0) * ((m.system.powerAllocationPercent ?? 100) / 100)), 0)
+    };
+
+    // Barra: na falta, a escala é o que os Módulos pedem; com sobra, o que a Nave consegue entregar.
+    const scale = budget.shortage ? budget.demand : Math.max(budget.generation, 1);
+    const width = part => (scale > 0 ? Math.round((part / scale) * 10000) / 100 : 0);
+    context.powerBudget = {
+      ...budget,
+      reactorWidth: width(budget.shortage ? budget.fromReactor : budget.demand),
+      reserveWidth: width(budget.fromReserve),
+      missingWidth: width(budget.missing),
+      slackWidth: width(budget.slack)
+    };
+
+    // Previsão: quanto tempo a reserva dura, ou em quanto tempo enche.
+    const source = limiting === "distributor" ? "do Distribuidor" : "do Reator";
+    const fix = limiting === "distributor" ? "o Distribuidor ser reparado" : "o Reator gerar mais";
+    let forecast;
+    if (!budget.demand) {
+      forecast = { tone: "ok", lead: "Nenhum Módulo pedindo energia.", text: budget.roundsToFull ? `A reserva enche em ${budget.roundsToFull} rodada(s).` : "" };
+    } else if (!budget.shortage) {
+      if (budget.roundsToFull === 0) forecast = { tone: "ok", lead: "Reserva cheia.", text: budget.slack ? `Sobram ${budget.slack} ${abbr} por rodada.` : "" };
+      else if (budget.slack > 0) forecast = { tone: "ok", lead: `A reserva sobe +${budget.slack} por rodada.`, text: `Cheia em ${budget.roundsToFull} rodada(s).` };
+      else forecast = { tone: "ok", lead: "Consumo igual à geração.", text: "A reserva não sobe nem desce." };
+    } else if (budget.fromReserve > 0 && budget.roundsLeft === 0) {
+      forecast = { tone: "warn", lead: "A reserva acaba nesta rodada.", text: `Na próxima, só com os ${budget.generation} ${abbr} ${source}, a Nave entrega ${budget.afterReservePercent}% do que os Módulos pedem.` };
+    } else if (budget.fromReserve > 0) {
+      forecast = { tone: "warn", lead: `A reserva cobre ${budget.roundsLeft} rodada(s) inteira(s) neste ritmo.`, text: `Depois, a Nave entrega ${budget.afterReservePercent}% do que os Módulos pedem.` };
+    } else {
+      forecast = { tone: "danger", lead: "Sem reserva.", text: `A Nave entrega ${budget.percent}% do que os Módulos pedem até a demanda cair (desligando Módulos ou mudando a fila na aba Prioridade) ou ${fix}.` };
+    }
+    context.powerForecast = forecast;
   }
 }
 
@@ -884,7 +1235,11 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
       fireWeapon: TabbedActorSheetV2.onFireWeapon,
       removeTrait: TabbedActorSheetV2.onRemoveTrait,
       pickTraits: TabbedActorSheetV2.onPickTraits,
-      cyclePriority: TabbedActorSheetV2.onCyclePriority,
+      pickPowerGroup: TabbedActorSheetV2.onPickPowerGroup,
+      addPowerGroup: TabbedActorSheetV2.onAddPowerGroup,
+      renamePowerGroup: TabbedActorSheetV2.onRenamePowerGroup,
+      movePowerGroup: TabbedActorSheetV2.onMovePowerGroup,
+      deletePowerGroup: TabbedActorSheetV2.onDeletePowerGroup,
       setPowerFocus: TabbedActorSheetV2.onSetPowerFocus,
       shipBrace: TabbedActorSheetV2.onShipBrace,
       shipAuxShields: TabbedActorSheetV2.onShipAuxShields,
@@ -952,7 +1307,11 @@ export class NihilityVehicleSheet extends TabbedActorSheetV2 {
       fireWeapon: TabbedActorSheetV2.onFireWeapon,
       removeTrait: TabbedActorSheetV2.onRemoveTrait,
       pickTraits: TabbedActorSheetV2.onPickTraits,
-      cyclePriority: TabbedActorSheetV2.onCyclePriority,
+      pickPowerGroup: TabbedActorSheetV2.onPickPowerGroup,
+      addPowerGroup: TabbedActorSheetV2.onAddPowerGroup,
+      renamePowerGroup: TabbedActorSheetV2.onRenamePowerGroup,
+      movePowerGroup: TabbedActorSheetV2.onMovePowerGroup,
+      deletePowerGroup: TabbedActorSheetV2.onDeletePowerGroup,
       setPowerFocus: TabbedActorSheetV2.onSetPowerFocus,
       shipBrace: TabbedActorSheetV2.onShipBrace,
       shipAuxShields: TabbedActorSheetV2.onShipAuxShields,

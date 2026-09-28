@@ -216,7 +216,7 @@ Renomeie os oito Atributos (Força, Defesa, Magia, Defesa Mágica, Destreza, Fur
 
 Cada Espécie tem: **Chave**, **Nome**, **grupo** (Fantasia, Isekai, Sci-Fi, Besta/Montaria — só organização), **na criação** (se aparece no seletor dos jogadores), **Traços**, **Partes do Corpo** (Nome, Slot, Vida, Tags) e **Skills Raciais** (editadas no mesmo editor completo de Skill, com tier fixo Racial).
 
-Cada Espécie também tem **Slots** e **Carga base (kg)** do inventário (vazio = o padrão da tabela: Humano 10/30, Anão 12/45, Ogro 14/90, Goblin 8/15, Cavalo 4/100…; sem Espécie, 10/30).
+Cada Espécie também tem **Elemento** (o que ela É, para a tabela de vantagens entre elementos), **Slots** e **Carga base (kg)** do inventário (vazio = o padrão da tabela: Humano 10/30, Anão 12/45, Ogro 14/90, Goblin 8/15, Cavalo 4/100…; sem Espécie, 10/30).
 
 Espécies com "na criação" desmarcado só aparecem para o Mestre e para a IA — é como Cavalo e Grifo existem como presets de montaria sem virar opção de personagem.
 
@@ -236,7 +236,14 @@ Cada moeda: id, nome, ícone, **peso** por unidade e **valor base** (quantas uni
 
 Cada elemento: id, nome, **cor**, **grupo** (Físico, Fantasia, Energia, Exótico… — organiza a janela de escolha) e **Efeitos ao acertar**:
 
-**Dano extra contra elemento (Estrutura)**: efeito ao acertar que só vale contra uma Estrutura daquele elemento (Fogo +50% contra Gelo derrete a Parede de Gelo mais rápido; negativo = fraqueza).
+**Tabela de vantagens entre elementos** (botão **Tabela de vantagens** no topo do editor; o mesmo botão volta aos cartões): linha = elemento que **ataca**, coluna = elemento que **defende**. Cada célula tem um de cinco níveis, estilo Pokémon — **Imune** ×0, **Ineficaz** ×0,5, **Neutro** ×1, **Efetivo** ×1,5, **Super efetivo** ×2 (multiplicadores em Regras da Mesa › Combate). **Clique esquerdo sobe um nível, direito desce.** A tabela é montada dos elementos na tela, então um elemento novo aparece nela na hora; cada cartão mostra o resumo ("Efetivo contra: Gelo · Ineficaz contra: Fogo"). O antigo efeito "Dano extra contra elemento" é convertido sozinho em nível (≥ +75% Super efetivo, acima de 0 Efetivo, abaixo de 0 Ineficaz, −100% Imune). Padrão: Fogo efetivo contra Gelo, Gelo ineficaz contra Fogo, Sombrio e Sagrado efetivos um contra o outro.
+
+A vantagem vale contra quem **É** de um elemento:
+- **Personagem/Criatura**: elemento da **Espécie** (editor de Espécies), de uma **Condição** com elemento (Encharcado = Água) ou de uma Skill com o Efeito **Elemento do corpo** (grupo "Elemento": escolha o elemento; dura as rodadas do Efeito, ou enquanto a Habilidade Ativa estiver ligada). Transformar-se muda só como a pessoa **recebe** dano; atacar com o elemento continua sendo da Skill/arma. Cada parte do golpe (uma por elemento) é multiplicada contra o corpo; corpo com dois elementos multiplica os dois (Fogo contra Planta + Gelo = ×3 com os padrões).
+- **Escudo pessoal**: um Efeito de Escudo pode ter **Elemento do escudo** (Escudo de Água). No **Aplicar**, cada pool sofre o golpe com a vantagem contra o elemento DELE (sem a do corpo), e o que vaza para a Vida volta a ter a do corpo. Um corpo imune ainda gasta um Escudo de outro elemento.
+- **Nave**: o Módulo de Escudo tem **Elemento do escudo** (a camada de Escudo usa a vantagem contra os elementos dos Escudos ligados); Casco e Integridade usam o elemento do corpo da Nave (Condição ou Skill).
+- **Estrutura**: os Elementos do catálogo (Parede de Gelo = Gelo).
+- **Dano Absoluto** ignora a tabela.
 
 | Tipo de efeito | Campos | Comportamento |
 |---|---|---|
@@ -259,7 +266,7 @@ Catálogo de fábrica (fantasia): Físico, Fogo (25% Queimadura), Gelo (25% Lent
 
 Cada Condição: id, nome, ícone e um **efeito padrão** opcional.
 
-Cada Condição pode ter **Antimagia (nível)**: quem a carrega paga energia extra em toda magia (ver [Antimagia](#antimagia)). O catálogo padrão traz o **Selo Antimagia** (nível 1).
+Cada Condição pode ter **Elemento** (quem a carrega passa a ser daquele elemento, para a tabela de vantagens) e **Antimagia (nível)**: quem a carrega paga energia extra em toda magia (ver [Antimagia](#antimagia)). O catálogo padrão traz o **Selo Antimagia** (nível 1).
 
 | Tipo de efeito | Campos |
 |---|---|
@@ -293,7 +300,7 @@ A lista de Escalas (padrão Pessoal, Veículo, Nave, Capital) **é a ordem dos d
 
 ### Estruturas
 
-Cada Estrutura: id, nome, **cor**, **imagem** (opcional, textura para círculo/quadrado), **Forma** (Linha reta, Forma livre, Círculo, Quadrado), **Tamanho (m)** (comprimento máximo para linha/livre; raio para círculo; lado para quadrado), **Bloqueia movimento**, **Bloqueia visão**, **Vida** e **Duração (rodadas)**, mais **Luz**, **Segura golpes** (desmarcado: não para ataques — Muralha de Fogo, Campo Antimagia), **Mágica** (sofre antimagia), **Antimagia (nível)** (0 = não é campo), **Dano ao contato** (fórmula rolada contra quem atravessa ou termina o movimento dentro) e **Elementos** (a Estrutura é daquele elemento: golpes contra ela seguem o "Dano extra contra elemento" de quem ataca, e o dano ao contato é desses elementos).
+Cada Estrutura: id, nome, **cor**, **imagem** (opcional, textura para círculo/quadrado), **Forma** (Linha reta, Forma livre, Círculo, Quadrado), **Tamanho (m)** (comprimento máximo para linha/livre; raio para círculo; lado para quadrado), **Bloqueia movimento**, **Bloqueia visão**, **Vida** e **Duração (rodadas)**, mais **Luz**, **Segura golpes** (desmarcado: não para ataques — Muralha de Fogo, Campo Antimagia), **Mágica** (sofre antimagia), **Antimagia (nível)** (0 = não é campo), **Dano ao contato** (fórmula rolada contra quem atravessa ou termina o movimento dentro) e **Elementos** (a Estrutura é daquele elemento: golpes contra ela seguem a tabela de vantagens, e o dano ao contato é desses elementos).
 
 - **Vida 0 = barreira de mana**: o dano que ela leva sai da Mana de quem conjurou.
 - **Duração 0 = sem prazo**: fica até a Skill Ativa ser desligada, até você derrubar, ou até a Vida ou Mana de quem conjurou chegar a 0.
@@ -842,8 +849,8 @@ O **+** ao lado de Escudos e de cada Módulo abre um campo com **− Dano**/**+ 
 
 A macro **Pedido de Reparo** (`game.nihility.requestShipRepair()`) é executável por jogadores (com uma Nave só na cena); o botão **Reparo de emergência** da ficha faz o mesmo pedido já com aquela Nave. O pedido chega sussurrado com um campo de **modificador** livre.
 
-1. **Rolar Destreza** — rola a Destreza do engenheiro + modificador. Você julga se deu certo (não há CD).
-2. **Restaurar Vida** — aparece depois da rolagem; rola **2d6** e aplica no alvo, sem passar do máximo. Não escala com o tamanho do alvo: algo grande só leva mais tentativas.
+1. **Rolar Destreza** — rola a Destreza de quem conserta + modificador. Você julga se deu certo (não há CD).
+2. **Restaurar Vida** — aparece depois da rolagem; rola **2d6** e aplica no alvo, sem passar do máximo. Se quem conserta está no posto de **Engenharia**, soma a fórmula de **Regras da Mesa › Naves › Bônus de Engenharia no reparo (Vida)** (padrão **1d6**; aceita número ou dados; vazio desliga). Vale o posto no momento do pedido, e o card mostra "Engenharia: +1d6 de Vida". Não escala com o tamanho do alvo: algo grande só leva mais tentativas.
 
 ---
 

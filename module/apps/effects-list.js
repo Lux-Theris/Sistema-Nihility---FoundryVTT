@@ -5,7 +5,7 @@
  * de peso; na Nave, efeitos de sistema, Raio Trator e Escudo adaptativo. O Mestre encerra dali.
  * Só lê; quem escreve são as funções de sempre (endShipSystemEffect, regenerateSustainedShields…).
  */
-import { SYSTEM_ID, getEnergyLabelForActor, getActiveStatusConditions, getActiveDamageElements, getEffectTargetLabels } from "../config.js";
+import { SYSTEM_ID, getEnergyLabelForActor, getActiveStatusConditions, getActiveDamageElements, getEffectTargetLabels, actorElements } from "../config.js";
 import { readEffectChanges, effectModes } from "../helpers/foundry-compat.js";
 import { describeShieldPools } from "../shield-pools.js";
 import { structuresOnScene } from "../structures.js";
@@ -122,6 +122,20 @@ export class EffectsListApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const isGM = game.user.isGM;
     const energy = getEnergyLabelForActor(actor);
     const sections = [];
+
+    const bodyElements = actorElements(actor);
+    if (bodyElements.length) {
+      const catalog = getActiveDamageElements();
+      sections.push({
+        title: "Elemento",
+        rows: [{
+          img: "icons/svg/fire.svg",
+          name: bodyElements.map(id => catalog.find(e => e.id === id)?.label ?? id).join(" + "),
+          lines: ["A vantagem entre elementos vale contra este corpo (Espécie, Skill ou Condição)."],
+          remaining: ""
+        }]
+      });
+    }
 
     const effects = actor.effects.map(effect => describeActiveEffect(effect, actor));
     if (effects.length) sections.push({ title: "Efeitos ativos", rows: effects });

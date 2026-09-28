@@ -20,7 +20,8 @@
  * intacto. Dano Absoluto (flag `absolute` do card) pula o Escudo.
  */
 import { SYSTEM_ID } from "./config.js";
-import { absorbLayer, consumeShieldPools } from "./damage-rules.js";
+import { absorbLayer, consumeShieldPools, hitAffinityFactor } from "./damage-rules.js";
+import { getElementAffinityMatrix, getAffinityConfig } from "./config.js";
 
 const SHIELD_PATH = "system.attributes.shield.value";
 const POOLS_PATH = "system.attributes.shield.pools";
@@ -59,8 +60,13 @@ function hpPath(actor) {
  * @param {{absolute?: boolean, shieldExtra?: number, triggeredConditions?: object[], label?: string}} [options]
  *   - Dano Absoluto não passa pelo Escudo pessoal
  */
-export function damageApplyFlags(targetActor, finalDamage, { absolute = false, shieldExtra = 0, shieldMultiplier = 1, shieldPenetration = 0, triggeredConditions = [], label = "" } = {}) {
-  if (!targetActor || !hpPath(targetActor) || !(finalDamage > 0)) return {};
+export function damageApplyFlags(targetActor, finalDamage, { absolute = false, shieldExtra = 0, shieldMultiplier = 1, shieldPenetration = 0, triggeredConditions = [], label = "", shieldBase = null, elementIds = [] } = {}) {
+  if (!targetActor || !hpPath(targetActor)) return {};
+  // Corpo imune ao elemento (vantagem ×0) ainda pode gastar um Escudo de outro elemento: o card vale
+  // se sobrar dano pro Escudo.
+  const base = shieldBase === null || shieldBase === undefined ? finalDamage : Number(shieldBase) || 0;
+  const hasShield = (targetActor.system?.attributes?.shield?.value ?? 0) > 0;
+  if (!(finalDamage > 0) && !(hasShield && base > 0 && !absolute)) return {};
   return {
     [SYSTEM_ID]: {
       damageApply: {
@@ -75,6 +81,11 @@ export function damageApplyFlags(targetActor, finalDamage, { absolute = false, s
         // Penetração do golpe contra o Escudo pessoal: age em cada pool, um depois do outro.
         shieldPenetration: absolute ? 0 : Math.min(1, Math.max(0, Number(shieldPenetration) || 0)),
         triggeredConditions: Array.isArray(triggeredConditions) ? triggeredConditions : [],
+        // Vantagem entre elementos: o Escudo recebe o golpe SEM a vantagem contra o corpo (e com a
+        // dele, por pool); o que vaza pra Vida volta a ter a do corpo (`bodyFactor`).
+        shieldBase: Math.round(base),
+        bodyFactor: base > 0 ? Math.max(0, finalDamage / base) : 1,
+        elementIds: Array.isArray(elementIds) ? elementIds : [],
         label: String(label || ""),
         applied: null
       }
@@ -157,13 +168,19 @@ async function applyDamage(message, factor) {
   let pools = previousPools;
   if (!state.absolute && previousShield > 0) {
     const loose = Math.max(0, previousShield - previousPools.reduce((sum, p) => sum + (p.value ?? 0), 0));
-    const result = consumeShieldPools(previousPools, loose, amount, {
+    // Cards de antes da vantagem entre elementos não têm `shieldBase`: o Escudo leva o dano cheio.
+    const shieldAmount = state.shieldBase !== undefined ? Math.max(0, Math.round(state.shieldBase * factor)) : amount;
+    const bodyFactor = state.bodyFactor ?? 1;
+    const matrix = state.elementIds?.length ? getElementAffinityMatrix() : {};
+    const affinityConfig = getAffinityConfig();
+    const result = consumeShieldPools(previousPools, loose, shieldAmount, {
       penetration: state.shieldPenetration ?? 0,
       multiplier: state.shieldMultiplier ?? 1,
-      drain: shieldExtra
+      drain: shieldExtra,
+      layerMultiplier: pool => hitAffinityFactor(state.elementIds ?? [], pool.elements ?? [], matrix, affinityConfig)
     });
     toShield = result.toShield;
-    toHp = result.toHp;
+    toHp = Math.max(0, Math.round(result.toHp * bodyFactor));
     pools = result.pools.filter(p => p.value > 0);
   }
 

@@ -36,7 +36,10 @@ import {
   isMagicUse,
   antimagicSurcharge,
   getAntimagicConfig,
-  ammoFitsLauncher
+  ammoFitsLauncher,
+  actorElements,
+  getElementAffinityMatrix,
+  getAffinityConfig
 } from "./config.js";
 import { runAsGm } from "./helpers/gm-relay.js";
 import { createZoneTemplate, removeZonesFor, zonesOnScene, zoneContainsToken } from "./area-effects.js";
@@ -53,7 +56,9 @@ import {
   refreshReapplication,
   rollChance,
   resolveShipCascade,
-  adaptShield
+  adaptShield,
+  elementVsDefender,
+  hitAffinityFactor
 } from "./damage-rules.js";
 import { conditionalBonus } from "./conditional-context.js";
 import { requestStructure, removeStructuresFor, interceptingStructure, hitStructure, antimagicLevelBetween, antimagicLevelAt } from "./structures.js";
@@ -136,6 +141,9 @@ function resolveEffectChange(entry, targetActor) {
       return ship ? null : { key: "system.weaponBonuses.forceMagic", mode: M.ADD, value: "1", isMultiplier: false };
     case "weaponAbsolute":
       return { key: ship ? "system.combatBonuses.weaponAbsolute" : "system.weaponBonuses.absolute", mode: M.ADD, value: "1", isMultiplier: false };
+    case "bodyElement":
+      // Não mexe em campo: o efeito só carrega o flag `bodyElement`, lido por actorElements.
+      return entry.elementId ? { key: null, bodyElement: entry.elementId, isMultiplier: false } : null;
   }
 
   if (SHIP_PERCENT_PATHS[entry.target]) {
@@ -669,6 +677,11 @@ async function applyStarshipDamageCascade(rawDamage, sourceActor, targetActor, w
   const frequency = Number(sourceActor?.getFlag?.(SYSTEM_ID, "weaponFrequency")) || 0;
   const elementIds = extras.elementIds ?? [];
   const adaptation = sys.shieldAdaptationAgainst?.(elementIds, frequency) ?? 0;
+  // Vantagem entre elementos: contra o elemento dos Escudos ligados e contra o do corpo da Nave.
+  const matrix = getElementAffinityMatrix();
+  const affinityConfig = getAffinityConfig();
+  const shieldAffinity = hitAffinityFactor(elementIds, sys.shieldElements ?? [], matrix, affinityConfig);
+  const bodyAffinity = hitAffinityFactor(elementIds, actorElements(targetActor), matrix, affinityConfig);
 
   // A conta inteira é pura e testada (resolveShipCascade em damage-rules.js); aqui só se grava.
   const { toShield, toCasco, toHull, adapted } = resolveShipCascade({
@@ -683,15 +696,15 @@ async function applyStarshipDamageCascade(rawDamage, sourceActor, targetActor, w
       penResist: sys.shieldPenetrationResist ?? 0,
       adaptation,
       // O "Dano extra em Escudo" antigo (Táquion) entra como % de Escudo também.
-      multiplier: Math.max(0, 1 + (layers.shield || 0) + (extras.shieldDrain || 0))
+      multiplier: Math.max(0, 1 + (layers.shield || 0) + (extras.shieldDrain || 0)) * shieldAffinity
     },
     casco: {
       value: cascoValue,
       reduction: armorReduction,
       penResist: sys.cascoPenetrationResist ?? 0,
-      multiplier: Math.max(0, 1 + (layers.casco || 0))
+      multiplier: Math.max(0, 1 + (layers.casco || 0)) * bodyAffinity
     },
-    hullMultiplier: Math.max(0, 1 + (layers.hull || 0))
+    hullMultiplier: Math.max(0, 1 + (layers.hull || 0)) * bodyAffinity
   });
 
   const appliedReductions = [];
@@ -883,6 +896,8 @@ export async function fireStarshipWeapon(sourceActor, weaponModule, targetActor 
       await registerResistanceExposure(targetActor, mech.damageElements, finalDamage);
       flavor += ` — ${targetActor.name}: ${finalDamage}${triggeredLabel(reduction.triggeredConditions)}`;
       messageFlags = damageApplyFlags(targetActor, finalDamage, {
+        shieldBase: reduction.shieldBase,
+        elementIds: reduction.elementIds,
         absolute: mech.isAbsoluteDamage,
         shieldExtra: reduction.shieldExtra,
         shieldMultiplier: reduction.shieldMultiplier,
@@ -919,9 +934,14 @@ export async function fireStarshipWeapon(sourceActor, weaponModule, targetActor 
  */
 function applyDamageReductions(rawTotal, mech, targetActor, options = {}) {
   const appliedReductions = [];
+  // Vantagem entre elementos contra o elemento do CORPO do alvo (Espécie, Skill de transformação, Condição).
+  const bodyElements = actorElements(targetActor);
+  const matrix = bodyElements.length ? getElementAffinityMatrix() : {};
+  const affinityConfig = getAffinityConfig();
   const parts = splitDamageParts(rawTotal, mech.damageElements).map(part => {
     const ctx = elementContext(part.elementId, targetActor);
-    return { ...part, penetration: ctx.penetration, bonus: ctx.bonus, ctx };
+    const affinity = bodyElements.length ? elementVsDefender(part.elementId, bodyElements, matrix, affinityConfig) : 1;
+    return { ...part, penetration: ctx.penetration, bonus: ctx.bonus, affinity, ctx };
   });
 
   const magicDefense = mech.isMagicDamage && targetActor && !options.skipMagicDefense ? magicDefenseReduction(targetActor) : 0;
@@ -982,6 +1002,9 @@ function applyDamageReductions(rawTotal, mech, targetActor, options = {}) {
 
   return {
     finalDamage: result.final,
+    // O que chega num Escudo pessoal (sem a vantagem contra o corpo; o Escudo tem a dele).
+    shieldBase: result.shieldBase,
+    elementIds: [...new Set((mech.damageElements ?? []).filter(Boolean))],
     appliedReductions,
     defenders,
     parts: result.parts,
@@ -1217,6 +1240,8 @@ async function rollSkillDamage(actor, mech, label, targetActor = null, rollOptio
     // Dados dos botões de Aplicar/Desfazer (ver module/damage-apply.js). Ficam em `flags` e não
     // no conteúdo: quem abrir o chat depois vê o mesmo estado de quem estava online.
     flags: damageApplyFlags(targetActor, finalDamage, {
+      shieldBase: reduction?.shieldBase,
+      elementIds: reduction?.elementIds ?? [],
       absolute: Boolean(mech.isAbsoluteDamage),
       shieldExtra: reduction?.shieldExtra ?? 0,
       shieldMultiplier: reduction?.shieldMultiplier ?? 1,
@@ -1515,7 +1540,9 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor, subSki
       const sustained = Boolean(mech.hasUpkeep) && (entry.shieldRegen > 0 || entry.shieldCap > 0) && entry.amount >= 0;
       // Cada Skill tem o seu pool de Escudo no alvo (ver shield-pools.js); sem Skill de origem
       // (Condição marcada à mão), vai pro avulso.
-      const source = originSkill?.parent ? { holderUuid: originSkill.parent.uuid, skillId: origin.id, subSkillIndex, label } : null;
+      // O Escudo pode ser de um elemento (Escudo de Água): o golpe usa a vantagem contra ele.
+      const shieldElements = Array.isArray(entry.damageElements) ? entry.damageElements.filter(Boolean) : [];
+      const source = originSkill?.parent ? { holderUuid: originSkill.parent.uuid, skillId: origin.id, subSkillIndex, label, elements: shieldElements } : null;
       let change;
       if (entry.amount >= 0) {
         change = await addShieldToPool(targetActor, source, entry.amount, { cap: sustained ? entry.shieldCap : 0 });
@@ -1528,6 +1555,7 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor, subSki
       if (sustained && originSkill?.parent) {
         await recordSustainedShield(originSkill.parent, {
           targetUuid: targetActor.uuid,
+          elements: shieldElements,
           skillId: origin.id,
           subSkillIndex,
           regen: entry.shieldRegen,
@@ -1660,26 +1688,27 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor, subSki
 
     await createActiveEffects(targetActor, [
       {
-        name: condition?.label ?? `${label}: ${targetLabel} ${sign}${entry.amount}`,
+        name: condition?.label ?? (change.bodyElement ? `${label}: ${getDamageElement(change.bodyElement)?.label ?? change.bodyElement}` : `${label}: ${targetLabel} ${sign}${entry.amount}`),
         img: entry.icon || condition?.icon || origin.img || "icons/svg/aura.svg",
         origin: origin.uuid ?? undefined,
         statuses: entry.conditionId ? [entry.conditionId] : [],
         duration: !tiedToActive && entry.durationRounds > 0 ? { rounds: entry.durationRounds } : {},
         // Formato V13 (`changes` + `mode`) ou V14 (`system.changes` + `type`): ver foundry-compat.js.
-        ...buildEffectChanges([{ key: change.key, mode: change.mode, value: change.value }]),
+        ...(change.key ? buildEffectChanges([{ key: change.key, mode: change.mode, value: change.value }]) : {}),
         flags: {
           [SYSTEM_ID]: {
             skillEffect: true,
             conditionId: entry.conditionId || "",
             tiedToActive,
             sourceSkillId: origin.id,
-            sourceSubSkillIndex: subSkillIndex
+            sourceSubSkillIndex: subSkillIndex,
+            bodyElement: change.bodyElement ?? ""
           }
         }
       }
     ]);
     const valueText =
-      entry.target === "weaponElement" ? `→ ${getDamageElement(entry.elementId)?.label ?? entry.elementId}`
+      ["weaponElement", "bodyElement"].includes(entry.target) ? `→ ${getDamageElement(entry.elementId)?.label ?? entry.elementId}`
       : ["weaponMagic", "weaponAbsolute"].includes(entry.target) ? ""
       : isMultiplier ? `×${(1 + entry.amount / 100).toFixed(2)}`
       : `${sign}${entry.amount}${SHIP_PERCENT_PATHS[entry.target] || entry.target === "movement" ? "%" : ""}`;
@@ -2050,12 +2079,12 @@ export async function tickActorUpkeepSkills(actor) {
 const SUSTAINED_SHIELD_FLAG = "sustainedShields";
 
 /** Guarda (ou atualiza) o registro de um Escudo mantido por esta Skill neste alvo. */
-async function recordSustainedShield(holder, { targetUuid, skillId, subSkillIndex, regen, cap, label }) {
+async function recordSustainedShield(holder, { targetUuid, skillId, subSkillIndex, regen, cap, label, elements = [] }) {
   const list = foundry.utils.deepClone(holder.getFlag(SYSTEM_ID, SUSTAINED_SHIELD_FLAG) ?? []);
   const same = r => r.targetUuid === targetUuid && r.skillId === skillId && (r.subSkillIndex ?? null) === (subSkillIndex ?? null);
   const existing = list.find(same);
-  if (existing) Object.assign(existing, { regen, cap, label });
-  else list.push({ targetUuid, skillId, subSkillIndex: subSkillIndex ?? null, regen, cap, label });
+  if (existing) Object.assign(existing, { regen, cap, label, elements });
+  else list.push({ targetUuid, skillId, subSkillIndex: subSkillIndex ?? null, regen, cap, label, elements });
   await holder.setFlag(SYSTEM_ID, SUSTAINED_SHIELD_FLAG, list);
 }
 
@@ -2077,7 +2106,7 @@ export async function regenerateSustainedShields(holder) {
     const target = await fromUuid(record.targetUuid);
     if (!target?.system?.attributes?.shield || !(record.regen > 0)) continue;
     // O pool DESTA Skill regenera até o teto dele (os outros pools do alvo não contam).
-    const source = { holderUuid: holder.uuid, skillId: record.skillId, subSkillIndex: record.subSkillIndex ?? null, label: record.label };
+    const source = { holderUuid: holder.uuid, skillId: record.skillId, subSkillIndex: record.subSkillIndex ?? null, label: record.label, elements: record.elements ?? [] };
     const gain = await addShieldToPool(target, source, record.regen, { cap: record.cap });
     if (!gain) continue;
     rows.push(`${record.label}: Escudo de ${target.name} +${gain}`);
@@ -2263,6 +2292,8 @@ export async function applyStructureContactAsGm(tokenDocument, instance, info) {
     speaker: { alias: instance.label },
     flavor: `${instance.label} — contato — ${tokenDocument.name}: ${reduction.finalDamage}${triggeredLabel(reduction.triggeredConditions)}`,
     flags: damageApplyFlags(target, reduction.finalDamage, {
+      shieldBase: reduction.shieldBase,
+      elementIds: reduction.elementIds,
       shieldExtra: reduction.shieldExtra ?? 0,
       shieldMultiplier: reduction.shieldMultiplier ?? 1,
       shieldPenetration: reduction.shieldPenetration ?? 0,

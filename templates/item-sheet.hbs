@@ -218,7 +218,7 @@
                 {{/each}}
               </select>
               {{#if eff.isElementTarget}}
-              <select class="skill-effect-input" data-effect-field="elementId" aria-label="Elemento que as armas passam a causar">
+              <select class="skill-effect-input" data-effect-field="elementId" aria-label="Elemento">
                 <option value="">— elemento —</option>
                 {{#each eff.elementIdOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
               </select>
@@ -248,6 +248,7 @@
               {{/if}}
               {{/if}}
               {{#if eff.isShieldTarget}}
+              <div class="fld span-all"><span class="fld-label">Elemento do escudo <span class="help" title="Escudo de Água, de Fogo…: o golpe usa a vantagem do elemento dele contra o do Escudo (tabela em Tipos de Dano). Vazio = neutro.">?</span></span>{{> nihility.elementChips field=eff.elementField path=eff.elementPath editable=../editable}}</div>
               {{#if ../system.hasUpkeep}}
               <label class="fld"><span class="fld-label">Regeneração por rodada <span class="help" title="Escudo mantido: no início de cada turno de quem mantém a Skill, soma isto ao Escudo do alvo (até o Teto). Ao desligar a Skill, as camadas somem.">?</span></span><input class="num skill-effect-input" type="number" data-effect-field="shieldRegen" value="{{eff.shieldRegen}}" min="0"/></label>
               <label class="fld"><span class="fld-label">Teto <span class="help" title="Total de Escudo que esta Skill mantém. 0 = sem teto. Escudo de outra fonte acima dele fica, só não regenera mais.">?</span></span><input class="num skill-effect-input" type="number" data-effect-field="shieldCap" value="{{eff.shieldCap}}" min="0"/></label>
@@ -507,6 +508,7 @@
           <label class="fld"><span class="fld-label">Regen por Rodada <span class="help" title="A 100% de throttle.">?</span></span><input class="num" type="number" name="system.shieldRegen" value="{{system.shieldRegen}}" min="0"/></label>
           <label class="fld"><span class="fld-label">Recarga <span class="help" title="Rodadas sem proteção depois que o Escudo zera.">?</span></span><span class="suffix"><input type="number" name="system.shieldRechargeRounds" value="{{system.shieldRechargeRounds}}" min="0" aria-label="Recarga"/><span>rod.</span></span></label>
           <label class="fld"><span class="fld-label">Resistência à Penetração <span class="help" title="Tirada da Penetração da arma no estágio do Escudo (Penetração 40% contra 15% = 25%). Com vários Escudos, vale a maior entre os ligados. A Classe soma a dela.">?</span></span><span class="suffix"><input type="number" name="system.penetrationResist" value="{{system.penetrationResist}}" min="0" max="100" aria-label="Resistência à Penetração"/><span>%</span></span></label>
+          <div class="fld span-all"><span class="fld-label">Elemento do escudo <span class="help" title="Escudo de plasma, de antiprótons…: a vantagem entre elementos vale contra a camada de Escudo. Vários Escudos ligados somam os elementos.">?</span></span>{{> nihility.elementChips field=shieldElementField path="system.shieldElements" editable=editable}}</div>
           <label class="toggle span-all"><input type="checkbox" name="system.adaptive" {{#if system.adaptive}}checked{{/if}}/><span class="toggle-track"></span><span>Adaptativo</span><span class="help" title="Cada golpe que chega no Escudo de pé ensina o Escudo: +X% de resistência àquele elemento, na frequência das armas de quem atacou, até o teto. Perde tudo quando o Escudo cai ou o Módulo desliga. Quem atacou pode Modular frequência para recomeçar do zero.">?</span></label>
           {{#if system.adaptive}}
           <label class="fld"><span class="fld-label">Adapta por golpe</span><span class="suffix"><input type="number" name="system.adaptStep" value="{{system.adaptStep}}" min="0" max="95" aria-label="Adapta por golpe"/><span>%</span></span></label>

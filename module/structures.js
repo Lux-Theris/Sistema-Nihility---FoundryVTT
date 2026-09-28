@@ -26,7 +26,9 @@ import {
   getActiveDamageElements,
   actorAntimagicLevel,
   antimagicSurcharge,
-  getAntimagicConfig
+  getAntimagicConfig,
+  getElementAffinityMatrix,
+  getAffinityConfig
 } from "./config.js";
 import { runAsGm, isDesignatedGm } from "./helpers/gm-relay.js";
 import {
@@ -39,7 +41,7 @@ import {
   pointInSegments,
   segmentsCross
 } from "./structure-geometry.js";
-import { structureElementFactor } from "./damage-rules.js";
+import { hitAffinityFactor } from "./damage-rules.js";
 import { lightSourceData } from "./lights.js";
 
 const FLAG = "structures";
@@ -406,8 +408,8 @@ export function interceptingStructure(attacker, target, { origin = null } = {}) 
  * @returns {{absorbed: number, passed: number, label: string, point: {x: number, y: number}}}
  */
 export async function hitStructure(block, amount, elementIds = []) {
-  // Elementos: Fogo contra Parede de Gelo bate mais forte NELA (o que passa volta à escala do golpe).
-  const factor = structureElementFactor(elementIds, instanceInfo(block.instance).elements, getActiveDamageElements());
+  // Vantagem entre elementos: Fogo contra Parede de Gelo bate mais forte NELA (o que passa volta à escala do golpe).
+  const factor = hitAffinityFactor(elementIds, instanceInfo(block.instance).elements, getElementAffinityMatrix(), getAffinityConfig());
   const { absorbed, passed } = splitStructureHit(amount * factor, block.capacity);
   if (absorbed > 0) await runAsGm("damageStructure", { sceneId: block.scene.id, instanceId: block.instance.id, amount: absorbed });
   return { absorbed, passed: factor > 0 ? Math.round(passed / factor) : passed, label: block.instance.label, point: block.point };

@@ -540,7 +540,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       const condition = conditions.find(c => c.id === entry.conditionId);
 
       let summary;
-      if (entry.target === "weaponElement") summary = `${targetLabel} → ${elements.find(el => el.id === entry.elementId)?.label ?? "?"}`;
+      if (["weaponElement", "bodyElement"].includes(entry.target)) summary = `${targetLabel} → ${elements.find(el => el.id === entry.elementId)?.label ?? "?"}`;
       else if (isShipTarget && entry.modifierType === "multiplier") summary = `${targetLabel} ×${(1 + amount / 100).toFixed(2).replace(".", ",")}`;
       else summary = `${targetLabel} ${signed(amount)}${periodic ? " por tick" : ""}`;
       const extra = [];
@@ -548,6 +548,9 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       else if (entry.target === "shield") extra.push("até absorver");
       else extra.push(`${entry.durationRounds} ${periodic ? "tick(s)" : "rodada(s)"}`);
       if (condition) extra.push(condition.label);
+      if (entry.target === "shield" && entry.damageElements?.length) {
+        extra.push(`Escudo de ${entry.damageElements.map(id => elements.find(el => el.id === id)?.label ?? id).join(" + ")}`);
+      }
       if (periodic && entry.damageElements?.length) {
         extra.push(entry.damageElements.map(id => elements.find(el => el.id === id)?.label ?? id).join(" + "));
       }
@@ -568,7 +571,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         groupLabel: MEU_SISTEMA.EFFECT_TARGET_GROUPS[groupIndex]?.label ?? "—",
         groupClass: groupClasses[groupIndex] ?? "",
         targetGroups,
-        isElementTarget: entry.target === "weaponElement",
+        isElementTarget: ["weaponElement", "bodyElement"].includes(entry.target),
         elementIdOptions: elements.map(el => ({ value: el.id, label: el.label, selected: el.id === entry.elementId })),
         acceptsPeriodic,
         periodic,
@@ -629,6 +632,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     }
     context.moduleSizeSeg = seg(MEU_SISTEMA.MODULE_SIZES.map(size => [size, MEU_SISTEMA.MODULE_SIZE_LABELS[size]]), sys.moduleSize);
     context.moduleElementField = selectedElementChips(sys.damageElements);
+    context.shieldElementField = selectedElementChips(sys.shieldElements ?? []);
     const accepted = new Set(sys.ammoTypes ?? []);
     context.launcherAmmoChips = getAmmoTypes().map(a => ({ id: a.id, label: a.label, checked: accepted.has(a.id) }));
     context.cargoSlotsPreview = cargoSlotsFor(sys.moduleSize, sys.cargoMultiplier);
@@ -934,6 +938,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   #readElementList(path) {
     const effect = path?.match(/^system\.effects\.(\d+)\.damageElements$/);
     if (effect) return this.item.system.effects?.[Number(effect[1])]?.damageElements ?? [];
+    // Tabela de elementos do Escudo dentro de um Efeito usa o mesmo campo (damageElements).
     return foundry.utils.getProperty(this.item, path) ?? [];
   }
 

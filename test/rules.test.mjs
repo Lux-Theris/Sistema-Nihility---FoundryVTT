@@ -768,7 +768,11 @@ import {
   shieldAdaptationKey,
   shieldAdaptationFor,
   adaptShield,
-  structureElementFactor
+  affinityMultiplier,
+  cycleAffinityLevel,
+  elementVsDefender,
+  hitAffinityFactor,
+  buildAffinityMatrix
 } from "../module/damage-rules.js";
 
 test("elementos: o golpe é dividido em partes iguais", () => {
@@ -1283,15 +1287,44 @@ test("Antimagia: marca Mágica e custo extra por nível", () => {
   assert.equal(antimagicSurcharge(0, 1, { base: 5, growth: 3 }), 10);
 });
 
-test("Estrutura com elemento: dano extra contra elemento, por parte do golpe", () => {
-  const catalog = [
-    { id: "fire", effects: [{ type: "vsElement", element: "ice", percent: 50 }] },
-    { id: "ice", effects: [] }
-  ];
-  assert.equal(structureElementFactor(["fire"], ["ice"], catalog), 1.5);
-  assert.equal(structureElementFactor(["fire", "ice"], ["ice"], catalog), 1.25); // metade do golpe é Fogo
-  assert.equal(structureElementFactor(["fire"], ["stone"], catalog), 1);
-  assert.equal(structureElementFactor([], ["ice"], catalog), 1);
+test("Vantagem entre elementos: níveis, multiplicação, média das partes e o antigo percentual", () => {
+  const matrix = buildAffinityMatrix([
+    { id: "fire", affinity: { ice: 1, plant: 2, fire: -1 } },
+    { id: "water", effects: [{ type: "vsElement", element: "fire", percent: 50 }] }, // antigo → Efetivo
+    { id: "ghost", affinity: { normal: -2 } }
+  ]);
+  assert.deepEqual(matrix.water, { fire: 1 });
+  assert.equal(affinityMultiplier(-2), 0);
+  assert.equal(affinityMultiplier(-1), 0.5);
+  assert.equal(affinityMultiplier(0), 1);
+  assert.equal(affinityMultiplier(1), 1.5);
+  assert.equal(affinityMultiplier(2), 2);
+  assert.equal(affinityMultiplier(2, { superEffective: 3 }), 3);
+  assert.equal(elementVsDefender("fire", ["ice"], matrix), 1.5);
+  assert.equal(elementVsDefender("fire", ["ice", "plant"], matrix), 3); // multiplica (1,5 × 2)
+  assert.equal(elementVsDefender("fire", [], matrix), 1);
+  assert.equal(elementVsDefender("ghost", ["normal"], matrix), 0);
+  assert.equal(hitAffinityFactor(["fire", "water"], ["fire"], matrix), (0.5 + 1.5) / 2); // metade de cada
+  assert.equal(hitAffinityFactor([], ["ice"], matrix), 1);
+  assert.equal(cycleAffinityLevel(0, 1), 1);
+  assert.equal(cycleAffinityLevel(2, 1), 2);
+  assert.equal(cycleAffinityLevel(0, -1), -1);
+  assert.equal(cycleAffinityLevel(-2, -1), -2);
+});
+
+test("Vantagem entre elementos no dano de Personagem e nos pools de Escudo", () => {
+  // Parte de Fogo contra corpo de Gelo (×1,5): o Escudo recebe o golpe sem essa vantagem.
+  const result = resolveDamageParts({ parts: [{ elementId: "fire", raw: 100, affinity: 1.5 }] });
+  assert.equal(result.final, 150);
+  assert.equal(result.shieldBase, 100);
+  const immune = resolveDamageParts({ parts: [{ elementId: "fire", raw: 100, affinity: 0 }] });
+  assert.equal(immune.final, 0);
+  assert.equal(immune.shieldBase, 100);
+  // Pool de Água (ineficaz contra ele: ×0,5 no que ele sofre) segura o dobro.
+  const pools = [{ id: "a", value: 20, order: 2, elements: ["water"] }];
+  const out = consumeShieldPools(pools, 0, 100, { layerMultiplier: pool => (pool.elements.includes("water") ? 0.5 : 1) });
+  assert.equal(out.toShield, 20);
+  assert.equal(out.toHp, 60); // 100 − 40 (20 de Escudo seguram 40 de golpe)
 });
 
 test("Geometria: ponto dentro de forma fechada e cruzamento de segmentos", () => {

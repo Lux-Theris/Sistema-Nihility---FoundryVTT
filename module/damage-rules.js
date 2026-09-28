@@ -45,13 +45,15 @@ export function splitDamageParts(total, elementIds = []) {
 export function resolveDamageParts({ parts, magicDefense = 0, general = 0, resistanceFor = () => 0, absolute = false }) {
   const results = (parts ?? []).map(part => {
     const base = Math.max(0, Number(part.raw) || 0);
-    if (absolute) return { elementId: part.elementId, raw: base, final: base, blockedGeneral: 0, blockedElement: 0 };
+    if (absolute) return { elementId: part.elementId, raw: base, final: base, beforeAffinity: base, blockedGeneral: 0, blockedElement: 0 };
+    // Vantagem do elemento da parte contra o elemento do corpo do alvo (Fogo contra quem virou Gelo).
+    const affinity = Math.max(0, Number(part.affinity ?? 1));
     const raw = base * (1 + Math.max(0, Number(part.bonus) || 0));
 
     const penetration = Math.min(1, Math.max(0, Number(part.penetration) || 0));
     const elementResist = part.elementId ? Math.max(0, Number(resistanceFor(part.elementId)) || 0) : 0;
     if (elementResist >= 1) {
-      return { elementId: part.elementId, raw, final: 0, blockedGeneral: 0, blockedElement: raw, immune: true };
+      return { elementId: part.elementId, raw, final: 0, beforeAffinity: 0, blockedGeneral: 0, blockedElement: raw, immune: true };
     }
 
     const soften = value => Math.min(1, Math.max(0, value)) * (1 - penetration);
@@ -63,11 +65,13 @@ export function resolveDamageParts({ parts, magicDefense = 0, general = 0, resis
     remaining *= 1 - soften(elementResist);
     const blockedElement = beforeElement - remaining;
 
-    return { elementId: part.elementId, raw, final: remaining, blockedGeneral, blockedElement };
+    return { elementId: part.elementId, raw, final: remaining * affinity, beforeAffinity: remaining, blockedGeneral, blockedElement };
   });
 
   const final = Math.max(0, Math.floor(results.reduce((sum, p) => sum + p.final, 0) + 1e-9));
-  return { final, parts: results };
+  // O que chega num Escudo antes da vantagem contra o CORPO (o Escudo tem a vantagem dele).
+  const shieldBase = Math.max(0, Math.floor(results.reduce((sum, p) => sum + p.beforeAffinity, 0) + 1e-9));
+  return { final, shieldBase, parts: results };
 }
 
 /**
@@ -256,26 +260,81 @@ export function resolveShipCascade({
   return { toShield: shieldStage.absorbed, toCasco, toHull, adapted: Math.floor(adapted + 1e-9) };
 }
 
+/* ------------------------------------------------------------------ Vantagem entre elementos */
+
 /**
- * Fator do golpe contra uma Estrutura com elementos: cada parte do golpe (uma por elemento, em
- * partes iguais) ganha os "Dano extra contra elemento" do seu elemento que batem com algum dos
- * elementos da Estrutura (Fogo +50% contra Gelo). Sem elementos de um dos lados, 1. Pura.
- * @param {string[]} elementIds - elementos do golpe
- * @param {string[]} structureElements
- * @param {Array<{id: string, effects?: object[]}>} catalog - Tipos de Dano
+ * Níveis da tabela de vantagens (estilo Pokémon): −2 Imune, −1 Ineficaz, 0 Neutro, 1 Efetivo,
+ * 2 Super efetivo. Cada nível vira um multiplicador (Regras da Mesa).
  */
-export function structureElementFactor(elementIds, structureElements, catalog) {
-  const ids = [...new Set((elementIds ?? []).filter(Boolean))];
-  const against = new Set(structureElements ?? []);
-  if (!ids.length || !against.size) return 1;
-  const total = ids.reduce((sum, id) => {
-    const element = (catalog ?? []).find(e => e.id === id);
-    const bonus = (element?.effects ?? [])
-      .filter(e => e.type === "vsElement" && against.has(e.element))
-      .reduce((acc, e) => acc + (Number(e.percent) || 0), 0);
-    return sum + Math.max(0, 1 + bonus / 100);
-  }, 0);
-  return total / ids.length;
+export const AFFINITY_LEVELS = [-2, -1, 0, 1, 2];
+
+/** Nível válido (−2..2), arredondado. Pura. */
+export function clampAffinityLevel(level) {
+  return Math.min(2, Math.max(-2, Math.round(Number(level) || 0)));
+}
+
+/** Clique na tabela: esquerdo sobe um nível (`+1`), direito desce (`−1`), sem passar dos extremos. Pura. */
+export function cycleAffinityLevel(level, direction) {
+  return clampAffinityLevel(clampAffinityLevel(level) + (direction < 0 ? -1 : 1));
+}
+
+/** Multiplicador de um nível. Pura. */
+export function affinityMultiplier(level, { immune = 0, ineffective = 0.5, effective = 1.5, superEffective = 2 } = {}) {
+  switch (clampAffinityLevel(level)) {
+    case -2: return Math.max(0, Number(immune) || 0);
+    case -1: return Math.max(0, Number(ineffective) || 0);
+    case 1: return Math.max(0, Number(effective) || 0);
+    case 2: return Math.max(0, Number(superEffective) || 0);
+    default: return 1;
+  }
+}
+
+/** Nível de `attackId` contra `defenseId` na tabela `{atacante: {defensor: nível}}`. Pura. */
+export function affinityLevel(matrix, attackId, defenseId) {
+  return clampAffinityLevel(matrix?.[attackId]?.[defenseId] ?? 0);
+}
+
+/**
+ * Uma parte do golpe (um elemento) contra quem tem estes elementos: os multiplicadores de cada
+ * elemento do defensor se MULTIPLICAM (Fogo contra Planta + Gelo = 2 × 2). Sem elemento de um dos
+ * lados, 1. Pura.
+ */
+export function elementVsDefender(attackId, defenderElements, matrix, config) {
+  if (!attackId) return 1;
+  return [...new Set(defenderElements ?? [])].filter(Boolean)
+    .reduce((factor, defenseId) => factor * affinityMultiplier(affinityLevel(matrix, attackId, defenseId), config), 1);
+}
+
+/**
+ * O golpe inteiro contra um defensor (Escudo, Estrutura, corpo de Nave): média das partes iguais,
+ * uma por elemento do golpe (como no dano por elemento). Golpe sem elemento: 1. Pura.
+ */
+export function hitAffinityFactor(hitElements, defenderElements, matrix, config) {
+  const ids = [...new Set(hitElements ?? [])].filter(Boolean);
+  if (!ids.length || !(defenderElements ?? []).length) return 1;
+  return ids.reduce((sum, id) => sum + elementVsDefender(id, defenderElements, matrix, config), 0) / ids.length;
+}
+
+/**
+ * Tabela de vantagens a partir do catálogo (`affinity` de cada elemento), convertendo o antigo
+ * efeito "Dano extra contra elemento" (percentual) em nível: ≥ +75% Super efetivo, > 0 Efetivo,
+ * ≤ −100% Imune, < 0 Ineficaz. O nível escrito na tabela manda sobre o convertido. Pura.
+ */
+export function buildAffinityMatrix(elements) {
+  const matrix = {};
+  for (const element of elements ?? []) {
+    if (!element?.id) continue;
+    const row = {};
+    for (const effect of element.effects ?? []) {
+      if (effect?.type !== "vsElement" || !effect.element) continue;
+      const percent = Number(effect.percent) || 0;
+      row[effect.element] = percent >= 75 ? 2 : percent > 0 ? 1 : percent <= -100 ? -2 : percent < 0 ? -1 : 0;
+    }
+    for (const [defenseId, level] of Object.entries(element.affinity ?? {})) row[defenseId] = clampAffinityLevel(level);
+    for (const [defenseId, level] of Object.entries(row)) if (!level) delete row[defenseId];
+    if (Object.keys(row).length) matrix[element.id] = row;
+  }
+  return matrix;
 }
 
 /** Chave da adaptação de um Escudo: elemento + frequência das armas de quem atacou. */
@@ -347,7 +406,7 @@ export function hardenedChance(chancePercent, hardeningPercent = 0) {
  * @param {{penetration?: number, multiplier?: number, drain?: number}} [options]
  * @returns {{pools: object[], loose: number, toShield: number, toHp: number}}
  */
-export function consumeShieldPools(pools, loose, amount, { penetration = 0, multiplier = 1, drain = 0 } = {}) {
+export function consumeShieldPools(pools, loose, amount, { penetration = 0, multiplier = 1, drain = 0, layerMultiplier = null } = {}) {
   const layers = [...(pools ?? [])]
     .map(pool => ({ ...pool, value: Math.max(0, Math.round(Number(pool.value) || 0)) }))
     .sort((a, b) => (Number(b.order) || 0) - (Number(a.order) || 0));
@@ -371,7 +430,9 @@ export function consumeShieldPools(pools, loose, amount, { penetration = 0, mult
     if (remaining < 1) break;
     if (layer.value <= 0) continue;
     const targeted = remaining * (1 - pen);
-    const { absorbed, leaked } = absorbLayer(targeted, layer.value, multiplier);
+    // Cada pool pode ter o seu elemento: a vantagem do golpe contra ele entra no multiplicador.
+    const factor = layerMultiplier && layer.id !== null ? Math.max(0, Number(layerMultiplier(layer)) || 0) : 1;
+    const { absorbed, leaked } = absorbLayer(targeted, layer.value, multiplier * factor);
     layer.value -= absorbed;
     toShield += absorbed;
     remaining = remaining - targeted + leaked;

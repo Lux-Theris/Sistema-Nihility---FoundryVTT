@@ -447,6 +447,16 @@ Elementos podem ter efeitos ao acertar, definidos pelo Mestre. Os de fábrica:
 
 Quem é imune a um elemento também não sofre os efeitos dele.
 
+### Vantagem entre elementos
+
+Elementos têm vantagem ou desvantagem uns contra os outros, numa tabela do Mestre estilo Pokémon: **Imune** (×0), **Ineficaz** (×0,5), **Neutro**, **Efetivo** (×1,5), **Super efetivo** (×2). Vale contra quem **é** de um elemento:
+
+- **o corpo**: pela Espécie (um Elemental de Fogo), por uma Condição (Encharcado = Água) ou por uma Skill de transformação (Efeito **Elemento do corpo**: "Forma de Chamas" deixa você de Fogo enquanto durar). Virar um elemento muda como você **recebe** dano — os seus ataques continuam com os elementos da Skill/arma. Com dois elementos, as vantagens se multiplicam;
+- **um Escudo** de um elemento (Escudo de Água, Escudo de plasma da Nave): o Escudo recebe o golpe com a vantagem contra o elemento dele;
+- **uma Estrutura** de um elemento (Parede de Gelo).
+
+Num golpe com vários elementos, cada parte usa a sua vantagem. Dano Absoluto ignora a tabela. A janela **✦ Efeitos** mostra de que elemento você é agora.
+
 ### Dano Absoluto
 
 É **o dano inteiro**, não importa quais elementos venham junto no golpe. **Não pode ser resistido**: ignora Defesa Mágica, Resistências, Imunidade e o Escudo pessoal, e os elementos também não o aumentam nem diminuem (as Condições deles ainda podem pegar). Mas **pode ser evitado**: uma Estrutura no caminho segura o golpe, e uma Nave ainda pode desviar pela Evasão.
@@ -511,7 +521,7 @@ Uma Estrutura cai quando: a Vida dela chega a 0; acabam as rodadas de duração;
 
 Ao cair, ela deixa de bloquear na hora, mas o desenho some com uma animação curta, pra todo mundo entender o que aconteceu: **racha e estilhaça** se foi destruída, **pisca e se desfaz** se acabou a Mana que a mantinha (ou a antimagia venceu), e **dissolve devagar** se o prazo acabou ou a Skill foi desligada. O card do chat diz como ela caiu.
 
-**Estruturas com elemento:** uma Parede de Gelo é de Gelo — um golpe de Fogo bate mais forte nela (se o elemento Fogo tiver "Dano extra contra elemento" Gelo). Algumas Estruturas não seguram golpes e **queimam quem as atravessa** (Muralha de Fogo): atravessar ou terminar o movimento dentro dela rola o dano de contato contra você, com as suas defesas valendo normalmente.
+**Estruturas com elemento:** uma Parede de Gelo é de Gelo — um golpe de Fogo bate mais forte nela, pela tabela de vantagens entre elementos. Algumas Estruturas não seguram golpes e **queimam quem as atravessa** (Muralha de Fogo): atravessar ou terminar o movimento dentro dela rola o dano de contato contra você, com as suas defesas valendo normalmente.
 
 ### Antimagia
 
@@ -704,7 +714,7 @@ Uma arma marcada como **lançador** (Usa munição) só dispara com **Munição*
 
 ### Reparo em campo
 
-Use **Reparo de emergência** na ficha da Nave ou a macro **Pedido de Reparo** (o Mestre a cria na barra de macros; ela só funciona com uma Nave na cena). Escolha a Nave, **o que** reparar (os Escudos ou qualquer Módulo — o Casco e a Integridade Estrutural se reparam consertando os Módulos deles) e **o engenheiro** (um personagem seu). O Mestre recebe o pedido, rola **Destreza** do engenheiro e, se julgar que deu certo, clica **Restaurar Vida** (2d6 de Vida, sem passar do máximo). Consertar algo grande leva mais tentativas.
+Use **Reparo de emergência** na ficha da Nave ou a macro **Pedido de Reparo** (o Mestre a cria na barra de macros; ela só funciona com uma Nave na cena). Escolha a Nave, **o que** reparar (os Escudos ou qualquer Módulo — o Casco e a Integridade Estrutural se reparam consertando os Módulos deles) e **quem conserta**: a lista mostra **toda a tripulação da Nave**, com quem está no posto de **Engenharia** em destaque no topo (★) — quem está na Engenharia **restaura mais Vida**: 2d6 **+ 1d6** (fórmula do Mestre); sem tripulação, aparecem os seus Personagens na cena. O Mestre recebe o pedido, rola **Destreza** do engenheiro e, se julgar que deu certo, clica **Restaurar Vida** (2d6 de Vida, sem passar do máximo). Consertar algo grande leva mais tentativas.
 
 ---
 

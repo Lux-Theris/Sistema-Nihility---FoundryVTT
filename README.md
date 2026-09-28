@@ -34,6 +34,7 @@ Sistema customizado para [Foundry VTT](https://foundryvtt.com/) (requer **V13+**
   - Um golpe com vários elementos é dividido em partes iguais, e cada parte sofre só a Resistência do seu elemento. Imunidade a Fogo não zera a parte de Gelo.
   - Cada elemento pode ter **efeitos ao acertar**: aplicar Condição com chance, dano extra contra um Traço, dreno de Escudo, Penetração.
 - **Antimagia**: Skills que custam Mana são Mágicas; Campo Antimagia (Estrutura) e Selo Antimagia (Condição) cobram Mana extra por nível, ou anulam a magia. Estruturas podem ter elementos (Fogo derrete Gelo mais rápido) e dano ao contato (Muralha de Fogo).
+- **Vantagem entre elementos** estilo Pokémon (Imune, Ineficaz, Neutro, Efetivo, Super efetivo), editada numa tabela clicável: vale contra quem É de um elemento (Espécie, Condição ou Skill de transformação), contra Escudos de um elemento (pessoal e de Nave) e contra Estruturas.
 - **Dano Absoluto**: é o dano inteiro, com qualquer elemento junto — não pode ser resistido nem alterado pelos elementos, só desviado (Evasão de nave) ou barrado por uma Estrutura.
 - **Escala Personagem × Nave**: dano entre escalas diferentes é multiplicado ou dividido pelo fator a cada degrau. Pistola quase não arranha uma nave; canhão de nave vaporiza uma pessoa.
 - **Condições com efeito padrão**: Queimadura em % do dano do golpe, Lentidão em % do deslocamento…, definido uma vez e usado por elementos, Skills e pela marcação no token. Reaplicar renova a duração, não soma.

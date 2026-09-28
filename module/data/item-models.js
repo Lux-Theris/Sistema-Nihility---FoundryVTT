@@ -145,7 +145,7 @@ function usageFields() {
  */
 function effectEntrySchema() {
   return new fields.SchemaField({
-    /** Só pro alvo "weaponElement": o Elemento que as armas passam a causar enquanto o efeito durar. */
+    /** Alvos "weaponElement" e "bodyElement": o Elemento que as armas causam / que o alvo passa a ser. */
     elementId: new fields.StringField({ required: false, initial: "", blank: true }),
     target: new fields.StringField({ required: true, choices: MEU_SISTEMA.EFFECT_TARGETS }),
     amount: new fields.NumberField({ required: true, integer: true, initial: 1 }),
@@ -641,6 +641,8 @@ export class StarshipModuleDataModel extends foundry.abstract.TypeDataModel {
        * adaptação mora no flag `shieldAdaptation` DESTE Módulo instalado e se perde quando o
        * Escudo cai ou o Módulo desliga (ver starship-power.js).
        */
+      /** Elemento(s) do Escudo (Escudo de plasma): a vantagem entre elementos vale contra ele. */
+      shieldElements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
       adaptive: new fields.BooleanField({ required: false, initial: false }),
       adaptStep: new fields.NumberField({ required: false, integer: true, initial: 10, min: 0, max: 95 }),
       adaptCap: new fields.NumberField({ required: false, integer: true, initial: 75, min: 0, max: 95 }),

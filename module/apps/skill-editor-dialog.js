@@ -69,7 +69,7 @@ function buildEffectRowHtml(entry) {
   return `
     <div class="effect-row-main">
       <select class="se-effect-target">${options}</select>
-      <select class="se-effect-element-id" title="Elemento que as armas passam a causar" style="display:${entry.target === "weaponElement" ? "inline-block" : "none"};">${elementIdOptions}</select>
+      <select class="se-effect-element-id" title="Elemento (das armas, ou que o alvo passa a ser)" style="display:${["weaponElement", "bodyElement"].includes(entry.target) ? "inline-block" : "none"};">${elementIdOptions}</select>
       <input type="number" class="se-effect-amount" value="${entry.amount}" placeholder="Qtd."/>
       <input type="number" class="se-effect-duration" value="${entry.durationRounds}" min="0" placeholder="Rounds/Ticks"/>
       <a class="se-effect-delete" title="Remover"><i class="fas fa-trash"></i></a>
@@ -85,8 +85,8 @@ function buildEffectRowHtml(entry) {
       <select class="se-effect-tick-unit" style="display:${periodicVisible && entry.periodic ? "inline-block" : "none"};">${tickUnitOptions}</select>
       <select class="se-effect-modifier-type" style="display:${modifierTypeVisible ? "inline-block" : "none"};" title="Fixo soma direto no resultado; Multiplicador lê Quantidade como percentual (20 = ×1.20)">${modifierTypeOptions}</select>
     </div>
-    <div class="effect-row-periodic-extra" style="display:${periodicVisible && entry.periodic ? "flex" : "none"};">
-      <span class="hint-inline" style="display:inline;">Elemento do tick (ignorado se o tick for cura):</span>
+    <div class="effect-row-periodic-extra" style="display:${(periodicVisible && entry.periodic) || entry.target === "shield" ? "flex" : "none"};">
+      <span class="hint-inline se-elements-label" style="display:inline;">${entry.target === "shield" ? "Elemento do escudo (vazio = neutro):" : "Elemento do tick (ignorado se o tick for cura):"}</span>
       ${pickerFieldHtml(entryElements, "se-effect-elements")}
     </div>
     <div class="effect-row-shield" style="display:${entry.target === "shield" ? "flex" : "none"};">
@@ -580,7 +580,10 @@ function setupSkillEditorInteractivity(root, data) {
       if (!accepts) periodicCheckbox.checked = false;
       const periodicOn = accepts && periodicCheckbox.checked;
       tickUnitSelect.style.display = periodicOn ? "inline-block" : "none";
-      periodicExtra.style.display = periodicOn ? "flex" : "none";
+      // A mesma lista de elementos serve de "elemento do escudo" num Efeito de Escudo.
+      const isShield = targetSelect.value === "shield";
+      periodicExtra.style.display = periodicOn || isShield ? "flex" : "none";
+      periodicExtra.querySelector(".se-elements-label").textContent = isShield ? "Elemento do escudo (vazio = neutro):" : "Elemento do tick (ignorado se o tick for cura):";
     }
     // Fixo/Multiplicador só existe pros alvos "de Nave" (Dano/Penetração de Arma) — some sozinho
     // (volta pro padrão "flat") pra qualquer outro alvo, mesmo padrão de applyPeriodicVisibility.
@@ -613,7 +616,7 @@ function setupSkillEditorInteractivity(root, data) {
       lightRow.querySelector(".se-light-text").textContent = describeLight(stored);
     });
     targetSelect.addEventListener("change", () => {
-      li.querySelector(".se-effect-element-id").style.display = targetSelect.value === "weaponElement" ? "inline-block" : "none";
+      li.querySelector(".se-effect-element-id").style.display = ["weaponElement", "bodyElement"].includes(targetSelect.value) ? "inline-block" : "none";
     });
     periodicCheckbox.addEventListener("change", applyPeriodicVisibility);
 

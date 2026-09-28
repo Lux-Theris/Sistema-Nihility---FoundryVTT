@@ -3,6 +3,9 @@
  * Reunido em um único objeto para ser exposto em `game.nihility.config`
  * e consultado por Data Models, Sheets e o AI Helper.
  */
+// damage-rules.js é puro e não importa nada: não há ciclo.
+import { buildAffinityMatrix } from "./damage-rules.js";
+
 export const SYSTEM_ID = "nihility-rpg-system";
 
 export const MEU_SISTEMA = {
@@ -47,7 +50,12 @@ export const MEU_SISTEMA = {
     shipTargetAsk: "shipTargetAsk",
     shipTargetShare: "shipTargetShare",
     shipBracePercent: "shipBracePercent",
+    shipRepairEngineerFormula: "shipRepairEngineerFormula",
     antimagicBase: "antimagicBase",
+    affinityImmune: "affinityImmune",
+    affinityIneffective: "affinityIneffective",
+    affinityEffective: "affinityEffective",
+    affinitySuperEffective: "affinitySuperEffective",
     antimagicGrowth: "antimagicGrowth",
     shipFocusBoost: "shipFocusBoost",
     shipFocusCut: "shipFocusCut",
@@ -547,7 +555,7 @@ export const MEU_SISTEMA = {
     { id: "stone-wall", label: "Parede de Pedra", img: "", color: "#8d8471", shape: "free", size: 10, blocksMove: true, blocksSight: true, hp: 60, durationRounds: 0 },
     { id: "ice-block", label: "Bloco de Gelo", img: "", color: "#6ee7ff", shape: "rect", size: 2, blocksMove: true, blocksSight: false, hp: 30, durationRounds: 3 },
     { id: "mana-barrier", label: "Barreira de Mana", img: "", color: "#c084fc", shape: "circle", size: 3, blocksMove: true, blocksSight: false, hp: 0, durationRounds: 0, magic: true },
-    // Não segura golpe nenhum: queima quem atravessa (e o Gelo apanha mais do Fogo, ver "vsElement").
+    // Não segura golpe nenhum: queima quem atravessa (a vantagem entre elementos vale contra ela).
     { id: "fire-wall", label: "Muralha de Fogo", img: "", color: "#ff7043", shape: "line", size: 8, blocksMove: false, blocksSight: false, blocksAttacks: false, hp: 0, durationRounds: 3, magic: true, elements: ["fire"], contactDamage: "2d6" },
     // Campo Antimagia: ataque mágico que o atravessa (ou sai de dentro) paga Mana extra ou é anulado.
     { id: "antimagic-field", label: "Campo Antimagia", img: "", color: "#9aa1c2", shape: "circle", size: 4, blocksMove: false, blocksSight: false, blocksAttacks: false, hp: 0, durationRounds: 3, antimagicLevel: 1 }
@@ -862,6 +870,7 @@ export const MEU_SISTEMA = {
     "movement",
     "weaponDamage",
     "weaponElement",
+    "bodyElement",
     "weaponMagic",
     "weaponAbsolute",
     "shipWeaponDamage",
@@ -891,6 +900,7 @@ export const MEU_SISTEMA = {
     movement: "Deslocamento (%)",
     weaponDamage: "Dano das Armas equipadas",
     weaponElement: "Elemento das Armas (substitui)",
+    bodyElement: "Elemento do corpo (vira o elemento)",
     weaponMagic: "Armas causam dano Mágico",
     weaponAbsolute: "Armas causam Dano Absoluto",
     shipWeaponDamage: "Dano de Arma (Nave)",
@@ -914,6 +924,7 @@ export const MEU_SISTEMA = {
     { label: "Atributos", actor: "character", targets: ["strength", "defense", "magic", "magicalDefense", "dexterity", "stealth", "perception", "precision"] },
     { label: "Vitais", actor: "character", targets: ["hp", "energy", "shield", "movement"] },
     { label: "Arma", actor: "any", targets: ["weaponDamage", "weaponElement", "weaponMagic", "weaponAbsolute"] },
+    { label: "Elemento", actor: "any", targets: ["bodyElement"] },
     { label: "Nave", actor: "ship", targets: ["shipWeaponDamage", "shipWeaponPenetration", "shipShieldCapacity", "shipShieldRegen", "shipReactorOutput", "shipPropulsion", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"] }
   ],
 
@@ -958,12 +969,13 @@ export const MEU_SISTEMA = {
   /** Tipos de dano elemental padrão, sobrescritos pela setting `damageElementsData` (editor visual). */
   DEFAULT_DAMAGE_ELEMENTS: [
     { id: "physical", label: "Físico", color: "#9aa1c2", group: "Físico", effects: [] },
-    { id: "fire", label: "Fogo", color: "#ff7043", group: "Fantasia", effects: [{ type: "condition", conditionId: "burn", chance: 25 }] },
-    { id: "ice", label: "Gelo", color: "#6ee7ff", group: "Fantasia", effects: [{ type: "condition", conditionId: "slow", chance: 25 }] },
+    // `affinity`: vantagem contra outros elementos (−2 Imune … 2 Super efetivo) — ver a tabela no editor.
+    { id: "fire", label: "Fogo", color: "#ff7043", group: "Fantasia", effects: [{ type: "condition", conditionId: "burn", chance: 25 }], affinity: { ice: 1 } },
+    { id: "ice", label: "Gelo", color: "#6ee7ff", group: "Fantasia", effects: [{ type: "condition", conditionId: "slow", chance: 25 }], affinity: { fire: -1 } },
     { id: "lightning", label: "Elétrico", color: "#ffe066", group: "Fantasia", effects: [] },
     { id: "acid", label: "Ácido", color: "#8bc34a", group: "Fantasia", effects: [] },
-    { id: "dark", label: "Sombrio", color: "#7b5ea7", group: "Fantasia", effects: [] },
-    { id: "holy", label: "Sagrado", color: "#e8c170", group: "Fantasia", effects: [] }
+    { id: "dark", label: "Sombrio", color: "#7b5ea7", group: "Fantasia", effects: [], affinity: { holy: 1 } },
+    { id: "holy", label: "Sagrado", color: "#e8c170", group: "Fantasia", effects: [], affinity: { dark: 1 } }
   ],
 
   /**
@@ -974,14 +986,15 @@ export const MEU_SISTEMA = {
    *  - shieldDrain: +X% de dano só contra Escudo (camada de Escudo da Nave ou Escudo pessoal);
    *  - penetration: ignora X% das defesas do alvo (nunca atravessa Imunidade).
    */
-  ELEMENT_EFFECT_TYPES: ["condition", "traitBonus", "vsElement", "layer", "shieldDrain", "penetration", "moduleDisable", "energyDrain", "resistanceDown"],
+  ELEMENT_EFFECT_TYPES: ["condition", "traitBonus", "layer", "shieldDrain", "penetration", "moduleDisable", "energyDrain", "resistanceDown"],
+  /** Níveis da tabela de vantagens entre elementos (clique esquerdo sobe, direito desce). */
+  AFFINITY_LEVEL_LABELS: { "-2": "Imune", "-1": "Ineficaz", 0: "Neutro", 1: "Efetivo", 2: "Super efetivo" },
   ELEMENT_EFFECT_TYPE_LABELS: {
     condition: "Aplicar Condição",
     traitBonus: "Dano extra contra Traço",
     layer: "Dano por camada (Escudo, Casco, Integridade)",
     shieldDrain: "Dano extra em Escudo (antigo: use Dano por camada)",
     penetration: "Penetração",
-    vsElement: "Dano extra contra elemento (Estrutura)",
     moduleDisable: "Nave: derrubar Módulo",
     energyDrain: "Nave: drenar energia",
     resistanceDown: "Nave: baixar resistência"
@@ -1528,8 +1541,54 @@ export function getActiveDamageElements() {
   return list.map(el => ({
     ...el,
     group: el.group || knownGroups.get(el.id) || "Outros",
-    effects: Array.isArray(el.effects) ? el.effects : []
+    // O antigo "Dano extra contra elemento" vira nível na tabela (buildAffinityMatrix) e sai da lista.
+    affinity: buildAffinityMatrix([el])[el.id] ?? {},
+    effects: Array.isArray(el.effects) ? el.effects.filter(e => e?.type !== "vsElement") : []
   }));
+}
+
+/** Tabela de vantagens `{atacante: {defensor: nível}}` do catálogo ativo. */
+export function getElementAffinityMatrix() {
+  return buildAffinityMatrix(getActiveDamageElements());
+}
+
+/** Multiplicador de cada nível da tabela (Regras da Mesa). */
+export function getAffinityConfig() {
+  const read = (key, fallback) => {
+    try {
+      const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[key]));
+      return Number.isFinite(value) && value >= 0 ? value : fallback;
+    } catch (err) {
+      return fallback;
+    }
+  };
+  return {
+    immune: read("affinityImmune", 0),
+    ineffective: read("affinityIneffective", 0.5),
+    effective: read("affinityEffective", 1.5),
+    superEffective: read("affinitySuperEffective", 2)
+  };
+}
+
+/**
+ * Elementos que um Ator É agora (pra vantagem entre elementos): os da Espécie, os dos efeitos
+ * "Elemento do corpo" de Skill (flag `bodyElement`) e os das Condições ativas que têm elemento.
+ */
+export function actorElements(actor) {
+  if (!actor) return [];
+  const out = new Set();
+  const preset = actor.type === "character" ? getActiveSpeciesPresets()?.[actor.system?.species] : null;
+  for (const id of preset?.elements ?? []) out.add(id);
+  const conditions = getActiveStatusConditions().filter(c => Array.isArray(c.elements) && c.elements.length);
+  for (const effect of actor.effects ?? []) {
+    if (effect.disabled) continue;
+    const flagged = effect.flags?.[SYSTEM_ID]?.bodyElement;
+    if (flagged) out.add(flagged);
+    for (const status of effect.statuses ?? []) {
+      for (const id of conditions.find(c => c.id === status)?.elements ?? []) out.add(id);
+    }
+  }
+  return [...out].filter(Boolean);
 }
 
 /** Um elemento pelo id, já normalizado (ver `getActiveDamageElements`). */
@@ -2193,7 +2252,15 @@ export function getShipActionConfig() {
   return {
     bracePercent: Math.min(95, Math.max(0, read("shipBracePercent", 30))),
     focusBoost: Math.max(100, read("shipFocusBoost", 150)),
-    focusCut: Math.min(100, Math.max(0, read("shipFocusCut", 75)))
+    focusCut: Math.min(100, Math.max(0, read("shipFocusCut", 75))),
+    // Vida extra que quem está no posto de Engenharia restaura no reparo (fórmula; vazio = nada).
+    repairEngineerFormula: (() => {
+      try {
+        return String(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.shipRepairEngineerFormula) ?? "").trim();
+      } catch (err) {
+        return "1d6";
+      }
+    })()
   };
 }
 
@@ -2976,6 +3043,22 @@ export function registerSystemSettings() {
     default: 75
   });
 
+  for (const [key, name, value] of [
+    ["affinityImmune", "Imune", 0],
+    ["affinityIneffective", "Ineficaz", 0.5],
+    ["affinityEffective", "Efetivo", 1.5],
+    ["affinitySuperEffective", "Super efetivo", 2]
+  ]) {
+    game.settings.register(SYSTEM_ID, S[key], {
+      name: `Vantagem entre elementos — ${name} (×)`,
+      hint: `Multiplicador do dano quando a tabela de vantagens diz "${name}" (Tipos de Dano › Tabela). Padrão ×${String(value).replace(".", ",")}. Defensor com dois elementos: os multiplicadores se multiplicam.`,
+      scope: "world",
+      config: true,
+      type: Number,
+      default: value
+    });
+  }
+
   game.settings.register(SYSTEM_ID, S.antimagicBase, {
     name: "Antimagia — Base do custo extra",
     hint: "Magia sob antimagia paga (Custo da Skill + esta base) × (crescimento^nível − 1) a mais, na hora (ou por rodada, se for contínua). Não tem como pagar: é anulada. Padrão 10.",
@@ -2992,6 +3075,15 @@ export function registerSystemSettings() {
     config: true,
     type: Number,
     default: 2
+  });
+
+  game.settings.register(SYSTEM_ID, S.shipRepairEngineerFormula, {
+    name: "Naves — Bônus de Engenharia no reparo (Vida)",
+    hint: "Fórmula somada à Vida restaurada (2d6) quando quem conserta está no posto de Engenharia da Nave (posto \"engineer\" ou com \"engenh\" no nome). Padrão 1d6 (o engenheiro restaura 2d6 + 1d6). Aceita número fixo (4) ou dados (2d6). Vazio desliga.",
+    scope: "world",
+    config: true,
+    type: String,
+    default: "1d6"
   });
 
   game.settings.register(SYSTEM_ID, S.shipBracePercent, {

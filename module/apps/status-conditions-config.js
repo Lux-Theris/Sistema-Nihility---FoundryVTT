@@ -1,6 +1,7 @@
 import { MEU_SISTEMA, getActiveStatusConditions, getAttributeLabels } from "../config.js";
 import { createCardListConfigApp, escapeHtml, optionsHtml } from "./card-list-config-factory.js";
 import { registerStatusConditions } from "../conditions.js";
+import { pickerFieldHtml, readPickerField, wireElementPickerField } from "./checklist-picker.js";
 
 /**
  * Editor das Condições de Status (Cegueira, Veneno, Queimadura, Lentidão…). Cada Condição tem id,
@@ -39,6 +40,8 @@ function renderCard(values) {
     <div class="card-config-row">
       <label>Efeito padrão <select data-field="kind">${optionsHtml(KIND_OPTIONS, kind)}</select></label>
       <label>Duração (rodadas) <input type="number" data-field="durationRounds" min="1" value="${effect.durationRounds ?? 2}"/></label>
+      <span class="hint-inline" title="Quem tem esta Condição passa a SER deste elemento (Encharcado = Água): a vantagem entre elementos vale contra ele.">Elemento:</span>
+      ${pickerFieldHtml(values.elements ?? [], "condition-elements")}
       <label title="Selo antimagia: quem tem esta Condição paga Mana extra em toda magia (maior quanto maior o nível), ou ela é anulada. 0 = não é selo.">Antimagia (nível) <input type="number" data-field="antimagicLevel" min="0" value="${values.antimagicLevel ?? 0}"/></label>
     </div>
     <div class="card-config-row" data-kind="tick" ${kind === "tick" ? "" : "hidden"}>
@@ -65,6 +68,7 @@ function wireCard(card) {
   };
   kindSelect.addEventListener("change", sync);
   sync();
+  wireElementPickerField(card.querySelector(".condition-elements"));
 }
 
 function readCard(card) {
@@ -74,6 +78,8 @@ function readCard(card) {
   const row = { id, label: get("label").trim() || id, icon: get("icon").trim() || "icons/svg/aura.svg" };
   const antimagicLevel = Math.max(0, Math.round(Number(get("antimagicLevel")) || 0));
   if (antimagicLevel) row.antimagicLevel = antimagicLevel;
+  const elements = readPickerField(card.querySelector(".condition-elements"));
+  if (elements.length) row.elements = elements;
 
   const kind = get("kind");
   const durationRounds = Math.max(1, Number(get("durationRounds")) || 1);

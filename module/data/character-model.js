@@ -78,7 +78,8 @@ function baseActorSchema() {
             order: new fields.NumberField({ required: false, initial: 0 }),
             holderUuid: new fields.StringField({ required: false, initial: "" }),
             skillId: new fields.StringField({ required: false, initial: "" }),
-            subSkillIndex: new fields.NumberField({ required: false, nullable: true, initial: null, integer: true })
+            subSkillIndex: new fields.NumberField({ required: false, nullable: true, initial: null, integer: true }),
+            elements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] })
           }),
           { required: false, initial: [] }
         )

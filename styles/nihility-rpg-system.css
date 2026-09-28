@@ -5035,3 +5035,31 @@ button.prio-chip { cursor: pointer; }
 .nihility-effects-list .effects-end { color: var(--nihility-danger); cursor: pointer; }
 .nihility-effects-list .effects-empty { color: var(--nihility-text-dim); }
 .nihility-sheet .effects-list-button { height: auto; min-height: 0; line-height: normal; padding: 3px 8px; font-size: 0.78rem; width: auto; }
+
+/* Tipos de Dano: tabela de vantagens entre elementos (estilo Pokémon). */
+.nihility-config-app .affinity-toolbar { display: flex; justify-content: flex-end; margin: 0 0 8px; }
+.nihility-config-app .affinity-toolbar button { width: auto; height: auto; min-height: 0; line-height: normal; padding: 4px 10px; color: var(--nihility-text); }
+.nihility-config-app.affinity-mode .card-config-list,
+.nihility-config-app.affinity-mode [data-action="addCard"] { display: none; }
+.nihility-config-app .affinity-summary { margin: 2px 0 6px; color: var(--nihility-text-dim); }
+.nihility-config-app .affinity-matrix-wrap { color: var(--nihility-text); }
+.nihility-config-app .affinity-scroll { overflow: auto; max-height: 440px; border: 1px solid var(--nihility-border); border-radius: 4px; }
+.nihility-config-app .affinity-matrix { border-collapse: collapse; margin: 0; background: var(--nihility-bg-panel); }
+.nihility-config-app .affinity-matrix th, .nihility-config-app .affinity-matrix td { padding: 2px; text-align: center; color: var(--nihility-text); border: 1px solid var(--nihility-border-soft); }
+.nihility-config-app .affinity-matrix thead th { position: sticky; top: 0; background: var(--nihility-bg-panel-alt); z-index: 1; }
+.nihility-config-app .affinity-matrix .affinity-row { position: sticky; left: 0; background: var(--nihility-bg-panel-alt); text-align: left; white-space: nowrap; padding: 2px 8px; font-weight: normal; }
+.nihility-config-app .affinity-matrix .affinity-corner { font-size: 0.7rem; color: var(--nihility-text-faint); font-weight: normal; left: 0; z-index: 2; }
+.nihility-config-app .affinity-col span { writing-mode: vertical-rl; transform: rotate(180deg); display: inline-block; padding: 4px 0; border-left: 3px solid; font-weight: normal; font-size: 0.78rem; white-space: nowrap; }
+.nihility-config-app .affinity-row .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+.nihility-config-app .affinity-cell {
+  width: 38px; height: 28px; min-height: 0; line-height: normal; padding: 0; border-radius: 3px;
+  font-size: 0.72rem; font-family: var(--nihility-font-data); cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--nihility-border-soft); background: transparent; color: var(--nihility-text-dim);
+}
+.nihility-config-app .affinity-cell.level-super { background: #2e7d32; color: #fff; border-color: #43a047; }
+.nihility-config-app .affinity-cell.level-strong { background: rgba(110, 231, 160, 0.25); color: var(--nihility-ok); border-color: var(--nihility-ok); }
+.nihility-config-app .affinity-cell.level-weak { background: rgba(255, 207, 92, 0.18); color: var(--nihility-warn); border-color: var(--nihility-warn); }
+.nihility-config-app .affinity-cell.level-immune { background: #3b1f24; color: var(--nihility-danger); border-color: var(--nihility-danger); }
+.nihility-config-app .affinity-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; font-size: 0.78rem; color: var(--nihility-text-dim); }
+.nihility-config-app .affinity-legend-item { display: inline-flex; align-items: center; gap: 4px; }
+.nihility-config-app .affinity-legend .affinity-cell { cursor: default; }

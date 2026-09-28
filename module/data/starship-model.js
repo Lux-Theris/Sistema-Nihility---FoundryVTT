@@ -274,6 +274,11 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
     return Math.min(95, best) / 100;
   }
 
+  /** Elementos dos Escudos ligados (vantagem entre elementos contra a camada de Escudo). */
+  get shieldElements() {
+    return [...new Set(this.modulesByRole("shield").filter(m => m.system.status === "online").flatMap(m => m.system.shieldElements ?? []))];
+  }
+
   /** Carga no Porão: os Itens Gerais da Nave/Veículo. */
   get cargoItems() {
     return this.parent?.items?.filter(i => i.type === "item") ?? [];

@@ -5,7 +5,7 @@
  * livre, julga por fora se passou (filosofia do sistema: o Mestre adjudica, o sistema só
  * calcula números) e, se decidir que sim, aplica a fórmula de reparo na Vida do alvo.
  */
-import { SYSTEM_ID, MEU_SISTEMA, sceneActorCandidates } from "./config.js";
+import { SYSTEM_ID, MEU_SISTEMA, sceneActorCandidates, getCrewRoles, actorDisplayName, getShipActionConfig } from "./config.js";
 import { rollAttribute } from "./dice.js";
 import { renderSystemTemplate } from "./helpers/foundry-compat.js";
 
@@ -71,40 +71,61 @@ export async function requestShipRepair(shipArg = null) {
     ship = ships[0];
   }
 
-  const engineers = sceneActorCandidates({ types: ["character"], permission: "OWNER" });
-  if (!engineers.length) {
-    ui.notifications.warn("Você não controla nenhum Personagem na cena atual pra fazer o reparo.");
-    return;
+  // Quem conserta é a tripulação DESTA Nave: todos aparecem, com quem está no posto de Engenharia
+  // em destaque (primeiro grupo). Nave sem tripulação cai nos Personagens do usuário na cena.
+  const roles = getCrewRoles();
+  const roleLabel = id => roles.find(r => r.id === id)?.label ?? id ?? "";
+  const isEngineerRole = id => id === "engineer" || /engenh/i.test(roleLabel(id));
+  // Engenharia restaura mais Vida: a fórmula extra (Regras da Mesa) soma no 2d6 do reparo.
+  const configured = getShipActionConfig().repairEngineerFormula;
+  const repairEngineerFormula = configured && Roll.validate(configured) ? configured : "";
+  const bonusText = repairEngineerFormula ? ` (+${repairEngineerFormula} de Vida)` : "";
+  let crew = (ship.system.crewActors ?? []).map(entry => ({ actor: entry.actor, role: entry.role }));
+  if (!crew.length) {
+    crew = sceneActorCandidates({ types: ["character"], permission: "OWNER" }).map(actor => ({ actor, role: "" }));
+    if (!crew.length) {
+      ui.notifications.warn(`${ship.name} não tem tripulação (arraste Personagens para a aba Tripulação) e você não controla nenhum Personagem na cena.`);
+      return;
+    }
+    ui.notifications.info(`${ship.name} não tem tripulação: listando os seus Personagens na cena.`);
   }
-  const defaultEngineer = game.user.character;
-  const engineerOptions = engineers
-    .map(a => `<option value="${a.id}" ${a.id === defaultEngineer?.id ? "selected" : ""}>${a.name}</option>`)
-    .join("");
+  const engineers = crew.filter(c => isEngineerRole(c.role));
+  const others = crew.filter(c => !isEngineerRole(c.role));
+  // Já selecionado: um engenheiro seu, senão o seu personagem, senão o primeiro engenheiro.
+  const preferred =
+    engineers.find(c => c.actor.isOwner) ?? crew.find(c => c.actor.uuid === game.user.character?.uuid) ?? engineers[0] ?? crew[0];
+  const option = c =>
+    `<option value="${escapeHtml(c.actor.uuid)}" ${c === preferred ? "selected" : ""}>${isEngineerRole(c.role) ? "★ " : ""}${escapeHtml(actorDisplayName(c.actor))}${c.role ? ` — ${escapeHtml(roleLabel(c.role))}` : ""}${isEngineerRole(c.role) ? bonusText : ""}</option>`;
+  const engineerOptions =
+    (engineers.length ? `<optgroup label="Engenharia${repairEngineerFormula ? ` — reparam +${repairEngineerFormula} de Vida` : ""}">${engineers.map(option).join("")}</optgroup>` : "") +
+    (others.length ? `<optgroup label="${engineers.length ? "Outros tripulantes" : "Tripulação"}">${others.map(option).join("")}</optgroup>` : "");
   const targetOptions = repairTargetsFor(ship).map(t => `<option value="${t.id}">${t.label}</option>`).join("");
 
   const result = await DialogV2.wait({
     window: { title: `Pedido de Reparo — ${ship.name}` },
+    // `<div>`, não `<form>`: o DialogV2 já tem o próprio form e descarta um form aninhado.
     content: `
-      <form>
+      <div class="nihility-repair-request">
         <div class="form-group">
           <label>Módulo/Pool a reparar</label>
           <select name="targetId">${targetOptions}</select>
         </div>
         <div class="form-group">
-          <label>Engenheiro (rola Destreza)</label>
-          <select name="engineerId">${engineerOptions}</select>
+          <label>Quem conserta (rola Destreza)</label>
+          <select name="engineerUuid">${engineerOptions}</select>
         </div>
-      </form>
+        ${engineers.length ? "" : `<p class="hint">Ninguém no posto de Engenharia — qualquer tripulante pode tentar.</p>`}
+      </div>
     `,
     buttons: [
       {
         action: "request",
         label: "Pedir Reparo",
         default: true,
-        callback: (event, button, dialog) => {
-          const form = dialog.element.querySelector("form");
-          return { targetId: form.targetId.value, engineerId: form.engineerId.value };
-        }
+        callback: (event, button, dialog) => ({
+          targetId: dialog.element.querySelector('[name="targetId"]').value,
+          engineerUuid: dialog.element.querySelector('[name="engineerUuid"]').value
+        })
       },
       // `false` (não a string do `action`) sobrevive ao `??` do DialogV2.wait — ver mesmo
       // comentário em starship-sheet.js/skill-editor-dialog.js.
@@ -115,17 +136,35 @@ export async function requestShipRepair(shipArg = null) {
 
   if (!result) return;
 
-  const engineer = game.actors.get(result.engineerId);
+  const engineer = fromUuidSync(result.engineerUuid);
   const target = repairTargetsFor(ship).find(t => t.id === result.targetId);
   if (!engineer || !target) return;
+  // O bônus é decidido no pedido (o posto de agora), não na hora da rolagem.
+  const chosen = crew.find(c => c.actor.uuid === engineer.uuid);
+  const engineerBonus = chosen && isEngineerRole(chosen.role) ? repairEngineerFormula : "";
 
-  await createShipRepairRequestMessage(ship, engineer, target);
+  await createShipRepairRequestMessage(ship, engineer, target, engineerBonus);
 }
 
-async function createShipRepairRequestMessage(ship, engineer, target) {
+/** O engenheiro de um pedido: por uuid (pedidos novos), ou pelo id da ficha (pedidos antigos). */
+function repairEngineer(req) {
+  return (req.engineerUuid ? fromUuidSync(req.engineerUuid) : null) ?? game.actors.get(req.engineerId) ?? null;
+}
+
+/** "Fulano (Engenharia: +1d6 de Vida)" no card, quando o bônus vale. */
+function engineerLabel(name, bonus) {
+  return typeof bonus === "string" && bonus ? `${name} (Engenharia: +${bonus} de Vida)` : name;
+}
+
+/** Escapa texto de nome pra dentro do HTML do diálogo. */
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+}
+
+async function createShipRepairRequestMessage(ship, engineer, target, engineerBonus = "") {
   const content = await renderSystemTemplate(`systems/${SYSTEM_ID}/templates/chat/ship-repair-request.hbs`, {
     shipName: ship.name,
-    engineerName: engineer.name,
+    engineerName: engineerLabel(actorDisplayName(engineer), engineerBonus),
     targetLabel: target.label,
     status: "pending"
   });
@@ -145,6 +184,10 @@ async function createShipRepairRequestMessage(ship, engineer, target) {
         shipRepairRequest: {
           shipId: ship.id,
           engineerId: engineer.id,
+          // Por uuid: dois Tokens não vinculados da mesma ficha são tripulantes diferentes.
+          engineerUuid: engineer.uuid,
+          // Fórmula extra de Vida da Engenharia, decidida no pedido (o posto de agora).
+          engineerBonus,
           targetId: target.id,
           targetLabel: target.label,
           status: "pending"
@@ -158,7 +201,7 @@ async function updateShipRepairMessage(message, status) {
   const req = { ...message.flags[SYSTEM_ID].shipRepairRequest, status };
   const content = await renderSystemTemplate(`systems/${SYSTEM_ID}/templates/chat/ship-repair-request.hbs`, {
     shipName: game.actors.get(req.shipId)?.name ?? "?",
-    engineerName: game.actors.get(req.engineerId)?.name ?? "?",
+    engineerName: engineerLabel(actorDisplayName(repairEngineer(req)) || "?", req.engineerBonus),
     targetLabel: req.targetLabel,
     status
   });
@@ -179,12 +222,12 @@ export async function approveShipRepairRoll(message, modifier = 0) {
   const req = message.flags?.[SYSTEM_ID]?.shipRepairRequest;
   if (!req || req.status !== "pending") return;
 
-  const engineer = game.actors.get(req.engineerId);
+  const engineer = repairEngineer(req);
   if (!engineer) return;
 
   await rollAttribute(engineer, "dexterity", {
     extraFlat: modifier,
-    flavor: `${engineer.name} — Reparo (${req.targetLabel})${modifier ? ` — modificador ${modifier > 0 ? "+" : ""}${modifier}` : ""}`
+    flavor: `${actorDisplayName(engineer)} — Reparo (${req.targetLabel})${modifier ? ` — modificador ${modifier > 0 ? "+" : ""}${modifier}` : ""}`
   });
 
   await updateShipRepairMessage(message, "rolled");
@@ -208,12 +251,14 @@ export async function restoreShipRepairTarget(message) {
   const resolved = resolveRepairTarget(ship, req.targetId);
   if (!resolved) return;
 
-  const formula = MEU_SISTEMA.REPAIR_ROLL_FORMULA ?? "0";
-  const roll = new Roll(formula);
+  // Engenharia restaura mais: a fórmula extra guardada no pedido soma no 2d6.
+  const base = MEU_SISTEMA.REPAIR_ROLL_FORMULA ?? "0";
+  const extra = typeof req.engineerBonus === "string" && req.engineerBonus && Roll.validate(req.engineerBonus) ? req.engineerBonus : "";
+  const roll = new Roll(extra ? `${base} + (${extra})` : base);
   await roll.evaluate();
   await roll.toMessage({
     speaker: ChatMessage.getSpeaker({ actor: ship }),
-    flavor: `Reparo — ${req.targetLabel}`
+    flavor: `Reparo — ${req.targetLabel}${extra ? ` — Engenharia +${extra}` : ""}`
   });
 
   const newValue = Math.clamp(resolved.current + roll.total, 0, resolved.max);

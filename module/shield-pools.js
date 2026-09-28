@@ -42,7 +42,9 @@ export async function addShieldToPool(actor, source, amount, { cap = 0 } = {}) {
       order: Date.now(),
       holderUuid: source.holderUuid ?? "",
       skillId: source.skillId,
-      subSkillIndex: source.subSkillIndex ?? null
+      subSkillIndex: source.subSkillIndex ?? null,
+      // Elemento do Escudo (Escudo de Água): a vantagem do golpe contra ele entra no Aplicar.
+      elements: Array.isArray(source.elements) ? source.elements : []
     };
     pools.push(pool);
   }

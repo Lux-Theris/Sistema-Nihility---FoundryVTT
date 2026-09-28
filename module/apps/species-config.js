@@ -1,6 +1,6 @@
 import { SYSTEM_ID, MEU_SISTEMA, getActiveSpeciesPresets, debugLog, speciesCarry } from "../config.js";
 import { openSkillEditorDialog } from "./skill-editor-dialog.js";
-import { readPickerField, wireTraitPickerField } from "./checklist-picker.js";
+import { readPickerField, wireTraitPickerField, wireElementPickerField } from "./checklist-picker.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -55,6 +55,8 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
         availableAtCreation: def.availableAtCreation !== false,
         // Traços que a Espécie dá a quem a tem (Dracônico, Voador…) — ver actorTraits em config.js.
         traitsJson: JSON.stringify(def.traits ?? []),
+        // Elemento(s) da Espécie (Elemental de Fogo): vantagem entre elementos contra ela.
+        elementsJson: JSON.stringify(def.elements ?? []),
         // Slots e carga base do inventário (vazio = a tabela padrão, mostrada como dica).
         inventorySlots: def.inventorySlots ?? "",
         carryBase: def.carryBase ?? "",
@@ -73,6 +75,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
   _onRender(context, options) {
     super._onRender(context, options);
     this.element.querySelectorAll(".species-trait-field").forEach(field => wireTraitPickerField(field));
+    this.element.querySelectorAll(".species-element-field").forEach(field => wireElementPickerField(field));
   }
 
   static #onAddSpecies(event, target) {
@@ -90,6 +93,10 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
         <span class="species-traits-label">Traços</span>
         <div class="element-field species-trait-field" data-selected="[]"></div>
       </div>
+      <div class="species-traits" title="Elemento(s) que esta Espécie É: a vantagem entre elementos vale contra ela.">
+        <span class="species-traits-label">Elemento</span>
+        <div class="element-field species-element-field" data-selected="[]"></div>
+      </div>
       <div class="species-carry">
         <label title="Slots do inventário (vazio = 10)">Slots <input type="number" class="species-slots" min="0" value="" placeholder="10"/></label>
         <label title="Carga base em kg, antes de Força e Defesa (vazio = 30)">Carga base (kg) <input type="number" class="species-carry-base" min="0" step="any" value="" placeholder="30"/></label>
@@ -106,6 +113,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
     `;
     this.element.querySelector(".species-list")?.appendChild(block);
     wireTraitPickerField(block.querySelector(".species-trait-field"));
+    wireElementPickerField(block.querySelector(".species-element-field"));
   }
 
   static #onDeleteSpecies(event, target) {
@@ -212,6 +220,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
         group: block.querySelector(".species-group")?.value ?? "",
         availableAtCreation: block.querySelector(".species-at-creation")?.checked !== false,
         traits: readPickerField(block.querySelector(".species-trait-field")),
+        elements: readPickerField(block.querySelector(".species-element-field")),
         ...(() => {
           const read = cls => {
             const raw = block.querySelector(cls)?.value?.trim() ?? "";

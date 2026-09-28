@@ -10,7 +10,8 @@ import {
   MEU_SISTEMA,
   isAnatomyEnabled,
   getActiveSpeciesPresets,
-  getModuleSizePreset
+  getModuleSizePreset,
+  getVesselSizes
 } from "./config.js";
 import { getModuleCategories, categorySlotLimit } from "./config.js";
 import { callAIProvider } from "./ai/providers.js";
@@ -492,7 +493,7 @@ function buildVesselSystemPrompt(sizeChoices) {
 export async function generateVesselFromAI(prompt, vesselType, options = {}) {
   const { folder = null } = options;
   const isStarship = vesselType === "starship";
-  const sizeChoices = isStarship ? MEU_SISTEMA.SHIP_SIZES : MEU_SISTEMA.VEHICLE_SIZES;
+  const sizeChoices = getVesselSizes(isStarship ? "ship" : "vehicle").map(s => s.id);
   const parsed = await generateJSON(buildVesselSystemPrompt(sizeChoices), prompt);
 
   const shipSize = sizeChoices.includes(parsed?.shipSize) ? parsed.shipSize : sizeChoices[0];

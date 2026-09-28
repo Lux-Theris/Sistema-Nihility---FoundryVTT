@@ -1,0 +1,25 @@
+<div class="effects-list-body">
+  {{#each sections as |section|}}
+  <section class="effects-sec">
+    <div class="effects-sec-head">
+      <h3>{{section.title}}</h3>
+      {{#if section.button}}<button type="button" data-action="{{section.button.action}}">{{section.button.label}}</button>{{/if}}
+    </div>
+    <ul class="effects-rows">
+      {{#each section.rows as |row|}}
+      <li class="effects-row {{#if row.muted}}is-muted{{/if}}">
+        {{#if row.img}}<img src="{{row.img}}" width="28" height="28" alt=""/>{{/if}}
+        <div class="effects-main">
+          <strong>{{row.name}}</strong>{{#if row.source}} <span class="effects-source">· {{row.source}}</span>{{/if}}
+          {{#if row.lines.length}}<div class="effects-what">{{#each row.lines as |line|}}<span>{{line}}</span>{{/each}}</div>{{/if}}
+        </div>
+        <span class="effects-remaining">{{row.remaining}}</span>
+        {{#if row.endAction}}{{#if ../../isGM}}<a class="effects-end" data-action="{{row.endAction}}" data-end-id="{{row.endId}}" title="Encerrar"><i class="fas fa-times"></i></a>{{/if}}{{/if}}
+      </li>
+      {{/each}}
+    </ul>
+  </section>
+  {{else}}
+  <p class="effects-empty">Nada agindo sobre {{actorName}} agora.</p>
+  {{/each}}
+</div>

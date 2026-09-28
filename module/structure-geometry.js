@@ -154,3 +154,27 @@ export function splitStructureHit(amount, capacity) {
   const absorbed = Math.min(total, Math.max(0, Math.round(Number(capacity) || 0)));
   return { absorbed, passed: total - absorbed };
 }
+
+/**
+ * O ponto está dentro da forma fechada descrita por estes segmentos (círculo/quadrado)? Raio
+ * horizontal contando as travessias. Pura.
+ */
+export function pointInSegments([px, py], segments) {
+  let inside = false;
+  for (const [x1, y1, x2, y2] of segments ?? []) {
+    if ((y1 > py) === (y2 > py)) continue;
+    const x = x1 + ((py - y1) * (x2 - x1)) / (y2 - y1);
+    if (x > px) inside = !inside;
+  }
+  return inside;
+}
+
+/** Dois conjuntos de segmentos se cruzam (algum segmento de um atravessa algum do outro)? Pura. */
+export function segmentsCross(a, b) {
+  for (const [x1, y1, x2, y2] of a ?? []) {
+    for (const seg of b ?? []) {
+      if (segmentCrossing([x1, y1], [x2, y2], seg) !== null) return true;
+    }
+  }
+  return false;
+}

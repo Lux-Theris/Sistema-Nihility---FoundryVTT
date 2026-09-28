@@ -31,12 +31,29 @@ import {
   shipMovementCells,
   shipEvasionFraction,
   getShipManeuverConfig,
+  isMagicUse,
+  speciesCarry,
+  stackCount,
+  inventoryLoad,
+  currencyWeight,
+  carryCapacity,
+  encumbrancePenalty,
+  cargoSlotsFor,
+  cargoMassFactor,
+  ammoFitsLauncher,
+  antimagicSurcharge,
+  getVesselSizes,
+  vesselSizeFor,
+  sizeFitsClass,
+  describeClassSizeRange,
   powerPriorityGroup,
   fundByPriority,
   isStructureMechanic,
   migrateStructureTarget,
   getActiveDamageElements,
-  normalizeLightConfig
+  normalizeLightConfig,
+  manaInvestmentPower,
+  tractorHold
 } from "../module/config.js";
 import { computeResistancePercent, computeResistanceName, resistanceMaxLevel } from "../module/skill-effects.js";
 import { buildSubSkillsFromSources, buildGrantedSkillData } from "../module/skill-snapshot.js";
@@ -145,9 +162,8 @@ test("preset de Módulo: categoria/Porte desconhecido não quebra — só não s
 /* -------------------------------------------- */
 
 test("capacitor: todo Porte tem um mínimo de conduíte (nenhuma Nave fica com reserva zero)", () => {
-  for (const size of MEU_SISTEMA.SHIP_SIZES) {
-    const conduit = MEU_SISTEMA.CONDUIT_CAPACITOR_BY_SHIP_SIZE[size];
-    assert.ok(conduit > 0, `Porte "${size}" ficou sem mínimo de conduíte`);
+  for (const size of [...MEU_SISTEMA.DEFAULT_SHIP_SIZES, ...MEU_SISTEMA.DEFAULT_VEHICLE_SIZES]) {
+    assert.ok(size.conduitCapacitor > 0, `Porte "${size.id}" ficou sem mínimo de conduíte`);
   }
 });
 
@@ -156,10 +172,10 @@ test("capacitor: instalar a MENOR Bateria nunca pode piorar a reserva de nenhum 
   // impede o absurdo de instalar uma Bateria e a Nave ficar com MENOS reserva do que tinha —
   // por isso toda a tabela de conduíte tem que caber abaixo da menor Bateria instalável.
   const smallestBattery = getModuleSizePreset("battery", MEU_SISTEMA.MODULE_SIZES[0])["system.batteryCapacity"];
-  for (const size of MEU_SISTEMA.SHIP_SIZES) {
+  for (const size of [...MEU_SISTEMA.DEFAULT_SHIP_SIZES, ...MEU_SISTEMA.DEFAULT_VEHICLE_SIZES]) {
     assert.ok(
-      MEU_SISTEMA.CONDUIT_CAPACITOR_BY_SHIP_SIZE[size] <= smallestBattery,
-      `Porte "${size}": conduíte (${MEU_SISTEMA.CONDUIT_CAPACITOR_BY_SHIP_SIZE[size]}) passou da menor Bateria (${smallestBattery})`
+      size.conduitCapacitor <= smallestBattery,
+      `Porte "${size.id}": conduíte (${size.conduitCapacitor}) passou da menor Bateria (${smallestBattery})`
     );
   }
 });
@@ -575,13 +591,49 @@ test("nave: Evasão é a base do Porte × razão da Rotação, com teto", () => 
 });
 
 test("nave: sem settings, Porte maior anda menos e desvia menos", () => {
-  const config = getShipManeuverConfig();
-  const sizes = ["mini", "pequeno", "medio", "grande", "capital"];
-  for (let i = 1; i < sizes.length; i++) {
-    assert.ok(config.movement[sizes[i]] < config.movement[sizes[i - 1]], `${sizes[i]} anda menos que ${sizes[i - 1]}`);
-    assert.ok(config.evasion[sizes[i]] < config.evasion[sizes[i - 1]], `${sizes[i]} desvia menos que ${sizes[i - 1]}`);
+  for (const kind of ["ship", "vehicle"]) {
+    const sizes = getVesselSizes(kind);
+    for (let i = 1; i < sizes.length; i++) {
+      assert.ok(sizes[i].move < sizes[i - 1].move, `${sizes[i].id} anda menos que ${sizes[i - 1].id}`);
+      assert.ok(sizes[i].evasion < sizes[i - 1].evasion, `${sizes[i].id} desvia menos que ${sizes[i - 1].id}`);
+      assert.ok(sizes[i].rank >= sizes[i - 1].rank);
+    }
   }
-  assert.equal(config.evasionCap, 40);
+  assert.equal(getShipManeuverConfig().evasionCap, 40);
+});
+
+test("Portes: Veículo tem lista própria e mantém os números antigos de Mini/Pequeno", () => {
+  const ship = getVesselSizes("ship");
+  const vehicle = getVesselSizes("vehicle");
+  assert.deepEqual(ship.map(s => s.id), ["mini", "pequeno", "medio", "grande", "capital"]);
+  assert.deepEqual(vehicle.map(s => s.id), ["mini", "pequeno", "medio", "grande", "colossal"]);
+  for (const id of ["mini", "pequeno"]) {
+    const a = ship.find(s => s.id === id);
+    const b = vehicle.find(s => s.id === id);
+    for (const field of ["rank", "weaponBudget", "distributorBaseline", "conduitCapacitor", "move", "evasion"]) assert.equal(a[field], b[field], `${id}.${field}`);
+  }
+  // Porte apagado do catálogo: cai no padrão de mesmo id, nunca quebra.
+  assert.equal(vesselSizeFor("ship", "capital").distributorBaseline, 1280);
+  assert.equal(vesselSizeFor("ship", "nao-existe").id, "mini");
+});
+
+test("Classe limita os Portes: mínimo, máximo, faixa e texto", () => {
+  const sizes = getVesselSizes("ship");
+  const fighter = { minSize: "", maxSize: "pequeno" };
+  const dread = { minSize: "capital", maxSize: "" };
+  const mid = { minSize: "medio", maxSize: "grande" };
+  assert.equal(sizeFitsClass("mini", fighter, sizes), true);
+  assert.equal(sizeFitsClass("medio", fighter, sizes), false);
+  assert.equal(sizeFitsClass("grande", dread, sizes), false);
+  assert.equal(sizeFitsClass("capital", dread, sizes), true);
+  assert.equal(sizeFitsClass("pequeno", mid, sizes), false);
+  assert.equal(sizeFitsClass("grande", mid, sizes), true);
+  assert.equal(sizeFitsClass("mini", null, sizes), true);
+  assert.equal(sizeFitsClass("porte-sumido", fighter, sizes), true);
+  assert.equal(describeClassSizeRange(fighter, sizes), "até Pequeno");
+  assert.equal(describeClassSizeRange(dread, sizes), "a partir de Capital");
+  assert.equal(describeClassSizeRange(mid, sizes), "de Médio a Grande");
+  assert.equal(describeClassSizeRange({}, sizes), "");
 });
 
 /* -------------------------------------------- */
@@ -712,7 +764,11 @@ import {
   scaleMultiplier,
   resolveConditionEffect,
   refreshReapplication,
-  rollChance
+  rollChance, sustainedShieldGain, absorbLayer, resolveShipCascade, splitTargetedStructural, hardenedChance, consumeShieldPools, reconcileShieldPools,
+  shieldAdaptationKey,
+  shieldAdaptationFor,
+  adaptShield,
+  structureElementFactor
 } from "../module/damage-rules.js";
 
 test("elementos: o golpe é dividido em partes iguais", () => {
@@ -886,7 +942,11 @@ test("categorias: as 9 de sempre têm Função e ids antigos continuam válidos"
   assert.equal(moduleRole("engine"), "propulsion");
   assert.equal(moduleRole("distributor"), "distribution");
   assert.equal(moduleRole("sumiu-do-catalogo"), "utility");
-  assert.equal(getModuleCategories().length, 9);
+  const ids = getModuleCategories().map(c => c.id);
+  for (const id of ["reactor", "battery", "distributor", "shield", "engine", "armor", "ftl", "weapon", "utility"]) assert.ok(ids.includes(id), id);
+  // Raio Trator e Porão entraram depois, com Função própria.
+  assert.equal(moduleRole("tractor"), "tractor");
+  assert.equal(moduleRole("cargo"), "cargo");
 });
 
 test("classes: a Classe sobrescreve as vagas da Categoria; Distribuição é sempre 1", () => {
@@ -903,7 +963,10 @@ test("classes: a Classe sobrescreve as vagas da Categoria; Distribuição é sem
 /*  Estruturas: geometria                        */
 /* -------------------------------------------- */
 
-import { capPolyline, polylineLength, structureSegments, pointsAlongPolyline, segmentCrossing, firstStructureOnPath, splitStructureHit } from "../module/structure-geometry.js";
+import { capPolyline, polylineLength, structureSegments, pointsAlongPolyline, segmentCrossing, firstStructureOnPath, splitStructureHit,
+  pointInSegments,
+  segmentsCross
+} from "../module/structure-geometry.js";
 
 test("estrutura: traçado livre para no comprimento máximo", () => {
   const capped = capPolyline([[0, 0], [100, 0], [100, 100]], 150);
@@ -1055,4 +1118,240 @@ test("Estrutura segura até a capacidade e o resto passa", () => {
   assert.deepEqual(splitStructureHit(117, 60), { absorbed: 60, passed: 57 });
   assert.deepEqual(splitStructureHit(40, 60), { absorbed: 40, passed: 0 });
   assert.deepEqual(splitStructureHit(30, 0), { absorbed: 0, passed: 30 });
+});
+
+test("Dano Absoluto é o dano inteiro, com qualquer elemento junto", () => {
+  // Fogo + Gelo, alvo imune a Fogo, resistente a Gelo, e o Pólaron teria bônus contra o Traço dele.
+  const result = resolveDamageParts({
+    parts: [
+      { elementId: "fire", raw: 50, bonus: 0.3 },
+      { elementId: "ice", raw: 50, penetration: 0.5 }
+    ],
+    magicDefense: 0.4,
+    general: 0.2,
+    resistanceFor: id => (id === "fire" ? 1 : 0.5),
+    absolute: true
+  });
+  assert.equal(result.final, 100);
+});
+
+test("Escudo mantido: o pool regenera até o teto", () => {
+  assert.equal(sustainedShieldGain(0, 40, 100), 40);
+  assert.equal(sustainedShieldGain(80, 40, 100), 20); // não passa do teto
+  assert.equal(sustainedShieldGain(130, 40, 100), 0); // Escudo de outra fonte acima do teto fica
+  assert.equal(sustainedShieldGain(500, 40, 0), 40); // sem teto, entra tudo
+});
+
+test("Mana variável: proporcional abaixo do Custo, potência sem teto acima", () => {
+  assert.equal(manaInvestmentPower(0.5), 0.5);
+  assert.equal(manaInvestmentPower(1), 1);
+  assert.ok(Math.abs(manaInvestmentPower(10) - 5.623) < 0.01);
+  // O exemplo da Megumin: 1000 de Mana numa Skill de Custo 25.
+  assert.ok(Math.abs(manaInvestmentPower(1000 / 25) - 15.91) < 0.01);
+  // Sem teto, mas cada Mana a mais rende menos: a eficiência (força por Mana) só cai.
+  assert.ok(manaInvestmentPower(100) > manaInvestmentPower(40));
+  assert.ok(manaInvestmentPower(100) / 100 < manaInvestmentPower(40) / 40);
+  assert.equal(manaInvestmentPower(4, 1), 4); // expoente 1 = linear
+});
+
+test("camada de Nave: % por camada muda quanto a camada sofre, o vazamento segue na moeda do golpe", () => {
+  assert.deepEqual(absorbLayer(100, 1000, 1), { absorbed: 100, leaked: 0 });
+  assert.deepEqual(absorbLayer(100, 1000, 0.5), { absorbed: 50, leaked: 0 }); // torpedo fraco no Escudo
+  assert.deepEqual(absorbLayer(100, 20, 0.5), { absorbed: 20, leaked: 60 }); // 20 de Escudo seguram 40 do golpe
+  assert.deepEqual(absorbLayer(100, 0, 1), { absorbed: 0, leaked: 100 });
+  assert.deepEqual(absorbLayer(100, 5, 0), { absorbed: 0, leaked: 0 }); // imune: segura sem sofrer
+});
+
+test("cascata de Nave: Resistência à Penetração por camada e % por camada", () => {
+  // Sem resistência: 40% de Penetração passa direto pelo Escudo.
+  const base = resolveShipCascade({ damage: 100, penetration: 0.4, shield: { value: 1000 }, casco: { value: 0 } });
+  assert.deepEqual(base, { toShield: 60, toCasco: 0, toHull: 40, adapted: 0 });
+  // Escudo com 15% de Resistência à Penetração: só 25% passa.
+  const resisted = resolveShipCascade({ damage: 100, penetration: 0.4, shield: { value: 1000, penResist: 0.15 }, casco: { value: 0 } });
+  assert.deepEqual(resisted, { toShield: 75, toCasco: 0, toHull: 25, adapted: 0 });
+  // Torpedo: −50% no Escudo, +30% no Casco (Escudo zerado, Casco grande, sem Penetração).
+  const torpedo = resolveShipCascade({ damage: 100, shield: { value: 0 }, casco: { value: 1000, multiplier: 1.3 } });
+  assert.deepEqual(torpedo, { toShield: 0, toCasco: 130, toHull: 0, adapted: 0 });
+  // Absoluto: Evasão vale, o resto vai inteiro pra Integridade, sem % de camada nem redução.
+  const absolute = resolveShipCascade({ damage: 100, evasion: 0.2, absolute: true, damageReduction: 0.5, hullMultiplier: 2, shield: { value: 999 } });
+  assert.deepEqual(absolute, { toShield: 0, toCasco: 0, toHull: 80, adapted: 0 });
+  // Preparar para impacto: −50% de tudo que chegou.
+  const braced = resolveShipCascade({ damage: 100, damageReduction: 0.5, shield: { value: 1000 } });
+  assert.equal(braced.toShield, 50);
+});
+
+test("mirar num sistema e endurecimento", () => {
+  assert.deepEqual(splitTargetedStructural(100, 500, 0.75), { toTarget: 75, toSpread: 25 });
+  assert.deepEqual(splitTargetedStructural(100, 30, 0.75), { toTarget: 30, toSpread: 70 }); // Módulo não aguenta: o resto espalha
+  assert.equal(hardenedChance(20, 30), 14);
+  assert.equal(hardenedChance(50, 0), 50);
+});
+
+test("Escudo pessoal com % de camada: torpedo fraco no Escudo, phaser forte", () => {
+  // 100 de dano, Escudo 20, elemento −50% no Escudo: o Escudo segura 40 do golpe (perde 20), 60 na Vida.
+  assert.deepEqual(splitShieldDamage(100, 20, { shieldMultiplier: 0.5 }), { toShield: 20, toHp: 60 });
+  // +20% no Escudo: 50 de dano com Escudo 100 = Escudo perde 60, Vida intacta.
+  assert.deepEqual(splitShieldDamage(50, 100, { shieldMultiplier: 1.2 }), { toShield: 60, toHp: 0 });
+  // Multiplicador 1 continua igual ao de sempre.
+  assert.deepEqual(splitShieldDamage(20, 10), { toShield: 10, toHp: 10 });
+});
+
+test("Condição com tick no Casco de Nave", () => {
+  const burn = { id: "plasma-burn", effect: { kind: "tick", tickTarget: "shipCasco", value: 12, durationRounds: 3 } };
+  const entry = resolveConditionEffect(burn, {});
+  assert.equal(entry.target, "shipCasco");
+  assert.equal(entry.amount, -12);
+  assert.equal(entry.periodic, true);
+});
+
+test("Escudo em pools: o mais recente apanha primeiro, um de cada vez", () => {
+  const pools = [
+    { id: "a", value: 30, order: 1 },
+    { id: "b", value: 20, order: 2 } // mais recente
+  ];
+  const hit = consumeShieldPools(pools, 10, 35);
+  assert.deepEqual(hit.pools.map(p => [p.id, p.value]), [["b", 0], ["a", 15]]);
+  assert.equal(hit.loose, 10);
+  assert.equal(hit.toShield, 35);
+  assert.equal(hit.toHp, 0);
+  // Estoura tudo: o avulso é o último.
+  const big = consumeShieldPools(pools, 10, 100);
+  assert.equal(big.toShield, 60);
+  assert.equal(big.toHp, 40);
+});
+
+test("Escudo em pools: Penetração age em cada camada, e dano menor que 1 some", () => {
+  // Penetração 50%, dois pools grandes: o 1º segura 50, passam 50; o 2º segura 25, passam 25.
+  const hit = consumeShieldPools([{ id: "a", value: 1000, order: 1 }, { id: "b", value: 1000, order: 2 }], 0, 100, { penetration: 0.5 });
+  assert.deepEqual(hit.pools.map(p => p.value), [950, 975]);
+  assert.equal(hit.toHp, 25);
+  // Cada camada divide de novo até sobrar menos de 1, que é descartado.
+  const tiny = consumeShieldPools([{ id: "a", value: 999, order: 3 }, { id: "b", value: 999, order: 2 }, { id: "c", value: 999, order: 1 }], 0, 3, { penetration: 0.5 });
+  assert.equal(tiny.toHp, 0);
+});
+
+test("Escudo digitado à mão ajusta os pools", () => {
+  const pools = [{ id: "a", value: 30, order: 1 }, { id: "b", value: 20, order: 2 }];
+  assert.deepEqual(reconcileShieldPools(pools, 40).map(p => p.value), [30, 10]); // tira do mais recente
+  assert.deepEqual(reconcileShieldPools(pools, 15).map(p => p.value), [15, 0]); // atravessa pro mais antigo
+  assert.deepEqual(reconcileShieldPools(pools, 80).map(p => p.value), [30, 20]); // aumentar vira avulso
+});
+
+test("Raio trator: segura conforme a diferença de Porte, sobrecarga ajuda", () => {
+  assert.equal(tractorHold(2, 2), 1); // mesmo Porte
+  assert.equal(tractorHold(2, 0), 1); // alvo menor
+  assert.equal(tractorHold(1, 2), 0.5); // um Porte acima
+  assert.equal(tractorHold(1, 3), 0.25);
+  assert.equal(tractorHold(0, 4), 0); // grande demais
+  assert.equal(tractorHold(1, 2, 2), 1); // throttle 200% compensa um Porte
+});
+
+test("Escudo adaptativo: aprende por elemento + frequência, com teto, e reduz o golpe de pé", () => {
+  let adaptation = {};
+  adaptation = adaptShield(adaptation, ["phaser"], 0, 30, 75);
+  adaptation = adaptShield(adaptation, ["phaser"], 0, 30, 75);
+  adaptation = adaptShield(adaptation, ["phaser"], 0, 30, 75);
+  assert.equal(adaptation[shieldAdaptationKey("phaser", 0)], 75); // teto
+  assert.equal(shieldAdaptationFor(adaptation, ["phaser"], 0), 75);
+  assert.equal(shieldAdaptationFor(adaptation, ["phaser"], 412), 0); // modulou: recomeça
+  assert.equal(shieldAdaptationFor(adaptation, ["phaser", "plasma"], 0), 37.5); // média das partes
+  assert.equal(adaptShield({}, [], 0, 10, 200)[shieldAdaptationKey("", 0)], 10); // sem elemento
+  assert.equal(adaptShield({}, ["x"], 0, 200, 200)[shieldAdaptationKey("x", 0)], 95); // nunca 100%
+  const base = { damage: 100, shield: { value: 500 }, casco: { value: 0 } };
+  assert.equal(resolveShipCascade(base).toShield, 100);
+  const adapted = resolveShipCascade({ ...base, shield: { value: 500, adaptation: 0.75 } });
+  assert.equal(adapted.toShield, 25);
+  assert.equal(adapted.adapted, 75);
+  // Escudo caído não adapta nada.
+  assert.equal(resolveShipCascade({ damage: 100, shield: { value: 0, adaptation: 0.75 }, casco: { value: 0 } }).toHull, 100);
+});
+
+test("Antimagia: marca Mágica e custo extra por nível", () => {
+  const char = { type: "character" };
+  const ship = { type: "starship" };
+  assert.equal(isMagicUse({ cost: 10 }, char), true); // custa Mana
+  assert.equal(isMagicUse({ cost: 0, hasUpkeep: true, upkeepCost: 5 }, char), true);
+  assert.equal(isMagicUse({ cost: 0, isMagicDamage: true }, char), true);
+  assert.equal(isMagicUse({ cost: 0 }, char), false);
+  assert.equal(isMagicUse({ cost: 10, magicTag: "mundane" }, char), false); // o Mestre desmarca
+  assert.equal(isMagicUse({ cost: 0, magicTag: "magic" }, char), true);
+  assert.equal(isMagicUse({ cost: 10 }, ship), false); // Nave paga com a Bateria
+  assert.equal(antimagicSurcharge(20, 0), 0);
+  assert.equal(antimagicSurcharge(20, 1), 30);
+  assert.equal(antimagicSurcharge(20, 2), 90);
+  assert.equal(antimagicSurcharge(20, 3), 210);
+  assert.equal(antimagicSurcharge(0, 1, { base: 5, growth: 3 }), 10);
+});
+
+test("Estrutura com elemento: dano extra contra elemento, por parte do golpe", () => {
+  const catalog = [
+    { id: "fire", effects: [{ type: "vsElement", element: "ice", percent: 50 }] },
+    { id: "ice", effects: [] }
+  ];
+  assert.equal(structureElementFactor(["fire"], ["ice"], catalog), 1.5);
+  assert.equal(structureElementFactor(["fire", "ice"], ["ice"], catalog), 1.25); // metade do golpe é Fogo
+  assert.equal(structureElementFactor(["fire"], ["stone"], catalog), 1);
+  assert.equal(structureElementFactor([], ["ice"], catalog), 1);
+});
+
+test("Geometria: ponto dentro de forma fechada e cruzamento de segmentos", () => {
+  const square = [[0, 0, 10, 0], [10, 0, 10, 10], [10, 10, 0, 10], [0, 10, 0, 0]];
+  assert.equal(pointInSegments([5, 5], square), true);
+  assert.equal(pointInSegments([15, 5], square), false);
+  assert.equal(segmentsCross([[-5, 5, 5, 5]], square), true);
+  assert.equal(segmentsCross([[2, 2, 8, 8]], square), false);
+});
+
+test("Inventário: pilhas, contêineres, peso e carga", () => {
+  assert.equal(stackCount(0, 20), 0);
+  assert.equal(stackCount(1, 20), 1);
+  assert.equal(stackCount(20, 20), 1);
+  assert.equal(stackCount(21, 20), 2);
+  assert.equal(stackCount(5, 0), 1); // sem tamanho: padrão 20
+  const load = inventoryLoad(
+    [
+      { id: "potion", quantity: 25, stackSize: 20, weight: 0.5, containerId: "" },
+      { id: "bag", quantity: 1, weight: 1, isContainer: true },
+      { id: "rope", quantity: 1, stackSize: 1, weight: 10, containerId: "bag" },
+      { id: "gold-bar", quantity: 3, stackSize: 1, weight: 2, containerId: "sumiu" }
+    ],
+    [{ id: "bag", slots: 4, weightReduction: 50 }]
+  );
+  assert.equal(load.looseSlots, 2 + 1 + 3); // poções (2 pilhas) + bolsa + barras soltas
+  assert.equal(load.byContainer.bag.used, 1);
+  assert.equal(load.weight, 12.5 + 1 + 5 + 6);
+  assert.equal(currencyWeight({ gold: 100 }, [{ id: "gold", weight: 0.01 }]), 1);
+  assert.equal(carryCapacity({ base: 30, strength: 10, defense: 10, bonus: 5 }), 50);
+  assert.equal(encumbrancePenalty(40, 50), 0);
+  assert.equal(encumbrancePenalty(60, 50), 20);
+  assert.equal(encumbrancePenalty(200, 50), 100);
+  assert.deepEqual(speciesCarry(undefined, "anao"), { slots: 12, carry: 45 });
+  assert.deepEqual(speciesCarry({ inventorySlots: 5, carryBase: 7 }, "anao"), { slots: 5, carry: 7 });
+  assert.deepEqual(speciesCarry(undefined, "especie-nova"), { slots: 10, carry: 30 });
+});
+
+test("Porão e munição", () => {
+  assert.equal(cargoSlotsFor("compact"), 10);
+  assert.equal(cargoSlotsFor("colossal", 1.5), 240);
+  assert.equal(cargoSlotsFor("standard", 0.75), 15);
+  assert.equal(cargoMassFactor(0, 2000), 1);
+  assert.equal(cargoMassFactor(2000, 2000), 2);
+  assert.equal(cargoMassFactor(500, 0), 1);
+  const launcher = { usesAmmo: true, ammoTypes: ["torpedo", "mine"], moduleSize: "standard" };
+  assert.equal(ammoFitsLauncher({ enabled: true, type: "torpedo" }, launcher), true);
+  assert.equal(ammoFitsLauncher({ enabled: true, type: "missile" }, launcher), false);
+  assert.equal(ammoFitsLauncher({ enabled: true, type: "torpedo", minLauncherSize: "reinforced" }, launcher), false);
+  assert.equal(ammoFitsLauncher({ enabled: true, type: "torpedo" }, { ...launcher, usesAmmo: false }), false);
+});
+
+test("Active Effect: formato V13 e V14, e leitura dos dois", async () => {
+  const { buildEffectChanges, readEffectChanges } = await import("../module/helpers/foundry-compat.js");
+  const changes = [{ key: "system.attributes.combat.strength.buffDelta", mode: 2, value: 3 }, { key: "x", mode: 5, value: "fire" }];
+  assert.deepEqual(buildEffectChanges(changes, 13), { changes: [{ key: "system.attributes.combat.strength.buffDelta", mode: 2, value: "3" }, { key: "x", mode: 5, value: "fire" }] });
+  const v14 = buildEffectChanges(changes, 14);
+  assert.deepEqual(v14.system.changes, [{ key: "system.attributes.combat.strength.buffDelta", type: "add", value: "3" }, { key: "x", type: "override", value: "fire" }]);
+  assert.equal(v14.changes, undefined);
+  assert.deepEqual(readEffectChanges(v14), [{ key: "system.attributes.combat.strength.buffDelta", mode: 2, value: "3" }, { key: "x", mode: 5, value: "fire" }]);
+  assert.deepEqual(readEffectChanges(buildEffectChanges(changes, 13)), readEffectChanges(v14));
+  assert.deepEqual(readEffectChanges({ system: { changes: [{ key: "k", type: "multiply", value: "1.2" }] } }), [{ key: "k", mode: 1, value: "1.2" }]);
 });

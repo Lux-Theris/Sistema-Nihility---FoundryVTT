@@ -46,19 +46,31 @@ import {
   processPendingUpkeepRemoval
 } from "./skill-effects.js";
 import { isDesignatedGm } from "./helpers/gm-relay.js";
-import { tickStarshipPower } from "./starship-power.js";
+import { tickStarshipPower, registerShieldAdaptationReset } from "./starship-power.js";
 import { requestShipRepair, approveShipRepairRoll, restoreShipRepairTarget } from "./starship-repair.js";
 import { registerGmRelay } from "./helpers/gm-relay.js";
 import { registerInitiative } from "./combat.js";
 import { registerMovementLimit } from "./movement.js";
 import { registerConditionalRefresh } from "./conditional-context.js";
-import { advanceStructures, collapseStructuresOfCaster, renderStructureControls } from "./structures.js";
+import { advanceStructures, collapseStructuresOfCaster, renderStructureControls, registerStructureContact } from "./structures.js";
 import { registerStructureRendering } from "./structure-render.js";
 import { registerShieldLightHooks } from "./lights.js";
+import { registerShieldPoolReconcile } from "./shield-pools.js";
 import { registerStatusConditions, interceptManualCondition } from "./conditions.js";
 import { renderDamageControls } from "./damage-apply.js";
 import { notifyIncomingPadMessage } from "./pad/pad-messaging.js";
-import { isEnergyPoolEnabled, getModuleCategories, categorySlotLimit, moduleRole } from "./config.js";
+import {
+  isEnergyPoolEnabled,
+  getModuleCategories,
+  categorySlotLimit,
+  moduleRole,
+  getVesselSizes,
+  getVesselClasses,
+  vesselKind,
+  vesselSizeLabel,
+  sizeFitsClass,
+  describeClassSizeRange
+} from "./config.js";
 import { registerPortraitHelper } from "./helpers/portrait-frame.js";
 import {
   actorsCollection,
@@ -147,6 +159,9 @@ Hooks.once("init", () => {
   registerCompendiumCreateDefaults();
   registerStructureRendering();
   registerShieldLightHooks();
+  registerShieldPoolReconcile();
+  registerShieldAdaptationReset();
+  registerStructureContact();
 
   // Partials reaproveitados entre templates (hoje só a Habilidade Concedida, usada 3x na ficha
   // de Item). Precisa estar registrado antes da primeira ficha abrir.
@@ -453,16 +468,17 @@ Hooks.on("preDeleteItem", item => {
 
 /**
  * Overhaul de Naves (Fase 1) — compatibilidade de Porte: um Módulo só pode existir numa
- * Nave/Veículo cujo Porte seja igual ou maior ao dele (`MODULE_SIZE_RANK` vs `SHIP_SIZE_RANK`
+ * Nave/Veículo cujo Porte seja igual ou maior ao dele (`MODULE_SIZE_RANK` vs o `rank` do Porte
  * em config.js). Bloqueia a criação/edição com um aviso em vez de deixar o Módulo instalado
  * incompatível silenciosamente.
  */
 function checkModuleSizeCompatibility(actor, moduleSize) {
   if (!actor || !["starship", "vehicle"].includes(actor.type)) return true;
-  if (MEU_SISTEMA.MODULE_SIZE_RANK[moduleSize] <= MEU_SISTEMA.SHIP_SIZE_RANK[actor.system.shipSize]) return true;
+  const size = actor.system.vesselSize;
+  if (MEU_SISTEMA.MODULE_SIZE_RANK[moduleSize] <= size.rank) return true;
 
   ui.notifications.error(
-    `${actor.name}: Módulo de Porte "${MEU_SISTEMA.MODULE_SIZE_LABELS[moduleSize]}" não cabe num Porte "${MEU_SISTEMA.SHIP_SIZE_LABELS[actor.system.shipSize]}".`
+    `${actor.name}: Módulo de Porte "${MEU_SISTEMA.MODULE_SIZE_LABELS[moduleSize]}" não cabe num Porte "${size.label}" (aceita até ${MEU_SISTEMA.MODULE_SIZE_LABELS[MEU_SISTEMA.MODULE_SIZES[size.rank]]}).`
   );
   return false;
 }
@@ -520,6 +536,27 @@ function checkWeaponBudget(actor, category, moduleSize, excludeItemId) {
   ui.notifications.error(`${actor.name}: orçamento de espaço de Arma excedido (${usedByOthers + thisUnit} / ${budget}).`);
   return false;
 }
+
+// Faixa de Porte da Classe: trocar Porte ou Classe para uma combinação que a Classe não aceita é
+// recusado. Uma Nave que JÁ está fora da faixa (Classe editada depois) não muda sozinha — a ficha
+// só avisa o Mestre; o bloqueio vale para a próxima troca, nunca para outras edições.
+Hooks.on("preUpdateActor", (actor, changes) => {
+  if (!["starship", "vehicle"].includes(actor.type)) return;
+  const newSize = foundry.utils.getProperty(changes, "system.shipSize");
+  const newClassId = foundry.utils.getProperty(changes, "system.shipClass");
+  if (newSize === undefined && newClassId === undefined) return;
+  const sizeId = newSize ?? actor.system.shipSize;
+  const classId = newClassId ?? actor.system.shipClass;
+  if (sizeId === actor.system.shipSize && classId === actor.system.shipClass) return;
+  const kind = vesselKind(actor);
+  const sizes = getVesselSizes(kind);
+  const vesselClass = getVesselClasses(kind).find(c => c.id === classId) ?? null;
+  if (sizeFitsClass(sizeId, vesselClass, sizes)) return;
+  ui.notifications.warn(
+    `${actor.name}: a Classe ${vesselClass.label} aceita Porte ${describeClassSizeRange(vesselClass, sizes)} — ${vesselSizeLabel(kind, sizeId)} fica fora. Nada foi mudado.`
+  );
+  return false;
+});
 
 Hooks.on("preCreateItem", (item, data, options, userId) => {
   if (item.type !== "starship_module") return;

@@ -122,7 +122,7 @@ Mudar um interruptor pede recarga do mundo. Os campos numéricos dentro de um bl
 | **Deslocamento por rodada** | **desligado** | Tokens andam livres em combate. Tem campos: **Base (m)** 6, **Passo de Destreza** 10, **Teto (m)** 18, **Mestre ignora o limite** (ligado). |
 | **Estruturas** | ligado | Some a Mecânica "Estrutura" do editor de Skill. |
 | **Escala (Personagem × Nave)** | **desligado** | Todo dano vale ×1 entre tamanhos. Campo: **Fator por degrau** 10. |
-| **Movimento e Evasão de naves** | **desligado** | Naves andam livres e não têm Evasão; a ficha mostra Manobra/Velocidade. Campos: casas por rodada e Evasão por Porte, e o teto de Evasão (ver [11](#movimento-e-evasão)). |
+| **Movimento e Evasão de naves** | **desligado** | Naves andam livres e não têm Evasão; a ficha mostra Manobra/Velocidade. Campo: o teto de Evasão; as casas e a Evasão de cada Porte ficam nos catálogos de Portes (ver [11](#movimento-e-evasão)). |
 
 Deslocamento, Escala e Movimento de naves vêm desligados porque mudam o comportamento dos tokens em combate: um mundo que só atualizou o sistema não deve ganhar uma regra nova sem você decidir.
 
@@ -175,6 +175,8 @@ No topo de Módulos do Sistema há três botões. Um preset liga/desliga blocos 
 | Rótulo de Energia — Personagens | Mana | Ex.: Ki, Fluxo Quântico. |
 | Rótulo de Energia — Naves | Sistema Eletro-Plasmático (EPS) | Nome longo, usado em títulos e chat. |
 | Sigla da Energia de Naves | EPS | Forma curta, usada nas tabelas da ficha de Nave. |
+| Custo variável — Expoente | 0,75 | Numa Skill que aceita variar a energia, investir r× o Custo dá força r^expoente (abaixo do Custo, proporcional). Menor = cada ponto extra vale menos. Sem teto. |
+| Custo variável — Mínimo (% do Custo) | 25 | O menos que se pode investir. |
 
 ### Combate
 
@@ -214,6 +216,8 @@ Renomeie os oito Atributos (Força, Defesa, Magia, Defesa Mágica, Destreza, Fur
 
 Cada Espécie tem: **Chave**, **Nome**, **grupo** (Fantasia, Isekai, Sci-Fi, Besta/Montaria — só organização), **na criação** (se aparece no seletor dos jogadores), **Traços**, **Partes do Corpo** (Nome, Slot, Vida, Tags) e **Skills Raciais** (editadas no mesmo editor completo de Skill, com tier fixo Racial).
 
+Cada Espécie também tem **Slots** e **Carga base (kg)** do inventário (vazio = o padrão da tabela: Humano 10/30, Anão 12/45, Ogro 14/90, Goblin 8/15, Cavalo 4/100…; sem Espécie, 10/30).
+
 Espécies com "na criação" desmarcado só aparecem para o Mestre e para a IA — é como Cavalo e Grifo existem como presets de montaria sem virar opção de personagem.
 
 Quando o jogador escolhe a Espécie na ficha, o sistema substitui Partes do Corpo e Skills Raciais pelas do preset (com confirmação) e aplica os Traços. Mudar o preset depois **não** atualiza fichas que já o aplicaram.
@@ -232,20 +236,30 @@ Cada moeda: id, nome, ícone, **peso** por unidade e **valor base** (quantas uni
 
 Cada elemento: id, nome, **cor**, **grupo** (Físico, Fantasia, Energia, Exótico… — organiza a janela de escolha) e **Efeitos ao acertar**:
 
+**Dano extra contra elemento (Estrutura)**: efeito ao acertar que só vale contra uma Estrutura daquele elemento (Fogo +50% contra Gelo derrete a Parede de Gelo mais rápido; negativo = fraqueza).
+
 | Tipo de efeito | Campos | Comportamento |
 |---|---|---|
 | **Aplicar Condição** | Condição, Chance % | Rola a chance por acerto. A Condição usa o **efeito padrão** dela, calculado com o dano daquela parte do golpe. Só entra quando o dano é aplicado. |
 | **Dano extra contra Traço** | Traço, % | +X% nesta parte se o alvo tiver o Traço. |
-| **Dano extra em Escudo** | % | Dano adicional que só existe contra Escudo (camada de Escudo da Nave ou Escudo pessoal). |
+| **Dano por camada** | Camada (Escudo, Casco, Integridade), % | Multiplica a parte do golpe que chega naquela camada. **Pode ser negativo** (fraqueza): Phaser +20% no Escudo e −20% no Casco; Torpedo −50% no Escudo e +30% no Casco. O de Escudo vale também para o Escudo pessoal. |
+| **Dano extra em Escudo** | % | O antigo; funciona como Escudo +X%. |
 | **Penetração** | % | Suaviza cada defesa proporcionalmente (Penetração 30% transforma 50% de Resistência em 35%). **Nunca atravessa Imunidade.** |
+| **Nave: derrubar Módulo** | Chance %, Rodadas | Desliga um Módulo do alvo (o mirado, se houver; senão um ao acaso) por N rodadas da Nave atingida. |
+| **Nave: drenar energia** | Chance %, %, Rodadas | Tira X% da Bateria na hora e o Reator gera X% a menos por N rodadas. |
+| **Nave: baixar resistência** | Chance %, %, Rodadas | −X pontos de Resistência à Penetração (Escudo e Casco) e de Redução do Casco por N rodadas. |
+
+Os três efeitos de Nave (e as Condições, contra Nave) **só disparam com a parte do golpe que passou do Escudo** — Escudo de pé é a primeira defesa. A chance ainda cai pelo **Endurecimento** do Módulo afetado + o da Classe (20% contra 30% de Endurecimento = 14%). Efeitos iguais não somam: renovam pro mais longo e mais forte.
 
 Quem é imune ao elemento não sofre os efeitos dele. Um golpe é **dividido em partes iguais** entre os seus elementos (ver [9](#dano-por-elemento)).
 
-Catálogo de fábrica (fantasia): Físico, Fogo (25% Queimadura), Gelo (25% Lentidão), Elétrico, Ácido, Sombrio, Sagrado. Catálogo de energia (preset Sci-Fi): Cinético, Phaser, Disruptor (Pen. 10%), Plasma (25% Queimadura), Pólaron (+20% contra Orgânico), Táquion (+30% em Escudo), Antiprótons, Transfásico (Pen. 40%).
+Catálogo de fábrica (fantasia): Físico, Fogo (25% Queimadura), Gelo (25% Lentidão), Elétrico, Ácido, Sombrio, Sagrado. Catálogo de energia (preset Sci-Fi): Cinético (Escudo −50%, Casco +30%, Integridade +10%), Phaser (Escudo +20%, Casco −20%, 10% de derrubar Módulo por 2 rodadas), Disruptor (Pen. 10%, 20% de baixar resistência em 10 por 2 rodadas), Plasma (25% Queimadura, Casco +15%), Pólaron (+20% contra Orgânico, 20% de drenar 15% da energia por 2 rodadas), Táquion (Escudo +30%), Antiprótons (Integridade +15%), Transfásico (Pen. 40%). O preset só vale pra catálogos novos ou reaplicados; um catálogo já salvo não muda sozinho.
 
 ### Condições
 
 Cada Condição: id, nome, ícone e um **efeito padrão** opcional.
+
+Cada Condição pode ter **Antimagia (nível)**: quem a carrega paga energia extra em toda magia (ver [Antimagia](#antimagia)). O catálogo padrão traz o **Selo Antimagia** (nível 1).
 
 | Tipo de efeito | Campos |
 |---|---|
@@ -279,13 +293,13 @@ A lista de Escalas (padrão Pessoal, Veículo, Nave, Capital) **é a ordem dos d
 
 ### Estruturas
 
-Cada Estrutura: id, nome, **cor**, **imagem** (opcional, textura para círculo/quadrado), **Forma** (Linha reta, Forma livre, Círculo, Quadrado), **Tamanho (m)** (comprimento máximo para linha/livre; raio para círculo; lado para quadrado), **Bloqueia movimento**, **Bloqueia visão**, **Vida** e **Duração (rodadas)**, mais **Luz**.
+Cada Estrutura: id, nome, **cor**, **imagem** (opcional, textura para círculo/quadrado), **Forma** (Linha reta, Forma livre, Círculo, Quadrado), **Tamanho (m)** (comprimento máximo para linha/livre; raio para círculo; lado para quadrado), **Bloqueia movimento**, **Bloqueia visão**, **Vida** e **Duração (rodadas)**, mais **Luz**, **Segura golpes** (desmarcado: não para ataques — Muralha de Fogo, Campo Antimagia), **Mágica** (sofre antimagia), **Antimagia (nível)** (0 = não é campo), **Dano ao contato** (fórmula rolada contra quem atravessa ou termina o movimento dentro) e **Elementos** (a Estrutura é daquele elemento: golpes contra ela seguem o "Dano extra contra elemento" de quem ataca, e o dano ao contato é desses elementos).
 
 - **Vida 0 = barreira de mana**: o dano que ela leva sai da Mana de quem conjurou.
 - **Duração 0 = sem prazo**: fica até a Skill Ativa ser desligada, até você derrubar, ou até a Vida ou Mana de quem conjurou chegar a 0.
 - **Luz** (**Configurar luz…**): cria luzes reais junto com as paredes (uma no centro de uma forma fechada, várias ao longo de uma linha), com as animações do Foundry (Campo de Energia, Domo Hexagonal, Grade de Força…). A janela tem **pré-visualização ao vivo no mapa**, só na sua tela, e nada é salvo até **Aplicar**. As luzes são **apagadas** junto com a Estrutura.
 
-Padrão: Parede de Pedra (livre, 10 m, Vida 60, bloqueia visão), Bloco de Gelo (quadrado 2 m, Vida 30, 3 rodadas), Barreira de Mana (círculo 3 m, barreira de mana).
+Padrão: Parede de Pedra (livre, 10 m, Vida 60, bloqueia visão), Bloco de Gelo (quadrado 2 m, Vida 30, 3 rodadas), Barreira de Mana (círculo 3 m, barreira de mana, mágica), Muralha de Fogo (linha 8 m, não segura golpes, Fogo, 2d6 ao contato, 3 rodadas) e Campo Antimagia (círculo 4 m, nível 1, 3 rodadas).
 
 ### Categorias de Módulo
 
@@ -305,9 +319,24 @@ Cada Categoria: id, nome, **Função** e **Vagas** (quantas cabem por nave; 0 = 
 
 Uma Categoria que sumiu do catálogo cai na Função padrão do id dela, ou em Utilidade — a nave nunca quebra. O catálogo de fábrica tem 9 Categorias (Reator, Bateria, Distribuidor, Escudo, Motor, Casco, FTL com 1 vaga cada; Arma e Utilidade sem limite). O preset Sci-Fi troca por nomes estilo Star Trek (Núcleo de Dobra, Rede EPS, Escudos Defletores, Motor de Impulso, Manobradores, Blindagem Ablativa, Motor de Dobra, Transdobra…).
 
+### Portes de Nave e de Veículo
+
+Porte é o **tamanho**. Nave e Veículo têm **listas separadas** (Configurações Gerais › Naves › Portes de Nave / Portes de Veículo), do menor pro maior — essa ordem é a régua da faixa de Porte das Classes. Cada Porte guarda os próprios números:
+
+| Campo | O que faz |
+|---|---|
+| **Módulos até** | Maior Porte de Módulo instalável (Compacto … Colossal). Também é o Motor de referência (Movimento/Evasão) e a régua do Raio Trator. |
+| **Espaço de Arma** | Cada Arma ocupa o Porte dela + 1 (Compacta 1, Standard 2…). |
+| **Distribuidor (Fator 1)** | Teto de energia por rodada de um Distribuidor de Fator 1. |
+| **Reserva sem Bateria** | Carga dos conduítes do casco. Uma Bateria **substitui** esse valor: mantenha abaixo de 125 (a menor Bateria) pra instalar nunca piorar. |
+| **Casas por rodada** / **Evasão %** | Base de Movimento e Evasão com o Motor do tamanho esperado a 100%. |
+| **Carga que pesa (kg)** | Carga no porão que corta o desempenho do Motor pela metade (usada quando o inventário de Nave chegar). |
+
+Padrões de Nave: Mini, Pequeno, Médio, Grande, Capital. Padrões de Veículo: Mini, Pequeno (com os mesmos números de antes), Médio, Grande, Colossal. A Escala de cada Porte continua em **Escalas**. Mudar o id de um Porte em uso faz as naves dele voltarem aos números padrão até você escolher outro Porte na ficha — nada é apagado. Se você já tinha ajustado as casas e a Evasão por Porte em Módulos do Sistema, os Portes de Nave começam com esses valores.
+
 ### Classes de Nave e de Veículo
 
-Porte é o **tamanho**; Classe é o **papel**. Cada Classe: id, nome, descrição, multiplicadores de **Evasão ×**, **Movimento ×** e **Espaço de Arma ×**, **Arma até** (Porte máximo de arma) e **Vagas por Categoria** (sobrescreve o padrão da Categoria — é assim que um Encouraçado ganha 2 vagas de Blindagem e 2 de Escudo).
+Classe é o **tipo** (Caça, Fragata, Dreadnought…; Moto, Tanque…). Cada Classe: id, nome, descrição, **faixa de Porte** (Porte **de** … **até** …, cada um opcional: "até Pequeno", "a partir de Capital", "de Médio a Grande"), multiplicadores de **Evasão ×**, **Movimento ×** e **Espaço de Arma ×**, **Arma até** (Porte máximo de arma), **Resistência à Penetração** extra de Escudo e de Casco, **Endurecimento** extra e **Vagas por Categoria** (sobrescreve o padrão da Categoria — é assim que um Encouraçado ganha 2 vagas de Blindagem e 2 de Escudo).
 
 | Classe de Nave | Evasão | Movimento | Espaço de Arma | Outros |
 |---|---|---|---|---|
@@ -324,6 +353,8 @@ Porte é o **tamanho**; Classe é o **papel**. Cada Classe: id, nome, descriçã
 | Moto | ×1,6 | ×1,5 | ×0,5 | arma até Compacto |
 
 Trocar a Classe de uma nave **nunca remove** Módulos já instalados.
+
+**Faixa de Porte:** na ficha, o seletor de Porte só mostra os Portes que a Classe aceita, e o de Classe só as Classes que aceitam o Porte atual (a faixa aparece no nome, ex.: "Caça (até Pequeno)"). Trocar para uma combinação fora da faixa é recusado com aviso. Uma nave que **já** está fora (Classe editada depois) não muda sozinha: a ficha mostra um aviso só pra você, e o bloqueio vale para a próxima troca. Para mudar Porte e Classe de uma vez, passe por "— sem Classe —".
 
 ### Postos de Tripulação
 
@@ -422,6 +453,7 @@ Canal de anúncio **sempre por sussurro**, para os Mestres e os donos do Ator. A
 | Nível | Só o Mestre edita. |
 | Custo de Mana | Pago ao usar (ou ao ligar, se Ativa). É o custo do nível 1; o desconto do ciclo vem por cima. |
 | Habilidade Ativa + Mana por Rodada | Liga/desliga com dreno no início de cada turno do dono. |
+| Aceita variar a Mana | Ao usar, escolhe quanto investir (mínimo nas Regras da Mesa, sem máximo). A força multiplica dano, Efeitos e Vida de Estrutura; o Custo por Rodada acompanha o investimento feito ao ligar. Só para Skill paga com Mana (Nave não usa). |
 | Animação (Sequencer) | Caminho de um efeito do módulo Sequencer. Sem o módulo, é ignorado. Nunca atrasa a mecânica. |
 | Gatilho Emocional | Texto livre (usado em Skills Únicas/Ultimate). |
 
@@ -429,7 +461,7 @@ Canal de anúncio **sempre por sussurro**, para os Mestres e os donos do Ator. A
 
 - **Alvo** (só Dano e Efeito): Targetada, Si mesmo, Emissão, Zona. Área: **Formato** (Círculo, Cone, Linha), **Distância** (raio ou alcance, em unidades de grid), **Ângulo** (cone), **Duração da Zona** (rodadas).
 - **Dano**: Fórmula, Atributo de Escala, Dano Mágico, Dano Absoluto, Escala do golpe, Elemento(s).
-- **Efeitos** (Efeito Temporário): lista de cartões. Cada Efeito tem Alvo, Quantidade, Duração, e conforme o alvo: Condição/Ícone (**+ Condição**), Periódico + unidade de tick + Elemento do tick (HP/Mana), Luz do escudo (Escudo), Modo Fixo/Multiplicador (Nave), Elemento (trocar elemento da arma).
+- **Efeitos** (Efeito Temporário): lista de cartões. Cada Efeito tem Alvo, Quantidade, Duração, e conforme o alvo: Condição/Ícone (**+ Condição**), Periódico + unidade de tick + Elemento do tick (HP/Mana), Luz do escudo, Regeneração por rodada e Teto (Escudo; os dois últimos só numa Skill Ativa — Escudo mantido), Modo Fixo/Multiplicador (Nave), Elemento (trocar elemento da arma).
 - **Estrutura**: qual Estrutura do catálogo (a janela mostra forma, tamanho, Vida e duração).
 
 **Alvos de Efeito** — agrupados, e recusados com aviso no chat quando não fazem sentido para o tipo de Ator atingido (Força numa nave, sistema de nave numa pessoa):
@@ -524,6 +556,9 @@ Para o Ator cujo turno começou (só o Mestre executa, uma vez):
 
 ### Aplicar dano pelo chat
 
+O Escudo pessoal é feito de **pools**, um por Skill que deu Escudo (a ficha mostra o total e cada pool). O **Aplicar** gasta do pool mais recente pro mais antigo, com a **Penetração** do golpe (elementos, ou a arma de Nave) agindo em cada pool, e o Escudo avulso (digitado à mão) por último; **Desfazer** devolve os pools como estavam. Mexer no total do Escudo à mão ajusta os pools sozinho (diminuir tira do mais recente; aumentar vira avulso). Um pool que acaba apaga a luz da Skill dele, e a do pool anterior volta a aparecer.
+
+
 ![O caminho de um golpe](img/pipeline-dano.svg)
 
 O card de dano contra um Personagem ganha, **só para você**:
@@ -574,7 +609,11 @@ O golpe é dividido em partes iguais, e cada parte sofre só a Resistência do p
 
 ### Dano Absoluto
 
-Não pode ser **resistido**: ignora Defesa Mágica, Resistências, Imunidade e Escudo pessoal. Pode ser **evitado**: Estruturas seguram, e naves ainda aplicam a Evasão (o resto vai direto para a Integridade Estrutural). Disponível em Skill, Sub-Skill, arma pessoal, arma de nave e como aprimoramento de arma.
+É **o dano inteiro**, com qualquer elemento junto no golpe: não pode ser **resistido** (ignora Defesa Mágica, Resistências, Imunidade e Escudo pessoal) e os elementos não o alteram (sem bônus contra Traço; as Condições do elemento ainda podem pegar). Pode ser **evitado**: Estruturas seguram, e naves ainda aplicam a Evasão (o resto vai direto para a Integridade Estrutural). Disponível em Skill, Sub-Skill, arma pessoal, arma de nave e como aprimoramento de arma.
+
+### Janela de Efeitos
+
+O botão **✦ Efeitos** das fichas (Personagem e Nave) abre a lista de tudo o que age sobre o Ator (ver o Manual do Jogador). Só o dono do Ator e você a abrem; o **✕** de cada efeito (Active Effect ou efeito de sistema de Nave) é só seu e o encerra na hora. **Regenerar agora** aplica a regeneração dos Escudos mantidos fora de combate (feito por você, Mestre conectado, porque o Escudo pode estar num aliado).
 
 ### Condições marcadas à mão no token
 
@@ -613,7 +652,18 @@ Regras de combate:
 - A Estrutura **nunca bloqueia quem a ergueu**.
 - Em ataque de área, a Estrutura apanha uma vez só, e todos atrás dela recebem a mesma sobra.
 - Quando um Ator tem vários Tokens, o Token **selecionado** é o atacante e o Token **marcado como alvo** é o alvo.
+- A **animação** da Skill (Sequencer) para no ponto de impacto na Estrutura; se sobrou dano, uma segunda animação segue do impacto até o alvo.
+- Ao cair, paredes e luz somem na hora; o **desenho** faz uma animação curta em todas as telas conforme o motivo — destruída (Vida 0 ou **Derrubar**): racha e estilhaça; barreira sem Mana: pisca e se desfaz; prazo ou Skill desligada: dissolve — e o card no chat passa a dizer como ela caiu.
 - Paredes órfãs (de uma Estrutura que não existe mais) são apagadas ao carregar a cena.
+- **Dano ao contato:** Token que atravessa (ou termina o movimento dentro de) uma Estrutura com dano ao contato leva a rolagem dela, com os elementos dela e as defesas do alvo; o card tem os botões de Aplicar como qualquer golpe. Nave/Veículo não queima.
+
+### Antimagia
+
+- **Marca Mágica** (Skills e Sub-Skills, campo **Mágica**): Automático = mágica quando custa a energia do personagem (Custo ou Custo por rodada) ou tem Dano Mágico; **Sim**/**Não** forçam. Skill de Nave nunca é mágica no automático. Arma com Dano Mágico também é magia.
+- **Fontes:** Estrutura com **Antimagia (nível)** > 0 (o campo) e Condição com **Antimagia (nível)** > 0 (o **Selo Antimagia**, que já vem no catálogo). Uma Skill "antimagia" é uma Skill que ergue o campo ou aplica o Selo.
+- **Ataque mágico** (alvo único ou área): se a linha até o alvo cruza um campo, sai de dentro dele ou o alvo está dentro — ou quem ataca está selado — cobra UMA vez, na hora, `(Custo + base) × (crescimento^nível − 1)` da energia de quem ataca (base 10, crescimento 2: custo 20 paga +30 no nível 1, +90 no 2, +210 no 3; os dois números ficam em **Regras da Mesa › Combate**). Sem energia para pagar: os alvos sob antimagia não recebem nada (inclusive Dano Absoluto).
+- **Contínuo:** Habilidade Ativa mágica de quem está dentro de um campo ou selado soma o extra (sobre o Custo por rodada) no dreno do turno; faltou, desliga. Estrutura mágica que toca um campo cobra `base × (crescimento^nível − 1)` do conjurador por rodada; faltou, cai ("desfeita pela antimagia").
+- Mesa sem mapa: só o Selo vale.
 
 ### Deslocamento por rodada
 
@@ -644,11 +694,20 @@ Fontes ativas: Título sempre; Item só equipado; Skill sempre, ou só ligada se
 
 ## 10. Itens, Títulos e Anatomia
 
+### Inventário
+
+Bloco **Inventário (slots, pilhas e contêineres)** em Módulos do Sistema (ligado por padrão), com os campos **Carga por ponto de Força** (1 kg) e **Carga por ponto de Defesa** (0,5 kg); o sub-bloco **Peso limita o Deslocamento** vem desligado. Desligar o Inventário esconde a aba e o Porão e volta a lista de Itens Gerais para a aba Ficha; nada é apagado (os campos de pilha e contêiner continuam salvos).
+
+- Passar dos slots (inventário, contêiner ou Porão) **só avisa** — a mesa decide. Passar da carga só pesa com **Peso limita o Deslocamento** ligado.
+- Na aba Inventário você (Mestre) tem **Slots extras** e **Carga extra** por ficha (podem ser negativos).
+- **Empilhar:** Item Geral solto na ficha com o mesmo nome e imagem de um que já está lá (no mesmo lugar, e nenhum dos dois contêiner) soma a quantidade. Vindo da ficha de outro Ator que o usuário controla, o Item é **movido**; do Diretório/Compêndio, copiado.
+- **Tipos de Munição** (Configurações Gerais › Naves): catálogo simples (Torpedo, Míssil, Mina, Projétil cinético, Flecha, Virote, Bala). O lançador (Módulo de Arma com **Usa munição**) marca os tipos que aceita; a Munição (Item Geral) tem um tipo, fórmula, elementos, Absoluto, Penetração extra e **Lançador mínimo** (Porte).
+
 ### Item Geral
 
 Só você cria Itens na ficha (**+ Novo Item**), ou arrasta do Compêndio de Itens. Campos principais (ficha do Item):
 
-- **Geral**: Quantidade, Peso, Valor + moeda, **Equipado**; e, só para o Mestre, **Dispositivo PAD** (quem carregar um item assim ganha o botão PAD — não precisa estar equipado).
+- **Geral**: Quantidade, Peso, **Empilha até**, Valor + moeda, **Equipado**, **Contêiner** (slots e redução de peso), **Munição** (tipo, fórmula, elementos, Absoluto, Penetração extra, lançador mínimo); e, só para o Mestre, **Dispositivo PAD** (quem carregar um item assim ganha o botão PAD — não precisa estar equipado).
 - **Arma**: "Este item é uma arma", Fórmula, Atributo de Escala, Mágico, Absoluto, Escala do golpe, Elementos.
 - **Enquanto equipado**: Habilidade Concedida, Modificador de HP/Mana máx., Bônus de atributo, Bônus condicionais.
 
@@ -672,7 +731,7 @@ Crie pelo Diretório de Atores (tipo **Nave Espacial** ou **Veículo Terrestre**
 
 ### Porte
 
-Só você muda o Porte (seletor do cabeçalho). Veículos só existem em Mini e Pequeno.
+Só você muda o Porte (seletor do cabeçalho), dentro da faixa da Classe. Os números abaixo são os padrões de Nave; tudo é editável em **Portes de Nave** / **Portes de Veículo** (ver [5](#portes-de-nave-e-de-veículo)). Veículo tem a lista própria (Mini, Pequeno, Médio, Grande, Colossal; Escala padrão Veículo em todos).
 
 | Porte | Espaço de Arma | Teto do Distribuidor (baseline ×1) | Capacitor sem Bateria | Escala padrão |
 |---|---|---|---|---|
@@ -717,11 +776,19 @@ Módulos são Itens (**+ Novo Módulo**, **+ Nova Arma**, ou arrastados do Comp�
 - **Vida do Módulo escala o desempenho**: a 50% de Vida entrega 50%.
 - **Prioridade** é decisão da tripulação, não do fabricante — por isso fica na ficha da nave, não na do Módulo.
 
+**Foco de energia e Ações da Nave** — no topo do Grid (e na tela Nave do PAD) a tripulação tem os atalhos **Escudos / Armas / Motores / Equilibrado**: o sistema em foco vai pra P1 com throttle de *Foco de energia: sistema em foco* (padrão 150%, limitado ao início da Sobrecarga da Função), os outros dois vão pra P3 com *os outros dois sistemas* (padrão 75%); Equilibrado põe 100%. Só Escudo, Arma e Propulsão mudam. Abaixo do Grid, **Ações da Nave**: **Preparar para impacto** (−X% do dano até o próximo turno da Nave, Regras da Mesa → Naves, padrão 30%), **Energia auxiliar → Escudos** (Capacitor vira Escudo), **Reparo de emergência** (o Pedido de Reparo com esta Nave) e **Reiniciar sistemas** (encerra um efeito de sistema; um Módulo derrubado religa se tiver Vida para isso). A lista de efeitos de sistema ativos fica ali. Quanto de ação cada uma custa é decisão da mesa.
+
+**Escudo adaptativo** (opção **Adaptativo** no Módulo de Escudo, com **Adapta por golpe** e **Teto**, máx. 95%): cada golpe que chega no Escudo de pé soma resistência àquele elemento + frequência das armas de quem atacou; enquanto o Escudo está de pé, o golpe inteiro cai por essa adaptação (a maior entre os Escudos adaptativos ligados; golpe de vários elementos usa a média das partes). Fica guardado no Módulo instalado (a ficha dele mostra "Adaptado agora") e atravessa combates; some quando o Escudo cai ou o Módulo desliga. **Modular frequência** (Ações da Nave de quem ataca) sorteia uma frequência nova para as armas dela, que o Escudo ainda não conhece. Dano Absoluto pula o Escudo e não ensina nada.
+
+**Raio Trator** (Função nova, categoria "Raio Trator"): ligado, o botão 🧲 da linha prende uma Nave/Veículo; o deslocamento dela cai 100% / 50% / 25% / 0 conforme o Porte do alvo esteja até o do Módulo / um / dois / três acima, vezes o throttle (até 100%). Vale enquanto o Módulo estiver ligado (conferido no turno do alvo); ⛓ solta. O prender é executado pelo Mestre conectado, que recalcula a força. **Porão de Carga** também é uma Função nova (os slots chegam com o inventário).
+
 **Sobrecarga** — throttle acima do limite da Função danifica o Módulo a cada rodada: `(excesso ÷ 100) × Vida máx. × 0,5` — cerca de 5% da Vida máx. por rodada a cada 10 pontos de excesso. O Reator não tolera nada acima de 100% (underclock nunca danifica). Módulo com Vida 0 desliga sozinho (por qualquer causa) e só religa com **15%** da Vida.
 
 ### Armas
 
 Dano, Penetração e Recarga moram na própria arma. **Disparar** rola a fórmula, escala por throttle × energia recebida, aplica bônus de Skills (`Dano de Arma`, `Penetração de Arma`), e a arma entra em Recarga. Throttle acima de 100% **não danifica**: aumenta dano e penetração e multiplica a Recarga na mesma proporção (arredondada para cima, mínimo 1). Contra um Personagem, o dano de arma de nave segue o caminho de dano de personagem (e a Escala faz o estrago).
+
+**Lançadores e Porão:** uma Arma com **Usa munição** dispara a Munição do Porão (ver [Inventário](#inventário)). **Porão de Carga** é uma Função: slots por Porte (10/20/40/80/160) × **Multiplicador de slots** do Módulo; com **Peso limita o Deslocamento** ligado, a razão do Motor é dividida por `1 + peso da carga ÷ Carga que pesa` (coluna dos Portes).
 
 **FTL** tem dois modos: **Dobra Espacial** (propulsão contínua, Fator de Dobra, sem recarga) e **Salto** (alcance + tempo de carga; pensado para ser raro e liberado pela narrativa — o sistema não restringe).
 
@@ -732,18 +799,23 @@ Dano, Penetração e Recarga moram na própria arma. **Disparar** rola a fórmul
 Automático, sem botão de Aplicar:
 
 1. **Evasão** evita uma fração do tiro (inclusive de Dano Absoluto).
-2. Bônus de elemento contra Traços da nave.
-3. **Escudo**: a parte não penetrada é absorvida até o Escudo acabar; o resto e a parte penetrada vazam. Zerar o Escudo dispara a **Recarga** (a mais longa entre os Escudos): rodadas sem regenerar.
-4. **Casco**: reduz pela Redução% (só com Vida > 0), separa pela Penetração de novo, absorve na Vida dos Módulos de Blindagem (o mais danificado primeiro).
-5. **Integridade Estrutural**: o que sobra cai em pedaços aleatórios em Módulos sorteados (tudo menos Blindagem; Escudo e Armas também podem ser atingidos). Se tudo zerar, o excedente se perde.
+2. **Preparar para impacto** (se ativo) tira X% do que chegou.
+3. Bônus de elemento contra Traços da nave.
+4. **Escudo**: a Penetração da arma **menos a Resistência à Penetração do Escudo** (a maior entre os Escudos ligados + o bônus de Escudo da Classe) decide quanto passa direto; o resto é absorvido até o Escudo acabar, vezes o **% de Escudo** do elemento. Zerar o Escudo dispara a **Recarga** (a mais longa entre os Escudos): rodadas sem regenerar.
+5. **Casco**: reduz pela Redução% (só com Vida > 0), separa pela Penetração **menos a Resistência à Penetração do Casco** (a da Blindagem + o bônus de Casco da Classe), absorve na Vida dos Módulos de Blindagem (o mais danificado primeiro), vezes o **% de Casco** do elemento.
+6. **Integridade Estrutural**: o que sobra, vezes o **% de Integridade** do elemento, cai em pedaços aleatórios em Módulos sorteados (tudo menos Blindagem; Escudo e Armas também podem ser atingidos). Se tudo zerar, o excedente se perde.
 
-**Dano Absoluto** pula Escudo e Casco e vai direto para a Integridade (a Evasão ainda vale).
+**Dano Absoluto** pula Escudo e Casco e vai direto para a Integridade, inteiro (a Evasão ainda vale; Preparar para impacto e % de camada não).
+
+**Mirar num sistema:** ao atacar uma Nave com alvo único, aparece "Mirar num sistema — escolha um Módulo ou deixe espalhar". Com um Módulo escolhido, **75%** do dano de Integridade vai nele (até a Vida dele; o que ele não aguenta volta a espalhar) — é assim que se derruba os motores. O "derrubar Módulo" de um elemento também escolhe o mirado. Perguntar ou não, e a fatia, ficam em Regras da Mesa (Combate).
+
+**Dano contínuo e reparo:** Condições podem ter tick no **Casco** ou na **Integridade** de Nave (e uma Condição de Vida que cai numa Nave vira tick de Integridade — Queimadura de Plasma queima o casco). Skills têm os alvos de Efeito do grupo Nave: **Restaurar Escudo da Nave**, **Casco da Nave** e **Integridade da Nave** (negativo = dano, positivo = reparo; podem ser Periódicos) e **Preparar para impacto** (% de redução por N rodadas).
 
 ### Movimento e Evasão
 
 Com o bloco **Movimento e Evasão de naves** ligado:
 
-- **Movimento** = casas do Porte × razão do Motor × Classe (arredondado para baixo), convertido para a unidade do grid da cena.
+- **Movimento** = casas do Porte × razão do Motor × Classe (arredondado para baixo), convertido para a unidade do grid da cena. As casas e a Evasão de cada Porte se editam nos catálogos de Portes; a tabela abaixo é o padrão de Nave.
 - **Evasão** = Evasão do Porte × razão da Rotação × Classe, até o teto.
 - A **razão do Motor** compara a Aceleração/Rotação **efetivas** do Motor (throttle, energia e Vida aplicados) com as do Motor do tamanho que o Porte pede (Mini → Compacto … Capital → Colossal). Isso impede que uma Capital ande 16× mais que uma Mini.
 
@@ -768,7 +840,7 @@ O **+** ao lado de Escudos e de cada Módulo abre um campo com **− Dano**/**+ 
 
 ### Reparo em campo
 
-A macro **Pedido de Reparo** (`game.nihility.requestShipRepair()`) é executável por jogadores. O pedido chega sussurrado com um campo de **modificador** livre.
+A macro **Pedido de Reparo** (`game.nihility.requestShipRepair()`) é executável por jogadores (com uma Nave só na cena); o botão **Reparo de emergência** da ficha faz o mesmo pedido já com aquela Nave. O pedido chega sussurrado com um campo de **modificador** livre.
 
 1. **Rolar Destreza** — rola a Destreza do engenheiro + modificador. Você julga se deu certo (não há CD).
 2. **Restaurar Vida** — aparece depois da rolagem; rola **2d6** e aplica no alvo, sem passar do máximo. Não escala com o tamanho do alvo: algo grande só leva mais tentativas.

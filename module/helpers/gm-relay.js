@@ -103,6 +103,26 @@ const HANDLERS = {
     await damageStructure(scene, instanceId, value);
   },
 
+  /** "Regenerar agora" da janela de Efeitos: os Escudos mantidos deste Ator (escreve nos alvos). */
+  async regenerateSustainedShields(payload) {
+    const actor = typeof payload?.actorUuid === "string" ? await fromUuid(payload.actorUuid) : null;
+    if (!actor) return;
+    const { regenerateSustainedShields } = await import("../skill-effects.js");
+    await regenerateSustainedShields(actor);
+  },
+
+  /** Raio Trator: prende um alvo (a força é recalculada aqui, ver engageTractorAsGm). */
+  async engageTractor(payload) {
+    const { engageTractorAsGm } = await import("../starship-power.js");
+    await engageTractorAsGm(payload ?? {});
+  },
+
+  /** Raio Trator: solta o alvo. */
+  async releaseTractor(payload) {
+    const { releaseTractorAsGm } = await import("../starship-power.js");
+    await releaseTractorAsGm(payload ?? {});
+  },
+
   /** Acende a luz de um Escudo pessoal nos Tokens do alvo (ver lights.js). */
   async setShieldLight(payload) {
     const { setShieldLightAsGm } = await import("../lights.js");

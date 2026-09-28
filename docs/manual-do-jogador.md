@@ -205,9 +205,13 @@ O nome "Mana" também é configurável (Ki, Fluxo Quântico…). Este manual usa
 
 O **Escudo** é Vida extra temporária concedida por Skills (ex.: "Barreira Arcana dá 30 de Escudo"). Não tem máximo nem duração: fica até ser gasto.
 
-Quando você leva dano, o **Escudo absorve primeiro** e só o que sobra sai da Vida. Exceção: **Dano Absoluto** ignora o Escudo. Alguns elementos (como Táquion, em campanhas sci-fi) causam **dano extra só no Escudo**.
+Quando você leva dano, o **Escudo absorve primeiro** e só o que sobra sai da Vida. Exceção: **Dano Absoluto** ignora o Escudo. Alguns elementos (como Táquion, em campanhas sci-fi) causam **dano extra só no Escudo**, e outros são fracos contra ele (um torpedo tira menos do Escudo).
+
+**Vários escudos:** cada Skill que te dá Escudo cria o seu **pool**, com Vida própria. A ficha mostra o total e, embaixo, cada pool ("Barreira 30 · Muralha 20"). Ao levar dano, **o escudo mais recente apanha primeiro**, até zerar, e só então o anterior. Escudo digitado à mão fica por último. A **Penetração** do golpe age em **cada** escudo, um depois do outro: cada camada deixa passar a parte penetrada, que encontra a próxima camada e é dividida de novo; o que chega com menos de 1 de dano é descartado.
 
 Um Escudo pode acender uma **luz** no seu Token (um campo de energia brilhando). Ela é apagada sozinha quando o Escudo chega a 0 ou quando a Skill que o criou é desligada.
+
+**Escudo mantido** (ex.: *Barreiras Múltiplas*): numa Habilidade Ativa, o Escudo pode ter **Regeneração por rodada** e **Teto**. Ao ligar, entra o valor inicial até o teto; no início de cada turno seu (enquanto ela estiver ligada e você pagar o custo por rodada) ele regenera até o teto; ao desligar — ou se a Mana acabar — as camadas somem (o pool daquela Skill sai inteiro; os escudos de outras Skills ficam). O teto vale para o pool da própria Skill. Fora de combate, dá pra regenerar entre cenas pelo botão da lista de efeitos da ficha.
 
 ### Recuperando
 
@@ -292,6 +296,7 @@ A ficha da Skill (✎) tem as abas **Geral**, **Mecânica**, **Passivos**, **Sub
 - **Custo** é pago uma vez, ao usar.
 - Uma **Habilidade Ativa** é um liga/desliga: o Custo é pago ao **ligar**, e o **Custo por Rodada** é drenado no **início de cada turno seu** em combate, enquanto ela estiver ligada. O botão muda para **Desativar**.
 - Buffs de uma Skill Ativa duram **até você desligá-la**. Religá-la não "renova" nem acumula o que já está ativo.
+- **Mana variável:** uma Skill marcada **"Aceita variar a Mana"** pergunta, ao usar, quanta Mana investir. Menos que o Custo enfraquece na mesma proporção (metade da Mana, metade da força). Mais que o Custo fortalece **sem teto**, mas cada Mana a mais rende menos que a anterior: com o padrão, 10× o Custo dá ×5,6 de força, e 40× dá ×15,9 — o golpe gigante é possível, mas gasta muito por pouco. A força vale para o dano, os valores dos Efeitos (buff, Escudo, veneno) e a Vida de uma Estrutura. Numa Habilidade Ativa, o Custo por Rodada acompanha o que você investiu ao ligar.
 - **Mana em 0 desliga todas as suas Habilidades Ativas de uma vez.** Os efeitos que elas sustentavam somem no início do seu próximo turno (ou na hora, fora de combate).
 
 ### Sub-Skills
@@ -444,11 +449,15 @@ Quem é imune a um elemento também não sofre os efeitos dele.
 
 ### Dano Absoluto
 
-**Não pode ser resistido**: ignora Defesa Mágica, Resistências, Imunidade e o Escudo pessoal. Mas **pode ser evitado**: uma Estrutura no caminho segura o golpe, e uma Nave ainda pode desviar pela Evasão.
+É **o dano inteiro**, não importa quais elementos venham junto no golpe. **Não pode ser resistido**: ignora Defesa Mágica, Resistências, Imunidade e o Escudo pessoal, e os elementos também não o aumentam nem diminuem (as Condições deles ainda podem pegar). Mas **pode ser evitado**: uma Estrutura no caminho segura o golpe, e uma Nave ainda pode desviar pela Evasão.
 
 ### Escala
 
 Se a mesa usa **Escala**, dano entre tamanhos diferentes é multiplicado ou dividido (fator 10 por degrau): **Pessoal → Veículo → Nave → Capital**. Uma pistola faz 1/100 do dano numa Nave; um canhão de Nave faz 100× numa pessoa. Uma arma pode ter a própria escala (uma bazuca anti-tanque pode ser "Veículo" mesmo na mão de uma pessoa).
+
+### Janela de Efeitos
+
+O botão **✦ Efeitos** (no topo da ficha, ao lado de Iniciativa; na Nave, ao lado da Classe) abre uma janela com **tudo o que está agindo sobre você** agora, em palavras: cada efeito (de onde veio, o que muda — "Força +3", "Vida −5 por rodada", "Deslocamento −50%" — e quanto falta), o Escudo e os pools dele, Escudos que você mantém em alguém (com **Regenerar agora**, para fora de combate), Habilidades Ativas ligadas e o custo por rodada, Estruturas que você mantém, efeitos que somem no próximo turno e sobrecarga de peso. Na Nave: efeitos de sistema, Raio Trator e o que o Escudo adaptativo já aprendeu. A janela se atualiza sozinha; só o Mestre encerra efeitos por ela.
 
 ### Condições
 
@@ -485,6 +494,7 @@ Skills de **Estrutura** erguem **Parede de Pedra**, **Bloco de Gelo**, **Barreir
 - todo mundo vê a faixa colorida, o nome e a barra de Vida (os números só o Mestre vê);
 - **bloqueiam ataques**: um golpe cuja linha atravessa a Estrutura bate nela primeiro, até a Vida dela, e só o resto chega no alvo — **inclusive Dano Absoluto**;
 - quem ergueu a Estrutura atira de dentro dela sem ser bloqueado;
+- a **animação** de uma Skill para no ponto em que bate na Estrutura, e só segue até o alvo se sobrou dano;
 - **Barreira de Mana** (Vida 0 no catálogo): o dano que ela leva sai da **sua Mana**, e ela cai quando a sua Mana acaba.
 
 Para posicionar:
@@ -499,9 +509,35 @@ Para posicionar:
 
 Uma Estrutura cai quando: a Vida dela chega a 0; acabam as rodadas de duração; você desliga a Skill (se for Ativa e sem prazo); o Mestre a derruba; ou a sua Vida ou Mana chega a 0.
 
+Ao cair, ela deixa de bloquear na hora, mas o desenho some com uma animação curta, pra todo mundo entender o que aconteceu: **racha e estilhaça** se foi destruída, **pisca e se desfaz** se acabou a Mana que a mantinha (ou a antimagia venceu), e **dissolve devagar** se o prazo acabou ou a Skill foi desligada. O card do chat diz como ela caiu.
+
+**Estruturas com elemento:** uma Parede de Gelo é de Gelo — um golpe de Fogo bate mais forte nela (se o elemento Fogo tiver "Dano extra contra elemento" Gelo). Algumas Estruturas não seguram golpes e **queimam quem as atravessa** (Muralha de Fogo): atravessar ou terminar o movimento dentro dela rola o dano de contato contra você, com as suas defesas valendo normalmente.
+
+### Antimagia
+
+Uma Skill que custa energia (Mana, Ki… o nome da sua mesa) é **Mágica** por padrão; o Mestre pode desmarcar ("Mágica: Não"), e também marcar uma que não custa nada. Magia sofre **Antimagia**, que tem nível:
+
+- **Campo Antimagia** (uma Estrutura): um ataque mágico cuja linha **atravessa** o campo, que **sai de dentro** dele ou que mira alguém **dentro** dele paga energia a mais na hora. Quanto maior o nível, muito mais caro. Se você não tem como pagar, o ataque é **anulado** (vale até para Dano Absoluto mágico).
+- **Selo Antimagia** (uma Condição): toda magia de quem está selado paga o mesmo custo extra.
+- **Magia contínua**: uma Habilidade Ativa mágica usada dentro de um campo (ou sob Selo) paga o extra **por rodada**, junto do custo por rodada; se não der, ela desliga. Uma Estrutura mágica dentro de um campo cobra o extra de quem a conjurou a cada rodada, ou se desfaz.
+
+O chat mostra quanto foi cobrado ("antimagia nível 2: +90 Mana") ou que o ataque foi anulado.
+
 ---
 
 ## 8. Itens e armas
+
+### Inventário
+
+Com o bloco **Inventário** ligado, a ficha ganha a aba **Inventário** (a aba Ficha passa a mostrar só os itens **equipados** — é dali que as armas atacam).
+
+- **Slots:** cada pilha ocupa 1 slot. Um item empilha até o valor de **Empilha até** (padrão 20): 25 poções ocupam 2 slots. Os slots vêm da sua **Espécie** (Humano 10, Anão 12, Goblin 8…), e o Mestre pode dar extras.
+- **Pilhas:** arrastar para a ficha um item igual (mesmo nome e imagem) **soma na pilha**. O botão de dividir (⑂) separa uma pilha em duas.
+- **Contêineres** (mochila, bolsa, cinto): ocupam sempre **1 slot** e têm slots próprios; o que está dentro pesa menos pela redução do contêiner. Para guardar, use o seletor **Guardar em** na linha do item, ou arraste o item até o quadro do contêiner. Uma Skill também pode dar um contêiner (bolsa dimensional, estômago do Slime), às vezes ilimitado.
+- **Peso:** a barra de Peso compara o que você carrega (itens + moedas) com a sua **carga** = base da Espécie + Força × 1 kg + Defesa × 0,5 kg (números do Mestre). Passar da carga só avisa, a menos que a mesa use **Peso limita o Deslocamento**: aí você perde Deslocamento na proporção do excesso (20% acima = −20%; o dobro = parado).
+- **Equipar** direto na linha (ícone de roupa), sem abrir o item.
+- **Mover** entre fichas: arrastar um item da ficha de um personagem seu (ou do Porão de uma Nave da tripulação) para outra **move** o item; do Diretório ou Compêndio, **copia**.
+- Busca, filtro (Equipados, Armas, Contêineres, Munição) e ordem (Nome, Peso, Quantidade) no topo; equipados sempre primeiro.
 
 A ficha de um Item Geral tem as abas **Geral**, **Arma** e **Enquanto equipado** (além de **Descrição**).
 
@@ -587,7 +623,7 @@ O Mestre coloca personagens na tripulação arrastando-os para a aba **Tripulaç
 
 ### A ficha da Nave
 
-**Cabeçalho**: tipo (Nave Espacial ou Veículo), **Porte** e **Classe** (só o Mestre muda), Traços, e as barras:
+**Cabeçalho**: tipo (Nave Espacial ou Veículo), **Porte** (o tamanho) e **Classe** (o tipo: Caça, Tanque…), que só o Mestre muda — cada Classe aceita uma faixa de Portes —, Traços, e as barras:
 
 - **Escudos** — valor atual/máximo, e a **Recarga** quando ele zerou;
 - **Casco** — é a Vida dos Módulos de Blindagem;
@@ -618,6 +654,24 @@ Em cada linha de Módulo você controla:
 
 Um Módulo rende proporcionalmente à própria Vida (a 50% de Vida entrega 50%) e à energia que recebe (aparece "⚠ recebendo 60% da energia pedida").
 
+**Foco de energia** — no topo do Grid (e na tela Nave do PAD) há quatro atalhos: **Escudos**, **Armas**, **Motores** e **Equilibrado**. Escolher um sistema sobe o throttle dos Módulos dele (padrão 150%, nunca acima do ponto em que começa a Sobrecarga) e os põe em P1; os outros dois caem (padrão 75%) e vão pra P3. **Equilibrado** volta tudo a 100%. Reator, Bateria, Distribuidor e os outros Módulos não mudam. Depois do atalho você ainda pode ajustar cada Módulo à mão.
+
+### Ações da Nave
+
+Logo abaixo do Grid, para quem é da tripulação:
+
+- **Preparar para impacto** — até o próximo turno da Nave, todo dano recebido cai X% (padrão 30%), antes do Escudo. Não vale contra Dano Absoluto.
+- **Energia auxiliar → Escudos** — passa carga do Capacitor para o Escudo (você escolhe quanto, até o Escudo encher).
+- **Reparo de emergência** — abre o Pedido de Reparo já com esta Nave.
+- **Reiniciar sistemas** — encerra um efeito de sistema (Módulo derrubado, energia drenada, resistência baixa). O ↺ ao lado de cada efeito da lista reinicia aquele; o botão grande, o primeiro da lista.
+- **Modular frequência** — as armas da sua Nave passam a uma frequência nova: um **Escudo adaptativo** inimigo, que já tinha aprendido a segurar as suas armas, começa do zero contra elas.
+
+A lista embaixo mostra todos os efeitos de sistema ativos e quantas rodadas faltam. O sistema aplica as ações; quanto de ação cada uma gasta, a mesa decide.
+
+### Raio Trator
+
+Um Módulo de **Raio Trator** ligado ganha o botão 🧲 na linha: escolha a Nave/Veículo alvo e ela fica **presa** — o deslocamento dela cai conforme a diferença de Porte (mesmo Porte do Módulo ou menor: 100%; um acima: 50%; dois: 25%; mais que isso, grande demais). Throttle acima de 100% segura mais. O alvo fica preso enquanto o Módulo estiver ligado; o botão ⛓ solta. Cada Raio segura um alvo por vez.
+
 ### Armas
 
 Na aba **Armas**, cada arma mostra Porte, Dano, Penetração e Throttle.
@@ -632,13 +686,25 @@ Na aba **Armas**, cada arma mostra Porte, Dano, Penetração e Throttle.
 
 Diferente de personagens, a Nave **aplica o dano sozinha**, camada por camada: **Evasão → Escudo → Casco → Integridade Estrutural**. O dano que chega na Integridade cai em pedaços aleatórios em Módulos sorteados — cada golpe quebra sistemas diferentes. O card do chat mostra quanto foi para cada camada e quais Módulos foram atingidos.
 
+- **Escudo e Casco resistem à Penetração**: cada camada tira pontos da Penetração da arma antes de separar o que passa direto.
+- **Cada arma tem o seu jogo de camadas**: arma de energia (Phaser) é forte no Escudo e fraca no Casco; torpedo e cinético são fracos no Escudo e fortes no Casco.
+- **Mirar num sistema**: ao atirar numa Nave, dá pra escolher um Módulo (Motor, Armas, Escudo…) e concentrar nele o dano que passar das defesas.
+- **Escudo adaptativo**: um Módulo de Escudo marcado como Adaptativo aprende cada golpe que segura — ganha resistência àquele elemento, na frequência das armas de quem atacou, até um teto (nunca 100%). Perde tudo quando o Escudo cai ou o Módulo desliga. Contra ele: **Modular frequência**, ou trocar de elemento.
+- **Efeitos de sistema**: alguns elementos, depois de passar do Escudo, podem derrubar um Módulo, drenar energia ou baixar as defesas por algumas rodadas. Escudo de pé e Módulos com **Endurecimento** protegem.
+
 ### Habilidades da Nave
 
 A aba **Habilidades** lista as Skills concedidas pelos Módulos ligados. Usam-se como as suas, mas o Custo sai do **Capacitor**, e o Custo por Rodada das Ativas é descontado da geração do Reator enquanto estiverem ligadas.
 
+### Porão e munição
+
+Com o Inventário ligado, a aba **Sistemas** mostra o **Porão** da Nave (em Veículo, "Porão / Peças"). Os slots vêm dos **Módulos de Porão** (Compacto 10, Standard 20, Robusto 40, Industrial 80, Colossal 160, vezes o multiplicador do Módulo; vários somam). Não há limite de peso, mas, se a mesa usa **Peso limita o Deslocamento**, a carga pesa no Motor: menos Movimento e Evasão (o Porão mostra "massa ×1,5 (Motor −33%)"). Mais energia nos Motores compensa.
+
+Uma arma marcada como **lançador** (Usa munição) só dispara com **Munição** compatível no Porão: o tipo tem que ser aceito pelo lançador (Torpedo, Mina…) e, às vezes, o lançador precisa ter um Porte mínimo. Ao disparar, escolhe-se a munição (se houver mais de uma); rola-se a **fórmula da munição**, com os elementos e o Dano Absoluto dela, a Penetração dela soma à do lançador, e gasta **1 da pilha**. Sem munição compatível, o lançador não dispara.
+
 ### Reparo em campo
 
-Use a macro **Pedido de Reparo** (o Mestre a cria na barra de macros). Escolha a Nave, **o que** reparar (os Escudos ou qualquer Módulo — o Casco e a Integridade Estrutural se reparam consertando os Módulos deles) e **o engenheiro** (um personagem seu). O Mestre recebe o pedido, rola **Destreza** do engenheiro e, se julgar que deu certo, clica **Restaurar Vida** (2d6 de Vida, sem passar do máximo). Consertar algo grande leva mais tentativas.
+Use **Reparo de emergência** na ficha da Nave ou a macro **Pedido de Reparo** (o Mestre a cria na barra de macros; ela só funciona com uma Nave na cena). Escolha a Nave, **o que** reparar (os Escudos ou qualquer Módulo — o Casco e a Integridade Estrutural se reparam consertando os Módulos deles) e **o engenheiro** (um personagem seu). O Mestre recebe o pedido, rola **Destreza** do engenheiro e, se julgar que deu certo, clica **Restaurar Vida** (2d6 de Vida, sem passar do máximo). Consertar algo grande leva mais tentativas.
 
 ---
 

@@ -255,30 +255,57 @@ export async function setShieldLightAsGm({ actorUuid, light, source }) {
   const actor = typeof actorUuid === "string" ? await fromUuid(actorUuid) : null;
   const normalized = normalizeLightConfig(light);
   if (!actor || !normalized) return;
+  const entrySource = {
+    actorUuid: String(source?.actorUuid ?? ""),
+    skillId: String(source?.skillId ?? ""),
+    subSkillIndex: Number.isInteger(source?.subSkillIndex) ? source.subSkillIndex : null
+  };
   for (const token of tokensOf(actor)) {
-    // A luz ORIGINAL do Token só é guardada uma vez: um segundo Escudo por cima não pode fazer a
-    // luz do primeiro virar a "original".
-    const saved = token.getFlag(SYSTEM_ID, SHIELD_FLAG);
-    const previous = saved?.previous ?? token.toObject().light;
-    await token.update({
-      light: lightSourceData(normalized, resolvedRadius(normalized, SHIELD_DEFAULT_RADIUS)),
-      [`flags.${SYSTEM_ID}.${SHIELD_FLAG}`]: {
-        previous,
-        source: {
-          actorUuid: String(source?.actorUuid ?? ""),
-          skillId: String(source?.skillId ?? ""),
-          subSkillIndex: Number.isInteger(source?.subSkillIndex) ? source.subSkillIndex : null
-        }
-      }
-    });
+    const state = readLightState(token);
+    // A luz ORIGINAL do Token só é guardada uma vez; cada Skill de Escudo entra na pilha, e a do
+    // Escudo mais recente é a que aparece (a mesma ordem em que os pools apanham).
+    const previous = state?.previous ?? token.toObject().light;
+    const stack = (state?.stack ?? []).filter(entry => !sameLightSource(entry.source, entrySource));
+    stack.push({ source: entrySource, light: lightSourceData(normalized, resolvedRadius(normalized, SHIELD_DEFAULT_RADIUS)) });
+    await writeLightState(token, previous, stack);
   }
 }
 
-/** Apaga a luz do Escudo de um Token: volta a luz de antes e tira o registro. */
-async function clearTokenShieldLight(token) {
+function sameLightSource(a, b) {
+  return a?.actorUuid === b?.actorUuid && a?.skillId === b?.skillId && (a?.subSkillIndex ?? null) === (b?.subSkillIndex ?? null);
+}
+
+/** Estado da luz de Escudo de um Token: `{previous, stack}`; lê também o formato antigo (uma luz só). */
+function readLightState(token) {
   const saved = token.getFlag(SYSTEM_ID, SHIELD_FLAG);
-  if (!saved) return;
-  await token.update({ light: saved.previous ?? {}, [`flags.${SYSTEM_ID}.-=${SHIELD_FLAG}`]: null });
+  if (!saved) return null;
+  if (Array.isArray(saved.stack)) return saved;
+  return { previous: saved.previous, stack: saved.source ? [{ source: saved.source, light: token.toObject().light }] : [] };
+}
+
+/** Grava a pilha e mostra a luz do topo; pilha vazia apaga a luz de Escudo (volta a de antes). */
+async function writeLightState(token, previous, stack) {
+  if (!stack.length) {
+    await token.update({ light: previous ?? {}, [`flags.${SYSTEM_ID}.-=${SHIELD_FLAG}`]: null });
+    return;
+  }
+  await token.update({ light: stack.at(-1).light, [`flags.${SYSTEM_ID}.${SHIELD_FLAG}`]: { previous, stack } });
+}
+
+/** Apaga a luz do Escudo de um Token por completo: volta a luz de antes e tira o registro. */
+async function clearTokenShieldLight(token) {
+  const state = readLightState(token);
+  if (!state) return;
+  await writeLightState(token, state.previous, []);
+}
+
+/** Tira da pilha as luzes cujo filtro devolver `true`; a do topo que sobrar volta a aparecer. */
+async function dropTokenLights(token, shouldDrop) {
+  const state = readLightState(token);
+  if (!state) return;
+  const stack = state.stack.filter(entry => !shouldDrop(entry.source));
+  if (stack.length === state.stack.length) return;
+  await writeLightState(token, state.previous, stack);
 }
 
 /** Escudo do Ator chegou a 0: apaga a luz dos Tokens dele. Só o Mestre designado. */
@@ -287,23 +314,38 @@ export async function clearShieldLightOf(actor) {
   for (const token of tokensOf(actor)) await clearTokenShieldLight(token);
 }
 
+/**
+ * Pools mudaram: a luz de cada Skill cujo pool acabou é apagada (a do pool anterior volta a
+ * aparecer). Só o Mestre designado.
+ */
+async function syncShieldLightsToPools(actor) {
+  if (!isDesignatedGm()) return;
+  const alive = (actor.system?.attributes?.shield?.pools ?? []).filter(p => (p.value ?? 0) > 0);
+  const hasPool = source => alive.some(p => p.holderUuid === source.actorUuid && p.skillId === source.skillId && (p.subSkillIndex ?? null) === (source.subSkillIndex ?? null));
+  for (const token of tokensOf(actor)) await dropTokenLights(token, source => !hasPool(source));
+}
+
 /** A Skill Ativa que deu o Escudo foi desligada: apaga as luzes que ela acendeu, em qualquer Cena. */
 export async function clearShieldLightsFromSourceAsGm({ actorUuid, skillId, subSkillIndex }) {
+  const source = { actorUuid, skillId, subSkillIndex: subSkillIndex ?? null };
   for (const scene of game.scenes) {
     for (const token of scene.tokens) {
-      const source = token.getFlag(SYSTEM_ID, SHIELD_FLAG)?.source;
-      if (source && source.actorUuid === actorUuid && source.skillId === skillId && (source.subSkillIndex ?? null) === (subSkillIndex ?? null)) {
-        await clearTokenShieldLight(token);
-      }
+      if (token.getFlag(SYSTEM_ID, SHIELD_FLAG)) await dropTokenLights(token, entry => sameLightSource(entry, source));
     }
   }
 }
 
-/** Escudo pessoal zerou (dano, edição à mão, Descanso…): apaga a luz. Chamado no `init`. */
+/**
+ * Escudo pessoal mudou (dano, edição à mão, Descanso…): zerado apaga todas as luzes de Escudo; um
+ * pool que acabou apaga só a luz dele. Chamado no `init`.
+ */
 export function registerShieldLightHooks() {
   Hooks.on("updateActor", (actor, changes) => {
-    if (!foundry.utils.hasProperty(changes, "system.attributes.shield.value")) return;
-    if ((Number(actor.system?.attributes?.shield?.value) || 0) > 0) return;
-    clearShieldLightOf(actor);
+    if (!foundry.utils.hasProperty(changes, "system.attributes.shield")) return;
+    if ((Number(actor.system?.attributes?.shield?.value) || 0) <= 0) {
+      clearShieldLightOf(actor);
+      return;
+    }
+    syncShieldLightsToPools(actor);
   });
 }

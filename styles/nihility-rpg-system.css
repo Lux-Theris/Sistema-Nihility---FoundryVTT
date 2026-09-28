@@ -4909,3 +4909,129 @@ button.prio-chip { cursor: pointer; }
 .nihility-sheet .light-summary.on { color: var(--nihility-warn); }
 .nihility-sheet.item-sheet .light-row { align-items: center; }
 .skill-editor-form .effect-row-light { align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Escudo mantido no editor de Skill (Regenera/rodada e Teto). */
+.skill-editor-form .effect-row-shield { align-items: center; gap: 10px; flex-wrap: wrap; }
+.skill-editor-form .effect-row-shield input { width: 70px; }
+
+/* Investir Mana (apps/mana-invest-dialog.js). */
+.nihility-mana-invest,
+.nihility-mana-invest p { color: var(--nihility-text); }
+.nihility-mana-invest { display: flex; flex-direction: column; gap: 8px; }
+.nihility-mana-invest .mana-invest-row { display: grid; grid-template-columns: 1fr 90px; gap: 10px; align-items: center; }
+.nihility-mana-invest input[type="number"] {
+  height: 28px;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+  text-align: right;
+}
+.nihility-mana-invest .mana-invest-power { margin: 0; font-size: 0.9rem; }
+.nihility-mana-invest .hint { margin: 0; font-size: 0.74rem; color: var(--nihility-text-dim); }
+
+/* Pools do Escudo pessoal (um por Skill) embaixo do total. */
+.nihility-sheet .shield-row { flex-wrap: wrap; }
+.nihility-sheet .shield-pools { flex: 1 1 100%; font: 0.68rem var(--nihility-font-data); color: var(--nihility-text-dim); }
+
+/* Atalhos de energia e Ações da Nave (ficha da Nave). */
+.nihility-sheet .power-focus { display: flex; gap: 4px; margin: 4px 0 8px; flex-wrap: wrap; }
+.nihility-sheet .power-focus-btn {
+  flex: 1 1 0;
+  height: auto;
+  min-height: 0;
+  line-height: normal;
+  padding: 5px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--nihility-border);
+  background: var(--nihility-bg-panel-alt);
+  color: var(--nihility-text-dim);
+  font-size: 0.76rem;
+  text-align: center;
+  white-space: nowrap;
+}
+.nihility-sheet .power-focus-btn.active { border-color: var(--nihility-accent); color: var(--nihility-accent); background: rgba(110, 231, 255, 0.1); }
+.nihility-sheet .ship-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.nihility-sheet .ship-actions button {
+  height: auto;
+  min-height: 0;
+  line-height: normal;
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--nihility-border);
+  background: var(--nihility-bg-panel-alt);
+  color: var(--nihility-text);
+  font-size: 0.78rem;
+  text-align: left;
+}
+.nihility-sheet .ship-effects { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; color: var(--nihility-text); }
+.nihility-sheet .ship-effects li { display: flex; gap: 8px; align-items: center; font-size: 0.78rem; padding: 3px 6px; border-left: 2px solid var(--nihility-warn); background: var(--nihility-bg-panel-alt); }
+.nihility-sheet .ship-effects a { margin-left: auto; color: var(--nihility-accent); cursor: pointer; }
+.nihility-ship-action, .nihility-ship-action p { color: var(--nihility-text); }
+.nihility-ship-action input { width: 100%; height: 28px; background: var(--nihility-bg-panel-alt); border: 1px solid var(--nihility-border); color: var(--nihility-text); }
+
+/* PAD — atalhos de energia da Nave. */
+.nihility-pad-app .pad-focus-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin-top: 6px; }
+.nihility-pad-app .pad-focus-btn {
+  height: auto;
+  min-height: 0;
+  line-height: normal;
+  padding: 4px 2px;
+  font-size: 0.7rem;
+  border-radius: 4px;
+  border: 1px solid var(--nihility-border);
+  background: transparent;
+  color: var(--nihility-text-dim);
+}
+.nihility-pad-app .pad-focus-btn.active { border-color: var(--nihility-accent); color: var(--nihility-accent); }
+
+/* Nave fora da faixa de Porte da Classe (só o Mestre vê). */
+.nihility-sheet .vessel-class-warning { margin: 4px 0 0; padding: 4px 8px; font-size: 0.76rem; color: var(--nihility-warn); border-left: 2px solid var(--nihility-warn); background: rgba(255, 207, 92, 0.08); }
+
+/* Inventário (aba da ficha de Personagem) e Porão da Nave. */
+.nihility-sheet .inventory-summary { display: flex; flex-direction: column; gap: 6px; color: var(--nihility-text); }
+.nihility-sheet .inv-meter { display: grid; grid-template-columns: 48px 1fr auto; align-items: center; gap: 8px; font-size: 0.8rem; }
+.nihility-sheet .inv-meter-label { color: var(--nihility-text-dim); }
+.nihility-sheet .inv-bar { height: 8px; border-radius: 4px; background: var(--nihility-bg-panel-alt); border: 1px solid var(--nihility-border); overflow: hidden; }
+.nihility-sheet .inv-bar > span { display: block; height: 100%; background: var(--nihility-accent); }
+.nihility-sheet .inv-meter.is-over .inv-bar > span { background: var(--nihility-danger); }
+.nihility-sheet .inv-meter.is-over .inv-meter-value { color: var(--nihility-danger); }
+.nihility-sheet .inv-meter-value { font-family: var(--nihility-font-data); }
+.nihility-sheet .inv-penalty { margin: 0; color: var(--nihility-warn); font-size: 0.8rem; }
+.nihility-sheet .inv-gm { display: flex; gap: 12px; flex-wrap: wrap; }
+.nihility-sheet .inv-gm label { color: var(--nihility-text-dim); font-size: 0.78rem; display: flex; align-items: center; gap: 6px; }
+.nihility-sheet .inv-gm input { width: 70px; }
+.nihility-sheet .inventory-toolbar { display: flex; gap: 6px; margin: 8px 0; }
+.nihility-sheet .inventory-toolbar .inventory-search { flex: 1 1 auto; min-width: 0; }
+.nihility-sheet .inventory-toolbar select { flex: 0 0 auto; width: auto; }
+.nihility-sheet .inventory-row { gap: 6px; }
+.nihility-sheet .inventory-row.is-equipped { border-left: 2px solid var(--nihility-ok); }
+.nihility-sheet .inventory-row .inv-weight, .nihility-sheet .cargo-row .inv-weight { color: var(--nihility-text-dim); font-size: 0.75rem; font-family: var(--nihility-font-data); white-space: nowrap; }
+.nihility-sheet .inventory-row .inventory-container-select { width: 110px; flex: 0 0 auto; height: 22px; font-size: 0.72rem; }
+.nihility-sheet .inventory-row .inv-equip { color: var(--nihility-text-faint); }
+.nihility-sheet .inventory-row .inv-equip.is-on { color: var(--nihility-ok); }
+.nihility-sheet .inventory-container { border-left: 2px solid var(--nihility-accent-2); }
+.nihility-sheet .inventory-container.is-over, .nihility-sheet .cargo-block.is-over { border-left: 2px solid var(--nihility-danger); }
+.nihility-sheet .inventory-row[hidden] { display: none; }
+.nihility-config-app .species-carry { display: flex; gap: 12px; margin: 4px 0 6px; }
+.nihility-config-app .species-carry label { color: var(--nihility-text-dim); font-size: 0.78rem; display: flex; align-items: center; gap: 6px; }
+.nihility-config-app .species-carry input { width: 70px; }
+.nihility-split-stack, .nihility-split-stack p, .nihility-ammo-pick { color: var(--nihility-text); }
+.nihility-split-stack input, .nihility-ammo-pick select { width: 100%; }
+
+/* Janela "Efeitos" (apps/effects-list.js). */
+.nihility-effects-list .effects-list-body { padding: 8px 10px; color: var(--nihility-text); }
+.nihility-effects-list .effects-sec { margin-bottom: 12px; }
+.nihility-effects-list .effects-sec-head { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--nihility-border); margin-bottom: 4px; }
+.nihility-effects-list .effects-sec-head h3 { flex: 1 1 auto; margin: 0; font-size: 0.9rem; color: var(--nihility-accent); border: none; }
+.nihility-effects-list .effects-sec-head button { flex: 0 0 auto; width: auto; height: auto; min-height: 0; line-height: normal; padding: 2px 8px; font-size: 0.75rem; }
+.nihility-effects-list .effects-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.nihility-effects-list .effects-row { display: grid; grid-template-columns: auto 1fr auto auto; gap: 8px; align-items: center; padding: 4px 6px; background: var(--nihility-bg-panel-alt); border-radius: 4px; color: var(--nihility-text); }
+.nihility-effects-list .effects-row.is-muted { opacity: 0.55; }
+.nihility-effects-list .effects-row img { border: none; border-radius: 4px; }
+.nihility-effects-list .effects-main strong { color: var(--nihility-text); }
+.nihility-effects-list .effects-source { color: var(--nihility-text-dim); font-size: 0.75rem; }
+.nihility-effects-list .effects-what { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 0.78rem; color: var(--nihility-text-dim); }
+.nihility-effects-list .effects-remaining { font-size: 0.75rem; color: var(--nihility-warn); white-space: nowrap; }
+.nihility-effects-list .effects-end { color: var(--nihility-danger); cursor: pointer; }
+.nihility-effects-list .effects-empty { color: var(--nihility-text-dim); }
+.nihility-sheet .effects-list-button { height: auto; min-height: 0; line-height: normal; padding: 3px 8px; font-size: 0.78rem; width: auto; }

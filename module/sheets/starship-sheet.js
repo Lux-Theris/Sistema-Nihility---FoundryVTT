@@ -11,13 +11,30 @@ import {
   powerPriorityGroup,
   getVesselClasses,
   getCrewRoles,
-  debugLog
+  debugLog,
+  getShipActionConfig,
+  tractorHold,
+  getVesselSizes,
+  vesselKind,
+  vesselSizeLabel,
+  sizeFitsClass,
+  describeClassSizeRange,
+  isInventoryEnabled
 } from "../config.js";
 import { syncShipOwnershipToCrew } from "../helpers/crew-ownership.js";
 import { registerItemInCompendium } from "../compendium.js";
 import { createGrantedSkill, removeGrantedSkill } from "../skill-economy.js";
 import { useSkillEffect, fireStarshipWeapon } from "../skill-effects.js";
-import { moduleCanRestart } from "../starship-power.js";
+import {
+  moduleCanRestart,
+  applyPowerFocus,
+  addShipSystemEffect,
+  endShipSystemEffect,
+  transferCapacitorToShields,
+  modulateWeaponFrequency
+} from "../starship-power.js";
+import { requestShipRepair } from "../starship-repair.js";
+import { runAsGm } from "../helpers/gm-relay.js";
 import { syncLibraryOwnershipToCrew } from "../pad/pad-library.js";
 import { pickTargetActor } from "../helpers/target-picker.js";
 import { rollOptionsFromEvent } from "../apps/roll-options-dialog.js";
@@ -25,6 +42,8 @@ import { traitContext, changeTrait, pickActorTraits } from "../helpers/traits-ui
 import { editPortraitFrameAction, CLEAR_PORTRAIT_FRAME } from "../helpers/portrait-frame.js";
 import { pickImageFile, getDragEventData } from "../helpers/foundry-compat.js";
 
+import { handleItemDrop, splitStack, cargoContext } from "../inventory.js";
+import { EffectsListApp } from "../apps/effects-list.js";
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
 
@@ -85,9 +104,29 @@ function moduleDetail(actor, module, abbr) {
   }
 }
 
-/** Opções {value,label} de Porte pro `<select>` do cabeçalho — usa MEU_SISTEMA.SHIP_SIZE_LABELS pros dois tipos. */
-function sizeOptions(sizeChoices) {
-  return sizeChoices.map(id => ({ id, label: MEU_SISTEMA.SHIP_SIZE_LABELS[id] }));
+/**
+ * Opções de Porte e de Classe do cabeçalho: só as combinações que a faixa de Porte da Classe
+ * aceita, mais sempre o valor atual (marcado "fora da faixa" quando for o caso) — uma Nave salva
+ * antes da regra nunca muda sozinha, só não deixa escolher outra combinação fora da faixa.
+ */
+function vesselHeaderOptions(actor) {
+  const kind = vesselKind(actor);
+  const sizes = getVesselSizes(kind);
+  const currentClass = actor.system.vesselClass;
+  const currentSize = actor.system.shipSize;
+  const sizeOptions = sizes
+    .filter(s => s.id === currentSize || sizeFitsClass(s.id, currentClass, sizes))
+    .map(s => ({ id: s.id, label: s.label, outOfRange: !sizeFitsClass(s.id, currentClass, sizes) }));
+  if (!sizes.some(s => s.id === currentSize)) sizeOptions.unshift({ id: currentSize, label: `${currentSize} (fora do catálogo)`, outOfRange: false });
+  const classOptions = [{ id: "", label: "— sem Classe —" }, ...getVesselClasses(kind)]
+    .filter(c => !c.id || c.id === (actor.system.shipClass ?? "") || sizeFitsClass(currentSize, c, sizes))
+    .map(c => {
+      const range = describeClassSizeRange(c, sizes);
+      return { id: c.id, label: range ? `${c.label} (${range})` : c.label, selected: c.id === (actor.system.shipClass ?? "") };
+    });
+  const fits = sizeFitsClass(currentSize, currentClass, sizes);
+  const warning = fits ? "" : `A Classe ${currentClass.label} aceita Porte ${describeClassSizeRange(currentClass, sizes)}; esta ${kind === "vehicle" ? "Veículo" : "Nave"} é ${vesselSizeLabel(kind, currentSize)}. Nada foi mudado — ajuste o Porte ou a Classe quando quiser.`;
+  return { sizeOptions, classOptions, warning };
 }
 
 /**
@@ -142,6 +181,12 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
   _onRender(context, options) {
     super._onRender(context, options);
     this._onRenderThrottleInputs();
+    this.element.querySelectorAll(".cargo-row[draggable]").forEach(row => {
+      row.addEventListener("dragstart", event => {
+        const item = this.actor.items.get(row.dataset.itemId);
+        if (item) event.dataTransfer.setData("text/plain", JSON.stringify(item.toDragData()));
+      });
+    });
     // Clique direito no chip de prioridade sobe um grupo (o clique normal desce, via action).
     this.element.querySelectorAll(".prio-chip[data-action]").forEach(chip => {
       chip.addEventListener("contextmenu", event => {
@@ -450,6 +495,146 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     await changeTrait(this.actor, target.dataset.trait, "remove");
   }
 
+  /* ------------------------------------------------------------------ Ações da Nave */
+
+  /** Atalho de energia: Escudos / Armas / Motores / Equilibrado (ver applyPowerFocus). */
+  static async onSetPowerFocus(event, target) {
+    event.preventDefault();
+    if (!canAdjustThrottle(this.actor)) return;
+    await applyPowerFocus(this.actor, target.dataset.focus);
+  }
+
+  /** "Preparar para impacto": −X% de todo dano recebido até o próximo turno da Nave. */
+  static async onShipBrace(event) {
+    event.preventDefault();
+    if (!canAdjustThrottle(this.actor)) return;
+    const { bracePercent } = getShipActionConfig();
+    await addShipSystemEffect(this.actor, { kind: "brace", percent: bracePercent, rounds: 1, label: "Preparar para impacto" });
+    await ChatMessage.create({
+      speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+      content: `<p><strong>${this.actor.name}</strong> se prepara para o impacto: −${bracePercent}% de dano recebido até o próximo turno.</p>`
+    });
+  }
+
+  /** "Energia auxiliar para os Escudos": carga da Bateria vira Escudo (até o máximo). */
+  static async onShipAuxShields(event) {
+    event.preventDefault();
+    if (!canAdjustThrottle(this.actor)) return;
+    const sys = this.actor.system;
+    const available = Math.min(sys.powerGrid?.capacitor?.value ?? 0, Math.max(0, (sys.shields?.max ?? 0) - (sys.shields?.value ?? 0)));
+    if (available <= 0) {
+      ui.notifications.info("Nada a transferir: a Bateria está vazia ou o Escudo já está cheio.");
+      return;
+    }
+    const amount = await foundry.applications.api.DialogV2.wait({
+      window: { title: `Energia auxiliar para os Escudos — ${this.actor.name}` },
+      content: `<div class="nihility-ship-action"><p>Quanto da Bateria passar pro Escudo? (até ${available})</p><input type="number" name="amount" min="1" max="${available}" value="${available}"/></div>`,
+      buttons: [
+        { action: "ok", label: "Transferir", default: true, callback: (ev, button, dialog) => Number(dialog.element.querySelector('[name="amount"]').value) || 0 },
+        { action: "cancel", label: "Cancelar", callback: () => false }
+      ],
+      rejectClose: false
+    });
+    if (!amount) return;
+    const moved = await transferCapacitorToShields(this.actor, amount);
+    if (moved) {
+      await ChatMessage.create({
+        speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+        content: `<p><strong>${this.actor.name}</strong> desvia ${moved} ${getStarshipEnergyAbbr()} da Bateria para os Escudos.</p>`
+      });
+    }
+  }
+
+  /** "Reparo de emergência": o mesmo pedido de Reparo da macro, já com esta Nave. */
+  static async onShipEmergencyRepair(event) {
+    event.preventDefault();
+    await requestShipRepair(this.actor);
+  }
+
+  /** "Reiniciar sistemas": encerra um efeito de sistema (Módulo derrubado, energia drenada, resistência baixa). */
+  static async onShipRestartSystems(event, target) {
+    event.preventDefault();
+    if (!canAdjustThrottle(this.actor)) return;
+    let effectId = target.dataset.effectId;
+    if (!effectId) {
+      const restartable = this.actor.system.systemEffects.filter(e => ["moduleDisabled", "energyDrain", "resistanceDown"].includes(e.kind));
+      if (!restartable.length) {
+        ui.notifications.info("Nenhum efeito de sistema pra reiniciar.");
+        return;
+      }
+      effectId = restartable[0].id;
+    }
+    const ended = await endShipSystemEffect(this.actor, effectId);
+    if (ended) {
+      await ChatMessage.create({
+        speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+        content: `<p><strong>${this.actor.name}</strong> reinicia os sistemas.</p>`
+      });
+    }
+  }
+
+  /** @override Carga solta no Porão: empilha e move entre fichas (inventory.js). */
+  async _onDropItem(event, item) {
+    return handleItemDrop(this, event, item, () => super._onDropItem(event, item));
+  }
+
+  static onOpenEffectsList(event) {
+    event.preventDefault();
+    EffectsListApp.open(this.actor);
+  }
+
+  static async onSplitStack(event, target) {
+    event.preventDefault();
+    const item = this.actor.items.get(target.closest("[data-item-id]")?.dataset.itemId);
+    if (item) await splitStack(item);
+  }
+
+  /** "Modular frequência": as armas desta Nave mudam de frequência (Escudos adaptativos recomeçam contra ela). */
+  static async onShipModulateFrequency(event) {
+    event.preventDefault();
+    if (!canAdjustThrottle(this.actor)) return;
+    const frequency = await modulateWeaponFrequency(this.actor);
+    await ChatMessage.create({
+      speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+      content: `<p><strong>${this.actor.name}</strong> modula a frequência das armas (${frequency}). Escudos adaptados à frequência antiga não seguram mais este fogo.</p>`
+    });
+  }
+
+  /** Raio Trator: escolhe o alvo e pede pro Mestre prender (a força é conferida lá). */
+  static async onEngageTractor(event, target) {
+    event.preventDefault();
+    if (!canAdjustThrottle(this.actor)) return;
+    const module = this.actor.items.get(target.closest("[data-item-id]")?.dataset.itemId);
+    if (!module) return;
+    if (module.system.status !== "online") {
+      ui.notifications.warn(`${module.name} precisa estar ligado.`);
+      return;
+    }
+    const victim = await pickTargetActor({ types: ["starship", "vehicle"], title: `${module.name} — prender quem?`, preferMap: true });
+    if (!victim || victim.uuid === this.actor.uuid) return;
+    const hold = tractorHold(
+      MEU_SISTEMA.MODULE_SIZE_RANK[module.system.moduleSize] ?? 0,
+      victim.system.vesselSize?.rank ?? 0,
+      (module.system.powerAllocationPercent ?? 100) / 100
+    );
+    if (hold <= 0) {
+      ui.notifications.warn(`${victim.name} é grande demais pra ${module.name} segurar.`);
+      return;
+    }
+    await runAsGm("engageTractor", { moduleUuid: module.uuid, targetUuid: victim.uuid });
+    await ChatMessage.create({
+      speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+      content: `<p><strong>${this.actor.name}</strong> prende <strong>${victim.name}</strong> no Raio Trator: −${Math.round(hold * 100)}% de deslocamento enquanto durar.</p>`
+    });
+  }
+
+  static async onReleaseTractor(event, target) {
+    event.preventDefault();
+    if (!canAdjustThrottle(this.actor)) return;
+    const module = this.actor.items.get(target.closest("[data-item-id]")?.dataset.itemId);
+    if (module) await runAsGm("releaseTractor", { moduleUuid: module.uuid });
+  }
+
   static async onPickTraits(event) {
     event.preventDefault();
     await pickActorTraits(this.actor);
@@ -559,6 +744,12 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
         // Grupo de prioridade de energia (chip P1…P5); só aparece pra quem consome energia.
         priority: powerPriorityGroup(sys.powerPriority),
         hasDemand: (sys.powerConsumption ?? 0) > 0,
+        // Raio Trator: botão de prender/soltar e quem está preso agora.
+        isTractor: moduleRole(sys.category) === "tractor",
+        tractorTargetName: (() => {
+          const uuid = module.getFlag(SYSTEM_ID, "tractorTarget");
+          return uuid ? fromUuidSync(uuid)?.name ?? "" : "";
+        })(),
         // Só Arma
         damageFormula: sys.damageFormula,
         penetration: sys.penetration,
@@ -585,11 +776,34 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
         .map(m => [m.id, Math.round(actor.system.powerRatioFor(m) * 100)])
     );
 
+    // Foco de energia atual (atalhos Escudos/Armas/Motores/Equilibrado) e efeitos de sistema ativos.
+    const focus = actor.getFlag(SYSTEM_ID, "powerFocus") ?? "balanced";
+    context.powerFocusOptions = [
+      { id: "shields", label: "Escudos", icon: "fa-shield-alt" },
+      { id: "weapons", label: "Armas", icon: "fa-crosshairs" },
+      { id: "engines", label: "Motores", icon: "fa-rocket" },
+      { id: "balanced", label: "Equilibrado", icon: "fa-balance-scale" }
+    ].map(o => ({ ...o, active: o.id === focus }));
+    context.systemEffectRows = actor.system.systemEffects.map(effect => {
+      const module = effect.moduleId ? actor.items.get(effect.moduleId) : null;
+      const text = {
+        moduleDisabled: `${module?.name ?? "Módulo"} derrubado`,
+        energyDrain: `Energia drenada −${effect.percent}%`,
+        resistanceDown: `Resistência baixa −${effect.percent}`,
+        brace: `Preparada para impacto −${effect.percent}%`,
+        tractor: `Presa por Raio Trator (${effect.label}) −${effect.percent}% deslocamento`
+      }[effect.kind] ?? effect.kind;
+      return { id: effect.id, text, rounds: effect.kind === "tractor" ? null : effect.rounds, restartable: ["moduleDisabled", "energyDrain", "resistanceDown"].includes(effect.kind) };
+    });
+
     // Classe (catálogo de Nave ou de Veículo) — só o Mestre troca.
-    const kind = actor.type === "vehicle" ? "vehicle" : "ship";
-    context.classOptions = [{ id: "", label: "— sem Classe —" }, ...getVesselClasses(kind)].map(c => ({
-      id: c.id, label: c.label, selected: c.id === (actor.system.shipClass ?? "")
-    }));
+    context.weaponFrequency = Number(actor.getFlag(SYSTEM_ID, "weaponFrequency")) || 0;
+    context.inventoryEnabled = isInventoryEnabled();
+    if (context.inventoryEnabled) context.cargo = cargoContext(actor);
+    const header = vesselHeaderOptions(actor);
+    context.shipSizeOptions = header.sizeOptions;
+    context.classOptions = header.classOptions;
+    context.classRangeWarning = header.warning;
     context.vesselClass = actor.system.vesselClass;
 
     // Funções de Tripulação: catálogo + a função salva, mesmo se saiu do catálogo.
@@ -671,6 +885,16 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
       removeTrait: TabbedActorSheetV2.onRemoveTrait,
       pickTraits: TabbedActorSheetV2.onPickTraits,
       cyclePriority: TabbedActorSheetV2.onCyclePriority,
+      setPowerFocus: TabbedActorSheetV2.onSetPowerFocus,
+      shipBrace: TabbedActorSheetV2.onShipBrace,
+      shipAuxShields: TabbedActorSheetV2.onShipAuxShields,
+      shipEmergencyRepair: TabbedActorSheetV2.onShipEmergencyRepair,
+      shipRestartSystems: TabbedActorSheetV2.onShipRestartSystems,
+      shipModulateFrequency: TabbedActorSheetV2.onShipModulateFrequency,
+      splitStack: TabbedActorSheetV2.onSplitStack,
+      openEffectsList: TabbedActorSheetV2.onOpenEffectsList,
+      engageTractor: TabbedActorSheetV2.onEngageTractor,
+      releaseTractor: TabbedActorSheetV2.onReleaseTractor,
       toggleModuleVitalAdjust: TabbedActorSheetV2.onToggleModuleVitalAdjust,
       adjustModuleVital: TabbedActorSheetV2.onAdjustModuleVital,
       editImage: TabbedActorSheetV2.onEditImage,
@@ -693,7 +917,6 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
     context.activeTab = this.activeTab;
     context.system = actor.system;
     context.config = MEU_SISTEMA;
-    context.shipSizeOptions = sizeOptions(MEU_SISTEMA.SHIP_SIZES);
     context.shipManeuverEnabled = isShipManeuverEnabled();
     context.traits = traitContext(actor);
     context.isGM = game.user.isGM;
@@ -730,6 +953,16 @@ export class NihilityVehicleSheet extends TabbedActorSheetV2 {
       removeTrait: TabbedActorSheetV2.onRemoveTrait,
       pickTraits: TabbedActorSheetV2.onPickTraits,
       cyclePriority: TabbedActorSheetV2.onCyclePriority,
+      setPowerFocus: TabbedActorSheetV2.onSetPowerFocus,
+      shipBrace: TabbedActorSheetV2.onShipBrace,
+      shipAuxShields: TabbedActorSheetV2.onShipAuxShields,
+      shipEmergencyRepair: TabbedActorSheetV2.onShipEmergencyRepair,
+      shipRestartSystems: TabbedActorSheetV2.onShipRestartSystems,
+      shipModulateFrequency: TabbedActorSheetV2.onShipModulateFrequency,
+      splitStack: TabbedActorSheetV2.onSplitStack,
+      openEffectsList: TabbedActorSheetV2.onOpenEffectsList,
+      engageTractor: TabbedActorSheetV2.onEngageTractor,
+      releaseTractor: TabbedActorSheetV2.onReleaseTractor,
       toggleModuleVitalAdjust: TabbedActorSheetV2.onToggleModuleVitalAdjust,
       adjustModuleVital: TabbedActorSheetV2.onAdjustModuleVital,
       editImage: TabbedActorSheetV2.onEditImage,
@@ -753,7 +986,6 @@ export class NihilityVehicleSheet extends TabbedActorSheetV2 {
     context.system = actor.system;
     context.config = MEU_SISTEMA;
     context.isVehicle = true;
-    context.shipSizeOptions = sizeOptions(MEU_SISTEMA.VEHICLE_SIZES);
     context.shipManeuverEnabled = isShipManeuverEnabled();
     context.traits = traitContext(actor);
     context.isGM = game.user.isGM;

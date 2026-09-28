@@ -130,6 +130,13 @@
         <div class="pad-vital-row">
           <div class="pad-vital-top"><span>Consumo</span><span>{{shipConsumption}}</span></div>
         </div>
+        {{#if shipCanFocus}}
+        <div class="pad-focus-row">
+          {{#each shipFocusOptions as |opt|}}
+          <button type="button" class="pad-focus-btn {{#if opt.active}}active{{/if}}" data-action="setShipFocus" data-focus="{{opt.id}}">{{opt.label}}</button>
+          {{/each}}
+        </div>
+        {{/if}}
       </div>
 
       <div class="pad-hud-panel">

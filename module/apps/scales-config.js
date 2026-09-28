@@ -1,4 +1,4 @@
-import { SYSTEM_ID, MEU_SISTEMA, getScaleConfig, getFeatureOption, isScaleEnabled } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getScaleConfig, getFeatureOption, isScaleEnabled, getVesselSizes } from "../config.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -50,13 +50,13 @@ export class ScalesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) {
       step: index === 0 ? "base" : `×${factor} sobre ${scales[index - 1].label}`
     }));
     const sizeRows = (sizes, map) =>
-      sizes.map(size => ({
+      sizes.map(({ id: size, label }) => ({
         size,
-        label: MEU_SISTEMA.SHIP_SIZE_LABELS[size] ?? size,
+        label,
         options: scales.map(s => ({ id: s.id, label: s.label, selected: s.id === map[size] }))
       }));
-    context.shipSizes = sizeRows(MEU_SISTEMA.SHIP_SIZES, this.draft.shipSizeMap);
-    context.vehicleSizes = sizeRows(MEU_SISTEMA.VEHICLE_SIZES, this.draft.vehicleSizeMap);
+    context.shipSizes = sizeRows(getVesselSizes("ship"), this.draft.shipSizeMap);
+    context.vehicleSizes = sizeRows(getVesselSizes("vehicle"), this.draft.vehicleSizeMap);
     return context;
   }
 

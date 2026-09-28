@@ -47,7 +47,8 @@ export class FeatureConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
       // precisa continuar aparecendo marcada, senão salvar a tela a apagaria silenciosamente.
       checked: this._rawSetting(feature.setting),
       // Campos numéricos/booleanos sob o interruptor (ver `options` em FEATURES).
-      options: Object.entries(feature.options ?? {}).map(([optionKey, option]) => ({
+      // `legacy`: opção antiga que só semeia outro catálogo (Portes de Nave) — registrada, mas fora da tela.
+      options: Object.entries(feature.options ?? {}).filter(([, option]) => !option.legacy).map(([optionKey, option]) => ({
         key: optionKey,
         label: option.label,
         hint: option.hint,

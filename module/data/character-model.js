@@ -6,7 +6,17 @@ import {
   getVitalFormula,
   getXpForNextLevel,
   movementAllowance,
-  getMovementConfig
+  getMovementConfig,
+  speciesCarry,
+  inventoryLoad,
+  currencyWeight,
+  carryCapacity,
+  encumbrancePenalty,
+  getActiveSpeciesPresets,
+  getActiveCurrencies,
+  getFeatureOption,
+  isInventoryEnabled,
+  isEncumbranceEnabled
 } from "../config.js";
 import { collectConditionalModifiers, buildModifierContext } from "../conditional-context.js";
 import { sumConditionalModifiers } from "../conditional-modifiers.js";
@@ -53,7 +63,25 @@ function baseActorSchema() {
        * jogador conforme absorve dano (mesma lógica manual do resto do combate).
        */
       shield: new fields.SchemaField({
-        value: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 })
+        value: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
+        /**
+         * Pools: cada Skill que deu Escudo tem o seu, com Vida própria. `value` acima é o TOTAL (o
+         * que a ficha mostra); o que passar da soma dos pools é o "avulso" (Escudo digitado à mão,
+         * ou de antes dos pools). O golpe gasta do mais recente (`order` maior) pro mais antigo, e
+         * o avulso por último — ver consumeShieldPools em damage-rules.js.
+         */
+        pools: new fields.ArrayField(
+          new fields.SchemaField({
+            id: new fields.StringField({ required: true, initial: "" }),
+            label: new fields.StringField({ required: false, initial: "" }),
+            value: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
+            order: new fields.NumberField({ required: false, initial: 0 }),
+            holderUuid: new fields.StringField({ required: false, initial: "" }),
+            skillId: new fields.StringField({ required: false, initial: "" }),
+            subSkillIndex: new fields.NumberField({ required: false, nullable: true, initial: null, integer: true })
+          }),
+          { required: false, initial: [] }
+        )
       }),
       level: new fields.NumberField({ required: true, integer: true, initial: 1, min: 0 }),
       /**
@@ -76,6 +104,10 @@ function baseActorSchema() {
        * para retirar pontos.
        */
       bonusAttributePoints: new fields.NumberField({ required: true, integer: true, initial: 0 }),
+
+      /** Slots e carga (kg) extras dados pelo Mestre a este personagem (podem ser negativos). */
+      bonusSlots: new fields.NumberField({ required: false, integer: true, initial: 0 }),
+      bonusCarry: new fields.NumberField({ required: false, initial: 0 }),
 
       /**
        * Atributos de combate: `points` é editável (pontos investidos na criação/level-up).
@@ -219,10 +251,57 @@ function sumPermanentStatModifier(actor, stat) {
  */
 function deriveMovement(dataModel) {
   const dexterity = dataModel.attributes.combat.dexterity;
+  // Excesso de peso (bloco "Peso limita o Deslocamento") entra como mais um −%.
+  const encumbrance = dataModel.inventory?.penalty ?? 0;
   dataModel.movement = movementAllowance(
-    { permanentDexterity: dexterity.total, skillDexterity: dexterity.buffDelta || 0, percent: dataModel.attributes.movementPercent || 0 },
+    { permanentDexterity: dexterity.total, skillDexterity: dexterity.buffDelta || 0, percent: (dataModel.attributes.movementPercent || 0) - encumbrance },
     getMovementConfig()
   );
+}
+
+/**
+ * Inventário (só o número, nada é salvo): slots da Espécie + bônus do Mestre, o que as pilhas
+ * soltas ocupam, peso (com a redução dos contêineres e as moedas) e a carga que Força e Defesa
+ * sustentam. Precisa rodar depois de deriveCombatAttributes (usa `total`) e antes de deriveMovement.
+ */
+function deriveInventory(dataModel) {
+  const actor = dataModel.parent;
+  const attributes = dataModel.attributes;
+  const base = speciesCarry(getActiveSpeciesPresets()?.[dataModel.species], dataModel.species);
+  const items = actor.items.filter(i => i.type === "item");
+  const containers = [
+    ...items.filter(i => i.system.container?.enabled).map(i => ({
+      id: i.id, label: i.name, isSkill: false, unlimited: false,
+      slots: i.system.container.slots, weightReduction: i.system.container.weightReduction
+    })),
+    ...actor.items.filter(i => i.type === "skill" && i.system.grantsContainer?.enabled).map(i => ({
+      id: i.id, label: i.name, isSkill: true, unlimited: Boolean(i.system.grantsContainer.unlimited),
+      slots: i.system.grantsContainer.slots, weightReduction: i.system.grantsContainer.weightReduction
+    }))
+  ];
+  const load = inventoryLoad(
+    items.map(i => ({
+      id: i.id, quantity: i.system.quantity, stackSize: i.system.stackSize, weight: i.system.weight,
+      containerId: i.system.containerId, isContainer: Boolean(i.system.container?.enabled)
+    })),
+    containers
+  );
+  const weight = Math.round((load.weight + currencyWeight(dataModel.currencies, getActiveCurrencies())) * 100) / 100;
+  const capacity = carryCapacity(
+    { base: base.carry, strength: attributes.combat.strength.total, defense: attributes.combat.defense.total, bonus: attributes.bonusCarry },
+    { perStrength: getFeatureOption("inventory", "carryPerStrength"), perDefense: getFeatureOption("inventory", "carryPerDefense") }
+  );
+  const enabled = isInventoryEnabled();
+  dataModel.inventory = {
+    slots: Math.max(0, base.slots + (attributes.bonusSlots || 0)),
+    usedSlots: load.looseSlots,
+    weight,
+    capacity,
+    over: weight > capacity,
+    penalty: enabled && isEncumbranceEnabled() ? encumbrancePenalty(weight, capacity) : 0,
+    containers,
+    byContainer: load.byContainer
+  };
 }
 
 /**
@@ -384,6 +463,7 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
 
   prepareDerivedData() {
     deriveCombatAttributes(this);
+    deriveInventory(this);
     deriveMovement(this);
     deriveVitalStats(this);
     deriveConditionalAttributes(this);

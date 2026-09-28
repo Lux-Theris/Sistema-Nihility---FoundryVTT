@@ -33,7 +33,8 @@ Sistema customizado para [Foundry VTT](https://foundryvtt.com/) (requer **V13+**
 - **Dano por elemento**:
   - Um golpe com vários elementos é dividido em partes iguais, e cada parte sofre só a Resistência do seu elemento. Imunidade a Fogo não zera a parte de Gelo.
   - Cada elemento pode ter **efeitos ao acertar**: aplicar Condição com chance, dano extra contra um Traço, dreno de Escudo, Penetração.
-- **Dano Absoluto**: não pode ser resistido, só desviado.
+- **Antimagia**: Skills que custam Mana são Mágicas; Campo Antimagia (Estrutura) e Selo Antimagia (Condição) cobram Mana extra por nível, ou anulam a magia. Estruturas podem ter elementos (Fogo derrete Gelo mais rápido) e dano ao contato (Muralha de Fogo).
+- **Dano Absoluto**: é o dano inteiro, com qualquer elemento junto — não pode ser resistido nem alterado pelos elementos, só desviado (Evasão de nave) ou barrado por uma Estrutura.
 - **Escala Personagem × Nave**: dano entre escalas diferentes é multiplicado ou dividido pelo fator a cada degrau. Pistola quase não arranha uma nave; canhão de nave vaporiza uma pessoa.
 - **Condições com efeito padrão**: Queimadura em % do dano do golpe, Lentidão em % do deslocamento…, definido uma vez e usado por elementos, Skills e pela marcação no token. Reaplicar renova a duração, não soma.
 - **Bônus Condicionais ("Quando → Então")** em Títulos, Skills e Itens. Por exemplo, Caçador de Dragões dá +25% de dano contra quem tem o Traço Dracônico. Também podem depender de Vida baixa, Condições, elemento ou estar em combate.
@@ -56,15 +57,28 @@ Sistema customizado para [Foundry VTT](https://foundryvtt.com/) (requer **V13+**
 - **Fusão e Evolução de Skills** (só Mestre). Sub-Skills são sempre uma lista plana que o jogador escolhe ao usar.
 - **Habilidade Concedida completa** por Item, Módulo ou Modificação, editada no mesmo editor de Skill. É fixa: não ganha XP nem sobe de nível.
 
+### Janela de Efeitos
+
+- **✦ Efeitos** na ficha de Personagem e de Nave: tudo o que está agindo sobre o Ator, em palavras, com quanto falta — e o Mestre encerra dali.
+- Compatível com o formato novo de Active Effect da V14 (`system.changes`), sem perder a V13.
+
+### Inventário
+
+- **Aba Inventário** com slots por Espécie, pilhas (padrão 20, arrastar item igual soma), dividir pilha, contêineres (mochila, bolsa; Skills podem dar bolsa dimensional ilimitada), peso com moedas e carga por Força/Defesa, e perda de Deslocamento por excesso (bloco opcional).
+- **Porão da Nave** (Módulos de Porão, carga pesando no Motor) e **Munição** para lançadores (Torpedo Fotônico, Quântico…).
+
 ### Naves e Veículos
 
-- **Porte e Classe**: Porte é o tamanho (Mini→Capital); Classe é o papel.
+- **Porte e Classe**: Porte é o tamanho, com listas editáveis e separadas para Nave (Mini→Capital) e Veículo (Mini→Colossal); Classe é o tipo, com faixa de Porte aceita (Caça até Pequeno, Dreadnought a partir de Capital).
   - Classes de Nave: Encouraçado, Cruzador, Cargueiro…; Classes de Veículo: Tanque, Carro, Moto…
   - A Classe muda vagas, espaço de arma, evasão e movimento.
 - **Categorias de Módulo personalizáveis**: cada categoria aponta para uma **Função** (Geração de Energia, Propulsão, FTL, Escudo, Blindagem, Arma…).
   - Dois núcleos de dobra somam; impulso + manobradores somam; dobra e transdobra são independentes.
   - Comunicações, Defletor e afins existem só se a campanha quiser (Função Utilidade).
-- **Grid de Energia** inspirado em Elite Dangerous (Reator → Distribuidor → Bateria): throttle por Módulo e **grupos de prioridade P1…P5** (chip em cada Módulo da ficha da Nave): quando falta energia, P1 recebe primeiro e o mesmo grupo divide o que sobra por igual.
+- **Grid de Energia** inspirado em Elite Dangerous (Reator → Distribuidor → Bateria): throttle por Módulo e **grupos de prioridade P1…P5** (chip em cada Módulo da ficha da Nave): quando falta energia, P1 recebe primeiro e o mesmo grupo divide o que sobra por igual. Atalhos de **foco de energia** (Escudos / Armas / Motores / Equilibrado) na ficha e no PAD.
+- **Ações da Nave**: Preparar para impacto, Energia auxiliar → Escudos, Reparo de emergência e Reiniciar sistemas, com a lista de efeitos de sistema ativos (Módulo derrubado, energia drenada…).
+- **Escudo adaptativo** (aprende elemento + frequência de quem atira) e a ação **Modular frequência** para furá-lo.
+- **Raio Trator**: um Módulo que prende outra nave e corta o deslocamento dela conforme a diferença de Porte.
 - **Cascata de dano** em 3 camadas (Escudo → Casco → Integridade Estrutural), com Penetração, Recarga de Escudo e **Evasão** (a Manobra da nave vira dano evitado).
 - **Movimento por rodada** (Porte × Motor), com o mesmo limite na régua do personagem.
 - **Tripulação com postos** (Capitão, Piloto, Engenheiro…) que são só "quem está onde". Qualquer tripulante opera a nave inteira e troca o próprio posto na hora.

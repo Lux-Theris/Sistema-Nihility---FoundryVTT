@@ -25,7 +25,14 @@ import {
   getStructures,
   isStructuresEnabled,
   isStructureMechanic,
-  debugLog
+  debugLog,
+  getVesselSizes,
+  vesselKind,
+  isMagicUse,
+  MAGIC_TAG_LABELS,
+  getAmmoTypes,
+  cargoSlotsFor,
+  isInventoryEnabled
 } from "../config.js";
 import {
   WHEN_KINDS,
@@ -103,6 +110,8 @@ function headerChipsFor(item) {
       add(`Nv ${sys.level}`, "Nível");
       if (sys.cost) add(`${sys.cost} ${getCharacterEnergyLabel()}`, "Custo ao usar");
       if (sys.hasUpkeep) add(`Ativa · ${sys.upkeepCost}/rod.`, "Habilidade Ativa", sys.active ? "ok" : "accent");
+      if (sys.variableMana) add(`${getCharacterEnergyLabel()} variável`, "Aceita investir mais ou menos que o Custo", "violet");
+      if (isMagicUse(sys, item.parent)) add("Mágica", "Sofre Antimagia", "violet");
       const target = MEU_SISTEMA.SKILL_TARGET_TYPE_SHORT_LABELS[sys.targetType] ?? "";
       if (isStructureMechanic(sys)) add("Estrutura", "Mecânica ao usar");
       else if (sys.effectType === "damage") add(`Dano · ${target}`, "Mecânica ao usar", "hp");
@@ -143,6 +152,8 @@ function headerChipsFor(item) {
         add(`${sys.value.amount} ${currency}`, "Valor");
       }
       if (sys.weapon?.enabled) add(`Arma · ${sys.weapon.damageFormula || "?"}`, "Dano", "accent");
+      if (sys.container?.enabled) add(`Contêiner · ${sys.container.slots} slots`, "Guarda outros Itens");
+      if (sys.ammo?.enabled) add(`Munição · ${getAmmoTypes().find(a => a.id === sys.ammo.type)?.label ?? "?"}`, "Munição", "accent");
       if (sys.grantsSkill?.name) add(`concede: ${sys.grantsSkill.name}`, "Habilidade Concedida", "violet");
       break;
     }
@@ -293,6 +304,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       addSkillEffect: NihilityItemSheet.#onSkillEffectAdd,
       deleteSkillEffect: NihilityItemSheet.#onSkillEffectDelete,
       pickElements: NihilityItemSheet.#onPickElements,
+      toggleAmmoType: NihilityItemSheet.#onToggleAmmoType,
       removeElement: NihilityItemSheet.#onRemoveElement,
       showEffectCondition: NihilityItemSheet.#onShowEffectCondition,
       editEffectLight: NihilityItemSheet.#onEditEffectLight,
@@ -371,6 +383,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.system = sys;
     context.config = MEU_SISTEMA;
     context.itemType = item.type;
+    context.inventoryEnabled = isInventoryEnabled();
     context.currencies = getActiveCurrencies();
     context.item = item;
     context.owner = item.isOwner;
@@ -379,6 +392,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.conditionsEnabled = isStatusConditionsEnabled();
     context.scaleEnabled = isScaleEnabled();
     context.energyLabel = getCharacterEnergyLabel();
+    context.magicTagOptions = Object.entries(MAGIC_TAG_LABELS).map(([id, label]) => ({ id, label: id === "auto" ? `Automático (custa ${context.energyLabel})` : label }));
     context.energyAbbr = getStarshipEnergyAbbr();
     // Seletores de bônus de Atributo (Título, Item, Modificação) usam os rótulos e a
     // visibilidade atuais — atributo oculto sai da lista de opções novas.
@@ -516,7 +530,8 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const signed = n => (n > 0 ? `+${n}` : `${n}`);
 
     return (sys.effects ?? []).map((entry, index) => {
-      const acceptsPeriodic = entry.target === "hp" || entry.target === "energy";
+      // Periódico: Vida/Mana de Personagem e Casco/Integridade de Nave (dano contínuo, reparo por rodada).
+      const acceptsPeriodic = ["hp", "energy", "shipCasco", "shipHull"].includes(entry.target);
       const periodic = acceptsPeriodic && Boolean(entry.periodic);
       const isShipTarget = MEU_SISTEMA.SHIP_EFFECT_TARGETS.includes(entry.target);
       const groupIndex = MEU_SISTEMA.EFFECT_TARGET_GROUPS.findIndex(g => g.targets.includes(entry.target));
@@ -561,6 +576,8 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         showCondition,
         canOpenCondition: context.conditionsEnabled && !showCondition && context.editable,
         isShieldTarget: entry.target === "shield",
+        shieldRegen: entry.shieldRegen ?? 0,
+        shieldCap: entry.shieldCap ?? 0,
         lightSummary: describeLight(entry.light),
         lightOn: Boolean(entry.light?.enabled),
         hasExtras: showCondition || acceptsPeriodic || isShipTarget || entry.target === "shield",
@@ -584,6 +601,12 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.weaponScalingOptions = scalingOptions(weapon.scalingAttribute);
     context.weaponScaleOptions = scaleOptions(weapon.damageScale);
     context.weaponElementField = selectedElementChips(weapon.damageElements);
+    const ammo = this.item.system.ammo ?? {};
+    context.ammoElementField = selectedElementChips(ammo.damageElements ?? []);
+    context.ammoTypeOptions = [{ id: "", label: "—" }, ...getAmmoTypes()].map(a => ({ id: a.id, label: a.label, selected: a.id === (ammo.type ?? "") }));
+    context.ammoSizeOptions = [["", "qualquer"], ...MEU_SISTEMA.MODULE_SIZES.map(s => [s, MEU_SISTEMA.MODULE_SIZE_LABELS[s]])].map(([id, label]) => ({
+      id, label, selected: id === (ammo.minLauncherSize ?? "")
+    }));
     context.grantSummary = grantedSkillSummary(this.item.system.grantsSkill, "system.grantsSkill");
   }
 
@@ -606,8 +629,22 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     }
     context.moduleSizeSeg = seg(MEU_SISTEMA.MODULE_SIZES.map(size => [size, MEU_SISTEMA.MODULE_SIZE_LABELS[size]]), sys.moduleSize);
     context.moduleElementField = selectedElementChips(sys.damageElements);
+    const accepted = new Set(sys.ammoTypes ?? []);
+    context.launcherAmmoChips = getAmmoTypes().map(a => ({ id: a.id, label: a.label, checked: accepted.has(a.id) }));
+    context.cargoSlotsPreview = cargoSlotsFor(sys.moduleSize, sys.cargoMultiplier);
     context.grantSummary = grantedSkillSummary(sys.grantsSkill, "system.grantsSkill");
 
+    if (context.moduleRole === "shield" && sys.adaptive) {
+      // "Phaser (freq. 412) 30%": o que este Escudo instalado já aprendeu.
+      const elements = getActiveDamageElements();
+      context.adaptationRows = Object.entries(this.item.getFlag(SYSTEM_ID, "shieldAdaptation") ?? {})
+        .filter(([, percent]) => percent > 0)
+        .map(([key, percent]) => {
+          const [elementId, frequency] = key.split("@");
+          const name = elementId === "none" ? "sem elemento" : elements.find(e => e.id === elementId)?.label ?? elementId;
+          return { label: Number(frequency) ? `${name} (freq. ${frequency})` : name, percent };
+        });
+    }
     if (context.moduleRole === "distribution") {
       // "Fator 5" não diz nada sozinho: a Capacidade de Transferência sai de
       // `baseline(Porte) × fator`, e a tabela de baseline mora no código. Sem ver o RESULTADO,
@@ -615,12 +652,13 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       const factor = Number(sys.transferFactor) || 0;
       context.distributorPreview = {
         abbr: context.energyAbbr,
-        rows: MEU_SISTEMA.SHIP_SIZES.map(size => ({
-          label: MEU_SISTEMA.SHIP_SIZE_LABELS[size],
-          baseline: MEU_SISTEMA.DISTRIBUTOR_BASELINE_BY_SHIP_SIZE[size] ?? 0,
-          result: Math.round((MEU_SISTEMA.DISTRIBUTOR_BASELINE_BY_SHIP_SIZE[size] ?? 0) * factor),
+        // Portes do tipo da Nave onde o Módulo está (Nave, se estiver solto).
+        rows: getVesselSizes(vesselKind(this.item.parent)).map(size => ({
+          label: size.label,
+          baseline: size.distributorBaseline,
+          result: Math.round(size.distributorBaseline * factor),
           // Destaca a linha do Porte da Nave onde ESTE Módulo está instalado, quando está.
-          current: this.item.parent?.system?.shipSize === size
+          current: this.item.parent?.system?.shipSize === size.id
         }))
       };
     }
@@ -840,7 +878,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     else entry[field] = input.value.trim();
 
     if (field === "target") {
-      if (entry.target !== "hp" && entry.target !== "energy") entry.periodic = false;
+      if (!["hp", "energy", "shipCasco", "shipHull"].includes(entry.target)) entry.periodic = false;
       if (!MEU_SISTEMA.SHIP_EFFECT_TARGETS.includes(entry.target)) entry.modifierType = "flat";
     }
     await this.item.update({ "system.effects": effects });
@@ -910,6 +948,17 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     }
     if (!path?.startsWith("system.")) return;
     return this.item.update({ [path]: list });
+  }
+
+  /** Lançador: liga/desliga um Tipo de Munição aceito. */
+  static async #onToggleAmmoType(event, target) {
+    event.preventDefault();
+    if (!this.isEditable) return;
+    const type = target.dataset.ammoType;
+    const list = new Set(this.item.system.ammoTypes ?? []);
+    if (list.has(type)) list.delete(type);
+    else list.add(type);
+    await this.item.update({ "system.ammoTypes": [...list] });
   }
 
   static async #onPickElements(event, target) {

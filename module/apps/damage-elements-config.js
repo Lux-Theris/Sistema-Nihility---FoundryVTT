@@ -7,8 +7,12 @@ import { createCardListConfigApp, escapeHtml, optionsHtml } from "./card-list-co
  * um tipo fixo que o código entende (ELEMENT_EFFECT_TYPES em config.js):
  *  - Aplicar Condição (com chance) — usa o efeito padrão da Condição;
  *  - Dano extra contra Traço — ex.: Pólaron +20% contra Orgânico;
- *  - Dano extra em Escudo — ex.: Táquion drena Escudo;
- *  - Penetração — ex.: Transfásico ignora parte das defesas (nunca Imunidade).
+ *  - Dano por camada — % (pode ser negativo) contra Escudo, Casco ou Integridade: Phaser +20% no
+ *    Escudo, Torpedo −50% no Escudo e +30% no Casco (o de Escudo vale também pro Escudo pessoal);
+ *  - Dano extra em Escudo — o antigo, que continua funcionando como Escudo +X%;
+ *  - Penetração — ex.: Transfásico ignora parte das defesas (nunca Imunidade);
+ *  - Nave: derrubar Módulo, drenar energia, baixar resistência — com chance e rodadas, só com a
+ *    parte do golpe que passou do Escudo, e menos chance contra Endurecimento.
  *
  * Um golpe com vários elementos é dividido em partes iguais; cada parte sofre só a Resistência
  * do seu elemento e dispara só os efeitos dele (ver damage-rules.js).
@@ -24,8 +28,12 @@ function effectRowHtml(effect = {}) {
       <select data-effect-field="type">${optionsHtml(types, type)}</select>
       <select data-effect-field="conditionId" data-shows="condition">${optionsHtml(conditions, effect.conditionId)}</select>
       <select data-effect-field="trait" data-shows="traitBonus">${optionsHtml(traits, effect.trait)}</select>
-      <label data-shows="condition">Chance % <input type="number" data-effect-field="chance" min="0" max="100" value="${effect.chance ?? 25}"/></label>
-      <label data-shows="traitBonus shieldDrain penetration">% <input type="number" data-effect-field="percent" min="0" value="${effect.percent ?? 20}"/></label>
+      <select data-effect-field="element" data-shows="vsElement" title="Elemento da Estrutura">${optionsHtml(getActiveDamageElements().map(e => [e.id, e.label]), effect.element)}</select>
+      <select data-effect-field="layer" data-shows="layer">${optionsHtml(MEU_SISTEMA.DAMAGE_LAYERS.map(l => [l, MEU_SISTEMA.DAMAGE_LAYER_LABELS[l]]), effect.layer ?? "shield")}</select>
+      <label data-shows="condition moduleDisable energyDrain resistanceDown">Chance % <input type="number" data-effect-field="chance" min="0" max="100" value="${effect.chance ?? 25}"/></label>
+      <label data-shows="traitBonus vsElement shieldDrain penetration energyDrain resistanceDown">% <input type="number" data-effect-field="percent" min="0" value="${effect.percent ?? 20}"/></label>
+      <label data-shows="layer" title="Negativo = fraqueza (o torpedo sofre −50% no Escudo)">% <input type="number" data-effect-field="layerPercent" value="${effect.type === "layer" ? effect.percent ?? 20 : 20}"/></label>
+      <label data-shows="moduleDisable energyDrain resistanceDown">Rodadas <input type="number" data-effect-field="rounds" min="1" value="${effect.rounds ?? 2}"/></label>
       <a class="element-effect-remove" title="Remover efeito"><i class="fas fa-times"></i></a>
     </div>`;
 }
@@ -75,8 +83,14 @@ function readCard(card) {
     const type = read("type");
     if (type === "condition") return { type, conditionId: read("conditionId"), chance: Math.min(100, Math.max(0, Number(read("chance")) || 0)) };
     if (type === "traitBonus") return { type, trait: read("trait"), percent: Math.max(0, Number(read("percent")) || 0) };
+    if (type === "vsElement") return { type, element: read("element"), percent: Math.max(-100, Number(read("percent")) || 0) };
+    if (type === "layer") return { type, layer: read("layer") || "shield", percent: Math.max(-100, Number(read("layerPercent")) || 0) };
+    const chance = Math.min(100, Math.max(0, Number(read("chance")) || 0));
+    const rounds = Math.max(1, Math.round(Number(read("rounds")) || 1));
+    if (type === "moduleDisable") return { type, chance, rounds };
+    if (type === "energyDrain" || type === "resistanceDown") return { type, chance, percent: Math.max(0, Number(read("percent")) || 0), rounds };
     return { type, percent: Math.max(0, Number(read("percent")) || 0) };
-  }).filter(e => (e.type !== "condition" || e.conditionId) && (e.type !== "traitBonus" || e.trait));
+  }).filter(e => (e.type !== "condition" || e.conditionId) && (e.type !== "traitBonus" || e.trait) && (e.type !== "vsElement" || e.element));
   return { id, label: get("label").trim() || id, color: get("color") || "#c084fc", group: get("group").trim() || "Outros", effects };
 }
 

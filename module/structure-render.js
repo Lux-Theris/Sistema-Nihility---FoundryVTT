@@ -12,21 +12,36 @@
  * O que aparece: faixa grossa seguindo as Paredes (cor do catálogo; textura da imagem, se houver),
  * preenchimento nas formas fechadas, nome e barra de Vida (números só pro Mestre). A faixa fica
  * mais transparente conforme perde Vida; barreira de mana pulsa.
+ *
+ * **Queda com animação:** quando uma Estrutura sai do registro, as Paredes e a luz já sumiram (o
+ * estado de jogo não espera), mas o desenho dela faz uma animação curta em todas as telas, a
+ * partir da última forma que cada cliente conhecia. O motivo da queda vem do flag
+ * `structureFalls` que `removeStructureInstance` grava junto: destruída racha e estilhaça,
+ * barreira sem Mana pisca e se desfaz, o resto dissolve devagar.
  */
 import { SYSTEM_ID, getStructures } from "./config.js";
-import { structuresOnScene, removeOrphanStructureWalls, structureSegmentsOf } from "./structures.js";
+import { structuresOnScene, removeOrphanStructureWalls, structureSegmentsOf, structureFallOf } from "./structures.js";
 
 let container = null;
+let fallLayer = null;
 let pulse = null;
 let drawToken = 0;
+/** Última versão de cada Estrutura desenhada nesta Cena — é dela que sai a animação de queda. */
+let lastInstances = new Map();
+const textureCache = new Map();
 
 /** Liga os hooks. Chamado no `init`. */
 export function registerStructureRendering() {
   Hooks.on("canvasReady", () => {
+    lastInstances = new Map();
     drawStructures();
     removeOrphanStructureWalls(canvas.scene);
   });
-  Hooks.on("canvasTearDown", () => clearStructures());
+  Hooks.on("canvasTearDown", () => {
+    clearStructures();
+    clearFalls();
+    lastInstances = new Map();
+  });
   Hooks.on("updateScene", (scene, changes) => {
     if (scene.id !== canvas?.scene?.id) return;
     if (foundry.utils.hasProperty(changes, `flags.${SYSTEM_ID}`)) drawStructures();
@@ -45,14 +60,23 @@ function clearStructures() {
   container = null;
 }
 
+function clearFalls() {
+  if (fallLayer && !fallLayer.destroyed) fallLayer.destroy({ children: true });
+  fallLayer = null;
+}
+
 async function loadTextureSafe(path) {
   if (!path) return null;
+  if (textureCache.has(path)) return textureCache.get(path);
+  let texture = null;
   try {
     const load = foundry.canvas?.loadTexture ?? globalThis.loadTexture;
-    return (await load?.(path)) ?? null;
+    texture = (await load?.(path)) ?? null;
   } catch (err) {
-    return null;
+    texture = null;
   }
+  textureCache.set(path, texture);
+  return texture;
 }
 
 function colorNumber(value, fallback = 0x9aa1c2) {
@@ -74,12 +98,20 @@ export async function drawStructures() {
 
   // Texturas antes de apagar o desenho atual, pra não piscar vazio enquanto carregam.
   const catalog = new Map(getStructures().map(s => [s.id, s]));
-  const textures = new Map();
   for (const instance of instances) {
     const img = instance.img ?? catalog.get(instance.structureId)?.img;
-    if (img && !textures.has(img)) textures.set(img, await loadTextureSafe(img));
+    if (img) await loadTextureSafe(img);
   }
   if (token !== drawToken) return; // outro redesenho começou enquanto carregava
+
+  // Quem sumiu do registro desde o último desenho: anima a queda a partir da forma conhecida.
+  const current = new Set(instances.map(i => i.id));
+  for (const [id, previous] of lastInstances) {
+    if (!current.has(id)) playFall(scene, previous, structureFallOf(scene, id)?.reason ?? "dismissed", catalog);
+  }
+  lastInstances = new Map(
+    instances.map(i => [i.id, { ...foundry.utils.deepClone(i), segments: structureSegmentsOf(scene, i) }])
+  );
 
   clearStructures();
   if (!instances.length) return;
@@ -87,51 +119,10 @@ export async function drawStructures() {
   container.eventMode = "none";
   canvas.interface.addChildAt(container, 0);
 
-  const gridSize = Number(scene.grid?.size) || 100;
-  const thickness = Math.max(8, Math.round(gridSize * 0.16));
   const barriers = [];
-
   for (const instance of instances) {
-    const def = catalog.get(instance.structureId) ?? {};
-    const segments = structureSegmentsOf(scene, instance);
-    if (!segments.length) continue;
-    const color = colorNumber(instance.color ?? def.color);
-    const img = instance.img ?? def.img;
-    const texture = img ? textures.get(img) : null;
-    const shape = instance.shape ?? def.shape;
-    const closed = shape === "circle" || shape === "rect";
-    const fraction = instance.manaBarrier || !instance.hpMax ? 1 : Math.max(0, Math.min(1, instance.hp / instance.hpMax));
-    // Barreira de mana não tem Vida: a barra é a Mana de quem conjurou (é ela que segura a barreira).
-    let barFraction = fraction;
-    if (instance.manaBarrier) {
-      const energy = fromUuidSync(instance.sourceActorUuid)?.system?.attributes?.energy;
-      barFraction = energy?.max ? Math.max(0, Math.min(1, energy.value / energy.max)) : 1;
-    }
-    const alpha = 0.45 + 0.55 * fraction;
-
-    const group = new PIXI.Container();
-    const graphics = new PIXI.Graphics();
-    const path = [segments[0][0], segments[0][1], ...segments.flatMap(([, , x2, y2]) => [x2, y2])];
-
-    // Brilho largo e fraco por baixo: separa a Estrutura do chão de qualquer mapa.
-    graphics.lineStyle({ width: thickness * 2.2, color, alpha: 0.18, join: "round", cap: "round" });
-    drawPath(graphics, path, closed);
-    if (closed) {
-      if (texture) graphics.beginTextureFill({ texture, alpha: 0.55 * alpha });
-      else graphics.beginFill(color, 0.22 * alpha);
-      graphics.lineStyle(0);
-      graphics.drawPolygon(path);
-      graphics.endFill();
-    }
-    if (texture) graphics.lineTextureStyle({ width: thickness, texture, color: 0xffffff, alpha, join: "round", cap: "round" });
-    else graphics.lineStyle({ width: thickness, color, alpha, join: "round", cap: "round" });
-    drawPath(graphics, path, closed);
-    // Borda fina clara: legível sobre fundo escuro ou claro.
-    graphics.lineStyle({ width: 2, color: 0xffffff, alpha: 0.35 * alpha, join: "round", cap: "round" });
-    drawPath(graphics, path, closed);
-    group.addChild(graphics);
-
-    group.addChild(buildLabel(instance, segments, gridSize, color, barFraction));
+    const group = buildStructureGroup(scene, instance, catalog);
+    if (!group) continue;
     container.addChild(group);
     if (instance.manaBarrier) barriers.push(group);
   }
@@ -139,13 +130,71 @@ export async function drawStructures() {
   // Barreira de mana pulsa (só alpha — barato, e some junto com o container).
   if (barriers.length) {
     let t = 0;
-    pulse = delta => {
-      t += (delta ?? 1) * 0.05;
+    pulse = ticker => {
+      t += (ticker?.deltaTime ?? ticker ?? 1) * 0.05;
       const a = 0.75 + 0.25 * Math.sin(t);
       for (const g of barriers) if (!g.destroyed) g.alpha = a;
     };
     canvas.app.ticker.add(pulse);
   }
+}
+
+/** Desenho de uma Estrutura (faixa, preenchimento, borda, nome e barra), ou `null` sem forma. */
+function buildStructureGroup(scene, instance, catalog, { withLabel = true } = {}) {
+  const def = catalog.get(instance.structureId) ?? {};
+  const segments = instance.segments?.length ? instance.segments : structureSegmentsOf(scene, instance);
+  if (!segments.length) return null;
+  const gridSize = Number(scene.grid?.size) || 100;
+  const thickness = Math.max(8, Math.round(gridSize * 0.16));
+  const color = colorNumber(instance.color ?? def.color);
+  const img = instance.img ?? def.img;
+  const texture = img ? textureCache.get(img) ?? null : null;
+  const shape = instance.shape ?? def.shape;
+  const closed = shape === "circle" || shape === "rect";
+  const fraction = instance.manaBarrier || !instance.hpMax ? 1 : Math.max(0, Math.min(1, instance.hp / instance.hpMax));
+  // Barreira de mana não tem Vida: a barra é a Mana de quem conjurou (é ela que segura a barreira).
+  let barFraction = fraction;
+  if (instance.manaBarrier) {
+    const energy = fromUuidSync(instance.sourceActorUuid)?.system?.attributes?.energy;
+    barFraction = energy?.max ? Math.max(0, Math.min(1, energy.value / energy.max)) : 1;
+  }
+  const alpha = 0.45 + 0.55 * fraction;
+
+  const group = new PIXI.Container();
+  const graphics = new PIXI.Graphics();
+  const path = [segments[0][0], segments[0][1], ...segments.flatMap(([, , x2, y2]) => [x2, y2])];
+
+  // Brilho largo e fraco por baixo: separa a Estrutura do chão de qualquer mapa.
+  graphics.lineStyle({ width: thickness * 2.2, color, alpha: 0.18, join: "round", cap: "round" });
+  drawPath(graphics, path, closed);
+  if (closed) {
+    if (texture) graphics.beginTextureFill({ texture, alpha: 0.55 * alpha });
+    else graphics.beginFill(color, 0.22 * alpha);
+    graphics.lineStyle(0);
+    graphics.drawPolygon(path);
+    graphics.endFill();
+  }
+  if (texture) graphics.lineTextureStyle({ width: thickness, texture, color: 0xffffff, alpha, join: "round", cap: "round" });
+  else graphics.lineStyle({ width: thickness, color, alpha, join: "round", cap: "round" });
+  drawPath(graphics, path, closed);
+  // Borda fina clara: legível sobre fundo escuro ou claro.
+  graphics.lineStyle({ width: 2, color: 0xffffff, alpha: 0.35 * alpha, join: "round", cap: "round" });
+  drawPath(graphics, path, closed);
+  group.addChild(graphics);
+
+  if (withLabel) group.addChild(buildLabel(instance, segments, gridSize, color, barFraction));
+  group.structureCenter = centerOf(segments);
+  group.structureColor = color;
+  group.structureThickness = thickness;
+  return group;
+}
+
+function centerOf(segments) {
+  const mids = segments.map(([x1, y1, x2, y2]) => [(x1 + x2) / 2, (y1 + y2) / 2]);
+  return {
+    x: mids.reduce((sum, [x]) => sum + x, 0) / mids.length,
+    y: mids.reduce((sum, [, y]) => sum + y, 0) / mids.length
+  };
 }
 
 function drawPath(graphics, path, closed) {
@@ -156,10 +205,7 @@ function drawPath(graphics, path, closed) {
 
 /** Nome + barra de Vida no meio da Estrutura. Números só pro Mestre; jogador vê só a barra. */
 function buildLabel(instance, segments, gridSize, color, fraction) {
-  const mids = segments.map(([x1, y1, x2, y2]) => [(x1 + x2) / 2, (y1 + y2) / 2]);
-  const cx = mids.reduce((sum, [x]) => sum + x, 0) / mids.length;
-  const cy = mids.reduce((sum, [, y]) => sum + y, 0) / mids.length;
-
+  const { x: cx, y: cy } = centerOf(segments);
   const box = new PIXI.Container();
   const fontSize = Math.max(13, Math.round(gridSize * 0.18));
   let text = instance.label ?? "";
@@ -188,4 +234,85 @@ function buildLabel(instance, segments, gridSize, color, fraction) {
 
   box.position.set(cx, cy);
   return box;
+}
+
+/* ------------------------------------------------------------------ Queda */
+
+/** Duração de cada animação de queda, em milissegundos. */
+const FALL_DURATION = { destroyed: 1300, manaDepleted: 1100, antimagic: 1100, expired: 1600, dismissed: 1600, casterDown: 1600 };
+
+/**
+ * Anima a queda de uma Estrutura que acabou de sair do registro. Só visual e só neste cliente —
+ * as Paredes e a luz já foram apagadas pelo Mestre.
+ */
+function playFall(scene, instance, reason, catalog) {
+  if (!canvas?.ready || !canvas.interface) return;
+  const group = buildStructureGroup(scene, instance, catalog, { withLabel: false });
+  if (!group) return;
+  if (!fallLayer || fallLayer.destroyed) {
+    fallLayer = new PIXI.Container();
+    fallLayer.eventMode = "none";
+    canvas.interface.addChildAt(fallLayer, 0);
+  }
+  const center = group.structureCenter;
+  // Pivô no centro, pra tremer/encolher em volta da própria Estrutura.
+  group.pivot.set(center.x, center.y);
+  group.position.set(center.x, center.y);
+  fallLayer.addChild(group);
+
+  const shards = reason === "destroyed" ? spawnShards(instance, group) : [];
+  const duration = FALL_DURATION[reason] ?? 1500;
+  const start = performance.now();
+  const step = () => {
+    if (group.destroyed) return canvas?.app?.ticker?.remove(step);
+    const t = Math.min(1, (performance.now() - start) / duration);
+    if (reason === "destroyed") {
+      // Treme forte no começo, depois apaga e incha um pouco (desmanchando).
+      const shake = t < 0.3 ? (1 - t / 0.3) * group.structureThickness * 0.6 : 0;
+      group.position.set(center.x + (Math.random() - 0.5) * shake, center.y + (Math.random() - 0.5) * shake);
+      group.alpha = t < 0.3 ? 1 : 1 - (t - 0.3) / 0.7;
+      group.scale.set(1 + 0.06 * t);
+      for (const shard of shards) {
+        shard.x += shard.vx;
+        shard.y += shard.vy;
+        shard.vy += 0.35;
+        shard.rotation += shard.spin;
+        shard.alpha = 1 - t;
+      }
+    } else if (reason === "manaDepleted" || reason === "antimagic") {
+      // Pisca cada vez mais fraco até sumir.
+      group.alpha = Math.random() < 1 - t ? 0.4 + 0.6 * Math.random() * (1 - t) : 0.05;
+    } else {
+      // Dissolve devagar, encolhendo um pouco.
+      group.alpha = 1 - t;
+      group.scale.set(1 - 0.08 * t);
+    }
+    if (t >= 1) {
+      canvas?.app?.ticker?.remove(step);
+      for (const shard of shards) if (!shard.destroyed) shard.destroy();
+      if (!group.destroyed) group.destroy({ children: true });
+    }
+  };
+  canvas.app.ticker.add(step);
+}
+
+/** Estilhaços da Estrutura destruída: pedaços da cor dela voando do meio de cada trecho. */
+function spawnShards(instance, group) {
+  const segments = instance.segments ?? [];
+  const shards = [];
+  const size = Math.max(4, group.structureThickness * 0.5);
+  for (const [x1, y1, x2, y2] of segments.slice(0, 24)) {
+    for (let k = 0; k < 2; k++) {
+      const f = Math.random();
+      const shard = new PIXI.Graphics();
+      shard.beginFill(group.structureColor, 0.95).drawPolygon([0, 0, size, size * 0.3, size * 0.4, size]).endFill();
+      shard.position.set(x1 + (x2 - x1) * f, y1 + (y2 - y1) * f);
+      shard.vx = (Math.random() - 0.5) * 8;
+      shard.vy = -Math.random() * 6;
+      shard.spin = (Math.random() - 0.5) * 0.3;
+      fallLayer.addChild(shard);
+      shards.push(shard);
+    }
+  }
+  return shards;
 }

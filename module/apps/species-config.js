@@ -1,4 +1,4 @@
-import { SYSTEM_ID, MEU_SISTEMA, getActiveSpeciesPresets, debugLog } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getActiveSpeciesPresets, debugLog, speciesCarry } from "../config.js";
 import { openSkillEditorDialog } from "./skill-editor-dialog.js";
 import { readPickerField, wireTraitPickerField } from "./checklist-picker.js";
 
@@ -55,6 +55,10 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
         availableAtCreation: def.availableAtCreation !== false,
         // Traços que a Espécie dá a quem a tem (Dracônico, Voador…) — ver actorTraits em config.js.
         traitsJson: JSON.stringify(def.traits ?? []),
+        // Slots e carga base do inventário (vazio = a tabela padrão, mostrada como dica).
+        inventorySlots: def.inventorySlots ?? "",
+        carryBase: def.carryBase ?? "",
+        defaultCarry: speciesCarry(undefined, key),
         parts: (def.parts ?? []).map(p => ({ ...p, tagsText: (p.tags ?? []).join(", ") })),
         skills: (def.skills ?? []).map(s => ({ ...s, dataJson: JSON.stringify(s) }))
       };
@@ -85,6 +89,10 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
       <div class="species-traits" title="Traços que esta Espécie dá a quem a tem. A ficha pode acrescentar ou retirar.">
         <span class="species-traits-label">Traços</span>
         <div class="element-field species-trait-field" data-selected="[]"></div>
+      </div>
+      <div class="species-carry">
+        <label title="Slots do inventário (vazio = 10)">Slots <input type="number" class="species-slots" min="0" value="" placeholder="10"/></label>
+        <label title="Carga base em kg, antes de Força e Defesa (vazio = 30)">Carga base (kg) <input type="number" class="species-carry-base" min="0" step="any" value="" placeholder="30"/></label>
       </div>
       <div class="config-list-header part-header">
         <span>Chave</span><span>Nome</span><span>Slot</span><span>HP</span><span>Tags</span><span></span>
@@ -204,6 +212,18 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
         group: block.querySelector(".species-group")?.value ?? "",
         availableAtCreation: block.querySelector(".species-at-creation")?.checked !== false,
         traits: readPickerField(block.querySelector(".species-trait-field")),
+        ...(() => {
+          const read = cls => {
+            const raw = block.querySelector(cls)?.value?.trim() ?? "";
+            return raw === "" ? undefined : Math.max(0, Number(raw) || 0);
+          };
+          const carry = {};
+          const slots = read(".species-slots");
+          const base = read(".species-carry-base");
+          if (slots !== undefined) carry.inventorySlots = Math.round(slots);
+          if (base !== undefined) carry.carryBase = base;
+          return carry;
+        })(),
         parts,
         skills
       };

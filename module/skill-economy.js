@@ -254,6 +254,8 @@ export async function evolveSkill(actor, sourceItemId, newSkillData) {
       level: newSkillData.level,
       cost: newSkillData.cost,
       hasUpkeep: newSkillData.hasUpkeep,
+      variableMana: Boolean(newSkillData.variableMana),
+      magicTag: newSkillData.magicTag || "auto",
       upkeepCost: newSkillData.upkeepCost,
       animationPath: newSkillData.animationPath,
       description: newSkillData.description,

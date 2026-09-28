@@ -1,15 +1,22 @@
 import {
+  SYSTEM_ID,
   MEU_SISTEMA,
   getStarshipEnergyLabel,
   effectiveSkillCost,
   isShipManeuverEnabled,
   getShipManeuverConfig,
+  vesselSizeFor,
+  vesselKind,
   engineRatio,
   shipMovementCells,
   shipEvasionFraction,
   moduleRole,
   getVesselClasses,
-  fundByPriority
+  fundByPriority,
+  cargoSlotsFor,
+  inventoryLoad,
+  cargoMassFactor,
+  isEncumbranceEnabled
 } from "../config.js";
 
 const fields = foundry.data.fields;
@@ -58,7 +65,8 @@ export function moduleIntegrityRatio(module) {
 function shipSystemsSchema({ sizeChoices }) {
   return {
     /** Porte da Nave/Veículo — só o Mestre edita (mesmo padrão de Nível). */
-    shipSize: new fields.StringField({ required: true, initial: sizeChoices[0], choices: sizeChoices }),
+    // Id do catálogo de Portes do tipo (editável, sem `choices` fixas — ver getVesselSizes).
+    shipSize: new fields.StringField({ required: true, initial: sizeChoices[0], blank: false }),
 
     /** Classe (Encouraçado, Cargueiro… / Tanque, Carro…) — id do catálogo; vazio = sem Classe. */
     shipClass: new fields.StringField({ required: false, initial: "", blank: true }),
@@ -112,7 +120,7 @@ function shipSystemsSchema({ sizeChoices }) {
        * Habilidade de Nave — ver `energyValuePath` em skill-effects.js.
        *
        * `max` é sempre derivado (ver `prepareDerivedData`): sem Módulo de Bateria vale o mínimo
-       * dos conduítes do casco (`MEU_SISTEMA.CONDUIT_CAPACITOR_BY_SHIP_SIZE`, pequeno mas nunca
+       * dos conduítes do casco (``conduitCapacitor` da linha do Porte`, pequeno mas nunca
        * zero); com Bateria instalada, a capacidade dela SUBSTITUI esse mínimo.
        */
       capacitor: new fields.SchemaField({
@@ -255,6 +263,48 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
     return this.modulesByRole(role).reduce((sum, m) => sum + this.effectiveModuleStat(m, field), 0);
   }
 
+  /**
+   * Adaptação (0-0.95) dos Escudos adaptativos ligados contra um golpe destes elementos, vindo de
+   * armas nesta frequência — a maior entre os Escudos (ver shieldAdaptationFor).
+   */
+  shieldAdaptationAgainst(elementIds, frequency = 0) {
+    const best = this.modulesByRole("shield")
+      .filter(m => m.system.adaptive && m.system.status === "online")
+      .reduce((max, m) => Math.max(max, shieldAdaptationFor(m.getFlag(SYSTEM_ID, "shieldAdaptation"), elementIds, frequency)), 0);
+    return Math.min(95, best) / 100;
+  }
+
+  /** Carga no Porão: os Itens Gerais da Nave/Veículo. */
+  get cargoItems() {
+    return this.parent?.items?.filter(i => i.type === "item") ?? [];
+  }
+
+  /** Slots do Porão: soma dos Módulos de Porão com Vida (Porte × multiplicador). */
+  get cargoSlots() {
+    return this.modulesByRole("cargo")
+      .filter(m => (m.system.hp?.value ?? 0) > 0)
+      .reduce((sum, m) => sum + cargoSlotsFor(m.system.moduleSize, m.system.cargoMultiplier), 0);
+  }
+
+  /** Slots e peso ocupados no Porão (pilhas como no inventário de Personagem; sem limite de peso). */
+  get cargoLoad() {
+    return inventoryLoad(this.cargoItems.map(i => ({
+      id: i.id, quantity: i.system.quantity, stackSize: i.system.stackSize, weight: i.system.weight,
+      containerId: "", isContainer: Boolean(i.system.container?.enabled)
+    })));
+  }
+
+  /** Fator de massa da carga (1 = nada muda). Só com "Peso limita o Deslocamento" ligado. */
+  get cargoMassFactor() {
+    if (!isEncumbranceEnabled()) return 1;
+    return cargoMassFactor(this.cargoLoad.weight, this.vesselSize.massReference);
+  }
+
+  /** Linha do Porte desta Nave/Veículo (catálogo de Portes do tipo). */
+  get vesselSize() {
+    return vesselSizeFor(vesselKind(this.parent), this.shipSize);
+  }
+
   /** Classe desta Nave/Veículo (catálogo), ou `null`. */
   get vesselClass() {
     if (!this.shipClass) return null;
@@ -271,9 +321,10 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
     // Todos os Módulos de Propulsão somam: impulso dá Aceleração, manobradores dão Rotação.
     const propulsion = this.modulesByRole("propulsion");
     if (!propulsion.length) return 0;
-    const moduleSize = MEU_SISTEMA.MODULE_SIZES[MEU_SISTEMA.SHIP_SIZE_RANK[this.shipSize]];
+    const moduleSize = MEU_SISTEMA.MODULE_SIZES[this.vesselSize.rank];
     const reference = MEU_SISTEMA.MODULE_SIZE_PRESETS.engine?.[moduleSize]?.[field] ?? 0;
-    return engineRatio(this.sumRoleStat("propulsion", field) * this.bonusFactor("propulsionPercent"), reference);
+    // Carga no Porão pesa no Motor (só com o bloco de peso ligado): o Motor rende ÷ fator de massa.
+    return engineRatio(this.sumRoleStat("propulsion", field) * this.bonusFactor("propulsionPercent"), reference) / this.cargoMassFactor;
   }
 
   /** Fator de uma melhoria temporária em % (`combatBonuses.*Percent`): +20 → 1.2; nunca negativo. */
@@ -283,8 +334,10 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
 
   /** Casas por rodada em combate: base do Porte × razão da Aceleração. 0 sem Motor. */
   get movementCells() {
-    const base = getShipManeuverConfig().movement[this.shipSize] ?? 0;
-    return shipMovementCells(base * (this.vesselClass?.movementMultiplier ?? 1), this.engineRatioFor("acceleration"));
+    const base = this.vesselSize.move;
+    // Presa por um Raio Trator: o deslocamento cai pela força com que é segurada.
+    const held = 1 - Math.clamp(this.systemEffectPercent("tractor") / 100, 0, 1);
+    return shipMovementCells(base * (this.vesselClass?.movementMultiplier ?? 1) * held, this.engineRatioFor("acceleration"));
   }
 
   /**
@@ -295,7 +348,7 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
   get evasion() {
     if (!isShipManeuverEnabled()) return 0;
     const config = getShipManeuverConfig();
-    const base = (config.evasion[this.shipSize] ?? 0) * (this.vesselClass?.evasionMultiplier ?? 1);
+    const base = this.vesselSize.evasion * (this.vesselClass?.evasionMultiplier ?? 1);
     return shipEvasionFraction(base, this.engineRatioFor("rotation"), config.evasionCap);
   }
 
@@ -335,7 +388,53 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
     const armor = this.armorModule;
     if (!armor) return 0;
     const base = (armor.system.armorReduction ?? 0) / 100;
-    return Math.clamp(base * this.integrityRatioFor(armor), 0, 1);
+    // "Resistência baixa" (efeito de elemento tipo Disruptor) tira pontos da Redução também.
+    return Math.clamp(base * this.integrityRatioFor(armor) - this.systemEffectPercent("resistanceDown") / 100, 0, 1);
+  }
+
+  /**
+   * Efeitos de sistema ativos nesta Nave — Módulo derrubado, energia drenada, resistência baixa
+   * (dos elementos) e "Preparar para impacto" (ação da Nave). Guardados no flag `shipEffects` do
+   * Ator: `[{id, kind, percent, rounds, moduleId?, label?}]`. Descem uma rodada por turno da Nave
+   * (ver tickShipSystemEffects em starship-power.js).
+   */
+  get systemEffects() {
+    const list = this.parent?.getFlag?.(SYSTEM_ID, "shipEffects");
+    return Array.isArray(list) ? list : [];
+  }
+
+  /** O maior % ativo de um tipo de efeito de sistema (efeitos iguais não somam: vale o mais forte). */
+  systemEffectPercent(kind) {
+    return this.systemEffects.filter(e => e.kind === kind).reduce((best, e) => Math.max(best, Number(e.percent) || 0), 0);
+  }
+
+  /**
+   * Resistência à Penetração do Escudo, em fração: a maior entre os Módulos de Escudo ligados,
+   * mais o bônus de Escudo da Classe, menos "resistência baixa". Ver resolveShipCascade.
+   */
+  get shieldPenetrationResist() {
+    const best = this.modulesByRole("shield")
+      .filter(m => m.system.status === "online")
+      .reduce((max, m) => Math.max(max, Number(m.system.penetrationResist) || 0), 0);
+    const total = best + (this.vesselClass?.shieldPenResist ?? 0) - this.systemEffectPercent("resistanceDown");
+    return Math.clamp(total / 100, 0, 1);
+  }
+
+  /** Resistência à Penetração do Casco (a Blindagem que absorve agora + bônus de Casco da Classe). */
+  get cascoPenetrationResist() {
+    const armor = this.armorModule;
+    const total = (Number(armor?.system?.penetrationResist) || 0) + (this.vesselClass?.cascoPenResist ?? 0) - this.systemEffectPercent("resistanceDown");
+    return Math.clamp(total / 100, 0, 1);
+  }
+
+  /** "Preparar para impacto": fração de todo dano recebido tirada antes do Escudo. */
+  get incomingDamageReduction() {
+    return Math.clamp(this.systemEffectPercent("brace") / 100, 0, 0.95);
+  }
+
+  /** Endurecimento (%) contra efeitos de sistema neste Módulo: o do Módulo + o da Classe. */
+  hardeningFor(module) {
+    return (Number(module?.system?.hardening) || 0) + (this.vesselClass?.hardening ?? 0);
   }
 
   /**
@@ -364,12 +463,12 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
 
   /**
    * Orçamento de espaço de Arma pro Porte desta Nave/Veículo, de
-   * `MEU_SISTEMA.WEAPON_SLOT_BUDGET_BY_SHIP_SIZE` (Mini = 1 Arma Compacta, dobrando por Porte).
+   * `weaponBudget` da linha do Porte (Mini = 1 Arma Compacta, dobrando por Porte).
    * O `?? Infinity` é só a rede de segurança pra um Porte fora da tabela: nesse caso o
    * orçamento não bloqueia nada, em vez de zerar e impedir qualquer Arma.
    */
   get weaponSlotBudget() {
-    const base = MEU_SISTEMA.WEAPON_SLOT_BUDGET_BY_SHIP_SIZE?.[this.shipSize] ?? Infinity;
+    const base = this.vesselSize.weaponBudget ?? Infinity;
     // A Classe muda o espaço: Cruzador ×1.5, Cargueiro ×0.25 — arredondado pra baixo.
     return Number.isFinite(base) ? Math.floor(base * (this.vesselClass?.weaponBudgetMultiplier ?? 1)) : base;
   }
@@ -388,7 +487,7 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
   get transferCapacity() {
     const distributor = this.distributorModule;
     if (!distributor) return 0;
-    const baseline = MEU_SISTEMA.DISTRIBUTOR_BASELINE_BY_SHIP_SIZE[this.shipSize] ?? 0;
+    const baseline = this.vesselSize.distributorBaseline;
     // Distribuidor danificado roteia menos — mesma regra de integridade dos outros Módulos.
     return Math.round(baseline * (distributor.system.transferFactor ?? 1) * this.integrityRatioFor(distributor));
   }
@@ -491,15 +590,17 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
     // `reactorBaseOutput` é a geração ANTES do desconto de Habilidades Ativas (não faz parte do
     // schema salvo, mesmo padrão de `attributePointsPool` em character-model.js); `reactorOutput`
     // é o que sobra de fato pros Módulos depois que as Skills Ativas reservam a parte delas.
-    this.powerGrid.reactorBaseOutput = Math.round(this.sumRoleStat("power", "reactorOutput") * this.bonusFactor("reactorOutputPercent"));
+    // "Energia drenada" (efeito de elemento tipo Pólaron) corta a geração enquanto durar.
+    const drained = Math.clamp(1 - this.systemEffectPercent("energyDrain") / 100, 0, 1);
+    this.powerGrid.reactorBaseOutput = Math.round(this.sumRoleStat("power", "reactorOutput") * this.bonusFactor("reactorOutputPercent") * drained);
     this.powerGrid.reactorOutput = Math.max(0, this.powerGrid.reactorBaseOutput - this.activeUpkeepDrain);
     // Capacitor: o mínimo dos conduítes do casco é o piso natural de toda Nave/Veículo; o
     // Módulo de Bateria SUBSTITUI esse valor (não soma) quando instalado. A tabela de conduíte
     // fica toda abaixo da menor Bateria instalável, então trocar nunca piora — ver
-    // MEU_SISTEMA.CONDUIT_CAPACITOR_BY_SHIP_SIZE.
+    // `conduitCapacitor` da linha do Porte.
     this.powerGrid.capacitor.max = this.modulesByRole("storage").length
       ? this.sumRoleStat("storage", "batteryCapacity")
-      : MEU_SISTEMA.CONDUIT_CAPACITOR_BY_SHIP_SIZE[this.shipSize] ?? 0;
+      : this.vesselSize.conduitCapacitor;
     // Clampar a reserva AQUI (e não junto dos outros clamps lá embaixo) é deliberado:
     // `powerShortfall` soma `capacitor.value` na energia disponível, e financiar Módulo com
     // reserva acima do próprio máximo — situação real logo depois de trocar por uma Bateria
@@ -565,7 +666,7 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
 export class StarshipDataModel extends ShipSystemsDataModel {
   static defineSchema() {
     return {
-      ...shipSystemsSchema({ sizeChoices: MEU_SISTEMA.SHIP_SIZES }),
+      ...shipSystemsSchema({ sizeChoices: MEU_SISTEMA.DEFAULT_SHIP_SIZES.map(s => s.id) }),
       crew: new fields.NumberField({ required: false, integer: true, initial: 1, min: 0 }),
       biography: new fields.HTMLField({ required: false, initial: "" })
     };
@@ -580,13 +681,13 @@ export class StarshipDataModel extends ShipSystemsDataModel {
 /**
  * Veículo terrestre (carro, moto...): overhaul de Porte deu a ele o MESMO sistema completo de
  * Nave Espacial (Estrutura/Escudos/Casco/Grid de Energia/bônus de combate/Módulos de slot único
- * — `ShipSystemsDataModel`), travado em Porte mini/pequeno (`MEU_SISTEMA.VEHICLE_SIZES`), mais
+ * — `ShipSystemsDataModel`), com a lista própria de Portes de Veículo (`getVesselSizes("vehicle")`), mais
  * Combustível/Bateria e Peças (Items type "item"), que não têm equivalente em Nave.
  */
 export class VehicleDataModel extends ShipSystemsDataModel {
   static defineSchema() {
     return {
-      ...shipSystemsSchema({ sizeChoices: MEU_SISTEMA.VEHICLE_SIZES }),
+      ...shipSystemsSchema({ sizeChoices: MEU_SISTEMA.DEFAULT_VEHICLE_SIZES.map(s => s.id) }),
       fuel: new fields.SchemaField({
         value: new fields.NumberField({ required: true, integer: true, initial: 100, min: 0 }),
         max: new fields.NumberField({ required: true, integer: true, initial: 100, min: 0 }),

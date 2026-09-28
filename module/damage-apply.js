@@ -20,26 +20,31 @@
  * intacto. Dano Absoluto (flag `absolute` do card) pula o Escudo.
  */
 import { SYSTEM_ID } from "./config.js";
+import { absorbLayer, consumeShieldPools } from "./damage-rules.js";
 
 const SHIELD_PATH = "system.attributes.shield.value";
+const POOLS_PATH = "system.attributes.shield.pools";
 
 /**
  * Divide um dano entre o Escudo pessoal e a Vida: o Escudo absorve até acabar, o resto vai pra
  * Vida. Pura (testada em test/rules.test.mjs).
  * @param {number} amount - dano já com reduções e fator (Metade/Dobro) aplicados
  * @param {number} shield - Escudo atual
- * @param {{bypassShield?: boolean, shieldExtra?: number}} [options] - Dano Absoluto passa direto;
- *   `shieldExtra` é o dreno de Escudo do elemento
+ * @param {{bypassShield?: boolean, shieldExtra?: number, shieldMultiplier?: number}} [options] - Dano
+ *   Absoluto passa direto; `shieldExtra` é o dreno de Escudo antigo do elemento; `shieldMultiplier`
+ *   é o "Dano por camada" de Escudo (Phaser +20% = 1,2; Torpedo −50% = 0,5)
  * @returns {{toShield: number, toHp: number}}
  */
-export function splitShieldDamage(amount, shield, { bypassShield = false, shieldExtra = 0 } = {}) {
+export function splitShieldDamage(amount, shield, { bypassShield = false, shieldExtra = 0, shieldMultiplier = 1 } = {}) {
   const total = Math.max(0, Math.round(Number(amount) || 0));
   const available = bypassShield ? 0 : Math.max(0, Math.round(Number(shield) || 0));
   // Dreno de Escudo (elemento tipo Táquion): dano EXTRA que só existe contra o Escudo — bate
   // primeiro e nunca passa pra Vida.
   const drain = Math.min(available, Math.max(0, Math.round(Number(shieldExtra) || 0)));
-  const absorbed = Math.min(total, available - drain);
-  return { toShield: drain + absorbed, toHp: total - absorbed };
+  // O Escudo sofre o golpe vezes o % de Escudo do elemento; o que ele não segura vai pra Vida
+  // sem esse %. Com multiplicador 1 é o mesmo de sempre.
+  const { absorbed, leaked } = absorbLayer(total, available - drain, shieldMultiplier ?? 1);
+  return { toShield: drain + absorbed, toHp: Math.round(leaked) };
 }
 
 /** Onde o dano cai em cada tipo de Ator. Nave/Veículo não entra: lá a cascata já aplica sozinha. */
@@ -54,7 +59,7 @@ function hpPath(actor) {
  * @param {{absolute?: boolean, shieldExtra?: number, triggeredConditions?: object[], label?: string}} [options]
  *   - Dano Absoluto não passa pelo Escudo pessoal
  */
-export function damageApplyFlags(targetActor, finalDamage, { absolute = false, shieldExtra = 0, triggeredConditions = [], label = "" } = {}) {
+export function damageApplyFlags(targetActor, finalDamage, { absolute = false, shieldExtra = 0, shieldMultiplier = 1, shieldPenetration = 0, triggeredConditions = [], label = "" } = {}) {
   if (!targetActor || !hpPath(targetActor) || !(finalDamage > 0)) return {};
   return {
     [SYSTEM_ID]: {
@@ -65,6 +70,10 @@ export function damageApplyFlags(targetActor, finalDamage, { absolute = false, s
         // Dano extra só contra o Escudo pessoal (elemento de dreno), e Condições que o elemento
         // disparou — as duas só valem quando o Mestre confirma o acerto clicando em Aplicar.
         shieldExtra: absolute ? 0 : Math.max(0, Math.round(shieldExtra || 0)),
+        // "Dano por camada" de Escudo dos elementos (pode ser menor que 1: torpedo contra escudo).
+        shieldMultiplier: absolute ? 1 : Math.max(0, Number(shieldMultiplier) || 0),
+        // Penetração do golpe contra o Escudo pessoal: age em cada pool, um depois do outro.
+        shieldPenetration: absolute ? 0 : Math.min(1, Math.max(0, Number(shieldPenetration) || 0)),
         triggeredConditions: Array.isArray(triggeredConditions) ? triggeredConditions : [],
         label: String(label || ""),
         applied: null
@@ -138,11 +147,31 @@ async function applyDamage(message, factor) {
   const amount = Math.max(0, Math.round(state.amount * factor));
   const previousHp = foundry.utils.getProperty(actor, path) ?? 0;
   const previousShield = foundry.utils.getProperty(actor, SHIELD_PATH) ?? 0;
+  const previousPools = foundry.utils.deepClone(foundry.utils.getProperty(actor, POOLS_PATH) ?? []);
   const shieldExtra = Math.round((state.shieldExtra || 0) * factor);
-  const { toShield, toHp } = splitShieldDamage(amount, previousShield, { bypassShield: state.absolute, shieldExtra });
+
+  // Escudo em pools: o mais recente apanha primeiro, e a Penetração age em cada um (ver
+  // consumeShieldPools). Dano Absoluto passa direto pra Vida.
+  let toShield = 0;
+  let toHp = amount;
+  let pools = previousPools;
+  if (!state.absolute && previousShield > 0) {
+    const loose = Math.max(0, previousShield - previousPools.reduce((sum, p) => sum + (p.value ?? 0), 0));
+    const result = consumeShieldPools(previousPools, loose, amount, {
+      penetration: state.shieldPenetration ?? 0,
+      multiplier: state.shieldMultiplier ?? 1,
+      drain: shieldExtra
+    });
+    toShield = result.toShield;
+    toHp = result.toHp;
+    pools = result.pools.filter(p => p.value > 0);
+  }
 
   const update = { [path]: Math.max(0, previousHp - toHp) };
-  if (toShield) update[SHIELD_PATH] = previousShield - toShield;
+  if (toShield) {
+    update[SHIELD_PATH] = Math.max(0, previousShield - toShield);
+    update[POOLS_PATH] = pools;
+  }
   await actor.update(update);
 
   // Condições do elemento (Queimadura do Fogo…): só agora, com o acerto confirmado. O valor
@@ -157,7 +186,7 @@ async function applyDamage(message, factor) {
   // de nada mais ter mexido no HP/Escudo nesse meio-tempo.
   await message.setFlag(SYSTEM_ID, "damageApply", {
     ...state,
-    applied: { amount, toShield, toHp, previousValue: previousHp, previousShield, createdEffectIds }
+    applied: { amount, toShield, toHp, previousValue: previousHp, previousShield, previousPools, createdEffectIds }
   });
 }
 
@@ -176,6 +205,8 @@ async function undoDamage(message) {
   // Card aplicado antes desta versão não tem `previousShield`: aí o Escudo nunca foi tocado.
   if (state.applied.previousShield !== undefined && state.applied.toShield) {
     update[SHIELD_PATH] = state.applied.previousShield;
+    // Os pools voltam como estavam (cards de antes dos pools não têm isso e não precisam).
+    if (Array.isArray(state.applied.previousPools)) update[POOLS_PATH] = state.applied.previousPools;
   }
   await actor.update(update);
   // Condições que este Aplicar criou saem junto. Uma Condição que já existia e só foi renovada

@@ -14,7 +14,8 @@ import {
   getEffectTargetGroups,
   getStructures,
   isStructuresEnabled,
-  isStructureMechanic
+  isStructureMechanic,
+  MAGIC_TAG_LABELS
 } from "../config.js";
 import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../skill-effects.js";
 import { pickerFieldHtml, readPickerField, wireElementPickerField } from "./checklist-picker.js";
@@ -29,7 +30,7 @@ function escapeHtml(value) {
 
 /** true = alvo aceita "Periódico" (veneno/cura contínua) — só faz sentido pra HP/Energia. */
 function targetAcceptsPeriodic(target) {
-  return target === "hp" || target === "energy";
+  return ["hp", "energy", "shipCasco", "shipHull"].includes(target);
 }
 
 function buildEffectRowHtml(entry) {
@@ -87,6 +88,10 @@ function buildEffectRowHtml(entry) {
     <div class="effect-row-periodic-extra" style="display:${periodicVisible && entry.periodic ? "flex" : "none"};">
       <span class="hint-inline" style="display:inline;">Elemento do tick (ignorado se o tick for cura):</span>
       ${pickerFieldHtml(entryElements, "se-effect-elements")}
+    </div>
+    <div class="effect-row-shield" style="display:${entry.target === "shield" ? "flex" : "none"};">
+      <label class="hint-inline" title="Só numa Habilidade Ativa: Escudo mantido, regenera no início de cada turno de quem mantém, até o Teto, e some ao desligar.">Regenera/rodada <input type="number" class="se-effect-shield-regen" value="${Number(entry.shieldRegen) || 0}" min="0"/></label>
+      <label class="hint-inline" title="Total de Escudo que esta Skill mantém. 0 = sem teto.">Teto <input type="number" class="se-effect-shield-cap" value="${Number(entry.shieldCap) || 0}" min="0"/></label>
     </div>
     <div class="effect-row-light" style="display:${entry.target === "shield" ? "flex" : "none"};" data-light="${escapeHtml(JSON.stringify(entry.light ?? null))}">
       <span class="hint-inline" style="display:inline;" title="Acende no Token de quem recebe o Escudo; é apagada quando o Escudo chega a 0 ou a Skill Ativa é desligada.">Luz do escudo: <span class="se-light-text">${escapeHtml(describeLight(entry.light))}</span></span>
@@ -148,6 +153,8 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     level: initialData.level ?? 1,
     cost: initialData.cost ?? 0,
     hasUpkeep: Boolean(initialData.hasUpkeep),
+    variableMana: Boolean(initialData.variableMana),
+    magicTag: initialData.magicTag || "auto",
     upkeepCost: initialData.upkeepCost ?? 0,
     animationPath: initialData.animationPath ?? "",
     description: initialData.description ?? "",
@@ -302,6 +309,14 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
         <input type="checkbox" name="hasUpkeep" ${data.hasUpkeep ? "checked" : ""}/>
         Habilidade Ativa
       </label>
+      <label class="checkbox-line" title="Ao usar, escolhe quanta ${energyLabel} investir: menos enfraquece na mesma proporção; mais fortalece sem teto, rendendo cada vez menos por ${energyLabel}.">
+        <input type="checkbox" name="variableMana" ${data.variableMana ? "checked" : ""}/>
+        Aceita variar a ${energyLabel}
+      </label>
+      <div class="form-group" title="Para a Antimagia. Automático: é mágica quando custa ${energyLabel} (ou tem Dano Mágico).">
+        <label>Mágica</label>
+        <select name="magicTag">${Object.entries(MAGIC_TAG_LABELS).map(([id, label]) => `<option value="${id}" ${data.magicTag === id ? "selected" : ""}>${id === "auto" ? `Automático (custa ${energyLabel})` : label}</option>`).join("")}</select>
+      </div>
       <div class="form-group se-upkeep-field" style="display:${data.hasUpkeep ? "flex" : "none"};">
         <label>Custo de ${energyLabel} por Rodada</label>
         <input type="number" name="upkeepCost" value="${data.upkeepCost}" min="0"/>
@@ -578,8 +593,10 @@ function setupSkillEditorInteractivity(root, data) {
     targetSelect.addEventListener("change", applyModifierTypeVisibility);
     // Luz do Escudo pessoal: só pro alvo Escudo; a luz fica em `data-light` (JSON) até salvar.
     const lightRow = li.querySelector(".effect-row-light");
+    const shieldRow = li.querySelector(".effect-row-shield");
     targetSelect.addEventListener("change", () => {
       lightRow.style.display = targetSelect.value === "shield" ? "flex" : "none";
+      shieldRow.style.display = targetSelect.value === "shield" ? "flex" : "none";
     });
     li.querySelector(".se-light-edit").addEventListener("click", async event => {
       event.preventDefault();
@@ -637,6 +654,8 @@ function readSkillEditorForm(root, lockTier) {
     level: Number(root.querySelector('[name="level"]').value) || 1,
     cost: Number(root.querySelector('[name="cost"]').value) || 0,
     hasUpkeep,
+    variableMana: Boolean(root.querySelector('[name="variableMana"]')?.checked),
+    magicTag: root.querySelector('[name="magicTag"]')?.value || "auto",
     upkeepCost: hasUpkeep ? Number(root.querySelector('[name="upkeepCost"]').value) || 0 : 0,
     animationPath: root.querySelector('[name="animationPath"]').value.trim(),
     description: root.querySelector('prose-mirror[name="description"]').value,
@@ -668,6 +687,8 @@ function readSkillEditorForm(root, lockTier) {
             periodic: row.querySelector(".se-effect-periodic").checked,
             tickUnit: row.querySelector(".se-effect-tick-unit").value,
             damageElements: readPickerField(row.querySelector(".se-effect-elements")),
+            shieldRegen: row.querySelector(".se-effect-target").value === "shield" ? Math.max(0, Number(row.querySelector(".se-effect-shield-regen")?.value) || 0) : 0,
+            shieldCap: row.querySelector(".se-effect-target").value === "shield" ? Math.max(0, Number(row.querySelector(".se-effect-shield-cap")?.value) || 0) : 0,
             light: (() => {
               if (row.querySelector(".se-effect-target").value !== "shield") return null;
               try {

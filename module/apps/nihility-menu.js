@@ -22,7 +22,9 @@ import {
   getVesselClasses,
   getCrewRoles,
   getVisibleAttributes,
-  debugLog
+  debugLog,
+  getVesselSizes,
+  getAmmoTypes
 } from "../config.js";
 import { ensureSystemCompendiums, registerItemInCompendium } from "../compendium.js";
 import { saveTextToFile, readFileAsText } from "../helpers/foundry-compat.js";
@@ -459,6 +461,9 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
         feature: "vessels",
         rows: [
           { action: "module-categories-config", icon: "fas fa-microchip", title: "Categorias de Módulo", desc: "Reator, Impulso, Manobradores, Transdobra… com Função e vagas.", state: `${count(categories.length, "categoria", "categorias")} · ${count(new Set(categories.map(c => c.role)).size, "função", "funções")}` },
+          { action: "ship-sizes-config", icon: "fas fa-ruler-combined", title: "Portes de Nave", desc: "Mini, Pequeno, Médio… com os números de cada tamanho.", state: count(getVesselSizes("ship").length, "porte", "portes") },
+          { action: "vehicle-sizes-config", icon: "fas fa-ruler", title: "Portes de Veículo", desc: "Lista própria de tamanhos para Veículo.", state: count(getVesselSizes("vehicle").length, "porte", "portes") },
+          { action: "ammo-types-config", icon: "fas fa-rocket", title: "Tipos de Munição", desc: "Torpedo, Míssil, Mina… — o lançador aceita tipos.", state: count(getAmmoTypes().length, "tipo", "tipos") },
           { action: "ship-classes-config", icon: "fas fa-shuttle-space", title: "Classes de Nave", desc: "Encouraçado, Cruzador, Cargueiro…", state: count(getVesselClasses("ship").length, "classe", "classes") },
           { action: "vehicle-classes-config", icon: "fas fa-truck-monster", title: "Classes de Veículo", desc: "Carro, Tanque, Moto…", state: count(getVesselClasses("vehicle").length, "classe", "classes") },
           { action: "crew-roles-config", icon: "fas fa-users-gear", title: "Postos de Tripulação", desc: "Quem está em qual posto (não é permissão).", state: count(getCrewRoles().length, "posto", "postos") }
@@ -679,12 +684,18 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
       case "module-categories-config":
       case "ship-classes-config":
       case "vehicle-classes-config":
+      case "ship-sizes-config":
+      case "ammo-types-config":
+      case "vehicle-sizes-config":
       case "crew-roles-config": {
         const apps = await import("./vessel-catalogs-config.js");
         const App = {
           "module-categories-config": apps.ModuleCategoriesConfigApp,
           "ship-classes-config": apps.ShipClassesConfigApp,
           "vehicle-classes-config": apps.VehicleClassesConfigApp,
+          "ship-sizes-config": apps.ShipSizesConfigApp,
+          "ammo-types-config": apps.AmmoTypesConfigApp,
+          "vehicle-sizes-config": apps.VehicleSizesConfigApp,
           "crew-roles-config": apps.CrewRolesConfigApp
         }[action];
         new App().render(true);

@@ -18,17 +18,56 @@
  *
  * A geometria (cortar a forma no tamanho máximo) é pura e testada: structure-geometry.js.
  */
-import { SYSTEM_ID, getStructures, getEnergyLabelForActor, actorToken } from "./config.js";
+import {
+  SYSTEM_ID,
+  getStructures,
+  getEnergyLabelForActor,
+  actorToken,
+  getActiveDamageElements,
+  actorAntimagicLevel,
+  antimagicSurcharge,
+  getAntimagicConfig
+} from "./config.js";
 import { runAsGm, isDesignatedGm } from "./helpers/gm-relay.js";
-import { structureSegments, capPolyline, pointsAlongPolyline, firstStructureOnPath, splitStructureHit } from "./structure-geometry.js";
+import {
+  structureSegments,
+  capPolyline,
+  pointsAlongPolyline,
+  firstStructureOnPath,
+  splitStructureHit,
+  segmentCrossing,
+  pointInSegments,
+  segmentsCross
+} from "./structure-geometry.js";
+import { structureElementFactor } from "./damage-rules.js";
 import { lightSourceData } from "./lights.js";
 
 const FLAG = "structures";
+/** Por que cada Estrutura caiu (id → {reason, label, time}): lido pela animação de queda e pelo cartão. */
+const FALLS_FLAG = "structureFalls";
+/** Quanto tempo um registro de queda fica guardado antes de ser limpo. */
+const FALL_MEMORY_MS = 10 * 60 * 1000;
+
+/** Texto do cartão pra cada motivo de queda. */
+const FALL_TEXT = {
+  destroyed: "foi destruída",
+  manaDepleted: "se desfez: acabou a Mana de quem a mantinha",
+  expired: "se desfez: o prazo acabou",
+  dismissed: "foi desfeita",
+  casterDown: "caiu junto com quem a ergueu",
+  antimagic: "foi desfeita pela antimagia"
+};
 const MAX_POINTS = 60;
 
 /** A Estrutura do catálogo, ou `null`. */
 export function getStructure(id) {
   return getStructures().find(s => s.id === id) ?? null;
+}
+
+/** Força do investimento de Mana recebida de outro cliente, limitada a uma faixa sã. */
+function structurePower(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.min(1000, Math.max(0.01, n)) : 1;
 }
 
 /** Metros → pixels na cena. */
@@ -162,7 +201,7 @@ export async function pickStructurePlacement(structure) {
  * Pede ao Mestre pra erguer a Estrutura. Sem mapa (`placement` nulo), só posta o cartão.
  * @param {object} args
  */
-export async function requestStructure({ sourceActor, skillId, subSkillIndex = null, structureId, placement, untilDeactivated, label }) {
+export async function requestStructure({ sourceActor, skillId, subSkillIndex = null, structureId, placement, untilDeactivated, label, power = 1 }) {
   const structure = getStructure(structureId);
   if (!structure) {
     ui.notifications.warn("Esta Skill não tem uma Estrutura válida escolhida.");
@@ -184,6 +223,7 @@ export async function requestStructure({ sourceActor, skillId, subSkillIndex = n
     skillId,
     subSkillIndex,
     untilDeactivated: Boolean(untilDeactivated),
+    power,
     label
   });
   return true;
@@ -239,10 +279,18 @@ export async function createStructureAsGm(payload) {
     color: structure.color,
     img: structure.img || "",
     manaBarrier: structure.hp === 0,
-    hp: structure.hp,
-    hpMax: structure.hp,
+    // Mana variável: a Vida da Estrutura segue a força do investimento (o payload vem de outro
+    // cliente — fica limitado a uma faixa sã). Barreira de mana (Vida 0) não muda.
+    hp: Math.round(structure.hp * structurePower(payload.power)),
+    hpMax: Math.round(structure.hp * structurePower(payload.power)),
     roundsRemaining: structure.durationRounds > 0 ? structure.durationRounds : null,
     untilDeactivated: Boolean(payload.untilDeactivated) && structure.durationRounds === 0,
+    // Do catálogo, copiados na criação (editar o catálogo depois não muda Estrutura em pé).
+    blocksAttacks: structure.blocksAttacks,
+    elements: structure.elements,
+    magic: structure.magic,
+    antimagicLevel: structure.antimagicLevel,
+    contactDamage: structure.contactDamage,
     sourceActorUuid: source.uuid,
     skillId: String(payload.skillId ?? ""),
     subSkillIndex: Number.isInteger(payload.subSkillIndex) ? payload.subSkillIndex : null
@@ -328,7 +376,7 @@ function structureCapacity(instance) {
  * Token ao centro do outro (ou da origem da área, `origin`). `null` sem mapa, sem Token ou sem
  * nada no caminho. A Estrutura não bloqueia os ataques de quem a ergueu: quem conjura uma
  * barreira atira de dentro dela.
- * @returns {{scene: Scene, instance: object, capacity: number}|null}
+ * @returns {{scene: Scene, instance: object, capacity: number, point: {x: number, y: number}}|null}
  */
 export function interceptingStructure(attacker, target, { origin = null } = {}) {
   const scene = canvas?.scene;
@@ -336,7 +384,7 @@ export function interceptingStructure(attacker, target, { origin = null } = {}) 
   const targetToken = tokenOnCanvas(target, [...(game.user?.targets ?? [])]);
   const from = origin ?? tokenOnCanvas(attacker, canvas.tokens?.controlled ?? [])?.center;
   if (!targetToken || !from) return null;
-  const instances = structuresOnScene(scene).filter(i => i.sourceActorUuid !== attacker?.uuid);
+  const instances = structuresOnScene(scene).filter(i => i.sourceActorUuid !== attacker?.uuid && instanceInfo(i).blocksAttacks);
   if (!instances.length) return null;
   const hit = firstStructureOnPath(
     [from.x, from.y],
@@ -344,23 +392,161 @@ export function interceptingStructure(attacker, target, { origin = null } = {}) 
     instances.map(i => ({ id: i.id, segments: structureSegmentsOf(scene, i) }))
   );
   const instance = hit ? instances.find(i => i.id === hit.id) : null;
-  return instance ? { scene, instance, capacity: structureCapacity(instance) } : null;
+  if (!instance) return null;
+  const to = targetToken.center;
+  // Ponto de impacto na parede: é até ali que a animação da Skill vai (ver vfx.js).
+  const point = { x: from.x + (to.x - from.x) * hit.t, y: from.y + (to.y - from.y) * hit.t };
+  return { scene, instance, capacity: structureCapacity(instance), point };
 }
 
 /**
  * Golpe que bate numa Estrutura: ela segura até a capacidade e o resto segue pro alvo. O dano
  * na Estrutura é gravado na hora pelo Mestre (é o ambiente, como a cascata de uma Nave); o do
  * alvo continua nos botões de Aplicar do chat.
- * @returns {{absorbed: number, passed: number, label: string}}
+ * @returns {{absorbed: number, passed: number, label: string, point: {x: number, y: number}}}
  */
-export async function hitStructure(block, amount) {
-  const { absorbed, passed } = splitStructureHit(amount, block.capacity);
+export async function hitStructure(block, amount, elementIds = []) {
+  // Elementos: Fogo contra Parede de Gelo bate mais forte NELA (o que passa volta à escala do golpe).
+  const factor = structureElementFactor(elementIds, instanceInfo(block.instance).elements, getActiveDamageElements());
+  const { absorbed, passed } = splitStructureHit(amount * factor, block.capacity);
   if (absorbed > 0) await runAsGm("damageStructure", { sceneId: block.scene.id, instanceId: block.instance.id, amount: absorbed });
-  return { absorbed, passed, label: block.instance.label };
+  return { absorbed, passed: factor > 0 ? Math.round(passed / factor) : passed, label: block.instance.label, point: block.point };
 }
 
-/** Derruba uma Estrutura: apaga as Paredes (e o Desenho de registros antigos) e tira o registro. Só o Mestre chama. */
-export async function removeStructureInstance(scene, instanceId) {
+/**
+ * Propriedades de uma Estrutura em pé: as copiadas na criação, ou (registros de antes delas) as do
+ * catálogo de hoje.
+ */
+export function instanceInfo(instance) {
+  const catalog = getStructure(instance?.structureId) ?? {};
+  const pick = (key, fallback) => (instance?.[key] !== undefined ? instance[key] : catalog[key] ?? fallback);
+  return {
+    blocksAttacks: pick("blocksAttacks", true) !== false,
+    elements: pick("elements", []) ?? [],
+    magic: Boolean(pick("magic", false)),
+    antimagicLevel: Number(pick("antimagicLevel", 0)) || 0,
+    contactDamage: pick("contactDamage", "") ?? "",
+    closed: instance?.shape === "circle" || instance?.shape === "rect"
+  };
+}
+
+/* ------------------------------------------------------------------ Antimagia */
+
+/** Campos antimagia da Cena, com os segmentos. */
+function antimagicFields(scene) {
+  return structuresOnScene(scene)
+    .map(instance => ({ instance, info: instanceInfo(instance), segments: structureSegmentsOf(scene, instance) }))
+    .filter(f => f.info.antimagicLevel > 0 && f.segments.length);
+}
+
+/** Nível do campo neste ponto (dentro de uma forma fechada). */
+function fieldLevelAt(fields, point) {
+  return fields.reduce((level, f) => (f.info.closed && pointInSegments(point, f.segments) ? Math.max(level, f.info.antimagicLevel) : level), 0);
+}
+
+/**
+ * Nível de antimagia de um ataque de `attacker` em `target`: o Selo que o atacante carrega, e os
+ * campos que a linha do ataque atravessa, de onde ele sai ou onde o alvo está. Sem mapa, só o Selo.
+ */
+export function antimagicLevelBetween(attacker, target, { origin = null } = {}) {
+  let level = actorAntimagicLevel(attacker);
+  const scene = canvas?.scene;
+  if (!canvas?.ready || !scene) return level;
+  const fields = antimagicFields(scene);
+  if (!fields.length) return level;
+  const from = origin ?? actorToken(attacker, canvas.tokens?.controlled ?? [])?.center;
+  const to = target ? actorToken(target, [...(game.user?.targets ?? [])])?.center : null;
+  if (from) level = Math.max(level, fieldLevelAt(fields, [from.x, from.y]));
+  if (to) level = Math.max(level, fieldLevelAt(fields, [to.x, to.y]));
+  if (from && to) {
+    for (const f of fields) {
+      if (f.segments.some(seg => segmentCrossing([from.x, from.y], [to.x, to.y], seg) !== null)) level = Math.max(level, f.info.antimagicLevel);
+    }
+  }
+  return level;
+}
+
+/** Nível de antimagia onde o Ator está (Selo + campo em volta do Token dele) — pra efeito contínuo. */
+export function antimagicLevelAt(actor) {
+  let level = actorAntimagicLevel(actor);
+  const scene = canvas?.scene;
+  if (!canvas?.ready || !scene) return level;
+  const token = actorToken(actor, []);
+  if (!token) return level;
+  return Math.max(level, fieldLevelAt(antimagicFields(scene), [token.center.x, token.center.y]));
+}
+
+/**
+ * Estruturas mágicas dentro (ou cruzando) de um campo antimagia: quem conjurou paga o custo extra
+ * por rodada, da Mana; sem Mana, a antimagia vence e a Estrutura se desfaz. Só o Mestre.
+ */
+async function enforceAntimagicOnStructures(scene) {
+  const fields = antimagicFields(scene);
+  if (!fields.length) return;
+  for (const instance of structuresOnScene(scene)) {
+    const info = instanceInfo(instance);
+    if (!info.magic || info.antimagicLevel > 0) continue;
+    const segments = structureSegmentsOf(scene, instance);
+    const level = fields.reduce((max, f) => {
+      const touches = segmentsCross(segments, f.segments) || (f.info.closed && segments.some(([x, y]) => pointInSegments([x, y], f.segments)));
+      return touches ? Math.max(max, f.info.antimagicLevel) : max;
+    }, 0);
+    if (!level) continue;
+    const caster = await fromUuid(instance.sourceActorUuid);
+    const energy = caster?.system?.attributes?.energy;
+    const cost = antimagicSurcharge(0, level, getAntimagicConfig());
+    if (energy && energy.value >= cost) {
+      await caster.update({ "system.attributes.energy.value": energy.value - cost });
+      await ChatMessage.create({
+        speaker: ChatMessage.getSpeaker({ actor: caster }),
+        whisper: ChatMessage.getWhisperRecipients("GM").map(u => u.id).concat(caster.isOwner ? [] : []),
+        content: `<p><strong>${instance.label}</strong> resiste à antimagia (nível ${level}): −${cost} ${getEnergyLabelForActor(caster)} de ${caster.name}.</p>`
+      });
+    } else {
+      await removeStructureInstance(scene, instance.id, "antimagic");
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ Dano ao contato */
+
+/**
+ * Token atravessou (ou terminou dentro de) uma Estrutura com dano de contato (Muralha de Fogo):
+ * rola o dano dela contra quem passou. Só o Mestre designado, no `moveToken`.
+ */
+export function registerStructureContact() {
+  Hooks.on("moveToken", async (document, movement) => {
+    if (!isDesignatedGm()) return;
+    const scene = document.parent;
+    const burning = structuresOnScene(scene).filter(i => instanceInfo(i).contactDamage);
+    if (!burning.length || !document.actor) return;
+    const size = scene.grid?.size ?? 100;
+    const center = p => [Number(p.x) + ((p.width ?? document.width) * size) / 2, Number(p.y) + ((p.height ?? document.height) * size) / 2];
+    const origin = movement?.origin;
+    if (!origin) return;
+    const waypoints = Array.isArray(movement?.passed?.waypoints) && movement.passed.waypoints.length
+      ? movement.passed.waypoints
+      : [movement?.destination ?? { x: document.x, y: document.y }];
+    const path = [center(origin), ...waypoints.map(center)];
+    const pathSegments = path.slice(1).map((p, i) => [path[i][0], path[i][1], p[0], p[1]]);
+    const end = path[path.length - 1];
+    const { applyStructureContactAsGm } = await import("./skill-effects.js");
+    for (const instance of burning) {
+      const info = instanceInfo(instance);
+      const segments = structureSegmentsOf(scene, instance);
+      const crossed = segmentsCross(pathSegments, segments);
+      const endsInside = info.closed && pointInSegments(end, segments);
+      if (crossed || endsInside) await applyStructureContactAsGm(document, instance, info);
+    }
+  });
+}
+
+/**
+ * Derruba uma Estrutura: apaga as Paredes e a luz (e o Desenho de registros antigos), tira o
+ * registro e guarda POR QUE caiu (`reason`: destroyed, manaDepleted, expired, dismissed,
+ * casterDown) — é o que escolhe a animação de queda em cada tela e o texto do cartão. Só o Mestre.
+ */
+export async function removeStructureInstance(scene, instanceId, reason = "dismissed") {
   const instance = scene?.getFlag(SYSTEM_ID, FLAG)?.[instanceId];
   if (!instance) return;
   const wallIds = (instance.wallIds ?? []).filter(id => scene.walls.has(id));
@@ -370,8 +556,23 @@ export async function removeStructureInstance(scene, instanceId) {
   const drawingIds = (instance.drawingIds ?? []).filter(id => scene.drawings.has(id));
   if (wallIds.length) await scene.deleteEmbeddedDocuments("Wall", wallIds);
   if (drawingIds.length) await scene.deleteEmbeddedDocuments("Drawing", drawingIds);
-  await scene.unsetFlag(SYSTEM_ID, `${FLAG}.${instanceId}`);
+  // Uma escrita só: sai do registro e entra a queda (a animação precisa dos dois juntos). Quedas
+  // antigas são limpas no mesmo passo, pro flag não crescer pra sempre.
+  const now = Date.now();
+  const update = {
+    [`flags.${SYSTEM_ID}.${FLAG}.-=${instanceId}`]: null,
+    [`flags.${SYSTEM_ID}.${FALLS_FLAG}.${instanceId}`]: { reason, label: instance.label, time: now }
+  };
+  for (const [id, fall] of Object.entries(scene.getFlag(SYSTEM_ID, FALLS_FLAG) ?? {})) {
+    if (!fall || now - (fall.time ?? 0) > FALL_MEMORY_MS) update[`flags.${SYSTEM_ID}.${FALLS_FLAG}.-=${id}`] = null;
+  }
+  await scene.update(update);
   refreshStructureCards(scene.id, instanceId);
+}
+
+/** Como uma Estrutura caiu (`{reason, label, time}`), se caiu há pouco. */
+export function structureFallOf(scene, instanceId) {
+  return scene?.getFlag(SYSTEM_ID, FALLS_FLAG)?.[instanceId] ?? null;
 }
 
 /**
@@ -422,17 +623,18 @@ export async function damageStructure(scene, instanceId, amount) {
   }
 
   const hp = Math.max(0, instance.hp - value);
-  if (hp <= 0) return removeStructureInstance(scene, instanceId);
+  if (hp <= 0) return removeStructureInstance(scene, instanceId, "destroyed");
   await scene.setFlag(SYSTEM_ID, `${FLAG}.${instanceId}.hp`, hp);
   refreshStructureCards(scene.id, instanceId);
 }
 
 /** Nova rodada: Estruturas com prazo perdem uma rodada e caem ao zerar. Só o Mestre. */
 export async function advanceStructures(scene) {
+  await enforceAntimagicOnStructures(scene);
   for (const instance of structuresOnScene(scene)) {
     if (instance.roundsRemaining === null || instance.roundsRemaining === undefined) continue;
     const left = instance.roundsRemaining - 1;
-    if (left <= 0) await removeStructureInstance(scene, instance.id);
+    if (left <= 0) await removeStructureInstance(scene, instance.id, "expired");
     else await scene.setFlag(SYSTEM_ID, `${FLAG}.${instance.id}.roundsRemaining`, left);
   }
 }
@@ -448,7 +650,7 @@ export async function removeStructuresForAsGm({ sourceUuid, skillId, subSkillInd
   for (const scene of game.scenes) {
     for (const instance of structuresOnScene(scene)) {
       if (instance.sourceActorUuid === sourceUuid && instance.skillId === skillId && (instance.subSkillIndex ?? null) === (subSkillIndex ?? null)) {
-        await removeStructureInstance(scene, instance.id);
+        await removeStructureInstance(scene, instance.id, "dismissed");
       }
     }
   }
@@ -465,7 +667,7 @@ export async function collapseStructuresOfCaster(actor, { hpZero, energyZero }) 
       if (instance.sourceActorUuid !== actor.uuid) continue;
       const untimed = (instance.roundsRemaining === null || instance.roundsRemaining === undefined) && !instance.untilDeactivated;
       if ((untimed && (hpZero || energyZero)) || (instance.manaBarrier && energyZero)) {
-        await removeStructureInstance(scene, instance.id);
+        await removeStructureInstance(scene, instance.id, energyZero ? "manaDepleted" : "casterDown");
       }
     }
   }
@@ -483,7 +685,8 @@ export function renderStructureControls(message, html) {
   const box = document.createElement("div");
   box.className = "nihility-structure-controls";
   if (!instance) {
-    box.innerHTML = `<span class="structure-state">Estrutura derrubada.</span>`;
+    const fall = structureFallOf(scene, card.instanceId);
+    box.innerHTML = `<span class="structure-state">${fall ? `${fall.label ?? "A Estrutura"} ${FALL_TEXT[fall.reason] ?? FALL_TEXT.dismissed}.` : "Estrutura derrubada."}</span>`;
     html.appendChild(box);
     return;
   }
@@ -509,5 +712,5 @@ export function renderStructureControls(message, html) {
   box.querySelector(".structure-damage").addEventListener("click", () =>
     damageStructure(scene, card.instanceId, box.querySelector(".structure-damage-input").value)
   );
-  box.querySelector(".structure-remove").addEventListener("click", () => removeStructureInstance(scene, card.instanceId));
+  box.querySelector(".structure-remove").addEventListener("click", () => removeStructureInstance(scene, card.instanceId, "destroyed"));
 }

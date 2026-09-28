@@ -102,7 +102,19 @@ function usageFields() {
     hasUpkeep: new fields.BooleanField({ required: false, initial: false }),
     upkeepCost: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
     active: new fields.BooleanField({ required: false, initial: false }),
-    animationPath: new fields.StringField({ required: false, initial: "" })
+    animationPath: new fields.StringField({ required: false, initial: "" }),
+    /** Aceita investir mais (ou menos) Mana que o Custo — ver manaInvestmentPower em config.js. */
+    variableMana: new fields.BooleanField({ required: false, initial: false }),
+    /**
+     * Marca "Mágica" (antimagia): "auto" = mágica quando custa a energia do personagem ou tem Dano
+     * Mágico; "magic"/"mundane" forçam. Nave nunca é mágica no automático. Ver isMagicUse.
+     */
+    magicTag: new fields.StringField({ required: false, initial: "auto", choices: ["auto", "magic", "mundane"] }),
+    /**
+     * Estado de uso: Mana investida ÷ Custo na última vez que a Skill foi LIGADA (Habilidade
+     * Ativa). O Custo por rodada é cobrado vezes esta razão enquanto ela estiver ligada.
+     */
+    investRatio: new fields.NumberField({ required: false, initial: 1, min: 0 })
   };
 }
 
@@ -169,7 +181,14 @@ function effectEntrySchema() {
      * Só pro alvo "shield": luz acesa no Token de quem recebe o Escudo (ver lights.js), no formato
      * de `normalizeLightConfig`. `null` = sem luz.
      */
-    light: new fields.ObjectField({ required: false, nullable: true, initial: null })
+    light: new fields.ObjectField({ required: false, nullable: true, initial: null }),
+    /**
+     * Só pro alvo "shield" numa Habilidade Ativa (Escudo que se mantém, ex.: Barreiras
+     * Múltiplas): quanto o Escudo regenera no início de cada turno de quem mantém a Skill, e o
+     * teto do total do Escudo (0 = sem teto). Ver sustainedShieldGain em damage-rules.js.
+     */
+    shieldRegen: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+    shieldCap: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 })
   });
 }
 
@@ -306,6 +325,14 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
       isItemGranted: new fields.BooleanField({ required: false, initial: false }),
 
       /** Bônus "Quando → Então" (ver conditionalModifiersSchema). Habilidade Ativa: só enquanto ligada. */
+      /** Contêiner dado pela Skill (bolsa dimensional, estômago do Slime): slots, ilimitado e redução de peso. */
+      grantsContainer: new fields.SchemaField({
+        enabled: new fields.BooleanField({ required: false, initial: false }),
+        slots: new fields.NumberField({ required: false, integer: true, initial: 10, min: 0 }),
+        unlimited: new fields.BooleanField({ required: false, initial: false }),
+        weightReduction: new fields.NumberField({ required: false, integer: true, initial: 100, min: 0, max: 100 })
+      }),
+
       conditionalModifiers: conditionalModifiersSchema(),
 
       /**
@@ -535,7 +562,7 @@ export class StarshipModuleDataModel extends foundry.abstract.TypeDataModel {
       /**
        * Porte do Módulo (Compacto..Colossal, ver MEU_SISTEMA.MODULE_SIZES) — Arma reaproveita
        * este MESMO campo pro seu próprio Porte, não é uma escala separada. Checado contra o
-       * Porte da Nave/Veículo (MEU_SISTEMA.SHIP_SIZE_RANK) na instalação: um Módulo maior que
+       * Porte da Nave/Veículo (`rank` da linha do Porte) na instalação: um Módulo maior que
        * o Porte do casco não cabe.
        */
       moduleSize: new fields.StringField({
@@ -561,6 +588,24 @@ export class StarshipModuleDataModel extends foundry.abstract.TypeDataModel {
        * "comprar" resistência via Skill). Slot único: ver ShipSystemsDataModel.armorModule.
        */
       armorReduction: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0, max: 100 }),
+
+      /**
+       * Resistência à Penetração (%), de Escudo e de Casco: tirada da Penetração da arma, em
+       * pontos percentuais, no estágio daquela camada (Penetração 40% contra 15% = 25%). A Classe
+       * da Nave soma um bônus próprio pra cada camada. Ver resolveShipCascade em damage-rules.js.
+       */
+      penetrationResist: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0, max: 100 }),
+      /** Arma lançadora: dispara Munição do porão (tipos aceitos em `ammoTypes`). */
+      usesAmmo: new fields.BooleanField({ required: false, initial: false }),
+      ammoTypes: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
+      /** Porão: multiplicador dos slots do Porte (Porão compactado 1,5; carga frágil 0,75). */
+      cargoMultiplier: new fields.NumberField({ required: false, initial: 1, min: 0 }),
+
+      /**
+       * Endurecimento (%): reduz a chance de um efeito de sistema pegar neste Módulo (Derrubar
+       * Módulo; no Reator, Drenar energia; no Escudo/Casco, Baixar resistência). A Classe soma o dela.
+       */
+      hardening: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0, max: 100 }),
 
       /**
        * Throttle de energia do Módulo (Overhaul de Naves, Fase 3) — sem teto de propósito.
@@ -590,6 +635,15 @@ export class StarshipModuleDataModel extends foundry.abstract.TypeDataModel {
       shieldCapacity: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
       shieldRegen: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
       shieldRechargeRounds: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
+      /**
+       * Escudo adaptativo: cada golpe que chega no Escudo de pé soma `adaptStep` pontos de
+       * resistência àquele elemento + frequência de quem atacou, até `adaptCap` (máx. 95). A
+       * adaptação mora no flag `shieldAdaptation` DESTE Módulo instalado e se perde quando o
+       * Escudo cai ou o Módulo desliga (ver starship-power.js).
+       */
+      adaptive: new fields.BooleanField({ required: false, initial: false }),
+      adaptStep: new fields.NumberField({ required: false, integer: true, initial: 10, min: 0, max: 95 }),
+      adaptCap: new fields.NumberField({ required: false, integer: true, initial: 75, min: 0, max: 95 }),
 
       /** Só relevante pra category "engine" — Aceleração/Rotação a 100% de throttle. */
       acceleration: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
@@ -675,6 +729,30 @@ export class GenericItemDataModel extends foundry.abstract.TypeDataModel {
        * ao PAD independente desta flag (ferramenta de Mestre, não posse física).
        */
       isPadDevice: new fields.BooleanField({ required: false, initial: false }),
+
+      /** Até quanto empilha num slot (inventário). Quantidade acima disso ocupa mais slots. */
+      stackSize: new fields.NumberField({ required: false, integer: true, initial: 20, min: 1 }),
+      /** Contêiner (mochila, bolsa…) que guarda este Item: id de um Item ou Skill contêiner do dono; vazio = solto. */
+      containerId: new fields.StringField({ required: false, initial: "", blank: true }),
+      /** Este Item é um contêiner: slots próprios e redução do peso do que está dentro. Ocupa 1 slot. */
+      container: new fields.SchemaField({
+        enabled: new fields.BooleanField({ required: false, initial: false }),
+        slots: new fields.NumberField({ required: false, integer: true, initial: 6, min: 0 }),
+        weightReduction: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0, max: 100 })
+      }),
+      /**
+       * Munição (Torpedo Fotônico, Flecha…): fica no porão/inventário; o lançador que aceita o
+       * `type` dela rola a fórmula DELA e gasta 1 da pilha (ver fireStarshipWeapon).
+       */
+      ammo: new fields.SchemaField({
+        enabled: new fields.BooleanField({ required: false, initial: false }),
+        type: new fields.StringField({ required: false, initial: "", blank: true }),
+        damageFormula: new fields.StringField({ required: false, initial: "" }),
+        damageElements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
+        isAbsoluteDamage: new fields.BooleanField({ required: false, initial: false }),
+        penetrationBonus: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0, max: 100 }),
+        minLauncherSize: new fields.StringField({ required: false, initial: "", blank: true })
+      }),
 
       /**
        * Arma: quando `enabled`, a ficha do Personagem ganha um botão "Atacar" nesta linha, que

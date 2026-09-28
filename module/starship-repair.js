@@ -55,17 +55,21 @@ function resolveRepairTarget(ship, targetId) {
  * mundo". Só pede o Módulo/pool a consertar e o Personagem (seu, na mesma cena) que repara.
  * Rode via macro na hotbar: `game.nihility.requestShipRepair()`.
  */
-export async function requestShipRepair() {
-  const ships = sceneActorCandidates({ types: ["starship", "vehicle"] });
-  if (!ships.length) {
-    ui.notifications.warn("Nenhuma Nave/Veículo na cena atual.");
-    return;
+export async function requestShipRepair(shipArg = null) {
+  // Da ficha da Nave ("Reparo de emergência"), a Nave vem direto; pela macro, é a única da cena.
+  let ship = shipArg?.documentName === "Actor" ? shipArg : null;
+  if (!ship) {
+    const ships = sceneActorCandidates({ types: ["starship", "vehicle"] });
+    if (!ships.length) {
+      ui.notifications.warn("Nenhuma Nave/Veículo na cena atual.");
+      return;
+    }
+    if (ships.length > 1) {
+      ui.notifications.warn("Mais de uma Nave/Veículo na cena atual — o pedido de reparo só funciona com exatamente uma.");
+      return;
+    }
+    ship = ships[0];
   }
-  if (ships.length > 1) {
-    ui.notifications.warn("Mais de uma Nave/Veículo na cena atual — o pedido de reparo só funciona com exatamente uma.");
-    return;
-  }
-  const ship = ships[0];
 
   const engineers = sceneActorCandidates({ types: ["character"], permission: "OWNER" });
   if (!engineers.length) {

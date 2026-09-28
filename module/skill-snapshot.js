@@ -26,6 +26,8 @@ export function buildSubSkillsFromSources(sources) {
         level: source.system.level,
         cost: source.system.cost,
         hasUpkeep: source.system.hasUpkeep,
+        variableMana: Boolean(source.system.variableMana),
+        magicTag: source.system.magicTag || "auto",
         upkeepCost: source.system.upkeepCost,
         animationPath: source.system.animationPath,
         description: source.system.description,
@@ -51,7 +53,7 @@ export function buildSubSkillsFromSources(sources) {
 
 /** Campos mecânicos copiados de uma Habilidade Concedida pra Skill criada na ficha. */
 const GRANTED_MECHANIC_FIELDS = [
-  "level", "cost", "hasUpkeep", "upkeepCost", "animationPath", "description", "resistanceTarget",
+  "level", "cost", "hasUpkeep", "upkeepCost", "variableMana", "magicTag", "animationPath", "description", "resistanceTarget",
   "effectType", "damageFormula", "scalingAttribute", "isMagicDamage", "isAbsoluteDamage", "damageScale", "damageElements", "effects",
   "targetType", "structureId", "areaShape", "areaDistance", "areaAngle", "zoneRounds", "subSkills"
 ];

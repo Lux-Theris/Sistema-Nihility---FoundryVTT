@@ -87,6 +87,11 @@
           {{#if system.hasUpkeep}}
           <label class="fld"><span class="fld-label">{{energyLabel}} por Rodada</span><input class="num" type="number" name="system.upkeepCost" value="{{system.upkeepCost}}" min="0"/></label>
           {{/if}}
+          <div class="fld span-all">
+            <label class="toggle"><input type="checkbox" name="system.variableMana" {{#if system.variableMana}}checked{{/if}}/><span class="toggle-track"></span><span>Aceita variar a {{energyLabel}}</span><span class="help" title="Ao usar, escolhe quanta {{energyLabel}} investir. Menos que o Custo enfraquece na mesma proporção; mais fortalece sem teto, mas cada {{energyLabel}} a mais rende menos que a anterior (curva e mínimo em Regras da Mesa). Numa Habilidade Ativa, o custo por rodada acompanha o investimento.">?</span></label>
+          </div>
+          <label class="fld"><span class="fld-label">Mágica <span class="help" title="Para a Antimagia. Automático: é mágica quando custa {{energyLabel}} (ou tem Dano Mágico). Magia que atravessa um campo antimagia (ou é usada sob um Selo) paga {{energyLabel}} extra ou é anulada.">?</span></span>
+            <select name="system.magicTag">{{#each magicTagOptions as |opt|}}<option value="{{opt.id}}" {{#if (eq opt.id ../system.magicTag)}}selected{{/if}}>{{opt.label}}</option>{{/each}}</select></label>
         </div>
       </div>
 
@@ -243,6 +248,10 @@
               {{/if}}
               {{/if}}
               {{#if eff.isShieldTarget}}
+              {{#if ../system.hasUpkeep}}
+              <label class="fld"><span class="fld-label">Regeneração por rodada <span class="help" title="Escudo mantido: no início de cada turno de quem mantém a Skill, soma isto ao Escudo do alvo (até o Teto). Ao desligar a Skill, as camadas somem.">?</span></span><input class="num skill-effect-input" type="number" data-effect-field="shieldRegen" value="{{eff.shieldRegen}}" min="0"/></label>
+              <label class="fld"><span class="fld-label">Teto <span class="help" title="Total de Escudo que esta Skill mantém. 0 = sem teto. Escudo de outra fonte acima dele fica, só não regenera mais.">?</span></span><input class="num skill-effect-input" type="number" data-effect-field="shieldCap" value="{{eff.shieldCap}}" min="0"/></label>
+              {{/if}}
               <div class="fld-row span-all light-row">
                 <span class="fld-label">Luz do escudo <span class="help" title="Acende no Token de quem recebe o Escudo. É apagada quando o Escudo chega a 0 ou quando esta Skill Ativa é desligada.">?</span></span>
                 <span class="light-summary {{#if eff.lightOn}}on{{/if}}"><i class="fas fa-lightbulb"></i> {{eff.lightSummary}}</span>
@@ -272,6 +281,20 @@
     {{!-- Passivos --}}
     <div class="tab {{#unless (eq activeTab "passive")}}hidden{{/unless}}">
       <div class="strip dim">Tudo nesta aba vale enquanto a Skill estiver na ficha, sem usar e sem escolher alvo (Habilidade Ativa: enquanto ligada).</div>
+
+      {{#if inventoryEnabled}}
+      <div class="sec">
+        <div class="sec-head">Contêiner</div>
+        <div class="sec-body g3">
+          <label class="toggle span-all"><input type="checkbox" name="system.grantsContainer.enabled" {{#if system.grantsContainer.enabled}}checked{{/if}}/><span class="toggle-track"></span><span>Dá um contêiner (bolsa dimensional, estômago)</span><span class="help" title="Aparece na aba Inventário do dono, com slots próprios. Não ocupa slot.">?</span></label>
+          {{#if system.grantsContainer.enabled}}
+          <label class="fld"><span class="fld-label">Slots</span><input class="num" type="number" name="system.grantsContainer.slots" value="{{system.grantsContainer.slots}}" min="0"/></label>
+          <label class="fld"><span class="fld-label">Redução de peso</span><span class="suffix"><input type="number" name="system.grantsContainer.weightReduction" value="{{system.grantsContainer.weightReduction}}" min="0" max="100" aria-label="Redução de peso"/><span>%</span></span></label>
+          <label class="toggle"><input type="checkbox" name="system.grantsContainer.unlimited" {{#if system.grantsContainer.unlimited}}checked{{/if}}/><span class="toggle-track"></span><span>Ilimitado</span></label>
+          {{/if}}
+        </div>
+      </div>
+      {{/if}}
 
       {{#if resistancesEnabled}}
       <div class="sec">
@@ -435,10 +458,11 @@
 
       <div class="sec">
         <div class="sec-head">Energia e estrutura</div>
-        <div class="sec-body g3">
+        <div class="sec-body g2">
           <label class="fld"><span class="fld-label">Consumo de Energia</span><span class="suffix"><input type="number" name="system.powerConsumption" value="{{system.powerConsumption}}" aria-label="Consumo"/><span>{{energyAbbr}}</span></span></label>
           <label class="fld"><span class="fld-label">Vida Máx.</span><input class="num" type="number" name="system.hp.max" value="{{system.hp.max}}" min="0"/></label>
           <label class="fld"><span class="fld-label">Slot</span><input type="text" name="system.slot" value="{{system.slot}}"/></label>
+          <label class="fld"><span class="fld-label">Endurecimento <span class="help" title="Reduz a chance de efeitos de sistema de elemento pegarem neste Módulo (derrubar, drenar energia, baixar resistência). A Classe da Nave soma o dela. 30% transforma 20% de chance em 14%.">?</span></span><span class="suffix"><input type="number" name="system.hardening" value="{{system.hardening}}" min="0" max="100" aria-label="Endurecimento"/><span>%</span></span></label>
         </div>
       </div>
 
@@ -482,6 +506,13 @@
           <label class="fld"><span class="fld-label">Vida Máxima <span class="help" title="A 100% de throttle.">?</span></span><input class="num" type="number" name="system.shieldCapacity" value="{{system.shieldCapacity}}" min="0"/></label>
           <label class="fld"><span class="fld-label">Regen por Rodada <span class="help" title="A 100% de throttle.">?</span></span><input class="num" type="number" name="system.shieldRegen" value="{{system.shieldRegen}}" min="0"/></label>
           <label class="fld"><span class="fld-label">Recarga <span class="help" title="Rodadas sem proteção depois que o Escudo zera.">?</span></span><span class="suffix"><input type="number" name="system.shieldRechargeRounds" value="{{system.shieldRechargeRounds}}" min="0" aria-label="Recarga"/><span>rod.</span></span></label>
+          <label class="fld"><span class="fld-label">Resistência à Penetração <span class="help" title="Tirada da Penetração da arma no estágio do Escudo (Penetração 40% contra 15% = 25%). Com vários Escudos, vale a maior entre os ligados. A Classe soma a dela.">?</span></span><span class="suffix"><input type="number" name="system.penetrationResist" value="{{system.penetrationResist}}" min="0" max="100" aria-label="Resistência à Penetração"/><span>%</span></span></label>
+          <label class="toggle span-all"><input type="checkbox" name="system.adaptive" {{#if system.adaptive}}checked{{/if}}/><span class="toggle-track"></span><span>Adaptativo</span><span class="help" title="Cada golpe que chega no Escudo de pé ensina o Escudo: +X% de resistência àquele elemento, na frequência das armas de quem atacou, até o teto. Perde tudo quando o Escudo cai ou o Módulo desliga. Quem atacou pode Modular frequência para recomeçar do zero.">?</span></label>
+          {{#if system.adaptive}}
+          <label class="fld"><span class="fld-label">Adapta por golpe</span><span class="suffix"><input type="number" name="system.adaptStep" value="{{system.adaptStep}}" min="0" max="95" aria-label="Adapta por golpe"/><span>%</span></span></label>
+          <label class="fld"><span class="fld-label">Teto <span class="help" title="Nunca acima de 95%: sempre passa algo.">?</span></span><span class="suffix"><input type="number" name="system.adaptCap" value="{{system.adaptCap}}" min="0" max="95" aria-label="Teto da adaptação"/><span>%</span></span></label>
+          <p class="hint-inline span-all">{{#if adaptationRows.length}}Adaptado agora: {{#each adaptationRows as |row|}}{{row.label}} {{row.percent}}%{{#unless @last}} · {{/unless}}{{/each}}{{else}}Ainda sem adaptação.{{/if}}</p>
+          {{/if}}
         </div>
         {{/if}}
         {{#if (eq moduleRole "propulsion")}}
@@ -493,6 +524,7 @@
         {{#if (eq moduleRole "armor")}}
         <div class="sec-body g2">
           <label class="fld"><span class="fld-label">Redução de Dano <span class="help" title="Reduz esse percentual do dano que passa pelo Casco enquanto ele tiver Vida.">?</span></span><span class="suffix"><input type="number" name="system.armorReduction" value="{{system.armorReduction}}" min="0" max="100" aria-label="Redução de Dano"/><span>%</span></span></label>
+          <label class="fld"><span class="fld-label">Resistência à Penetração <span class="help" title="Tirada da Penetração da arma no estágio do Casco. A Classe soma a dela.">?</span></span><span class="suffix"><input type="number" name="system.penetrationResist" value="{{system.penetrationResist}}" min="0" max="100" aria-label="Resistência à Penetração"/><span>%</span></span></label>
         </div>
         {{/if}}
         {{#if (eq moduleRole "weapon")}}
@@ -502,7 +534,21 @@
           <label class="fld"><span class="fld-label">Recarga <span class="help" title="Rodadas, a 100% de throttle. 0 = sempre disponível para disparar.">?</span></span><span class="suffix"><input type="number" name="system.cooldownRounds" value="{{system.cooldownRounds}}" min="0" aria-label="Recarga"/><span>rod.</span></span></label>
           <label class="toggle span-all"><input type="checkbox" name="system.isAbsoluteDamage" {{#if system.isAbsoluteDamage}}checked{{/if}}/><span class="toggle-track"></span><span>Dano Absoluto</span><span class="help" title="Passa por Escudo e Casco direto pra Integridade Estrutural. A Evasão do alvo ainda vale.">?</span></label>
           <div class="fld span-all"><span class="fld-label">Elemento(s)</span>{{> nihility.elementChips field=moduleElementField path="system.damageElements" editable=editable}}</div>
+          <label class="toggle span-all"><input type="checkbox" name="system.usesAmmo" {{#if system.usesAmmo}}checked{{/if}}/><span class="toggle-track"></span><span>Usa munição (lançador)</span><span class="help" title="Dispara Munição do Porão: a fórmula, os elementos e o Absoluto vêm da munição; a Penetração soma. Sem munição compatível, não dispara.">?</span></label>
+          {{#if system.usesAmmo}}
+          <div class="fld span-all"><span class="fld-label">Aceita</span>
+            <span class="element-field">{{#each launcherAmmoChips as |chip|}}<a class="element-chip {{#if chip.checked}}checked{{/if}}" data-action="toggleAmmoType" data-ammo-type="{{chip.id}}">{{chip.label}}</a>{{/each}}</span></div>
+          {{/if}}
         </div>
+        {{/if}}
+        {{#if (eq moduleRole "cargo")}}
+        <div class="sec-body g2">
+          <label class="fld"><span class="fld-label">Multiplicador de slots <span class="help" title="Porão compactado 1,5; carga frágil 0,75. Slots = tabela do Porte × isto.">?</span></span><input class="num" type="number" step="0.05" min="0" name="system.cargoMultiplier" value="{{system.cargoMultiplier}}"/></label>
+          <p class="empty-note">Slots deste Porão: <strong>{{cargoSlotsPreview}}</strong> (Compacto 10 · Standard 20 · Robusto 40 · Industrial 80 · Colossal 160, × o multiplicador). Vários Porões somam.</p>
+        </div>
+        {{/if}}
+        {{#if (eq moduleRole "tractor")}}
+        <div class="sec-body"><p class="empty-note">Ligado, ganha o botão 🧲 na ficha da Nave para prender outra Nave/Veículo (força pela diferença de Porte; throttle acima de 100% segura mais).</p></div>
         {{/if}}
         {{#if (eq moduleRole "ftl")}}
         <div class="sec-body">
@@ -543,6 +589,7 @@
         <div class="sec-body inventory-grid">
           <label class="fld"><span class="fld-label">Quantidade</span><input class="num" type="number" name="system.quantity" value="{{system.quantity}}"/></label>
           <label class="fld"><span class="fld-label">Peso</span><input class="num" type="number" name="system.weight" value="{{system.weight}}" step="any"/></label>
+          <label class="fld"><span class="fld-label">Empilha até <span class="help" title="Quantos cabem num slot do inventário. Quantidade acima disso ocupa mais slots.">?</span></span><input class="num" type="number" name="system.stackSize" value="{{system.stackSize}}" min="1"/></label>
           <div class="fld">
             <span class="fld-label">Valor</span>
             <span class="joined">
@@ -560,6 +607,34 @@
         <div class="sec-body">
           <label class="toggle"><input type="checkbox" class="item-equip-toggle" name="system.equipped" {{#if system.equipped}}checked{{/if}}/><span class="toggle-track"></span><span>Equipado</span></label>
           <p class="empty-note">Ligado: concede a Habilidade, ativa os bônus da aba <a data-action="selectTab" data-tab="equipped">Enquanto equipado</a> e, se for arma, libera o Atacar. Desligado: remove a Habilidade.</p>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-head">Contêiner</div>
+        <div class="sec-body g3">
+          <label class="toggle span-all"><input type="checkbox" name="system.container.enabled" {{#if system.container.enabled}}checked{{/if}}/><span class="toggle-track"></span><span>Este item guarda outros (mochila, bolsa, cinto)</span><span class="help" title="Ocupa sempre 1 slot de quem o carrega, vestido ou não. O que está dentro usa os slots dele e pesa menos.">?</span></label>
+          {{#if system.container.enabled}}
+          <label class="fld"><span class="fld-label">Slots</span><input class="num" type="number" name="system.container.slots" value="{{system.container.slots}}" min="0"/></label>
+          <label class="fld"><span class="fld-label">Redução de peso</span><span class="suffix"><input type="number" name="system.container.weightReduction" value="{{system.container.weightReduction}}" min="0" max="100" aria-label="Redução de peso"/><span>%</span></span></label>
+          {{/if}}
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-head">Munição</div>
+        <div class="sec-body g3">
+          <label class="toggle span-all"><input type="checkbox" name="system.ammo.enabled" {{#if system.ammo.enabled}}checked{{/if}}/><span class="toggle-track"></span><span>Este item é munição</span><span class="help" title="Fica no Porão da Nave. Um lançador que aceita o tipo dela rola a fórmula DELA, soma a Penetração dela à do lançador e gasta 1 da pilha.">?</span></label>
+          {{#if system.ammo.enabled}}
+          <label class="fld"><span class="fld-label">Tipo</span>
+            <select name="system.ammo.type">{{#each ammoTypeOptions as |opt|}}<option value="{{opt.id}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}</select></label>
+          <label class="fld"><span class="fld-label">Fórmula de Dano</span><input class="mono" type="text" name="system.ammo.damageFormula" value="{{system.ammo.damageFormula}}" placeholder="4d10"/></label>
+          <label class="fld"><span class="fld-label">Penetração extra</span><span class="suffix"><input type="number" name="system.ammo.penetrationBonus" value="{{system.ammo.penetrationBonus}}" min="0" max="100" aria-label="Penetração extra"/><span>%</span></span></label>
+          <label class="fld"><span class="fld-label">Lançador mínimo <span class="help" title="Torpedo pesado só em lançador Robusto ou maior.">?</span></span>
+            <select name="system.ammo.minLauncherSize">{{#each ammoSizeOptions as |opt|}}<option value="{{opt.id}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}</select></label>
+          <label class="toggle"><input type="checkbox" name="system.ammo.isAbsoluteDamage" {{#if system.ammo.isAbsoluteDamage}}checked{{/if}}/><span class="toggle-track"></span><span>Dano Absoluto</span></label>
+          <div class="fld span-all"><span class="fld-label">Elemento(s) <span class="help" title="Os efeitos por camada (Escudo, Casco, Integridade) vêm dos elementos. Vazio = os do lançador.">?</span></span>{{> nihility.elementChips field=ammoElementField path="system.ammo.damageElements" editable=editable}}</div>
+          {{/if}}
         </div>
       </div>
 

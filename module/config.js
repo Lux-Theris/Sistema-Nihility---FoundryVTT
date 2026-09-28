@@ -30,6 +30,9 @@ export const MEU_SISTEMA = {
     scalesData: "scalesData",
     moduleCategoriesData: "moduleCategoriesData",
     shipClassesData: "shipClassesData",
+    shipSizesData: "shipSizesData",
+    ammoTypesData: "ammoTypesData",
+    vehicleSizesData: "vehicleSizesData",
     vehicleClassesData: "vehicleClassesData",
     crewRolesData: "crewRolesData",
     structuresData: "structuresData",
@@ -39,6 +42,15 @@ export const MEU_SISTEMA = {
     attributesData: "attributesData",
     xpFormula: "xpFormula",
     damageScalingDivisor: "damageScalingDivisor",
+    manaInvestExponent: "manaInvestExponent",
+    manaInvestMinPercent: "manaInvestMinPercent",
+    shipTargetAsk: "shipTargetAsk",
+    shipTargetShare: "shipTargetShare",
+    shipBracePercent: "shipBracePercent",
+    antimagicBase: "antimagicBase",
+    antimagicGrowth: "antimagicGrowth",
+    shipFocusBoost: "shipFocusBoost",
+    shipFocusCut: "shipFocusCut",
     skillPowerPerLevel: "skillPowerPerLevel",
     skillDiscountPerLevel: "skillDiscountPerLevel",
     skillCyclePower: "skillCyclePower",
@@ -209,6 +221,23 @@ export const MEU_SISTEMA = {
         movementGmIgnores: { label: "Mestre ignora o limite", hint: "O Mestre move tokens sem gastar nem respeitar o deslocamento.", type: "boolean", default: true }
       }
     },
+    inventory: {
+      setting: "inventoryEnabled",
+      name: "Inventário (slots, pilhas e contêineres)",
+      hint: "Aba Inventário na ficha: cada pilha ocupa um slot (padrão 20 por pilha), Itens iguais arrastados somam na pilha, contêineres (mochila, bolsa) têm slots próprios e reduzem o peso. Slots e carga base vêm da Espécie; Força e Defesa aumentam a carga. Naves ganham o Porão (Módulos de carga). Passar do limite só avisa — o bloqueio de peso é o bloco abaixo.",
+      default: true,
+      options: {
+        carryPerStrength: { label: "Carga por ponto de Força (kg)", hint: "Quanto cada ponto de Força (total) soma à carga.", type: "number", default: 1, min: 0 },
+        carryPerDefense: { label: "Carga por ponto de Defesa (kg)", hint: "Quanto cada ponto de Defesa (total) soma à carga.", type: "number", default: 0.5, min: 0 }
+      }
+    },
+    encumbrance: {
+      setting: "encumbranceEnabled",
+      parent: "inventory",
+      name: "Peso limita o Deslocamento",
+      hint: "Acima da carga, o personagem perde Deslocamento na mesma proporção do excesso (20% acima = −20%; o dobro = parado). No Porão da Nave, a carga pesa no Motor (menos Movimento e Evasão) — mais energia nos Motores compensa.",
+      default: false
+    },
     structures: {
       setting: "structuresEnabled",
       name: "Estruturas (manipulação do ambiente)",
@@ -230,16 +259,16 @@ export const MEU_SISTEMA = {
       hint: "Em combate, Nave/Veículo só anda as casas da rodada (Porte × Motor) e a Manobra vira Evasão: um percentual do dano dos tiros que ele evita antes do Escudo. Motor menor, throttle baixo ou falta de energia diminuem os dois.",
       default: false,
       options: {
-        shipMoveMini: { label: "Movimento — Mini (casas)", hint: "Casas por rodada de uma nave Mini com o Motor do tamanho esperado a 100%.", type: "number", default: 8, min: 0 },
-        shipMovePequeno: { label: "Movimento — Pequeno (casas)", hint: "Casas por rodada de uma nave Pequeno com o Motor do tamanho esperado a 100%.", type: "number", default: 6, min: 0 },
-        shipMoveMedio: { label: "Movimento — Médio (casas)", hint: "Casas por rodada de uma nave Médio com o Motor do tamanho esperado a 100%.", type: "number", default: 5, min: 0 },
-        shipMoveGrande: { label: "Movimento — Grande (casas)", hint: "Casas por rodada de uma nave Grande com o Motor do tamanho esperado a 100%.", type: "number", default: 4, min: 0 },
-        shipMoveCapital: { label: "Movimento — Capital (casas)", hint: "Casas por rodada de uma nave Capital com o Motor do tamanho esperado a 100%.", type: "number", default: 3, min: 0 },
-        shipEvasionMini: { label: "Evasão — Mini (%)", hint: "Dano evitado por uma nave Mini com o Motor do tamanho esperado a 100%.", type: "number", default: 30, min: 0 },
-        shipEvasionPequeno: { label: "Evasão — Pequeno (%)", hint: "Dano evitado por uma nave Pequeno com o Motor do tamanho esperado a 100%.", type: "number", default: 22, min: 0 },
-        shipEvasionMedio: { label: "Evasão — Médio (%)", hint: "Dano evitado por uma nave Médio com o Motor do tamanho esperado a 100%.", type: "number", default: 15, min: 0 },
-        shipEvasionGrande: { label: "Evasão — Grande (%)", hint: "Dano evitado por uma nave Grande com o Motor do tamanho esperado a 100%.", type: "number", default: 8, min: 0 },
-        shipEvasionCapital: { label: "Evasão — Capital (%)", hint: "Dano evitado por uma nave Capital com o Motor do tamanho esperado a 100%.", type: "number", default: 3, min: 0 },
+        shipMoveMini: { label: "Movimento — Mini (casas)", hint: "Casas por rodada de uma nave Mini com o Motor do tamanho esperado a 100%.", type: "number", default: 8, min: 0, legacy: true },
+        shipMovePequeno: { label: "Movimento — Pequeno (casas)", hint: "Casas por rodada de uma nave Pequeno com o Motor do tamanho esperado a 100%.", type: "number", default: 6, min: 0, legacy: true },
+        shipMoveMedio: { label: "Movimento — Médio (casas)", hint: "Casas por rodada de uma nave Médio com o Motor do tamanho esperado a 100%.", type: "number", default: 5, min: 0, legacy: true },
+        shipMoveGrande: { label: "Movimento — Grande (casas)", hint: "Casas por rodada de uma nave Grande com o Motor do tamanho esperado a 100%.", type: "number", default: 4, min: 0, legacy: true },
+        shipMoveCapital: { label: "Movimento — Capital (casas)", hint: "Casas por rodada de uma nave Capital com o Motor do tamanho esperado a 100%.", type: "number", default: 3, min: 0, legacy: true },
+        shipEvasionMini: { label: "Evasão — Mini (%)", hint: "Dano evitado por uma nave Mini com o Motor do tamanho esperado a 100%.", type: "number", default: 30, min: 0, legacy: true },
+        shipEvasionPequeno: { label: "Evasão — Pequeno (%)", hint: "Dano evitado por uma nave Pequeno com o Motor do tamanho esperado a 100%.", type: "number", default: 22, min: 0, legacy: true },
+        shipEvasionMedio: { label: "Evasão — Médio (%)", hint: "Dano evitado por uma nave Médio com o Motor do tamanho esperado a 100%.", type: "number", default: 15, min: 0, legacy: true },
+        shipEvasionGrande: { label: "Evasão — Grande (%)", hint: "Dano evitado por uma nave Grande com o Motor do tamanho esperado a 100%.", type: "number", default: 8, min: 0, legacy: true },
+        shipEvasionCapital: { label: "Evasão — Capital (%)", hint: "Dano evitado por uma nave Capital com o Motor do tamanho esperado a 100%.", type: "number", default: 3, min: 0, legacy: true },
         shipEvasionCap: { label: "Teto de Evasão (%)", hint: "Nenhuma nave evita mais que isso, nem com overclock.", type: "number", default: 40, min: 0 }
       }
     }
@@ -345,25 +374,36 @@ export const MEU_SISTEMA = {
   },
 
   /**
-   * Porte de Nave Espacial, do menor pro maior — só o Mestre edita (mesmo padrão de Nível).
-   * Rege compatibilidade de Módulo (SHIP_SIZE_RANK vs MODULE_SIZE_RANK) e o orçamento de
-   * espaço de Arma (WEAPON_SLOT_BUDGET_BY_SHIP_SIZE).
+   * Portes de Nave e de Veículo — listas próprias, editáveis (Configurações Gerais › Naves), do
+   * menor pro maior (a ordem é a régua da faixa de Porte das Classes). Cada linha guarda os números
+   * do Porte:
+   * - `rank` (0-4): maior Porte de Módulo aceito (0 = Compacto … 4 = Colossal) e o Motor de
+   *   referência da razão do Motor; também é a régua do Raio Trator.
+   * - `weaponBudget`: espaço de Arma (cada Arma ocupa rank do Porte dela + 1).
+   * - `distributorBaseline`: teto do Distribuidor com Fator 1 (EPS/rodada).
+   * - `conduitCapacitor`: reserva dos conduítes do casco sem Bateria. Instalar uma Bateria
+   *   SUBSTITUI esse valor, então fica abaixo de 125 (a menor Bateria, Compacta) — trocar nunca
+   *   piora; o teste de regras trava isso nos padrões.
+   * - `move` / `evasion`: casas por rodada e Evasão (%) base, com o Motor do tamanho esperado.
+   * - `massReference` (kg): carga do porão que corta o desempenho do Motor pela metade.
+   * Os ids mini/pequeno/medio/grande/capital são os de sempre (Naves salvas não mudam); Veículo
+   * mantém mini/pequeno com os mesmos números de antes e ganha Médio, Grande e Colossal.
    */
-  SHIP_SIZES: ["mini", "pequeno", "medio", "grande", "capital"],
+  DEFAULT_SHIP_SIZES: [
+    { id: "mini", label: "Mini", rank: 0, weaponBudget: 1, distributorBaseline: 80, conduitCapacitor: 10, move: 8, evasion: 30, massReference: 2000 },
+    { id: "pequeno", label: "Pequeno", rank: 1, weaponBudget: 2, distributorBaseline: 160, conduitCapacitor: 20, move: 6, evasion: 22, massReference: 8000 },
+    { id: "medio", label: "Médio", rank: 2, weaponBudget: 4, distributorBaseline: 320, conduitCapacitor: 40, move: 5, evasion: 15, massReference: 30000 },
+    { id: "grande", label: "Grande", rank: 3, weaponBudget: 8, distributorBaseline: 640, conduitCapacitor: 80, move: 4, evasion: 8, massReference: 120000 },
+    { id: "capital", label: "Capital", rank: 4, weaponBudget: 16, distributorBaseline: 1280, conduitCapacitor: 120, move: 3, evasion: 3, massReference: 500000 }
+  ],
 
-  SHIP_SIZE_LABELS: {
-    mini: "Mini",
-    pequeno: "Pequeno",
-    medio: "Médio",
-    grande: "Grande",
-    capital: "Capital"
-  },
-
-  /** Veículo terrestre só cabe nos dois portes menores (reaproveita os mesmos labels acima). */
-  VEHICLE_SIZES: ["mini", "pequeno"],
-
-  /** Índice (0-4) de cada Porte de Nave/Veículo — usado só pra comparar "módulo cabe na nave". */
-  SHIP_SIZE_RANK: { mini: 0, pequeno: 1, medio: 2, grande: 3, capital: 4 },
+  DEFAULT_VEHICLE_SIZES: [
+    { id: "mini", label: "Mini", rank: 0, weaponBudget: 1, distributorBaseline: 80, conduitCapacitor: 10, move: 8, evasion: 30, massReference: 200 },
+    { id: "pequeno", label: "Pequeno", rank: 1, weaponBudget: 2, distributorBaseline: 160, conduitCapacitor: 20, move: 6, evasion: 22, massReference: 1000 },
+    { id: "medio", label: "Médio", rank: 2, weaponBudget: 4, distributorBaseline: 320, conduitCapacitor: 40, move: 5, evasion: 15, massReference: 4000 },
+    { id: "grande", label: "Grande", rank: 3, weaponBudget: 8, distributorBaseline: 640, conduitCapacitor: 80, move: 4, evasion: 8, massReference: 15000 },
+    { id: "colossal", label: "Colossal", rank: 4, weaponBudget: 16, distributorBaseline: 1280, conduitCapacitor: 120, move: 3, evasion: 3, massReference: 60000 }
+  ],
 
   /**
    * Porte de Módulo de Nave (inclusive Arma, que reaproveita esta MESMA escala pro seu
@@ -380,7 +420,7 @@ export const MEU_SISTEMA = {
     colossal: "Colossal"
   },
 
-  /** Índice (0-4) de cada Porte de Módulo — comparado contra SHIP_SIZE_RANK pra checar compatibilidade. */
+  /** Índice (0-4) de cada Porte de Módulo — comparado contra o `rank` do Porte da Nave pra checar compatibilidade. */
   MODULE_SIZE_RANK: { compact: 0, standard: 1, reinforced: 2, industrial: 3, colossal: 4 },
 
   /**
@@ -429,7 +469,11 @@ export const MEU_SISTEMA = {
     ftl: { label: "FTL", combine: "independent", presetKey: "ftl", overload: 200 },
     armor: { label: "Blindagem", combine: "sum", presetKey: "armor", overload: 200 },
     weapon: { label: "Arma", combine: "independent", presetKey: "weapon", overload: null },
-    utility: { label: "Utilidade/Narrativo", combine: "none", presetKey: "utility", overload: 200 }
+    utility: { label: "Utilidade/Narrativo", combine: "none", presetKey: "utility", overload: 200 },
+    // Raio trator: prende outra Nave (deslocamento dela cai conforme a diferença de Porte).
+    tractor: { label: "Raio Trator", combine: "independent", presetKey: "tractor", overload: 200 },
+    // Porão: slots de carga da Nave (dobram por Porte, × o multiplicador do Módulo).
+    cargo: { label: "Porão de Carga", combine: "sum", presetKey: "cargo", overload: null }
   },
 
   /**
@@ -446,7 +490,9 @@ export const MEU_SISTEMA = {
     { id: "armor", label: "Casco (Armadura)", role: "armor", slots: 1 },
     { id: "ftl", label: "FTL", role: "ftl", slots: 1 },
     { id: "weapon", label: "Arma", role: "weapon", slots: 0 },
-    { id: "utility", label: "Utilidade", role: "utility", slots: 0 }
+    { id: "utility", label: "Utilidade", role: "utility", slots: 0 },
+    { id: "tractor", label: "Raio Trator", role: "tractor", slots: 0 },
+    { id: "cargo", label: "Porão", role: "cargo", slots: 0 }
   ],
 
   /** Categorias estilo Star Trek — carregadas pelo preset Sci-Fi (impulso + manobradores, dobra…). */
@@ -461,7 +507,9 @@ export const MEU_SISTEMA = {
     { id: "ftl", label: "Motor de Dobra", role: "ftl", slots: 1 },
     { id: "transwarp", label: "Transdobra", role: "ftl", slots: 0 },
     { id: "weapon", label: "Arma", role: "weapon", slots: 0 },
-    { id: "utility", label: "Utilidade", role: "utility", slots: 0 }
+    { id: "utility", label: "Utilidade", role: "utility", slots: 0 },
+    { id: "tractor", label: "Emissor de Raio Trator", role: "tractor", slots: 0 },
+    { id: "cargo", label: "Compartimento de Carga", role: "cargo", slots: 0 }
   ],
 
   /**
@@ -471,7 +519,7 @@ export const MEU_SISTEMA = {
    */
   DEFAULT_SHIP_CLASSES: [
     { id: "explorer", label: "Exploradora", description: "Equilibrada.", evasionMultiplier: 1, movementMultiplier: 1, weaponBudgetMultiplier: 1, maxWeaponSize: "", slots: {} },
-    { id: "battleship", label: "Encouraçado", description: "Blindagem e escudos dobrados, lento e fácil de acertar.", evasionMultiplier: 0.6, movementMultiplier: 0.75, weaponBudgetMultiplier: 1.5, maxWeaponSize: "", slots: { armor: 2, shield: 2 } },
+    { id: "battleship", label: "Encouraçado", description: "Blindagem e escudos dobrados, lento e fácil de acertar.", evasionMultiplier: 0.6, movementMultiplier: 0.75, weaponBudgetMultiplier: 1.5, maxWeaponSize: "", slots: { armor: 2, shield: 2 }, shieldPenResist: 5, cascoPenResist: 10, hardening: 10 },
     { id: "cruiser", label: "Cruzador", description: "Mais armas que o normal para o Porte.", evasionMultiplier: 0.9, movementMultiplier: 1, weaponBudgetMultiplier: 1.5, maxWeaponSize: "", slots: {} },
     { id: "freighter", label: "Cargueiro", description: "Pouca arma, mais espaço de Utilidade.", evasionMultiplier: 0.8, movementMultiplier: 0.9, weaponBudgetMultiplier: 0.25, maxWeaponSize: "standard", slots: {} },
     { id: "interceptor", label: "Interceptador", description: "Rápido e difícil de acertar, frágil.", evasionMultiplier: 1.4, movementMultiplier: 1.3, weaponBudgetMultiplier: 0.75, maxWeaponSize: "", slots: {} }
@@ -479,7 +527,7 @@ export const MEU_SISTEMA = {
 
   DEFAULT_VEHICLE_CLASSES: [
     { id: "car", label: "Carro", description: "Leve e rápido.", evasionMultiplier: 1.2, movementMultiplier: 1.2, weaponBudgetMultiplier: 0.5, maxWeaponSize: "compact", slots: {} },
-    { id: "tank", label: "Tanque", description: "Blindagem dobrada, lento, armado.", evasionMultiplier: 0.5, movementMultiplier: 0.6, weaponBudgetMultiplier: 2, maxWeaponSize: "", slots: { armor: 2 } },
+    { id: "tank", label: "Tanque", description: "Blindagem dobrada, lento, armado.", evasionMultiplier: 0.5, movementMultiplier: 0.6, weaponBudgetMultiplier: 2, maxWeaponSize: "", slots: { armor: 2 }, cascoPenResist: 15, hardening: 10 },
     { id: "bike", label: "Moto", description: "Muito rápida, quase sem proteção.", evasionMultiplier: 1.6, movementMultiplier: 1.5, weaponBudgetMultiplier: 0.5, maxWeaponSize: "compact", slots: {} }
   ],
 
@@ -498,9 +546,56 @@ export const MEU_SISTEMA = {
   DEFAULT_STRUCTURES: [
     { id: "stone-wall", label: "Parede de Pedra", img: "", color: "#8d8471", shape: "free", size: 10, blocksMove: true, blocksSight: true, hp: 60, durationRounds: 0 },
     { id: "ice-block", label: "Bloco de Gelo", img: "", color: "#6ee7ff", shape: "rect", size: 2, blocksMove: true, blocksSight: false, hp: 30, durationRounds: 3 },
-    { id: "mana-barrier", label: "Barreira de Mana", img: "", color: "#c084fc", shape: "circle", size: 3, blocksMove: true, blocksSight: false, hp: 0, durationRounds: 0 }
+    { id: "mana-barrier", label: "Barreira de Mana", img: "", color: "#c084fc", shape: "circle", size: 3, blocksMove: true, blocksSight: false, hp: 0, durationRounds: 0, magic: true },
+    // Não segura golpe nenhum: queima quem atravessa (e o Gelo apanha mais do Fogo, ver "vsElement").
+    { id: "fire-wall", label: "Muralha de Fogo", img: "", color: "#ff7043", shape: "line", size: 8, blocksMove: false, blocksSight: false, blocksAttacks: false, hp: 0, durationRounds: 3, magic: true, elements: ["fire"], contactDamage: "2d6" },
+    // Campo Antimagia: ataque mágico que o atravessa (ou sai de dentro) paga Mana extra ou é anulado.
+    { id: "antimagic-field", label: "Campo Antimagia", img: "", color: "#9aa1c2", shape: "circle", size: 4, blocksMove: false, blocksSight: false, blocksAttacks: false, hp: 0, durationRounds: 3, antimagicLevel: 1 }
   ],
   STRUCTURE_SHAPES: ["line", "free", "circle", "rect"],
+
+  /** Quanto cabe numa pilha quando o Item não diz (Item Geral `stackSize`). */
+  ITEM_STACK_DEFAULT: 20,
+  /** Slots e carga base (kg) sem Espécie, ou de uma Espécie sem os campos. */
+  DEFAULT_CARRY: { slots: 10, carry: 30 },
+  /**
+   * Slots e carga base por Espécie padrão — o que ela carregaria no corpo, sem mochila (os
+   * contêineres somam por cima). O editor de Espécies sobrescreve.
+   */
+  SPECIES_CARRY_DEFAULTS: {
+    humano: { slots: 10, carry: 30 },
+    elfo: { slots: 10, carry: 25 },
+    anao: { slots: 12, carry: 45 },
+    orc: { slots: 12, carry: 50 },
+    goblin: { slots: 8, carry: 15 },
+    halfling: { slots: 8, carry: 15 },
+    slime: { slots: 6, carry: 20 },
+    dragoide: { slots: 12, carry: 60 },
+    ogro: { slots: 14, carry: 90 },
+    lobo_tempestade: { slots: 3, carry: 20 },
+    harpia: { slots: 6, carry: 10 },
+    ciborgue: { slots: 12, carry: 60 },
+    androide: { slots: 12, carry: 50 },
+    mutante: { slots: 10, carry: 40 },
+    simbionte: { slots: 10, carry: 35 },
+    cavalo: { slots: 4, carry: 100 },
+    lobo_gigante: { slots: 4, carry: 60 },
+    grifo: { slots: 4, carry: 80 },
+    inseto_de_carga: { slots: 8, carry: 150 }
+  },
+  /** Slots de um Módulo de Porão por Porte (× o multiplicador do Módulo; vários Porões somam). */
+  CARGO_SLOTS_BY_MODULE_SIZE: { compact: 10, standard: 20, reinforced: 40, industrial: 80, colossal: 160 },
+
+  /** Tipos de Munição (catálogo editável). Lançador aceita tipos; a Munição tem um. */
+  DEFAULT_AMMO_TYPES: [
+    { id: "torpedo", label: "Torpedo" },
+    { id: "missile", label: "Míssil" },
+    { id: "mine", label: "Mina" },
+    { id: "kinetic", label: "Projétil cinético" },
+    { id: "arrow", label: "Flecha" },
+    { id: "bolt", label: "Virote" },
+    { id: "bullet", label: "Bala" }
+  ],
   STRUCTURE_SHAPE_LABELS: { line: "Linha reta", free: "Forma livre (desenhar)", circle: "Círculo", rect: "Quadrado" },
 
   DEFAULT_CREW_ROLES: [
@@ -548,32 +643,16 @@ export const MEU_SISTEMA = {
    * Curva de escala de Porte de Módulo (Overhaul de Naves, Fase 8) — cada Porte multiplica um
    * valor-base "a Compacto" por este fator. Usada tanto pelos presets de stat sugeridos
    * (MODULE_SIZE_PRESETS) quanto pelo orçamento de espaço de Arma por Porte de Nave
-   * (WEAPON_SLOT_BUDGET_BY_SHIP_SIZE) — dobrar a cada Porte cria fricção o bastante pra evitar
+   * (`weaponBudget` de cada Porte) — dobrar a cada Porte cria fricção o bastante pra evitar
    * troca casual de Módulo sem precisar de uma curva mais agressiva: subir de Porte já dobra o
    * Consumo de Energia daquele Módulo, obrigando a Nave inteira (Reator/Distribuidor) a
    * acompanhar antes de sustentar o upgrade.
    */
   MODULE_SIZE_MULTIPLIER: { compact: 1, standard: 2, reinforced: 4, industrial: 8, colossal: 16 },
 
-  /** Orçamento de espaço de Arma por Porte de Nave/Veículo — Mini = exatamente 1 Arma Compacta (decisão já fechada), o resto segue MODULE_SIZE_MULTIPLIER. */
-  WEAPON_SLOT_BUDGET_BY_SHIP_SIZE: { mini: 1, pequeno: 2, medio: 4, grande: 8, capital: 16 },
+  
 
-  /** Baseline de Capacidade de Transferência do Distribuidor por Porte de Nave — Médio = 320 EPS/rodada (mesma referência já usada no mockup aprovado da Fase 0), resto segue MODULE_SIZE_MULTIPLIER. */
-  DISTRIBUTOR_BASELINE_BY_SHIP_SIZE: { mini: 80, pequeno: 160, medio: 320, grande: 640, capital: 1280 },
-
-  /**
-   * Capacidade mínima de Capacitor que TODA Nave/Veículo tem mesmo sem Módulo de Bateria: é a
-   * energia que já está parada dentro dos próprios conduítes de força do casco. Sem isso o
-   * Capacitor ficava em 0 sem Bateria, e como é dele que sai o Custo de Habilidade de Nave (ver
-   * `energyValuePath` em skill-effects.js), uma Nave sem Bateria não conseguia usar Habilidade
-   * nenhuma — o que nunca foi a intenção.
-   *
-   * Instalar um Módulo de Bateria **substitui** este valor (não soma) — ver `prepareDerivedData`
-   * em starship-model.js. Por isso todos os valores aqui ficam abaixo de 125, a capacidade da
-   * menor Bateria instalável (Compacto): assim substituir nunca é um downgrade, em Porte nenhum.
-   * É também por isso que a curva achata no fim em vez de dobrar até 320 como as outras tabelas.
-   */
-  CONDUIT_CAPACITOR_BY_SHIP_SIZE: { mini: 10, pequeno: 20, medio: 40, grande: 80, capital: 120 },
+  
 
   /**
    * Presets de stat sugeridos por Categoria×Porte de Módulo (Fase 8), usados só pra
@@ -585,12 +664,26 @@ export const MEU_SISTEMA = {
    * incremento próprio por Porte.
    */
   MODULE_SIZE_PRESETS: {
+    tractor: {
+      compact: { powerConsumption: 20 },
+      standard: { powerConsumption: 40 },
+      reinforced: { powerConsumption: 80 },
+      industrial: { powerConsumption: 160 },
+      colossal: { powerConsumption: 320 }
+    },
+    cargo: {
+      compact: { powerConsumption: 0 },
+      standard: { powerConsumption: 0 },
+      reinforced: { powerConsumption: 0 },
+      industrial: { powerConsumption: 0 },
+      colossal: { powerConsumption: 0 }
+    },
     shield: {
-      compact: { powerConsumption: 30, shieldCapacity: 100, shieldRegen: 10, shieldRechargeRounds: 3 },
-      standard: { powerConsumption: 60, shieldCapacity: 200, shieldRegen: 20, shieldRechargeRounds: 3 },
-      reinforced: { powerConsumption: 120, shieldCapacity: 400, shieldRegen: 40, shieldRechargeRounds: 4 },
-      industrial: { powerConsumption: 240, shieldCapacity: 800, shieldRegen: 80, shieldRechargeRounds: 4 },
-      colossal: { powerConsumption: 480, shieldCapacity: 1600, shieldRegen: 160, shieldRechargeRounds: 5 }
+      compact: { powerConsumption: 30, shieldCapacity: 100, shieldRegen: 10, shieldRechargeRounds: 3, penetrationResist: 5 },
+      standard: { powerConsumption: 60, shieldCapacity: 200, shieldRegen: 20, shieldRechargeRounds: 3, penetrationResist: 10 },
+      reinforced: { powerConsumption: 120, shieldCapacity: 400, shieldRegen: 40, shieldRechargeRounds: 4, penetrationResist: 15 },
+      industrial: { powerConsumption: 240, shieldCapacity: 800, shieldRegen: 80, shieldRechargeRounds: 4, penetrationResist: 20 },
+      colossal: { powerConsumption: 480, shieldCapacity: 1600, shieldRegen: 160, shieldRechargeRounds: 5, penetrationResist: 25 }
     },
     engine: {
       compact: { powerConsumption: 20, acceleration: 20, rotation: 15 },
@@ -621,11 +714,11 @@ export const MEU_SISTEMA = {
       colossal: { powerConsumption: 160, transferFactor: 3 }
     },
     armor: {
-      compact: { armorReduction: 10 },
-      standard: { armorReduction: 20 },
-      reinforced: { armorReduction: 30 },
-      industrial: { armorReduction: 45 },
-      colossal: { armorReduction: 60 }
+      compact: { armorReduction: 10, penetrationResist: 10 },
+      standard: { armorReduction: 20, penetrationResist: 15 },
+      reinforced: { armorReduction: 30, penetrationResist: 20 },
+      industrial: { armorReduction: 45, penetrationResist: 25 },
+      colossal: { armorReduction: 60, penetrationResist: 30 }
     },
     ftl: {
       compact: { powerConsumption: 15, warpFactor: 1, jumpRange: 10, chargeTime: 3 },
@@ -776,7 +869,11 @@ export const MEU_SISTEMA = {
     "shipShieldCapacity",
     "shipShieldRegen",
     "shipReactorOutput",
-    "shipPropulsion"
+    "shipPropulsion",
+    "shipShieldRestore",
+    "shipCasco",
+    "shipHull",
+    "shipDamageReduction"
   ],
 
   EFFECT_TARGET_LABELS: {
@@ -799,6 +896,10 @@ export const MEU_SISTEMA = {
     shipWeaponDamage: "Dano de Arma (Nave)",
     shipWeaponPenetration: "Penetração de Arma (Nave)",
     shipShieldCapacity: "Capacidade do Escudo (Nave, %)",
+    shipShieldRestore: "Restaurar Escudo da Nave",
+    shipCasco: "Casco da Nave (− dano, + reparo)",
+    shipHull: "Integridade da Nave (− dano, + reparo)",
+    shipDamageReduction: "Preparar para impacto (Nave, % de redução)",
     shipShieldRegen: "Regeneração do Escudo (Nave, %)",
     shipReactorOutput: "Geração de Energia (Nave, %)",
     shipPropulsion: "Propulsão (Nave, %)"
@@ -813,7 +914,7 @@ export const MEU_SISTEMA = {
     { label: "Atributos", actor: "character", targets: ["strength", "defense", "magic", "magicalDefense", "dexterity", "stealth", "perception", "precision"] },
     { label: "Vitais", actor: "character", targets: ["hp", "energy", "shield", "movement"] },
     { label: "Arma", actor: "any", targets: ["weaponDamage", "weaponElement", "weaponMagic", "weaponAbsolute"] },
-    { label: "Nave", actor: "ship", targets: ["shipWeaponDamage", "shipWeaponPenetration", "shipShieldCapacity", "shipShieldRegen", "shipReactorOutput", "shipPropulsion"] }
+    { label: "Nave", actor: "ship", targets: ["shipWeaponDamage", "shipWeaponPenetration", "shipShieldCapacity", "shipShieldRegen", "shipReactorOutput", "shipPropulsion", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"] }
   ],
 
   /** Alvos "de Nave" de EFFECT_TARGETS — só fazem sentido numa Skill usada por uma Nave. */
@@ -873,23 +974,52 @@ export const MEU_SISTEMA = {
    *  - shieldDrain: +X% de dano só contra Escudo (camada de Escudo da Nave ou Escudo pessoal);
    *  - penetration: ignora X% das defesas do alvo (nunca atravessa Imunidade).
    */
-  ELEMENT_EFFECT_TYPES: ["condition", "traitBonus", "shieldDrain", "penetration"],
+  ELEMENT_EFFECT_TYPES: ["condition", "traitBonus", "vsElement", "layer", "shieldDrain", "penetration", "moduleDisable", "energyDrain", "resistanceDown"],
   ELEMENT_EFFECT_TYPE_LABELS: {
     condition: "Aplicar Condição",
     traitBonus: "Dano extra contra Traço",
-    shieldDrain: "Dano extra em Escudo",
-    penetration: "Penetração"
+    layer: "Dano por camada (Escudo, Casco, Integridade)",
+    shieldDrain: "Dano extra em Escudo (antigo: use Dano por camada)",
+    penetration: "Penetração",
+    vsElement: "Dano extra contra elemento (Estrutura)",
+    moduleDisable: "Nave: derrubar Módulo",
+    energyDrain: "Nave: drenar energia",
+    resistanceDown: "Nave: baixar resistência"
+  },
+  /** Camadas do "Dano por camada". `shield` também vale pro Escudo pessoal de Personagem. */
+  DAMAGE_LAYERS: ["shield", "casco", "hull"],
+  DAMAGE_LAYER_LABELS: { shield: "Escudo", casco: "Casco", hull: "Integridade Estrutural" },
+  /** Efeitos de sistema de Nave (do elemento), com duração em rodadas da Nave atingida. */
+  SHIP_SYSTEM_EFFECT_LABELS: {
+    moduleDisabled: "Módulo derrubado",
+    energyDrain: "Energia drenada",
+    resistanceDown: "Resistência baixa"
   },
 
   /** Elementos de energia estilo Star Trek Online — carregados pelo preset Sci-Fi. */
   SCIFI_DAMAGE_ELEMENTS: [
-    { id: "kinetic", label: "Cinético", color: "#b0b7d6", group: "Físico", effects: [] },
-    { id: "phaser", label: "Phaser", color: "#ff9f43", group: "Energia", effects: [] },
-    { id: "disruptor", label: "Disruptor", color: "#6ee7a0", group: "Energia", effects: [{ type: "penetration", percent: 10 }] },
-    { id: "plasma", label: "Plasma", color: "#7bed9f", group: "Energia", effects: [{ type: "condition", conditionId: "burn", chance: 25 }] },
-    { id: "polaron", label: "Pólaron", color: "#a29bfe", group: "Energia", effects: [{ type: "traitBonus", trait: "organic", percent: 20 }] },
-    { id: "tetryon", label: "Táquion", color: "#74b9ff", group: "Energia", effects: [{ type: "shieldDrain", percent: 30 }] },
-    { id: "antiproton", label: "Antiprótons", color: "#fd79a8", group: "Energia", effects: [] },
+    // Cinético/torpedo: fraco contra Escudo, forte contra Casco (Elite e Star Trek Online).
+    { id: "kinetic", label: "Cinético", color: "#b0b7d6", group: "Físico", effects: [
+      { type: "layer", layer: "shield", percent: -50 }, { type: "layer", layer: "casco", percent: 30 }, { type: "layer", layer: "hull", percent: 10 }
+    ] },
+    // Phaser: bom no Escudo, fraco no Casco; chance de derrubar um sistema.
+    { id: "phaser", label: "Phaser", color: "#ff9f43", group: "Energia", effects: [
+      { type: "layer", layer: "shield", percent: 20 }, { type: "layer", layer: "casco", percent: -20 }, { type: "moduleDisable", chance: 10, rounds: 2 }
+    ] },
+    // Disruptor: atravessa um pouco e amolece as defesas do alvo.
+    { id: "disruptor", label: "Disruptor", color: "#6ee7a0", group: "Energia", effects: [
+      { type: "penetration", percent: 10 }, { type: "resistanceDown", chance: 20, percent: 10, rounds: 2 }
+    ] },
+    // Plasma: queima (dano contínuo) e morde o Casco.
+    { id: "plasma", label: "Plasma", color: "#7bed9f", group: "Energia", effects: [
+      { type: "condition", conditionId: "burn", chance: 25 }, { type: "layer", layer: "casco", percent: 15 }
+    ] },
+    // Pólaron: forte contra orgânicos e drena a energia do alvo.
+    { id: "polaron", label: "Pólaron", color: "#a29bfe", group: "Energia", effects: [
+      { type: "traitBonus", trait: "organic", percent: 20 }, { type: "energyDrain", chance: 20, percent: 15, rounds: 2 }
+    ] },
+    { id: "tetryon", label: "Táquion", color: "#74b9ff", group: "Energia", effects: [{ type: "layer", layer: "shield", percent: 30 }] },
+    { id: "antiproton", label: "Antiprótons", color: "#fd79a8", group: "Energia", effects: [{ type: "layer", layer: "hull", percent: 15 }] },
     { id: "transphasic", label: "Transfásico", color: "#e8c170", group: "Exótico", effects: [{ type: "penetration", percent: 40 }] }
   ],
 
@@ -921,7 +1051,7 @@ export const MEU_SISTEMA = {
       { id: "capital", label: "Capital" }
     ],
     shipSizeMap: { mini: "vehicle", pequeno: "vehicle", medio: "ship", grande: "ship", capital: "capital" },
-    vehicleSizeMap: { mini: "vehicle", pequeno: "vehicle" }
+    vehicleSizeMap: { mini: "vehicle", pequeno: "vehicle", medio: "vehicle", grande: "vehicle", colossal: "vehicle" }
   },
 
   /**
@@ -935,6 +1065,8 @@ export const MEU_SISTEMA = {
    */
   DEFAULT_STATUS_CONDITIONS: [
     { id: "blindness", label: "Cegueira", icon: "icons/svg/blind.svg" },
+    // Selo antimagia: toda magia de quem tem o selo paga Mana extra (ver antimagicSurcharge).
+    { id: "antimagic-seal", label: "Selo Antimagia", icon: "icons/svg/padlock.svg", antimagicLevel: 1 },
     { id: "poison", label: "Veneno", icon: "icons/svg/poison.svg",
       effect: { kind: "tick", tickTarget: "hp", tickSign: "damage", valueMode: "hitPercent", value: 5, durationRounds: 3, tickUnit: "combatRound" } },
     { id: "burn", label: "Queimadura", icon: "icons/svg/fire.svg",
@@ -1685,6 +1817,109 @@ export function moduleCategoryLabel(categoryId) {
     ?? MEU_SISTEMA.STARSHIP_MODULE_CATEGORY_LABELS[categoryId] ?? categoryId;
 }
 
+/* ------------------------------------------------------------------ Inventário */
+
+export function isInventoryEnabled() {
+  return isFeatureEnabled("inventory");
+}
+
+export function isEncumbranceEnabled() {
+  return isFeatureEnabled("encumbrance");
+}
+
+/** Slots e carga base (kg) de uma Espécie: os campos do preset, senão a tabela padrão. Pura. */
+export function speciesCarry(preset, speciesKey) {
+  const fallback = MEU_SISTEMA.SPECIES_CARRY_DEFAULTS[speciesKey] ?? MEU_SISTEMA.DEFAULT_CARRY;
+  const read = (value, fb) => {
+    if (value === undefined || value === null || value === "") return fb;
+    const n = Number(value);
+    return Number.isFinite(n) && n >= 0 ? n : fb;
+  };
+  return { slots: Math.round(read(preset?.inventorySlots, fallback.slots)), carry: read(preset?.carryBase, fallback.carry) };
+}
+
+/** Quantos slots uma quantidade ocupa em pilhas de `stackSize` (0 itens = 0 slots). Pura. */
+export function stackCount(quantity, stackSize) {
+  const q = Math.max(0, Math.floor(Number(quantity) || 0));
+  if (!q) return 0;
+  const size = Math.max(1, Math.floor(Number(stackSize) || MEU_SISTEMA.ITEM_STACK_DEFAULT));
+  return Math.ceil(q / size);
+}
+
+/**
+ * Carga de um inventário. `entries`: Itens ({id, quantity, stackSize, weight, containerId,
+ * isContainer}); `containers`: contêineres disponíveis ({id, slots, unlimited, weightReduction}),
+ * de Item ou de Skill. Um contêiner ocupa sempre 1 slot de quem o carrega; o que está dentro
+ * ocupa os slots dele e pesa menos pela redução. Id de contêiner que não existe = solto. Pura.
+ * @returns {{looseSlots: number, weight: number, byContainer: Object<string, {used: number, slots: number, unlimited: boolean}>}}
+ */
+export function inventoryLoad(entries, containers = []) {
+  const byId = new Map((containers ?? []).map(c => [c.id, c]));
+  const byContainer = {};
+  for (const c of containers ?? []) byContainer[c.id] = { used: 0, slots: Math.max(0, Number(c.slots) || 0), unlimited: Boolean(c.unlimited) };
+  let looseSlots = 0;
+  let weight = 0;
+  for (const e of entries ?? []) {
+    const slots = e.isContainer ? 1 : stackCount(e.quantity, e.stackSize);
+    const ownWeight = Math.max(0, Number(e.weight) || 0) * Math.max(0, Number(e.quantity) || 0);
+    const holder = e.containerId && e.containerId !== e.id ? byId.get(e.containerId) : null;
+    if (holder) {
+      byContainer[holder.id].used += slots;
+      weight += ownWeight * (1 - Math.min(100, Math.max(0, Number(holder.weightReduction) || 0)) / 100);
+    } else {
+      looseSlots += slots;
+      weight += ownWeight;
+    }
+  }
+  return { looseSlots, weight: Math.round(weight * 100) / 100, byContainer };
+}
+
+/** Peso das moedas (quantidade × peso de cada moeda do catálogo). Pura. */
+export function currencyWeight(balances, catalog) {
+  return (catalog ?? []).reduce((sum, c) => sum + (Number(balances?.[c.id]) || 0) * (Number(c.weight) || 0), 0);
+}
+
+/** Carga máxima: base da Espécie + Força × a + Defesa × b + bônus do Mestre (nunca negativa). Pura. */
+export function carryCapacity({ base = 0, strength = 0, defense = 0, bonus = 0 } = {}, { perStrength = 1, perDefense = 0.5 } = {}) {
+  return Math.max(0, Math.round(((Number(base) || 0) + (Number(strength) || 0) * perStrength + (Number(defense) || 0) * perDefense + (Number(bonus) || 0)) * 100) / 100);
+}
+
+/** −% de Deslocamento pelo excesso de peso: 20% acima = 20; o dobro ou mais = 100. Pura. */
+export function encumbrancePenalty(weight, capacity) {
+  const w = Math.max(0, Number(weight) || 0);
+  const cap = Math.max(0, Number(capacity) || 0);
+  if (w <= cap) return 0;
+  if (!cap) return 100;
+  return Math.min(100, Math.round((w / cap - 1) * 100));
+}
+
+/** Slots de um Módulo de Porão: tabela do Porte × multiplicador do Módulo. Pura. */
+export function cargoSlotsFor(moduleSize, multiplier = 1) {
+  return Math.floor((MEU_SISTEMA.CARGO_SLOTS_BY_MODULE_SIZE[moduleSize] ?? 0) * Math.max(0, Number(multiplier ?? 1) || 0));
+}
+
+/** Fator de massa da carga no Motor: 1 + peso ÷ carga de referência do Porte. Pura. */
+export function cargoMassFactor(weight, reference) {
+  const ref = Number(reference) || 0;
+  return ref > 0 ? 1 + Math.max(0, Number(weight) || 0) / ref : 1;
+}
+
+/** Catálogo de Tipos de Munição. */
+export function getAmmoTypes() {
+  return readCatalog("ammoTypesData", MEU_SISTEMA.DEFAULT_AMMO_TYPES).map(a => ({ ...a, label: a.label || a.id }));
+}
+
+/**
+ * A Munição (`item.system.ammo`) serve neste lançador (`module.system`)? Mesmo tipo, lançador que
+ * usa munição e Porte mínimo atendido. Pura.
+ */
+export function ammoFitsLauncher(ammo, launcher) {
+  if (!ammo?.enabled || !launcher?.usesAmmo || !ammo.type) return false;
+  if (!(launcher.ammoTypes ?? []).includes(ammo.type)) return false;
+  if (!ammo.minLauncherSize) return true;
+  return (MEU_SISTEMA.MODULE_SIZE_RANK[launcher.moduleSize] ?? 0) >= (MEU_SISTEMA.MODULE_SIZE_RANK[ammo.minLauncherSize] ?? 0);
+}
+
 /** Catálogo de Classes: `"ship"` (Nave) ou `"vehicle"` (Veículo). */
 export function getVesselClasses(kind) {
   const list = kind === "vehicle"
@@ -1696,8 +1931,102 @@ export function getVesselClasses(kind) {
     evasionMultiplier: Number(c.evasionMultiplier) >= 0 ? Number(c.evasionMultiplier) : 1,
     movementMultiplier: Number(c.movementMultiplier) >= 0 ? Number(c.movementMultiplier) : 1,
     weaponBudgetMultiplier: Number(c.weaponBudgetMultiplier) >= 0 ? Number(c.weaponBudgetMultiplier) : 1,
-    slots: c.slots && typeof c.slots === "object" ? c.slots : {}
+    slots: c.slots && typeof c.slots === "object" ? c.slots : {},
+    // Bônus de Resistência à Penetração por camada e de Endurecimento (%), somados aos dos Módulos.
+    shieldPenResist: Math.max(0, Number(c.shieldPenResist) || 0),
+    cascoPenResist: Math.max(0, Number(c.cascoPenResist) || 0),
+    hardening: Math.max(0, Number(c.hardening) || 0),
+    // Faixa de Porte aceita (ids da lista de Portes do mesmo tipo; vazio = sem limite).
+    minSize: typeof c.minSize === "string" ? c.minSize : "",
+    maxSize: typeof c.maxSize === "string" ? c.maxSize : ""
   }));
+}
+
+/** "ship" (Nave) ou "vehicle" (Veículo) para um Ator, um tipo de Ator ou o próprio kind. */
+export function vesselKind(actorOrType) {
+  const type = typeof actorOrType === "string" ? actorOrType : actorOrType?.type;
+  return type === "vehicle" ? "vehicle" : "ship";
+}
+
+/** Número ≥ 0 (ou o padrão). */
+function nonNegative(value, fallback) {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+
+/**
+ * Catálogo de Portes (`"ship"` ou `"vehicle"`), do menor pro maior, com números saneados. Sem
+ * catálogo salvo, os Portes de Nave (e os mini/pequeno… de Veículo) herdam as casas e a Evasão
+ * que o Mestre já tinha ajustado nas opções antigas de "Movimento e Evasão de naves".
+ */
+export function getVesselSizes(kind) {
+  const isVehicle = kind === "vehicle";
+  const defaults = isVehicle ? MEU_SISTEMA.DEFAULT_VEHICLE_SIZES : MEU_SISTEMA.DEFAULT_SHIP_SIZES;
+  const suffix = { mini: "Mini", pequeno: "Pequeno", medio: "Medio", grande: "Grande", capital: "Capital" };
+  const seeded = defaults.map(s => (suffix[s.id]
+    ? { ...s, move: getFeatureOption("shipManeuver", `shipMove${suffix[s.id]}`), evasion: getFeatureOption("shipManeuver", `shipEvasion${suffix[s.id]}`) }
+    : s));
+  const list = readCatalog(isVehicle ? "vehicleSizesData" : "shipSizesData", seeded);
+  return list.map(s => normalizeVesselSize(s, defaults.find(d => d.id === s.id) ?? defaults[0]));
+}
+
+function normalizeVesselSize(s, base) {
+  return {
+    id: s.id,
+    label: s.label || s.id,
+    rank: Math.min(4, Math.max(0, Math.round(nonNegative(s.rank, base.rank)))),
+    weaponBudget: nonNegative(s.weaponBudget, base.weaponBudget),
+    distributorBaseline: nonNegative(s.distributorBaseline, base.distributorBaseline),
+    conduitCapacitor: nonNegative(s.conduitCapacitor, base.conduitCapacitor),
+    move: nonNegative(s.move, base.move),
+    evasion: nonNegative(s.evasion, base.evasion),
+    massReference: nonNegative(s.massReference, base.massReference) || base.massReference
+  };
+}
+
+/**
+ * Linha do Porte `sizeId` no catálogo do tipo. Id que saiu do catálogo cai no Porte padrão de
+ * mesmo id, senão no primeiro: uma Nave nunca quebra por um Porte apagado, só volta aos números
+ * padrão até o Mestre escolher outro.
+ */
+export function vesselSizeFor(kind, sizeId) {
+  const found = getVesselSizes(kind).find(s => s.id === sizeId);
+  if (found) return found;
+  const defaults = kind === "vehicle" ? MEU_SISTEMA.DEFAULT_VEHICLE_SIZES : MEU_SISTEMA.DEFAULT_SHIP_SIZES;
+  const fallback = defaults.find(s => s.id === sizeId) ?? getVesselSizes(kind)[0] ?? defaults[0];
+  return normalizeVesselSize(fallback, fallback);
+}
+
+/** Rótulo de um Porte (cai no id). */
+export function vesselSizeLabel(kind, sizeId) {
+  return getVesselSizes(kind).find(s => s.id === sizeId)?.label ?? sizeId ?? "";
+}
+
+/**
+ * O Porte `sizeId` cabe na faixa da Classe? `sizes` = a lista de Portes do tipo, em ordem.
+ * Porte ou limite que não está na lista não restringe nada. Pura.
+ */
+export function sizeFitsClass(sizeId, vesselClass, sizes) {
+  if (!vesselClass) return true;
+  const ids = (sizes ?? []).map(s => s.id);
+  const index = ids.indexOf(sizeId);
+  if (index < 0) return true;
+  const min = vesselClass.minSize ? ids.indexOf(vesselClass.minSize) : -1;
+  const max = vesselClass.maxSize ? ids.indexOf(vesselClass.maxSize) : -1;
+  if (min >= 0 && index < min) return false;
+  if (max >= 0 && index > max) return false;
+  return true;
+}
+
+/** "até Pequeno", "a partir de Grande", "de Médio a Grande" ou "" (sem limite). Pura. */
+export function describeClassSizeRange(vesselClass, sizes) {
+  const label = id => (sizes ?? []).find(s => s.id === id)?.label ?? "";
+  const min = vesselClass?.minSize ? label(vesselClass.minSize) : "";
+  const max = vesselClass?.maxSize ? label(vesselClass.maxSize) : "";
+  if (min && max) return min === max ? `só ${min}` : `de ${min} a ${max}`;
+  if (max) return `até ${max}`;
+  if (min) return `a partir de ${min}`;
+  return "";
 }
 
 /**
@@ -1726,8 +2055,74 @@ export function getStructures() {
     blocksSight: Boolean(s.blocksSight),
     color: s.color || "#9aa1c2",
     // Luz opcional (Barreira de energia com Campo de Energia etc.) — ver lights.js.
-    light: normalizeLightConfig(s.light)
+    light: normalizeLightConfig(s.light),
+    // Segura golpes entre quem ataca e o alvo? Campo antimagia e Muralha de Fogo não seguram.
+    blocksAttacks: s.blocksAttacks !== false,
+    // Elementos da Estrutura (Parede de Gelo = Gelo): o golpe contra ela segue "Dano extra contra
+    // elemento" dos elementos de quem ataca, e o dano de contato é desses elementos.
+    elements: Array.isArray(s.elements) ? s.elements.filter(e => typeof e === "string" && e) : [],
+    magic: Boolean(s.magic),
+    antimagicLevel: Math.max(0, Math.round(Number(s.antimagicLevel) || 0)),
+    contactDamage: typeof s.contactDamage === "string" ? s.contactDamage.trim() : ""
   }));
+}
+
+/* ------------------------------------------------------------------ Antimagia */
+
+/** Opções da marca "Mágica" de uma Skill. Automático = custa Mana (a energia do personagem). */
+export const MAGIC_TAG_LABELS = { auto: "Automático", magic: "Sim", mundane: "Não" };
+
+/**
+ * A Skill/arma é mágica? Marca explícita manda; no Automático, é mágica quando custa a energia do
+ * personagem (Custo ou Custo por rodada) ou tem Dano Mágico. Nave/Veículo nunca (paga com a
+ * Bateria). Pura (só lê os campos).
+ */
+export function isMagicUse(mech, actor) {
+  if (!mech) return false;
+  if (mech.magicTag === "magic") return true;
+  if (mech.magicTag === "mundane") return false;
+  if (["starship", "vehicle"].includes(actor?.type)) return false;
+  return (Number(mech.cost) || 0) > 0 || (Boolean(mech.hasUpkeep) && (Number(mech.upkeepCost) || 0) > 0) || Boolean(mech.isMagicDamage);
+}
+
+/**
+ * Custo extra de uma magia sob antimagia de nível `level`: `(custo + base) × (crescimento^nível − 1)`,
+ * arredondado pra cima. Nível 0 = 0. Com os padrões (base 10, ×2): uma magia de custo 20 paga +30
+ * no nível 1, +90 no 2, +210 no 3. Pura.
+ */
+export function antimagicSurcharge(cost, level, { base = 10, growth = 2 } = {}) {
+  const lvl = Math.max(0, Math.round(Number(level) || 0));
+  if (!lvl) return 0;
+  const g = Math.max(1, Number(growth) || 1);
+  return Math.ceil((Math.max(0, Number(cost) || 0) + Math.max(0, Number(base) || 0)) * (g ** lvl - 1));
+}
+
+/** Números da antimagia (Regras da Mesa), com os padrões. */
+export function getAntimagicConfig() {
+  const read = (key, fallback) => {
+    try {
+      const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[key]));
+      return Number.isFinite(value) ? value : fallback;
+    } catch (err) {
+      return fallback;
+    }
+  };
+  return { base: Math.max(0, read("antimagicBase", 10)), growth: Math.max(1, read("antimagicGrowth", 2)) };
+}
+
+/** Nível do "Selo antimagia" que o próprio Ator carrega (a maior Condição ativa com antimagia). */
+export function actorAntimagicLevel(actor) {
+  const sealed = getActiveStatusConditions().filter(c => Number(c.antimagicLevel) > 0);
+  if (!sealed.length || !actor?.effects) return 0;
+  let level = 0;
+  for (const effect of actor.effects) {
+    if (effect.disabled) continue;
+    for (const status of effect.statuses ?? []) {
+      const condition = sealed.find(c => c.id === status);
+      if (condition) level = Math.max(level, Number(condition.antimagicLevel) || 0);
+    }
+  }
+  return level;
 }
 
 export function isStructuresEnabled() {
@@ -1758,6 +2153,77 @@ export function normalizeLightConfig(raw) {
     animation: typeof raw.animation === "string" ? raw.animation : "",
     speed: Math.round(num(raw.speed, 5, 1, 10)),
     intensity: Math.round(num(raw.intensity, 5, 1, 10))
+  };
+}
+
+/**
+ * Força de uma Skill que aceita variar a Mana, dado `r` = Mana investida ÷ Custo. Abaixo do Custo
+ * é proporcional (metade da Mana, metade da força); acima, `r^k` com 0 < k ≤ 1 — sem teto (o
+ * personagem "tudo numa explosão" é recompensado), mas cada Mana a mais rende menos que a
+ * anterior: o ganho de uma Mana extra tende a zero, e o golpe gigante é ineficiente por Mana.
+ */
+export function manaInvestmentPower(ratio, exponent = 0.75) {
+  const r = Math.max(0, Number(ratio) || 0);
+  const k = Math.min(1, Math.max(0.05, Number(exponent) || 0.75));
+  return r < 1 ? r : Math.pow(r, k);
+}
+
+/**
+ * Quanto um Raio Trator segura um alvo (0-1 do deslocamento dele tirado), pela diferença entre o
+ * Porte do alvo e o Porte do Módulo (os dois na mesma régua 0-4): mesmo Porte ou menor 100%, um
+ * acima 50%, dois 25%, mais que isso nada. O throttle multiplica (sobrecarregar segura mais, até
+ * 100%). Pura.
+ */
+export function tractorHold(moduleRank, targetRank, throttleRatio = 1) {
+  const diff = Math.round(Number(targetRank) || 0) - Math.round(Number(moduleRank) || 0);
+  const base = diff <= 0 ? 1 : diff === 1 ? 0.5 : diff === 2 ? 0.25 : 0;
+  return Math.min(1, Math.max(0, base * Math.max(0, Number(throttleRatio) || 0)));
+}
+
+/** Números das ações e do foco de energia da Nave (Regras da Mesa), com os padrões. */
+export function getShipActionConfig() {
+  const read = (key, fallback) => {
+    try {
+      const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[key]));
+      return Number.isFinite(value) ? value : fallback;
+    } catch (err) {
+      return fallback;
+    }
+  };
+  return {
+    bracePercent: Math.min(95, Math.max(0, read("shipBracePercent", 30))),
+    focusBoost: Math.max(100, read("shipFocusBoost", 150)),
+    focusCut: Math.min(100, Math.max(0, read("shipFocusCut", 75)))
+  };
+}
+
+/** "Mirar num sistema": perguntar ao atacar Nave, e a fatia (0-1) que vai pro Módulo mirado. */
+export function getShipTargetingConfig() {
+  let ask = true;
+  let share = 0.75;
+  try {
+    ask = Boolean(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.shipTargetAsk));
+    const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.shipTargetShare));
+    if (Number.isFinite(value)) share = Math.min(1, Math.max(0, value / 100));
+  } catch (err) {
+    /* setting ainda não registrada — padrão */
+  }
+  return { ask, share };
+}
+
+/** Expoente e mínimo (% do Custo) da Mana variável, com os padrões quando a setting falta. */
+export function getManaInvestConfig() {
+  const read = (key, fallback) => {
+    try {
+      const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[key]));
+      return Number.isFinite(value) ? value : fallback;
+    } catch (err) {
+      return fallback;
+    }
+  };
+  return {
+    exponent: Math.min(1, Math.max(0.05, read("manaInvestExponent", 0.75))),
+    minPercent: Math.max(0, read("manaInvestMinPercent", 25))
   };
 }
 
@@ -2232,17 +2698,9 @@ export function shipEvasionFraction(basePercent, ratio, capPercent) {
   return Math.min(Math.max(0, basePercent * ratio), Math.max(0, capPercent)) / 100;
 }
 
-const SHIP_SIZE_SUFFIX = { mini: "Mini", pequeno: "Pequeno", medio: "Medio", grande: "Grande", capital: "Capital" };
-
-/** Movimento e Evasão base por Porte de nave, mais o teto de Evasão (todos editáveis no menu). */
+/** Teto de Evasão das naves (%). As casas e a Evasão base ficam em cada Porte (`getVesselSizes`). */
 export function getShipManeuverConfig() {
-  const movement = {};
-  const evasion = {};
-  for (const [size, suffix] of Object.entries(SHIP_SIZE_SUFFIX)) {
-    movement[size] = getFeatureOption("shipManeuver", `shipMove${suffix}`);
-    evasion[size] = getFeatureOption("shipManeuver", `shipEvasion${suffix}`);
-  }
-  return { movement, evasion, evasionCap: getFeatureOption("shipManeuver", "shipEvasionCap") };
+  return { evasionCap: getFeatureOption("shipManeuver", "shipEvasionCap") };
 }
 
 /** Texto da ficha para um resultado de `movementAllowance`: o total e de onde ele vem. */
@@ -2480,6 +2938,87 @@ export function registerSystemSettings() {
     type: Number,
     default: 10,
     requiresReload: true
+  });
+
+  game.settings.register(SYSTEM_ID, S.manaInvestExponent, {
+    name: "Custo variável — Expoente",
+    hint: "Numa Skill que aceita variar o investimento de energia (Mana, Ki… o nome da sua campanha), investir r vezes o Custo dá força r^expoente (abaixo do Custo é proporcional). Entre 0 e 1: quanto menor, mais cada ponto extra perde valor. Padrão 0,75 (10× o Custo = ×5,6; 40× = ×15,9). Sem teto.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 0.75
+  });
+
+  game.settings.register(SYSTEM_ID, S.manaInvestMinPercent, {
+    name: "Custo variável — Mínimo (% do Custo)",
+    hint: "O menos que se pode investir numa Skill que aceita variar o investimento de energia, em % do Custo dela. Padrão 25%.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 25
+  });
+
+  game.settings.register(SYSTEM_ID, S.shipTargetAsk, {
+    name: "Naves — Perguntar sistema-alvo ao atacar",
+    hint: "Ao atacar uma Nave/Veículo com alvo único, pergunta se quer mirar num Módulo (Motor, Armas, Escudo…). Desligado, o dano de Integridade sempre se espalha.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
+  game.settings.register(SYSTEM_ID, S.shipTargetShare, {
+    name: "Naves — Fatia no sistema mirado (%)",
+    hint: "Quanto do dano de Integridade Estrutural vai pro Módulo mirado (até a Vida dele); o resto se espalha. Padrão 75%.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 75
+  });
+
+  game.settings.register(SYSTEM_ID, S.antimagicBase, {
+    name: "Antimagia — Base do custo extra",
+    hint: "Magia sob antimagia paga (Custo da Skill + esta base) × (crescimento^nível − 1) a mais, na hora (ou por rodada, se for contínua). Não tem como pagar: é anulada. Padrão 10.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 10
+  });
+
+  game.settings.register(SYSTEM_ID, S.antimagicGrowth, {
+    name: "Antimagia — Crescimento por nível",
+    hint: "Quanto o custo extra multiplica a cada nível de antimagia. Padrão 2: nível 1 = ×1, nível 2 = ×3, nível 3 = ×7 sobre (Custo + base).",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 2
+  });
+
+  game.settings.register(SYSTEM_ID, S.shipBracePercent, {
+    name: "Naves — Preparar para impacto (%)",
+    hint: "Ação da Nave: quanto do dano recebido é tirado até o próximo turno dela (antes do Escudo; não vale contra Dano Absoluto). Padrão 30%.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 30
+  });
+
+  game.settings.register(SYSTEM_ID, S.shipFocusBoost, {
+    name: "Naves — Foco de energia: sistema em foco (%)",
+    hint: "Atalho Escudos/Armas/Motores: o throttle dos Módulos daquele sistema sobe pra este valor (nunca acima do ponto em que a Sobrecarga começa) e eles vão pra prioridade P1. Padrão 150%.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 150
+  });
+
+  game.settings.register(SYSTEM_ID, S.shipFocusCut, {
+    name: "Naves — Foco de energia: os outros dois sistemas (%)",
+    hint: "Atalho Escudos/Armas/Motores: o throttle dos outros dois sistemas cai pra este valor e eles vão pra P3. Padrão 75%.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 75
   });
 
   game.settings.register(SYSTEM_ID, S.skillPowerPerLevel, {
@@ -2768,7 +3307,7 @@ export function registerSystemSettings() {
   });
 
   // Catálogos de Nave (vazio = padrão do código; ver readCatalog).
-  for (const key of ["moduleCategoriesData", "shipClassesData", "vehicleClassesData", "crewRolesData", "structuresData"]) {
+  for (const key of ["moduleCategoriesData", "shipClassesData", "vehicleClassesData", "shipSizesData", "vehicleSizesData", "ammoTypesData", "crewRolesData", "structuresData"]) {
     game.settings.register(SYSTEM_ID, S[key], { scope: "world", config: false, type: String, default: "" });
   }
 

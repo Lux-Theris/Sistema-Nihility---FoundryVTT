@@ -28,19 +28,39 @@ import {
   actorScaleIndex,
   isStructureMechanic,
   scaleIndexOf,
-  combatantIsActor
+  combatantIsActor,
+  manaInvestmentPower,
+  getManaInvestConfig,
+  getShipTargetingConfig,
+  moduleCategoryLabel,
+  isMagicUse,
+  antimagicSurcharge,
+  getAntimagicConfig,
+  ammoFitsLauncher
 } from "./config.js";
 import { runAsGm } from "./helpers/gm-relay.js";
 import { createZoneTemplate, removeZonesFor, zonesOnScene, zoneContainsToken } from "./area-effects.js";
 import { announceVoiceOfTheWorld } from "./voice-of-the-world.js";
 import { playSkillAnimation } from "./vfx.js";
 import { damageApplyFlags } from "./damage-apply.js";
-import { applyStructuralDamage } from "./starship-power.js";
+import { applyStructuralDamage, applyTargetedStructuralDamage, damageCasco, repairModules, applyShipSystemEffect, addShipSystemEffect, clearShieldAdaptation } from "./starship-power.js";
 import { applyAdvantageToFormula, applyRollModifiers, describeRollOptions, normalizeRollOptions } from "./roll-modifiers.js";
-import { splitDamageParts, resolveDamageParts, scaleMultiplier, resolveConditionEffect, refreshReapplication, rollChance } from "./damage-rules.js";
+import {
+  splitDamageParts,
+  resolveDamageParts,
+  scaleMultiplier,
+  resolveConditionEffect,
+  refreshReapplication,
+  rollChance,
+  resolveShipCascade,
+  adaptShield
+} from "./damage-rules.js";
 import { conditionalBonus } from "./conditional-context.js";
-import { requestStructure, removeStructuresFor, interceptingStructure, hitStructure } from "./structures.js";
+import { requestStructure, removeStructuresFor, interceptingStructure, hitStructure, antimagicLevelBetween, antimagicLevelAt } from "./structures.js";
 import { requestShieldLight } from "./lights.js";
+import { promptManaInvestment } from "./apps/mana-invest-dialog.js";
+import { addShieldToPool, removeShieldPool } from "./shield-pools.js";
+import { effectModes, buildEffectChanges, createActiveEffects } from "./helpers/foundry-compat.js";
 
 const EFFECT_TARGET_PATHS = {
   strength: "system.attributes.combat.strength.buffDelta",
@@ -89,7 +109,7 @@ const SHIP_PERCENT_PATHS = {
  * @returns {{key:string, mode:number, value:string, isMultiplier:boolean}|null}
  */
 function resolveEffectChange(entry, targetActor) {
-  const M = CONST.ACTIVE_EFFECT_MODES;
+  const M = effectModes();
   const ship = isShipLike(targetActor);
   const amount = Number(entry.amount) || 0;
   const multiplier = entry.modifierType === "multiplier";
@@ -129,9 +149,37 @@ function resolveEffectChange(entry, targetActor) {
   return path && !ship ? { key: path, mode: M.ADD, value: String(amount), isMultiplier: false } : null;
 }
 
+/**
+ * Nome, em palavras, do campo que uma mudança de Active Effect mexe ("Força", "Dano das armas",
+ * "Escudo da Nave %"…), pra janela de Efeitos. Campo desconhecido volta como está.
+ */
+export function describeEffectChangeKey(key) {
+  const labels = getEffectTargetLabels();
+  for (const [target, path] of Object.entries(EFFECT_TARGET_PATHS)) if (path === key) return labels[target] ?? target;
+  for (const [target, path] of Object.entries(SHIP_PERCENT_PATHS)) if (path === key) return labels[target] ?? target;
+  for (const [target, paths] of Object.entries(SHIP_TARGET_PATHS)) if (Object.values(paths).includes(key)) return labels[target] ?? target;
+  const weapon = {
+    damageFlat: "Dano das armas",
+    damageMultiplier: "Dano das armas",
+    weaponDamageFlat: "Dano das armas",
+    weaponDamageMultiplier: "Dano das armas",
+    elementOverride: "Elemento das armas",
+    weaponElementOverride: "Elemento das armas",
+    forceMagic: "Armas causam dano Mágico",
+    absolute: "Armas causam Dano Absoluto",
+    weaponAbsolute: "Armas causam Dano Absoluto"
+  };
+  return weapon[String(key).split(".").pop()] ?? key;
+}
+
 /** Caminho de update pro flag `active` — top-level ou dentro de um Sub-Skill específico. */
 function activeStatePath(subSkillIndex) {
   return subSkillIndex != null ? `system.subSkills.${subSkillIndex}.active` : "system.active";
+}
+
+/** Caminho da razão de Mana investida (Mana variável) da Skill ou Sub-Skill. */
+function investRatioPath(subSkillIndex) {
+  return subSkillIndex != null ? `system.subSkills.${subSkillIndex}.investRatio` : "system.investRatio";
 }
 
 /**
@@ -188,6 +236,8 @@ async function removeUpkeepLinkedEffects(skill, subSkillIndex) {
   // Zona e Estrutura mantidas por esta Skill Ativa somem junto com ela.
   if (skill.parent) await removeZonesFor(skill.parent, skill.id, subSkillIndex);
   if (skill.parent) await removeStructuresFor(skill.parent, skill.id, subSkillIndex);
+  // Escudo mantido por esta Skill: as camadas somem (até o teto) de quem as recebeu.
+  if (skill.parent) await dropSustainedShields(skill.parent, skill.id, subSkillIndex);
   // Luz de Escudo que esta Skill acendeu é APAGADA (o Token volta à luz de antes), não desligada.
   if (skill.parent) await runAsGm("clearShieldLights", { actorUuid: skill.parent.uuid, skillId: skill.id, subSkillIndex: subSkillIndex ?? null });
 
@@ -268,20 +318,55 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
   // O Custo escrito na Skill é o do nível 1; o ciclo de nível vai descontando dele (ver
   // skillLevelBonuses em config.js). Sub-Skill usa o nível dela própria, não o da Skill-mãe.
   const cost = chargesEnergy ? effectiveSkillCost(mech.cost, mech.level) : 0;
-  if (cost > 0) {
-    const current = currentEnergyValue(sourceActor);
-    if (current < cost) {
-      await warnInsufficientEnergy(sourceActor, label, cost);
+
+  // Mana variável: quem usa escolhe quanto investir (sem teto; mínimo nas Regras da Mesa), e a
+  // força da Skill segue `manaInvestmentPower`. Só pra quem paga com Mana (Nave paga com a Bateria).
+  let paid = cost;
+  let investRatio = 1;
+  const investConfig = getManaInvestConfig();
+  if (cost > 0 && mech.variableMana && !isShipLike(sourceActor)) {
+    const available = currentEnergyValue(sourceActor);
+    const minimum = Math.max(1, Math.ceil((cost * investConfig.minPercent) / 100));
+    if (available < minimum) {
+      await warnInsufficientEnergy(sourceActor, label, minimum);
       return null;
     }
-    await sourceActor.update({ [energyValuePath(sourceActor)]: current - cost });
-  }
-  if (mech.hasUpkeep) {
-    await skill.update({ [activeStatePath(options.subSkillIndex)]: true });
+    const invested =
+      options.manaInvested ??
+      (await promptManaInvestment({
+        label,
+        cost,
+        available,
+        minimum,
+        exponent: investConfig.exponent,
+        energyLabel: getEnergyLabelForActor(sourceActor)
+      }));
+    if (invested == null) return null;
+    paid = invested;
+    investRatio = invested / cost;
   }
 
-  // Dispara e esquece — nunca aguardado, a animação não deve atrasar a mecânica/chat.
-  playSkillAnimation(sourceActor, mech, { targetActor: options.targetActor ?? options.targetActors?.[0] ?? null });
+  if (paid > 0) {
+    const current = currentEnergyValue(sourceActor);
+    if (current < paid) {
+      await warnInsufficientEnergy(sourceActor, label, paid);
+      return null;
+    }
+    await sourceActor.update({ [energyValuePath(sourceActor)]: current - paid });
+  }
+  if (mech.hasUpkeep) {
+    // A razão investida fica guardada: o Custo por rodada é cobrado vezes ela enquanto ligada.
+    await skill.update({ [activeStatePath(options.subSkillIndex)]: true, [investRatioPath(options.subSkillIndex)]: investRatio });
+  }
+  // Daqui pra frente a Skill carrega a força do investimento (dano, Efeitos, Vida de Estrutura).
+  const investPower = manaInvestmentPower(investRatio, investConfig.exponent);
+  if (investPower !== 1) mech = { ...(typeof mech.toObject === "function" ? mech.toObject() : mech), investPower };
+
+  // Dispara e esquece — nunca aguardado, a animação não deve atrasar a mecânica/chat. Dano em alvo
+  // único toca a animação dentro de `rollSkillDamage`, que sabe se uma Estrutura segurou o golpe
+  // (a animação para na parede) e se sobrou dano pra seguir até o alvo.
+  const damagesOneTarget = mech.effectType === "damage" && mech.targetType !== "emission" && mech.targetType !== "zone" && !isStructureMechanic(mech);
+  if (!damagesOneTarget) playSkillAnimation(sourceActor, mech, { targetActor: options.targetActor ?? options.targetActors?.[0] ?? null });
 
   if (isStructureMechanic(mech)) {
     // Estrutura: a Skill ergue parede/bloco no mapa (ver structures.js). Sem mapa, só o cartão.
@@ -292,7 +377,8 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
       structureId: mech.structureId,
       placement: options.structurePlacement ?? null,
       untilDeactivated: mech.hasUpkeep,
-      label
+      label,
+      power: mech.investPower ?? 1
     });
   }
 
@@ -552,12 +638,6 @@ function shipWeaponPenetration(sourceActor, weaponModule = null) {
   return Math.clamp(base * (bonuses?.weaponPenetrationMultiplier ?? 1) + (bonuses?.weaponPenetrationFlat ?? 0) / 100, 0, 1);
 }
 
-/** Absorve `amount` num pool (capado no que resta) — retorna quanto foi absorvido e quanto vazou pro próximo estágio. */
-function absorbIntoPool(amount, poolValue) {
-  const absorbed = Math.min(poolValue, amount);
-  return { absorbed, leaked: amount - absorbed };
-}
-
 /**
  * Cascata de dano de 3 camadas pra Nave/Veículo (Overhaul de Naves, Fase 4): Escudo → Casco →
  * Estrutura, cada separação usando a MESMA Penetração% da arma atacante (`shipWeaponPenetration`)
@@ -576,94 +656,142 @@ function absorbIntoPool(amount, poolValue) {
  * @returns {{toShield:number, toCasco:number, toHull:number, appliedReductions:string[]}}
  */
 async function applyStarshipDamageCascade(rawDamage, sourceActor, targetActor, weaponModule = null, extras = {}) {
-  // Evasão: a nave desvia de parte do tiro antes de qualquer camada (ver `evasion` em
-  // starship-model.js). Vem antes da Penetração porque é o tiro que não chega, não a defesa.
-  // Vale até contra Dano Absoluto: ele não pode ser resistido, mas pode ser desviado.
-  const evasion = targetActor.system.evasion ?? 0;
-  if (evasion > 0) rawDamage = Math.floor(rawDamage * (1 - evasion));
-  // Bônus do elemento contra os Traços da Nave (ex.: Pólaron contra uma nave Orgânica).
-  if (extras.bonus > 0) rawDamage = Math.floor(rawDamage * (1 + extras.bonus));
-
-  // Dano Absoluto: o que acerta passa por Escudo e Casco direto pra Integridade Estrutural.
-  if (extras.absolute) {
-    const toHull = Math.max(0, Math.floor(rawDamage));
-    const structuralHits = toHull > 0 ? await applyStructuralDamage(targetActor, toHull) : [];
-    return { toShield: 0, toCasco: 0, toHull, structuralHits, appliedReductions: evasion > 0 ? [`Evasão ${Math.round(evasion * 100)}%`] : [] };
-  }
-
+  const sys = targetActor.system;
+  const evasion = sys.evasion ?? 0;
+  const layers = extras.layers ?? {};
+  // "Mirar num sistema": quem ataca escolhe um Módulo do alvo (ou nenhum). Área não pergunta.
+  const targetModuleId = extras.targetModuleId ?? (extras.askModule ? await promptTargetModule(targetActor) : null);
   const penetration = Math.min(1, shipWeaponPenetration(sourceActor, weaponModule) + (extras.penetration || 0));
-  const cascoHasProtection = targetActor.system.casco.value > 0;
-  const armorReduction = cascoHasProtection ? (targetActor.system.armorReductionPercent ?? 0) : 0;
+  const cascoValue = sys.casco.value;
+  const armorReduction = cascoValue > 0 ? sys.armorReductionPercent ?? 0 : 0;
+  const damageReduction = sys.incomingDamageReduction ?? 0;
+  // Escudo adaptativo: frequência das armas de quem atacou (muda com "Modular frequência").
+  const frequency = Number(sourceActor?.getFlag?.(SYSTEM_ID, "weaponFrequency")) || 0;
+  const elementIds = extras.elementIds ?? [];
+  const adaptation = sys.shieldAdaptationAgainst?.(elementIds, frequency) ?? 0;
+
+  // A conta inteira é pura e testada (resolveShipCascade em damage-rules.js); aqui só se grava.
+  const { toShield, toCasco, toHull, adapted } = resolveShipCascade({
+    damage: rawDamage,
+    evasion,
+    damageReduction,
+    absolute: Boolean(extras.absolute),
+    bonus: extras.bonus,
+    penetration,
+    shield: {
+      value: sys.shields.value,
+      penResist: sys.shieldPenetrationResist ?? 0,
+      adaptation,
+      // O "Dano extra em Escudo" antigo (Táquion) entra como % de Escudo também.
+      multiplier: Math.max(0, 1 + (layers.shield || 0) + (extras.shieldDrain || 0))
+    },
+    casco: {
+      value: cascoValue,
+      reduction: armorReduction,
+      penResist: sys.cascoPenetrationResist ?? 0,
+      multiplier: Math.max(0, 1 + (layers.casco || 0))
+    },
+    hullMultiplier: Math.max(0, 1 + (layers.hull || 0))
+  });
+
   const appliedReductions = [];
   if (evasion > 0) appliedReductions.push(`Evasão ${Math.round(evasion * 100)}%`);
-  if (penetration > 0) appliedReductions.push(`Penetração ${Math.round(penetration * 100)}%`);
-  if (armorReduction > 0) appliedReductions.push(`Redução de Casco ${Math.round(armorReduction * 100)}%`);
+  if (!extras.absolute) {
+    if (damageReduction > 0) appliedReductions.push(`Preparar para impacto ${Math.round(damageReduction * 100)}%`);
+    if (penetration > 0) appliedReductions.push(`Penetração ${Math.round(penetration * 100)}%`);
+    if (armorReduction > 0) appliedReductions.push(`Redução de Casco ${Math.round(armorReduction * 100)}%`);
+    if (adapted > 0) appliedReductions.push(`Escudo adaptado ${Math.round(adaptation * 100)}%`);
+  }
 
-  const updates = {};
-
-  // 1) Escudo — separado pela Penetração; o que não penetrou tenta ser absorvido pelo Escudo
-  // (capado no que resta), o resto (penetrado + excedente) vaza pro Casco.
-  // Dreno de Escudo (Táquion): dano EXTRA que só existe contra a camada de Escudo — bate
-  // primeiro e nunca vaza pra dentro.
-  const drain = Math.min(targetActor.system.shields.value, Math.floor(rawDamage * (extras.shieldDrain || 0)));
-  const shieldLeft = targetActor.system.shields.value - drain;
-  const shieldTargeted = Math.floor(rawDamage * (1 - penetration));
-  const shieldBypass = Math.floor(rawDamage) - shieldTargeted;
-  const { absorbed, leaked: shieldOverflow } = absorbIntoPool(shieldTargeted, shieldLeft);
-  const toShield = drain + absorbed;
-  let remaining = shieldBypass + shieldOverflow;
-
+  // 1) Escudo
   if (toShield > 0) {
-    const newShieldValue = targetActor.system.shields.value - toShield;
-    updates["system.shields.value"] = newShieldValue;
+    const newShieldValue = Math.max(0, sys.shields.value - toShield);
+    const updates = { "system.shields.value": newShieldValue };
     if (newShieldValue <= 0) {
       // Com vários Escudos, vale a Recarga mais longa entre eles.
-      updates["system.shields.rechargeRemaining"] = Math.max(0, ...targetActor.system.modulesByRole("shield").map(m => m.system.shieldRechargeRounds ?? 0));
+      updates["system.shields.rechargeRemaining"] = Math.max(0, ...sys.modulesByRole("shield").map(m => m.system.shieldRechargeRounds ?? 0));
     }
+    await targetActor.update(updates);
+  }
+  // Escudo adaptativo: caiu → perde toda a adaptação; de pé e atingido → aprende este golpe.
+  if (!extras.absolute && sys.shields.value > 0) {
+    if (sys.shields.value - toShield <= 0) await clearShieldAdaptation(targetActor);
+    else await adaptShieldsToHit(targetActor, elementIds, frequency);
   }
 
-  // 2) Casco — primeiro reduzido pela Redução% do Módulo, DEPOIS separado de novo pela mesma
-  // Penetração; o que não penetrou tenta ser absorvido pelo Casco (capado no que resta), o
-  // resto vaza pra Estrutura.
-  let toCasco = 0;
-  if (remaining > 0) {
-    const afterReduction = Math.floor(remaining * (1 - armorReduction));
-    const cascoTargeted = Math.floor(afterReduction * (1 - penetration));
-    const cascoBypass = afterReduction - cascoTargeted;
-    const { absorbed, leaked } = absorbIntoPool(cascoTargeted, targetActor.system.casco.value);
-    toCasco = absorbed;
-    remaining = cascoBypass + leaked;
-    // O Casco NÃO é um pool próprio: ele é a Vida do Módulo de armadura. Danificar o Casco é
-    // danificar aquele Módulo — por isso a escrita vai no Item, não no Ator.
-    if (toCasco > 0) {
-      // Várias Blindagens: uma de cada vez, a mais danificada primeiro (a mais inteira por último).
-      const armors = targetActor.system
-        .modulesByRole("armor")
-        .filter(m => (m.system.hp?.value ?? 0) > 0)
-        .sort((a, b) => targetActor.system.integrityRatioFor(a) - targetActor.system.integrityRatioFor(b));
-      let left = toCasco;
-      const armorUpdates = [];
-      for (const armor of armors) {
-        if (left <= 0) break;
-        const take = Math.min(left, armor.system.hp.value);
-        armorUpdates.push({ _id: armor.id, "system.hp.value": armor.system.hp.value - take });
-        left -= take;
-      }
-      if (armorUpdates.length) await targetActor.updateEmbeddedDocuments("Item", armorUpdates);
-    }
+  // 2) Casco — é a Vida dos Módulos de Blindagem (a mais danificada primeiro).
+  if (toCasco > 0) await damageCasco(targetActor, toCasco);
+
+  // 3) Integridade Estrutural — a Vida dos Módulos, espalhada; com um Módulo mirado, a maior
+  // parte vai nele (ver applyTargetedStructuralDamage).
+  let structuralHits = [];
+  if (toHull > 0) {
+    structuralHits = targetModuleId
+      ? await applyTargetedStructuralDamage(targetActor, toHull, targetModuleId, getShipTargetingConfig().share)
+      : await applyStructuralDamage(targetActor, toHull);
   }
 
-  // 3) Integridade Estrutural — o que sobrou, sem redução própria. Também não é um pool: é a
-  // Vida dos Módulos, e o dano se ESPALHA entre eles em pedaços aleatórios (ver
-  // splitStructuralDamage em starship-power.js). Escudo e Arma recebem esse dano na Vida do
-  // próprio Módulo mesmo ficando fora da SOMA da Integridade; só o Casco fica imune aqui,
-  // porque já absorveu a parte dele no estágio 2.
-  const toHull = Math.max(0, remaining);
-  const structuralHits = toHull > 0 ? await applyStructuralDamage(targetActor, toHull) : [];
+  // Efeitos de sistema do elemento (derrubar Módulo, drenar energia, baixar resistência): só com
+  // a parte do golpe que PASSOU do Escudo — Escudo de pé é a primeira defesa contra eles.
+  const systemEffects = [];
+  if ((toCasco + toHull) > 0) {
+    for (const effect of extras.shipEffects ?? []) {
+      const text = await applyShipSystemEffect(targetActor, effect, { targetModuleId, label: effect.elementLabel });
+      if (text) systemEffects.push(text);
+    }
+  }
+  // Condições do elemento (Queimadura de Plasma…) também só com o que passou do Escudo; numa Nave o
+  // tick de "Vida" vira Integridade (ver applyEffectsToActor).
+  if ((toCasco + toHull) > 0) {
+    const triggered = (extras.conditions ?? [])
+      .filter(c => rollChance(c.chance))
+      .map(c => ({ conditionId: c.conditionId, hitDamage: toCasco + toHull }));
+    if (triggered.length) {
+      await applyTriggeredConditions(targetActor, triggered, { label: sourceActor?.name ?? "" });
+      systemEffects.push(triggeredLabel(triggered).replace(/^ — /, ""));
+    }
+  }
+  if (systemEffects.length) structuralHits.push(...systemEffects.map(text => ({ name: text, damage: null })));
 
-  if (Object.keys(updates).length) await targetActor.update(updates);
+  return { toShield, toCasco, toHull, structuralHits, appliedReductions, targetModuleId };
+}
 
-  return { toShield, toCasco, toHull, structuralHits, appliedReductions };
+/** Cada Escudo adaptativo ligado aprende o golpe (elemento + frequência), até o teto dele. */
+async function adaptShieldsToHit(ship, elementIds, frequency) {
+  for (const module of ship.system.modulesByRole("shield")) {
+    if (!module.system.adaptive || module.system.status !== "online") continue;
+    const next = adaptShield(module.getFlag(SYSTEM_ID, "shieldAdaptation"), elementIds, frequency, module.system.adaptStep, module.system.adaptCap);
+    await module.setFlag(SYSTEM_ID, "shieldAdaptation", next);
+  }
+}
+
+/**
+ * "Mirar num sistema?" — ao atacar uma Nave com alvo único. Devolve o id do Módulo escolhido ou
+ * `null` (espalhar como sempre). Desligável em Regras da Mesa; cancelar = não mirar.
+ */
+async function promptTargetModule(targetActor) {
+  if (!getShipTargetingConfig().ask) return null;
+  const modules = (targetActor.system.modules ?? []).filter(m => (m.system.hp?.value ?? 0) > 0);
+  if (!modules.length) return null;
+  const { DialogV2 } = foundry.applications.api;
+  const options = modules
+    .map(m => `<option value="${m.id}">${foundry.utils.escapeHTML?.(m.name) ?? m.name} — ${moduleCategoryLabel(m.system.category)} (${m.system.hp.value}/${m.system.hp.max})</option>`)
+    .join("");
+  const chosen = await DialogV2.wait({
+    window: { title: `Mirar num sistema — ${targetActor.name}` },
+    classes: ["nihility-target-module-dialog"],
+    content: `
+      <div class="nihility-target-module">
+        <p>Escolha um Módulo pra concentrar o dano que passar do Escudo e do Casco, ou deixe espalhar.</p>
+        <select name="targetModule"><option value="">Nenhum (espalhar)</option>${options}</select>
+      </div>`,
+    buttons: [
+      { action: "fire", label: "Confirmar", default: true, callback: (event, button, dialog) => dialog.element.querySelector('[name="targetModule"]').value || "" },
+      { action: "cancel", label: "Sem mirar", callback: () => "" }
+    ],
+    rejectClose: false
+  });
+  return typeof chosen === "string" && chosen ? chosen : null;
 }
 
 /**
@@ -683,15 +811,24 @@ export async function fireStarshipWeapon(sourceActor, weaponModule, targetActor 
     ui.notifications?.warn(`${weaponModule.name} está em recarga (${sys.cooldownRemaining} rodada(s) restantes).`);
     return null;
   }
-  const formula = sys.damageFormula?.trim();
+  // Lançador: escolhe a munição compatível no Porão; a fórmula, os elementos e o Absoluto vêm dela.
+  let ammoItem = null;
+  if (sys.usesAmmo) {
+    ammoItem = await pickLauncherAmmo(sourceActor, weaponModule);
+    if (!ammoItem) return null;
+  }
+  const ammo = ammoItem?.system.ammo ?? null;
+  const formula = (ammo?.damageFormula || sys.damageFormula)?.trim();
   if (!formula) {
-    ui.notifications?.warn(`${weaponModule.name} não tem uma Fórmula de Dano configurada.`);
+    ui.notifications?.warn(`${ammoItem?.name ?? weaponModule.name} não tem uma Fórmula de Dano configurada.`);
     return null;
   }
 
   const options = normalizeRollOptions(rollOptions);
   const roll = new Roll(applyAdvantageToFormula(formula, options.advantage));
   await roll.evaluate();
+  // Gasta 1 da pilha (a pilha vazia fica no Porão, com 0, até alguém tirar).
+  if (ammoItem) await ammoItem.update({ "system.quantity": Math.max(0, (Number(ammoItem.system.quantity) || 0) - 1) });
 
   const throttleRatio = (sys.powerAllocationPercent ?? 100) / 100;
   const powerRatio = sourceActor.system.powerRatioFor(weaponModule);
@@ -700,41 +837,47 @@ export async function fireStarshipWeapon(sourceActor, weaponModule, targetActor 
   // Modificadores do shift+clique: depois de throttle e bônus, antes da cascata do alvo.
   const boostedTotal = applyRollModifiers(bonusTotal, options);
 
-  let flavor = `${weaponModule.name} — Dano`;
+  let flavor = `${weaponModule.name}${ammoItem ? ` (${ammoItem.name})` : ""} — Dano`;
   if (Math.floor(bonusTotal) !== roll.total) flavor += ` — throttle/bônus (${roll.total} → ${Math.floor(bonusTotal)})`;
   flavor += modifiersFlavor(options, bonusTotal, boostedTotal);
 
   const shipBonuses = sourceActor.system.combatBonuses ?? {};
   const override = shipBonuses.weaponElementOverride && getDamageElement(shipBonuses.weaponElementOverride) ? shipBonuses.weaponElementOverride : "";
   const mech = {
-    damageElements: override ? [override] : sys.damageElements ?? [],
-    isAbsoluteDamage: Boolean(sys.isAbsoluteDamage) || (shipBonuses.weaponAbsolute ?? 0) > 0,
+    damageElements: override ? [override] : ammo?.damageElements?.length ? ammo.damageElements : sys.damageElements ?? [],
+    isAbsoluteDamage: Boolean(sys.isAbsoluteDamage) || Boolean(ammo?.isAbsoluteDamage) || (shipBonuses.weaponAbsolute ?? 0) > 0,
     isMagicDamage: false
   };
+  const ammoPenetration = (Number(ammo?.penetrationBonus) || 0) / 100;
   let finalDamage = null;
   let messageFlags = {};
   if (targetActor) {
     const scale = damageScaleFor(sourceActor, mech, targetActor);
     if (scale !== 1) flavor += ` — escala ×${formatScale(scale)}`;
-    const blocked = await throughStructures(sourceActor, targetActor, boostedTotal * scale * situationalDamageFactor(sourceActor, targetActor, mech));
+    const blocked = await throughStructures(sourceActor, targetActor, boostedTotal * scale * situationalDamageFactor(sourceActor, targetActor, mech), { elementIds: mech.damageElements });
     const scaledTotal = blocked.damage;
     flavor += blocked.note;
 
     if (isShipLike(targetActor)) {
       const ctx = averageElementContext(mech.damageElements, targetActor);
       const { toShield, toCasco, toHull, structuralHits } = await applyStarshipDamageCascade(scaledTotal, sourceActor, targetActor, weaponModule, {
-        penetration: ctx.penetration,
+        penetration: ctx.penetration + ammoPenetration,
         bonus: ctx.bonus,
         shieldDrain: ctx.shieldDrain,
+        layers: ctx.layers,
+        shipEffects: ctx.shipEffects,
+        conditions: ctx.conditions,
+        elementIds: ctx.elementIds,
+        askModule: true,
         absolute: mech.isAbsoluteDamage
       });
       finalDamage = toShield + toCasco + toHull;
       flavor += ` — Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}`;
-      if (structuralHits?.length) flavor += ` (${structuralHits.map(h => `${h.name} -${h.damage}`).join(", ")})`;
+      if (structuralHits?.length) flavor += ` (${structuralHits.map(h => (h.damage == null ? h.name : `${h.name} -${h.damage}`)).join(", ")})`;
     } else {
       // Arma de Nave contra uma pessoa: mesmo caminho de dano de Personagem (a Escala é que faz
       // o tiro de canhão valer o que vale).
-      const reduction = applyDamageReductions(scaledTotal, mech, targetActor, { attacker: sourceActor });
+      const reduction = applyDamageReductions(scaledTotal, mech, targetActor, { attacker: sourceActor, extraPenetration: Math.min(1, shipWeaponPenetration(sourceActor, weaponModule) + ammoPenetration) });
       finalDamage = reduction.finalDamage;
       await grantResistanceXp(reduction.defenders, targetActor);
       await registerResistanceExposure(targetActor, mech.damageElements, finalDamage);
@@ -742,6 +885,8 @@ export async function fireStarshipWeapon(sourceActor, weaponModule, targetActor 
       messageFlags = damageApplyFlags(targetActor, finalDamage, {
         absolute: mech.isAbsoluteDamage,
         shieldExtra: reduction.shieldExtra,
+        shieldMultiplier: reduction.shieldMultiplier,
+        shieldPenetration: reduction.shieldPenetration,
         triggeredConditions: reduction.triggeredConditions,
         label: weaponModule.name
       });
@@ -818,12 +963,31 @@ function applyDamageReductions(rawTotal, mech, targetActor, options = {}) {
     }
   });
 
+  // "Dano por camada" de Escudo contra o Escudo pessoal: média pesada pelo dano de cada parte.
+  const weight = result.parts.reduce((sum, part) => sum + (part.final || 0), 0);
+  const shieldMultiplier =
+    weight > 0 && !mech.isAbsoluteDamage
+      ? Math.max(0, result.parts.reduce((sum, part, index) => sum + (part.final || 0) * (1 + parts[index].ctx.layers.shield), 0) / weight)
+      : 1;
+
+  // Penetração contra o Escudo pessoal (age em cada pool, ver consumeShieldPools): a dos elementos,
+  // pesada pelo dano de cada parte, mais a da arma (arma de Nave contra pessoa).
+  const shieldPenetration = mech.isAbsoluteDamage
+    ? 0
+    : Math.min(
+        1,
+        (weight > 0 ? result.parts.reduce((sum, part, index) => sum + (part.final || 0) * parts[index].ctx.penetration, 0) / weight : 0) +
+          (options.extraPenetration || 0)
+      );
+
   return {
     finalDamage: result.final,
     appliedReductions,
     defenders,
     parts: result.parts,
     shieldExtra: Math.floor(shieldExtra),
+    shieldMultiplier,
+    shieldPenetration,
     triggeredConditions
   };
 }
@@ -833,7 +997,7 @@ function applyDamageReductions(rawTotal, mech, targetActor, options = {}) {
  * Condições (ver ELEMENT_EFFECT_TYPES em config.js). Tudo em fração (0.3 = 30%).
  */
 function elementContext(elementId, targetActor) {
-  const ctx = { penetration: 0, bonus: 0, shieldDrain: 0, conditions: [] };
+  const ctx = { penetration: 0, bonus: 0, shieldDrain: 0, layers: { shield: 0, casco: 0, hull: 0 }, conditions: [], shipEffects: [] };
   const element = elementId ? getDamageElement(elementId) : null;
   if (!element) return ctx;
   const traits = targetActor ? actorTraits(targetActor) : [];
@@ -842,7 +1006,18 @@ function elementContext(elementId, targetActor) {
     if (effect.type === "penetration") ctx.penetration += percent;
     else if (effect.type === "traitBonus" && traits.includes(effect.trait)) ctx.bonus += percent;
     else if (effect.type === "shieldDrain") ctx.shieldDrain += percent;
+    // "Dano por camada": pode ser negativo (fraqueza) — ver resolveShipCascade/absorbLayer.
+    else if (effect.type === "layer" && effect.layer in ctx.layers) ctx.layers[effect.layer] += percent;
     else if (effect.type === "condition" && effect.conditionId) ctx.conditions.push({ conditionId: effect.conditionId, chance: Number(effect.chance) || 0 });
+    else if (["moduleDisable", "energyDrain", "resistanceDown"].includes(effect.type)) {
+      ctx.shipEffects.push({
+        type: effect.type,
+        chance: Number(effect.chance) || 0,
+        percent: Number(effect.percent) || 0,
+        rounds: Math.max(1, Math.round(Number(effect.rounds) || 1)),
+        elementLabel: element.label
+      });
+    }
   }
   return ctx;
 }
@@ -850,13 +1025,17 @@ function elementContext(elementId, targetActor) {
 /** Média de um número entre as partes de um golpe (Nave não tem resistência por elemento). */
 function averageElementContext(elementIds, targetActor) {
   const ids = [...new Set((elementIds ?? []).filter(Boolean))];
-  const total = { penetration: 0, bonus: 0, shieldDrain: 0 };
+  const total = { penetration: 0, bonus: 0, shieldDrain: 0, layers: { shield: 0, casco: 0, hull: 0 }, shipEffects: [], conditions: [], elementIds: ids };
   if (!ids.length) return total;
   for (const id of ids) {
     const ctx = elementContext(id, targetActor);
     total.penetration += ctx.penetration / ids.length;
     total.bonus += ctx.bonus / ids.length;
     total.shieldDrain += ctx.shieldDrain / ids.length;
+    for (const layer of Object.keys(total.layers)) total.layers[layer] += ctx.layers[layer] / ids.length;
+    // Efeitos de sistema e Condições: cada elemento tenta os seus (chances independentes).
+    total.shipEffects.push(...ctx.shipEffects);
+    total.conditions.push(...ctx.conditions);
   }
   return total;
 }
@@ -937,11 +1116,11 @@ function damageFlavorPrefix(mech, label) {
  * dele. Vale até pra Dano Absoluto: a parede não *resiste* ao golpe, ela está na frente dele.
  * @returns {Promise<{damage: number, note: string}>}
  */
-async function throughStructures(attacker, targetActor, damage, { origin = null } = {}) {
+async function throughStructures(attacker, targetActor, damage, { origin = null, elementIds = [] } = {}) {
   const block = interceptingStructure(attacker, targetActor, { origin });
-  if (!block) return { damage, note: "" };
-  const { absorbed, passed, label } = await hitStructure(block, damage);
-  return { damage: passed, note: absorbed ? ` — ${label} bloqueou ${absorbed}` : "" };
+  if (!block) return { damage, note: "", impact: null };
+  const { absorbed, passed, label, point } = await hitStructure(block, damage, elementIds);
+  return { damage: passed, note: absorbed ? ` — ${label} bloqueou ${absorbed}` : "", impact: point };
 }
 
 async function rollSkillDamage(actor, mech, label, targetActor = null, rollOptions = null) {
@@ -958,7 +1137,8 @@ async function rollSkillDamage(actor, mech, label, targetActor = null, rollOptio
   // Escala por Atributo (ver damageScalingMultiplier em config.js) — 1 quando a Skill não tem
   // Atributo de Escala escolhido, que é o padrão e o estado de todo conteúdo anterior à regra.
   const scaling = damageScalingMultiplier(actor, mech.scalingAttribute);
-  const levelPower = skillLevelBonuses(mech.level).power;
+  // Nível da Skill e Mana investida (Mana variável) multiplicam juntos.
+  const levelPower = skillLevelBonuses(mech.level).power * (mech.investPower ?? 1);
   const scaledTotal = roll.total * scaling * levelPower;
   // Nave: bônus de arma em `combatBonuses`; arma pessoal: `weaponBonuses` (via useWeaponAttack).
   const personal = mech.weaponBonus ? scaledTotal * (mech.weaponBonus.multiplier ?? 1) + (mech.weaponBonus.flat ?? 0) : scaledTotal;
@@ -971,7 +1151,7 @@ async function rollSkillDamage(actor, mech, label, targetActor = null, rollOptio
   if (scaling !== 1) {
     flavor += ` — ${getAttributeLabel(mech.scalingAttribute)} ×${scaling.toFixed(1)}`;
   }
-  if (levelPower !== 1) flavor += ` — nível ×${levelPower.toFixed(2)}`;
+  if (levelPower !== 1) flavor += ` — ${mech.investPower && mech.investPower !== 1 ? `nível e ${getEnergyLabelForActor(actor)} investida` : "nível"} ×${levelPower.toFixed(2)}`;
   if (scaledTotal !== roll.total) flavor += ` (${roll.total} → ${Math.floor(scaledTotal)})`;
   if (bonusTotal !== scaledTotal) flavor += ` — bônus de arma (${Math.floor(scaledTotal)} → ${Math.floor(bonusTotal)})`;
   flavor += modifiersFlavor(options, bonusTotal, boostedTotal);
@@ -982,9 +1162,19 @@ async function rollSkillDamage(actor, mech, label, targetActor = null, rollOptio
   const rawDamage = boostedTotal * scale * situational;
   if (scale !== 1) flavor += ` — escala ×${formatScale(scale)}`;
   // Parede/barreira entre quem ataca e o alvo segura primeiro (ver throughStructures).
-  const blocked = targetActor ? await throughStructures(actor, targetActor, rawDamage) : { damage: rawDamage, note: "" };
+  // Antimagia: ataque mágico que cruza um campo (ou sob Selo) paga a energia extra ou é anulado.
+  const antimagic = targetActor ? await chargeAntimagic(actor, mech, [targetActor]) : null;
+  if (antimagic?.note) flavor += antimagic.note;
+  if (antimagic?.nulled.has(targetActor.uuid)) {
+    await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor }), flavor: `${flavor} — ${targetActor.name}: 0` });
+    return { roll, finalDamage: 0 };
+  }
+  const blocked = targetActor ? await throughStructures(actor, targetActor, rawDamage, { elementIds: mech.damageElements }) : { damage: rawDamage, note: "", impact: null };
   const scaledDamage = blocked.damage;
   flavor += blocked.note;
+  // A animação da Skill para no ponto de impacto se uma parede segurou, e só segue até o alvo se
+  // sobrou dano (arma pessoal não tem animação, então nada acontece pra ela).
+  playSkillAnimation(actor, mech, { targetActor, impact: blocked.impact, passesThrough: blocked.damage > 0 });
 
   let finalDamage;
   let reduction = null;
@@ -994,11 +1184,16 @@ async function rollSkillDamage(actor, mech, label, targetActor = null, rollOptio
       penetration: ctx.penetration,
       bonus: ctx.bonus,
       shieldDrain: ctx.shieldDrain,
+      layers: ctx.layers,
+      shipEffects: ctx.shipEffects,
+      conditions: ctx.conditions,
+      elementIds: ctx.elementIds,
+      askModule: true,
       absolute: Boolean(mech.isAbsoluteDamage)
     });
     finalDamage = toShield + toCasco + toHull;
     flavor += ` — Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}`;
-    if (structuralHits?.length) flavor += ` (${structuralHits.map(h => `${h.name} -${h.damage}`).join(", ")})`;
+    if (structuralHits?.length) flavor += ` (${structuralHits.map(h => (h.damage == null ? h.name : `${h.name} -${h.damage}`)).join(", ")})`;
   } else {
     // Nunca revela NO CHAT que/quanto de Resistência ou Defesa Mágica foi aplicada — só o
     // número final. A redução em si continua acontecendo (applyDamageReductions), só não
@@ -1024,6 +1219,8 @@ async function rollSkillDamage(actor, mech, label, targetActor = null, rollOptio
     flags: damageApplyFlags(targetActor, finalDamage, {
       absolute: Boolean(mech.isAbsoluteDamage),
       shieldExtra: reduction?.shieldExtra ?? 0,
+      shieldMultiplier: reduction?.shieldMultiplier ?? 1,
+      shieldPenetration: reduction?.shieldPenetration ?? 0,
       triggeredConditions: reduction?.triggeredConditions ?? [],
       label
     })
@@ -1097,7 +1294,7 @@ async function rollSkillDamageArea(actor, mech, label, targetActors, rollOptions
   // Mesma escala por Atributo do caminho de alvo único — aplicada UMA vez, sobre a rolagem que
   // todos os alvos compartilham (cada alvo ainda aplica as próprias reduções depois).
   const scaling = damageScalingMultiplier(actor, mech.scalingAttribute);
-  const bonusTotal = applyShipWeaponBonus(roll.total * scaling * skillLevelBonuses(mech.level).power, actor);
+  const bonusTotal = applyShipWeaponBonus(roll.total * scaling * skillLevelBonuses(mech.level).power * (mech.investPower ?? 1), actor);
   const boostedTotal = applyRollModifiers(bonusTotal, options);
   const title = `${damageFlavorPrefix(mech, label)} (Emissão)${modifiersFlavor(options, bonusTotal, boostedTotal)}`;
   const rows = [];
@@ -1106,15 +1303,23 @@ async function rollSkillDamageArea(actor, mech, label, targetActors, rollOptions
   const origin = targetActors.origin ?? null;
   const shielded = new Map(); // id da Estrutura → fração que passa
   const blockedNotes = [];
+  // Antimagia: cobra UMA vez (pelo maior nível entre os alvos); sem pagar, quem estava atrás ou
+  // dentro de um campo não leva nada.
+  const antimagic = await chargeAntimagic(actor, mech, targetActors, { origin });
+  if (antimagic.note) blockedNotes.push(antimagic.note.replace(/^ — /, ""));
   // Nunca revela NO CHAT que/quanto de Resistência, Defesa Mágica, Penetração ou Redução de
   // Casco foi aplicada — só o número final por alvo (a redução em si continua acontecendo).
   for (const targetActor of targetActors) {
     // Escala por alvo: a mesma rolagem vale diferente contra uma pessoa e contra uma Nave.
     let targetDamage = boostedTotal * damageScaleFor(actor, mech, targetActor) * situationalDamageFactor(actor, targetActor, mech);
+    if (antimagic.nulled.has(targetActor.uuid)) {
+      rows.push(`<li><strong>${targetActor.name}</strong>: 0 (antimagia)</li>`);
+      continue;
+    }
     const block = interceptingStructure(actor, targetActor, { origin });
     if (block) {
       if (!shielded.has(block.instance.id)) {
-        const { absorbed, passed, label: wall } = await hitStructure(block, targetDamage);
+        const { absorbed, passed, label: wall } = await hitStructure(block, targetDamage, mech.damageElements);
         shielded.set(block.instance.id, targetDamage > 0 ? passed / targetDamage : 1);
         if (absorbed) blockedNotes.push(`${wall} bloqueou ${absorbed}`);
       }
@@ -1126,9 +1331,14 @@ async function rollSkillDamageArea(actor, mech, label, targetActors, rollOptions
         penetration: ctx.penetration,
         bonus: ctx.bonus,
         shieldDrain: ctx.shieldDrain,
+        layers: ctx.layers,
+        shipEffects: ctx.shipEffects,
+        conditions: ctx.conditions,
+        elementIds: ctx.elementIds,
+        askModule: false,
         absolute: Boolean(mech.isAbsoluteDamage)
       });
-      const detalhe = structuralHits?.length ? ` (${structuralHits.map(h => `${h.name} -${h.damage}`).join(", ")})` : "";
+      const detalhe = structuralHits?.length ? ` (${structuralHits.map(h => (h.damage == null ? h.name : `${h.name} -${h.damage}`)).join(", ")})` : "";
       rows.push(
         `<li><strong>${targetActor.name}</strong>: Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}${detalhe}</li>`
       );
@@ -1159,7 +1369,38 @@ async function rollSkillDamageArea(actor, mech, label, targetActors, rollOptions
  * data/item-models.js.
  */
 function isPeriodicEntry(entry) {
-  return Boolean(entry.periodic) && (entry.target === "hp" || entry.target === "energy");
+  return Boolean(entry.periodic) && PERIODIC_TARGETS.includes(entry.target);
+}
+
+/** Alvos que aceitam Periódico: Vida/Mana de Personagem e Casco/Integridade de Nave (dano contínuo, reparo por rodada). */
+const PERIODIC_TARGETS = ["hp", "energy", "shipCasco", "shipHull"];
+/** Alvos de Efeito de Nave que agem NA HORA (sem Active Effect): Escudo, Casco, Integridade, Preparar para impacto. */
+const SHIP_INSTANT_TARGETS = ["shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"];
+
+/**
+ * Efeito de Nave que age na hora: restaurar Escudo (até o máximo), dano (−) ou reparo (+) no Casco
+ * ou na Integridade, ou "Preparar para impacto" (−X% de todo dano por N rodadas).
+ * @returns {Promise<string>} linha do resumo
+ */
+async function applyShipInstantEffect(ship, entry, label) {
+  const amount = Math.round(Number(entry.amount) || 0);
+  const sys = ship.system;
+  if (entry.target === "shipShieldRestore") {
+    const gain = Math.max(0, Math.min(amount, (sys.shields.max ?? 0) - (sys.shields.value ?? 0)));
+    if (gain > 0) await ship.update({ "system.shields.value": sys.shields.value + gain });
+    return `Escudo da Nave +${gain}`;
+  }
+  if (entry.target === "shipDamageReduction") {
+    const rounds = Math.max(1, Math.round(Number(entry.durationRounds) || 1));
+    await addShipSystemEffect(ship, { kind: "brace", percent: Math.max(0, Math.min(95, amount)), rounds, label });
+    return `Preparar para impacto −${Math.max(0, Math.min(95, amount))}% (${rounds} rodada(s))`;
+  }
+  const role = entry.target === "shipCasco" ? "armor" : null;
+  const layerLabel = entry.target === "shipCasco" ? "Casco" : "Integridade";
+  if (amount >= 0) return `${layerLabel} +${await repairModules(ship, amount, role)} (reparo)`;
+  if (role) return `${layerLabel} −${await damageCasco(ship, -amount)}`;
+  const hits = await applyStructuralDamage(ship, -amount);
+  return `${layerLabel} −${hits.reduce((sum, h) => sum + h.damage, 0)}`;
 }
 
 /** Mesmo conjunto de elementos, independente da ordem — usado só pra separar stacks de Veneno por elemento. */
@@ -1230,14 +1471,19 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor, subSki
   // mais forte que o mesmo de nível 1, igual acontece com o dano. Entrada de tipo "multiplicador"
   // (só os alvos de arma de Nave) fica de fora: ali `amount` é um percentual, e escalá-lo
   // significaria outra coisa.
-  const levelPower = skillLevelBonuses(mech.level).power;
+  const levelPower = skillLevelBonuses(mech.level).power * (mech.investPower ?? 1);
   const entries =
     levelPower === 1
       ? rawEntries
       : rawEntries.map(entry =>
           entry.modifierType === "multiplier"
             ? entry
-            : { ...entry, amount: Math.round((Number(entry.amount) || 0) * levelPower) }
+            : {
+                ...entry,
+                amount: Math.round((Number(entry.amount) || 0) * levelPower),
+                shieldRegen: Math.round((Number(entry.shieldRegen) || 0) * levelPower),
+                shieldCap: Math.round((Number(entry.shieldCap) || 0) * levelPower)
+              }
         );
 
   // Condição aplicada por elemento (sem Skill de origem) — ícone e origem vêm da própria Condição.
@@ -1259,11 +1505,36 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor, subSki
     const sign = entry.amount >= 0 ? "+" : "";
 
     if (entry.target === "shield") {
-      // Escudo ignora Condição/Periódico/Duração — é sempre somado direto, gasto na mão.
-      const current = targetActor.system.attributes.shield.value ?? 0;
-      await targetActor.update({
-        "system.attributes.shield.value": Math.max(0, current + entry.amount)
-      });
+      // Escudo ignora Condição/Periódico/Duração — é sempre somado direto, gasto na mão. Numa
+      // Habilidade Ativa com Regeneração ou Teto, vira um Escudo MANTIDO: entra até o teto,
+      // regenera a cada turno de quem mantém e some ao desligar (ver sustainedShieldGain).
+      if (!targetActor.system.attributes?.shield) {
+        summary.push(`${targetLabel}: não se aplica a ${targetActor.name}`);
+        continue;
+      }
+      const sustained = Boolean(mech.hasUpkeep) && (entry.shieldRegen > 0 || entry.shieldCap > 0) && entry.amount >= 0;
+      // Cada Skill tem o seu pool de Escudo no alvo (ver shield-pools.js); sem Skill de origem
+      // (Condição marcada à mão), vai pro avulso.
+      const source = originSkill?.parent ? { holderUuid: originSkill.parent.uuid, skillId: origin.id, subSkillIndex, label } : null;
+      let change;
+      if (entry.amount >= 0) {
+        change = await addShieldToPool(targetActor, source, entry.amount, { cap: sustained ? entry.shieldCap : 0 });
+      } else {
+        // Escudo negativo (debuff): tira do total; os pools se ajustam sozinhos (mais recente primeiro).
+        const current = targetActor.system.attributes.shield.value ?? 0;
+        change = Math.max(-current, entry.amount);
+        await targetActor.update({ "system.attributes.shield.value": current + change });
+      }
+      if (sustained && originSkill?.parent) {
+        await recordSustainedShield(originSkill.parent, {
+          targetUuid: targetActor.uuid,
+          skillId: origin.id,
+          subSkillIndex,
+          regen: entry.shieldRegen,
+          cap: entry.shieldCap,
+          label
+        });
+      }
       // Luz do Escudo (opcional, ver lights.js): acende no Token do alvo; é apagada quando o
       // Escudo chega a 0 ou quando a Skill Ativa que o deu é desligada.
       if (entry.amount > 0 && entry.light?.enabled) {
@@ -1273,11 +1544,26 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor, subSki
           subSkillIndex
         });
       }
-      summary.push(`Escudo ${sign}${entry.amount}`);
+      summary.push(sustained ? `Escudo +${change} (mantido${entry.shieldRegen ? `, +${entry.shieldRegen}/rodada` : ""}${entry.shieldCap ? `, teto ${entry.shieldCap}` : ""})` : `Escudo ${sign}${entry.amount}`);
       continue;
     }
 
-    const change = resolveEffectChange(entry, targetActor);
+    // Condição com tick de Vida que cai numa Nave (Queimadura de Plasma): a "Vida" da Nave é a
+    // Integridade Estrutural.
+    if (isShipLike(targetActor) && entry.periodic && entry.target === "hp") entry = { ...entry, target: "shipHull" };
+    const shipTarget = SHIP_INSTANT_TARGETS.includes(entry.target);
+    if (shipTarget && !isShipLike(targetActor)) {
+      summary.push(`${targetLabel}: não se aplica a ${targetActor.name}`);
+      continue;
+    }
+    if (shipTarget && !isPeriodicEntry(entry)) {
+      summary.push(await applyShipInstantEffect(targetActor, entry, label));
+      continue;
+    }
+
+    // Tick de Nave (Casco/Integridade) não mexe em campo nenhum por Active Effect: é só o flag
+    // do tick, lido por tickPeriodicEffect.
+    const change = shipTarget ? { isMultiplier: false } : resolveEffectChange(entry, targetActor);
     if (!change) {
       // Antes era silencioso: "Força" numa Nave virava um efeito que não fazia nada.
       summary.push(`${targetLabel}: não se aplica a ${targetActor.name}`);
@@ -1372,14 +1658,15 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor, subSki
       continue;
     }
 
-    await targetActor.createEmbeddedDocuments("ActiveEffect", [
+    await createActiveEffects(targetActor, [
       {
         name: condition?.label ?? `${label}: ${targetLabel} ${sign}${entry.amount}`,
         img: entry.icon || condition?.icon || origin.img || "icons/svg/aura.svg",
         origin: origin.uuid ?? undefined,
         statuses: entry.conditionId ? [entry.conditionId] : [],
         duration: !tiedToActive && entry.durationRounds > 0 ? { rounds: entry.durationRounds } : {},
-        changes: [{ key: change.key, mode: change.mode, value: change.value }],
+        // Formato V13 (`changes` + `mode`) ou V14 (`system.changes` + `type`): ver foundry-compat.js.
+        ...buildEffectChanges([{ key: change.key, mode: change.mode, value: change.value }]),
         flags: {
           [SYSTEM_ID]: {
             skillEffect: true,
@@ -1445,6 +1732,35 @@ export async function tickPeriodicEffect(actor, effect) {
   const flags = effect.flags?.[SYSTEM_ID];
   if (!flags?.periodic) return null;
 
+  // Nave: dano contínuo (ou reparo por rodada) no Casco ou na Integridade Estrutural. O dano leva o
+  // "Dano por camada" dos elementos do tick (Plasma +15% no Casco…); o reparo nunca é reduzido.
+  if (flags.tickTarget === "shipCasco" || flags.tickTarget === "shipHull") {
+    const layer = flags.tickTarget === "shipCasco" ? "casco" : "hull";
+    let delta;
+    if (flags.tickAmount < 0) {
+      const ctx = averageElementContext(flags.tickDamageElements ?? [], actor);
+      const damage = Math.floor(-flags.tickAmount * Math.max(0, 1 + (ctx.layers?.[layer] || 0)));
+      const dealt = layer === "casco" ? await damageCasco(actor, damage) : (await applyStructuralDamage(actor, damage)).reduce((sum, h) => sum + h.damage, 0);
+      delta = -dealt;
+    } else {
+      delta = await repairModules(actor, flags.tickAmount, layer === "casco" ? "armor" : null);
+    }
+    const anchored = (flags.activeAnchors ?? []).length > 0;
+    const ticksRemaining = Math.max(0, (flags.ticksRemaining ?? 1) - 1);
+    const expired = ticksRemaining <= 0 && !anchored;
+    if (expired) await effect.delete();
+    else await effect.update({ [`flags.${SYSTEM_ID}.ticksRemaining`]: ticksRemaining });
+    return {
+      attrKey: layer,
+      delta,
+      newValue: null,
+      ticksRemaining: anchored && ticksRemaining <= 0 ? null : ticksRemaining,
+      expired,
+      effectName: effect.name,
+      appliedReductions: []
+    };
+  }
+
   const attrKey = flags.tickTarget === "energy" ? "energy" : "hp";
   const attr = actor.system.attributes[attrKey];
 
@@ -1499,7 +1815,7 @@ export async function tickCombatRoundEffects(actor) {
 
   if (results.length) {
     const rows = results.map(r => {
-      const attrLabel = r.attrKey === "hp" ? "HP" : getEffectTargetLabels().energy;
+      const attrLabel = { hp: "HP", casco: "Casco", hull: "Integridade" }[r.attrKey] ?? getEffectTargetLabels().energy;
       const statusText = r.expired ? "encerrou" : r.ticksRemaining === null ? "até desativar" : `${r.ticksRemaining} tick(s) restante(s)`;
       // Nunca revela NO CHAT que/quanto de Resistência foi aplicada no tick — só o delta final.
       return `<li><strong>${r.effectName}</strong>: ${r.delta >= 0 ? "+" : ""}${r.delta} ${attrLabel} (${statusText})</li>`;
@@ -1574,7 +1890,7 @@ export async function processPendingUpkeepRemoval(actor) {
 }
 
 /** Toda Skill "Ativa" ligada no momento — top-level e cada Sub-Skill (fusões podem ter mais de uma ligada ao mesmo tempo). */
-function collectActiveUpkeepSources(actor) {
+export function collectActiveUpkeepSources(actor) {
   const sources = [];
   for (const skill of actor.items) {
     if (skill.type !== "skill") continue;
@@ -1583,7 +1899,8 @@ function collectActiveUpkeepSources(actor) {
         skill,
         subSkillIndex: null,
         label: skill.name,
-        upkeepCost: effectiveSkillCost(skill.system.upkeepCost, skill.system.level)
+        // Mana variável: o Custo por rodada é cobrado vezes a razão investida ao ligar.
+        upkeepCost: Math.ceil(effectiveSkillCost(skill.system.upkeepCost, skill.system.level) * (skill.system.variableMana ? skill.system.investRatio ?? 1 : 1))
       });
     }
     (skill.system.subSkills ?? []).forEach((sub, i) => {
@@ -1592,7 +1909,7 @@ function collectActiveUpkeepSources(actor) {
           skill,
           subSkillIndex: i,
           label: `${skill.name} — ${sub.name}`,
-          upkeepCost: effectiveSkillCost(sub.upkeepCost, sub.level)
+          upkeepCost: Math.ceil(effectiveSkillCost(sub.upkeepCost, sub.level) * (sub.variableMana ? sub.investRatio ?? 1 : 1))
         });
       }
     });
@@ -1674,9 +1991,29 @@ export async function tickActorUpkeepSkills(actor) {
 
   const shipLike = isShipLike(actor);
   // Sem pool de Mana/Energia não há o que drenar nem o que desativar por falta de recurso: a
-  // Habilidade Ativa vira um liga/desliga puramente narrativo (ver `energyPoolEnabled`).
-  if (!shipLike && !isEnergyPoolEnabled()) return [];
+  // Habilidade Ativa vira um liga/desliga puramente narrativo (ver `energyPoolEnabled`). O Escudo
+  // mantido regenera do mesmo jeito.
+  if (!shipLike && !isEnergyPoolEnabled()) {
+    await regenerateSustainedShields(actor);
+    return [];
+  }
+  // Antimagia: Skill Ativa mágica dentro de um campo (ou sob Selo) paga o custo extra por rodada.
+  if (!shipLike) {
+    const level = antimagicLevelAt(actor);
+    if (level > 0) {
+      const config = getAntimagicConfig();
+      for (const source of sources) {
+        const mech = source.subSkillIndex != null ? source.skill.system.subSkills?.[source.subSkillIndex] : source.skill.system;
+        if (!isMagicUse(mech, actor)) continue;
+        source.antimagic = antimagicSurcharge(source.upkeepCost, level, config);
+        source.upkeepCost += source.antimagic;
+        source.label += ` (antimagia +${source.antimagic})`;
+      }
+    }
+  }
   const results = shipLike ? await enforceShipUpkeepCapacity(actor, sources) : await drainCharacterUpkeep(actor, sources);
+  // Depois do dreno: Skill que caiu por falta de Mana já tirou os Escudos dela, e não regenera.
+  await regenerateSustainedShields(actor);
 
   const energyLabel = getEnergyLabelForActor(actor);
   // Nave não "perde" a energia do upkeep — ela fica reservada enquanto a Skill estiver ligada
@@ -1702,6 +2039,71 @@ export async function tickActorUpkeepSkills(actor) {
   }
 
   return results;
+}
+
+/* ------------------------------------------------------------------ Escudo mantido */
+
+/**
+ * Onde fica o registro dos Escudos mantidos: no Ator que MANTÉM a Skill (é o turno dele que
+ * regenera, e é a Skill dele que desliga), com o alvo por uuid — o Escudo pode estar num aliado.
+ */
+const SUSTAINED_SHIELD_FLAG = "sustainedShields";
+
+/** Guarda (ou atualiza) o registro de um Escudo mantido por esta Skill neste alvo. */
+async function recordSustainedShield(holder, { targetUuid, skillId, subSkillIndex, regen, cap, label }) {
+  const list = foundry.utils.deepClone(holder.getFlag(SYSTEM_ID, SUSTAINED_SHIELD_FLAG) ?? []);
+  const same = r => r.targetUuid === targetUuid && r.skillId === skillId && (r.subSkillIndex ?? null) === (subSkillIndex ?? null);
+  const existing = list.find(same);
+  if (existing) Object.assign(existing, { regen, cap, label });
+  else list.push({ targetUuid, skillId, subSkillIndex: subSkillIndex ?? null, regen, cap, label });
+  await holder.setFlag(SYSTEM_ID, SUSTAINED_SHIELD_FLAG, list);
+}
+
+/**
+ * Início do turno de quem mantém (ou o botão "Regenerar agora" fora de combate): cada Escudo
+ * mantido regenera até o teto. Registro de Skill que não está mais ligada é descartado.
+ * @returns {Promise<string[]>} linhas pro chat
+ */
+export async function regenerateSustainedShields(holder) {
+  const list = holder?.getFlag(SYSTEM_ID, SUSTAINED_SHIELD_FLAG) ?? [];
+  if (!list.length) return [];
+  const kept = [];
+  const rows = [];
+  for (const record of list) {
+    const skill = holder.items.get(record.skillId);
+    const mech = record.subSkillIndex != null ? skill?.system?.subSkills?.[record.subSkillIndex] : skill?.system;
+    if (!mech?.active) continue; // desligou por fora: o registro vai embora
+    kept.push(record);
+    const target = await fromUuid(record.targetUuid);
+    if (!target?.system?.attributes?.shield || !(record.regen > 0)) continue;
+    // O pool DESTA Skill regenera até o teto dele (os outros pools do alvo não contam).
+    const source = { holderUuid: holder.uuid, skillId: record.skillId, subSkillIndex: record.subSkillIndex ?? null, label: record.label };
+    const gain = await addShieldToPool(target, source, record.regen, { cap: record.cap });
+    if (!gain) continue;
+    rows.push(`${record.label}: Escudo de ${target.name} +${gain}`);
+  }
+  await holder.setFlag(SYSTEM_ID, SUSTAINED_SHIELD_FLAG, kept);
+  if (rows.length) {
+    await ChatMessage.create({
+      speaker: ChatMessage.getSpeaker({ actor: holder }),
+      content: `<p><strong>${holder.name}</strong> — Escudos mantidos regeneram:</p><ul>${rows.map(r => `<li>${r}</li>`).join("")}</ul>`
+    });
+  }
+  return rows;
+}
+
+/** A Skill desligou: as camadas somem de cada alvo (até o teto) e o registro sai. */
+async function dropSustainedShields(holder, skillId, subSkillIndex) {
+  const list = holder?.getFlag(SYSTEM_ID, SUSTAINED_SHIELD_FLAG) ?? [];
+  const isThis = r => r.skillId === skillId && (r.subSkillIndex ?? null) === (subSkillIndex ?? null);
+  const mine = list.filter(isThis);
+  if (!mine.length) return;
+  for (const record of mine) {
+    const target = await fromUuid(record.targetUuid);
+    // As camadas desta Skill somem inteiras: o pool dela sai do alvo (os outros pools ficam).
+    if (target) await removeShieldPool(target, { holderUuid: holder.uuid, skillId: record.skillId, subSkillIndex: record.subSkillIndex ?? null });
+  }
+  await holder.setFlag(SYSTEM_ID, SUSTAINED_SHIELD_FLAG, list.filter(r => !isThis(r)));
 }
 
 async function applySkillEffects(sourceActor, skill, mech, label, targetActor, subSkillIndex = null) {
@@ -1809,4 +2211,91 @@ export async function tickZonesForCombatant(combatant) {
       await applySkillEffects(sourceActor, skill, zoned, label, targetActor, zone.subSkillIndex ?? null);
     }
   }
+}
+
+/* ------------------------------------------------------------------ Antimagia */
+
+/**
+ * Antimagia num ataque: se o uso é mágico (isMagicUse) e há antimagia no caminho de algum alvo
+ * (campo atravessado, de onde sai, onde o alvo está, ou Selo em quem ataca), cobra UMA vez o custo
+ * extra do maior nível, da energia do personagem. Sem como pagar, os alvos sob antimagia ficam
+ * sem efeito (vale pra Dano Absoluto mágico também).
+ * @returns {Promise<{nulled: Set<string>, note: string}>} uuids anulados e o texto pro chat
+ */
+async function chargeAntimagic(actor, mech, targets, { origin = null } = {}) {
+  const result = { nulled: new Set(), note: "" };
+  if (!actor || isShipLike(actor) || !isMagicUse(mech, actor)) return result;
+  const levels = new Map(targets.filter(Boolean).map(t => [t.uuid, antimagicLevelBetween(actor, t, { origin })]));
+  const level = Math.max(0, ...levels.values());
+  if (level <= 0) return result;
+  const cost = antimagicSurcharge(Number(mech.cost) || 0, level, getAntimagicConfig());
+  const label = getEnergyLabelForActor(actor);
+  const current = currentEnergyValue(actor);
+  if (isEnergyPoolEnabled() && current >= cost) {
+    await actor.update({ [energyValuePath(actor)]: current - cost });
+    result.note = ` — antimagia (nível ${level}): +${cost} ${label}`;
+  } else {
+    for (const [uuid, l] of levels) if (l > 0) result.nulled.add(uuid);
+    result.note = ` — anulado pela antimagia (nível ${level}: faltou ${label})`;
+  }
+  return result;
+}
+
+/**
+ * Lado do Mestre: alguém atravessou (ou parou dentro de) uma Estrutura com dano de contato. Rola a
+ * fórmula dela, com os elementos dela, contra o Ator do Token (as reduções do alvo valem, como num
+ * golpe normal), e posta o cartão com os botões de Aplicar. Nave/Veículo não queima.
+ */
+export async function applyStructureContactAsGm(tokenDocument, instance, info) {
+  const target = tokenDocument?.actor;
+  if (!target || isShipLike(target) || !info?.contactDamage) return;
+  let roll;
+  try {
+    roll = await new Roll(info.contactDamage).evaluate();
+  } catch (err) {
+    console.warn(`${SYSTEM_ID} | Dano de contato inválido em ${instance.label}: ${info.contactDamage}`, err);
+    return;
+  }
+  const caster = instance.sourceActorUuid ? await fromUuid(instance.sourceActorUuid) : null;
+  const mech = { damageElements: info.elements ?? [], isMagicDamage: Boolean(info.magic), isAbsoluteDamage: false };
+  const reduction = applyDamageReductions(roll.total, mech, target, { attacker: caster });
+  await roll.toMessage({
+    speaker: { alias: instance.label },
+    flavor: `${instance.label} — contato — ${tokenDocument.name}: ${reduction.finalDamage}${triggeredLabel(reduction.triggeredConditions)}`,
+    flags: damageApplyFlags(target, reduction.finalDamage, {
+      shieldExtra: reduction.shieldExtra ?? 0,
+      shieldMultiplier: reduction.shieldMultiplier ?? 1,
+      shieldPenetration: reduction.shieldPenetration ?? 0,
+      triggeredConditions: reduction.triggeredConditions ?? [],
+      label: instance.label
+    })
+  });
+}
+
+/* ------------------------------------------------------------------ Munição */
+
+/**
+ * Munição compatível com este lançador no Porão da Nave (tipo aceito, Porte mínimo, pilha > 0):
+ * uma só é usada direto; várias perguntam qual. Nenhuma: avisa e não dispara.
+ */
+async function pickLauncherAmmo(ship, launcher) {
+  const options = ship.items.filter(i => i.type === "item" && (Number(i.system.quantity) || 0) > 0 && ammoFitsLauncher(i.system.ammo, launcher.system));
+  if (!options.length) {
+    ui.notifications?.warn(`${launcher.name}: sem munição compatível no Porão.`);
+    return null;
+  }
+  if (options.length === 1) return options[0];
+  const { DialogV2 } = foundry.applications.api;
+  const chosen = await DialogV2.wait({
+    window: { title: `${launcher.name} — munição` },
+    content: `<div class="nihility-ammo-pick"><select name="ammo">${options
+      .map(i => `<option value="${i.id}">${foundry.utils.escapeHTML?.(i.name) ?? i.name} (×${i.system.quantity}) — ${i.system.ammo.damageFormula || "fórmula do lançador"}</option>`)
+      .join("")}</select></div>`,
+    buttons: [
+      { action: "fire", label: "Disparar", default: true, callback: (event, button, dialog) => dialog.element.querySelector('[name="ammo"]').value },
+      { action: "cancel", label: "Cancelar", callback: () => false }
+    ],
+    rejectClose: false
+  });
+  return typeof chosen === "string" ? ship.items.get(chosen) ?? null : null;
 }

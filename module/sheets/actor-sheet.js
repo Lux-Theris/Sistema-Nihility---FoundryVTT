@@ -24,7 +24,8 @@ import {
   getScaleConfig,
   isScaleEnabled,
   isStructureMechanic,
-  actorDisplayName
+  actorDisplayName,
+  isInventoryEnabled
 } from "../config.js";
 import { hasPadDevice } from "../pad/pad-crew.js";
 import { getTotalUnread } from "../pad/pad-messaging.js";
@@ -37,6 +38,7 @@ import { getMovementDashStatus, toggleMovementDash } from "../movement.js";
 import { pickTargetActor } from "../helpers/target-picker.js";
 import { rollOptionsFromEvent } from "../apps/roll-options-dialog.js";
 import { traitContext, changeTrait, pickActorTraits } from "../helpers/traits-ui.js";
+import { describeShieldPools } from "../shield-pools.js";
 import { getStructure, pickStructurePlacement } from "../structures.js";
 import { useSkillEffect, useWeaponAttack, tickPeriodicEffect } from "../skill-effects.js";
 import { announceVoiceOfTheWorld } from "../voice-of-the-world.js";
@@ -45,6 +47,8 @@ import { openSkillEditorDialog } from "../apps/skill-editor-dialog.js";
 import { editPortraitFrameAction, CLEAR_PORTRAIT_FRAME } from "../helpers/portrait-frame.js";
 import { pickImageFile } from "../helpers/foundry-compat.js";
 
+import { handleItemDrop, splitStack, toggleEquipped, inventoryContext } from "../inventory.js";
+import { EffectsListApp } from "../apps/effects-list.js";
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
 
@@ -134,7 +138,10 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       openPad: NihilityActorSheet.#onOpenPad,
       removeTrait: NihilityActorSheet.#onRemoveTrait,
       restoreTrait: NihilityActorSheet.#onRestoreTrait,
-      pickTraits: NihilityActorSheet.#onPickTraits
+      pickTraits: NihilityActorSheet.#onPickTraits,
+      toggleEquip: NihilityActorSheet.#onToggleEquip,
+      openEffectsList: NihilityActorSheet.#onOpenEffectsList,
+      splitStack: NihilityActorSheet.#onSplitStack
     }
   };
 
@@ -147,6 +154,32 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     // ApplicationV2 não herda o mixin de abas do AppV1 — mesmo padrão manual usado nas
     // outras Sheets/Apps já migradas (activeTab + ação "selectTab").
     this.activeTab = "ficha";
+    // Estado de tela da aba Inventário (não é salvo).
+    this.inventoryFilter = "all";
+    this.inventorySort = "name";
+  }
+
+  /** @override Item Geral solto na ficha: empilha, move entre fichas, guarda em contêiner (inventory.js). */
+  async _onDropItem(event, item) {
+    return handleItemDrop(this, event, item, () => super._onDropItem(event, item));
+  }
+
+  /** Janela "Efeitos": tudo o que age sobre este personagem (ver apps/effects-list.js). */
+  static #onOpenEffectsList(event) {
+    event.preventDefault();
+    EffectsListApp.open(this.actor);
+  }
+
+  static async #onToggleEquip(event, target) {
+    event.preventDefault();
+    const item = this.actor.items.get(target.closest("[data-item-id]")?.dataset.itemId);
+    if (item) await toggleEquipped(item);
+  }
+
+  static async #onSplitStack(event, target) {
+    event.preventDefault();
+    const item = this.actor.items.get(target.closest("[data-item-id]")?.dataset.itemId);
+    if (item) await splitStack(item);
   }
 
   /**
@@ -303,6 +336,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.hpPercent = percentOf(actor.system.attributes.hp.value, actor.system.attributes.hp.max);
     context.energyPercent = percentOf(actor.system.attributes.energy.value, actor.system.attributes.energy.max);
     context.shieldValue = actor.system.attributes.shield.value;
+    // Um pool por Skill de Escudo (o mais recente apanha primeiro) — ver shield-pools.js.
+    context.shieldPoolsText = (actor.system.attributes.shield.pools ?? []).length ? describeShieldPools(actor) : "";
 
     // Condições ativas: só os Active Effects que este sistema criou (skillEffect: true) —
     // Active Effects de outras origens (módulos, core) não entram nessa lista. Periódicas com
@@ -346,6 +381,13 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.statusLabels = MEU_SISTEMA.BODY_PART_STATUS_LABELS;
     context.titles = actor.system.titles;
     context.gear = actor.items.filter(i => i.type === "item");
+    // Com o Inventário ligado, a aba Ficha mostra só os equipados (as armas atacam dali) e o resto
+    // mora na aba Inventário.
+    context.inventoryEnabled = isInventoryEnabled();
+    context.canSeeEffects = actor.isOwner || game.user.isGM;
+    context.effectsCount = actor.effects.size;
+    context.fichaGear = context.inventoryEnabled ? context.gear.filter(i => i.system.equipped) : context.gear;
+    if (context.inventoryEnabled) context.inventory = inventoryContext(actor, { filter: this.inventoryFilter, sort: this.inventorySort });
 
     debugLog(`${SYSTEM_ID} | NihilityActorSheet._prepareContext:`, actor.name);
     return context;
@@ -356,8 +398,42 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
    * O select de Espécie dispara em "change", não em clique — fora da API de `actions`
    * (clique-only), então é ligado manualmente aqui, a cada render.
    */
+  /** Aba Inventário: busca (sem redesenhar, pra não perder o foco), filtro, ordem, contêiner e arrastar. */
+  _onRenderInventory() {
+    const root = this.element;
+    const search = root.querySelector(".inventory-search");
+    search?.addEventListener("input", () => {
+      const term = search.value.trim().toLowerCase();
+      root.querySelectorAll(".inventory-row").forEach(row => {
+        row.hidden = Boolean(term) && !row.dataset.name.toLowerCase().includes(term);
+      });
+    });
+    root.querySelector(".inventory-filter")?.addEventListener("change", event => {
+      this.inventoryFilter = event.target.value;
+      this.render();
+    });
+    root.querySelector(".inventory-sort")?.addEventListener("change", event => {
+      this.inventorySort = event.target.value;
+      this.render();
+    });
+    root.querySelectorAll(".inventory-container-select").forEach(select => {
+      select.addEventListener("change", async event => {
+        event.stopPropagation();
+        const item = this.actor.items.get(select.closest("[data-item-id]")?.dataset.itemId);
+        if (item && this.isEditable) await item.update({ "system.containerId": select.value });
+      });
+    });
+    root.querySelectorAll(".inventory-row[draggable]").forEach(row => {
+      row.addEventListener("dragstart", event => {
+        const item = this.actor.items.get(row.dataset.itemId);
+        if (item) event.dataTransfer.setData("text/plain", JSON.stringify(item.toDragData()));
+      });
+    });
+  }
+
   _onRender(context, options) {
     super._onRender(context, options);
+    this._onRenderInventory();
     if (!this.isEditable) return;
 
     this.element.querySelector(".species-select")?.addEventListener("change", this._onSpeciesChange.bind(this));
@@ -446,6 +522,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         level: Number(s.level) || 1,
         cost: Number(s.cost) || 0,
         hasUpkeep: Boolean(s.hasUpkeep),
+        variableMana: Boolean(s.variableMana),
+        magicTag: s.magicTag || "auto",
         upkeepCost: Number(s.upkeepCost) || 0,
         animationPath: s.animationPath || "",
         description: s.description || "",
@@ -919,6 +997,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
             level: data.level,
             cost: data.cost,
             hasUpkeep: data.hasUpkeep,
+            variableMana: Boolean(data.variableMana),
+            magicTag: data.magicTag || "auto",
             upkeepCost: data.upkeepCost,
             animationPath: data.animationPath,
             description: data.description,

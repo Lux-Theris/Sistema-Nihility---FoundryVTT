@@ -14,7 +14,8 @@ import { registerStatusConditions } from "../conditions.js";
  */
 
 const KIND_OPTIONS = [["", "Só o ícone (sem efeito)"], ["tick", "Dano/cura por rodada"], ["modifier", "Aumenta/reduz atributo ou Deslocamento"]];
-const TICK_TARGETS = [["hp", "Vida"], ["energy", "Mana/Energia"]];
+// "Vida" numa Nave vira Integridade Estrutural sozinho; Casco e Integridade são pra Condições só de Nave.
+const TICK_TARGETS = [["hp", "Vida (na Nave: Integridade)"], ["energy", "Mana/Energia"], ["shipCasco", "Casco (Nave)"], ["shipHull", "Integridade (Nave)"]];
 const TICK_SIGNS = [["damage", "Dano"], ["heal", "Cura"]];
 const VALUE_MODES = [["hitPercent", "% do dano do golpe"], ["maxPercent", "% do máximo do alvo"], ["fixed", "Valor fixo"]];
 const TICK_UNITS = [["combatRound", "Por rodada de combate"], ["manual", "Manual (botão na ficha)"]];
@@ -38,6 +39,7 @@ function renderCard(values) {
     <div class="card-config-row">
       <label>Efeito padrão <select data-field="kind">${optionsHtml(KIND_OPTIONS, kind)}</select></label>
       <label>Duração (rodadas) <input type="number" data-field="durationRounds" min="1" value="${effect.durationRounds ?? 2}"/></label>
+      <label title="Selo antimagia: quem tem esta Condição paga Mana extra em toda magia (maior quanto maior o nível), ou ela é anulada. 0 = não é selo.">Antimagia (nível) <input type="number" data-field="antimagicLevel" min="0" value="${values.antimagicLevel ?? 0}"/></label>
     </div>
     <div class="card-config-row" data-kind="tick" ${kind === "tick" ? "" : "hidden"}>
       <label>Tipo <select data-field="tickSign">${optionsHtml(TICK_SIGNS, effect.tickSign ?? "damage")}</select></label>
@@ -70,6 +72,8 @@ function readCard(card) {
   const id = get("id").trim();
   if (!id) return null;
   const row = { id, label: get("label").trim() || id, icon: get("icon").trim() || "icons/svg/aura.svg" };
+  const antimagicLevel = Math.max(0, Math.round(Number(get("antimagicLevel")) || 0));
+  if (antimagicLevel) row.antimagicLevel = antimagicLevel;
 
   const kind = get("kind");
   const durationRounds = Math.max(1, Number(get("durationRounds")) || 1);

@@ -15,8 +15,9 @@ const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
 const GROUPS = [
   { id: "progression", label: "Progressão", test: key => /^(xp|attributePoints|skillPoints|skillPower|skillDiscount|skillCycle|skillCostFloor|resistance)/.test(key) },
-  { id: "vitals", label: "Vida e Energia", test: key => /(vital|energy|Energy)/.test(key) },
-  { id: "combat", label: "Combate", test: key => /(initiative|damage|OffScene|Scaling)/i.test(key) },
+  { id: "vitals", label: "Vida e Energia", test: key => /(vital|energy|Energy|manaInvest)/.test(key) },
+  { id: "ships", label: "Naves", test: key => /^ship/.test(key) },
+  { id: "combat", label: "Combate", test: key => /(initiative|damage|OffScene|Scaling|antimagic)/i.test(key) },
   { id: "other", label: "Outras", test: () => true }
 ];
 

@@ -25,6 +25,7 @@ import {
   markThreadRead
 } from "../pad/pad-messaging.js";
 import { getDragEventData } from "../helpers/foundry-compat.js";
+import { applyPowerFocus } from "../starship-power.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -79,6 +80,7 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
       toggleShipMenu: NihilityPadApp.#onToggleShipMenu,
       selectShip: NihilityPadApp.#onSelectShip,
       openShipSheet: NihilityPadApp.#onOpenShipSheet,
+      setShipFocus: NihilityPadApp.#onSetShipFocus,
       selectLibraryTab: NihilityPadApp.#onSelectLibraryTab,
       removeLibraryEntry: NihilityPadApp.#onRemoveLibraryEntry,
       openLibraryEntry: NihilityPadApp.#onOpenLibraryEntry,
@@ -100,6 +102,15 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /** @override — só o nome do Ator, sem prefixo cru. */
   get title() {
     return `PAD — ${this.actor?.name ?? ""}`;
+  }
+
+  /** Atalho de energia da Nave pelo PAD — o mesmo da ficha (quem é da tripulação é dono da Nave). */
+  static async #onSetShipFocus(event, target) {
+    event.preventDefault();
+    const ship = game.actors.get(this.selectedShipId);
+    if (!ship?.isOwner) return;
+    await applyPowerFocus(ship, target.dataset.focus);
+    this.render();
   }
 
   static #onOpenApp(event, target) {
@@ -301,6 +312,14 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
       context.shipReactorOutput = sys.powerGrid.reactorOutput;
       context.shipConsumption = sys.totalConsumption;
       context.shipDeficit = sys.totalConsumption > sys.powerGrid.reactorOutput;
+      const focus = selectedShip.getFlag(SYSTEM_ID, "powerFocus") ?? "balanced";
+      context.shipCanFocus = selectedShip.isOwner;
+      context.shipFocusOptions = [
+        { id: "shields", label: "Escudos" },
+        { id: "weapons", label: "Armas" },
+        { id: "engines", label: "Motores" },
+        { id: "balanced", label: "Equilíbrio" }
+      ].map(o => ({ ...o, active: o.id === focus }));
       context.shipModules = selectedShip.items.filter(i => i.type === "starship_module");
       context.shipCrew = sys.crewActors;
       context.canViewShipSheet = selectedShip.testUserPermission(game.user, "OBSERVER");

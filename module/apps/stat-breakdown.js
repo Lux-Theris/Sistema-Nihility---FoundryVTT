@@ -10,14 +10,14 @@
  */
 import { SYSTEM_ID, MEU_SISTEMA, getAttributeLabel, getVitalFormula, getEnergyLabelForActor, isMovementEnabled, describeMovement } from "../core/config.js";
 import { readEffectChanges, effectModes } from "../helpers/foundry-compat.js";
-import { titleBonusSources, itemAttributeSources, statModifierSources } from "../data/character-model.js";
+import { titleBonusSources, itemAttributeSources, statModifierSources, originBonusSources } from "../data/character-model.js";
 import { conditionalModifierSources, buildModifierContext } from "../combat/conditional-context.js";
 import { sumConditionalModifiers } from "../combat/conditional-modifiers.js";
 import { explainAttribute, explainVital } from "../combat/stat-explain.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
-const KIND_LABELS = { points: "Pontos", title: "Título", skill: "Skill", item: "Item", mod: "Modificação", effect: "Efeito", conditional: "Quando → Então" };
+const KIND_LABELS = { points: "Pontos", title: "Título", species: "Espécie", lineage: "Linhagem", heritage: "Herança", skill: "Skill", item: "Item", mod: "Modificação", effect: "Efeito", conditional: "Quando → Então" };
 
 function appId(actor, stat) {
   return `nihility-breakdown-${stat}-${actor.uuid.replace(/[^a-zA-Z0-9]/g, "-")}`;
@@ -128,7 +128,7 @@ export class StatBreakdownApp extends HandlebarsApplicationMixin(ApplicationV2) 
     const ex = explainAttribute({
       points: attr.points,
       pending: attr.pendingPoints,
-      titles: titleBonusSources(actor, key),
+      titles: [...titleBonusSources(actor, key), ...originBonusSources(actor, key)],
       buffs: effectSources(actor, `system.attributes.combat.${key}.buffDelta`),
       buffActual: attr.buffDelta || 0,
       conditionals: conditionalSources(actor, key),
@@ -145,8 +145,8 @@ export class StatBreakdownApp extends HandlebarsApplicationMixin(ApplicationV2) 
       {
         title: "Base permanente",
         hint: usedIn.length
-          ? `Pontos e Títulos. É o único valor que entra em ${usedIn.join(" e ")}.`
-          : "Pontos e Títulos. É a base de tudo o que vem abaixo.",
+          ? `Pontos, Títulos e a origem (Espécie/Linhagem/Herança). É o único valor que entra em ${usedIn.join(" e ")}.`
+          : "Pontos, Títulos e a origem (Espécie/Linhagem/Herança). É a base de tudo o que vem abaixo.",
         rows: ex.permanent.map(row),
         result: { label: "Total", value: ex.total }
       }

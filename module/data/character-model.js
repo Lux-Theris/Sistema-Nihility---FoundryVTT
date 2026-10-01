@@ -15,10 +15,15 @@ import {
   getActiveSpeciesPresets,
   getActiveCurrencies,
   getFeatureOption,
+  getActiveBodyFunctions,
+  isBodyInjuryEnabled,
   isInventoryEnabled,
   isEncumbranceEnabled
 } from "../core/config.js";
 import { collectConditionalModifiers, buildModifierContext } from "../combat/conditional-context.js";
+import { actorOriginLayers } from "../species/origin.js";
+import { bodyFunctionState, injuredMovement, legacyFunctionsFor } from "../species/anatomy-rules.js";
+import { originAttributeRows, originStatRows, originMovement, originScale } from "../species/species-rules.js";
 import { sumConditionalModifiers } from "../combat/conditional-modifiers.js";
 
 const fields = foundry.data.fields;
@@ -230,6 +235,19 @@ function sumTitleBonuses(actor, target) {
   return sumSources(titleBonusSources(actor, target));
 }
 
+/** Camadas de origem já resolvidas nesta preparação (ver deriveCombatAttributes), ou lidas agora. */
+function layersOf(actor) {
+  return actor?.system?.originLayers ?? actorOriginLayers(actor);
+}
+
+/**
+ * Bônus de atributo da Espécie/Linhagem/Heranças: entram no Total como um Título (decisão do
+ * rework de Espécies) — e por isso na Vida/Mana máxima.
+ */
+export function originBonusSources(actor, target) {
+  return originAttributeRows(layersOf(actor), target);
+}
+
 /**
  * Soma bônus PERMANENTES de Atributo concedidos por Itens equipados e Modificações
  * instaladas (attributeBonuses). Ao contrário do bônus de Título, isso NUNCA entra
@@ -267,7 +285,7 @@ function sumItemAttributeBonus(actor, key) {
  * @param {"hp"|"energy"} stat
  */
 export function statModifierSources(actor, stat) {
-  const list = titleBonusSources(actor, stat);
+  const list = [...titleBonusSources(actor, stat), ...originStatRows(layersOf(actor), stat)];
   const add = (modifiers, label, uuid, kind) => {
     const value = Number(modifiers?.[stat]) || 0;
     if (value) list.push({ label, value, uuid, kind });
@@ -295,10 +313,50 @@ function deriveMovement(dataModel) {
   const dexterity = dataModel.attributes.combat.dexterity;
   // Excesso de peso (bloco "Peso limita o Deslocamento") entra como mais um −%.
   const encumbrance = dataModel.inventory?.penalty ?? 0;
+  // A Espécie pode trocar a base (harpia) e somar % (Elfo da Floresta +10%).
+  const origin = originMovement(dataModel.originLayers ?? []);
+  const config = getMovementConfig();
   dataModel.movement = movementAllowance(
-    { permanentDexterity: dexterity.total, skillDexterity: dexterity.buffDelta || 0, percent: (dataModel.attributes.movementPercent || 0) - encumbrance },
-    getMovementConfig()
+    { permanentDexterity: dexterity.total, skillDexterity: dexterity.buffDelta || 0, percent: (dataModel.attributes.movementPercent || 0) - encumbrance + origin.percent },
+    origin.base === null ? config : { ...config, base: origin.base }
   );
+}
+
+/**
+ * Ferimentos por parte (board 5): o estado do corpo a partir das Funções das partes — Condições
+ * que as partes perdidas causam (aplicadas pelo Mestre designado, ver species/anatomy.js),
+ * Deslocamento proporcional às partes que andam (mínimo de arrastar) e Traços perdidos (voo).
+ * Precisa rodar depois de deriveMovement (ajusta o total). Nada é salvo.
+ */
+function deriveBodyState(dataModel) {
+  if (!isBodyInjuryEnabled()) {
+    dataModel.bodyState = null;
+    return;
+  }
+  const known = getActiveBodyFunctions().map(f => f.id);
+  const parts = dataModel.parent.items
+    .filter(i => i.type === "body_part")
+    .map(i => {
+      const slot = i.system.slot;
+      // Parte de antes do rework (sem Funções salvas): as do slot (braço manipula, perna anda…).
+      const fallback = legacyFunctionsFor(["torso", "core", "head"].includes(slot) ? ["vital", "limb"] : ["limb"], slot, known);
+      return {
+        id: i.id,
+        name: i.name,
+        slot,
+        hpValue: i.system.hp.value,
+        hpMax: i.system.hp.max,
+        functions: i.system.functions?.length ? i.system.functions : fallback,
+        isProsthetic: Boolean(i.system.isProsthetic),
+        mods: (i.system.installedMods ?? []).map(m => ({ kind: m.kind || "implant", functions: m.functions ?? [] }))
+      };
+    });
+  dataModel.bodyState = bodyFunctionState(parts, getActiveBodyFunctions());
+  if (dataModel.movement) {
+    const before = dataModel.movement.total;
+    dataModel.movement.total = injuredMovement(before, dataModel.bodyState.movement);
+    if (dataModel.movement.total !== before) dataModel.movement.injuredFrom = before;
+  }
 }
 
 /**
@@ -381,10 +439,13 @@ function deriveConditionalAttributes(dataModel) {
  */
 function deriveCombatAttributes(dataModel) {
   const combat = dataModel.attributes.combat;
+  // Origem (Espécie → Linhagem → Heranças), lida uma vez por preparação; nada disto é salvo.
+  dataModel.originLayers = actorOriginLayers(dataModel);
+  dataModel.effectiveScale = dataModel.scale || originScale(dataModel.originLayers);
   let spent = 0;
   for (const key of MEU_SISTEMA.COMBAT_ATTRIBUTES) {
     const attr = combat[key];
-    const titleBonus = sumTitleBonuses(dataModel.parent, key);
+    const titleBonus = sumTitleBonuses(dataModel.parent, key) + sumSources(originAttributeRows(dataModel.originLayers, key));
     attr.total = attr.points + titleBonus;
     attr.itemBonus = sumItemAttributeBonus(dataModel.parent, key);
     attr.effectiveTotal = attr.total + (attr.buffDelta || 0);
@@ -507,6 +568,7 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
     deriveCombatAttributes(this);
     deriveInventory(this);
     deriveMovement(this);
+    deriveBodyState(this);
     deriveVitalStats(this);
     deriveConditionalAttributes(this);
     deriveExperience(this);

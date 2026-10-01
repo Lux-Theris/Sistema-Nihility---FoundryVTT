@@ -5,6 +5,7 @@
 import { SYSTEM_ID, MEU_SISTEMA, getActiveDamageElements, resistanceXpGain, getResistanceLearnThreshold } from "../core/config.js";
 import { runAsGm } from "../helpers/gm-relay.js";
 import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
+import { originResistance } from "../species/species-rules.js";
 
 /**
  * Percentual (0-1) de redução aplicado sobre dano mágico/elemental, com base na Defesa
@@ -85,6 +86,8 @@ export function resistanceSourceFor(targetActor, resistanceTarget) {
     }
   }
 
+  // Resistência da Espécie/Linhagem/Heranças conta como uma fonte do tipo Título (fica a melhor).
+  bestTitle = Math.max(bestTitle, originResistance(targetActor.system?.originLayers ?? [], resistanceTarget));
   return { percent: bestSkill + bestTitle, skill: bestSkillItem };
 }
 

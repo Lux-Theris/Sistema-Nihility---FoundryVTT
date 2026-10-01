@@ -29,6 +29,8 @@ export function buildCatalogIndex(catalogs = {}) {
     attributes: ids(catalogs.attributes),
     traits: ids(catalogs.traits),
     species: new Set(Object.keys(catalogs.species ?? {})),
+    heritages: ids(catalogs.heritages),
+    bodyFunctions: ids(catalogs.bodyFunctions),
     ammoTypes: ids(catalogs.ammoTypes),
     crewRoles: ids(catalogs.crewRoles),
     moduleCategories: ids(catalogs.moduleCategories),
@@ -49,6 +51,8 @@ const CATALOG_LABELS = {
   attributes: "Atributos",
   traits: "Traços",
   species: "Espécies",
+  heritages: "Heranças",
+  bodyFunctions: "Funções de Parte",
   ammoTypes: "Munições",
   crewRoles: "Funções de Tripulação",
   moduleCategories: "Categorias de Módulo",
@@ -148,6 +152,7 @@ export function validateItem(item, idx) {
         checkRef(issues, idx, "Arma › Atributo de escala", "attributes", s.weapon.scalingAttribute);
         checkRef(issues, idx, "Arma › Escala do dano", "scales", s.weapon.damageScale);
       }
+      if (s.implant?.enabled && idx.bodyFunctions?.size) checkRefs(issues, idx, "Implante › Funções", "bodyFunctions", s.implant.functions);
       if (s.ammo?.enabled) {
         checkRef(issues, idx, "Munição › Tipo", "ammoTypes", s.ammo.type);
         checkRefs(issues, idx, "Munição › Elementos", "elements", s.ammo.damageElements);
@@ -162,7 +167,12 @@ export function validateItem(item, idx) {
       issues.push(...checkGrant(s.grantsSkill, idx, ""));
       break;
     case "body_part":
-      (s.installedMods ?? []).forEach((mod, i) => issues.push(...checkGrant(mod?.grantsSkill, idx, `Modificação ${i + 1}${mod?.name ? ` (${mod.name})` : ""}`)));
+      if (idx.bodyFunctions?.size) checkRefs(issues, idx, "Funções", "bodyFunctions", s.functions);
+      (s.installedMods ?? []).forEach((mod, i) => {
+        const where = `Modificação ${i + 1}${mod?.name ? ` (${mod.name})` : ""}`;
+        issues.push(...checkGrant(mod?.grantsSkill, idx, where));
+        if (idx.bodyFunctions?.size) checkRefs(issues, idx, `${where} › Funções`, "bodyFunctions", mod?.functions);
+      });
       break;
     case "title":
       (s.resistances ?? []).forEach((r, i) => checkResistanceTarget(issues, idx, `Resistência ${i + 1}`, r?.target));
@@ -181,13 +191,18 @@ export function validateItem(item, idx) {
  * @param {{uuidExists?: (uuid:string) => boolean}} [options]
  * @returns {Array<{where:string, catalog:string, ref:string, message:string, itemId?:string}>}
  */
-export function validateActor(actor, idx, { uuidExists = () => true } = {}) {
+export function validateActor(actor, idx, { uuidExists = () => true, catalogs = null } = {}) {
   const s = actor?.system ?? {};
   const items = actor?.items ?? [];
   const issues = [];
 
   if (actor?.type === "character") {
     checkRef(issues, idx, "Espécie", "species", s.species);
+    checkRefs(issues, idx, "Heranças", "heritages", (s.heritages ?? []).map(h => h?.id));
+    if (s.lineage && catalogs?.species?.[s.species]) {
+      const lineages = (catalogs.species[s.species].lineages ?? []).map(l => l.id);
+      if (!lineages.includes(s.lineage)) issues.push({ where: "Linhagem", catalog: "species", ref: s.lineage, message: `"${s.lineage}" não existe nas Linhagens desta Espécie` });
+    }
     checkRefs(issues, idx, "Traços", "traits", s.traits);
     checkRefs(issues, idx, "Traços removidos", "traits", s.traitsRemoved);
     checkRef(issues, idx, "Escala", "scales", s.scale);
@@ -272,6 +287,25 @@ export function validateCatalogs(catalogs, idx = buildCatalogIndex(catalogs)) {
     checkRefs(list, idx, "Elementos", "elements", preset?.elements);
     (preset?.skills ?? []).forEach((skill, i) => list.push(...checkMechanic(skill, idx, `Skill Racial ${i + 1}${skill?.name ? ` (${skill.name})` : ""}`)));
     push("species", preset?.label ?? key, list);
+  }
+
+  for (const heritage of catalogs.heritages ?? []) {
+    const list = [];
+    checkRefs(list, idx, "Traços", "traits", heritage.traits);
+    checkRefs(list, idx, "Tira Traços", "traits", heritage.removesTraits);
+    checkRefs(list, idx, "Elementos", "elements", heritage.elements);
+    checkRefs(list, idx, "Não convive com", "heritages", heritage.excludes);
+    checkRefs(list, idx, "Espécies permitidas", "species", heritage.allowedSpecies?.list);
+    (heritage.skills ?? []).forEach((skill, i) => list.push(...checkMechanic(skill, idx, `Skill ${i + 1}${skill?.name ? ` (${skill.name})` : ""}`)));
+    push("heritages", heritage.label ?? heritage.id, list);
+  }
+
+  for (const fn of catalogs.bodyFunctions ?? []) {
+    const list = [];
+    if (fn.effect?.kind === "condition") checkRef(list, idx, "Condição", "conditions", fn.effect.conditionId);
+    if (fn.effect?.kind === "removeTrait") checkRef(list, idx, "Traço", "traits", fn.effect.traitId);
+    if (fn.effect?.kind === "movement" && fn.effect.crawlFunction) checkRef(list, idx, "Arrastar com", "bodyFunctions", fn.effect.crawlFunction);
+    push("bodyFunctions", fn.label ?? fn.id, list);
   }
 
   for (const structure of catalogs.structures ?? []) {

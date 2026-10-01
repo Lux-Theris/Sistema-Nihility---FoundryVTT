@@ -1,5 +1,7 @@
 import { effectAnchors, finiteRemaining, anchorLifetime, PERMANENT } from "../combat/effect-anchors.js";
-import { changeActorSpecies } from "../species/species.js";
+import { changeActorSpecies, originContext, openSpeciesSync, changeActorHeritage, openEvolution } from "../species/species.js";
+import { anatomyContext, installImplant, uninstallImplant, currentDraggedImplant } from "../species/anatomy.js";
+import { implantFits } from "../species/anatomy-rules.js";
 import { isSpeciesLocked } from "../species/species-rules.js";
 import {
   SYSTEM_ID,
@@ -146,6 +148,14 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       toggleEquip: NihilityActorSheet.#onToggleEquip,
       openEffectsList: NihilityActorSheet.#onOpenEffectsList,
       explainStat: NihilityActorSheet.#onExplainStat,
+      originChange: NihilityActorSheet.#onOriginChange,
+      originLineage: NihilityActorSheet.#onOriginLineage,
+      originSync: NihilityActorSheet.#onOriginSync,
+      originUnlock: NihilityActorSheet.#onOriginUnlock,
+      heritageAdd: NihilityActorSheet.#onHeritageAdd,
+      originEvolve: NihilityActorSheet.#onOriginEvolve,
+      uninstallImplant: NihilityActorSheet.#onUninstallImplant,
+      heritageRemove: NihilityActorSheet.#onHeritageRemove,
       splitStack: NihilityActorSheet.#onSplitStack
     }
   };
@@ -166,6 +176,16 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
   /** @override Item Geral solto na ficha: empilha, move entre fichas, guarda em contêiner (inventory.js). */
   async _onDropItem(event, item) {
+    // Implante solto sobre uma Parte do Corpo (aba Anatomia): instala em vez de ir para o inventário.
+    const partEl = event?.target?.closest?.("[data-part-id]");
+    if (partEl && this.actor.isOwner) {
+      const doc = item instanceof foundry.abstract.Document ? item : await Item.implementation.fromDropData(item);
+      if (doc?.type === "item" && doc.system?.implant?.enabled) {
+        partEl.classList.remove("drop-ok", "drop-no");
+        await installImplant(this.actor, partEl.dataset.partId, doc);
+        return doc;
+      }
+    }
     return handleItemDrop(this, event, item, () => super._onDropItem(event, item));
   }
 
@@ -173,6 +193,72 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
   static #onOpenEffectsList(event) {
     event.preventDefault();
     EffectsListApp.open(this.actor);
+  }
+
+  /** Mestre: "Trocar…" na aba Origem — escolhe Espécie (e Linhagem) e abre a prévia. */
+  static async #onOriginChange(event) {
+    event.preventDefault();
+    if (!game.user.isGM) return;
+    const { pickSpeciesDialog } = await import("../apps/species-preview.js");
+    const target = await pickSpeciesDialog({ species: this.actor.system.species, lineage: this.actor.system.lineage });
+    if (!target) return;
+    await changeActorSpecies(this.actor, target, { reason: "change" });
+  }
+
+  /** Mestre: "Trocar…" da Linhagem. */
+  static async #onOriginLineage(event) {
+    event.preventDefault();
+    if (!game.user.isGM) return;
+    const { pickSpeciesDialog } = await import("../apps/species-preview.js");
+    const target = await pickSpeciesDialog({ species: this.actor.system.species, lineage: this.actor.system.lineage }, { lineageOnly: true });
+    if (!target) return;
+    await changeActorSpecies(this.actor, target, { reason: "lineage" });
+  }
+
+  /** Mestre: selo "a Espécie mudou" → prévia de sincronização desta ficha. */
+  static async #onOriginSync(event) {
+    event.preventDefault();
+    if (!game.user.isGM) return;
+    await openSpeciesSync(this.actor.system.species, { actors: [this.actor] });
+  }
+
+  /** Remove um implante/prótese da parte: o Item volta ao inventário (prótese devolve a parte natural). */
+  static async #onUninstallImplant(event, target) {
+    event.preventDefault();
+    if (!this.actor.isOwner) return;
+    const row = target.closest("[data-part-id]");
+    await uninstallImplant(this.actor, row.dataset.partId, Number(target.dataset.index));
+  }
+
+  /** Mestre: "Evoluir…" — destinos da Espécie, prévia e anúncio (species.js#openEvolution). */
+  static async #onOriginEvolve(event) {
+    event.preventDefault();
+    await openEvolution(this.actor);
+  }
+
+  /** Mestre: "+ Herança…" — escolhe a Herança e de onde veio, depois a prévia (com aviso de regra). */
+  static async #onHeritageAdd(event) {
+    event.preventDefault();
+    if (!game.user.isGM) return;
+    const { pickHeritageDialog } = await import("../apps/species-preview.js");
+    const picked = await pickHeritageDialog(this.actor);
+    if (!picked) return;
+    await changeActorHeritage(this.actor, picked.id, { op: "add", source: picked.source });
+  }
+
+  /** Mestre: "Retirar…" de uma Herança — a mesma prévia, ao contrário. */
+  static async #onHeritageRemove(event, target) {
+    event.preventDefault();
+    if (!game.user.isGM) return;
+    await changeActorHeritage(this.actor, target.dataset.heritage, { op: "remove" });
+  }
+
+  /** Mestre: devolve ao jogador a escolha de Espécie/Linhagem (até o próximo "Confirmar" de pontos). */
+  static async #onOriginUnlock(event) {
+    event.preventDefault();
+    if (!game.user.isGM) return;
+    await this.actor.update({ "system.speciesState.unlocked": true });
+    ui.notifications.info(`${this.actor.name}: o jogador pode trocar a Espécie de novo até confirmar pontos.`);
   }
 
   /** ⓘ ao lado de um Atributo ou de Vida/Mana: a janela "De onde vem" (apps/stat-breakdown.js). */
@@ -288,6 +374,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.speciesOptions = getSpeciesForCreation();
     // Depois do primeiro "Confirmar" de pontos, só o Mestre troca a Espécie.
     context.speciesLocked = !game.user.isGM && isSpeciesLocked(actor.system);
+    // Origem (Espécie · Linhagem · Heranças): cabeçalho e aba Origem — ver originContext em species.js.
+    context.origin = originContext(actor);
     // Só os atributos que a campanha exibe (ver getActiveAttributes em config.js). Um atributo
     // oculto continua valendo por baixo — só não aparece nem é rolável.
     context.attributeLabels = getVisibleAttributes().map(({ key, label }) => {
@@ -395,6 +483,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.hasUltimateSkill = actor.system.hasUltimateSkill;
 
     context.bodyParts = actor.items.filter(i => i.type === "body_part");
+    // Anatomia (board 5): Funções, implantes e o que as partes perdidas estão causando.
+    context.anatomy = anatomyContext(actor);
     context.statusLabels = MEU_SISTEMA.BODY_PART_STATUS_LABELS;
     context.titles = actor.system.titles;
     context.gear = actor.items.filter(i => i.type === "item");
@@ -454,6 +544,21 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     if (!this.isEditable) return;
 
     this.element.querySelector(".species-select")?.addEventListener("change", this._onSpeciesChange.bind(this));
+    this.element.querySelector(".lineage-select")?.addEventListener("change", this._onLineageChange.bind(this));
+    // Arrastando um implante: verde onde cabe, vermelho onde não cabe (o motivo aparece na linha).
+    this.element.querySelectorAll("[data-part-id]").forEach(row => {
+      row.addEventListener("dragenter", () => {
+        const dragged = currentDraggedImplant();
+        if (!dragged) return;
+        const fits = implantFits(dragged, row.dataset.slot);
+        row.classList.toggle("drop-ok", fits);
+        row.classList.toggle("drop-no", !fits);
+        row.dataset.dropHint = fits ? "soltar: instala" : `não cabe: só ${dragged.fitsSlots.join(", ")}`;
+      });
+      row.addEventListener("dragleave", event => {
+        if (!row.contains(event.relatedTarget)) row.classList.remove("drop-ok", "drop-no");
+      });
+    });
   }
 
   static async #onRemoveTrait(event, target) {
@@ -485,6 +590,20 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
    * Trocar a Espécie passa pela prévia (species.js): nada é gravado antes de "Aplicar", e Cancelar
    * devolve o seletor ao que era. O jogador só troca até confirmar os primeiros Pontos de Atributo.
    */
+  /** Linhagem no cabeçalho (criação / jogador antes de travar): mesma prévia da Espécie. */
+  async _onLineageChange(event) {
+    event.preventDefault();
+    const select = event.currentTarget;
+    const lineage = select.value;
+    if (lineage === (this.actor.system.lineage || "")) return;
+    if (!game.user.isGM && isSpeciesLocked(this.actor.system)) {
+      select.value = this.actor.system.lineage || "";
+      return;
+    }
+    const applied = await changeActorSpecies(this.actor, { species: this.actor.system.species, lineage }, { reason: "lineage" });
+    if (!applied) select.value = this.actor.system.lineage || "";
+  }
+
   async _onSpeciesChange(event) {
     event.preventDefault();
     const select = event.currentTarget;

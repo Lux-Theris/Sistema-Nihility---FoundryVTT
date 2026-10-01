@@ -1,82 +1,316 @@
-<div class="config-editor-body">
-  <p class="hint">
-    Cada Espécie tem um nome, uma lista de Partes do Corpo e uma lista de Skills Raciais.
-    Ao trocar a espécie de um personagem, ambas são aplicadas automaticamente na ficha —
-    todo ser vivo (e alguns não-vivos) que usar essa espécie ganha essas skills de graça,
-    fora da economia normal de Pontos de Habilidade. Tags são separadas por vírgula
-    (ex: <code>vital, mechanical</code>).
-  </p>
-
-  <div class="species-list">
-  {{#each species as |sp key|}}
-  <fieldset class="species-block">
-    <legend>
-      <input type="text" class="species-key-input" value="{{key}}" placeholder="chave (ex: humano)" readonly title="A chave não muda depois de salva (as fichas apontam para ela). Para outra chave, crie uma Espécie nova."/>
-      <input type="text" class="species-label-input" value="{{sp.label}}" placeholder="Nome exibido"/>
-      <select class="species-group" title="Só organiza a lista — sem efeito mecânico">
-        <option value="" {{#unless sp.group}}selected{{/unless}}>— grupo —</option>
-        {{#each ../config.SPECIES_GROUP_LABELS as |label groupKey|}}
-        <option value="{{groupKey}}" {{#if (eq groupKey ../sp.group)}}selected{{/if}}>{{label}}</option>
-        {{/each}}
-      </select>
-      <label class="species-at-creation-cell" title="Desmarcado, esta espécie some do seletor do JOGADOR. O Mestre e a geração via IA continuam podendo aplicá-la.">
-        <input type="checkbox" class="species-at-creation" {{#if sp.availableAtCreation}}checked{{/if}}/>
-        <span>na criação</span>
-      </label>
-      <a class="species-delete" data-action="deleteSpecies" title="Remover Espécie"><i class="fas fa-trash"></i></a>
-    </legend>
-
-    <div class="species-traits" title="Traços que esta Espécie dá a quem a tem. A ficha pode acrescentar ou retirar.">
-      <span class="species-traits-label">Traços</span>
-      {{!-- Chips dos escolhidos + "+ Traço" (janela com filtro): a fileira de checkboxes crescia com o catálogo. --}}
-      <div class="element-field species-trait-field" data-selected="{{sp.traitsJson}}"></div>
-    </div>
-    <div class="species-traits" title="Elemento(s) que esta Espécie É: a vantagem entre elementos vale contra ela.">
-      <span class="species-traits-label">Elemento</span>
-      <div class="element-field species-element-field" data-selected="{{sp.elementsJson}}"></div>
-    </div>
-    <div class="species-carry">
-      <label title="Slots do inventário (vazio = {{sp.defaultCarry.slots}}, o padrão desta Espécie)">Slots <input type="number" class="species-slots" min="0" value="{{sp.inventorySlots}}" placeholder="{{sp.defaultCarry.slots}}"/></label>
-      <label title="Carga base em kg, antes de Força e Defesa (vazio = {{sp.defaultCarry.carry}})">Carga base (kg) <input type="number" class="species-carry-base" min="0" step="any" value="{{sp.carryBase}}" placeholder="{{sp.defaultCarry.carry}}"/></label>
-    </div>
-
-    <div class="config-list-header part-header">
-      <span>Chave</span><span>Nome</span><span>Slot</span><span>HP</span><span>Tags</span><span></span>
-    </div>
-
-    <div class="part-list">
-      {{#each sp.parts as |part|}}
-      <div class="part-row">
-        <input type="text" data-field="key" value="{{part.key}}" placeholder="chave" readonly title="A chave da parte não muda depois de salva: é por ela que a ficha reconhece a parte."/>
-        <input type="text" data-field="label" value="{{part.label}}" placeholder="Nome"/>
-        <input type="text" data-field="slot" value="{{part.slot}}" placeholder="slot"/>
-        <input type="number" data-field="hpMax" value="{{part.hpMax}}" placeholder="HP"/>
-        <input type="text" data-field="tags" value="{{part.tagsText}}" placeholder="tags (vírgula)"/>
-        <a class="part-delete" data-action="deletePart" title="Remover Parte"><i class="fas fa-trash"></i></a>
-      </div>
+<div class="se-root">
+  <aside class="se-master">
+    <input type="search" class="se-search" placeholder="{{searchPlaceholder}}" aria-label="{{searchPlaceholder}}"/>
+    <div class="se-list">
+      {{#each groups as |g|}}
+      <div class="se-grp">{{g.label}}</div>
+      {{#each g.items as |it|}}
+      <a class="se-li {{#if it.active}}active{{/if}}" data-action="selectSpecies" data-id="{{it.id}}" data-label="{{it.label}}">
+        <span class="se-av"></span><span class="se-li-name">{{it.label}}{{#if it.dirty}} •{{/if}}</span>{{#if it.note}}<span class="se-li-note">{{it.note}}</span>{{/if}}
+      </a>
+      {{/each}}
       {{/each}}
     </div>
-
-    <a class="config-add-row" data-action="addPart">+ Nova Parte do Corpo</a>
-
-    <p class="species-block-subtitle">Skills Raciais (concedidas ao selecionar a espécie) <span class="hint-inline">— mesmos campos de uma Skill de verdade (tier fixo "Racial"), editados num modal</span></p>
-    <div class="racial-skill-list">
-      {{#each sp.skills as |skill|}}
-      <div class="racial-skill-row" data-skill="{{skill.dataJson}}">
-        <span class="racial-skill-summary">{{skill.name}} <span class="hint-inline">(nível {{skill.level}} · custo {{skill.cost}}{{#if (eq skill.effectType "damage")}} · Dano{{/if}}{{#if (eq skill.effectType "temporary")}} · Efeito Temporário{{/if}}{{#if skill.resistanceTarget}} · Resistência{{/if}})</span></span>
-        <a class="racial-skill-edit" data-action="editRacialSkill" title="Editar"><i class="fas fa-edit"></i></a>
-        <a class="racial-skill-delete" data-action="deleteRacialSkill" title="Remover"><i class="fas fa-trash"></i></a>
-      </div>
-      {{/each}}
+    <div class="se-mfoot">
+      <button type="button" data-action="addSpecies">{{nounNew}}</button>
+      <button type="button" data-action="duplicateSpecies">Duplicar como nova</button>
+      <button type="button" data-action="importDefaults" title="Acrescenta o que o padrão de fábrica tem e este catálogo não (nunca sobrescreve o que foi editado)">Trazer do padrão…</button>
     </div>
-    <a class="config-add-row" data-action="addRacialSkill">+ Nova Skill Racial</a>
-  </fieldset>
-  {{/each}}
-  </div>
+  </aside>
 
-  <a class="config-add-row" data-action="addSpecies">+ Nova Espécie</a>
+  <section class="se-detail">
+    {{#if sel}}
+    <header class="se-head">
+      <div class="se-portrait"></div>
+      <div class="se-head-main">
+        <div class="se-name-row">
+          <input type="text" class="se-name" data-path="label" value="{{sel.label}}" aria-label="Nome da Espécie"/>
+          {{#unless sel.idLocked}}<input type="text" class="se-key" data-path="__id" value="{{sel.id}}" title="Chave (só enquanto não for salva)" aria-label="Chave"/>{{/unless}}
+          <a class="se-delete" data-action="deleteSpecies" title="Remover Espécie"><i class="fas fa-trash"></i></a>
+        </div>
+        <div class="se-chips">
+          {{#each sel.chips as |c|}}<span class="se-chip">{{c}}{{#if @first}}{{#if @root.sel.idLocked}} <i class="fas fa-lock"></i>{{/if}}{{/if}}</span>{{/each}}
+        </div>
+      </div>
+    </header>
 
-  <footer class="sheet-footer">
-    <button type="submit"><i class="fas fa-save"></i> Salvar Espécies</button>
-  </footer>
+    <nav class="se-tabs">
+      {{#each tabs as |t|}}
+      <a class="se-tab {{#if t.active}}active{{/if}}" data-action="selectTab" data-tab="{{t.id}}">{{t.label}}{{#if t.count}}<span class="se-ct">{{t.count}}</span>{{/if}}</a>
+      {{/each}}
+    </nav>
+
+    <div class="se-body">
+      {{!-- ================= GERAL ================= --}}
+      {{#if (eq tab "general")}}
+      <div class="se-sec">
+        <div class="se-sh">Identidade</div>
+        <div class="se-grid g2">
+          <label class="se-f"><span class="se-l">Grupo</span>
+            <select data-path="group" data-render="1">
+              <option value="" {{#unless sel.group}}selected{{/unless}}>—</option>
+              {{#each groupOptions as |o|}}<option value="{{o.key}}" {{#if (eq o.key @root.sel.group)}}selected{{/if}}>{{o.label}}</option>{{/each}}
+            </select>
+          </label>
+          {{#if isHeritage}}
+          <div class="se-f"><span class="se-l">Como se ganha <span class="se-q" title="Só informa; quem dá e tira Herança é sempre o Mestre.">?</span></span>
+            <div class="se-seg">{{#each her.acquiredModes as |m|}}<label class="{{#if m.on}}on{{/if}}"><input type="radio" name="acquired" data-path="acquired" data-render="1" value="{{m.id}}" {{#if m.on}}checked{{/if}}/>{{m.label}}</label>{{/each}}</div>
+          </div>
+          {{else}}
+          <label class="se-f se-switch"><span class="se-l">Na criação</span>
+            <span><input type="checkbox" data-path="availableAtCreation" data-render="1" {{#if sel.availableAtCreation}}checked{{/if}}/> Jogador pode escolher</span>
+          </label>
+          {{/if}}
+          <label class="se-f span2"><span class="se-l">Descrição curta (aparece na prévia e no resumo da ficha)</span>
+            <input type="text" data-path="description" value="{{sel.description}}"/>
+          </label>
+        </div>
+      </div>
+      <div class="se-sec">
+        <div class="se-sh">O que todo {{sel.label}} é <span class="se-badge live">ao vivo</span></div>
+        <div class="se-grid">
+          <div class="se-f"><span class="se-l">Traços</span><div class="element-field se-picker" data-picker="traits" data-kind="traits" data-selected="{{sel.traitsJson}}"></div></div>
+          {{#if isHeritage}}<div class="se-f se-removes"><span class="se-l">Tira Traços <span class="se-q" title="Aplicado depois de Espécie e Linhagem. Ao perder a Herança, o Traço volta.">?</span></span><div class="element-field se-picker" data-picker="removesTraits" data-kind="traits" data-selected="{{her.removesJson}}"></div></div>{{/if}}
+          <div class="se-f"><span class="se-l">Elemento do corpo <span class="se-q" title="A vantagem entre elementos vale contra ele. A Linhagem pode somar.">?</span></span><div class="element-field se-picker" data-picker="elements" data-kind="elements" data-selected="{{sel.elementsJson}}"></div></div>
+        </div>
+      </div>
+      {{#if isHeritage}}
+      <div class="se-sec">
+        <div class="se-sh">Anúncio ao ganhar <span class="se-sp"></span><span class="se-dim" style="text-transform:none;letter-spacing:0">Voz do Mundo · privado</span></div>
+        <div class="se-grid"><input type="text" data-path="announce" value="{{her.announce}}" placeholder="{nome} sente o sangue esfriar…" aria-label="Anúncio"/></div>
+      </div>
+      {{/if}}
+      <div class="se-sec">
+        <div class="se-sh">Tamanho, movimento e carga <span class="se-badge live">ao vivo</span></div>
+        <div class="se-grid g3">
+          <label class="se-f"><span class="se-l">Escala padrão</span>
+            <select data-path="scale">
+              <option value="" {{#unless sel.scale}}selected{{/unless}}>a primeira (padrão)</option>
+              {{#each scales as |sc|}}<option value="{{sc.id}}" {{#if (eq sc.id @root.sel.scale)}}selected{{/if}}>{{sc.label}}</option>{{/each}}
+            </select>
+          </label>
+          <label class="se-f"><span class="se-l">Deslocamento base <span class="se-q" title="Vazio = a base de Módulos do Sistema.">?</span></span><input type="number" data-path="movement.base" data-kind="optint" value="{{sel.movementBase}}" placeholder="padrão"/></label>
+          <label class="se-f"><span class="se-l">Deslocamento ±%</span><input type="number" data-path="movement.percent" data-kind="int" value="{{sel.movementPercent}}"/></label>
+          {{#unless isHeritage}}
+          <label class="se-f"><span class="se-l">Slots de inventário</span><input type="number" data-path="inventorySlots" data-kind="optint" value="{{sel.inventorySlots}}" placeholder="{{sel.defaultCarry.slots}}"/></label>
+          <label class="se-f"><span class="se-l">Carga base (kg)</span><input type="number" data-path="carryBase" data-kind="optint" value="{{sel.carryBase}}" placeholder="{{sel.defaultCarry.carry}}"/></label>
+          {{/unless}}
+        </div>
+      </div>
+      {{/if}}
+
+      {{!-- ================= CORPO ================= --}}
+      {{#if (eq tab "body")}}
+      <div class="se-strip info"><span class="se-badge copy">copiado</span>Cada parte vira um Item na ficha, com Vida própria. Mudar aqui sobe a versão; as fichas mostram "a Espécie mudou".</div>
+      <div class="se-sec">
+        <div class="se-sh">Partes do Corpo <span class="se-sp"></span><a class="se-add" data-action="addRow" data-list="parts" data-template="part">+ Parte</a></div>
+        <div class="se-table se-parts">
+          <div class="se-th"><span></span><span>chave</span><span>nome</span><span>slot</span><span>Vida</span><span>Funções</span><span></span></div>
+          {{#each sel.parts as |p|}}
+          <div class="se-tr {{#unless p.locked}}is-new{{/unless}}">
+            <span class="se-move">
+              {{#unless p.first}}<a data-action="moveRow" data-list="parts" data-index="{{p.index}}" data-dir="-1" title="Subir"><i class="fas fa-chevron-up"></i></a>{{/unless}}
+              {{#unless p.last}}<a data-action="moveRow" data-list="parts" data-index="{{p.index}}" data-dir="1" title="Descer"><i class="fas fa-chevron-down"></i></a>{{/unless}}
+            </span>
+            {{#if p.locked}}<span class="se-mono" title="A chave não muda depois de salva">{{p.key}} <i class="fas fa-lock"></i></span>{{else}}<input type="text" data-path="parts.{{p.index}}.key" value="{{p.key}}" placeholder="chave" aria-label="Chave"/>{{/if}}
+            <input type="text" data-path="parts.{{p.index}}.label" value="{{p.label}}" aria-label="Nome"/>
+            <input type="text" data-path="parts.{{p.index}}.slot" value="{{p.slot}}" aria-label="Slot" title="Encaixe: decide em que parte um implante cabe e para onde uma prótese vai numa troca de Espécie"/>
+            <input type="number" data-path="parts.{{p.index}}.hpMax" data-kind="int" value="{{p.hpMax}}" aria-label="Vida"/>
+            <span class="se-tagcell"><input type="text" data-path="parts.{{p.index}}.tags" data-kind="tags" value="{{p.tagsText}}" placeholder="vital, visao…" aria-label="Funções"/>{{#if @root.isHeritage}}<label class="se-pros" title="A parte é uma prótese (a Vida é a dela)"><input type="checkbox" data-path="parts.{{p.index}}.prosthetic" {{#if p.prosthetic}}checked{{/if}}/> prót.</label>{{/if}}</span>
+            <a class="se-x" data-action="removeRow" data-list="parts" data-index="{{p.index}}" title="Remover"><i class="fas fa-times"></i></a>
+          </div>
+          {{else}}
+          <p class="se-empty">{{#if @root.isHeritage}}Nenhuma parte: esta Herança não mexe no corpo.{{else}}Nenhuma parte. Sem partes, a ficha não ganha Anatomia por esta Espécie.{{/if}}</p>
+          {{/each}}
+        </div>
+      </div>
+      {{#if isHeritage}}
+      <div class="se-sec">
+        <div class="se-sh">Substitui as partes destes slots</div>
+        <div class="se-grid"><input type="text" data-path="replaces.slots" data-kind="tags" value="{{her.replacesSlots}}" placeholder="arm, leg…" aria-label="Slots substituídos"/>
+          <p class="se-dim" style="margin:0">Pelo <b>slot</b>, e não pela chave: é o que faz a Herança funcionar em qualquer Espécie. As partes da Espécie com esse slot dão lugar às desta Herança.</p></div>
+      </div>
+      <div class="se-sec">
+        <div class="se-sh">Skills <span class="se-badge copy">copiado</span><span class="se-sp"></span><a class="se-add" data-action="addRacialSkill" data-list="skills">+ Skill</a></div>
+        <div class="se-table">
+          {{#each sel.skills as |s|}}
+          <div class="se-tr se-skill">
+            <span><b>{{s.name}}</b> <span class="se-mono">· {{s.key}}</span><br/><span class="se-dim">{{s.summary}}</span></span>
+            <span></span>
+            <a data-action="editRacialSkill" data-list="skills" data-index="{{s.index}}" title="Editar"><i class="fas fa-edit"></i></a>
+            <a class="se-x" data-action="removeRow" data-list="skills" data-index="{{s.index}}" title="Remover"><i class="fas fa-times"></i></a>
+          </div>
+          {{else}}
+          <p class="se-empty">Nenhuma Skill.</p>
+          {{/each}}
+        </div>
+      </div>
+      {{/if}}
+      {{/if}}
+
+      {{!-- ================= SKILLS RACIAIS ================= --}}
+      {{#if (eq tab "skills")}}
+      <div class="se-strip info"><span class="se-badge copy">copiado</span>Viram Skills Raciais na ficha, com nível e XP próprios. Numa troca, a Skill com a mesma chave fica com o nível.</div>
+      <div class="se-sec">
+        <div class="se-sh">Skills Raciais <span class="se-sp"></span><a class="se-add" data-action="addRacialSkill" data-list="skills">+ Skill Racial</a></div>
+        <div class="se-table">
+          {{#each sel.skills as |s|}}
+          <div class="se-tr se-skill">
+            <span><b>{{s.name}}</b> <span class="se-mono">· {{s.key}}</span><br/><span class="se-dim">{{s.summary}}</span></span>
+            <label class="se-unlock" title="Vazio = desde o início (o normal). Preenchido: a Skill só chega a partir deste nível do personagem.">Nv <input type="number" min="0" data-path="skills.{{s.index}}.unlockLevel" data-kind="optint" value="{{s.unlockLevel}}" placeholder="—"/></label>
+            <a data-action="editRacialSkill" data-list="skills" data-index="{{s.index}}" title="Editar"><i class="fas fa-edit"></i></a>
+            <a class="se-x" data-action="removeRow" data-list="skills" data-index="{{s.index}}" title="Remover"><i class="fas fa-times"></i></a>
+          </div>
+          {{else}}
+          <p class="se-empty">Nenhuma Skill Racial.</p>
+          {{/each}}
+        </div>
+      </div>
+      <p class="se-dim">"Nv" vazio = desde o início, o comportamento normal. Use só para Skills que chegam mais tarde.</p>
+      {{/if}}
+
+      {{!-- ================= PASSIVOS ================= --}}
+      {{#if (eq tab "passives")}}
+      <div class="se-strip gold">Funciona como um Título: o bônus entra no Total do atributo (e portanto na Vida/Mana máxima). Aparece em "De onde vem" como a Espécie.</div>
+      <div class="se-sec">
+        <div class="se-sh">Bônus de atributo <span class="se-badge live">ao vivo</span><span class="se-sp"></span><a class="se-add" data-action="addRow" data-list="passives.attributeBonuses" data-template="bonus">+ Atributo</a></div>
+        <div class="se-table">
+          {{#each sel.bonuses as |b|}}
+          <div class="se-tr se-pair">
+            <select data-path="passives.attributeBonuses.{{b.index}}.attribute">{{#each @root.attributes as |a|}}<option value="{{a.key}}" {{#if (eq a.key b.attribute)}}selected{{/if}}>{{a.label}}</option>{{/each}}</select>
+            <input type="number" data-path="passives.attributeBonuses.{{b.index}}.amount" data-kind="int" value="{{b.amount}}" aria-label="Valor"/>
+            <a class="se-x" data-action="removeRow" data-list="passives.attributeBonuses" data-index="{{b.index}}" title="Remover"><i class="fas fa-times"></i></a>
+          </div>
+          {{/each}}
+        </div>
+      </div>
+      <div class="se-sec">
+        <div class="se-sh">Vida e Mana máximas <span class="se-badge live">ao vivo</span></div>
+        <div class="se-grid g2">
+          <label class="se-f"><span class="se-l">Vida máx. +</span><input type="number" data-path="passives.statModifiers.hp" data-kind="int" value="{{sel.hpMod}}"/></label>
+          <label class="se-f"><span class="se-l">Mana máx. +</span><input type="number" data-path="passives.statModifiers.energy" data-kind="int" value="{{sel.energyMod}}"/></label>
+        </div>
+      </div>
+      <div class="se-sec">
+        <div class="se-sh">Resistências <span class="se-sp"></span><a class="se-add" data-action="addRow" data-list="passives.resistances" data-template="resistance">+ Resistência</a></div>
+        <div class="se-table">
+          {{#each sel.resistances as |r|}}
+          <div class="se-tr se-pair">
+            <select data-path="passives.resistances.{{r.index}}.target">{{#each @root.resistanceTargets as |t|}}<option value="{{t.id}}" {{#if (eq t.id r.target)}}selected{{/if}}>{{t.label}}</option>{{/each}}</select>
+            <input type="number" data-path="passives.resistances.{{r.index}}.amount" data-kind="int" value="{{r.amount}}" aria-label="Percentual"/>
+            <a class="se-x" data-action="removeRow" data-list="passives.resistances" data-index="{{r.index}}" title="Remover"><i class="fas fa-times"></i></a>
+          </div>
+          {{/each}}
+        </div>
+      </div>
+      <div class="se-sec">
+        <div class="se-sh">Quando → Então <span class="se-sp"></span><a class="se-add" data-action="addRow" data-list="passives.conditionalModifiers" data-template="rule">+ Regra</a></div>
+        <div class="se-table">
+          {{#each sel.rules as |r|}}
+          <div class="se-tr se-rule">
+            <select data-path="passives.conditionalModifiers.{{r.index}}.when.kind" data-render="1">{{#each @root.whenKinds as |k|}}<option value="{{k.key}}" {{#if (eq k.key r.whenKind)}}selected{{/if}}>{{k.label}}</option>{{/each}}</select>
+            {{#if r.valueOptions}}<select data-path="passives.conditionalModifiers.{{r.index}}.when.value"><option value="">—</option>{{#each r.valueOptions as |o|}}<option value="{{o.id}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>{{/each}}</select>{{/if}}
+            {{#if r.needsThreshold}}<input type="number" data-path="passives.conditionalModifiers.{{r.index}}.when.threshold" data-kind="int" value="{{r.threshold}}" aria-label="%"/>{{/if}}
+            <span class="se-dim">→</span>
+            <input type="number" data-path="passives.conditionalModifiers.{{r.index}}.then.value" data-kind="number" value="{{r.amount}}" aria-label="Valor"/>
+            <select data-path="passives.conditionalModifiers.{{r.index}}.then.kind" data-render="1">{{#each @root.thenKinds as |k|}}<option value="{{k.key}}" {{#if (eq k.key r.thenKind)}}selected{{/if}}>{{k.label}}</option>{{/each}}</select>
+            <select data-path="passives.conditionalModifiers.{{r.index}}.then.target">{{#each r.targetOptions as |o|}}<option value="{{o.id}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>{{/each}}</select>
+            <a class="se-x" data-action="removeRow" data-list="passives.conditionalModifiers" data-index="{{r.index}}" title="Remover"><i class="fas fa-times"></i></a>
+          </div>
+          {{/each}}
+        </div>
+      </div>
+      {{/if}}
+
+      {{!-- ================= LINHAGENS ================= --}}
+      {{#if (eq tab "lineages")}}
+      <div class="se-row">
+        <label class="se-switch"><input type="checkbox" data-path="lineageRequired" {{#if sel.lineageRequired}}checked{{/if}}/> Escolher Linhagem é obrigatório na criação</label>
+        <span class="se-sp"></span><a class="se-add" data-action="addRow" data-list="lineages" data-template="lineage">+ Linhagem</a>
+      </div>
+      {{#each sel.lineages as |l|}}
+      <div class="se-lcard {{#if l.open}}open{{/if}}">
+        <a class="se-lhead" data-action="toggleLineage" data-index="{{l.index}}"><b>{{l.label}}</b> <span class="se-mono">· {{l.id}}{{#if l.locked}} <i class="fas fa-lock"></i>{{/if}}</span><span class="se-sp"></span><span class="se-dim">{{l.summary}}</span><i class="fas {{#if l.open}}fa-chevron-down{{else}}fa-chevron-right{{/if}}"></i></a>
+        {{#if l.open}}
+        <div class="se-grid g2 se-lbody">
+          <label class="se-f"><span class="se-l">Nome</span><input type="text" data-path="lineages.{{l.index}}.label" value="{{l.label}}"/></label>
+          {{#if l.locked}}<span class="se-f"><span class="se-l">Chave</span><span class="se-mono">{{l.id}} <i class="fas fa-lock"></i></span></span>{{else}}<label class="se-f"><span class="se-l">Chave</span><input type="text" data-path="lineages.{{l.index}}.id" value="{{l.id}}"/></label>{{/if}}
+          <label class="se-f span2"><span class="se-l">Descrição</span><input type="text" data-path="lineages.{{l.index}}.description" value="{{l.description}}"/></label>
+          <div class="se-f"><span class="se-l">Soma Traços</span><div class="element-field se-picker" data-picker="lineages.{{l.index}}.traits" data-kind="traits" data-selected="{{l.traitsJson}}"></div></div>
+          <div class="se-f"><span class="se-l">Soma Elemento</span><div class="element-field se-picker" data-picker="lineages.{{l.index}}.elements" data-kind="elements" data-selected="{{l.elementsJson}}"></div></div>
+          <div class="se-f span2"><span class="se-l">Substitui Skills Raciais da Espécie <span class="se-q" title="Na ficha, a Skill substituída dá lugar à da Linhagem.">?</span></span>
+            <div class="se-checks">{{#each l.replaceOptions as |o|}}<label><input type="checkbox" data-path="lineages.{{l.index}}.replaces.skills" data-kind="listToggle" value="{{o.key}}" {{#if o.checked}}checked{{/if}}/> {{o.name}}</label>{{else}}<span class="se-dim">A Espécie não tem Skills Raciais.</span>{{/each}}</div>
+          </div>
+          <div class="se-f span2"><span class="se-l">Acrescenta Skills <a class="se-add" data-action="addRacialSkill" data-list="lineages.{{l.index}}.skills">+ Skill</a></span>
+            <div class="se-table">{{#each l.skills as |s|}}<div class="se-tr se-skill"><span><b>{{s.name}}</b><br/><span class="se-dim">{{s.summary}}</span></span><span></span><a data-action="editRacialSkill" data-list="lineages.{{l.index}}.skills" data-index="{{s.index}}" title="Editar"><i class="fas fa-edit"></i></a><a class="se-x" data-action="removeRow" data-list="lineages.{{l.index}}.skills" data-index="{{s.index}}" title="Remover"><i class="fas fa-times"></i></a></div>{{/each}}</div>
+          </div>
+          <div class="span2 se-row"><span class="se-sp"></span><a class="se-x" data-action="removeRow" data-list="lineages" data-index="{{l.index}}"><i class="fas fa-trash"></i> Remover Linhagem</a></div>
+        </div>
+        {{/if}}
+      </div>
+      {{else}}
+      <p class="se-empty">Sem Linhagens. Uma Linhagem é uma variação desta Espécie escolhida na criação (Elfo da Floresta, Dragoide de Gelo).</p>
+      {{/each}}
+      {{/if}}
+
+      {{!-- ================= REGRAS (Herança) ================= --}}
+      {{#if (eq tab "rules")}}
+      <div class="se-sec">
+        <div class="se-sh">Espécies permitidas</div>
+        <div class="se-grid">
+          <div class="se-seg">{{#each her.modes as |m|}}<label class="{{#if m.on}}on{{/if}}"><input type="radio" name="allowedMode" data-path="allowedSpecies.mode" data-render="1" value="{{m.id}}" {{#if m.on}}checked{{/if}}/>{{m.label}}</label>{{/each}}</div>
+          {{#unless (eq her.allowedMode "any")}}<div class="element-field se-picker" data-picker="allowedSpecies.list" data-kind="species" data-selected="{{her.allowedJson}}"></div>{{/unless}}
+        </div>
+      </div>
+      <div class="se-sec">
+        <div class="se-sh">Não convive com</div>
+        <div class="se-grid">
+          <div class="element-field se-picker" data-picker="excludes" data-kind="heritages" data-selected="{{her.excludesJson}}"></div>
+          <p class="se-dim" style="margin:0">A regra vale nos dois sentidos.</p>
+        </div>
+      </div>
+      <div class="se-strip gold">Fora das regras não é proibido: a prévia avisa e o Mestre pode aplicar mesmo assim. O Validar Mundo lista combinações fora da regra.</div>
+      {{/if}}
+
+      {{!-- ================= EVOLUÇÃO ================= --}}
+      {{#if (eq tab "evolution")}}
+      <div class="se-strip info">Evoluir é sempre um clique do Mestre na ficha. Nível mínimo e dica só informam, nunca travam.</div>
+      <div class="se-sec">
+        <div class="se-sh">Evolui para <span class="se-sp"></span><a class="se-add" data-action="addRow" data-list="evolvesTo" data-template="evolution">+ Destino</a></div>
+        <div class="se-table">
+          {{#each sel.evolutions as |e|}}
+          <div class="se-evo">
+            <div class="se-tr se-pair">
+              <select data-path="evolvesTo.{{e.index}}.species">{{#each @root.otherSpecies as |o|}}<option value="{{o.id}}" {{#if (eq o.id e.species)}}selected{{/if}}>{{o.label}}</option>{{/each}}</select>
+              <input type="number" min="0" data-path="evolvesTo.{{e.index}}.minLevel" data-kind="optint" value="{{e.minLevel}}" placeholder="Nv mín." aria-label="Nível mínimo"/>
+              <a class="se-x" data-action="removeRow" data-list="evolvesTo" data-index="{{e.index}}" title="Remover"><i class="fas fa-times"></i></a>
+            </div>
+            <div class="se-grid g2">
+              <label class="se-f span2"><span class="se-l">Dica para o Mestre</span><input type="text" data-path="evolvesTo.{{e.index}}.hint" value="{{e.hint}}" placeholder="Ex.: ao receber um Nome de um Lorde Demônio"/></label>
+              <label class="se-switch"><input type="checkbox" data-path="evolvesTo.{{e.index}}.keepLineage" {{#if e.keepLineage}}checked{{/if}}/> Manter Linhagem</label>
+              <label class="se-switch" title="Estilo Tensura: as Resistências Elementais do personagem sobem para Imunidade na evolução."><input type="checkbox" data-path="evolvesTo.{{e.index}}.resistancesToImmunity" {{#if e.resistancesToImmunity}}checked{{/if}}/> Resistências viram Imunidade</label>
+            </div>
+          </div>
+          {{else}}
+          <p class="se-empty">Nenhum destino.</p>
+          {{/each}}
+        </div>
+      </div>
+      <div class="se-sec">
+        <div class="se-sh">Vem de</div>
+        <p class="se-dim" style="margin:8px 10px">{{#if sel.evolvesFrom.length}}{{#each sel.evolvesFrom as |f|}}{{f}}{{#unless @last}}, {{/unless}}{{/each}}{{else}}Nenhuma Espécie evolui para {{sel.label}}.{{/if}} (calculado, só leitura)</p>
+      </div>
+      {{/if}}
+    </div>
+
+    <footer class="se-foot">
+      <span class="se-dim">{{sel.sheetCount}} ficha(s) {{#if isHeritage}}têm{{else}}são{{/if}} {{sel.label}}{{#if sel.outdatedCount}} · {{sel.outdatedCount}} desatualizada(s){{/if}}{{#if dirtyCount}} · {{dirtyCount}} Espécie(s) com mudança não salva{{/if}}</span>
+      <span class="se-sp"></span>
+      {{#if isGM}}<button type="button" class="se-gm" data-action="syncSheets">Sincronizar fichas…</button>{{/if}}
+      <button type="button" class="se-save" data-action="save">Salvar</button>
+    </footer>
+    {{else}}
+    <p class="se-empty">Nenhuma Espécie. Crie a primeira com "+ Nova Espécie".</p>
+    {{/if}}
+  </section>
 </div>

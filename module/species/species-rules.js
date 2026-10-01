@@ -128,7 +128,7 @@ export function resolveSpeciesTemplate({ species = null, speciesId = "", lineage
 
     for (const p of e.parts) {
       parts = parts.filter(existing => existing.key !== p.key);
-      parts.push({ key: p.key, label: p.label || p.key, slot: p.slot || "body", hpMax: Math.max(1, Number(p.hpMax) || 1), tags: p.tags ?? [], source });
+      parts.push({ key: p.key, label: p.label || p.key, slot: p.slot || "body", hpMax: Math.max(1, Number(p.hpMax) || 1), tags: p.tags ?? [], prosthetic: Boolean(p.prosthetic), source });
     }
     for (const s of e.skills) {
       const unlock = Number(s.unlockLevel) || 0;
@@ -190,10 +190,14 @@ function isGrantedSkill(s) {
  *
  * @param {{parts:Array, skills:Array, archive?:Array}} current - ver actorSpeciesSnapshot em species.js
  * @param {ReturnType<typeof resolveSpeciesTemplate>} template
- * @param {{mode?:"change"|"sync", removeMissing?:boolean}} [options]
+ * Modo "evolution" (Evoluir): como "change" para o corpo, mas as Skills Raciais que não têm par
+ * na Espécie nova FICAM (com nível e XP) — evoluir soma, não apaga o que já se aprendeu.
+ *
+ * @param {{mode?:"change"|"sync"|"evolution", removeMissing?:boolean}} [options]
  */
 export function speciesDiff(current = {}, template = {}, { mode = "change", removeMissing = false } = {}) {
   const allowRemove = mode !== "sync" || removeMissing;
+  const allowRemoveSkills = mode === "evolution" ? false : allowRemove;
   const parts = { update: [], create: [], detach: [], remove: [], keep: [] };
   const skills = { keep: [], update: [], create: [], remove: [] };
 
@@ -203,10 +207,18 @@ export function speciesDiff(current = {}, template = {}, { mode = "change", remo
   const morph = (cur, tpl, how) => {
     const oldMax = Number(cur.hp?.max) || 0;
     const oldValue = Number(cur.hp?.value) || 0;
-    const hpMax = cur.isProsthetic ? oldMax : tpl.hpMax;
-    const hpValue = cur.isProsthetic ? oldValue : oldMax > 0 ? Math.round((oldValue / oldMax) * tpl.hpMax) : tpl.hpMax;
-    const changed = cur.name !== tpl.label || cur.slot !== tpl.slot || hpMax !== oldMax || cur.grant?.key !== tpl.key || !cur.grant;
-    const entry = { id: cur.id, key: tpl.key, label: tpl.label, slot: tpl.slot, hpMax, hpValue, source: tpl.source, tags: tpl.tags, from: { name: cur.name, max: oldMax, value: oldValue }, how, carries: cur.mods ?? [], isProsthetic: Boolean(cur.isProsthetic) };
+    // Prótese que a ficha já tinha mantém a própria Vida. Parte do molde que É prótese (Herança
+    // "Convertido em Ciborgue") vira prótese nova; prótese que veio de uma Herança e deixa de
+    // estar no molde volta a ser natural.
+    const heritageProsthesis = cur.isProsthetic && cur.grant?.kind === "heritage";
+    const keepOwnProsthesis = cur.isProsthetic && !heritageProsthesis && !tpl.prosthetic;
+    const isProsthetic = tpl.prosthetic ? true : heritageProsthesis ? false : Boolean(cur.isProsthetic);
+    const hpMax = keepOwnProsthesis ? oldMax : tpl.hpMax;
+    const hpValue = keepOwnProsthesis ? oldValue : tpl.prosthetic && !cur.isProsthetic ? tpl.hpMax : oldMax > 0 ? Math.round((oldValue / oldMax) * tpl.hpMax) : tpl.hpMax;
+    // Parte antiga sem marca de origem não conta como "mudou": ela ganha a marca quando a origem for
+    // aplicada de novo (as partes "keep" também são gravadas), sem gerar aviso falso de desatualizada.
+    const changed = cur.name !== tpl.label || cur.slot !== tpl.slot || hpMax !== oldMax || isProsthetic !== Boolean(cur.isProsthetic) || Boolean(cur.grant?.key && cur.grant.key !== tpl.key);
+    const entry = { id: cur.id, key: tpl.key, label: tpl.label, slot: tpl.slot, hpMax, hpValue, source: tpl.source, tags: tpl.tags, from: { name: cur.name, max: oldMax, value: oldValue }, how, carries: cur.mods ?? [], isProsthetic, wasProsthetic: Boolean(cur.isProsthetic) };
     if (changed) parts.update.push(entry);
     else parts.keep.push(entry);
   };
@@ -227,7 +239,7 @@ export function speciesDiff(current = {}, template = {}, { mode = "change", remo
     tplParts.splice(tplParts.indexOf(tpl), 1);
   }
   // (3) criar
-  for (const tpl of tplParts) parts.create.push({ key: tpl.key, label: tpl.label, slot: tpl.slot, hpMax: tpl.hpMax, tags: tpl.tags, source: tpl.source });
+  for (const tpl of tplParts) parts.create.push({ key: tpl.key, label: tpl.label, slot: tpl.slot, hpMax: tpl.hpMax, tags: tpl.tags, isProsthetic: tpl.prosthetic, source: tpl.source });
   // (4) sobras da ficha
   for (const cur of pending) {
     if (cur.isProsthetic || (cur.mods ?? []).length) parts.detach.push({ id: cur.id, name: cur.name, carries: cur.mods ?? [], isProsthetic: Boolean(cur.isProsthetic) });
@@ -243,8 +255,11 @@ export function speciesDiff(current = {}, template = {}, { mode = "change", remo
     if (idx >= 0) {
       const cur = pendingSkills.splice(idx, 1)[0];
       const entry = { id: cur.id, key: tpl.key, name: tpl.name, from: cur.name, level: cur.level, xp: cur.xp, data: tpl.data, hash: tpl.hash, source: tpl.source };
-      const mechanicsChanged = cur.grant?.hash !== tpl.hash;
-      if (mode === "sync" && mechanicsChanged) skills.update.push(entry);
+      // Só compara a mecânica quando a Skill já tem marca com hash (dados antigos: sem aviso falso).
+      const mechanicsChanged = Boolean(cur.grant?.hash) && cur.grant.hash !== tpl.hash;
+      // Sincronizar atualiza a mecânica quando o catálogo mudou; evoluir também (Regeneração Amorfa
+      // → Regeneração Demoníaca: mesma chave, mecânica e nome novos, nível mantido).
+      if ((mode === "sync" && mechanicsChanged) || (mode === "evolution" && cur.grant?.hash !== tpl.hash)) skills.update.push(entry);
       else skills.keep.push({ ...entry, needsMark: !cur.grant || cur.grant.key !== tpl.key });
       continue;
     }
@@ -252,7 +267,8 @@ export function speciesDiff(current = {}, template = {}, { mode = "change", remo
     skills.create.push({ key: tpl.key, name: tpl.name, data: tpl.data, hash: tpl.hash, source: tpl.source, restored: saved ? { level: saved.level, xp: saved.xp } : null });
   }
   for (const cur of pendingSkills) {
-    if (allowRemove) skills.remove.push({ id: cur.id, name: cur.name, level: cur.level, xp: cur.xp, key: cur.grant?.key ?? speciesSlug(cur.name), source: cur.grant?.source ?? null });
+    if (allowRemoveSkills) skills.remove.push({ id: cur.id, name: cur.name, level: cur.level, xp: cur.xp, key: cur.grant?.key ?? speciesSlug(cur.name), source: cur.grant?.source ?? null });
+    else if (mode === "evolution") skills.keep.push({ id: cur.id, key: cur.grant?.key ?? speciesSlug(cur.name), name: cur.name, level: cur.level, xp: cur.xp, fromPrevious: true });
   }
 
   const losses = [
@@ -286,4 +302,157 @@ export function racialSkillSystem(s = {}, restored = null) {
     description: s.description || "",
     active: false
   };
+}
+
+/* ------------------------------------------------------------------ passivos ao vivo */
+
+const LAYER_KIND_LABELS = { species: "Espécie", lineage: "Linhagem", heritage: "Herança" };
+
+/**
+ * As camadas de origem de uma ficha, na ordem (Espécie → Linhagem → Heranças), só com o que é
+ * lido AO VIVO: passivos, Escala e Deslocamento. Quem monta (species.js / character-model.js)
+ * passa as entradas do catálogo já resolvidas.
+ * @param {{species?:object|null, lineage?:object|null, heritages?:Array<{id:string, entry:object}>}} input
+ */
+export function originLayers({ species = null, lineage = null, heritages = [] } = {}) {
+  const layers = [];
+  const push = (kind, id, e) => {
+    if (!e) return;
+    layers.push({
+      kind,
+      id,
+      label: e.label || id,
+      kindLabel: LAYER_KIND_LABELS[kind],
+      passives: e.passives ?? {},
+      scale: e.scale ?? "",
+      movement: e.movement ?? null,
+      traits: e.traits ?? [],
+      removesTraits: e.removesTraits ?? [],
+      elements: e.elements ?? []
+    });
+  };
+  push("species", "", species);
+  push("lineage", lineage?.id ?? "", lineage);
+  for (const h of heritages ?? []) push("heritage", h.id, h.entry);
+  return layers;
+}
+
+/** Bônus de atributo das camadas (entra no Total, como Título): linhas com a fonte. */
+export function originAttributeRows(layers, attribute) {
+  const rows = [];
+  for (const layer of layers ?? []) {
+    let value = 0;
+    for (const b of layer.passives?.attributeBonuses ?? []) if (b?.attribute === attribute) value += Number(b.amount) || 0;
+    if (value) rows.push({ label: `${layer.kindLabel}: ${layer.label}`, value, kind: layer.kind });
+  }
+  return rows;
+}
+
+/** Vida/Mana máxima das camadas. */
+export function originStatRows(layers, stat) {
+  const rows = [];
+  for (const layer of layers ?? []) {
+    const value = Number(layer.passives?.statModifiers?.[stat]) || 0;
+    if (value) rows.push({ label: `${layer.kindLabel}: ${layer.label}`, value, kind: layer.kind });
+  }
+  return rows;
+}
+
+/** Melhor Resistência (fração) das camadas para um alvo ("general" ou elemento). Conta como Título. */
+export function originResistance(layers, target) {
+  let best = 0;
+  for (const layer of layers ?? []) {
+    for (const r of layer.passives?.resistances ?? []) if (r?.target === target) best = Math.max(best, (Number(r.amount) || 0) / 100);
+  }
+  return best;
+}
+
+/** "Quando → Então" das camadas, agrupados pela camada (para "De onde vem"). */
+export function originConditionalSources(layers) {
+  return (layers ?? [])
+    .filter(l => (l.passives?.conditionalModifiers ?? []).length)
+    .map(l => ({ item: { name: `${l.kindLabel}: ${l.label}`, uuid: null }, mods: l.passives.conditionalModifiers }));
+}
+
+/** Escala: a camada mais nova que define uma vence; "" = nenhuma. */
+export function originScale(layers) {
+  let scale = "";
+  for (const layer of layers ?? []) if (layer.scale) scale = layer.scale;
+  return scale;
+}
+
+/** Deslocamento: base da camada mais nova que define; % de todas somados. */
+export function originMovement(layers) {
+  let base = null;
+  let percent = 0;
+  for (const layer of layers ?? []) {
+    const m = layer.movement;
+    if (!m) continue;
+    if (m.base !== null && m.base !== undefined && m.base !== "") base = Math.max(0, Number(m.base) || 0);
+    percent += Number(m.percent) || 0;
+  }
+  return { base, percent };
+}
+
+
+/* ------------------------------------------------------------------ Heranças: regras de convivência */
+
+/**
+ * Pode esta Herança cair neste personagem? Só AVISA (o Mestre arbitra e pode aplicar mesmo assim).
+ * @param {object} heritage - entrada do catálogo (`allowedSpecies: {mode: "any"|"only"|"except", list}`, `excludes`)
+ * @param {{species:string, heritages:string[]}} target
+ * @param {Array<object>} catalog - todas as Heranças (o `excludes` vale nos dois sentidos)
+ * @returns {string[]} motivos (vazio = tudo certo)
+ */
+export function heritageConflicts(heritage, { species = "", heritages = [] } = {}, catalog = []) {
+  const reasons = [];
+  if (!heritage) return reasons;
+  const allowed = heritage.allowedSpecies ?? { mode: "any", list: [] };
+  const list = allowed.list ?? [];
+  if (allowed.mode === "only" && list.length && !list.includes(species)) reasons.push("species-not-allowed");
+  if (allowed.mode === "except" && list.includes(species)) reasons.push("species-excluded");
+  for (const other of heritages) {
+    if (other === heritage.id) continue;
+    const otherEntry = catalog.find(h => h.id === other);
+    if ((heritage.excludes ?? []).includes(other) || (otherEntry?.excludes ?? []).includes(heritage.id)) reasons.push(`excludes:${other}`);
+  }
+  return reasons;
+}
+
+/* ------------------------------------------------------------------ Evolução */
+
+/**
+ * Destinos de evolução de uma Espécie, com o nível mínimo só como AVISO (`ready`).
+ * @param {object} entry - Espécie atual (normalizada)
+ * @param {number} level - nível do personagem
+ * @param {Record<string, object>} catalog - todas as Espécies (para o nome e para ignorar destino apagado)
+ */
+export function evolutionOptions(entry, level, catalog = {}) {
+  return (entry?.evolvesTo ?? [])
+    .filter(e => e?.species && catalog[e.species])
+    .map(e => {
+      const minLevel = Number(e.minLevel) || 0;
+      return {
+        species: e.species,
+        label: catalog[e.species].label || e.species,
+        minLevel,
+        ready: !minLevel || (Number(level) || 1) >= minLevel,
+        missing: minLevel ? Math.max(0, minLevel - (Number(level) || 1)) : 0,
+        hint: e.hint || "",
+        keepLineage: e.keepLineage !== false,
+        resistancesToImmunity: Boolean(e.resistancesToImmunity)
+      };
+    });
+}
+
+/**
+ * Estilo Tensura: na evolução, as Resistências ELEMENTAIS sobem para o nível máximo (Imunidade).
+ * A Geral nunca vira Imunidade (para em 50% — regra de computeResistancePercent).
+ * @param {Array<{id:string, name:string, resistanceTarget:string, level:number}>} skills
+ * @param {number} maxElementLevel
+ */
+export function evolutionResistanceUpgrades(skills, maxElementLevel = 10) {
+  return (skills ?? [])
+    .filter(s => s.resistanceTarget && s.resistanceTarget !== "general" && (Number(s.level) || 1) < maxElementLevel)
+    .map(s => ({ id: s.id, name: s.name, target: s.resistanceTarget, level: Number(s.level) || 1, toLevel: maxElementLevel }));
 }

@@ -32,7 +32,11 @@ import {
   MAGIC_TAG_LABELS,
   getAmmoTypes,
   cargoSlotsFor,
-  isInventoryEnabled
+  isInventoryEnabled,
+  isAnatomyEnabled,
+  getActiveSpeciesPresets,
+  getActiveHeritages,
+  getActiveBodyFunctions,
 } from "../core/config.js";
 import {
   WHEN_KINDS,
@@ -213,7 +217,8 @@ function tabsFor(item) {
       return [
         { id: "general", label: "Geral" },
         { id: "weapon", label: "Arma", led: true, ledOn: Boolean(sys.weapon?.enabled) },
-        { id: "equipped", label: "Enquanto equipado", count: n(whileEquipped) },
+        ...(isAnatomyEnabled() ? [{ id: "implant", label: "Implante", led: true, ledOn: Boolean(sys.implant?.enabled) }] : []),
+        { id: "equipped", label: sys.implant?.enabled ? "Enquanto instalado" : "Enquanto equipado", count: n(whileEquipped) },
         { id: "description", label: "Descrição" }
       ];
     }
@@ -305,6 +310,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       deleteSkillEffect: NihilityItemSheet.#onSkillEffectDelete,
       pickElements: NihilityItemSheet.#onPickElements,
       toggleAmmoType: NihilityItemSheet.#onToggleAmmoType,
+      toggleImplantList: NihilityItemSheet.#onToggleImplantList,
       removeElement: NihilityItemSheet.#onRemoveElement,
       showEffectCondition: NihilityItemSheet.#onShowEffectCondition,
       editEffectLight: NihilityItemSheet.#onEditEffectLight,
@@ -600,6 +606,17 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   }
 
   #prepareGenericItemContext(context, { scaleOptions, scalingOptions }) {
+    // Implante (board 5): slots conhecidos (das partes de todas as Espécies e Heranças) e Funções.
+    const implant = this.item.system.implant ?? {};
+    const slots = new Set(implant.fitsSlots ?? []);
+    const knownSlots = new Set();
+    for (const entry of Object.values(getActiveSpeciesPresets())) for (const p of entry.parts ?? []) if (p.slot) knownSlots.add(p.slot);
+    for (const h of getActiveHeritages()) for (const p of h.parts ?? []) if (p.slot) knownSlots.add(p.slot);
+    for (const s of slots) knownSlots.add(s);
+    context.implantSlotChips = [...knownSlots].sort().map(id => ({ id, checked: slots.has(id) }));
+    const fns = new Set(implant.functions ?? []);
+    context.implantFunctionChips = getActiveBodyFunctions().map(f => ({ id: f.id, label: f.label, checked: fns.has(f.id) }));
+    context.implantIsProsthesis = implant.kind === "prosthesis";
     const weapon = this.item.system.weapon;
     context.weaponScalingOptions = scalingOptions(weapon.scalingAttribute);
     context.weaponScaleOptions = scaleOptions(weapon.damageScale);
@@ -956,6 +973,18 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   }
 
   /** Lançador: liga/desliga um Tipo de Munição aceito. */
+  /** Chips do Implante: `data-list` = "fitsSlots" | "functions", `data-value` = o id. */
+  static async #onToggleImplantList(event, target) {
+    event.preventDefault();
+    if (!this.isEditable) return;
+    const key = target.dataset.list === "functions" ? "functions" : "fitsSlots";
+    const list = new Set(this.item.system.implant?.[key] ?? []);
+    const value = target.dataset.value;
+    if (list.has(value)) list.delete(value);
+    else list.add(value);
+    await this.item.update({ [`system.implant.${key}`]: [...list] });
+  }
+
   static async #onToggleAmmoType(event, target) {
     event.preventDefault();
     if (!this.isEditable) return;

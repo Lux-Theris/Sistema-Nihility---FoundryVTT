@@ -20,7 +20,7 @@ Este manual explica, do começo ao fim, como a sua ficha funciona, como rolar, c
 7. [Combate](#7-combate)
 8. [Itens e armas](#8-itens-e-armas)
 9. [Títulos](#9-títulos)
-10. [Anatomia: Partes do Corpo e próteses](#10-anatomia-partes-do-corpo-e-próteses)
+10. [Anatomia: Partes do Corpo, implantes e próteses](#10-anatomia-partes-do-corpo-implantes-e-próteses)
 11. [Economia: moedas](#11-economia-moedas)
 12. [Experiência, níveis e a Voz do Mundo](#12-experiência-níveis-e-a-voz-do-mundo)
 13. [Naves e Veículos (para quem tripula)](#13-naves-e-veículos-para-quem-tripula)
@@ -39,29 +39,36 @@ Há dois caminhos:
 - **Diretório de Atores** (a aba de Atores na barra lateral do Foundry): clique no nome do seu personagem.
 - **Menu do sistema**: no topo do Diretório de Atores há o botão **Nihility RPG System**. Ele abre o Menu Principal, e a aba **Fichas** lista todos os Atores que você possui ou pode observar, com busca por nome e filtros (**Todos**, **Personagens**, **NPCs**, **Naves**, **Veículos**). As outras abas do menu aparecem com cadeado: são do Mestre.
 
-### Escolhendo a Espécie
+### Escolhendo a Espécie (e a Linhagem)
 
-Um personagem novo começa com a Espécie em branco (**—**). Ao escolher uma Espécie no seletor do cabeçalho, o sistema pergunta:
+Um personagem novo começa com a Espécie em branco (**—**). Escolha no seletor do cabeçalho. Se a Espécie tiver **Linhagens** (Dragoide do Fogo/Gelo/Raio, Elfo Alto/da Floresta/Sombrio…), aparece um segundo seletor ao lado; o asterisco indica que escolher uma é obrigatório.
 
-> *Substituir Partes do Corpo e Skills Raciais atuais pelo preset de **Elfo**?*
+Na criação, a escolha vale na hora: o sistema cria as **Partes do Corpo** (cada uma com Vida própria, se a mesa usa Anatomia), as **Skills Raciais** e aplica os **Traços** e os bônus da Espécie. Se a ficha já tiver algo da Espécie anterior, abre uma **prévia** mostrando o que entra, muda e sai antes de gravar — **Cancelar não muda nada**.
 
-Confirmando, ele:
-
-- cria as **Partes do Corpo** daquela Espécie (Cabeça, Tronco, Braços… cada uma com a própria Vida) — se a sua mesa usa Anatomia;
-- cria as **Skills Raciais** daquela Espécie (ex.: Elfo ganha *Visão Élfica*);
-- aplica os **Traços** da Espécie (ex.: Orgânico, Voador, Dracônico).
-
-As Partes do Corpo e Skills Raciais antigas são **substituídas**. Escolher de novo a mesma Espécie não reaplica nada. Algumas Espécies (montarias como Cavalo e Grifo) só aparecem para o Mestre.
+**Você pode trocar até confirmar seus primeiros Pontos de Atributo.** No primeiro "Confirmar" a origem trava, e daí em diante só o Mestre troca (pela aba **Origem**). Algumas Espécies (montarias, formas evoluídas) só aparecem para o Mestre.
 
 Espécies que vêm prontas:
 
 | Grupo | Espécies |
 |---|---|
 | Fantasia | Humano, Elfo, Anão, Orc, Goblin, Pequenino |
-| Isekai | Slime, Dragoide, Ogro, Lobo Tempestade, Harpia |
+| Isekai | Slime, Dragoide, Ogro, Lobo Tempestade, Harpia (e as evoluções Slime Demoníaco e Kijin) |
 | Sci-Fi | Ciborgue, Androide, Mutante, Simbionte |
 
 O Mestre pode ter criado outras ou removido estas.
+
+### A aba Origem
+
+Mostra de onde o personagem vem, em camadas:
+
+- **Espécie** — o que você é. Traços, elemento do corpo, carga, Escala, Deslocamento e bônus valem **ao vivo** (se o Mestre editar a Espécie, muda na hora); Partes do Corpo e Skills Raciais são **copiadas** para a ficha, com Vida, nível e XP próprios.
+- **Linhagem** — que tipo daquela Espécie você é.
+- **Heranças** — o que aconteceu com você (Vampirizado, Meio-Dragão, Convertido em Ciborgue…). Só o Mestre dá e tira, e o anúncio chega pela Voz do Mundo.
+- **Histórico** — trocas, evoluções e Heranças, com data.
+
+Bônus de atributo da origem entram no **Total** do atributo, como um Título (e por isso na Vida/Mana máxima). O ⓘ ao lado de cada atributo mostra a parcela como "Espécie: Ogro", "Linhagem: …", "Herança: …".
+
+Se a sua Espécie puder **evoluir** (estilo Tensura: Slime → Slime Demoníaco, Ogro → Kijin), o Mestre faz isso pela aba Origem. Evoluir **soma**: suas Skills Raciais continuam com o nível que tinham.
 
 ### Distribuindo os pontos iniciais
 
@@ -76,7 +83,7 @@ No nível 1 você tem **35 Pontos de Atributo** (padrão) para distribuir entre 
 | # | O que é | Como funciona |
 |---|---|---|
 | 1 | **Retrato** | Clique para trocar a imagem. O botãozinho no canto ajusta o enquadramento (zoom e posição). |
-| 2 | **Espécie** | Veja [Escolhendo a Espécie](#escolhendo-a-espécie). |
+| 2 | **Espécie** | Veja [Escolhendo a Espécie](#escolhendo-a-espécie-e-a-linhagem). Depois de travar, vira uma linha-resumo que abre a aba Origem. |
 | 3 | **Nível** | Só leitura para você. Quem sobe o nível é o Mestre (o **+** dourado só aparece para ele). |
 | 4 | **PAD** | Abre o celular do personagem. Só aparece se você carrega um Item marcado como PAD. Um número vermelho indica mensagens não lidas. |
 | 5 | **Traços** | Etiquetas do personagem (Orgânico, Voador…). Vêm da Espécie; só o Mestre acrescenta ou retira. |
@@ -84,7 +91,7 @@ No nível 1 você tem **35 Pontos de Atributo** (padrão) para distribuir entre 
 | 7 | **+** ao lado da barra | Abre um campo rápido: digite um número e clique **− Dano**/**+ Cura** (HP) ou **− Gastar**/**+ Restaurar** (Mana). Nunca passa de 0 nem do máximo. |
 | 8 | **Descanso Completo**, **Iniciativa**, **Correr** | Descanso volta HP e Mana ao máximo (use quando o Mestre disser que houve descanso). Iniciativa rola e entra no rastreador de combate. Correr só aparece se a mesa usa Deslocamento por rodada. |
 | 9 | **Condições ativas** | Queimadura, Veneno, buffs… com rodadas ou ticks restantes. O **✕** remove (ex.: foi curado). A ampulheta aplica um tick manual. |
-| 10 | **Abas** | **Ficha**, **Anatomia** (se a mesa usa) e **Biografia**. |
+| 10 | **Abas** | **Ficha**, **Inventário**, **Anatomia** (se a mesa usa), **Origem** e **Biografia**. |
 | 11 | **Pool de Pontos de Atributo** | Quantos pontos ainda estão livres. |
 | 12 | **− / +** | Alocar pontos (ficam pendentes até confirmar). |
 | 13 | **Fórmula de dados** e botão **d20** | O pool que o Atributo rola hoje. O botão rola no chat. |
@@ -579,18 +586,25 @@ Também mostram **Concedido por** e **Raridade**.
 
 ---
 
-## 10. Anatomia: Partes do Corpo e próteses
+## 10. Anatomia: Partes do Corpo, implantes e próteses
 
-A aba **Anatomia** lista suas **Partes do Corpo**, cada uma com Vida própria e um estado: **Intacto**, **Danificado** ou **Destruído**. Elas nascem do preset da sua Espécie.
+A aba **Anatomia** lista suas **Partes do Corpo**, cada uma com Vida própria, o **slot** (head, arm, leg…) e as **Funções** que ela tem: a cabeça vê e ouve, o braço manipula (a mão faz parte do braço), a perna anda, a asa voa.
 
-O sistema não distribui dano nas partes sozinho: é uma ferramenta para a narrativa ("seu braço esquerdo foi atingido"). O Mestre, ou você com a autorização dele, ajusta a Vida e o estado da parte.
+**Implantes e próteses são Itens.** Arraste um Item com **Implante** ligado para uma parte: enquanto você arrasta, as partes onde ele cabe ficam verdes e as outras vermelhas, com o motivo. Instalar tira o Item do inventário; o **×** no implante o devolve.
 
-Na ficha de uma Parte do Corpo:
+- **Prótese** substitui a parte: a Vida da parte passa a ser a da prótese, e as Funções vêm dela (um braço destruído com prótese volta a manipular).
+- **Implante** aprimora a parte natural e soma Funções; se a parte for destruída, ele para.
+- Bônus, Vida/Mana e a Habilidade do Item valem **enquanto instalado**.
 
-- **Detalhes**: Slot, Origem (Espécie), Vida atual/máxima e **Prótese** (Natural/Protética);
-- **Modificações**: cada modificação ou prótese instalada pode ter descrição, uma **Habilidade Concedida** (o botão **Conceder Habilidade à ficha** / **Remover Habilidade da ficha** a liga e desliga), modificadores de HP/Mana máximos e bônus de atributo.
+**Ferimentos por parte** (só se o Mestre ligou esse bloco): perder uma parte desliga as Funções dela, e a faixa "Vindo do corpo" mostra o que isso está causando:
 
-Modificações contam **enquanto estiverem instaladas**, sem precisar de "equipar". Você pode criar Partes novas com **+ Nova Parte do Corpo** (um membro regenerado, um implante).
+- **visão**/**audição**: Cego/Surdo quando não sobra nenhuma parte que veja/ouça;
+- **manipulação**: "Sem mão" (com quantas);
+- **locomoção**: o Deslocamento cai na proporção das pernas que ainda andam (perna ferida conta pela Vida). Sem nenhuma, você se **arrasta 1 m** por rodada se ainda tiver uma mão funcionando; sem nenhuma das duas, fica parado;
+- **voo**: perder uma asa tira o Traço Voador;
+- **vital**: avisa o Mestre — o sistema não mata ninguém sozinho.
+
+As Condições somem sozinhas quando a parte volta a ter Vida ou ganha uma prótese.
 
 ---
 

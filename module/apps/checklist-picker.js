@@ -201,9 +201,9 @@ export function readPickerField(container) {
 /**
  * Liga o campo: × tira um item, o botão abre a janela de escolha.
  * @param {HTMLElement} container
- * @param {{pick: (ids: string[]) => Promise<string[]|null>, describe: (ids: string[]) => {chips: object[], total: number}, noun: string}} options
+ * @param {{pick: (ids: string[]) => Promise<string[]|null>, describe: (ids: string[]) => {chips: object[], total: number}, noun: string, onChange?: (ids: string[]) => void}} options
  */
-export function wirePickerField(container, { pick, describe, noun }) {
+export function wirePickerField(container, { pick, describe, noun, onChange = null }) {
   if (!container) return;
   const draw = () => {
     const { chips, total } = describe(readPickerField(container));
@@ -224,6 +224,7 @@ export function wirePickerField(container, { pick, describe, noun }) {
       event.preventDefault();
       container.dataset.selected = JSON.stringify(readPickerField(container).filter(id => id !== remove.dataset.id));
       draw();
+      onChange?.(readPickerField(container));
       return;
     }
     if (event.target.closest(".element-field-add")) {
@@ -232,6 +233,7 @@ export function wirePickerField(container, { pick, describe, noun }) {
       if (picked) {
         container.dataset.selected = JSON.stringify(picked);
         draw();
+        onChange?.(picked);
       }
     }
   });
@@ -239,10 +241,10 @@ export function wirePickerField(container, { pick, describe, noun }) {
 }
 
 /** Atalhos: o campo de Elementos e o de Traços. */
-export function wireElementPickerField(container) {
-  wirePickerField(container, { pick: ids => pickDamageElements(ids), describe: selectedElementChips, noun: "Elemento" });
+export function wireElementPickerField(container, { onChange = null } = {}) {
+  wirePickerField(container, { pick: ids => pickDamageElements(ids), describe: selectedElementChips, noun: "Elemento", onChange });
 }
 
-export function wireTraitPickerField(container) {
-  wirePickerField(container, { pick: ids => pickTraits(ids), describe: selectedTraitChips, noun: "Traço" });
+export function wireTraitPickerField(container, { onChange = null } = {}) {
+  wirePickerField(container, { pick: ids => pickTraits(ids), describe: selectedTraitChips, noun: "Traço", onChange });
 }

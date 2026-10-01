@@ -18,6 +18,7 @@ import { buildSubSkillsFromSources } from "../skills/skill-snapshot.js";
 import { ensureSystemCompendiums, registerItemInCompendium } from "../core/compendium.js";
 import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
 import { changeActorSpecies } from "../species/species.js";
+import { mechanicsGuide, sanitizeSkillMechanics, sanitizeWeapon, sanitizeItemBonuses, currentAICatalogs, foundryFormulaCheck, originGuide, sanitizeOriginEntry } from "./ai-mechanics.js";
 
 /* -------------------------------------------- */
 /*  Núcleo genérico de geração via IA            */
@@ -175,15 +176,31 @@ const UNIQUE_SKILL_SYSTEM_PROMPT =
   '"description": string (HTML curto), "emotionTrigger": string}. Não invente Sub-Skills — ' +
   "elas são preenchidas automaticamente a partir das Skills consumidas na fusão, não pela IA.";
 
-const STANDALONE_SKILL_SYSTEM_PROMPT =
-  "Você é o motor de regras de um RPG de Foundry VTT. Responda SEMPRE com um único objeto JSON " +
-  'estrito, sem markdown, no formato: {"name": string, "tier": "extra"|"normal", ' +
-  '"level": number, "cost": number, "description": string (HTML curto), "hasUpkeep": boolean, ' +
-  '"upkeepCost": number}. "hasUpkeep" marca uma Habilidade Ativa (liga/desliga, drenando ' +
-  '"upkeepCost" de Energia por rodada enquanto ativa, além do "cost" gasto uma vez ao ligar) — ' +
-  'só use true se a descrição pedir claramente um efeito contínuo/sustentado; a maioria das ' +
-  'Skills é de uso único ("hasUpkeep": false, "upkeepCost": 0). Essa Skill nunca tem ' +
-  "Sub-Skills — elas só existem em Skills Fundidas.";
+/**
+ * Montado na hora: o guia de mecânica lista os elementos/Condições/atributos DESTE mundo.
+ */
+function buildStandaloneSkillPrompt() {
+  return (
+    "Você é o motor de regras de um RPG de Foundry VTT. Responda SEMPRE com um único objeto JSON " +
+    'estrito, sem markdown, no formato: {"name": string, "tier": "extra"|"normal", ' +
+    '"level": number, "description": string (HTML curto), "mechanics": objeto}. ' +
+    'Use "hasUpkeep" (Habilidade Ativa) só se a descrição pedir claramente um efeito contínuo/sustentado. ' +
+    "Essa Skill nunca tem Sub-Skills — elas só existem em Skills Fundidas.\n" +
+    mechanicsGuide(currentAICatalogs())
+  );
+}
+
+/** `system` de uma Skill gerada por IA: campos básicos + mecânica saneada (ver ai-mechanics.js). */
+function aiSkillSystem(parsed, { tiers = ["extra", "normal"] } = {}) {
+  const mechanics = sanitizeSkillMechanics(parsed?.mechanics ?? parsed, currentAICatalogs(), { isValidFormula: foundryFormulaCheck });
+  return {
+    tier: tiers.includes(parsed?.tier) ? parsed.tier : "normal",
+    level: Math.min(10, Math.max(1, Number(parsed?.level) || 1)),
+    description: parsed?.description || "",
+    isFused: false,
+    ...mechanics
+  };
+}
 
 function buildUniqueSkillPrompt({ consumedNames, emotionPrompt, personality }) {
   return [
@@ -232,21 +249,8 @@ export async function requestAISpecialSkill(actor, sources, tier, emotionPrompt 
  * @returns {Promise<Item>} o Item criado no Compêndio
  */
 export async function generateSkillFromAI(prompt) {
-  const parsed = await generateJSON(STANDALONE_SKILL_SYSTEM_PROMPT, prompt);
-  const hasUpkeep = Boolean(parsed?.hasUpkeep);
-  const data = {
-    name: parsed?.name || "Habilidade Sem Nome",
-    type: "skill",
-    system: {
-      tier: ["extra", "normal"].includes(parsed?.tier) ? parsed.tier : "normal",
-      level: Number(parsed?.level) || 1,
-      cost: Number(parsed?.cost) || 0,
-      description: parsed?.description || "",
-      hasUpkeep,
-      upkeepCost: hasUpkeep ? Number(parsed?.upkeepCost) || 0 : 0,
-      isFused: false
-    }
-  };
+  const parsed = await generateJSON(buildStandaloneSkillPrompt(), prompt);
+  const data = { name: parsed?.name || "Habilidade Sem Nome", type: "skill", system: aiSkillSystem(parsed) };
   await ensureSystemCompendiums();
   return registerItemInCompendium(data);
 }
@@ -324,24 +328,24 @@ const ATTRIBUTE_POINTS_FORMAT =
   MEU_SISTEMA.COMBAT_ATTRIBUTES.map(a => `"${a}": number`).join(", ") +
   "}";
 
-const NPC_SYSTEM_PROMPT =
+const NPC_SYSTEM_PROMPT_BASE =
   "Você é o motor de regras de um RPG de Foundry VTT. Responda SEMPRE com um único objeto JSON " +
   'estrito, sem markdown, no formato: {"name": string, "species": string, "level": number, ' +
   ATTRIBUTE_POINTS_FORMAT +
   ', "biography": string (HTML curto), "personalityTraits": string, ' +
-  '"skills": [{"name": string, "tier": "extra"|"normal", "level": number, "cost": number, "description": string}]}. ' +
+  '"skills": [{"name": string, "tier": "extra"|"normal", "level": number, "description": string, "mechanics": objeto}]}. ' +
   "Em \"attributes\", distribua pontos de atributo coerentes com o conceito e o nível do NPC " +
   "(um humano comum de nível 1 fica na casa de 3-6 por atributo; um chefe de fim de campanha, " +
   "bem mais). Vida e Mana NÃO são informadas — o sistema as calcula a partir desses atributos. " +
   "Não inclua skills de tier racial ou superior — essas vêm automaticamente da Espécie.";
 
-const MOUNT_SYSTEM_PROMPT =
+const MOUNT_SYSTEM_PROMPT_BASE =
   "Você é o motor de regras de um RPG de Foundry VTT. Gere uma Montaria (besta de carga ou de combate). " +
   'Responda SEMPRE com um único objeto JSON estrito, sem markdown, no formato: {"name": string, ' +
   '"species": string, "level": number, ' +
   ATTRIBUTE_POINTS_FORMAT +
   ', "biography": string (HTML curto, mencione velocidade e capacidade de carga), ' +
-  '"skills": [{"name": string, "tier": "extra"|"normal", "level": number, "cost": number, "description": string}]}. ' +
+  '"skills": [{"name": string, "tier": "extra"|"normal", "level": number, "description": string, "mechanics": objeto}]}. ' +
   "Em \"attributes\", distribua pontos coerentes com a besta (uma montaria de carga tem Força e " +
   "Defesa altas e Magia baixa). Vida e Mana NÃO são informadas — o sistema as calcula a partir " +
   "desses atributos. Não inclua skills de tier racial ou superior — essas vêm automaticamente da Espécie.";
@@ -355,7 +359,8 @@ const MOUNT_SYSTEM_PROMPT =
  */
 export async function generateActorFromAI(prompt, options = {}) {
   const { isMount = false, folder = null } = options;
-  const parsed = await generateJSON(isMount ? MOUNT_SYSTEM_PROMPT : NPC_SYSTEM_PROMPT, prompt);
+  const guide = "\n" + mechanicsGuide(currentAICatalogs());
+  const parsed = await generateJSON((isMount ? MOUNT_SYSTEM_PROMPT_BASE : NPC_SYSTEM_PROMPT_BASE) + guide, prompt);
 
   const species = parsed?.species || "humano";
 
@@ -394,16 +399,7 @@ export async function generateActorFromAI(prompt, options = {}) {
   if (getActiveSpeciesPresets()[species]) await changeActorSpecies(created, { species }, { interactive: false });
 
   const skillsData = Array.isArray(parsed?.skills)
-    ? parsed.skills.map(s => ({
-        name: s?.name || "Habilidade",
-        type: "skill",
-        system: {
-          tier: ["extra", "normal"].includes(s?.tier) ? s.tier : "normal",
-          level: Number(s?.level) || 1,
-          cost: Number(s?.cost) || 0,
-          description: s?.description || ""
-        }
-      }))
+    ? parsed.skills.map(s => ({ name: s?.name || "Habilidade", type: "skill", system: aiSkillSystem(s) }))
     : [];
   if (skillsData.length) {
     const createdSkills = await created.createEmbeddedDocuments("Item", skillsData);
@@ -539,11 +535,21 @@ export async function generateNoteFromAI(prompt, options = {}) {
 /*  Geração de Itens Genéricos via IA            */
 /* -------------------------------------------- */
 
-const ITEM_SYSTEM_PROMPT =
-  "Você é o motor de regras de um RPG de Foundry VTT. Gere um Item genérico (equipamento, " +
-  'consumível, tesouro...). Responda SEMPRE com um único objeto JSON estrito, sem markdown, ' +
-  'no formato: {"name": string, "description": string (HTML curto), "quantity": number, ' +
-  '"weight": number, "valueAmount": number, "valueCurrency": string}.';
+function buildItemSystemPrompt() {
+  const catalogs = currentAICatalogs();
+  const list = arr => arr.map(e => `${e.id} (${e.label})`).join(", ");
+  return (
+    "Você é o motor de regras de um RPG de Foundry VTT. Gere um Item genérico (equipamento, " +
+    'consumível, tesouro, arma...). Responda SEMPRE com um único objeto JSON estrito, sem markdown, ' +
+    'no formato: {"name": string, "description": string (HTML curto), "quantity": number, ' +
+    '"weight": number, "valueAmount": number, "valueCurrency": string, ' +
+    '"weapon": null | {"damageFormula": fórmula de dados ("1d8+2"), "damageElements": [ids], "scalingAttribute": id ou "", "isMagicDamage": boolean}, ' +
+    '"attributeBonuses": [{"attribute": id, "amount": número}] (enquanto equipado, somado na rolagem), ' +
+    '"statModifiers": {"hp": número, "energy": número} (Vida/Mana máxima enquanto equipado)}. ' +
+    'Só preencha "weapon" se for uma arma; bônus só se o item claramente der. ' +
+    `Elementos: ${list(catalogs.elements)}. Atributos: ${list(catalogs.attributes)}.`
+  );
+}
 
 /**
  * Gera um Item genérico avulso via IA (não ligado a nenhum Ator) e cria o documento no
@@ -556,7 +562,10 @@ const ITEM_SYSTEM_PROMPT =
  */
 export async function generateItemFromAI(prompt, options = {}) {
   const { folder = null } = options;
-  const parsed = await generateJSON(ITEM_SYSTEM_PROMPT, prompt);
+  const parsed = await generateJSON(buildItemSystemPrompt(), prompt);
+  const catalogs = currentAICatalogs();
+  const weapon = sanitizeWeapon(parsed?.weapon, catalogs, { isValidFormula: foundryFormulaCheck });
+  const bonuses = sanitizeItemBonuses(parsed ?? {}, catalogs);
 
   return Item.create({
     name: parsed?.name || "Item Sem Nome",
@@ -569,7 +578,10 @@ export async function generateItemFromAI(prompt, options = {}) {
       value: {
         amount: Number(parsed?.valueAmount) || 0,
         currency: parsed?.valueCurrency || "gold"
-      }
+      },
+      ...(weapon ? { weapon } : {}),
+      attributeBonuses: bonuses.attributeBonuses,
+      statModifiers: bonuses.statModifiers
     }
   });
 }
@@ -614,4 +626,37 @@ export async function ingestExternalSkillJSON(actor, json, options = {}) {
   });
 
   return created;
+}
+
+/* -------------------------------------------- */
+/*  Espécie e Herança via IA (rework de Espécies) */
+/* -------------------------------------------- */
+
+/**
+ * Gera uma Espécie (ou Herança) e grava no catálogo do mundo. A IA só propõe: tudo passa por
+ * `sanitizeOriginEntry` (ids que não existem saem, Skills saneadas). Devolve um "resultado" no
+ * formato do Assistente — `uuid` "species:<id>"/"heritage:<id>" abre o editor certo.
+ * @param {string} prompt
+ * @param {{kind?: "species"|"heritage"}} [options]
+ */
+export async function generateOriginFromAI(prompt, { kind = "species" } = {}) {
+  const { getActiveSpeciesPresets, getActiveHeritages, MEU_SISTEMA, SYSTEM_ID } = await import("../core/config.js");
+  const { normalizeSpeciesCatalog, normalizeSpeciesEntry } = await import("../species/species-rules.js");
+  const catalogs = currentAICatalogs();
+  const parsed = await generateJSON("Você é o motor de regras de um RPG de Foundry VTT.\n" + originGuide(catalogs, { kind }), prompt);
+  const { id: baseId, entry } = sanitizeOriginEntry(parsed, catalogs, { kind, isValidFormula: foundryFormulaCheck });
+  if (kind === "heritage") {
+    const list = [...getActiveHeritages()];
+    let id = baseId;
+    for (let n = 2; list.some(h => h.id === id); n++) id = `${baseId}_${n}`;
+    list.push({ ...normalizeSpeciesEntry(entry), id });
+    await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.heritagesData, JSON.stringify(list, null, 2));
+    return { name: entry.label, uuid: `heritage:${id}` };
+  }
+  const catalog = normalizeSpeciesCatalog(getActiveSpeciesPresets());
+  let id = baseId;
+  for (let n = 2; catalog[id]; n++) id = `${baseId}_${n}`;
+  catalog[id] = normalizeSpeciesEntry(entry);
+  await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.speciesPresetsData, JSON.stringify(catalog, null, 2));
+  return { name: entry.label, uuid: `species:${id}` };
 }

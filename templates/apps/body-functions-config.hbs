@@ -1,0 +1,27 @@
+<div class="bf-root">
+  <p class="hint">O que acontece quando a parte que tem a Função é perdida (Vida 0). Vale só com "Ferimentos por parte" ligado em Módulos do Sistema. As partes de cada Espécie dizem quais Funções têm (aba Corpo do editor de Espécies).</p>
+  <div class="bf-row bf-head"><span>Função (id)</span><span>Nome</span><span>Ao perder a parte</span><span>Conta</span><span>Detalhe</span><span></span></div>
+  {{#each rows as |r|}}
+  <div class="bf-row" data-index="{{r.index}}">
+    <input type="text" data-field="id" value="{{r.id}}" placeholder="locomocao" aria-label="Id"/>
+    <input type="text" data-field="label" value="{{r.label}}" placeholder="locomoção" aria-label="Nome"/>
+    <select data-field="effect.kind" data-render="1" aria-label="Efeito">{{#each r.kinds as |k|}}<option value="{{k.id}}" {{#if k.selected}}selected{{/if}}>{{k.label}}</option>{{/each}}</select>
+    <select data-field="count" aria-label="Como conta" title="Proporcional: o que sobra ÷ o total (locomoção). Ao perder qualquer uma: vale com uma parte perdida (mostra quantas). Ao perder todas: só quando não sobra nenhuma.">{{#each r.counts as |c|}}<option value="{{c.id}}" {{#if c.selected}}selected{{/if}}>{{c.label}}</option>{{/each}}</select>
+    <span class="bf-extra">
+      {{#if r.isCondition}}<select data-field="effect.conditionId" aria-label="Condição">{{#each r.conditionOptions as |o|}}<option value="{{o.id}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>{{/each}}</select>{{/if}}
+      {{#if r.isTrait}}<select data-field="effect.traitId" aria-label="Traço">{{#each r.traitOptions as |o|}}<option value="{{o.id}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>{{/each}}</select>{{/if}}
+      {{#if r.isMovement}}
+        <label title="Sem nenhuma parte que ande: metros por rodada se ainda houver a Função de arrastar">mín. <input type="number" min="0" data-field="effect.crawlMeters" value="{{r.crawlMeters}}"/> m</label>
+        <label title="A Função que permite arrastar (ex.: manipulação — arrasta com os braços)">com <select data-field="effect.crawlFunction">{{#each r.crawlOptions as |o|}}<option value="{{o.id}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>{{/each}}</select></label>
+        <label title="Ligado: perna a 50% de Vida conta como meia perna"><input type="checkbox" data-field="woundedByHp" {{#if r.woundedByHp}}checked{{/if}}/> ferida conta pela Vida</label>
+      {{/if}}
+      {{#if r.isRegen}}<label><input type="number" min="0" data-field="effect.value" value="{{r.regenValue}}"/> % da Vida da parte por rodada</label>{{/if}}
+    </span>
+    <a class="bf-x" data-action="removeRow" title="Remover"><i class="fas fa-times"></i></a>
+  </div>
+  {{/each}}
+  <div class="bf-foot">
+    <button type="button" data-action="addRow">+ Função</button>
+    <button type="button" data-action="save">Salvar</button>
+  </div>
+</div>

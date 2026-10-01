@@ -7,6 +7,7 @@
 import { MEU_SISTEMA, getActiveDamageElements } from "../core/config.js";
 import { getCompendiumForItemType } from "../core/compendium.js";
 import { sanitizeDocumentPatch } from "./ai-generation.js";
+import { mechanicsGuide, sanitizeSkillMechanics, currentAICatalogs, foundryFormulaCheck, originGuide, sanitizeOriginEntry } from "./ai-mechanics.js";
 
 /**
  * Cria um novo conjunto de tools + o array de propostas que elas alimentam. Uma instância
@@ -69,44 +70,40 @@ export function createAgentTools() {
         skillEffectTypes: MEU_SISTEMA.SKILL_EFFECT_TYPES,
         effectTargets: MEU_SISTEMA.EFFECT_TARGETS,
         combatAttributes: MEU_SISTEMA.COMBAT_ATTRIBUTES,
-        damageElements: getActiveDamageElements().map(e => e.id)
+        damageElements: getActiveDamageElements().map(e => e.id),
+        // Formato completo da mecânica de Skill e os ids válidos deste mundo (ver ai-mechanics.js).
+        skillMechanicsGuide: mechanicsGuide(currentAICatalogs()),
+        originGuide: originGuide(currentAICatalogs())
       })
     },
     {
       name: "propose_skill",
       description:
         "Propõe a criação de uma nova Skill avulsa (não fica pronta até o Mestre revisar e aplicar). " +
-        "Campos: name, tier, level, cost, description (HTML curto), effectType, damageFormula, " +
-        "isMagicDamage, damageElements (array de ids), subSkills.",
+        "Campos: name, tier, level, description (HTML curto) e mechanics (objeto com a mecânica completa — " +
+        "chame get_system_rules antes e siga skillMechanicsGuide; ids que não existirem são descartados).",
       parameters: {
         type: "object",
         properties: {
           name: { type: "string" },
           tier: { type: "string" },
           level: { type: "number" },
-          cost: { type: "number" },
           description: { type: "string" },
-          effectType: { type: "string" },
-          damageFormula: { type: "string" },
-          isMagicDamage: { type: "boolean" },
-          damageElements: { type: "array", items: { type: "string" } }
+          mechanics: { type: "object" }
         },
         required: ["name"]
       },
       handler: async data => {
+        const mechanics = sanitizeSkillMechanics(data?.mechanics ?? data, currentAICatalogs(), { isValidFormula: foundryFormulaCheck });
         const itemData = {
           name: data?.name || "Habilidade Sem Nome",
           type: "skill",
           system: {
-            tier: MEU_SISTEMA.SKILL_TIERS.includes(data?.tier) ? data.tier : "normal",
-            level: Number(data?.level) || 1,
-            cost: Number(data?.cost) || 0,
+            tier: MEU_SISTEMA.SKILL_TIERS.includes(data?.tier) && !["racial", "ultimate"].includes(data?.tier) ? data.tier : "normal",
+            level: Math.min(10, Math.max(1, Number(data?.level) || 1)),
             description: data?.description || "",
-            effectType: MEU_SISTEMA.SKILL_EFFECT_TYPES.includes(data?.effectType) ? data.effectType : "none",
-            damageFormula: data?.damageFormula || "",
-            isMagicDamage: Boolean(data?.isMagicDamage),
-            damageElements: Array.isArray(data?.damageElements) ? data.damageElements : [],
-            isFused: false
+            isFused: false,
+            ...mechanics
           }
         };
         proposals.push({ type: "skill", data: itemData });
@@ -151,6 +148,23 @@ export function createAgentTools() {
         };
         proposals.push({ type: "character", data: actorData });
         return { ok: true, proposed: actorData.name };
+      }
+    },
+    {
+      name: "propose_species",
+      description:
+        "Propõe uma Espécie (kind \"species\") ou uma Herança (kind \"heritage\") para o catálogo do mundo — " +
+        "entra no catálogo só quando o Mestre aplicar. O formato de `entry` e os ids válidos estão em get_system_rules (originGuide).",
+      parameters: {
+        type: "object",
+        properties: { kind: { type: "string" }, entry: { type: "object" } },
+        required: ["entry"]
+      },
+      handler: async data => {
+        const kind = data?.kind === "heritage" ? "heritage" : "species";
+        const { id, entry } = sanitizeOriginEntry(data?.entry ?? {}, currentAICatalogs(), { kind, isValidFormula: foundryFormulaCheck });
+        proposals.push({ type: kind, data: { id, entry, name: entry.label } });
+        return { ok: true, proposed: entry.label, kind };
       }
     },
     {

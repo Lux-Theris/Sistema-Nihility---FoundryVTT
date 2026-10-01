@@ -38,6 +38,7 @@ import { NihilityMenuApp } from "./apps/nihility-menu.js";
 import { FeatureConfigApp } from "./apps/feature-config.js";
 import { AttributeConfigApp } from "./apps/attribute-config.js";
 import { tickCombatRoundEffects } from "./skills/effects-apply.js";
+import { registerAnatomyHooks, registerImplantDragTracking, tickBodyRegeneration } from "./species/anatomy.js";
 import { tickActorUpkeepSkills, shutdownActiveSkillsOnDepletion, processPendingUpkeepRemoval } from "./skills/upkeep.js";
 import { advanceZones, tickZonesForCombatant } from "./skills/zones.js";
 import { isDesignatedGm } from "./helpers/gm-relay.js";
@@ -231,6 +232,11 @@ Hooks.once("ready", async () => {
   // Canal de socket que deixa um cliente sem permissão pedir a escrita ao Mestre (ver
   // helpers/gm-relay.js) — é o que faz XP de Resistência funcionar em jogador vs. jogador.
   registerGmRelay();
+
+  // Anatomia (board 5): Condições das partes perdidas, aviso de parte vital e o destaque de onde
+  // um implante arrastado cabe.
+  registerAnatomyHooks();
+  registerImplantDragTracking();
 
   // Condições do sistema na paleta do token HUD (ver module/conditions.js). Roda no `ready`
   // porque lê a setting do catálogo, que só existe depois do `init`.
@@ -632,6 +638,13 @@ Hooks.on("updateCombat", async (combat, changed) => {
     await tickCombatRoundEffects(actor);
   } catch (err) {
     console.error(`${SYSTEM_ID} | Falha ao ticar Efeitos Periódicos no início do turno.`, err);
+  }
+
+  try {
+    // Partes com Função "regenerativa" curam no início do turno (Ferimentos por parte).
+    await tickBodyRegeneration(actor);
+  } catch (err) {
+    console.error(`${SYSTEM_ID} | Falha na regeneração das Partes do Corpo.`, err);
   }
 
   try {

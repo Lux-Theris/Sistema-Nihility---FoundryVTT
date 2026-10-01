@@ -1907,3 +1907,324 @@ test("Espécie: trava do jogador", () => {
   assert.equal(isSpeciesLocked({ attributes: { combat: { strength: { points: 3 } } } }), true, "ficha antiga com pontos já confirmados");
   assert.equal(isSpeciesLocked({ speciesState: { lockedAt: 1, unlocked: true } }), false, "o Mestre destravou");
 });
+
+import { sanitizeSkillMechanics, sanitizeWeapon, sanitizeItemBonuses, mechanicsGuide, simpleFormulaCheck } from "../module/ai/ai-mechanics.js";
+
+const AI_CATALOGS = {
+  elements: [{ id: "fire", label: "Fogo" }, { id: "poison", label: "Veneno" }],
+  conditions: [{ id: "burn", label: "Queimadura" }, { id: "poisoned", label: "Envenenado" }],
+  attributes: [{ id: "strength", label: "Força" }, { id: "magic", label: "Magia" }],
+  structures: [{ id: "wall", label: "Muralha" }]
+};
+
+test("IA: Skill de dano saneada (elemento inventado sai, área limitada)", () => {
+  const m = sanitizeSkillMechanics(
+    { effectType: "damage", damageFormula: "3d6+2", isMagicDamage: true, damageElements: ["fire", "plasma"], scalingAttribute: "magic", targetType: "emission", areaShape: "cone", areaDistance: 99, cost: 12 },
+    AI_CATALOGS
+  );
+  assert.equal(m.effectType, "damage");
+  assert.deepEqual(m.damageElements, ["fire"]);
+  assert.equal(m.scalingAttribute, "magic");
+  assert.equal(m.areaShape, "cone");
+  assert.equal(m.areaDistance, 30);
+  assert.equal(m.cost, 12);
+});
+
+test("IA: fórmula inválida derruba o dano para Descritiva", () => {
+  assert.equal(sanitizeSkillMechanics({ effectType: "damage", damageFormula: "game.actors.forEach()" }, AI_CATALOGS).effectType, "none");
+  assert.equal(simpleFormulaCheck("2d6+1d4kh1"), true);
+  assert.equal(simpleFormulaCheck("abc"), false);
+});
+
+test("IA: Efeito Temporário — veneno periódico, Condição válida, alvo de Nave recusado", () => {
+  const m = sanitizeSkillMechanics(
+    {
+      effectType: "temporary",
+      effects: [
+        { target: "hp", amount: -5, durationRounds: 0, periodic: true, conditionId: "poisoned", damageElements: ["poison", "xx"] },
+        { target: "shipCasco", amount: -10 },
+        { target: "strength", amount: 0, conditionId: "nope" },
+        { target: "strength", amount: 3, durationRounds: 2, periodic: true }
+      ]
+    },
+    AI_CATALOGS
+  );
+  assert.equal(m.effectType, "temporary");
+  assert.equal(m.effects.length, 2);
+  assert.deepEqual(m.effects[0], { target: "hp", amount: -5, durationRounds: 3, conditionId: "poisoned", periodic: true, tickUnit: "combatRound", damageElements: ["poison"], modifierType: "flat" });
+  assert.equal(m.effects[1].periodic, false, "periódico só em hp/energy");
+  assert.equal(sanitizeSkillMechanics({ effectType: "temporary", effects: [] }, AI_CATALOGS).effectType, "none");
+});
+
+test("IA: Resistência, Habilidade Ativa, Estrutura e lixo", () => {
+  assert.equal(sanitizeSkillMechanics({ resistanceTarget: "fire" }, AI_CATALOGS).resistanceTarget, "fire");
+  assert.equal(sanitizeSkillMechanics({ resistanceTarget: "plasma" }, AI_CATALOGS).resistanceTarget, "");
+  assert.equal(sanitizeSkillMechanics({ hasUpkeep: false, upkeepCost: 9 }, AI_CATALOGS).upkeepCost, 0);
+  assert.equal(sanitizeSkillMechanics({ effectType: "structure", structureId: "nope" }, AI_CATALOGS).effectType, "none");
+  assert.equal(sanitizeSkillMechanics({ effectType: "structure", structureId: "wall" }, AI_CATALOGS).structureId, "wall");
+  const junk = sanitizeSkillMechanics(null, AI_CATALOGS);
+  assert.equal(junk.effectType, "none");
+  assert.equal(junk.targetType, "targeted");
+});
+
+test("IA: arma e bônus de Item", () => {
+  assert.equal(sanitizeWeapon(null, AI_CATALOGS), null);
+  assert.equal(sanitizeWeapon({ damageFormula: "" }, AI_CATALOGS), null);
+  assert.deepEqual(sanitizeWeapon({ damageFormula: "1d8+2", damageElements: ["fire", "x"], scalingAttribute: "dex" }, AI_CATALOGS), {
+    enabled: true, damageFormula: "1d8+2", scalingAttribute: "", isMagicDamage: false, isAbsoluteDamage: false, damageElements: ["fire"]
+  });
+  const b = sanitizeItemBonuses({ attributeBonuses: [{ attribute: "strength", amount: 99 }, { attribute: "luck", amount: 2 }], statModifiers: { hp: 30 } }, AI_CATALOGS);
+  assert.deepEqual(b.attributeBonuses, [{ attribute: "strength", amount: 20 }]);
+  assert.deepEqual(b.statModifiers, { hp: 30, energy: 0 });
+  assert.match(mechanicsGuide(AI_CATALOGS), /fire \(Fogo\)/);
+});
+
+test("Espécie: ficha antiga sem diferença real não aparece como desatualizada", () => {
+  const legacy = {
+    parts: [
+      { id: "p1", name: "Cabeça", slot: "head", grant: null, origin: "humano", hp: { value: 10, max: 10 }, mods: [] },
+      { id: "p2", name: "Braço Esquerdo", slot: "arm", grant: null, origin: "humano", hp: { value: 8, max: 8 }, mods: [] },
+      { id: "p3", name: "Braço Direito", slot: "arm", grant: null, origin: "humano", hp: { value: 8, max: 8 }, mods: [] }
+    ],
+    skills: [{ id: "s1", name: "Adaptabilidade", tier: "racial", grant: null, level: 2 }]
+  };
+  const sync = speciesDiff(legacy, tplOf(HUMANO, "humano"), { mode: "sync" });
+  assert.equal(sync.empty, true);
+  assert.equal(sync.parts.keep.length, 3, "as partes ficam (e ganham a marca quando aplicadas)");
+  const changed = speciesDiff({ ...legacy, skills: [{ ...legacy.skills[0], grant: { key: "adaptabilidade", hash: "velho" } }] }, tplOf(HUMANO, "humano"), { mode: "sync" });
+  assert.equal(changed.skills.update.length, 1, "com hash diferente, a mecânica é atualizada");
+});
+
+import { originLayers, originAttributeRows, originStatRows, originResistance, originConditionalSources, originScale, originMovement } from "../module/species/species-rules.js";
+import { originTraitIdsOf } from "../module/core/config.js";
+
+test("Origem: passivos de Espécie, Linhagem e Herança somam ao vivo", () => {
+  const layers = originLayers({
+    species: { label: "Ogro", traits: ["organic"], passives: { attributeBonuses: [{ attribute: "strength", amount: 3 }], statModifiers: { hp: 20 }, resistances: [{ target: "poison", amount: 25 }] }, movement: { base: 5, percent: 0 } },
+    lineage: { id: "montanha", label: "da Montanha", passives: { attributeBonuses: [{ attribute: "strength", amount: 1 }], resistances: [{ target: "poison", amount: 40 }] }, movement: { percent: -10 }, scale: "vehicle" },
+    heritages: [{ id: "vamp", entry: { label: "Vampirizado", traits: ["undead"], removesTraits: ["organic"], elements: ["dark"], passives: { conditionalModifiers: [{ when: { kind: "always" }, then: { kind: "rollFlat", target: "any", value: 1 } }] } } }]
+  });
+  assert.deepEqual(originAttributeRows(layers, "strength").map(r => [r.label, r.value]), [["Espécie: Ogro", 3], ["Linhagem: da Montanha", 1]]);
+  assert.deepEqual(originStatRows(layers, "hp").map(r => r.value), [20]);
+  assert.equal(originResistance(layers, "poison"), 0.4, "fica a melhor, como Título");
+  assert.equal(originConditionalSources(layers)[0].item.name, "Herança: Vampirizado");
+  assert.equal(originScale(layers), "vehicle");
+  assert.deepEqual(originMovement(layers), { base: 5, percent: -10 });
+  assert.deepEqual(originTraitIdsOf(layers), ["undead"], "Herança tira Orgânico e soma Morto-vivo");
+  assert.deepEqual(originLayers({}), []);
+});
+
+import { heritageConflicts } from "../module/species/species-rules.js";
+
+const CYBORG = {
+  id: "ciborgue",
+  label: "Convertido em Ciborgue",
+  traits: ["mechanical"],
+  parts: [
+    { key: "cyber_left_arm", label: "Braço Cibernético Esquerdo", slot: "arm", hpMax: 20, prosthetic: true },
+    { key: "cyber_right_arm", label: "Braço Cibernético Direito", slot: "arm", hpMax: 20, prosthetic: true }
+  ],
+  replaces: { slots: ["arm"] },
+  excludes: ["mutacao"],
+  allowedSpecies: { mode: "except", list: ["androide"] }
+};
+
+test("Herança: ganhar troca os braços por próteses (com os implantes) e perder devolve", () => {
+  const natural = {
+    parts: [
+      { id: "h", name: "Cabeça", slot: "head", grant: { key: "head" }, hp: { value: 10, max: 10 }, mods: [] },
+      { id: "la", name: "Braço Esquerdo", slot: "arm", grant: { key: "left_arm" }, hp: { value: 4, max: 8 }, mods: [] },
+      { id: "ra", name: "Braço Direito", slot: "arm", grant: { key: "right_arm" }, hp: { value: 8, max: 8 }, mods: ["Garra de Osso"] }
+    ],
+    skills: []
+  };
+  const withHeritage = resolveSpeciesTemplate({ species: HUMANO, speciesId: "humano", heritages: [{ id: "ciborgue", entry: CYBORG }] });
+  const gain = speciesDiff(natural, withHeritage);
+  const arms = gain.parts.update.filter(p => p.slot === "arm");
+  assert.equal(arms.length, 2, "os braços são transformados, não apagados");
+  assert.ok(arms.every(p => p.isProsthetic && p.hpMax === 20 && p.hpValue === 20), "prótese nova, Vida cheia");
+  assert.ok(arms.some(p => p.carries.includes("Garra de Osso")), "o implante vai junto");
+  assert.equal(gain.parts.remove.length + gain.parts.create.length, 0);
+
+  const cyborg = {
+    parts: [
+      natural.parts[0],
+      { id: "la", name: "Braço Cibernético Esquerdo", slot: "arm", grant: { kind: "heritage", key: "cyber_left_arm" }, isProsthetic: true, hp: { value: 10, max: 20 }, mods: [] },
+      { id: "ra", name: "Braço Cibernético Direito", slot: "arm", grant: { kind: "heritage", key: "cyber_right_arm" }, isProsthetic: true, hp: { value: 20, max: 20 }, mods: [] }
+    ],
+    skills: []
+  };
+  const lose = speciesDiff(cyborg, resolveSpeciesTemplate({ species: HUMANO, speciesId: "humano" }));
+  const back = lose.parts.update.filter(p => p.slot === "arm");
+  assert.ok(back.every(p => p.isProsthetic === false && p.hpMax === 8), "voltam a ser braços naturais");
+  assert.equal(back.find(p => p.id === "la").hpValue, 4, "Vida na proporção (10/20 → 4/8)");
+});
+
+test("Herança: regras de convivência (só avisam)", () => {
+  const catalog = [CYBORG, { id: "mutacao", label: "Mutação", excludes: [] }, { id: "abencoado", excludes: ["ciborgue"] }];
+  assert.deepEqual(heritageConflicts(CYBORG, { species: "humano", heritages: ["ciborgue"] }, catalog), []);
+  assert.deepEqual(heritageConflicts(CYBORG, { species: "androide", heritages: ["ciborgue"] }, catalog), ["species-excluded"]);
+  assert.deepEqual(heritageConflicts(CYBORG, { species: "humano", heritages: ["mutacao", "ciborgue"] }, catalog), ["excludes:mutacao"]);
+  assert.deepEqual(heritageConflicts(CYBORG, { species: "humano", heritages: ["abencoado", "ciborgue"] }, catalog), ["excludes:abencoado"], "vale nos dois sentidos");
+  const only = { id: "x", allowedSpecies: { mode: "only", list: ["elfo"] } };
+  assert.deepEqual(heritageConflicts(only, { species: "humano", heritages: [] }, []), ["species-not-allowed"]);
+});
+
+test("Validador: Herança e Linhagem que não existem", () => {
+  const catalogs = { ...VALIDATOR_CATALOGS, heritages: [{ id: "vampirizado", label: "Vampirizado", excludes: ["sumida"], removesTraits: ["organic"] }], species: { humano: { label: "Humano", lineages: [{ id: "norte" }] } } };
+  const idx = buildCatalogIndex(catalogs);
+  const issues = validateActor({ type: "character", system: { species: "humano", lineage: "sul", heritages: [{ id: "vampirizado" }, { id: "lobisomem" }] }, items: [] }, idx, { catalogs });
+  assert.deepEqual(issues.map(i => i.where), ["Heranças", "Linhagem"]);
+  assert.ok(validateCatalogs(catalogs).some(i => i.entry === "Vampirizado" && i.where === "Não convive com"));
+});
+
+import { evolutionOptions, evolutionResistanceUpgrades } from "../module/species/species-rules.js";
+
+test("Evolução: destinos com nível mínimo só como aviso; destino apagado some", () => {
+  const slime = normalizeSpeciesEntry({ label: "Slime", evolvesTo: [{ species: "demon_slime", minLevel: 10, hint: "Nomeado", resistancesToImmunity: true }, { species: "metal", minLevel: 15 }, { species: "apagada" }] });
+  const catalog = { demon_slime: { label: "Slime Demoníaco" }, metal: { label: "Slime Metálico" } };
+  const opts = evolutionOptions(slime, 12, catalog);
+  assert.deepEqual(opts.map(o => [o.label, o.ready, o.missing]), [["Slime Demoníaco", true, 0], ["Slime Metálico", false, 3]]);
+  assert.equal(opts[0].resistancesToImmunity, true);
+  assert.equal(opts[0].keepLineage, true);
+});
+
+test("Evolução: Resistências Elementais sobem para Imunidade, a Geral não", () => {
+  const ups = evolutionResistanceUpgrades([
+    { id: "a", name: "Resistência: Veneno", resistanceTarget: "poison", level: 6 },
+    { id: "b", name: "Resistência Geral", resistanceTarget: "general", level: 5 },
+    { id: "c", name: "Imunidade: Fogo", resistanceTarget: "fire", level: 10 }
+  ]);
+  assert.deepEqual(ups.map(u => [u.id, u.toLevel]), [["a", 10]]);
+});
+
+test("Evolução: as Skills Raciais antigas ficam, o corpo muda", () => {
+  const current = {
+    parts: [{ id: "core", name: "Núcleo", slot: "core", grant: { key: "core" }, hp: { value: 30, max: 30 }, mods: [] }],
+    skills: [{ id: "s1", name: "Regeneração Amorfa", tier: "racial", grant: { key: "regeneracao_amorfa", hash: "h" }, level: 4, xp: 20 }]
+  };
+  const diff = speciesDiff(current, tplOf(HUMANO, "humano"), { mode: "evolution" });
+  assert.equal(diff.skills.remove.length, 0);
+  assert.ok(diff.skills.keep.some(s => s.id === "s1" && s.fromPrevious));
+  assert.deepEqual(diff.parts.remove.map(p => p.id), ["core"], "parte sem par e sem implante sai");
+  assert.equal(diff.skills.create[0].key, "adaptabilidade");
+});
+
+import { legacyFunctionsFor, implantFits, partFunctions, bodyFunctionState, injuredMovement } from "../module/species/anatomy-rules.js";
+
+const BODY_FNS = MEU_SISTEMA.DEFAULT_BODY_FUNCTIONS;
+const leg = (id, hp, max = 10, extra = {}) => ({ id, name: id, slot: "leg", hpValue: hp, hpMax: max, functions: ["locomocao"], ...extra });
+const arm = (id, hp, extra = {}) => ({ id, name: id, slot: "arm", hpValue: hp, hpMax: 8, functions: ["manipulacao"], ...extra });
+
+test("Anatomia: tags antigas viram Funções pelo slot", () => {
+  const known = BODY_FNS.map(f => f.id);
+  assert.deepEqual(legacyFunctionsFor(["limb"], "arm", known), ["manipulacao"]);
+  assert.deepEqual(legacyFunctionsFor(["limb"], "leg", known), ["locomocao"]);
+  assert.deepEqual(legacyFunctionsFor(["limb", "flight"], "wing", known), ["voo"]);
+  assert.deepEqual(legacyFunctionsFor(["vital"], "head", known).sort(), ["audicao", "visao", "vital"]);
+  assert.deepEqual(legacyFunctionsFor(["vital", "regenerative"], "core", known), ["vital", "regenerativa"]);
+  assert.deepEqual(legacyFunctionsFor(["mechanical", "chitinous"], "torso", known), []);
+  assert.deepEqual(legacyFunctionsFor(["locomocao"], "tail", known), ["locomocao"], "Função conhecida passa direto");
+});
+
+test("Anatomia: locomoção proporcional (2 pernas, 4 patas, perna ferida)", () => {
+  const two = bodyFunctionState([leg("l", 10), leg("r", 0), arm("a", 8)], BODY_FNS);
+  assert.equal(two.movement.factor, 0.5);
+  assert.equal(two.movement.crawl, null);
+  assert.equal(injuredMovement(9, two.movement), 4);
+
+  const four = bodyFunctionState([leg("1", 10), leg("2", 10), leg("3", 10), leg("4", 0)], BODY_FNS);
+  assert.equal(four.movement.factor, 0.75);
+
+  const wounded = bodyFunctionState([leg("l", 10), leg("r", 1.4 * 4, 10)], BODY_FNS);
+  assert.ok(Math.abs(wounded.movement.factor - 0.78) < 0.001, "perna a 56% conta como 0,56 perna");
+});
+
+test("Anatomia: sem pernas, arrasta 1 m com os braços; sem braços também, fica parado", () => {
+  const crawl = bodyFunctionState([leg("l", 0), leg("r", 0), arm("a", 3)], BODY_FNS);
+  assert.equal(crawl.movement.crawl, 1);
+  assert.equal(injuredMovement(9, crawl.movement), 1);
+  const stuck = bodyFunctionState([leg("l", 0), leg("r", 0), arm("a", 0), arm("b", 0)], BODY_FNS);
+  assert.equal(injuredMovement(9, stuck.movement), 0);
+  const slime = bodyFunctionState([{ id: "core", name: "Núcleo", slot: "core", hpValue: 5, hpMax: 30, functions: ["vital", "regenerativa"] }], BODY_FNS);
+  assert.equal(injuredMovement(6, slime.movement), 6, "Espécie sem partes de locomoção não é afetada");
+});
+
+test("Anatomia: prótese repõe a Função; implante para com a parte destruída", () => {
+  const prosthetic = arm("a", 18, { isProsthetic: true, mods: [{ kind: "prosthesis", functions: ["manipulacao"] }] });
+  assert.deepEqual(partFunctions(prosthetic), ["manipulacao"]);
+  const legacyProsthesis = arm("b", 5, { isProsthetic: true, mods: [] });
+  assert.deepEqual(partFunctions(legacyProsthesis), ["manipulacao"], "prótese antiga mantém as Funções naturais");
+  const eye = { id: "h", name: "Cabeça", slot: "head", hpValue: 0, hpMax: 10, functions: ["visao"], mods: [{ kind: "implant", functions: ["audicao"] }] };
+  const st = bodyFunctionState([eye], BODY_FNS);
+  assert.ok(st.conditions.some(c => c.conditionId === "blindness"));
+  assert.ok(st.conditions.some(c => c.conditionId === "deafness"), "o implante numa parte destruída também para");
+});
+
+test("Anatomia: Condições por parte × quando todas se perdem, Traço e regeneração", () => {
+  const oneHand = bodyFunctionState([arm("a", 0), arm("b", 8)], BODY_FNS);
+  assert.deepEqual(oneHand.conditions.map(c => [c.conditionId, c.count]), [["maimed", 1]]);
+  const twoHeads = bodyFunctionState(
+    [
+      { id: "h1", name: "Cabeça 1", slot: "head", hpValue: 0, hpMax: 10, functions: ["visao"] },
+      { id: "h2", name: "Cabeça 2", slot: "head", hpValue: 5, hpMax: 10, functions: ["visao"] }
+    ],
+    BODY_FNS
+  );
+  assert.equal(twoHeads.conditions.length, 0, "Cego só quando perde todas as cabeças");
+  const wing = bodyFunctionState([{ id: "w", name: "Asa", slot: "wing", hpValue: 0, hpMax: 10, functions: ["voo"] }, { id: "w2", name: "Asa 2", slot: "wing", hpValue: 10, hpMax: 10, functions: ["voo"] }], BODY_FNS);
+  assert.deepEqual(wing.removedTraits, ["flying"], "uma asa perdida já tira o Voador");
+  const regen = bodyFunctionState([{ id: "m", name: "Massa", slot: "body", hpValue: 20, hpMax: 40, functions: ["regenerativa"] }], BODY_FNS);
+  assert.deepEqual(regen.regen, [{ id: "m", amount: 2 }]);
+  const vital = bodyFunctionState([{ id: "t", name: "Tronco", slot: "torso", hpValue: 0, hpMax: 20, functions: ["vital"] }], BODY_FNS);
+  assert.equal(vital.vitalLost[0].name, "Tronco");
+});
+
+test("Anatomia: implante só encaixa no slot certo", () => {
+  assert.equal(implantFits({ fitsSlots: ["arm"] }, "arm"), true);
+  assert.equal(implantFits({ fitsSlots: ["arm"] }, "head"), false);
+  assert.equal(implantFits({ fitsSlots: [] }, "tail"), true, "sem slot marcado: cabe em qualquer parte");
+});
+
+import { sanitizeOriginEntry, originGuide } from "../module/ai/ai-mechanics.js";
+
+test("IA: Espécie gerada é saneada para o formato do catálogo", () => {
+  const catalogs = { ...AI_CATALOGS, traits: [{ id: "organic", label: "Orgânico" }], bodyFunctions: [{ id: "locomocao", label: "locomoção" }, { id: "vital", label: "vital" }] };
+  const { id, entry } = sanitizeOriginEntry(
+    {
+      label: "Homem-Lagarto",
+      group: "fantasia",
+      traits: ["organic", "reptil"],
+      elements: ["fire", "magma"],
+      parts: [{ label: "Perna", slot: "Leg", hpMax: 999, functions: ["locomocao", "voar"] }, { label: "Perna", slot: "leg", hpMax: 10 }],
+      resistances: [{ target: "fire", amount: 80 }, { target: "plasma", amount: 10 }],
+      skills: [{ name: "Mordida", mechanics: { effectType: "damage", damageFormula: "1d8" } }],
+      lineages: [{ label: "Do Pântano", replacesSkills: ["Mordida", "Inexistente"], skills: [{ name: "Veneno", mechanics: { effectType: "temporary", effects: [{ target: "hp", amount: -3, periodic: true }] } }] }]
+    },
+    catalogs
+  );
+  assert.equal(id, "homem_lagarto");
+  assert.deepEqual(entry.traits, ["organic"]);
+  assert.deepEqual(entry.elements, ["fire"]);
+  assert.deepEqual(entry.parts.map(p => [p.key, p.slot, p.hpMax, p.tags]), [["perna", "leg", 200, ["locomocao"]], ["perna_2", "leg", 10, []]]);
+  assert.deepEqual(entry.passives.resistances, [{ target: "fire", amount: 50 }]);
+  assert.equal(entry.skills[0].effectType, "damage");
+  assert.deepEqual(entry.lineages[0].replaces.skills, ["mordida"]);
+  assert.equal(entry.lineages[0].skills[0].effects[0].periodic, true);
+  const her = sanitizeOriginEntry({ label: "Vampirizado", removesTraits: ["organic"], replacesSlots: ["Arm"] }, catalogs, { kind: "heritage" });
+  assert.deepEqual(her.entry.removesTraits, ["organic"]);
+  assert.deepEqual(her.entry.replaces.slots, ["arm"]);
+  assert.equal(her.entry.lineages, undefined);
+  assert.match(originGuide(catalogs), /locomocao \(locomoção\)/);
+});
+
+test("Evolução: Skill de mesma chave recebe a mecânica nova e mantém o nível", () => {
+  const SLIME = { label: "Slime", skills: [{ key: "regen", name: "Regeneração Amorfa", effectType: "none" }] };
+  const DEMON = { label: "Slime Demoníaco", skills: [{ key: "regen", name: "Regeneração Demoníaca", effectType: "temporary", effects: [] }] };
+  const old = resolveSpeciesTemplate({ species: SLIME, speciesId: "slime" }).skills[0];
+  const current = { parts: [], skills: [{ id: "s", name: "Regeneração Amorfa", tier: "racial", grant: { key: "regen", hash: old.hash }, level: 4, xp: 7 }] };
+  const diff = speciesDiff(current, resolveSpeciesTemplate({ species: DEMON, speciesId: "slime_demoniaco" }), { mode: "evolution" });
+  assert.equal(diff.skills.update.length, 1);
+  assert.equal(diff.skills.update[0].name, "Regeneração Demoníaca");
+  assert.equal(diff.skills.update[0].level, 4);
+});

@@ -25,6 +25,7 @@
       <input name="name" type="text" value="{{actor.name}}" placeholder="Nome"/>
 
       <div class="header-row">
+        {{#if origin.canChooseHere}}
         <label>Espécie
           <select class="species-select" {{#if speciesLocked}}disabled title="Definida: só o Mestre troca"{{/if}}>
             <option value="" {{#unless system.species}}selected{{/unless}}>—</option>
@@ -33,6 +34,22 @@
             {{/each}}
           </select>
         </label>
+        {{#if origin.hasLineages}}
+        <label>Linhagem{{#if origin.lineageRequired}} <span class="origin-required">*</span>{{/if}}
+          <select class="lineage-select">
+            <option value="" {{#unless origin.lineageId}}selected{{/unless}}>—</option>
+            {{#each origin.lineageOptions as |l|}}<option value="{{l.id}}" {{#if l.selected}}selected{{/if}}>{{l.label}}</option>{{/each}}
+          </select>
+        </label>
+        {{/if}}
+        {{else}}
+        <a class="origin-pill" data-action="selectTab" data-tab="origin" title="Ver a origem (aba Origem)">
+          <span>{{origin.speciesLabel}}</span>{{#if origin.lineageLabel}}<span class="sep">·</span><span class="lin">{{origin.lineageLabel}}</span>{{/if}}
+          {{#each origin.heritages as |h|}}<span class="sep">·</span><span class="origin-hchip">{{h.label}}</span>{{/each}}
+          {{#if origin.locked}}<i class="fas fa-lock" title="Definida: só o Mestre troca"></i>{{/if}}
+          {{#if origin.outdated}}<span class="origin-outdated">Espécie mudou</span>{{/if}}
+        </a>
+        {{/if}}
 
         <label>Nível
           <input type="number" name="system.attributes.level" value="{{system.attributes.level}}" {{#unless isGM}}readonly{{/unless}}/>
@@ -133,6 +150,7 @@
     <a class="item {{#if (eq activeTab "ficha")}}active{{/if}}" data-action="selectTab" data-tab="ficha">Ficha</a>
     {{#if inventoryEnabled}}<a class="item {{#if (eq activeTab "inventory")}}active{{/if}}" data-action="selectTab" data-tab="inventory">Inventário</a>{{/if}}
     {{#if anatomyEnabled}}<a class="item {{#if (eq activeTab "anatomy")}}active{{/if}}" data-action="selectTab" data-tab="anatomy">Anatomia</a>{{/if}}
+    <a class="item {{#if (eq activeTab "origin")}}active{{/if}}" data-action="selectTab" data-tab="origin">Origem</a>
     <a class="item {{#if (eq activeTab "biography")}}active{{/if}}" data-action="selectTab" data-tab="biography">Biografia</a>
   </nav>
 
@@ -420,20 +438,89 @@
 
     {{#if anatomyEnabled}}
     <div class="tab {{#unless (eq activeTab "anatomy")}}hidden{{/unless}}">
-      <ol class="item-list body-parts-list">
-        {{#each bodyParts as |part|}}
-        <li class="item-row body-part {{part.system.status}}" data-item-id="{{part.id}}">
-          <span class="item-name">{{part.name}}</span>
-          <span class="item-hp">{{part.system.hp.value}} / {{part.system.hp.max}} HP</span>
-          <span class="item-status">{{lookup ../statusLabels part.system.status}}</span>
-          <a class="item-edit" data-action="editItem" title="Editar"><i class="fas fa-edit"></i></a>
-          <a class="item-delete" data-action="deleteItem" title="Excluir"><i class="fas fa-trash"></i></a>
+      {{#if anatomy.banner.length}}
+      <div class="anat-banner"><b>Vindo do corpo:</b> {{#each anatomy.banner as |b|}}{{b}}{{#unless @last}} · {{/unless}}{{/each}}</div>
+      {{/if}}
+      <ol class="item-list body-parts-list anat-list">
+        {{#each anatomy.parts as |part|}}
+        <li class="anat-part {{#if part.destroyed}}is-lost{{/if}}" data-part-id="{{part.id}}" data-slot="{{part.slot}}">
+          <div class="item-row" data-item-id="{{part.id}}">
+            <span class="anat-name"><b>{{part.name}}</b> <span class="anat-slot">{{part.slot}}</span></span>
+            <span class="anat-hp"><span class="anat-bar {{#if part.prosthetic}}pro{{/if}}"><i style="width:{{part.hpPct}}%"></i></span><span class="anat-num">{{part.hpValue}}/{{part.hpMax}}{{#if part.destroyed}} destruída{{/if}}</span></span>
+            <span class="anat-fns">
+              {{#each part.implants as |m|}}<span class="anat-imp {{#if m.prosthesis}}pro{{/if}}" title="{{#if m.prosthesis}}Prótese{{else}}Implante{{/if}}{{#if m.location}} · {{m.location}}{{/if}}">{{#if m.prosthesis}}⚙{{else}}◆{{/if}} {{m.name}}{{#if m.removable}}<a class="anat-imp-x" data-action="uninstallImplant" data-index="{{m.index}}" title="Remover (volta ao inventário)"><i class="fas fa-times"></i></a>{{/if}}</span>{{/each}}
+              {{#each part.functions as |f|}}<span class="anat-fn {{#if f.off}}off{{/if}}">{{f.label}}</span>{{/each}}
+            </span>
+            <a class="item-edit" data-action="editItem" title="Editar"><i class="fas fa-edit"></i></a>
+            <a class="item-delete" data-action="deleteItem" title="Excluir"><i class="fas fa-trash"></i></a>
+          </div>
         </li>
         {{/each}}
       </ol>
+      <p class="hint-inline">Arraste um Item com <b>Implante</b> ligado para uma parte para instalar. Implante soma Funções à parte natural; prótese substitui a parte.{{#unless anatomy.injury}} As Funções só têm efeito com "Ferimentos por parte" ligado em Módulos do Sistema.{{/unless}}</p>
       <a class="item-create" data-action="createItem" data-type="body_part">+ Nova Parte do Corpo</a>
     </div>
     {{/if}}
+
+    <div class="tab origin-tab {{#unless (eq activeTab "origin")}}hidden{{/unless}}">
+      {{#if origin.outdated}}
+      <div class="origin-warn"><span>{{origin.speciesLabel}} foi editada no catálogo desde que esta ficha foi aplicada.</span><button type="button" data-action="originSync">Ver e sincronizar…</button></div>
+      {{/if}}
+      {{#if origin.speciesId}}
+      <div class="origin-layer species">
+        <div class="origin-layer-head"><b>Espécie · {{origin.speciesLabel}}</b>
+          {{#if origin.isGM}}<span class="origin-sp"></span><button type="button" data-action="originChange">Trocar…</button>{{#if origin.canEvolve}}<button type="button" data-action="originEvolve">Evoluir…</button>{{/if}}{{/if}}
+        </div>
+        {{#if origin.description}}<p class="origin-desc">{{origin.description}}</p>{{/if}}
+        <dl class="origin-gives">
+          {{#if origin.live}}<dt>Ao vivo</dt><dd><span class="origin-badge live">ao vivo</span> {{origin.live}}</dd>{{/if}}
+          {{#if origin.partsSummary}}<dt>Partes</dt><dd><span class="origin-badge copy">copiado</span> {{origin.partsSummary}} <a data-action="selectTab" data-tab="anatomy">→ Anatomia</a></dd>{{/if}}
+          <dt>Skills Raciais</dt><dd>{{#if origin.racial.length}}<span class="origin-badge copy">copiado</span> {{#each origin.racial as |s|}}{{s.name}} Nv {{s.level}}{{#unless @last}} · {{/unless}}{{/each}}{{else}}nenhuma{{/if}}{{#each origin.locked_text as |t|}} · <span class="origin-later">{{t}}</span>{{/each}}</dd>
+        </dl>
+      </div>
+      {{#if origin.hasLineages}}
+      <div class="origin-layer lineage">
+        <div class="origin-layer-head"><b>Linhagem · {{#if origin.lineageLabel}}{{origin.lineageLabel}}{{else}}nenhuma{{/if}}</b>
+          {{#if origin.isGM}}<span class="origin-sp"></span><button type="button" data-action="originLineage">Trocar…</button>{{/if}}
+        </div>
+        {{#if origin.lineageLabel}}
+        <dl class="origin-gives">
+          {{#if origin.lineageAdds}}<dt>Soma</dt><dd>{{origin.lineageAdds}}</dd>{{/if}}
+          {{#if origin.lineageReplaces}}<dt>Substitui</dt><dd>{{origin.lineageReplaces}}</dd>{{/if}}
+        </dl>
+        {{/if}}
+      </div>
+      {{/if}}
+      {{else}}
+      <p class="origin-empty">Sem Espécie. Escolha no cabeçalho.</p>
+      {{/if}}
+
+      {{#if (or origin.heritages.length origin.isGM)}}
+      <div class="origin-layer heritage">
+        <div class="origin-layer-head"><b>Heranças</b>
+          {{#if origin.isGM}}<span class="origin-sp"></span><button type="button" data-action="heritageAdd">+ Herança…</button>{{/if}}
+        </div>
+        <ul class="origin-heritages">
+          {{#each origin.heritages as |h|}}
+          <li><span class="origin-hchip">{{h.label}}</span><span class="origin-hgives">{{h.gives}}{{#if h.date}} · desde {{h.date}}{{/if}}{{#if h.source}} ("{{h.source}}"){{/if}}</span>
+            {{#if @root.origin.isGM}}<button type="button" data-action="heritageRemove" data-heritage="{{h.id}}">Retirar…</button>{{/if}}</li>
+          {{else}}
+          <li class="origin-empty">Nenhuma. Heranças são o que aconteceu com o personagem (Vampirizado, Meio-Dragão, Convertido em Ciborgue…).</li>
+          {{/each}}
+        </ul>
+      </div>
+      {{/if}}
+
+      {{#if origin.history.length}}
+      <div class="origin-layer history">
+        <div class="origin-layer-head"><b>Histórico da origem</b></div>
+        <ul class="origin-history">{{#each origin.history as |h|}}<li><span class="op">{{h.op}}</span><span>{{h.text}}</span><span class="by">{{h.by}}</span></li>{{/each}}</ul>
+      </div>
+      {{/if}}
+      {{#if origin.isGM}}{{#if origin.locked}}
+      <div class="origin-foot"><button type="button" data-action="originUnlock">Destravar escolha do jogador</button></div>
+      {{/if}}{{/if}}
+    </div>
 
     <div class="tab {{#unless (eq activeTab "biography")}}hidden{{/unless}}">
       <h3>Personalidade <span class="hint-inline" style="margin:0">(insumo para Skills Únicas/Ultimate)</span></h3>

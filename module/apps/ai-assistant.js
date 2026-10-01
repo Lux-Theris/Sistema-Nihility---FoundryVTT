@@ -28,13 +28,15 @@ const TASKS = {
   note: { label: "Nota / Journal", icon: "fa-book" },
   item: { label: "Item Genérico", icon: "fa-box" },
   skill: { label: "Habilidade (Skill avulsa)", icon: "fa-bolt" },
+  species: { label: "Espécie", icon: "fa-dna" },
+  heritage: { label: "Herança", icon: "fa-droplet" },
   freeform: { label: "Pergunta Livre", icon: "fa-comment-dots" }
 };
 
 const AGENT_SYSTEM_PROMPT =
   "Você é o motor de regras de um RPG de Foundry VTT (Nihility RPG System), agindo como assistente do Mestre. " +
   "Você tem tools pra consultar o sistema (list_skills, list_actors, get_system_rules) e pra propor criação/edição " +
-  "de conteúdo (propose_skill, propose_character, propose_edit). NADA que você propõe é criado de verdade até o " +
+  "de conteúdo (propose_skill, propose_character, propose_species, propose_edit). NADA que você propõe é criado de verdade até o " +
   "Mestre revisar e aplicar manualmente — pode propor livremente o que for pedido. Sempre consulte get_system_rules " +
   "antes de propor uma Skill (pra usar tier/effectType válidos) e list_skills antes de criar uma Skill nova (pra " +
   "não duplicar um nome/conceito já existente). Se o Mestre pedir múltiplos itens (ex: \"3 skills e 2 personagens\"), " +
@@ -270,6 +272,11 @@ export class AIAssistantApp extends HandlebarsApplicationMixin(ApplicationV2) {
         return generateItemFromAI(variedPrompt, { folder: await getAIGeneratedFolder("Item") });
       case "skill":
         return generateSkillFromAI(variedPrompt);
+      case "species":
+      case "heritage": {
+        const { generateOriginFromAI } = await import("../ai/ai-generation.js");
+        return generateOriginFromAI(variedPrompt, { kind: task });
+      }
       default:
         return null;
     }
@@ -278,6 +285,16 @@ export class AIAssistantApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static async #onOpenResult(event, target) {
     event.preventDefault();
     const uuid = target.dataset.uuid;
+    // Espécie/Herança não são documentos: abre o editor do catálogo já na entrada criada.
+    if (uuid?.startsWith("species:") || uuid?.startsWith("heritage:")) {
+      const [kind, id] = uuid.split(":");
+      const { SpeciesConfigApp } = await import("./species-config.js");
+      const { HeritagesConfigApp } = await import("./heritages-config.js");
+      const app = new (kind === "species" ? SpeciesConfigApp : HeritagesConfigApp)();
+      app.selected = id;
+      app.render(true);
+      return;
+    }
     const doc = await fromUuid(uuid);
     doc?.sheet?.render(true);
   }
@@ -364,6 +381,26 @@ export class AIAssistantApp extends HandlebarsApplicationMixin(ApplicationV2) {
             if (species && getActiveSpeciesPresets()[species]) await changeActorSpecies(created, { species }, { interactive: false });
             backupEntries.push({ action: "create", uuid: created.uuid });
             applied.push({ name: created.name, uuid: created.uuid, icon: "fa-user" });
+          }
+        } else if (proposal.type === "species" || proposal.type === "heritage") {
+          // Espécie/Herança proposta pelo Agente: entra no catálogo (sem sobrescrever uma chave existente).
+          const { getActiveSpeciesPresets, getActiveHeritages, MEU_SISTEMA } = await import("../core/config.js");
+          const { normalizeSpeciesCatalog, normalizeSpeciesEntry } = await import("../species/species-rules.js");
+          const { id: baseId, entry } = proposal.data;
+          if (proposal.type === "heritage") {
+            const list = [...getActiveHeritages()];
+            let id = baseId;
+            for (let n = 2; list.some(h => h.id === id); n++) id = `${baseId}_${n}`;
+            list.push({ ...normalizeSpeciesEntry(entry), id });
+            await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.heritagesData, JSON.stringify(list, null, 2));
+            applied.push({ name: entry.label, uuid: `heritage:${id}`, icon: "fa-droplet" });
+          } else {
+            const catalog = normalizeSpeciesCatalog(getActiveSpeciesPresets());
+            let id = baseId;
+            for (let n = 2; catalog[id]; n++) id = `${baseId}_${n}`;
+            catalog[id] = normalizeSpeciesEntry(entry);
+            await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.speciesPresetsData, JSON.stringify(catalog, null, 2));
+            applied.push({ name: entry.label, uuid: `species:${id}`, icon: "fa-dna" });
           }
         } else if (proposal.type === "edit") {
           const doc = await fromUuid(proposal.data.uuid);

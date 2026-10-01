@@ -465,6 +465,12 @@ export class BodyPartDataModel extends foundry.abstract.TypeDataModel {
       isProsthetic: new fields.BooleanField({ required: false, initial: false }),
 
       /**
+       * Funções desta parte (ids do catálogo Funções de Parte: visao, manipulacao, locomocao…) —
+       * vêm da Espécie; com "Ferimentos por parte" ligado, perder a parte desliga as Funções dela.
+       */
+      functions: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
+
+      /**
        * Modificações/próteses instaladas nesta parte: [{ name, description, grantsSkill }].
        * `grantsSkill` é opcional — quando preenchida e "concedida" (botão na ficha), gera
        * uma Skill de verdade na ficha do Ator, travada em tier Normal por padrão.
@@ -478,7 +484,17 @@ export class BodyPartDataModel extends foundry.abstract.TypeDataModel {
           /** Modificador PERMANENTE de HP/Mana enquanto esta modificação estiver instalada. */
           statModifiers: statModifiersSchema(),
           /** Bônus PERMANENTE de Atributo (rolagem) enquanto esta modificação estiver instalada — nunca entra no HP/Mana. */
-          attributeBonuses: attributeBonusesSchema()
+          attributeBonuses: attributeBonusesSchema(),
+          /** "implant" (aprimora a parte natural) | "prosthesis" (substitui a parte). Dados antigos = implante. */
+          kind: new fields.StringField({ required: false, initial: "implant", blank: true }),
+          /** Onde, dentro da parte (só descreve: "Mão", "Olho esquerdo"). */
+          location: new fields.StringField({ required: false, initial: "", blank: true }),
+          /** Funções que repõe (prótese) ou soma (implante). */
+          functions: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
+          /** O Item de onde veio (para voltar ao inventário ao remover). */
+          sourceItem: new fields.ObjectField({ required: false, nullable: true, initial: null }),
+          /** Vida máxima da parte natural antes da prótese (volta ao remover a prótese). */
+          naturalHpMax: new fields.NumberField({ required: false, nullable: true, initial: null })
         }),
         { required: false, initial: [] }
       )
@@ -784,6 +800,20 @@ export class GenericItemDataModel extends foundry.abstract.TypeDataModel {
         /** Escala do golpe; vazio = a de quem ataca (uma bazuca anti-tanque pode ser "Veículo"). */
         damageScale: new fields.StringField({ required: false, initial: "", blank: true }),
         damageElements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] })
+      }),
+
+      /**
+       * Implante/prótese (board 5): arrastado para uma Parte do Corpo na aba Anatomia, vira uma
+       * modificação daquela parte. `fitsSlots` vazio = cabe em qualquer parte. Bônus, Vida/Mana e
+       * Habilidade Concedida deste Item valem enquanto instalado.
+       */
+      implant: new fields.SchemaField({
+        enabled: new fields.BooleanField({ required: false, initial: false }),
+        kind: new fields.StringField({ required: false, initial: "implant", choices: ["implant", "prosthesis"] }),
+        fitsSlots: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
+        location: new fields.StringField({ required: false, initial: "", blank: true }),
+        functions: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
+        hp: new fields.NumberField({ required: false, integer: true, initial: 10, min: 1 })
       }),
 
       /** Habilidade opcional concedida ao dono enquanto o item estiver "equipado" (ver grantedSkillSchema). */

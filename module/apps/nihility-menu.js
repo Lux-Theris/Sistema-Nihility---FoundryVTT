@@ -16,6 +16,8 @@ import {
   getActiveTraits,
   getActiveCurrencies,
   getActiveSpeciesPresets,
+  getActiveHeritages,
+  getActiveBodyFunctions,
   getScaleConfig,
   getStructures,
   getModuleCategories,
@@ -37,6 +39,8 @@ const AI_TASK_ACTIONS = {
   "generate-npc": "npc",
   "generate-character": "npc", // mesma capacidade da aba de IA, rótulo diferente na aba de Geração
   "generate-mount": "mount",
+  "generate-species": "species",
+  "generate-heritage": "heritage",
   "generate-starship": "starship",
   "generate-vehicle": "vehicle",
   "generate-skill": "skill",
@@ -440,7 +444,9 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
         label: "Personagem",
         rows: [
           { action: "attribute-config", icon: "fas fa-chart-simple", title: "Atributos", desc: "Renomear ou esconder os Atributos de Combate.", state: `${getVisibleAttributes().length} visíveis` },
-          { action: "anatomy-config", icon: "fas fa-dna", title: "Espécies", desc: "Partes do Corpo, Skills Raciais e Traços de cada Espécie.", state: count(Object.keys(getActiveSpeciesPresets()).length, "espécie", "espécies"), feature: "anatomy" },
+          { action: "anatomy-config", icon: "fas fa-dna", title: "Espécies", desc: "Corpo, Skills Raciais, Passivos, Linhagens e Evolução de cada Espécie.", state: count(Object.keys(getActiveSpeciesPresets()).length, "espécie", "espécies") },
+          { action: "body-functions-config", icon: "fas fa-person-walking", title: "Funções de Parte", desc: "O que acontece ao perder uma parte: Cego, Sem mão, Deslocamento proporcional, Voador…", state: count(getActiveBodyFunctions().length, "função", "funções"), feature: "bodyPartInjury" },
+          { action: "heritages-config", icon: "fas fa-droplet", title: "Heranças", desc: "O que pode acontecer com qualquer Espécie: Vampirizado, Meio-Dragão, Convertido em Ciborgue…", state: count(getActiveHeritages().length, "herança", "heranças") },
           { action: "traits-config", icon: "fas fa-tags", title: "Traços", desc: "Dracônico, Voador, Orgânico… usados por Elementos e bônus condicionais.", state: count(getActiveTraits().length, "traço", "traços") },
           { action: "economy-config", icon: "fas fa-coins", title: "Moedas", desc: "Moedas, valores e conversão.", state: count(getActiveCurrencies().length, "moeda", "moedas"), feature: "economy" },
           { action: "titles-config", icon: "fas fa-crown", title: "Compêndio de Títulos", desc: "Títulos do mundo.", feature: "titles" },
@@ -497,7 +503,9 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
         label: "Personagens e Criaturas",
         rows: [
           { action: "generate-npc", icon: "fas fa-user", title: "Personagem / NPC", desc: "A partir de uma descrição, com pontos de atributo." },
-          { action: "generate-mount", icon: "fas fa-horse", title: "Montaria", desc: "Montarias e bestas de carga." }
+          { action: "generate-mount", icon: "fas fa-horse", title: "Montaria", desc: "Montarias e bestas de carga." },
+          { action: "generate-species", icon: "fas fa-dna", title: "Espécie", desc: "Corpo, Skills Raciais com mecânica e Linhagens; entra no catálogo de Espécies." },
+          { action: "generate-heritage", icon: "fas fa-droplet", title: "Herança", desc: "Algo que pode acontecer com qualquer Espécie; entra no catálogo de Heranças." }
         ]
       },
       vessels && {
@@ -668,6 +676,16 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
       case "economy-config": {
         const { CurrencyConfigApp } = await import("./currency-config.js");
         new CurrencyConfigApp().render(true);
+        break;
+      }
+      case "body-functions-config": {
+        const { BodyFunctionsConfigApp } = await import("./body-functions-config.js");
+        new BodyFunctionsConfigApp().render(true);
+        break;
+      }
+      case "heritages-config": {
+        const { HeritagesConfigApp } = await import("./heritages-config.js");
+        new HeritagesConfigApp().render(true);
         break;
       }
       case "anatomy-config": {

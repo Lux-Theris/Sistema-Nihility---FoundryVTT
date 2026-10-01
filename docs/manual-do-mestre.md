@@ -212,15 +212,24 @@ Renomeie os oito Atributos (Força, Defesa, Magia, Defesa Mágica, Destreza, Fur
 - **Esconder é só visual**: um Atributo escondido ainda conta na fórmula de Vida/Mana. A janela avisa quando você esconde um Atributo usado na fórmula.
 - **Restaurar padrões** volta os nomes de fábrica.
 
-### Espécies
+### Espécies, Linhagens, Heranças e Evolução
 
-Cada Espécie tem: **Chave**, **Nome**, **grupo** (Fantasia, Isekai, Sci-Fi, Besta/Montaria — só organização), **na criação** (se aparece no seletor dos jogadores), **Traços**, **Partes do Corpo** (Nome, Slot, Vida, Tags) e **Skills Raciais** (editadas no mesmo editor completo de Skill, com tier fixo Racial).
+**Configurações Gerais › Personagem › Espécies** abre o editor: lista com busca à esquerda e, à direita, seis abas.
 
-Cada Espécie também tem **Elemento** (o que ela É, para a tabela de vantagens entre elementos), **Slots** e **Carga base (kg)** do inventário (vazio = o padrão da tabela: Humano 10/30, Anão 12/45, Ogro 14/90, Goblin 8/15, Cavalo 4/100…; sem Espécie, 10/30).
+- **Geral** — grupo, se o jogador pode escolher na criação, descrição curta, **Traços** e **elemento do corpo**, Escala padrão, Deslocamento (base e ±%), slots e carga. Tudo aqui vale **ao vivo** para quem é desta Espécie.
+- **Corpo** — Partes (chave, nome, **slot**, Vida, **Funções**). São **copiadas** para a ficha.
+- **Skills Raciais** — editadas no editor completo de Skill; "Nv" vazio = desde o início (o normal), preenchido = só chega a partir daquele nível.
+- **Passivos** — bônus de atributo (entram no Total, como um Título, e portanto na Vida/Mana), Vida/Mana máximas, Resistências (contam como Título: fica a melhor) e regras "Quando → Então".
+- **Linhagens** — variações escolhidas na criação: somam Traços, elemento e Skills e podem **substituir** Skills Raciais da Espécie (a substituta herda o nível).
+- **Evolução** — para onde a Espécie evolui, com nível mínimo (só aviso), dica para você, manter Linhagem e "Resistências viram Imunidade".
 
-Espécies com "na criação" desmarcado só aparecem para o Mestre e para a IA — é como Cavalo e Grifo existem como presets de montaria sem virar opção de personagem.
+A **chave** de uma Espécie, de uma parte ou de uma Linhagem trava depois de salva (as fichas apontam para ela); para "renomear a estrutura", use **Duplicar como nova**. **Trazer do padrão…** acrescenta o conteúdo de fábrica que o seu catálogo ainda não tem (Espécies novas, Linhagens, Evolução) sem tocar no que você editou.
 
-Quando o jogador escolhe a Espécie na ficha, o sistema substitui Partes do Corpo e Skills Raciais pelas do preset (com confirmação) e aplica os Traços. Mudar o preset depois **não** atualiza fichas que já o aplicaram.
+Salvar sobe a **versão** da Espécie quando partes ou Skills mudam. As fichas daquela Espécie mostram **"Espécie mudou"** e você sincroniza pelo botão **Sincronizar fichas…** (todas, com uma caixa por ficha) ou pela aba Origem (uma). Sincronizar só acrescenta e ajusta; remover o que saiu da Espécie é uma escolha explícita.
+
+**Heranças** (Configurações Gerais › Personagem › Heranças) usam o mesmo editor, com as abas Geral · Corpo e Skills · Passivos · Regras. Uma Herança pode **tirar Traços** (Vampirizado deixa de ser Orgânico), trocar as partes de um **slot** (Convertido em Ciborgue troca os braços por próteses — os implantes vão junto), ter um texto de anúncio (`{nome}` vira o nome do personagem) e regras de convivência: Espécies permitidas e Heranças incompatíveis. Fora das regras, a prévia **avisa** e você aplica mesmo assim, se quiser.
+
+**Na ficha (aba Origem)**, só você: **Trocar…** a Espécie ou a Linhagem, **+ Herança…** / **Retirar…**, **Evoluir…** (bloco "Evolução de Espécie" em Módulos do Sistema) e **Destravar escolha do jogador**. Toda mudança passa por uma **prévia**: perdas em vermelho no topo, próteses e implantes levados para a parte equivalente (ou que ficam como parte avulsa), Skills Raciais que saem guardadas no histórico com nível e XP (voltam se a origem voltar). Evoluir **mantém** as Skills Raciais antigas; a de mesma chave recebe a mecânica nova com o nível que tinha.
 
 ### Traços
 
@@ -724,11 +733,21 @@ Bônus de atributo de item **nunca** entram no pool de d20 nem na Vida/Mana: som
 
 Crie com **+ Novo Título** na ficha (ou no Compêndio de Títulos). Campos: **Concedido por**, **Raridade**, **Bônus permanentes** (em Atributos, que entram no **Total** e por isso contam para rolagem e fórmula de Vida/Mana; ou direto em HP/Mana máximos), **Resistência a dano** (% fixo) e **Bônus condicionais**. Títulos estão sempre ativos.
 
-### Anatomia
+### Anatomia, Funções e implantes
 
-Partes do Corpo nascem do preset da Espécie. Cada uma tem Slot, Origem, Vida, estado (Intacto, Danificado, Destruído) e **Prótese** (Natural/Protética). O sistema **não** distribui dano nas partes: use-as para narrar ferimentos e mutilações, ajustando Vida e estado à mão.
+Partes do Corpo nascem da Espécie. Cada uma tem **slot** (o encaixe: decide onde um implante cabe e para onde uma prótese vai numa troca de Espécie) e **Funções** (visão, audição, manipulação, locomoção, voo, equilíbrio, vital, regenerativa).
 
-**Modificações** (aba da Parte) são implantes e próteses: descrição, Habilidade Concedida (ligada por **Conceder Habilidade à ficha**), modificadores de HP/Mana e bônus de atributo — valem enquanto instaladas.
+**Implantes e próteses** são Itens Gerais com a aba **Implante** ligada: tipo (prótese substitui a parte; implante aprimora), slots em que serve, onde fica ("Mão"), Funções que dá ou repõe e Vida da prótese. O jogador arrasta o Item para a parte na aba Anatomia; o × devolve ao inventário. Modificações feitas à mão na ficha da Parte continuam funcionando.
+
+**Ferimentos por parte** (Módulos do Sistema, **desligado por padrão**) dá efeito às Funções. O catálogo **Funções de Parte** (Configurações Gerais › Personagem) diz o que cada uma causa ao ser perdida e como conta:
+
+| Conta | Quando vale | Exemplo |
+|---|---|---|
+| Proporcional | o que sobra ÷ o total | locomoção: 2 pernas, perde 1 → 50%; 4 patas, perde 1 → 75% |
+| Ao perder qualquer uma | uma parte perdida já basta (mostra quantas) | Sem mão (2), asa perdida tira Voador |
+| Ao perder todas | só quando não sobra nenhuma | Cego (perdeu a cabeça) |
+
+Locomoção: sem nenhuma parte que ande, o personagem se arrasta o **mínimo** (1 m) se ainda tiver a Função de arrastar (manipulação) funcionando; sem ela, 0. "Ferida conta pela Vida": uma perna a 50% vale meia perna. Espécie sem partes de locomoção (Slime) não é afetada. As Condições do corpo são criadas e removidas sozinhas; parte **vital** destruída só **avisa** você.
 
 ---
 

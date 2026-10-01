@@ -5,12 +5,18 @@
  * config.js). Retirar um Traço que veio da Espécie não mexe na Espécie: ele entra em
  * `traitsRemoved` e volta com "restaurar". Só o Mestre edita; o jogador só vê.
  */
-import { getActiveTraits, getTraitLabel, getActiveSpeciesPresets, actorTraits } from "../core/config.js";
+import { getActiveTraits, getTraitLabel, getActiveSpeciesPresets, actorTraits, originTraitIdsOf } from "../core/config.js";
+
+/** Traços que vêm da origem (Espécie/Linhagem/Heranças) — os que a ficha só pode "retirar", não apagar. */
+function originTraitSet(actor) {
+  const layers = actor.system?.originLayers;
+  return new Set(layers ? originTraitIdsOf(layers) : getActiveSpeciesPresets()?.[actor.system?.species]?.traits ?? []);
+}
 import { pickTraits } from "../apps/checklist-picker.js";
 
 /** Dados pro template: chips efetivos, retirados (só Mestre) e o tamanho do catálogo (botão "+ Traço · N"). */
 export function traitContext(actor) {
-  const fromSpecies = new Set(getActiveSpeciesPresets()?.[actor.system?.species]?.traits ?? []);
+  const fromSpecies = originTraitSet(actor);
   const effective = actorTraits(actor);
   const removed = (actor.system?.traitsRemoved ?? []).filter(id => fromSpecies.has(id));
   const present = new Set(effective);
@@ -31,7 +37,7 @@ export async function pickActorTraits(actor) {
   const picked = await pickTraits(actorTraits(actor), { title: `Traços — ${actor.name}` });
   if (!picked) return;
   const chosen = new Set(picked);
-  const fromSpecies = new Set(getActiveSpeciesPresets()?.[actor.system?.species]?.traits ?? []);
+  const fromSpecies = originTraitSet(actor);
   const update = { "system.traits": picked.filter(id => !fromSpecies.has(id)) };
   // Nave/Veículo não têm `traitsRemoved` (nem Espécie) — só grava onde o campo existe.
   if ("traitsRemoved" in actor.system) update["system.traitsRemoved"] = [...fromSpecies].filter(id => !chosen.has(id));
@@ -46,7 +52,7 @@ export async function changeTrait(actor, id, op) {
   if (!id || !game.user.isGM) return;
   const traits = new Set(actor.system.traits ?? []);
   const removed = new Set(actor.system.traitsRemoved ?? []);
-  const fromSpecies = new Set(getActiveSpeciesPresets()?.[actor.system?.species]?.traits ?? []);
+  const fromSpecies = originTraitSet(actor);
 
   if (op === "add") {
     removed.delete(id);

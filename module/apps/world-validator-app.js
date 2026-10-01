@@ -14,6 +14,8 @@ import {
   getActiveAttributes,
   getActiveTraits,
   getActiveSpeciesPresets,
+  getActiveHeritages,
+  getActiveBodyFunctions,
   getAmmoTypes,
   getCrewRoles,
   getModuleCategories,
@@ -21,6 +23,7 @@ import {
   getVesselClasses
 } from "../core/config.js";
 import { buildCatalogIndex, validateActor, validateItem, validateCatalogs, CATALOG_LABELS } from "../world/world-validator.js";
+import { syncPreviewFor } from "../species/species.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -36,6 +39,8 @@ function readCatalogs() {
     attributes: getActiveAttributes().map(a => a.key),
     traits: getActiveTraits(),
     species: getActiveSpeciesPresets(),
+    heritages: getActiveHeritages(),
+    bodyFunctions: getActiveBodyFunctions(),
     ammoTypes: getAmmoTypes(),
     crewRoles: getCrewRoles(),
     moduleCategories: getModuleCategories(),
@@ -134,7 +139,12 @@ export class WorldValidatorApp extends HandlebarsApplicationMixin(ApplicationV2)
     const documents = [];
     const actors = worldActors();
     for (const actor of actors) {
-      const issues = validateActor(actor.toObject(), idx, { uuidExists });
+      const issues = validateActor(actor.toObject(), idx, { uuidExists, catalogs });
+      // Ficha atrás do catálogo (a Espécie foi editada depois de aplicada): só aviso, a origem
+      // continua funcionando — sincronizar é pela aba Origem ou pelo editor de Espécies.
+      if (actor.type === "character" && syncPreviewFor(actor)) {
+        issues.push({ where: "Espécie", catalog: "species", ref: actor.system.species, message: "a Espécie foi editada no catálogo depois de aplicada (sincronize pela aba Origem)" });
+      }
       if (issues.length) documents.push(this.#documentRow(actor, issues));
     }
     for (const item of game.items) {

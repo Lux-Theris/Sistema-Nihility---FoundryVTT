@@ -9,6 +9,7 @@
  */
 import { SYSTEM_ID, actorTraits, combatantIsActor } from "../core/config.js";
 import { sumConditionalModifiers } from "./conditional-modifiers.js";
+import { originConditionalSources } from "../species/species-rules.js";
 
 /** Todas as regras das fontes ativas do Ator. */
 export function collectConditionalModifiers(actor) {
@@ -26,6 +27,8 @@ export function conditionalModifierSources(actor) {
     if (!["title", "item", "skill"].includes(item.type)) continue;
     sources.push({ item, mods: list });
   }
+  // "Quando → Então" da Espécie/Linhagem/Heranças (passivos ao vivo).
+  sources.push(...originConditionalSources(actor?.system?.originLayers ?? []));
   return sources;
 }
 

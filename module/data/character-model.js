@@ -137,6 +137,31 @@ function baseActorSchema() {
      */
     species: new fields.StringField({ required: true, initial: "", blank: true }),
 
+    /** Linhagem escolhida dentro da Espécie (id de `lineages[]` do catálogo); "" = nenhuma. */
+    lineage: new fields.StringField({ required: false, initial: "", blank: true }),
+
+    /** Heranças (catálogo próprio), na ordem em que foram ganhas — a mais nova vence nas substituições. */
+    heritages: new fields.ArrayField(
+      new fields.SchemaField({
+        id: new fields.StringField({ required: true, initial: "" }),
+        acquiredAt: new fields.NumberField({ required: false, initial: null, nullable: true }),
+        source: new fields.StringField({ required: false, initial: "", blank: true })
+      }),
+      { required: false, initial: [] }
+    ),
+
+    /**
+     * Estado da origem (ver species.js): versão da Espécie aplicada (o selo "a Espécie mudou" compara
+     * com o catálogo), trava do jogador (`lockedAt` no primeiro "Confirmar" de pontos; o Mestre
+     * destrava com `unlocked`) e histórico de trocas/evoluções/Heranças.
+     */
+    speciesState: new fields.SchemaField({
+      appliedVersion: new fields.NumberField({ required: false, initial: 0, integer: true, min: 0 }),
+      lockedAt: new fields.NumberField({ required: false, initial: null, nullable: true }),
+      unlocked: new fields.BooleanField({ required: false, initial: false }),
+      history: new fields.ArrayField(new fields.ObjectField(), { required: false, initial: [] })
+    }),
+
     /**
      * Traços acrescentados à mão (além dos que a Espécie dá) e Traços da Espécie retirados à mão.
      * Os efetivos saem de `actorTraits` em config.js.
@@ -181,16 +206,28 @@ function baseActorSchema() {
   };
 }
 
-/** Soma os bônus permanentes de Títulos (sempre ativos) para um alvo (atributo, "hp" ou "energy"). */
-function sumTitleBonuses(actor, target) {
-  let sum = 0;
+/**
+ * As funções `*Sources` abaixo devolvem cada parcela com a fonte (`{label, value, uuid, kind}`) e
+ * as somas da preparação são a soma dessas listas — assim a janela "De onde vem" (apps/
+ * stat-breakdown.js) mostra exatamente o que a ficha somou, sem uma segunda cópia da regra.
+ */
+const sumSources = list => list.reduce((sum, source) => sum + source.value, 0);
+
+/** Bônus permanentes de Títulos (sempre ativos) para um alvo (atributo, "hp" ou "energy"). */
+export function titleBonusSources(actor, target) {
+  const list = [];
   for (const item of actor.items) {
     if (item.type !== "title") continue;
     for (const entry of item.system.bonuses ?? []) {
-      if (entry.attribute === target) sum += Number(entry.amount) || 0;
+      const value = Number(entry.amount) || 0;
+      if (entry.attribute === target && value) list.push({ label: item.name, value, uuid: item.uuid, kind: "title" });
     }
   }
-  return sum;
+  return list;
+}
+
+function sumTitleBonuses(actor, target) {
+  return sumSources(titleBonusSources(actor, target));
 }
 
 /**
@@ -199,26 +236,26 @@ function sumTitleBonuses(actor, target) {
  * em `attr.total` (a base que alimenta HP/Mana) — só em `effectiveTotal`, junto com
  * buffDelta, ou seja, afeta a rolagem mas nunca o HP/Mana Máximo.
  */
-function sumItemAttributeBonus(actor, key) {
-  let sum = 0;
+export function itemAttributeSources(actor, key) {
+  const list = [];
+  const add = (entries, label, uuid, kind) => {
+    for (const entry of entries ?? []) {
+      const value = Number(entry.amount) || 0;
+      if (entry.attribute === key && value) list.push({ label, value, uuid, kind });
+    }
+  };
   for (const item of actor.items) {
-    if (item.type === "skill") {
-      for (const entry of item.system.attributeBonuses ?? []) {
-        if (entry.attribute === key) sum += Number(entry.amount) || 0;
-      }
-    } else if (item.type === "item" && item.system.equipped) {
-      for (const entry of item.system.attributeBonuses ?? []) {
-        if (entry.attribute === key) sum += Number(entry.amount) || 0;
-      }
-    } else if (item.type === "body_part") {
-      for (const mod of item.system.installedMods ?? []) {
-        for (const entry of mod.attributeBonuses ?? []) {
-          if (entry.attribute === key) sum += Number(entry.amount) || 0;
-        }
-      }
+    if (item.type === "skill") add(item.system.attributeBonuses, item.name, item.uuid, "skill");
+    else if (item.type === "item" && item.system.equipped) add(item.system.attributeBonuses, item.name, item.uuid, "item");
+    else if (item.type === "body_part") {
+      for (const mod of item.system.installedMods ?? []) add(mod.attributeBonuses, `${item.name} › ${mod.name || "Modificação"}`, item.uuid, "mod");
     }
   }
-  return sum;
+  return list;
+}
+
+function sumItemAttributeBonus(actor, key) {
+  return sumSources(itemAttributeSources(actor, key));
 }
 
 /**
@@ -229,20 +266,24 @@ function sumItemAttributeBonus(actor, key) {
  * @param {Actor} actor
  * @param {"hp"|"energy"} stat
  */
-function sumPermanentStatModifier(actor, stat) {
-  let sum = sumTitleBonuses(actor, stat);
+export function statModifierSources(actor, stat) {
+  const list = titleBonusSources(actor, stat);
+  const add = (modifiers, label, uuid, kind) => {
+    const value = Number(modifiers?.[stat]) || 0;
+    if (value) list.push({ label, value, uuid, kind });
+  };
   for (const item of actor.items) {
-    if (item.type === "skill") {
-      sum += Number(item.system.statModifiers?.[stat]) || 0;
-    } else if (item.type === "item" && item.system.equipped) {
-      sum += Number(item.system.statModifiers?.[stat]) || 0;
-    } else if (item.type === "body_part") {
-      for (const mod of item.system.installedMods ?? []) {
-        sum += Number(mod.statModifiers?.[stat]) || 0;
-      }
+    if (item.type === "skill") add(item.system.statModifiers, item.name, item.uuid, "skill");
+    else if (item.type === "item" && item.system.equipped) add(item.system.statModifiers, item.name, item.uuid, "item");
+    else if (item.type === "body_part") {
+      for (const mod of item.system.installedMods ?? []) add(mod.statModifiers, `${item.name} › ${mod.name || "Modificação"}`, item.uuid, "mod");
     }
   }
-  return sum;
+  return list;
+}
+
+function sumPermanentStatModifier(actor, stat) {
+  return sumSources(statModifierSources(actor, stat));
 }
 
 /**

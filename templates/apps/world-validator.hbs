@@ -1,0 +1,65 @@
+<div class="wv-root">
+  <div class="wv-head">
+    <div class="wv-summary {{#if counts.total}}has-issues{{/if}}">
+      {{#if counts.total}}
+        <i class="fas fa-triangle-exclamation"></i> {{counts.total}} problema(s)
+      {{else}}
+        <i class="fas fa-check"></i> Nenhum problema
+      {{/if}}
+      <span class="wv-scope">· {{counts.actors}} Atores · {{counts.items}} Itens no Diretório{{#if includePacks}} · {{counts.packs}} nos Compêndios{{/if}}</span>
+    </div>
+    <div class="wv-controls">
+      <label class="wv-check"><input type="checkbox" name="includePacks" {{checked includePacks}}/> Incluir Compêndios do sistema (lento)</label>
+      <button type="button" data-action="revalidate"><i class="fas fa-rotate"></i> Validar de novo</button>
+    </div>
+  </div>
+
+  <div class="wv-body">
+    {{#if catalogGroups.length}}
+    <section class="wv-sec">
+      <h3>Catálogos</h3>
+      <p class="wv-hint">Um catálogo aponta para outro que não tem mais aquela entrada. Corrija em Configurações Gerais.</p>
+      <ul class="wv-rows">
+        {{#each catalogGroups as |group|}}
+        <li class="wv-row">
+          <div class="wv-main">
+            <strong>{{group.label}}</strong>
+            {{#each group.issues as |issue|}}
+            <div class="wv-issue"><span class="wv-where">{{issue.where}}</span> {{issue.message}}</div>
+            {{/each}}
+          </div>
+        </li>
+        {{/each}}
+      </ul>
+    </section>
+    {{/if}}
+
+    {{#if documents.length}}
+    <section class="wv-sec">
+      <h3>Fichas e Itens</h3>
+      <p class="wv-hint">O sistema não quebra com isso (usa um padrão no lugar), mas a referência não faz o que parece.</p>
+      <ul class="wv-rows">
+        {{#each documents as |doc|}}
+        <li class="wv-row">
+          <img src="{{doc.img}}" width="28" height="28" alt=""/>
+          <div class="wv-main">
+            <strong>{{doc.name}}</strong> <span class="wv-type">· {{doc.type}}</span>
+            {{#each doc.issues as |issue|}}
+            <div class="wv-issue">
+              <span class="wv-where">{{issue.where}}</span> {{issue.message}}
+              {{#if issue.itemUuid}}<a class="wv-open-item" data-action="openDocument" data-uuid="{{issue.itemUuid}}" title="Abrir o Item"><i class="fas fa-up-right-from-square"></i></a>{{/if}}
+            </div>
+            {{/each}}
+          </div>
+          <button type="button" class="wv-open" data-action="openDocument" data-uuid="{{doc.uuid}}">Abrir</button>
+        </li>
+        {{/each}}
+      </ul>
+    </section>
+    {{/if}}
+
+    {{#unless counts.total}}
+    <p class="wv-empty">Todas as referências apontam para algo que existe.</p>
+    {{/unless}}
+  </div>
+</div>

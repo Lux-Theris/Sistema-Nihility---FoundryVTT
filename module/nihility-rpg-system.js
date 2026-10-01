@@ -57,7 +57,8 @@ import { registerStructureRendering } from "./structure-render.js";
 import { registerShieldLightHooks } from "./lights.js";
 import { registerShieldPoolReconcile } from "./shield-pools.js";
 import { registerStatusConditions, interceptManualCondition } from "./conditions.js";
-import { renderDamageControls } from "./damage-apply.js";
+import { renderDamageControls, renderDamageTrace } from "./damage-apply.js";
+import { isSpeciesLocked, normalizeSpeciesCatalog } from "./species-rules.js";
 import { notifyIncomingPadMessage } from "./pad/pad-messaging.js";
 import {
   isEnergyPoolEnabled,
@@ -243,8 +244,24 @@ Hooks.once("ready", async () => {
   await ensureSystemCompendiums();
   await runMigrationIfNeeded("tierCommonToNormal", migrateCommonTierToNormal);
   await runMigrationIfNeeded("elementalDamageToMagicTag", migrateElementalDamageToMagicTag);
+  await runMigrationIfNeeded("speciesStableKeys", migrateSpeciesStableKeys);
   console.log(`${SYSTEM_ID} | Sistema pronto.`);
 });
+
+/**
+ * Rework de Espécies: grava no catálogo salvo as chaves estáveis das Skills Raciais (antes só
+ * tinham nome) e a versão 1. Só mexe se o Mestre já tinha salvo um catálogo; o padrão de fábrica
+ * ganha as mesmas chaves (determinísticas) na leitura. Fichas não são migradas: o diff reconhece
+ * dados antigos pelo nome/slot e grava a marca de origem na primeira aplicação.
+ */
+async function migrateSpeciesStableKeys() {
+  const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.speciesPresetsData);
+  if (!raw || (typeof raw === "string" && !raw.trim())) return;
+  const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+  if (!parsed || typeof parsed !== "object") return;
+  const normalized = normalizeSpeciesCatalog(parsed);
+  await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.speciesPresetsData, JSON.stringify(normalized, null, 2));
+}
 
 /**
  * Roda uma migração única (`migrationFn`) só se `key` ainda não estiver marcada como concluída
@@ -382,6 +399,20 @@ Hooks.on("preCreateActor", (actor, data, options, userId) => {
 // pela Voz do Mundo. Usa preUpdate (não updateActor) pra mesclar o ganho na mesma escrita,
 // em vez de disparar um segundo update — e assim funciona também quando é o próprio jogador
 // quem sobe o nível na ficha, não só pelo botão de Level Up do Mestre.
+/**
+ * Trava da Espécie: depois do primeiro "Confirmar" de Pontos de Atributo, só o Mestre troca a
+ * Espécie/Linhagem (a ficha já desliga o seletor; isto cobre qualquer outro caminho).
+ */
+Hooks.on("preUpdateActor", (actor, changes, options, userId) => {
+  if (actor.type !== "character" || game.users.get(userId)?.isGM) return;
+  const species = foundry.utils.getProperty(changes, "system.species");
+  const lineage = foundry.utils.getProperty(changes, "system.lineage");
+  const changing = (species !== undefined && species !== actor.system.species) || (lineage !== undefined && lineage !== actor.system.lineage);
+  if (!changing || !isSpeciesLocked(actor.system)) return;
+  if (userId === game.user.id) ui.notifications.warn("A Espécie já está definida: só o Mestre pode trocar agora.");
+  return false;
+});
+
 Hooks.on("preUpdateActor", (actor, changes) => {
   if (actor.type !== "character") return;
 
@@ -656,6 +687,7 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
   // fica reservado pra uma futura opção de exibição — hoje nenhuma UI liga essa flag.
   // Botões de aplicar dano (só Mestre) — ver module/damage-apply.js.
   renderDamageControls(message, html);
+  renderDamageTrace(message, html);
 
   const padMessage = message.getFlag(SYSTEM_ID, "padMessage");
   const padContactShare = message.getFlag(SYSTEM_ID, "padContactShare");

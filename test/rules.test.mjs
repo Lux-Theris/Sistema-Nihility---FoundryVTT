@@ -1478,3 +1478,432 @@ test("Active Effect: formato V13 e V14, e leitura dos dois", async () => {
   assert.deepEqual(readEffectChanges(buildEffectChanges(changes, 13)), readEffectChanges(v14));
   assert.deepEqual(readEffectChanges({ system: { changes: [{ key: "k", type: "multiply", value: "1.2" }] } }), [{ key: "k", mode: 1, value: "1.2" }]);
 });
+
+import {
+  makeAnchor,
+  sameAnchor,
+  addAnchor,
+  removeAnchor,
+  effectAnchors,
+  finiteRemaining,
+  serializeFinite,
+  anchorLifetime,
+  durationRemaining,
+  refreshFiniteRounds,
+  PERMANENT
+} from "../module/effect-anchors.js";
+
+test("Âncoras de Skill Ativa: A e B seguram o mesmo efeito, desligar A não derruba B", () => {
+  const a = makeAnchor({ skillUuid: "Actor.lux.Item.a", skillId: "a" });
+  const b = makeAnchor({ skillUuid: "Actor.lux.Item.b", skillId: "b" });
+  let anchors = addAnchor([], a);
+  anchors = addAnchor(anchors, b);
+  assert.equal(addAnchor(anchors, a).length, 2, "religar A não duplica");
+
+  const afterA = removeAnchor(anchors, a);
+  assert.equal(afterA.removed, true);
+  assert.equal(anchorLifetime({ anchors: afterA.anchors }).alive, true, "B ainda segura");
+  const afterB = removeAnchor(afterA.anchors, b);
+  assert.equal(anchorLifetime({ anchors: afterB.anchors }).alive, false);
+  assert.equal(removeAnchor(afterB.anchors, b).removed, false, "tirar de novo não faz nada");
+});
+
+test("Âncoras: Tokens não vinculados (mesmo id de Skill, uuids diferentes) são independentes", () => {
+  const drone1 = makeAnchor({ skillUuid: "Scene.s.Token.t1.Actor.d.Item.x", skillId: "x" });
+  const drone2 = makeAnchor({ skillUuid: "Scene.s.Token.t2.Actor.d.Item.x", skillId: "x" });
+  assert.equal(sameAnchor(drone1, drone2), false);
+  const { anchors, removed } = removeAnchor([drone1, drone2], drone1);
+  assert.equal(removed, true);
+  assert.deepEqual(anchors, [drone2]);
+  // Sub-Skills da mesma Skill são âncoras diferentes.
+  assert.equal(sameAnchor(makeAnchor({ skillUuid: "u", subSkillIndex: 0 }), makeAnchor({ skillUuid: "u", subSkillIndex: 1 })), false);
+});
+
+test("Âncoras: formato antigo (sem uuid / tiedToActive) continua sendo entendido", () => {
+  const legacyPeriodic = { sourceSkillId: "a", sourceSubSkillIndex: null };
+  assert.equal(sameAnchor(legacyPeriodic, makeAnchor({ skillUuid: "Actor.lux.Item.a", skillId: "a" })), true, "sem uuid compara por id");
+  const flags = { tiedToActive: true, sourceSkillId: "a", sourceSubSkillIndex: null };
+  const anchors = effectAnchors(flags, "Actor.lux.Item.a");
+  assert.equal(anchors.length, 1);
+  assert.equal(anchors[0].skillUuid, "Actor.lux.Item.a");
+  assert.deepEqual(effectAnchors({ tiedToActive: false }), []);
+  // Lista gravada (mesmo vazia) vence a flag antiga.
+  assert.deepEqual(effectAnchors({ tiedToActive: true, sourceSkillId: "a", activeAnchors: [] }), []);
+});
+
+test("Âncoras: prazo finito corre em paralelo e volta quando a última Skill desliga", () => {
+  const now = { round: 4, combatId: "c1" };
+  // Buff comum de 3 rodadas aplicado na rodada 4 e depois ancorado por uma Skill Ativa.
+  const finite = serializeFinite(3, now);
+  assert.equal(finiteRemaining(finite, { round: 5, combatId: "c1" }), 2);
+  assert.equal(finiteRemaining(finite, { round: 9, combatId: "c1" }), 0);
+  assert.equal(finiteRemaining(finite, { round: 9, combatId: "outro" }), 3, "outro combate não conta tempo");
+  assert.equal(finiteRemaining(serializeFinite(PERMANENT, now), now), PERMANENT);
+  assert.equal(finiteRemaining(null, now), 0);
+
+  const anchor = makeAnchor({ skillUuid: "u" });
+  assert.deepEqual(anchorLifetime({ anchors: [anchor], finite: 2 }), { alive: true, untilOff: false, permanent: false });
+  assert.deepEqual(anchorLifetime({ anchors: [anchor], finite: 0 }), { alive: true, untilOff: true, permanent: false });
+  assert.equal(anchorLifetime({ anchors: [], finite: 2 }).alive, true, "Skill desligada, prazo finito ainda vale");
+  assert.equal(anchorLifetime({ anchors: [], finite: 0 }).alive, false);
+});
+
+test("Âncoras: duração do Foundry e reaplicação com prazo (0 rodadas = permanente)", () => {
+  assert.equal(durationRemaining({ rounds: 5, startRound: 2 }, 4), 3);
+  assert.equal(durationRemaining({ rounds: 5, startRound: 2 }, 10), 0);
+  assert.equal(durationRemaining({ rounds: 5, startRound: 2 }, null), 5);
+  assert.equal(durationRemaining({ rounds: null }, 4), PERMANENT);
+  assert.equal(durationRemaining({}, null), PERMANENT);
+
+  assert.equal(refreshFiniteRounds(2, 5), 5);
+  assert.equal(refreshFiniteRounds(5, 2), 5, "renova, não soma nem encurta");
+  assert.equal(refreshFiniteRounds(PERMANENT, 3), PERMANENT, "3 rodadas por cima de permanente não o torna finito");
+  assert.equal(refreshFiniteRounds(3, 0), PERMANENT, "aplicação permanente vence o prazo");
+});
+
+import { buildCatalogIndex, checkMechanic, checkConditionals, validateItem, validateActor, validateCatalogs } from "../module/world-validator.js";
+
+const VALIDATOR_CATALOGS = {
+  conditions: [{ id: "burn", label: "Queimadura", elements: ["fire"] }, { id: "slow", label: "Lentidão", effect: { kind: "modifier", modTarget: "movement" } }],
+  elements: [
+    { id: "fire", label: "Fogo", effects: [{ type: "condition", conditionId: "burn" }], affinity: { ice: 1 } },
+    { id: "ice", label: "Gelo", effects: [{ type: "traitBonus", trait: "organic" }] }
+  ],
+  structures: [{ id: "wall", label: "Muralha", elements: ["ice"] }],
+  scales: [{ id: "personal" }, { id: "ship" }],
+  attributes: ["strength", "magic", "dexterity"],
+  traits: [{ id: "organic" }],
+  species: { humano: { label: "Humano", traits: ["organic"], skills: [] } },
+  ammoTypes: [{ id: "torpedo" }],
+  crewRoles: [{ id: "pilot" }],
+  moduleCategories: [{ id: "weapon" }, { id: "shield" }],
+  shipSizes: [{ id: "mini" }, { id: "medio" }, { id: "capital" }],
+  vehicleSizes: [{ id: "mini" }],
+  shipClasses: [{ id: "fighter", label: "Caça", minSize: "mini", maxSize: "mini", slots: { weapon: 2 } }],
+  vehicleClasses: [],
+  scaleMaps: { shipSizeMap: { mini: "personal", medio: "ship" }, vehicleSizeMap: {} }
+};
+const VIDX = buildCatalogIndex(VALIDATOR_CATALOGS);
+
+test("Validador: referência válida não gera aviso; quebrada gera exatamente um", () => {
+  const ok = { effects: [{ conditionId: "burn", damageElements: ["fire"] }], damageElements: ["ice"], structureId: "", damageScale: "ship", scalingAttribute: "magic", resistanceTarget: "general" };
+  assert.deepEqual(checkMechanic(ok, VIDX), []);
+  const broken = checkMechanic({ effects: [{ conditionId: "nullified" }] }, VIDX);
+  assert.equal(broken.length, 1);
+  assert.equal(broken[0].catalog, "conditions");
+  assert.equal(broken[0].where, "Efeito 1 › Condição");
+  assert.match(broken[0].message, /"nullified" não existe em Condições/);
+});
+
+test("Validador: mecânica de Skill — Sub-Skills, Estrutura, Resistência e escala", () => {
+  const issues = checkMechanic(
+    { effectType: "structure", structureId: "gone", resistanceTarget: "void", damageScale: "galaxy", scalingAttribute: "luck", subSkills: [{ name: "Corte", damageElements: ["plasma"] }] },
+    VIDX
+  );
+  assert.deepEqual(issues.map(i => i.catalog).sort(), ["attributes", "elements", "elements", "scales", "structures"]);
+  assert.ok(issues.some(i => i.where === "Sub-Skill 1 (Corte) › Elementos de dano"));
+});
+
+test("Validador: Quando → Então e Itens", () => {
+  const mods = [
+    { when: { kind: "otherTrait", value: "dragon" }, then: { kind: "damagePercent", target: "any" } },
+    { when: { kind: "selfCondition", value: "burn" }, then: { kind: "rollFlat", target: "any" } },
+    { when: { kind: "always" }, then: { kind: "resistancePercent", target: "void" } }
+  ];
+  assert.deepEqual(checkConditionals(mods, VIDX).map(i => i.ref), ["dragon", "void"]);
+
+  // Arma desligada não é conferida; ligada, sim.
+  const weapon = { name: "Espada", type: "item", system: { weapon: { enabled: false, damageElements: ["x"] } } };
+  assert.deepEqual(validateItem(weapon, VIDX), []);
+  weapon.system.weapon.enabled = true;
+  assert.equal(validateItem(weapon, VIDX).length, 1);
+  // Habilidade Concedida sem nome = nunca usada.
+  assert.deepEqual(validateItem({ type: "item", system: { grantsSkill: { name: "", damageElements: ["x"] } } }, VIDX), []);
+  assert.equal(validateItem({ type: "starship_module", system: { category: "warpcore", ammoTypes: ["torpedo"] } }, VIDX).length, 1);
+  assert.equal(validateItem({ type: "title", system: { resistances: [{ target: "general" }, { target: "x" }] } }, VIDX).length, 1);
+});
+
+test("Validador: Personagem — Espécie, Traços e contêiner", () => {
+  const actor = {
+    type: "character",
+    system: { species: "dragao", traits: ["organic"], traitsRemoved: [], scale: "" },
+    items: [
+      { _id: "bag", name: "Mochila", type: "item", system: { container: { enabled: true } } },
+      { _id: "a", name: "Poção", type: "item", system: { containerId: "bag" } },
+      { _id: "b", name: "Corda", type: "item", system: { containerId: "lost" } },
+      { _id: "s", name: "Bola de Fogo", type: "skill", system: { effects: [{ conditionId: "frozen" }] } }
+    ]
+  };
+  const issues = validateActor(actor, VIDX);
+  assert.deepEqual(issues.map(i => i.where), ["Espécie", "Corda › Guardado em", "Bola de Fogo › Efeito 1 › Condição"]);
+  assert.equal(issues[2].itemId, "s");
+});
+
+test("Validador: Nave — Porte, Classe fora da faixa, tripulante apagado e grupo de prioridade", () => {
+  const ship = {
+    type: "starship",
+    system: { shipSize: "medio", shipClass: "fighter", crewMembers: [{ actorUuid: "Actor.vivo", role: "pilot" }, { actorUuid: "Actor.morto", role: "cook" }], powerGroups: [] },
+    items: [
+      { _id: "m1", name: "Canhão", type: "starship_module", system: { category: "weapon", powerGroup: "p2" } },
+      { _id: "m2", name: "Escudo", type: "starship_module", system: { category: "shield", powerGroup: "g-apagado" } }
+    ]
+  };
+  const issues = validateActor(ship, VIDX, { uuidExists: uuid => uuid === "Actor.vivo" });
+  assert.deepEqual(issues.map(i => i.where), ["Classe", "Tripulação 2", "Tripulação 2 › Posto", "Escudo › Prioridade"]);
+  assert.match(issues[0].message, /fora da faixa/);
+  // Porte apagado do catálogo.
+  assert.equal(validateActor({ type: "starship", system: { shipSize: "titan" }, items: [] }, VIDX)[0].catalog, "shipSizes");
+});
+
+test("Validador: referências entre catálogos", () => {
+  assert.deepEqual(validateCatalogs(VALIDATOR_CATALOGS), []);
+  const broken = {
+    ...VALIDATOR_CATALOGS,
+    elements: [{ id: "void", label: "Vazio", effects: [{ type: "condition", conditionId: "nullified" }], affinity: { ghost: -2 } }],
+    species: { dragao: { label: "Dragão", traits: ["wings"], skills: [{ name: "Sopro", damageElements: ["fire"] }] } }
+  };
+  const issues = validateCatalogs(broken);
+  const byEntry = issues.map(i => `${i.entry}: ${i.where}`);
+  assert.ok(byEntry.includes("Vazio: Efeito 1 › Condição"));
+  assert.ok(byEntry.includes("Vazio: Tabela de vantagens"));
+  assert.ok(byEntry.includes("Dragão: Traços"));
+  assert.ok(byEntry.includes("Dragão: Skill Racial 1 (Sopro) › Elementos de dano"), "Fogo saiu do catálogo de elementos");
+  assert.ok(byEntry.includes("Queimadura: Elementos"));
+  assert.ok(byEntry.includes("Muralha: Elementos"));
+});
+
+import { explainAttribute, explainVital } from "../module/stat-explain.js";
+
+test("Explicação de Atributo: mesmas contas da ficha (Total, Efetivo, Bônus, Pool)", () => {
+  const ex = explainAttribute({
+    points: 20,
+    titles: [{ label: "Caçador Arcano", value: 7 }],
+    buffs: [{ label: "Bênção", value: 10 }],
+    buffActual: 10,
+    conditionals: [{ label: "Fúria (Vida < 30%)", value: 3 }],
+    items: [{ label: "Espada", value: 4 }]
+  });
+  assert.equal(ex.total, 27, "pontos + Título");
+  assert.equal(ex.effectiveTotal, 40, "Total + buff + condicional");
+  assert.equal(ex.bonus, 13);
+  assert.equal(ex.diceCount, 2);
+  assert.equal(ex.flat, 3);
+  assert.equal(ex.itemBonus, 4);
+  assert.equal(ex.formula, "2d20+7", "o mesmo que buildAttributeRollFormula(13, 4)");
+  assert.equal(buildAttributeRollFormula(ex.bonus, ex.itemBonus), ex.formula);
+});
+
+test("Explicação de Atributo: diferença não identificada e prévia de pontos pendentes", () => {
+  const ex = explainAttribute({ points: 9, buffs: [{ label: "Bênção", value: 2 }], buffActual: 5, pending: 3 });
+  const unknown = ex.temporary.find(row => row.unknown);
+  assert.equal(unknown.value, 3, "efeito de outro módulo vira linha própria");
+  assert.equal(ex.effectiveTotal, 14, "a conta fecha com o buffDelta real");
+  assert.equal(ex.previewBonus, Math.floor(17 / 3));
+  assert.equal(explainAttribute({ points: 9 }).previewBonus, null);
+});
+
+test("Explicação de Vida/Mana: fórmula, piso, modificadores e mínimo", () => {
+  const hp = explainVital({
+    pair: [{ label: "Força", total: 12 }, { label: "Defesa", total: 10 }],
+    multiplier: 10,
+    floor: 50,
+    permanent: [{ label: "Título", value: 50 }, { label: "Anel", value: -20 }],
+    buffs: [{ label: "Vigor", value: 30 }],
+    buffActual: 30,
+    min: 1
+  });
+  assert.equal(hp.formulaValue, 1200);
+  assert.equal(hp.floorApplied, false);
+  assert.equal(hp.max, 1260);
+
+  const low = explainVital({ pair: [{ total: 1 }, { total: 2 }], multiplier: 10, floor: 50, permanent: [{ value: -200 }], min: 1 });
+  assert.equal(low.formulaValue, 20);
+  assert.equal(low.floorApplied, true);
+  assert.equal(low.base, 50);
+  assert.equal(low.minApplied, true);
+  assert.equal(low.max, 1);
+
+  assert.deepEqual(explainVital({ enabled: false }), { enabled: false, max: 0 });
+});
+
+import { describeDamageParts } from "../module/damage-rules.js";
+
+test("Rastro de dano (Mestre): uma linha por defesa, na ordem aplicada", () => {
+  const labels = { elementLabel: id => ({ fire: "Fogo", ice: "Gelo" })[id] ?? id, generalLabel: "Resistência Geral (Pele de Pedra)", elementSourceLabel: id => (id === "ice" ? "Sangue Frio" : "") };
+  const result = resolveDamageParts({
+    parts: [
+      { elementId: "fire", raw: 50, penetration: 0.3, bonus: 0.2, affinity: 1.5 },
+      { elementId: "ice", raw: 50 }
+    ],
+    magicDefense: 0.2,
+    general: 0.5,
+    resistanceFor: id => (id === "ice" ? 1 : 0)
+  });
+  const rows = describeDamageParts(result.parts, labels);
+  const labelsOnly = rows.map(r => r.label);
+  assert.deepEqual(labelsOnly, [
+    "Parte Fogo",
+    "Bônus contra Traço do alvo",
+    "Penetração (suaviza cada defesa)",
+    "Defesa Mágica",
+    "Resistência Geral (Pele de Pedra)",
+    "Vantagem contra o elemento do corpo",
+    "= Fogo",
+    "Parte Gelo",
+    "Imunidade a Gelo (Sangue Frio)",
+    "= Gelo"
+  ]);
+  assert.equal(rows.find(r => r.label === "Defesa Mágica").value, "−14%", "20% suavizado por 30% de Penetração");
+  assert.equal(rows.find(r => r.label === "= Gelo").value, "0");
+  // Fecha com o final: 50 × 1.2 × 0.86 × 0.65 × 1.5 = 50.31
+  assert.equal(rows.find(r => r.label === "= Fogo").value, "50.3");
+  assert.equal(result.final, 50);
+
+  const single = describeDamageParts(resolveDamageParts({ parts: [{ elementId: null, raw: 30 }], absolute: true }).parts, labels);
+  assert.deepEqual(single.map(r => r.label), ["Dano (sem elemento)", "Dano Absoluto: ignora defesas e vantagem"]);
+});
+
+import {
+  speciesSlug,
+  normalizeSpeciesEntry,
+  bumpSpeciesVersions,
+  resolveSpeciesTemplate,
+  speciesDiff,
+  isSpeciesLocked,
+  racialSkillSystem
+} from "../module/species-rules.js";
+
+const DRAGOIDE = {
+  label: "Dragoide",
+  traits: ["organic", "draconic"],
+  parts: [
+    { key: "head", label: "Cabeça", slot: "head", hpMax: 14 },
+    { key: "left_arm", label: "Braço Esquerdo", slot: "arm", hpMax: 12 },
+    { key: "right_arm", label: "Braço Direito", slot: "arm", hpMax: 12 },
+    { key: "tail", label: "Cauda", slot: "tail", hpMax: 12 }
+  ],
+  skills: [
+    { name: "Escamas Ancestrais", level: 1, effectType: "none" },
+    { name: "Sopro Dracônico", level: 1, cost: 20, effectType: "damage" },
+    { name: "Presença de Dragão", level: 1, unlockLevel: 10 }
+  ],
+  lineages: [{ id: "gelo", label: "Gelo", elements: ["ice"], skills: [{ key: "sopro_gelido", name: "Sopro Gélido" }], replaces: { skills: ["sopro_draconico"] } }]
+};
+const HUMANO = {
+  label: "Humano",
+  traits: ["organic"],
+  parts: [
+    { key: "head", label: "Cabeça", slot: "head", hpMax: 10 },
+    { key: "left_arm", label: "Braço Esquerdo", slot: "arm", hpMax: 8 },
+    { key: "right_arm", label: "Braço Direito", slot: "arm", hpMax: 8 }
+  ],
+  skills: [{ name: "Adaptabilidade", level: 1 }]
+};
+
+test("Espécie: chaves estáveis e versão", () => {
+  assert.equal(speciesSlug("Sopro Dracônico"), "sopro_draconico");
+  const entry = normalizeSpeciesEntry({ skills: [{ name: "Corte" }, { name: "Corte" }], parts: [{ label: "Asa" }] });
+  assert.deepEqual(entry.skills.map(s => s.key), ["corte", "corte_2"]);
+  assert.equal(entry.parts[0].key, "asa");
+  assert.equal(entry.version, 1);
+
+  const before = { dragoide: normalizeSpeciesEntry(DRAGOIDE), humano: normalizeSpeciesEntry(HUMANO) };
+  const edited = { ...before, dragoide: { ...before.dragoide, label: "Dragoide!", traits: [] } };
+  assert.equal(bumpSpeciesVersions(before, edited).dragoide.version, 1, "nome e Traços são ao vivo: não sobem a versão");
+  const withPart = { ...before, dragoide: { ...before.dragoide, parts: [...before.dragoide.parts, { key: "horns", label: "Chifres", slot: "horn", hpMax: 8 }] } };
+  assert.equal(bumpSpeciesVersions(before, withPart).dragoide.version, 2, "parte nova sobe a versão");
+  assert.equal(bumpSpeciesVersions(before, withPart).humano.version, 1);
+});
+
+test("Espécie: molde com Linhagem, Herança e Skill liberada por nível", () => {
+  const low = resolveSpeciesTemplate({ species: DRAGOIDE, speciesId: "dragoide", lineage: DRAGOIDE.lineages[0], level: 3 });
+  assert.deepEqual(low.skills.map(s => s.key), ["escamas_ancestrais", "sopro_gelido"], "Linhagem substitui o Sopro pela chave");
+  assert.deepEqual(low.locked.map(s => s.key), ["presenca_de_dragao"]);
+  assert.deepEqual(low.elements, ["ice"]);
+  assert.equal(low.skills[1].source.kind, "lineage");
+  const high = resolveSpeciesTemplate({ species: DRAGOIDE, speciesId: "dragoide", level: 10 });
+  assert.ok(high.skills.some(s => s.key === "presenca_de_dragao"));
+
+  const heritage = { traits: ["undead"], removesTraits: ["organic"], parts: [{ key: "cyber_arm", label: "Braço Cibernético", slot: "arm", hpMax: 20 }], replaces: { slots: ["arm"] } };
+  const withHeritage = resolveSpeciesTemplate({ species: HUMANO, speciesId: "humano", heritages: [{ id: "ciborgue", entry: heritage }] });
+  assert.deepEqual(withHeritage.traits, ["undead"], "Herança tira Orgânico");
+  assert.deepEqual(withHeritage.parts.map(p => p.key), ["head", "cyber_arm"], "Herança troca partes pelo slot");
+});
+
+const tplOf = (species, id, level = 1) => resolveSpeciesTemplate({ species, speciesId: id, level });
+
+test("Espécie: criação aplica tudo; troca leva prótese pelo slot e guarda a Skill que sai", () => {
+  const fresh = speciesDiff({ parts: [], skills: [] }, tplOf(HUMANO, "humano"));
+  assert.equal(fresh.parts.create.length, 3);
+  assert.equal(fresh.skills.create.length, 1);
+  assert.equal(fresh.losses.length, 0);
+
+  const current = {
+    parts: [
+      { id: "p1", name: "Cabeça", slot: "head", grant: { key: "head" }, hp: { value: 7, max: 14 }, mods: [] },
+      { id: "p2", name: "Braço Direito", slot: "arm", grant: { key: "right_arm" }, hp: { value: 20, max: 20 }, isProsthetic: true, mods: ["Braço de Adamantita"] },
+      { id: "p3", name: "Braço Esquerdo", slot: "arm", grant: { key: "left_arm" }, hp: { value: 12, max: 12 }, mods: [] },
+      { id: "p4", name: "Cauda", slot: "tail", grant: { key: "tail" }, hp: { value: 12, max: 12 }, mods: ["Ferrão de Aço"] },
+      { id: "manual", name: "Implante Neural", slot: "head", grant: null, origin: "", hp: { value: 5, max: 5 }, mods: [] }
+    ],
+    skills: [
+      { id: "s1", name: "Sopro Ígneo", tier: "racial", grant: { key: "sopro_draconico", source: { kind: "species", id: "dragoide" } }, level: 6, xp: 340 },
+      { id: "s2", name: "Bola de Fogo", tier: "normal", grant: null, level: 3 },
+      { id: "s3", name: "Garra (do item)", tier: "racial", grant: null, itemGranted: true, level: 1 }
+    ]
+  };
+  const diff = speciesDiff(current, tplOf(HUMANO, "humano"));
+  const head = diff.parts.update.find(p => p.id === "p1");
+  assert.equal(head.hpMax, 10);
+  assert.equal(head.hpValue, 5, "Vida atual na proporção (7/14 → 5/10)");
+  const arm = [...diff.parts.update, ...diff.parts.keep].find(p => p.id === "p2");
+  assert.equal(arm.hpMax, 20, "prótese mantém a própria Vida");
+  assert.deepEqual(diff.parts.detach.map(p => p.id), ["p4"], "Cauda com implante fica como parte avulsa");
+  assert.equal(diff.parts.remove.length, 0);
+  assert.ok(!JSON.stringify(diff).includes('"manual"'), "parte criada à mão nunca entra");
+  assert.deepEqual(diff.skills.remove.map(s => s.id), ["s1"]);
+  assert.deepEqual(diff.skills.create.map(s => s.key), ["adaptabilidade"]);
+  assert.ok(!JSON.stringify(diff.skills).includes('"s2"'), "Skill comprada nunca entra");
+  assert.ok(!JSON.stringify(diff.skills).includes('"s3"'), "Skill concedida por Item nunca entra");
+  assert.deepEqual(diff.losses, [{ kind: "skill", name: "Sopro Ígneo", level: 6, xp: 340 }]);
+});
+
+test("Espécie: dados antigos (sem marca) são reconhecidos e a Skill volta do histórico", () => {
+  const legacy = {
+    parts: [{ id: "p1", name: "Cabeça", slot: "head", grant: null, origin: "humano", hp: { value: 10, max: 10 }, mods: [] }],
+    skills: [{ id: "s1", name: "Adaptabilidade", tier: "racial", grant: null, level: 4, xp: 10 }]
+  };
+  const same = speciesDiff(legacy, tplOf(HUMANO, "humano"));
+  assert.equal(same.skills.keep[0].needsMark, true, "Skill antiga ganha a marca de origem, sem perder nível");
+  assert.equal(same.skills.remove.length, 0);
+  assert.ok([...same.parts.update, ...same.parts.keep].some(p => p.id === "p1"));
+
+  const back = speciesDiff(
+    { parts: [], skills: [], archive: [{ key: "adaptabilidade", source: { kind: "species", id: "humano" }, level: 4, xp: 10 }] },
+    tplOf(HUMANO, "humano")
+  );
+  assert.deepEqual(back.skills.create[0].restored, { level: 4, xp: 10 });
+  assert.equal(racialSkillSystem({ name: "X", level: 1, effectType: "bogus" }, { level: 4, xp: 10 }).level, 4);
+  assert.equal(racialSkillSystem({ name: "X", effectType: "bogus" }).effectType, "none");
+});
+
+test("Espécie: sincronizar só acrescenta e ajusta, a menos que peça para remover", () => {
+  const current = {
+    parts: [{ id: "p1", name: "Cauda", slot: "tail", grant: { key: "tail" }, hp: { value: 12, max: 12 }, mods: [] }],
+    skills: [{ id: "s1", name: "Velha", tier: "racial", grant: { key: "velha", hash: "x" }, level: 2 }]
+  };
+  const sync = speciesDiff(current, tplOf(HUMANO, "humano"), { mode: "sync" });
+  assert.equal(sync.parts.remove.length, 0);
+  assert.equal(sync.skills.remove.length, 0);
+  assert.equal(sync.parts.create.length, 3);
+  const purge = speciesDiff(current, tplOf(HUMANO, "humano"), { mode: "sync", removeMissing: true });
+  assert.equal(purge.parts.remove.length, 1);
+  assert.equal(purge.skills.remove.length, 1);
+});
+
+test("Espécie: trava do jogador", () => {
+  assert.equal(isSpeciesLocked({ attributes: { combat: { strength: { points: 0 } } } }), false);
+  assert.equal(isSpeciesLocked({ speciesState: { lockedAt: 1 } }), true);
+  assert.equal(isSpeciesLocked({ attributes: { combat: { strength: { points: 3 } } } }), true, "ficha antiga com pontos já confirmados");
+  assert.equal(isSpeciesLocked({ speciesState: { lockedAt: 1, unlocked: true } }), false, "o Mestre destravou");
+});

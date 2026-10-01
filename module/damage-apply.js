@@ -93,6 +93,61 @@ export function damageApplyFlags(targetActor, finalDamage, { absolute = false, s
   };
 }
 
+/**
+ * Junta às flags do card o rastro de dano: por alvo, as linhas de cada passo (rolagem, escala,
+ * Estrutura, cada defesa por elemento, camadas da Nave). Fica em `flags`, nunca no conteúdo, e só
+ * o Mestre vê (renderDamageTrace) — as defesas de um alvo não são públicas.
+ * @param {object} flags - o que `damageApplyFlags` devolveu (pode ser `{}`)
+ * @param {Array<{name:string, rows:Array<{label:string, value:string, kind?:string}>}>} targets
+ */
+export function withDamageTrace(flags, targets) {
+  const list = (targets ?? []).filter(t => t?.rows?.length);
+  if (!list.length) return flags ?? {};
+  return { ...(flags ?? {}), [SYSTEM_ID]: { ...(flags?.[SYSTEM_ID] ?? {}), damageTrace: { targets: list } } };
+}
+
+/**
+ * "▸ Detalhar (Mestre)" recolhido no card de dano. Montado com `textContent` (nada do rastro vira
+ * HTML), só para o Mestre.
+ * @param {ChatMessage} message
+ * @param {HTMLElement} html
+ */
+export function renderDamageTrace(message, html) {
+  if (!game.user.isGM) return;
+  const trace = message.getFlag(SYSTEM_ID, "damageTrace");
+  if (!trace?.targets?.length) return;
+
+  const details = document.createElement("details");
+  details.className = "nihility-damage-trace";
+  const summary = document.createElement("summary");
+  summary.textContent = "Detalhar o dano (só o Mestre vê)";
+  details.appendChild(summary);
+  for (const target of trace.targets) {
+    if (trace.targets.length > 1 || target.name) {
+      const title = document.createElement("div");
+      title.className = "trace-target";
+      title.textContent = target.name;
+      details.appendChild(title);
+    }
+    const list = document.createElement("ul");
+    for (const row of target.rows) {
+      const item = document.createElement("li");
+      if (row.kind) item.classList.add(`is-${row.kind}`);
+      const label = document.createElement("span");
+      label.textContent = row.label;
+      const value = document.createElement("span");
+      value.className = "trace-value";
+      value.textContent = row.value;
+      item.append(label, value);
+      list.appendChild(item);
+    }
+    details.appendChild(list);
+  }
+  const controls = html.querySelector(".nihility-damage-controls");
+  if (controls) controls.before(details);
+  else html.appendChild(details);
+}
+
 /** "10 no Escudo · 10 na Vida", omitindo a parte que for zero. */
 function describeApplied(applied) {
   // Cards aplicados antes do Escudo existir no cálculo só têm `amount`.

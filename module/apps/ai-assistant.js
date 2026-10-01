@@ -1,4 +1,5 @@
-import { SYSTEM_ID, debugLog } from "../config.js";
+import { SYSTEM_ID, debugLog, getActiveSpeciesPresets } from "../config.js";
+import { changeActorSpecies } from "../species.js";
 import {
   generateActorFromAI,
   generateVesselFromAI,
@@ -358,6 +359,9 @@ export class AIAssistantApp extends HandlebarsApplicationMixin(ApplicationV2) {
           const folder = await getAIGeneratedFolder("Actor");
           const created = await Actor.create({ ...proposal.data, folder: folder?.id ?? null });
           if (created) {
+            // Partes do Corpo e Skills Raciais da Espécie, pelo mesmo caminho da ficha.
+            const species = created.system?.species;
+            if (species && getActiveSpeciesPresets()[species]) await changeActorSpecies(created, { species }, { interactive: false });
             backupEntries.push({ action: "create", uuid: created.uuid });
             applied.push({ name: created.name, uuid: created.uuid, icon: "fa-user" });
           }

@@ -12,16 +12,21 @@ import { sumConditionalModifiers } from "./conditional-modifiers.js";
 
 /** Todas as regras das fontes ativas do Ator. */
 export function collectConditionalModifiers(actor) {
-  const mods = [];
+  return conditionalModifierSources(actor).flatMap(source => source.mods);
+}
+
+/** As mesmas regras, agrupadas pelo Item de onde vieram (a janela "De onde vem" mostra a fonte). */
+export function conditionalModifierSources(actor) {
+  const sources = [];
   for (const item of actor?.items ?? []) {
     const list = item.system?.conditionalModifiers;
     if (!list?.length) continue;
     if (item.type === "item" && !item.system.equipped) continue;
     if (item.type === "skill" && item.system.hasUpkeep && !item.system.active) continue;
     if (!["title", "item", "skill"].includes(item.type)) continue;
-    mods.push(...list);
+    sources.push({ item, mods: list });
   }
-  return mods;
+  return sources;
 }
 
 /** Ids das Condições (statuses + as do sistema) ativas num Ator. */

@@ -12,6 +12,7 @@ import { structuresOnScene } from "../structures.js";
 import { describeEffectChangeKey, collectActiveUpkeepSources } from "../skill-effects.js";
 import { endShipSystemEffect } from "../starship-power.js";
 import { runAsGm } from "../helpers/gm-relay.js";
+import { effectAnchors, finiteRemaining, anchorLifetime, PERMANENT } from "../effect-anchors.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -41,15 +42,19 @@ function describeChange(change) {
 function describeActiveEffect(effect, actor) {
   const flags = effect.flags?.[SYSTEM_ID] ?? {};
   const condition = flags.conditionId ? getActiveStatusConditions().find(c => c.id === flags.conditionId) : null;
-  const skill = flags.sourceSkillId ? actor.items.get(flags.sourceSkillId) : null;
-  let source = skill?.name ?? "";
-  if (!source && effect.origin) {
+  // A Skill de origem mora em quem a usou, não no alvo: `origin` (uuid) acha; o id só serve
+  // quando o efeito está no próprio dono.
+  let source = "";
+  if (effect.origin) {
     try {
       source = fromUuidSync(effect.origin)?.name ?? "";
     } catch (err) {
       source = "";
     }
   }
+  if (!source && flags.sourceSkillId) source = actor.items.get(flags.sourceSkillId)?.name ?? "";
+  const anchors = effectAnchors(flags, effect.origin);
+  const now = game.combat?.started ? { round: game.combat.round ?? 0, combatId: game.combat.id } : {};
   if (!source && condition) source = "Condição";
 
   let lines;
@@ -59,11 +64,17 @@ function describeActiveEffect(effect, actor) {
     const amount = Number(flags.tickAmount) || 0;
     const target = labels[flags.tickTarget] ?? flags.tickTarget;
     lines = [`${target} ${amount >= 0 ? "+" : "−"}${Math.abs(amount)} por ${flags.tickUnit === "manual" ? "tick manual" : "rodada"}`];
-    remaining = (flags.activeAnchors ?? []).length ? "até desligar a Skill" : `${flags.ticksRemaining ?? 0} tick(s)`;
+    remaining = anchors.length ? "até desligar a Skill" : `${flags.ticksRemaining ?? 0} tick(s)`;
   } else {
     lines = readEffectChanges(effect).map(describeChange);
-    const rounds = effect.duration?.remaining ?? effect.duration?.rounds;
-    remaining = flags.tiedToActive ? "até desligar a Skill" : rounds ? `${Math.max(0, Math.ceil(rounds))} rodada(s)` : "sem prazo";
+    if (anchors.length) {
+      const finite = finiteRemaining(flags.finite, now);
+      const holders = anchors.length > 1 ? ` (${anchors.length} Skills)` : "";
+      remaining = anchorLifetime({ anchors, finite }).untilOff ? `até desligar a Skill${holders}` : finite === PERMANENT ? "sem prazo" : `${finite} rodada(s) ou até desligar a Skill${holders}`;
+    } else {
+      const rounds = effect.duration?.remaining ?? effect.duration?.rounds;
+      remaining = rounds ? `${Math.max(0, Math.ceil(rounds))} rodada(s)` : "sem prazo";
+    }
   }
   if (condition && !lines.length) lines = ["só o marcador (o Mestre decide o efeito)"];
   return {

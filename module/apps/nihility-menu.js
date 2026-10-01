@@ -732,6 +732,11 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
         else ui.notifications.warn("Compêndio de Títulos ainda não existe — use 'Sincronizar' primeiro.");
         break;
       }
+      case "validate-world": {
+        const { WorldValidatorApp } = await import("./world-validator-app.js");
+        WorldValidatorApp.open();
+        break;
+      }
       case "create-macros":
         await createSystemMacros();
         break;

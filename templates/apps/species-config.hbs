@@ -11,7 +11,7 @@
   {{#each species as |sp key|}}
   <fieldset class="species-block">
     <legend>
-      <input type="text" class="species-key-input" value="{{key}}" placeholder="chave (ex: humano)"/>
+      <input type="text" class="species-key-input" value="{{key}}" placeholder="chave (ex: humano)" readonly title="A chave não muda depois de salva (as fichas apontam para ela). Para outra chave, crie uma Espécie nova."/>
       <input type="text" class="species-label-input" value="{{sp.label}}" placeholder="Nome exibido"/>
       <select class="species-group" title="Só organiza a lista — sem efeito mecânico">
         <option value="" {{#unless sp.group}}selected{{/unless}}>— grupo —</option>
@@ -47,7 +47,7 @@
     <div class="part-list">
       {{#each sp.parts as |part|}}
       <div class="part-row">
-        <input type="text" data-field="key" value="{{part.key}}" placeholder="chave"/>
+        <input type="text" data-field="key" value="{{part.key}}" placeholder="chave" readonly title="A chave da parte não muda depois de salva: é por ela que a ficha reconhece a parte."/>
         <input type="text" data-field="label" value="{{part.label}}" placeholder="Nome"/>
         <input type="text" data-field="slot" value="{{part.slot}}" placeholder="slot"/>
         <input type="number" data-field="hpMax" value="{{part.hpMax}}" placeholder="HP"/>

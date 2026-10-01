@@ -1,0 +1,26 @@
+<div class="sb-body">
+  {{#each sections as |section|}}
+  <section class="sb-sec">
+    <h3>{{section.title}}</h3>
+    {{#if section.hint}}<p class="sb-hint">{{section.hint}}</p>{{/if}}
+    {{#if section.rows.length}}
+    <ul class="sb-rows">
+      {{#each section.rows as |r|}}
+      <li class="sb-row {{#if r.unknown}}is-unknown{{/if}}">
+        <span class="sb-label">
+          {{#if r.uuid}}<a data-action="openSource" data-uuid="{{r.uuid}}" title="Abrir">{{r.label}}</a>{{else}}{{r.label}}{{/if}}
+          {{#if r.kind}}<span class="sb-kind">{{r.kind}}</span>{{/if}}
+          {{#if r.detail}}<span class="sb-detail">{{r.detail}}</span>{{/if}}
+        </span>
+        <span class="sb-value">{{r.value}}</span>
+      </li>
+      {{/each}}
+    </ul>
+    {{/if}}
+    {{#if section.result}}
+    <div class="sb-result"><span>{{section.result.label}}</span><strong>{{section.result.value}}</strong></div>
+    {{/if}}
+    {{#each section.notes as |note|}}<p class="sb-note">{{note}}</p>{{/each}}
+  </section>
+  {{/each}}
+</div>

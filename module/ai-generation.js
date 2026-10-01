@@ -8,7 +8,6 @@
 import {
   SYSTEM_ID,
   MEU_SISTEMA,
-  isAnatomyEnabled,
   getActiveSpeciesPresets,
   getModuleSizePreset,
   getVesselSizes
@@ -18,6 +17,7 @@ import { callAIProvider } from "./ai/providers.js";
 import { buildSubSkillsFromSources } from "./skill-snapshot.js";
 import { ensureSystemCompendiums, registerItemInCompendium } from "./compendium.js";
 import { announceVoiceOfTheWorld } from "./voice-of-the-world.js";
+import { changeActorSpecies } from "./species.js";
 
 /* -------------------------------------------- */
 /*  Núcleo genérico de geração via IA            */
@@ -389,41 +389,9 @@ export async function generateActorFromAI(prompt, options = {}) {
     "system.attributes.energy.value": created.system.attributes.energy.max
   });
 
-  const preset = getActiveSpeciesPresets()[species];
-
-  if (isAnatomyEnabled() && preset) {
-    const partsData = preset.parts.map(part => ({
-      name: part.label,
-      type: "body_part",
-      system: {
-        slot: part.slot,
-        speciesOrigin: species,
-        hp: { value: part.hpMax, max: part.hpMax },
-        status: "intact",
-        isProsthetic: false,
-        installedMods: []
-      }
-    }));
-    const createdParts = await created.createEmbeddedDocuments("Item", partsData);
-    for (const p of createdParts) await registerItemInCompendium(p.toObject());
-    await created.update({ "system.lastAppliedSpeciesPreset": species });
-  }
-
-  // Skills Raciais concedidas automaticamente pela Espécie (nunca compradas/geradas via IA).
-  if (preset?.skills?.length) {
-    const racialSkillsData = preset.skills.map(s => ({
-      name: s.name,
-      type: "skill",
-      system: {
-        tier: "racial",
-        level: Number(s.level) || 1,
-        cost: Number(s.cost) || 0,
-        description: s.description || ""
-      }
-    }));
-    const createdRacial = await created.createEmbeddedDocuments("Item", racialSkillsData);
-    for (const s of createdRacial) await registerItemInCompendium(s.toObject());
-  }
+  // Partes do Corpo e Skills Raciais (com a mecânica completa do catálogo): o mesmo caminho da
+  // ficha (species.js), sem prévia — o Ator acabou de nascer, não há nada a perder.
+  if (getActiveSpeciesPresets()[species]) await changeActorSpecies(created, { species }, { interactive: false });
 
   const skillsData = Array.isArray(parsed?.skills)
     ? parsed.skills.map(s => ({

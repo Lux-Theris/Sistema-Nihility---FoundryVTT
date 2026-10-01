@@ -136,6 +136,12 @@ const HANDLERS = {
     await clearShieldLightsFromSourceAsGm({ actorUuid, skillId: String(skillId ?? ""), subSkillIndex: Number.isInteger(subSkillIndex) ? subSkillIndex : null });
   },
 
+  /** Desligar uma Skill Ativa: tira a âncora dela dos efeitos em Atores que quem desligou não possui. */
+  async releaseSkillAnchors(payload) {
+    const { releaseSkillAnchorsAsGm } = await import("../skill-effects.js");
+    await releaseSkillAnchorsAsGm(payload ?? {});
+  },
+
   /** Derruba as Estruturas que uma Skill Ativa mantinha (ao desligá-la). */
   async removeStructures({ sourceUuid, skillId, subSkillIndex }) {
     if (typeof sourceUuid !== "string") return;

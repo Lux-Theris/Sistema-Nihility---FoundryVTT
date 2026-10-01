@@ -26,7 +26,7 @@
 
       <div class="header-row">
         <label>Espécie
-          <select class="species-select" name="system.species">
+          <select class="species-select" {{#if speciesLocked}}disabled title="Definida: só o Mestre troca"{{/if}}>
             <option value="" {{#unless system.species}}selected{{/unless}}>—</option>
             {{#each speciesOptions as |option|}}
               <option value="{{option.key}}" {{#if (eq option.key ../system.species)}}selected{{/if}}>{{option.label}}</option>
@@ -60,6 +60,7 @@
         <span class="vital-value">
           <input type="number" name="system.attributes.hp.value" value="{{system.attributes.hp.value}}"/>/<input type="number" name="system.attributes.hp.max" value="{{system.attributes.hp.max}}"/>
         </span>
+        <a class="stat-explain" data-action="explainStat" data-stat="hp" title="De onde vem a Vida máxima"><i class="fas fa-circle-info"></i></a>
         <a class="vital-adjust-toggle" data-action="toggleVitalAdjust" title="Ajustar HP"><i class="fas fa-plus"></i></a>
       </div>
       <div class="vital-adjust-popover" data-vital="hp">
@@ -75,6 +76,7 @@
         <span class="vital-value">
           <input type="number" name="system.attributes.energy.value" value="{{system.attributes.energy.value}}"/>/<input type="number" name="system.attributes.energy.max" value="{{system.attributes.energy.max}}"/>
         </span>
+        <a class="stat-explain" data-action="explainStat" data-stat="energy" title="De onde vem a {{energyLabel}} máxima"><i class="fas fa-circle-info"></i></a>
         <a class="vital-adjust-toggle" data-action="toggleVitalAdjust" title="Ajustar {{energyLabel}}"><i class="fas fa-plus"></i></a>
       </div>
       <div class="vital-adjust-popover" data-vital="energy">
@@ -114,6 +116,8 @@
             {{#if c.manual}}
             <a class="condition-chip-tick" data-action="applyManualTick" title="Aplicar Tick"><i class="fas fa-hourglass-half"></i></a>
             {{/if}}
+          {{else if c.tiedToActive}}
+            <span class="condition-chip-remaining">até desativar</span>
           {{else if c.roundsRemaining}}
             <span class="condition-chip-remaining">{{c.roundsRemaining}} round(s)</span>
           {{/if}}
@@ -187,6 +191,7 @@
                 {{/if}}
                 {{#if attr.movement}}<span class="move-chip" title="{{attr.movement.title}}">🏃 {{attr.movement.total}} m/rodada</span>{{/if}}
                 {{#if attr.data.itemBonus}}<span class="attr-item-bonus" title="Bônus de Item/Modificação — soma por fora na rolagem, não entra no Pool de d20">+{{attr.data.itemBonus}} item</span>{{/if}}
+                <a class="stat-explain" data-action="explainStat" data-stat="{{attr.key}}" title="De onde vem {{attr.label}}"><i class="fas fa-circle-info"></i></a>
                 <button type="button" class="attribute-roll" data-action="rollAttribute" title="Rolar (Bônus de Item incluso como número fixo)">🎲</button>
               </div>
             </div>

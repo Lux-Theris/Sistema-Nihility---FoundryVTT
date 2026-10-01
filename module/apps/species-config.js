@@ -1,5 +1,6 @@
 import { SYSTEM_ID, MEU_SISTEMA, getActiveSpeciesPresets, debugLog, speciesCarry } from "../config.js";
 import { openSkillEditorDialog } from "./skill-editor-dialog.js";
+import { normalizeSpeciesCatalog, bumpSpeciesVersions } from "../species-rules.js";
 import { readPickerField, wireTraitPickerField, wireElementPickerField } from "./checklist-picker.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -44,7 +45,8 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
   /** @override */
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
-    const presets = getActiveSpeciesPresets();
+    // Normalizado: chaves de Skill Racial aparecem (e voltam no salvar), campos novos com padrão.
+    const presets = normalizeSpeciesCatalog(getActiveSpeciesPresets());
     const species = {};
     for (const [key, def] of Object.entries(presets)) {
       species[key] = {
@@ -173,6 +175,10 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
     const current = JSON.parse(row.dataset.skill || "{}");
     const data = await openSkillEditorDialog(current, { lockTier: "racial" });
     if (!data) return;
+    // A chave e o nível de liberação não passam pelo editor de Skill: sem isto, renomear a Skill
+    // gerava chave nova e as fichas a perdiam (com nível e XP) na próxima sincronização.
+    if (current.key) data.key = current.key;
+    if (current.unlockLevel && data.unlockLevel === undefined) data.unlockLevel = current.unlockLevel;
     row.replaceWith(SpeciesConfigApp.#buildRacialSkillRow(data));
   }
 
@@ -238,7 +244,14 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
       };
     });
 
-    await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.speciesPresetsData, JSON.stringify(result, null, 2));
+    // Campos que este editor ainda não mostra (Linhagens, Evolução, Passivos…) continuam como
+    // estavam; chaves de Skill Racial ficam gravadas; a versão sobe quando partes/Skills mudam (é o
+    // que faz a ficha mostrar "a Espécie mudou").
+    const previous = normalizeSpeciesCatalog(getActiveSpeciesPresets());
+    const merged = {};
+    for (const [key, entry] of Object.entries(result)) merged[key] = { ...(previous[key] ?? {}), ...entry };
+    const saved = bumpSpeciesVersions(previous, normalizeSpeciesCatalog(merged));
+    await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.speciesPresetsData, JSON.stringify(saved, null, 2));
     ui.notifications.info("Presets de Espécie atualizados.");
     debugLog(`${SYSTEM_ID} | SpeciesConfigApp: ${Object.keys(result).length} espécie(s) salva(s).`, result);
   }

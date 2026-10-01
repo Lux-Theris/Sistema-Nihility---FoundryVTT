@@ -42,15 +42,28 @@ import {
   getAffinityConfig
 } from "./config.js";
 import { runAsGm } from "./helpers/gm-relay.js";
+import {
+  makeAnchor,
+  addAnchor,
+  removeAnchor,
+  effectAnchors,
+  finiteRemaining,
+  serializeFinite,
+  anchorLifetime,
+  durationRemaining,
+  refreshFiniteRounds,
+  PERMANENT
+} from "./effect-anchors.js";
 import { createZoneTemplate, removeZonesFor, zonesOnScene, zoneContainsToken } from "./area-effects.js";
 import { announceVoiceOfTheWorld } from "./voice-of-the-world.js";
 import { playSkillAnimation } from "./vfx.js";
-import { damageApplyFlags } from "./damage-apply.js";
+import { damageApplyFlags, withDamageTrace } from "./damage-apply.js";
 import { applyStructuralDamage, applyTargetedStructuralDamage, damageCasco, repairModules, applyShipSystemEffect, addShipSystemEffect, clearShieldAdaptation } from "./starship-power.js";
 import { applyAdvantageToFormula, applyRollModifiers, describeRollOptions, normalizeRollOptions } from "./roll-modifiers.js";
 import {
   splitDamageParts,
   resolveDamageParts,
+  describeDamageParts,
   scaleMultiplier,
   resolveConditionEffect,
   refreshReapplication,
@@ -225,18 +238,120 @@ async function warnInsufficientEnergy(sourceActor, label, cost) {
 }
 
 /**
+ * Todos os Atores do mundo que podem carregar um efeito: os do Diretório E os sintéticos dos
+ * Tokens não vinculados de todas as cenas (que não estão em `game.actors` — varrer só o Diretório
+ * deixava o efeito para sempre num Drone não vinculado).
+ */
+function worldActors() {
+  const seen = new Set();
+  const list = [];
+  const push = actor => {
+    if (!actor || seen.has(actor.uuid)) return;
+    seen.add(actor.uuid);
+    list.push(actor);
+  };
+  for (const actor of game.actors) push(actor);
+  for (const scene of game.scenes) {
+    for (const token of scene.tokens) if (!token.actorLink) push(token.actor);
+  }
+  return list;
+}
+
+/** "Agora" para o prazo finito dos efeitos ancorados (ver finiteRemaining em effect-anchors.js). */
+function combatNow() {
+  const combat = game.combat;
+  return combat?.started ? { round: combat.round ?? 0, combatId: combat.id } : {};
+}
+
+/**
+ * Tira a âncora `anchor` de um efeito. Sem âncora sobrando, o efeito periódico continua se ainda
+ * tiver ticks finitos; o comum volta a ter a duração do Foundry com o prazo finito que restava,
+ * fica sem prazo se era permanente, ou é apagado.
+ * @returns {Promise<boolean>} esta Skill segurava o efeito
+ */
+async function releaseAnchorOnEffect(effect, anchor) {
+  const flags = effect.flags?.[SYSTEM_ID];
+  if (!flags) return false;
+  const { anchors, removed } = removeAnchor(effectAnchors(flags, effect.origin), anchor);
+  if (!removed) return false;
+
+  if (flags.periodic) {
+    if (!anchors.length && (flags.ticksRemaining ?? 0) <= 0) await effect.delete();
+    else await effect.update({ [`flags.${SYSTEM_ID}.activeAnchors`]: anchors });
+    return true;
+  }
+
+  if (anchors.length) {
+    await effect.update({ [`flags.${SYSTEM_ID}.activeAnchors`]: anchors });
+    return true;
+  }
+  const finite = finiteRemaining(flags.finite, combatNow());
+  if (!anchorLifetime({ anchors, finite }).alive) {
+    await effect.delete();
+    return true;
+  }
+  const combat = game.combat;
+  const duration = finite === PERMANENT ? { rounds: null } : { rounds: finite, ...(combat ? { startRound: combat.round ?? 0, startTurn: combat.turn ?? 0 } : {}) };
+  await effect.update({
+    duration,
+    [`flags.${SYSTEM_ID}.activeAnchors`]: [],
+    [`flags.${SYSTEM_ID}.tiedToActive`]: false,
+    [`flags.${SYSTEM_ID}.finite`]: null
+  });
+  return true;
+}
+
+/**
+ * Tira a âncora `anchor` de todos os efeitos dos Atores dados. `canWrite(actor)` decide quem este
+ * cliente pode alterar; os outros são devolvidos para o Mestre resolver (ver releaseSkillAnchorsAsGm).
+ * @returns {Promise<boolean>} sobrou Ator com efeito desta Skill que este cliente não pôde escrever
+ */
+async function releaseAnchorOnActors(actors, anchor, canWrite) {
+  let pending = false;
+  for (const actor of actors) {
+    for (const effect of [...actor.effects]) {
+      const flags = effect.flags?.[SYSTEM_ID];
+      if (!flags?.skillEffect) continue;
+      if (!canWrite(actor)) {
+        if (removeAnchor(effectAnchors(flags, effect.origin), anchor).removed) pending = true;
+        continue;
+      }
+      await releaseAnchorOnEffect(effect, anchor);
+    }
+  }
+  return pending;
+}
+
+/**
+ * Lado do Mestre (relay `releaseSkillAnchors`): tira as âncoras de uma Skill dos Atores que quem
+ * pediu não pode escrever. O payload não é confiável: a Skill tem que estar DESLIGADA (ou não
+ * existir mais — então não há nada a proteger), senão um cliente apagaria efeitos de uma Skill ligada.
+ */
+export async function releaseSkillAnchorsAsGm({ skillUuid, skillId, subSkillIndex, requesterId }) {
+  if (typeof skillUuid !== "string") return;
+  const index = Number.isInteger(subSkillIndex) ? subSkillIndex : null;
+  const skill = await fromUuid(skillUuid);
+  if (skill) {
+    if (skill.type !== "skill") return;
+    const mech = index == null ? skill.system : skill.system.subSkills?.[index];
+    if (mech?.active) return;
+  }
+  const requester = game.users.get(requesterId);
+  const anchor = makeAnchor({ skillUuid, skillId: typeof skillId === "string" ? skillId : null, subSkillIndex: index });
+  await releaseAnchorOnActors(worldActors(), anchor, actor => !requester || !actor.testUserPermission(requester, "OWNER"));
+}
+
+/**
  * Desliga a "âncora" desta Skill/Sub-Skill "Ativa" em TODOS os Atores do mundo — chamado ao
  * desativar (clique manual ou falta de Energia, ver `useSkillEffect`/`tickActorUpkeepSkills`).
- * Precisa varrer `game.actors` (não só quem usou a Skill) porque um Efeito de Emissão em área
+ * Precisa varrer o mundo inteiro (não só quem usou a Skill) porque um Efeito de Emissão em área
  * pode ter afetado vários Atores diferentes: a área só serviu pra ESCOLHER os alvos no momento
  * de usar — o efeito em si vive em cada Ator atingido, não no espaço, então continua neles
  * mesmo se saírem do lugar no canvas depois, até a Skill ser desativada aqui.
  *
- * Buff/debuff comum (`tiedToActive`): apaga o Active Effect direto — não tem ticks nem outras
- * fontes pra segurar ele vivo. Periódico (Veneno/cura, `activeAnchors`): só REMOVE esta fonte da
- * lista de âncoras — se ainda sobrar outra âncora (outra Skill Ativa também mantendo o mesmo
- * Veneno+elemento), o efeito continua vivo; só apaga de fato quando não sobra nenhuma âncora E
- * os ticks de fontes finitas já zeraram.
+ * Buff/debuff comum e periódico seguem o mesmo modelo (effect-anchors.js): esta Skill só sai da
+ * lista de âncoras; o efeito continua se outra Skill Ativa ainda o segura ou se ainda há prazo
+ * finito de uma aplicação comum. Quem desliga escreve nos Atores que possui; o resto vai pro Mestre.
  * @param {Item} skill
  * @param {number|null} subSkillIndex
  */
@@ -249,26 +364,10 @@ async function removeUpkeepLinkedEffects(skill, subSkillIndex) {
   // Luz de Escudo que esta Skill acendeu é APAGADA (o Token volta à luz de antes), não desligada.
   if (skill.parent) await runAsGm("clearShieldLights", { actorUuid: skill.parent.uuid, skillId: skill.id, subSkillIndex: subSkillIndex ?? null });
 
-  const isThisSource = flags => flags.sourceSkillId === skill.id && (flags.sourceSubSkillIndex ?? null) === subSkillIndex;
-
-  for (const actor of game.actors) {
-    for (const effect of actor.effects) {
-      const flags = effect.flags?.[SYSTEM_ID];
-      if (!flags) continue;
-
-      if (flags.periodic) {
-        const anchors = flags.activeAnchors ?? [];
-        const remaining = anchors.filter(a => !(a.sourceSkillId === skill.id && (a.sourceSubSkillIndex ?? null) === subSkillIndex));
-        if (remaining.length === anchors.length) continue; // esta Skill não era âncora deste efeito
-        if (!remaining.length && (flags.ticksRemaining ?? 0) <= 0) {
-          await effect.delete();
-        } else {
-          await effect.update({ [`flags.${SYSTEM_ID}.activeAnchors`]: remaining });
-        }
-      } else if (flags.tiedToActive && isThisSource(flags)) {
-        await effect.delete();
-      }
-    }
+  const anchor = makeAnchor({ skillUuid: skill.uuid, skillId: skill.id, subSkillIndex });
+  const pending = await releaseAnchorOnActors(worldActors(), anchor, actor => game.user.isGM || actor.isOwner);
+  if (pending) {
+    await runAsGm("releaseSkillAnchors", { skillUuid: skill.uuid, skillId: skill.id, subSkillIndex: anchor.sourceSubSkillIndex, requesterId: game.user.id });
   }
 }
 
@@ -663,6 +762,32 @@ function shipWeaponPenetration(sourceActor, weaponModule = null) {
  * genérica (sem Módulo específico associado).
  * @returns {{toShield:number, toCasco:number, toHull:number, appliedReductions:string[]}}
  */
+/**
+ * Primeiras linhas do rastro de dano (só o Mestre vê): do número rolado até o que chega no alvo —
+ * escala, condicional de quem ataca, Antimagia e Estrutura no caminho. As defesas do alvo vêm
+ * depois (applyDamageReductions / applyStarshipDamageCascade).
+ */
+function attackTraceRows({ rolled, boosted, scale = 1, situational = 1, beforeStructure = null, arriving, nulled = false }) {
+  const rows = [{ label: "Rolagem", value: String(rolled) }];
+  if (Math.floor(boosted) !== rolled) rows.push({ label: "Com escala por atributo, nível, bônus de arma e Shift", value: String(Math.floor(boosted)) });
+  if (scale !== 1) rows.push({ label: "Escala de tamanho", value: `×${formatScale(scale)}` });
+  if (situational !== 1) rows.push({ label: "Quando → Então de quem ataca", value: `×${Math.round(situational * 100) / 100}` });
+  if (nulled) {
+    rows.push({ label: "Anulado por Antimagia", value: "0", kind: "total" });
+    return rows;
+  }
+  if (beforeStructure != null && beforeStructure - arriving >= 0.5) rows.push({ label: "Estrutura no caminho segurou", value: `−${Math.round(beforeStructure - arriving)}` });
+  rows.push({ label: "Chega no alvo", value: String(Math.round(arriving)), kind: "subtotal" });
+  return rows;
+}
+
+/** Fim do rastro contra Personagem: as defesas por parte, o final e a nota do Escudo pessoal. */
+function personalTraceTail(reduction, targetActor) {
+  const rows = [...(reduction.traceRows ?? []), { label: "Final", value: String(reduction.finalDamage), kind: "total" }];
+  if ((targetActor.system?.attributes?.shield?.value ?? 0) > 0) rows.push({ label: "O Escudo pessoal absorve primeiro, ao clicar em Aplicar", value: "" });
+  return rows;
+}
+
 async function applyStarshipDamageCascade(rawDamage, sourceActor, targetActor, weaponModule = null, extras = {}) {
   const sys = targetActor.system;
   const evasion = sys.evasion ?? 0;
@@ -716,6 +841,28 @@ async function applyStarshipDamageCascade(rawDamage, sourceActor, targetActor, w
     if (adapted > 0) appliedReductions.push(`Escudo adaptado ${Math.round(adaptation * 100)}%`);
   }
 
+  // Rastro só do Mestre (ver renderDamageTrace): a mesma ordem de resolveShipCascade.
+  const pct = v => `${Math.round(v * 1000) / 10}%`;
+  const traceRows = [];
+  if (evasion > 0) traceRows.push({ label: "Evasão", value: `−${pct(Math.min(1, evasion))}` });
+  if (extras.absolute) {
+    traceRows.push({ label: "Dano Absoluto: direto na Integridade", value: "—" });
+  } else {
+    if (damageReduction > 0) traceRows.push({ label: "Preparar para impacto", value: `−${pct(Math.min(1, damageReduction))}` });
+    if (extras.bonus > 0) traceRows.push({ label: "Bônus contra Traço da Nave", value: `+${pct(extras.bonus)}` });
+    if (adapted > 0) traceRows.push({ label: "Escudo adaptativo", value: `−${adapted}` });
+    if (penetration > 0) traceRows.push({ label: "Penetração da arma", value: pct(penetration) });
+    if (sys.shieldPenetrationResist > 0) traceRows.push({ label: "Resistência à Penetração do Escudo", value: `−${pct(sys.shieldPenetrationResist)}` });
+    if (shieldAffinity !== 1) traceRows.push({ label: "Vantagem contra o elemento do Escudo", value: `×${Math.round(shieldAffinity * 100) / 100}` });
+    if (armorReduction > 0) traceRows.push({ label: "Redução do Casco", value: `−${pct(armorReduction)}` });
+    if (sys.cascoPenetrationResist > 0 && cascoValue > 0) traceRows.push({ label: "Resistência à Penetração do Casco", value: `−${pct(sys.cascoPenetrationResist)}` });
+    if (bodyAffinity !== 1) traceRows.push({ label: "Vantagem contra o elemento da Nave", value: `×${Math.round(bodyAffinity * 100) / 100}` });
+    for (const [layer, label] of [["shield", "Escudo"], ["casco", "Casco"], ["hull", "Integridade"]]) {
+      if (layers[layer]) traceRows.push({ label: `Dano por camada (${label})`, value: `${layers[layer] > 0 ? "+" : "−"}${pct(Math.abs(layers[layer]))}` });
+    }
+  }
+  traceRows.push({ label: "Escudo", value: `−${toShield}` }, { label: "Casco", value: `−${toCasco}` }, { label: "Integridade Estrutural", value: `−${toHull}`, kind: "total" });
+
   // 1) Escudo
   if (toShield > 0) {
     const newShieldValue = Math.max(0, sys.shields.value - toShield);
@@ -766,7 +913,7 @@ async function applyStarshipDamageCascade(rawDamage, sourceActor, targetActor, w
   }
   if (systemEffects.length) structuralHits.push(...systemEffects.map(text => ({ name: text, damage: null })));
 
-  return { toShield, toCasco, toHull, structuralHits, appliedReductions, targetModuleId };
+  return { toShield, toCasco, toHull, structuralHits, appliedReductions, traceRows, targetModuleId };
 }
 
 /** Cada Escudo adaptativo ligado aprende o golpe (elemento + frequência), até o teto dele. */
@@ -867,13 +1014,17 @@ export async function fireStarshipWeapon(sourceActor, weaponModule, targetActor 
   if (targetActor) {
     const scale = damageScaleFor(sourceActor, mech, targetActor);
     if (scale !== 1) flavor += ` — escala ×${formatScale(scale)}`;
-    const blocked = await throughStructures(sourceActor, targetActor, boostedTotal * scale * situationalDamageFactor(sourceActor, targetActor, mech), { elementIds: mech.damageElements });
+    const situational = situationalDamageFactor(sourceActor, targetActor, mech);
+    const beforeStructure = boostedTotal * scale * situational;
+    const blocked = await throughStructures(sourceActor, targetActor, beforeStructure, { elementIds: mech.damageElements });
     const scaledTotal = blocked.damage;
     flavor += blocked.note;
+    // Rastro só do Mestre (ver renderDamageTrace); "Rolagem" aqui já inclui throttle e bônus de arma.
+    const traceRows = attackTraceRows({ rolled: roll.total, boosted: boostedTotal, scale, situational, beforeStructure, arriving: scaledTotal });
 
     if (isShipLike(targetActor)) {
       const ctx = averageElementContext(mech.damageElements, targetActor);
-      const { toShield, toCasco, toHull, structuralHits } = await applyStarshipDamageCascade(scaledTotal, sourceActor, targetActor, weaponModule, {
+      const { toShield, toCasco, toHull, structuralHits, traceRows: cascadeRows } = await applyStarshipDamageCascade(scaledTotal, sourceActor, targetActor, weaponModule, {
         penetration: ctx.penetration + ammoPenetration,
         bonus: ctx.bonus,
         shieldDrain: ctx.shieldDrain,
@@ -885,6 +1036,7 @@ export async function fireStarshipWeapon(sourceActor, weaponModule, targetActor 
         absolute: mech.isAbsoluteDamage
       });
       finalDamage = toShield + toCasco + toHull;
+      traceRows.push(...(cascadeRows ?? []));
       flavor += ` — Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}`;
       if (structuralHits?.length) flavor += ` (${structuralHits.map(h => (h.damage == null ? h.name : `${h.name} -${h.damage}`)).join(", ")})`;
     } else {
@@ -905,7 +1057,9 @@ export async function fireStarshipWeapon(sourceActor, weaponModule, targetActor 
         triggeredConditions: reduction.triggeredConditions,
         label: weaponModule.name
       });
+      traceRows.push(...personalTraceTail(reduction, targetActor));
     }
+    messageFlags = withDamageTrace(messageFlags, [{ name: targetActor.name, rows: traceRows }]);
   }
 
   await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: sourceActor }), flavor, flags: messageFlags });
@@ -958,6 +1112,12 @@ function applyDamageReductions(rawTotal, mech, targetActor, options = {}) {
   };
 
   const result = resolveDamageParts({ parts, magicDefense, general: generalPercent, resistanceFor, absolute: Boolean(mech.isAbsoluteDamage) });
+  // Rastro só do Mestre (flags do card, ver renderDamageTrace): de onde veio cada redução.
+  const traceRows = describeDamageParts(result.parts, {
+    elementLabel: id => getDamageElement(id)?.label ?? id,
+    generalLabel: `Resistência Geral${general.skill ? ` (${general.skill.name})` : ""}${situational("general") ? " + Quando → Então" : ""}`,
+    elementSourceLabel: id => [elementSources.get(id)?.skill?.name, situational(id) ? "Quando → Então" : ""].filter(Boolean).join(" + ")
+  });
 
   // Quem de fato abateu dano, e quanto — insumo do XP de Resistência (a Skill aprende apanhando).
   const defenders = [];
@@ -1006,6 +1166,7 @@ function applyDamageReductions(rawTotal, mech, targetActor, options = {}) {
     shieldBase: result.shieldBase,
     elementIds: [...new Set((mech.damageElements ?? []).filter(Boolean))],
     appliedReductions,
+    traceRows,
     defenders,
     parts: result.parts,
     shieldExtra: Math.floor(shieldExtra),
@@ -1189,11 +1350,16 @@ async function rollSkillDamage(actor, mech, label, targetActor = null, rollOptio
   const antimagic = targetActor ? await chargeAntimagic(actor, mech, [targetActor]) : null;
   if (antimagic?.note) flavor += antimagic.note;
   if (antimagic?.nulled.has(targetActor.uuid)) {
-    await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor }), flavor: `${flavor} — ${targetActor.name}: 0` });
+    await roll.toMessage({
+      speaker: ChatMessage.getSpeaker({ actor }),
+      flavor: `${flavor} — ${targetActor.name}: 0`,
+      flags: withDamageTrace({}, [{ name: targetActor.name, rows: attackTraceRows({ rolled: roll.total, boosted: boostedTotal, scale, situational, nulled: true }) }])
+    });
     return { roll, finalDamage: 0 };
   }
   const blocked = targetActor ? await throughStructures(actor, targetActor, rawDamage, { elementIds: mech.damageElements }) : { damage: rawDamage, note: "", impact: null };
   const scaledDamage = blocked.damage;
+  const traceRows = attackTraceRows({ rolled: roll.total, boosted: boostedTotal, scale, situational, beforeStructure: rawDamage, arriving: scaledDamage });
   flavor += blocked.note;
   // A animação da Skill para no ponto de impacto se uma parede segurou, e só segue até o alvo se
   // sobrou dano (arma pessoal não tem animação, então nada acontece pra ela).
@@ -1203,7 +1369,7 @@ async function rollSkillDamage(actor, mech, label, targetActor = null, rollOptio
   let reduction = null;
   if (isShipLike(targetActor)) {
     const ctx = averageElementContext(mech.damageElements, targetActor);
-    const { toShield, toCasco, toHull, structuralHits } = await applyStarshipDamageCascade(scaledDamage, actor, targetActor, null, {
+    const cascade = await applyStarshipDamageCascade(scaledDamage, actor, targetActor, null, {
       penetration: ctx.penetration,
       bonus: ctx.bonus,
       shieldDrain: ctx.shieldDrain,
@@ -1214,6 +1380,8 @@ async function rollSkillDamage(actor, mech, label, targetActor = null, rollOptio
       askModule: true,
       absolute: Boolean(mech.isAbsoluteDamage)
     });
+    const { toShield, toCasco, toHull, structuralHits } = cascade;
+    traceRows.push(...cascade.traceRows);
     finalDamage = toShield + toCasco + toHull;
     flavor += ` — Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}`;
     if (structuralHits?.length) flavor += ` (${structuralHits.map(h => (h.damage == null ? h.name : `${h.name} -${h.damage}`)).join(", ")})`;
@@ -1232,6 +1400,7 @@ async function rollSkillDamage(actor, mech, label, targetActor = null, rollOptio
     // prática, Resistência e Defesa Mágica não valiam nada contra alvo único. Mesmo formato
     // "Alvo: número" que a versão em área (`rollSkillDamageArea`) já usava.
     if (targetActor) flavor += ` — ${targetActor.name}: ${finalDamage}${triggeredLabel(reduction.triggeredConditions)}`;
+    if (targetActor) traceRows.push(...personalTraceTail(reduction, targetActor));
   }
 
   await roll.toMessage({
@@ -1239,16 +1408,19 @@ async function rollSkillDamage(actor, mech, label, targetActor = null, rollOptio
     flavor,
     // Dados dos botões de Aplicar/Desfazer (ver module/damage-apply.js). Ficam em `flags` e não
     // no conteúdo: quem abrir o chat depois vê o mesmo estado de quem estava online.
-    flags: damageApplyFlags(targetActor, finalDamage, {
-      shieldBase: reduction?.shieldBase,
-      elementIds: reduction?.elementIds ?? [],
-      absolute: Boolean(mech.isAbsoluteDamage),
-      shieldExtra: reduction?.shieldExtra ?? 0,
-      shieldMultiplier: reduction?.shieldMultiplier ?? 1,
-      shieldPenetration: reduction?.shieldPenetration ?? 0,
-      triggeredConditions: reduction?.triggeredConditions ?? [],
-      label
-    })
+    flags: withDamageTrace(
+      damageApplyFlags(targetActor, finalDamage, {
+        shieldBase: reduction?.shieldBase,
+        elementIds: reduction?.elementIds ?? [],
+        absolute: Boolean(mech.isAbsoluteDamage),
+        shieldExtra: reduction?.shieldExtra ?? 0,
+        shieldMultiplier: reduction?.shieldMultiplier ?? 1,
+        shieldPenetration: reduction?.shieldPenetration ?? 0,
+        triggeredConditions: reduction?.triggeredConditions ?? [],
+        label
+      }),
+      targetActor ? [{ name: targetActor.name, rows: traceRows }] : []
+    )
   });
   return { roll, finalDamage };
 }
@@ -1334,13 +1506,19 @@ async function rollSkillDamageArea(actor, mech, label, targetActors, rollOptions
   if (antimagic.note) blockedNotes.push(antimagic.note.replace(/^ — /, ""));
   // Nunca revela NO CHAT que/quanto de Resistência, Defesa Mágica, Penetração ou Redução de
   // Casco foi aplicada — só o número final por alvo (a redução em si continua acontecendo).
+  // Rastro por alvo, só do Mestre (ver renderDamageTrace).
+  const traces = [];
   for (const targetActor of targetActors) {
     // Escala por alvo: a mesma rolagem vale diferente contra uma pessoa e contra uma Nave.
-    let targetDamage = boostedTotal * damageScaleFor(actor, mech, targetActor) * situationalDamageFactor(actor, targetActor, mech);
+    const scale = damageScaleFor(actor, mech, targetActor);
+    const situational = situationalDamageFactor(actor, targetActor, mech);
+    let targetDamage = boostedTotal * scale * situational;
     if (antimagic.nulled.has(targetActor.uuid)) {
       rows.push(`<li><strong>${targetActor.name}</strong>: 0 (antimagia)</li>`);
+      traces.push({ name: targetActor.name, rows: attackTraceRows({ rolled: roll.total, boosted: boostedTotal, scale, situational, nulled: true }) });
       continue;
     }
+    const beforeStructure = targetDamage;
     const block = interceptingStructure(actor, targetActor, { origin });
     if (block) {
       if (!shielded.has(block.instance.id)) {
@@ -1350,9 +1528,11 @@ async function rollSkillDamageArea(actor, mech, label, targetActors, rollOptions
       }
       targetDamage = Math.round(targetDamage * shielded.get(block.instance.id));
     }
+    const traceRows = attackTraceRows({ rolled: roll.total, boosted: boostedTotal, scale, situational, beforeStructure, arriving: targetDamage });
+    traces.push({ name: targetActor.name, rows: traceRows });
     if (isShipLike(targetActor)) {
       const ctx = averageElementContext(mech.damageElements, targetActor);
-      const { toShield, toCasco, toHull, structuralHits } = await applyStarshipDamageCascade(targetDamage, actor, targetActor, null, {
+      const { toShield, toCasco, toHull, structuralHits, traceRows: cascadeRows } = await applyStarshipDamageCascade(targetDamage, actor, targetActor, null, {
         penetration: ctx.penetration,
         bonus: ctx.bonus,
         shieldDrain: ctx.shieldDrain,
@@ -1363,6 +1543,7 @@ async function rollSkillDamageArea(actor, mech, label, targetActors, rollOptions
         askModule: false,
         absolute: Boolean(mech.isAbsoluteDamage)
       });
+      traceRows.push(...(cascadeRows ?? []));
       const detalhe = structuralHits?.length ? ` (${structuralHits.map(h => (h.damage == null ? h.name : `${h.name} -${h.damage}`)).join(", ")})` : "";
       rows.push(
         `<li><strong>${targetActor.name}</strong>: Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}${detalhe}</li>`
@@ -1374,6 +1555,7 @@ async function rollSkillDamageArea(actor, mech, label, targetActors, rollOptions
       // Em área o dano de Personagem continua sendo aplicado à mão (sem botões por alvo), então
       // as Condições disparadas só são listadas — o Mestre marca no token se confirmar o acerto.
       rows.push(`<li><strong>${targetActor.name}</strong>: ${reduction.finalDamage}${triggeredLabel(reduction.triggeredConditions)}</li>`);
+      traceRows.push(...personalTraceTail(reduction, targetActor));
     }
   }
 
@@ -1381,6 +1563,7 @@ async function rollSkillDamageArea(actor, mech, label, targetActors, rollOptions
     speaker: ChatMessage.getSpeaker({ actor }),
     rolls: [roll],
     flavor: title,
+    flags: withDamageTrace({}, traces),
     content: `<p>${title} — rolagem bruta: <strong>${roll.total}</strong>${boostedTotal !== roll.total ? ` (bônus de arma: ${Math.floor(boostedTotal)})` : ""}</p>${blockedNotes.length ? `<p>${blockedNotes.join(" · ")}</p>` : ""}<ul>${rows.join("")}</ul>`
   });
 
@@ -1476,8 +1659,10 @@ function findStackableEffect(targetActor, conditionId, periodic, damageElements 
  *  - Com Habilidade Ativa: contribui SEMPRE 0 de duração (nunca infla `durationRounds`/ticks de
  *    outra fonte) e vira uma "âncora" que segura o efeito vivo até a Skill ser desativada
  *    (manual ou por falta de Energia, ver `removeUpkeepLinkedEffects`/`useSkillEffect`/
- *    `tickActorUpkeepSkills`). Buff/debuff comum: nasce sem duração própria (`tiedToActive`).
- *    Periódico (Veneno/cura): guarda a âncora em `activeAnchors` — os ticks de OUTRAS fontes
+ *    `tickActorUpkeepSkills`). Os dois tipos guardam as âncoras em `activeAnchors` (por uuid da
+ *    Skill, ver effect-anchors.js). Buff/debuff comum ancorado fica sem duração do Foundry; o
+ *    prazo de aplicações comuns da mesma Condição corre em paralelo na flag `finite`.
+ *    Periódico (Veneno/cura): os ticks de OUTRAS fontes
  *    (finitas) continuam decaindo normalmente; quando chegam a 0, se ainda sobrar alguma âncora
  *    o efeito continua tickando (só sustentado por ela) em vez de expirar. Isso evita que
  *    reaplicar uma Skill Ativa em cima de um Veneno já ativo fique "estendendo" a duração pra
@@ -1601,7 +1786,7 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor, subSki
 
     const periodic = isPeriodicEntry(entry);
     const tiedToActive = Boolean(mech.hasUpkeep);
-    const anchor = { sourceSkillId: origin.id, sourceSubSkillIndex: subSkillIndex };
+    const anchor = makeAnchor({ skillUuid: origin.uuid, skillId: origin.id, subSkillIndex });
     const existing = findStackableEffect(targetActor, entry.conditionId, periodic, entry.damageElements);
 
     if (existing) {
@@ -1615,11 +1800,9 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor, subSki
         // expirar — é assim que "até desativar" nunca fica refém de reaplicações infinitas.
         if (tiedToActive) {
           const anchors = existingFlags.activeAnchors ?? [];
-          const alreadyAnchored = anchors.some(
-            a => a.sourceSkillId === anchor.sourceSkillId && (a.sourceSubSkillIndex ?? null) === (anchor.sourceSubSkillIndex ?? null)
-          );
-          if (!alreadyAnchored) {
-            await existing.update({ [`flags.${SYSTEM_ID}.activeAnchors`]: [...anchors, anchor] });
+          const next = addAnchor(anchors, anchor);
+          if (next.length !== anchors.length) {
+            await existing.update({ [`flags.${SYSTEM_ID}.activeAnchors`]: next });
           }
           summary.push(`${condition?.label ?? targetLabel}: mantido ativo (até desativar)`);
         } else {
@@ -1635,20 +1818,33 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor, subSki
           });
           summary.push(`${condition?.label ?? targetLabel}: renovado (${next.rounds} tick(s))`);
         }
-      } else if (existingFlags.tiedToActive) {
-        // Buff/debuff comum já indefinido — não há duração pra estender.
-        summary.push(`${condition?.label ?? targetLabel}: já ativo (até desativar)`);
       } else {
-        // Renova: a duração volta a contar de agora, com a maior entre o que restava e a nova.
+        // Buff/debuff comum: mesmo modelo do periódico (effect-anchors.js). Cada Skill Ativa é uma
+        // âncora a mais; uma aplicação comum renova o prazo finito, que conta em paralelo. Enquanto
+        // houver âncora, a duração do Foundry fica vazia e o prazo mora na flag `finite`.
         const combat = game.combat;
-        const startRound = existing.duration?.startRound ?? 0;
-        const elapsed = combat ? Math.max(0, (combat.round ?? 0) - startRound) : 0;
-        const remaining = Math.max(0, (existing.duration?.rounds ?? 0) - elapsed);
-        const next = refreshReapplication({ rounds: remaining, amount: 0 }, { rounds: entry.durationRounds, amount: 0 });
-        const update = { "duration.rounds": next.rounds };
-        if (combat) Object.assign(update, { "duration.startRound": combat.round ?? 0, "duration.startTurn": combat.turn ?? 0 });
-        await existing.update(update);
-        summary.push(`${condition?.label ?? targetLabel}: renovado (${next.rounds} rodada(s))`);
+        const now = combatNow();
+        const anchors = effectAnchors(existingFlags, existing.origin);
+        const current = anchors.length ? finiteRemaining(existingFlags.finite, now) : durationRemaining(existing.duration, combat ? combat.round ?? 0 : null);
+        const nextAnchors = tiedToActive ? addAnchor(anchors, anchor) : anchors;
+        const nextFinite = tiedToActive ? current : refreshFiniteRounds(current, entry.durationRounds);
+        const name = condition?.label ?? targetLabel;
+
+        if (nextAnchors.length) {
+          await existing.update({
+            duration: { rounds: null },
+            [`flags.${SYSTEM_ID}.activeAnchors`]: nextAnchors,
+            [`flags.${SYSTEM_ID}.tiedToActive`]: true,
+            [`flags.${SYSTEM_ID}.finite`]: serializeFinite(nextFinite, now)
+          });
+          const finiteText = nextFinite === PERMANENT ? "sem prazo" : nextFinite > 0 ? `${nextFinite} rodada(s)` : "";
+          summary.push(tiedToActive ? `${name}: mantido ativo (até desativar)` : `${name}: renovado${finiteText ? ` (${finiteText})` : ""}, mantido por Skill Ativa`);
+        } else {
+          const update = { "duration.rounds": nextFinite === PERMANENT ? null : nextFinite };
+          if (combat) Object.assign(update, { "duration.startRound": combat.round ?? 0, "duration.startTurn": combat.turn ?? 0 });
+          await existing.update(update);
+          summary.push(`${name}: renovado (${nextFinite === PERMANENT ? "sem prazo" : `${nextFinite} rodada(s)`})`);
+        }
       }
       continue;
     }
@@ -1700,6 +1896,7 @@ async function applyEffectsToActor(mech, label, originSkill, targetActor, subSki
             skillEffect: true,
             conditionId: entry.conditionId || "",
             tiedToActive,
+            activeAnchors: tiedToActive ? [anchor] : [],
             sourceSkillId: origin.id,
             sourceSubSkillIndex: subSkillIndex,
             bodyElement: change.bodyElement ?? ""
@@ -2291,15 +2488,18 @@ export async function applyStructureContactAsGm(tokenDocument, instance, info) {
   await roll.toMessage({
     speaker: { alias: instance.label },
     flavor: `${instance.label} — contato — ${tokenDocument.name}: ${reduction.finalDamage}${triggeredLabel(reduction.triggeredConditions)}`,
-    flags: damageApplyFlags(target, reduction.finalDamage, {
-      shieldBase: reduction.shieldBase,
-      elementIds: reduction.elementIds,
-      shieldExtra: reduction.shieldExtra ?? 0,
-      shieldMultiplier: reduction.shieldMultiplier ?? 1,
-      shieldPenetration: reduction.shieldPenetration ?? 0,
-      triggeredConditions: reduction.triggeredConditions ?? [],
-      label: instance.label
-    })
+    flags: withDamageTrace(
+      damageApplyFlags(target, reduction.finalDamage, {
+        shieldBase: reduction.shieldBase,
+        elementIds: reduction.elementIds,
+        shieldExtra: reduction.shieldExtra ?? 0,
+        shieldMultiplier: reduction.shieldMultiplier ?? 1,
+        shieldPenetration: reduction.shieldPenetration ?? 0,
+        triggeredConditions: reduction.triggeredConditions ?? [],
+        label: instance.label
+      }),
+      [{ name: tokenDocument.name, rows: [{ label: "Rolagem (contato)", value: String(roll.total) }, ...personalTraceTail(reduction, target)] }]
+    )
   });
 }
 

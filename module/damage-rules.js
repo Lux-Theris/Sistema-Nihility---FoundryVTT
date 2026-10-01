@@ -45,15 +45,16 @@ export function splitDamageParts(total, elementIds = []) {
 export function resolveDamageParts({ parts, magicDefense = 0, general = 0, resistanceFor = () => 0, absolute = false }) {
   const results = (parts ?? []).map(part => {
     const base = Math.max(0, Number(part.raw) || 0);
-    if (absolute) return { elementId: part.elementId, raw: base, final: base, beforeAffinity: base, blockedGeneral: 0, blockedElement: 0 };
+    if (absolute) return { elementId: part.elementId, base, raw: base, final: base, beforeAffinity: base, blockedGeneral: 0, blockedElement: 0, applied: { absolute: true } };
     // Vantagem do elemento da parte contra o elemento do corpo do alvo (Fogo contra quem virou Gelo).
     const affinity = Math.max(0, Number(part.affinity ?? 1));
-    const raw = base * (1 + Math.max(0, Number(part.bonus) || 0));
+    const bonus = Math.max(0, Number(part.bonus) || 0);
+    const raw = base * (1 + bonus);
 
     const penetration = Math.min(1, Math.max(0, Number(part.penetration) || 0));
     const elementResist = part.elementId ? Math.max(0, Number(resistanceFor(part.elementId)) || 0) : 0;
     if (elementResist >= 1) {
-      return { elementId: part.elementId, raw, final: 0, beforeAffinity: 0, blockedGeneral: 0, blockedElement: raw, immune: true };
+      return { elementId: part.elementId, base, raw, final: 0, beforeAffinity: 0, blockedGeneral: 0, blockedElement: raw, immune: true, applied: { bonus, immune: true } };
     }
 
     const soften = value => Math.min(1, Math.max(0, value)) * (1 - penetration);
@@ -65,13 +66,55 @@ export function resolveDamageParts({ parts, magicDefense = 0, general = 0, resis
     remaining *= 1 - soften(elementResist);
     const blockedElement = beforeElement - remaining;
 
-    return { elementId: part.elementId, raw, final: remaining * affinity, beforeAffinity: remaining, blockedGeneral, blockedElement };
+    // `applied`: o quanto cada defesa valeu de fato (já suavizada pela Penetração) — insumo do
+    // rastro de dano que só o Mestre vê (describeDamageParts).
+    const applied = { bonus, penetration, magicDefense: soften(magicDefense), general: soften(general), element: soften(elementResist), affinity };
+    return { elementId: part.elementId, base, raw, final: remaining * affinity, beforeAffinity: remaining, blockedGeneral, blockedElement, applied };
   });
 
   const final = Math.max(0, Math.floor(results.reduce((sum, p) => sum + p.final, 0) + 1e-9));
   // O que chega num Escudo antes da vantagem contra o CORPO (o Escudo tem a vantagem dele).
   const shieldBase = Math.max(0, Math.floor(results.reduce((sum, p) => sum + p.beforeAffinity, 0) + 1e-9));
   return { final, shieldBase, parts: results };
+}
+
+const percent = fraction => `${Math.round(fraction * 1000) / 10}%`;
+const shortNumber = value => String(Math.round((Number(value) || 0) * 10) / 10);
+
+/**
+ * Rastro de dano (só o Mestre vê): as linhas de cada parte de `resolveDamageParts`, na ordem em
+ * que as defesas foram aplicadas. Nunca vai pro chat público — as defesas do alvo são segredo.
+ * @param {Array} parts - `resolveDamageParts(...).parts`
+ * @param {{elementLabel?:(id:string)=>string, generalLabel?:string, elementSourceLabel?:(id:string)=>string}} [labels]
+ * @returns {Array<{label:string, value:string, kind?:string}>}
+ */
+export function describeDamageParts(parts, { elementLabel = id => id, generalLabel = "Resistência Geral", elementSourceLabel = () => "" } = {}) {
+  const rows = [];
+  const list = parts ?? [];
+  for (const part of list) {
+    const name = part.elementId ? elementLabel(part.elementId) : "sem elemento";
+    const a = part.applied ?? {};
+    rows.push({ label: list.length > 1 ? `Parte ${name}` : `Dano (${name})`, value: shortNumber(part.base ?? part.raw), kind: "part" });
+    if (a.absolute) {
+      rows.push({ label: "Dano Absoluto: ignora defesas e vantagem", value: "—" });
+    } else {
+      if (a.bonus > 0) rows.push({ label: "Bônus contra Traço do alvo", value: `+${percent(a.bonus)}` });
+      if (a.immune) {
+        rows.push({ label: `Imunidade a ${name}${elementSourceLabel(part.elementId) ? ` (${elementSourceLabel(part.elementId)})` : ""}`, value: "zera" });
+      } else {
+        if (a.penetration > 0) rows.push({ label: "Penetração (suaviza cada defesa)", value: percent(a.penetration) });
+        if (a.magicDefense > 0) rows.push({ label: "Defesa Mágica", value: `−${percent(a.magicDefense)}` });
+        if (a.general > 0) rows.push({ label: generalLabel, value: `−${percent(a.general)}` });
+        if (a.element > 0) {
+          const source = elementSourceLabel(part.elementId);
+          rows.push({ label: `Resistência a ${name}${source ? ` (${source})` : ""}`, value: `−${percent(a.element)}` });
+        }
+        if (a.affinity !== undefined && a.affinity !== 1) rows.push({ label: "Vantagem contra o elemento do corpo", value: `×${shortNumber(a.affinity)}` });
+      }
+    }
+    if (list.length > 1) rows.push({ label: `= ${name}`, value: shortNumber(part.final), kind: "subtotal" });
+  }
+  return rows;
 }
 
 /**

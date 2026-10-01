@@ -302,6 +302,5 @@ separado — é o que o Foundry compara com o manifesto para oferecer atualizaç
 
 Projeto em desenvolvimento ativo. Próximos passos:
 
-- adaptar os Active Effects ao formato novo da V14 (`system.changes`);
 - bônus por posto de tripulação (ex.: o Piloto somando Destreza à Evasão);
 - mais testes em mundo real no Foundry.

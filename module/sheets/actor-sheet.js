@@ -1,9 +1,11 @@
+import { effectAnchors, finiteRemaining, anchorLifetime, PERMANENT } from "../effect-anchors.js";
+import { changeActorSpecies } from "../species.js";
+import { isSpeciesLocked } from "../species-rules.js";
 import {
   SYSTEM_ID,
   MEU_SISTEMA,
   getCharacterEnergyLabel,
   getActiveCurrencies,
-  getActiveSpeciesPresets,
   getSpeciesForCreation,
   isEconomyEnabled,
   isTitlesEnabled,
@@ -141,6 +143,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       pickTraits: NihilityActorSheet.#onPickTraits,
       toggleEquip: NihilityActorSheet.#onToggleEquip,
       openEffectsList: NihilityActorSheet.#onOpenEffectsList,
+      explainStat: NihilityActorSheet.#onExplainStat,
       splitStack: NihilityActorSheet.#onSplitStack
     }
   };
@@ -168,6 +171,15 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
   static #onOpenEffectsList(event) {
     event.preventDefault();
     EffectsListApp.open(this.actor);
+  }
+
+  /** ⓘ ao lado de um Atributo ou de Vida/Mana: a janela "De onde vem" (apps/stat-breakdown.js). */
+  static async #onExplainStat(event, target) {
+    event.preventDefault();
+    const stat = target.dataset.stat;
+    if (!stat) return;
+    const { StatBreakdownApp } = await import("../apps/stat-breakdown.js");
+    StatBreakdownApp.open(this.actor, stat);
   }
 
   static async #onToggleEquip(event, target) {
@@ -272,6 +284,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.currencyWeightTotal = currencyTotals.weight.toFixed(2);
     // Só as espécies oferecidas na criação (o Mestre vê todas) — ver getSpeciesForCreation.
     context.speciesOptions = getSpeciesForCreation();
+    // Depois do primeiro "Confirmar" de pontos, só o Mestre troca a Espécie.
+    context.speciesLocked = !game.user.isGM && isSpeciesLocked(actor.system);
     // Só os atributos que a campanha exibe (ver getActiveAttributes em config.js). Um atributo
     // oculto continua valendo por baixo — só não aparece nem é rolável.
     context.attributeLabels = getVisibleAttributes().map(({ key, label }) => {
@@ -343,24 +357,25 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     // Active Effects de outras origens (módulos, core) não entram nessa lista. Periódicas com
     // tickUnit "manual" (cura/dano de longo prazo fora de combate) ganham o botão de tick;
     // "combatRound" tica sozinho pelo hook updateCombat, sem precisar de botão nenhum aqui.
+    const combatNow = game.combat?.started ? { round: game.combat.round ?? 0, combatId: game.combat.id } : {};
     context.activeConditions = actor.effects
       .filter(e => e.flags?.[SYSTEM_ID]?.skillEffect)
       .map(e => {
         const flags = e.flags[SYSTEM_ID];
-        // Periódico: "até desativar" só depois que os ticks de fontes finitas já zeraram e
-        // ainda sobra alguma âncora Ativa segurando o efeito (ver tickPeriodicEffect). Buff/
-        // debuff comum: `tiedToActive` já é a flag direta (sem contagem pra zerar antes).
-        const anchored = flags.periodic ? (flags.activeAnchors ?? []).length > 0 : Boolean(flags.tiedToActive);
+        // "Até desativar" só quando nenhum prazo finito corre junto com a âncora (ver
+        // effect-anchors.js): periódico com os ticks finitos zerados; comum sem `finite` sobrando.
+        const anchors = effectAnchors(flags, e.origin);
         const ticksExhausted = flags.periodic && (flags.ticksRemaining ?? 0) <= 0;
+        const finite = !flags.periodic && anchors.length ? finiteRemaining(flags.finite, combatNow) : 0;
         return {
           id: e.id,
           name: e.name,
           img: e.img,
           periodic: Boolean(flags.periodic),
           manual: flags.tickUnit === "manual",
-          tiedToActive: flags.periodic ? anchored && ticksExhausted : anchored,
+          tiedToActive: flags.periodic ? anchors.length > 0 && ticksExhausted : anchorLifetime({ anchors, finite }).untilOff,
           ticksRemaining: flags.ticksRemaining,
-          roundsRemaining: e.duration?.rounds ?? null
+          roundsRemaining: anchors.length ? (finite > 0 && finite !== PERMANENT ? finite : null) : e.duration?.rounds ?? null
         };
       });
 
@@ -464,93 +479,22 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
   /*  Anatomia / Presets de Espécie                */
   /* -------------------------------------------- */
 
+  /**
+   * Trocar a Espécie passa pela prévia (species.js): nada é gravado antes de "Aplicar", e Cancelar
+   * devolve o seletor ao que era. O jogador só troca até confirmar os primeiros Pontos de Atributo.
+   */
   async _onSpeciesChange(event) {
     event.preventDefault();
-    const species = event.currentTarget.value;
-    await this.actor.update({ "system.species": species });
-    await this._applySpeciesPreset(species);
-  }
-
-  /**
-   * Aplica automaticamente o Preset de Partes do Corpo E Skills Raciais da
-   * espécie selecionada, substituindo as partes/skills raciais atuais após
-   * confirmação do usuário.
-   */
-  async _applySpeciesPreset(speciesKey) {
-    if (this.actor.system.lastAppliedSpeciesPreset === speciesKey) return;
-
-    const presets = getActiveSpeciesPresets();
-    const preset = presets[speciesKey];
-    if (!preset) return;
-
-    const confirmed = await DialogV2.confirm({
-      window: { title: "Aplicar Preset de Espécie" },
-      content: `<p>Substituir Partes do Corpo e Skills Raciais atuais pelo preset de <strong>${preset.label}</strong>?</p>`
-    });
-    if (!confirmed) return;
-
-    if (isAnatomyEnabled()) {
-      const existingParts = this.actor.items.filter(i => i.type === "body_part");
-      if (existingParts.length) {
-        await this.actor.deleteEmbeddedDocuments("Item", existingParts.map(p => p.id));
-      }
-      const newPartsData = (preset.parts ?? []).map(part => ({
-        name: part.label,
-        type: "body_part",
-        system: {
-          slot: part.slot,
-          speciesOrigin: speciesKey,
-          hp: { value: part.hpMax, max: part.hpMax },
-          status: "intact",
-          isProsthetic: false,
-          installedMods: []
-        }
-      }));
-      const createdParts = await this.actor.createEmbeddedDocuments("Item", newPartsData);
-      for (const part of createdParts) await registerItemInCompendium(part.toObject());
+    const select = event.currentTarget;
+    const species = select.value;
+    if (species === (this.actor.system.species || "")) return;
+    if (!game.user.isGM && isSpeciesLocked(this.actor.system)) {
+      ui.notifications.warn("A Espécie já está definida: só o Mestre pode trocar agora.");
+      select.value = this.actor.system.species || "";
+      return;
     }
-
-    const existingRacial = this.actor.items.filter(i => i.type === "skill" && i.system.tier === "racial");
-    if (existingRacial.length) {
-      await this.actor.deleteEmbeddedDocuments("Item", existingRacial.map(s => s.id));
-    }
-    const newSkillsData = (preset.skills ?? []).map(s => ({
-      name: s.name,
-      type: "skill",
-      system: {
-        tier: "racial",
-        level: Number(s.level) || 1,
-        cost: Number(s.cost) || 0,
-        hasUpkeep: Boolean(s.hasUpkeep),
-        variableMana: Boolean(s.variableMana),
-        magicTag: s.magicTag || "auto",
-        upkeepCost: Number(s.upkeepCost) || 0,
-        animationPath: s.animationPath || "",
-        description: s.description || "",
-        // Skill Racial salva em 1.37 com Estrutura como Tipo de Alvo vira a Mecânica Estrutura.
-        effectType: isStructureMechanic(s) ? "structure" : MEU_SISTEMA.SKILL_EFFECT_TYPES.includes(s.effectType) ? s.effectType : "none",
-        damageFormula: s.damageFormula || "",
-        isMagicDamage: Boolean(s.isMagicDamage),
-        isAbsoluteDamage: Boolean(s.isAbsoluteDamage),
-        damageScale: s.damageScale || "",
-        scalingAttribute: s.scalingAttribute || "",
-        damageElements: Array.isArray(s.damageElements) ? s.damageElements : [],
-        effects: Array.isArray(s.effects) ? s.effects : [],
-        resistanceTarget: s.resistanceTarget || "",
-        targetType: MEU_SISTEMA.SKILL_TARGET_TYPES.includes(s.targetType) ? s.targetType : "targeted",
-        structureId: s.structureId || "",
-        areaShape: s.areaShape || "",
-        areaDistance: Number(s.areaDistance) || 0,
-        areaAngle: Number(s.areaAngle) || 53,
-        zoneRounds: Number(s.zoneRounds) || 3
-      }
-    }));
-    if (newSkillsData.length) {
-      const createdSkills = await this.actor.createEmbeddedDocuments("Item", newSkillsData);
-      for (const s of createdSkills) await registerItemInCompendium(s.toObject());
-    }
-
-    await this.actor.update({ "system.lastAppliedSpeciesPreset": speciesKey });
+    const applied = await changeActorSpecies(this.actor, { species });
+    if (!applied) select.value = this.actor.system.species || "";
   }
 
   /* -------------------------------------------- */
@@ -754,7 +698,11 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       updates[`system.attributes.combat.${key}.points`] = combat[key].points + pending;
       updates[`system.attributes.combat.${key}.pendingPoints`] = 0;
     }
-    if (Object.keys(updates).length) await this.actor.update(updates);
+    if (!Object.keys(updates).length) return;
+    // O primeiro "Confirmar" trava a Espécie para o jogador (só o Mestre troca depois).
+    updates["system.speciesState.lockedAt"] = this.actor.system.speciesState?.lockedAt ?? Date.now();
+    updates["system.speciesState.unlocked"] = false;
+    await this.actor.update(updates);
   }
 
   /** Descarta todo `pendingPoints` (volta pro último estado confirmado) — nunca toca em `points`. */

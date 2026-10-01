@@ -12,7 +12,7 @@ import "./setup.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { computeAttributeDicePool, buildAttributeRollFormula } from "../module/dice.js";
+import { computeAttributeDicePool, buildAttributeRollFormula } from "../module/core/dice.js";
 import {
   MEU_SISTEMA,
   getModuleSizePreset,
@@ -61,13 +61,13 @@ import {
   normalizeLightConfig,
   manaInvestmentPower,
   tractorHold
-} from "../module/config.js";
-import { computeResistancePercent, computeResistanceName, resistanceMaxLevel } from "../module/skill-effects.js";
-import { buildSubSkillsFromSources, buildGrantedSkillData } from "../module/skill-snapshot.js";
-import { buildBatchPrompt, summarizeCreatedDocument } from "../module/ai-generation.js";
-import { moduleIntegrityRatio } from "../module/data/starship-model.js";
-import { splitStructuralDamage } from "../module/starship-power.js";
-import { splitShieldDamage } from "../module/damage-apply.js";
+} from "../module/core/config.js";
+import { computeResistancePercent, computeResistanceName, resistanceMaxLevel } from "../module/combat/resistance.js";
+import { buildSubSkillsFromSources, buildGrantedSkillData } from "../module/skills/skill-snapshot.js";
+import { buildBatchPrompt, summarizeCreatedDocument } from "../module/ai/ai-generation.js";
+import { moduleIntegrityRatio } from "../module/starship/starship-model.js";
+import { splitStructuralDamage } from "../module/starship/starship-power.js";
+import { splitShieldDamage } from "../module/combat/damage-apply.js";
 
 /* -------------------------------------------- */
 /*  Pool de dados de Atributo                    */
@@ -722,7 +722,7 @@ import {
   buildModifiedFormula,
   applyRollModifiers,
   describeRollOptions
-} from "../module/roll-modifiers.js";
+} from "../module/core/roll-modifiers.js";
 
 test("rolagem: vantagem rola o pool inteiro duas vezes e fica com o maior", () => {
   assert.equal(applyAdvantageToFormula("2d20+5", "advantage"), "{2d20+5, 2d20+5}kh");
@@ -780,7 +780,7 @@ import {
   elementVsDefender,
   hitAffinityFactor,
   buildAffinityMatrix
-} from "../module/damage-rules.js";
+} from "../module/combat/damage-rules.js";
 
 test("elementos: o golpe é dividido em partes iguais", () => {
   assert.deepEqual(splitDamageParts(100, ["fire", "ice"]), [{ elementId: "fire", raw: 50 }, { elementId: "ice", raw: 50 }]);
@@ -893,7 +893,7 @@ test("traços: os da Espécie, mais os da ficha, menos os retirados", () => {
 /*  Modificadores Condicionais                   */
 /* -------------------------------------------- */
 
-import { matchesWhen, sumConditionalModifiers, perEachCount } from "../module/conditional-modifiers.js";
+import { matchesWhen, sumConditionalModifiers, perEachCount } from "../module/combat/conditional-modifiers.js";
 
 const DRAGON_SLAYER = { when: { kind: "otherTrait", value: "draconic" }, then: { kind: "damagePercent", value: 25 } };
 
@@ -946,7 +946,7 @@ test("condicional: Resistência filtra pelo alvo da Resistência", () => {
 /*  Categorias de Módulo e Classes               */
 /* -------------------------------------------- */
 
-import { moduleRole, categorySlotLimit, getModuleCategories } from "../module/config.js";
+import { moduleRole, categorySlotLimit, getModuleCategories } from "../module/core/config.js";
 
 test("categorias: as 9 de sempre têm Função e ids antigos continuam válidos", () => {
   assert.equal(moduleRole("reactor"), "power");
@@ -977,7 +977,7 @@ test("classes: a Classe sobrescreve as vagas da Categoria; Distribuição é sem
 import { capPolyline, polylineLength, structureSegments, pointsAlongPolyline, segmentCrossing, firstStructureOnPath, splitStructureHit,
   pointInSegments,
   segmentsCross
-} from "../module/structure-geometry.js";
+} from "../module/structures/structure-geometry.js";
 
 test("estrutura: traçado livre para no comprimento máximo", () => {
   const capped = capPolyline([[0, 0], [100, 0], [100, 100]], 150);
@@ -1010,8 +1010,8 @@ test("estrutura: sem ponto ou tamanho, nenhuma parede", () => {
 /*  Exportar/Importar e presets                  */
 /* -------------------------------------------- */
 
-import { readTransferBundle, diffTransfer, transferGroup } from "../module/config-transfer.js";
-import { presetContent } from "../module/config.js";
+import { readTransferBundle, diffTransfer, transferGroup } from "../module/core/config-transfer.js";
+import { presetContent } from "../module/core/config.js";
 
 test("importar: formato atual traz o mapa de settings, sem o registro de migrações", () => {
   const bundle = { _system: "nihility-rpg-system", settings: { xpFormula: "100 * @nivel", completedMigrations: "[]" } };
@@ -1491,7 +1491,7 @@ import {
   durationRemaining,
   refreshFiniteRounds,
   PERMANENT
-} from "../module/effect-anchors.js";
+} from "../module/combat/effect-anchors.js";
 
 test("Âncoras de Skill Ativa: A e B seguram o mesmo efeito, desligar A não derruba B", () => {
   const a = makeAnchor({ skillUuid: "Actor.lux.Item.a", skillId: "a" });
@@ -1561,7 +1561,7 @@ test("Âncoras: duração do Foundry e reaplicação com prazo (0 rodadas = perm
   assert.equal(refreshFiniteRounds(3, 0), PERMANENT, "aplicação permanente vence o prazo");
 });
 
-import { buildCatalogIndex, checkMechanic, checkConditionals, validateItem, validateActor, validateCatalogs } from "../module/world-validator.js";
+import { buildCatalogIndex, checkMechanic, checkConditionals, validateItem, validateActor, validateCatalogs } from "../module/world/world-validator.js";
 
 const VALIDATOR_CATALOGS = {
   conditions: [{ id: "burn", label: "Queimadura", elements: ["fire"] }, { id: "slow", label: "Lentidão", effect: { kind: "modifier", modTarget: "movement" } }],
@@ -1672,7 +1672,7 @@ test("Validador: referências entre catálogos", () => {
   assert.ok(byEntry.includes("Muralha: Elementos"));
 });
 
-import { explainAttribute, explainVital } from "../module/stat-explain.js";
+import { explainAttribute, explainVital } from "../module/combat/stat-explain.js";
 
 test("Explicação de Atributo: mesmas contas da ficha (Total, Efetivo, Bônus, Pool)", () => {
   const ex = explainAttribute({
@@ -1726,7 +1726,7 @@ test("Explicação de Vida/Mana: fórmula, piso, modificadores e mínimo", () =>
   assert.deepEqual(explainVital({ enabled: false }), { enabled: false, max: 0 });
 });
 
-import { describeDamageParts } from "../module/damage-rules.js";
+import { describeDamageParts } from "../module/combat/damage-rules.js";
 
 test("Rastro de dano (Mestre): uma linha por defesa, na ordem aplicada", () => {
   const labels = { elementLabel: id => ({ fire: "Fogo", ice: "Gelo" })[id] ?? id, generalLabel: "Resistência Geral (Pele de Pedra)", elementSourceLabel: id => (id === "ice" ? "Sangue Frio" : "") };
@@ -1771,7 +1771,7 @@ import {
   speciesDiff,
   isSpeciesLocked,
   racialSkillSystem
-} from "../module/species-rules.js";
+} from "../module/species/species-rules.js";
 
 const DRAGOIDE = {
   label: "Dragoide",

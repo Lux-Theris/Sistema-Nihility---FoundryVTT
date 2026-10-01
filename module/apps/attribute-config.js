@@ -8,7 +8,7 @@
  * settings de fórmula vital. Deixar renomear a chave apagaria em silêncio todo efeito, Título e
  * fórmula que apontasse pra ela — por isso só o rótulo e a visibilidade são editáveis.
  */
-import { SYSTEM_ID, MEU_SISTEMA, getActiveAttributes, getVitalFormula, debugLog } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getActiveAttributes, getVitalFormula, debugLog } from "../core/config.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 

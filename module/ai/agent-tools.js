@@ -4,9 +4,9 @@
  * só empilham em `proposals`, pra passar pela tela de revisão antes de qualquer coisa ser
  * criada/editada (ver Parte 3.5 do plano).
  */
-import { MEU_SISTEMA, getActiveDamageElements } from "../config.js";
-import { getCompendiumForItemType } from "../compendium.js";
-import { sanitizeDocumentPatch } from "../ai-generation.js";
+import { MEU_SISTEMA, getActiveDamageElements } from "../core/config.js";
+import { getCompendiumForItemType } from "../core/compendium.js";
+import { sanitizeDocumentPatch } from "./ai-generation.js";
 
 /**
  * Cria um novo conjunto de tools + o array de propostas que elas alimentam. Uma instância

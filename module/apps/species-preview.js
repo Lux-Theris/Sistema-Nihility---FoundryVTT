@@ -3,7 +3,7 @@
  * outro lugar, fica e sai — com as perdas primeiro, em vermelho. Nada é gravado aqui; quem grava é
  * applySpeciesPreview (species.js) depois do "Aplicar".
  */
-import { SYSTEM_ID } from "../config.js";
+import { SYSTEM_ID } from "../core/config.js";
 
 const { DialogV2 } = foundry.applications.api;
 

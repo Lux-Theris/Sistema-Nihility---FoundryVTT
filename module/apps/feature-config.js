@@ -10,7 +10,7 @@
  * Toda a tela é derivada de `MEU_SISTEMA.FEATURES`/`CAMPAIGN_PRESETS`: adicionar um bloco novo
  * na tabela de config faz ele aparecer aqui sozinho, sem tocar neste arquivo nem no template.
  */
-import { SYSTEM_ID, MEU_SISTEMA, isFeatureEnabled, applyCampaignPreset, getFeatureOption, debugLog } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, isFeatureEnabled, applyCampaignPreset, getFeatureOption, debugLog } from "../core/config.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 

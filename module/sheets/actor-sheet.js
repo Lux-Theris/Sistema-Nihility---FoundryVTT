@@ -1,6 +1,6 @@
-import { effectAnchors, finiteRemaining, anchorLifetime, PERMANENT } from "../effect-anchors.js";
-import { changeActorSpecies } from "../species.js";
-import { isSpeciesLocked } from "../species-rules.js";
+import { effectAnchors, finiteRemaining, anchorLifetime, PERMANENT } from "../combat/effect-anchors.js";
+import { changeActorSpecies } from "../species/species.js";
+import { isSpeciesLocked } from "../species/species-rules.js";
 import {
   SYSTEM_ID,
   MEU_SISTEMA,
@@ -28,28 +28,30 @@ import {
   isStructureMechanic,
   actorDisplayName,
   isInventoryEnabled
-} from "../config.js";
+} from "../core/config.js";
 import { hasPadDevice } from "../pad/pad-crew.js";
 import { getTotalUnread } from "../pad/pad-messaging.js";
-import { fuseSkills, evolveSkill, breakSkillPoints, mergeSkillPoints, requestSkillCreation } from "../skill-economy.js";
-import { registerItemInCompendium } from "../compendium.js";
-import { convertActorCurrency, transferCurrency } from "../currency.js";
-import { rollAttribute, buildAttributeRollFormula } from "../dice.js";
-import { rollInitiativeForActor, getInitiativeLabel } from "../combat.js";
-import { getMovementDashStatus, toggleMovementDash } from "../movement.js";
+import { fuseSkills, evolveSkill, breakSkillPoints, mergeSkillPoints, requestSkillCreation } from "../skills/skill-economy.js";
+import { registerItemInCompendium } from "../core/compendium.js";
+import { convertActorCurrency, transferCurrency } from "../economy/currency.js";
+import { rollAttribute, buildAttributeRollFormula } from "../core/dice.js";
+import { rollInitiativeForActor, getInitiativeLabel } from "../combat/combat.js";
+import { getMovementDashStatus, toggleMovementDash } from "../combat/movement.js";
 import { pickTargetActor } from "../helpers/target-picker.js";
 import { rollOptionsFromEvent } from "../apps/roll-options-dialog.js";
 import { traitContext, changeTrait, pickActorTraits } from "../helpers/traits-ui.js";
-import { describeShieldPools } from "../shield-pools.js";
-import { getStructure, pickStructurePlacement } from "../structures.js";
-import { useSkillEffect, useWeaponAttack, tickPeriodicEffect } from "../skill-effects.js";
-import { announceVoiceOfTheWorld } from "../voice-of-the-world.js";
-import { areaEffectsSupported, pickAreaTargets, pickZonePlacement } from "../area-effects.js";
+import { describeShieldPools } from "../combat/shield-pools.js";
+import { getStructure, pickStructurePlacement } from "../structures/structures.js";
+import { useSkillEffect } from "../skills/skill-effects.js";
+import { useWeaponAttack } from "../combat/damage-roll.js";
+import { tickPeriodicEffect } from "../skills/effects-apply.js";
+import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
+import { areaEffectsSupported, pickAreaTargets, pickZonePlacement } from "../combat/area-effects.js";
 import { openSkillEditorDialog } from "../apps/skill-editor-dialog.js";
 import { editPortraitFrameAction, CLEAR_PORTRAIT_FRAME } from "../helpers/portrait-frame.js";
 import { pickImageFile } from "../helpers/foundry-compat.js";
 
-import { handleItemDrop, splitStack, toggleEquipped, inventoryContext } from "../inventory.js";
+import { handleItemDrop, splitStack, toggleEquipped, inventoryContext } from "../economy/inventory.js";
 import { EffectsListApp } from "../apps/effects-list.js";
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;

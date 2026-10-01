@@ -3,7 +3,7 @@
  * força resultante e a eficiência (força por Mana), pra quem vai jogar tudo numa explosão saber o
  * que está trocando. A regra da força mora em `manaInvestmentPower` (config.js).
  */
-import { manaInvestmentPower } from "../config.js";
+import { manaInvestmentPower } from "../core/config.js";
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);

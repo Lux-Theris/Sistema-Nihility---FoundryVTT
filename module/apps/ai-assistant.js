@@ -1,5 +1,5 @@
-import { SYSTEM_ID, debugLog, getActiveSpeciesPresets } from "../config.js";
-import { changeActorSpecies } from "../species.js";
+import { SYSTEM_ID, debugLog, getActiveSpeciesPresets } from "../core/config.js";
+import { changeActorSpecies } from "../species/species.js";
 import {
   generateActorFromAI,
   generateVesselFromAI,
@@ -11,11 +11,11 @@ import {
   editDocumentWithAI,
   summarizeCreatedDocument,
   buildBatchPrompt
-} from "../ai-generation.js";
-import { registerItemInCompendium } from "../compendium.js";
+} from "../ai/ai-generation.js";
+import { registerItemInCompendium } from "../core/compendium.js";
 import { runAgentTask } from "../ai/agent-runner.js";
 import { createAgentTools } from "../ai/agent-tools.js";
-import { recordBatchOperation, undoBatchOperation, listRecentBatchOperations } from "../helpers/world-backup.js";
+import { recordBatchOperation, undoBatchOperation, listRecentBatchOperations } from "../world/world-backup.js";
 import { getDragEventData } from "../helpers/foundry-compat.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;

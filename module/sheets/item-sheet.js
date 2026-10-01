@@ -33,7 +33,7 @@ import {
   getAmmoTypes,
   cargoSlotsFor,
   isInventoryEnabled
-} from "../config.js";
+} from "../core/config.js";
 import {
   WHEN_KINDS,
   WHEN_LABELS,
@@ -42,13 +42,13 @@ import {
   THEN_LABELS,
   PER_EACH_KINDS,
   PER_EACH_LABELS
-} from "../conditional-modifiers.js";
-import { createGrantedSkill, removeGrantedSkill, refreshGrantedSkill, evolveSkill } from "../skill-economy.js";
-import { announceVoiceOfTheWorld } from "../voice-of-the-world.js";
-import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../skill-effects.js";
+} from "../combat/conditional-modifiers.js";
+import { createGrantedSkill, removeGrantedSkill, refreshGrantedSkill, evolveSkill } from "../skills/skill-economy.js";
+import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
+import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../combat/resistance.js";
 import { openSkillEditorDialog, mechanicSummaryFor } from "../apps/skill-editor-dialog.js";
 import { pickDamageElements, selectedElementChips } from "../apps/checklist-picker.js";
-import { openLightConfigDialog, describeLight } from "../lights.js";
+import { openLightConfigDialog, describeLight } from "../combat/lights.js";
 import { pickImageFile } from "../helpers/foundry-compat.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;

@@ -1,4 +1,4 @@
-import { MEU_SISTEMA, getXpForNextLevel, migrateStructureTarget } from "../config.js";
+import { MEU_SISTEMA, getXpForNextLevel, migrateStructureTarget } from "../core/config.js";
 
 const fields = foundry.data.fields;
 
@@ -89,7 +89,7 @@ function attributeBonusesSchema() {
  * si (effectType/damageFormula/effects/etc.):
  *  - `hasUpkeep`/`upkeepCost`: cobrem uma Skill "Ativa". O `cost` (campo separado, já existente
  *    em cada schema) é gasto UMA VEZ ao ligar, e passa a drenar `upkeepCost` a CADA rodada (via
- *    `tickActorUpkeepSkills` em skill-effects.js, chamada do mesmo hook `updateCombat` que já
+ *    `tickActorUpkeepSkills` em upkeep.js, chamada do mesmo hook `updateCombat` que já
  *    tica Veneno/cura) até ser desativada de novo pelo botão "Usar" ou até a Energia zerar
  *    sozinha. `active` é estado de EXECUÇÃO, não configuração — nunca copiado ao clonar/fundir
  *    uma Skill (skill-snapshot.js), sempre nasce `false`.
@@ -133,7 +133,7 @@ function usageFields() {
  *    cura/dano de longo prazo fora de combate).
  *  - `damageElements`: só relevante quando `periodic` E `amount` negativo (tick de dano, tipo
  *    Veneno) — 0+ ids de getActiveDamageElements(), usados só pra Resistência Elemental reduzir
- *    o tick (ver `tickPeriodicEffect` em skill-effects.js). Cura periódica (`amount` positivo)
+ *    o tick (ver `tickPeriodicEffect` em effects-apply.js). Cura periódica (`amount` positivo)
  *    ignora esse campo e sempre aplica o valor cheio — não existe conceito de "resistir à
  *    própria cura" neste sistema. Diferente do dano "normal" (`rollSkillDamage`), um tick nunca
  *    passa por Defesa Mágica — só Resistência Geral/Elemental reduzem (decisão de balanceamento
@@ -141,7 +141,7 @@ function usageFields() {
  *    `isMagicDamage` aqui.
  *  Reaplicar a MESMA Condição (mesmo `conditionId`, não vazio) em quem já está afetado por ela
  *  NÃO cria um segundo Active Effect — soma `durationRounds`/ticks restantes no existente (ver
- *  `applyEffectsToActor` em skill-effects.js).
+ *  `applyEffectsToActor` em effects-apply.js).
  */
 function effectEntrySchema() {
   return new fields.SchemaField({
@@ -152,7 +152,7 @@ function effectEntrySchema() {
     /**
      * Só relevante pros EFFECT_TARGETS "de Nave" (MEU_SISTEMA.SHIP_EFFECT_TARGETS): "flat" soma
      * `amount` direto no resultado (ADD); "multiplier" multiplica (MULTIPLY) — `amount` nesse
-     * caso é lido como percentual (ex: 20 = ×1.20), ver `applyEffectsToActor` em skill-effects.js.
+     * caso é lido como percentual (ex: 20 = ×1.20), ver `applyEffectsToActor` em effects-apply.js.
      */
     modifierType: new fields.StringField({
       required: false,
@@ -364,7 +364,7 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
 
       /**
        * Independente dos elementos abaixo: só essa flag decide se o dano é reduzido pela
-       * Defesa Mágica do alvo (ver `rollSkillDamage` em skill-effects.js). Uma skill pode ser
+       * Defesa Mágica do alvo (ver `rollSkillDamage` em damage-roll.js). Uma skill pode ser
        * mágica sem elemento (ex: força arcana pura), elemental sem ser mágica (ex: espada em
        * chamas — dano físico com flavor de fogo, não reduzido), ou os dois ao mesmo tempo.
        */
@@ -430,7 +430,7 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
        * "physical" — cortes/contusões/etc.) = resistência só a esse elemento específico.
        * Sem `choices` fixo porque a lista de elementos é configurável em runtime pela setting
        * `damageElementsData`, não dá pra travar em tempo de definição de schema.
-       * Progressão: 10%/nível (ver `computeResistancePercent` em skill-effects.js). Resistência
+       * Progressão: 10%/nível (ver `computeResistancePercent` em resistance.js). Resistência
        * Geral tem teto no nível 5 (50%, nunca vira Imunidade — seria OP demais); Resistência a
        * um Elemento específico tem teto no nível 10 (100% = Imunidade, e o nome muda sozinho).
        */

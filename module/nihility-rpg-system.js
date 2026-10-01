@@ -13,9 +13,9 @@ import {
   markMigrationCompleted,
   isSkillPointsEnabled,
   isVesselsEnabled
-} from "./config.js";
+} from "./core/config.js";
 import { CharacterDataModel } from "./data/character-model.js";
-import { StarshipDataModel, VehicleDataModel } from "./data/starship-model.js";
+import { StarshipDataModel, VehicleDataModel } from "./starship/starship-model.js";
 import {
   SkillDataModel,
   BodyPartDataModel,
@@ -23,12 +23,12 @@ import {
   StarshipModuleDataModel,
   GenericItemDataModel
 } from "./data/item-models.js";
-import { AIHelper } from "./ai-helper.js";
-import { ensureSystemCompendiums, registerCompendiumCreateDefaults } from "./compendium.js";
-import { approveSkillCreationRequest, rejectSkillCreationRequest, removeGrantedSkill } from "./skill-economy.js";
-import { announceLevelUp, announceVoiceOfTheWorld } from "./voice-of-the-world.js";
+import { AIHelper } from "./ai/ai-helper.js";
+import { ensureSystemCompendiums, registerCompendiumCreateDefaults } from "./core/compendium.js";
+import { approveSkillCreationRequest, rejectSkillCreationRequest, removeGrantedSkill } from "./skills/skill-economy.js";
+import { announceLevelUp, announceVoiceOfTheWorld } from "./core/voice-of-the-world.js";
 import { NihilityActorSheet } from "./sheets/actor-sheet.js";
-import { NihilityStarshipSheet, NihilityVehicleSheet } from "./sheets/starship-sheet.js";
+import { NihilityStarshipSheet, NihilityVehicleSheet } from "./starship/starship-sheet.js";
 import { NihilityItemSheet } from "./sheets/item-sheet.js";
 import { CurrencyConfigApp } from "./apps/currency-config.js";
 import { SpeciesConfigApp } from "./apps/species-config.js";
@@ -37,28 +37,23 @@ import { StatusConditionsConfigApp } from "./apps/status-conditions-config.js";
 import { NihilityMenuApp } from "./apps/nihility-menu.js";
 import { FeatureConfigApp } from "./apps/feature-config.js";
 import { AttributeConfigApp } from "./apps/attribute-config.js";
-import {
-  tickCombatRoundEffects,
-  tickActorUpkeepSkills,
-  advanceZones,
-  tickZonesForCombatant,
-  shutdownActiveSkillsOnDepletion,
-  processPendingUpkeepRemoval
-} from "./skill-effects.js";
+import { tickCombatRoundEffects } from "./skills/effects-apply.js";
+import { tickActorUpkeepSkills, shutdownActiveSkillsOnDepletion, processPendingUpkeepRemoval } from "./skills/upkeep.js";
+import { advanceZones, tickZonesForCombatant } from "./skills/zones.js";
 import { isDesignatedGm } from "./helpers/gm-relay.js";
-import { tickStarshipPower, registerShieldAdaptationReset } from "./starship-power.js";
-import { requestShipRepair, approveShipRepairRoll, restoreShipRepairTarget } from "./starship-repair.js";
+import { tickStarshipPower, registerShieldAdaptationReset } from "./starship/starship-power.js";
+import { requestShipRepair, approveShipRepairRoll, restoreShipRepairTarget } from "./starship/starship-repair.js";
 import { registerGmRelay } from "./helpers/gm-relay.js";
-import { registerInitiative } from "./combat.js";
-import { registerMovementLimit } from "./movement.js";
-import { registerConditionalRefresh } from "./conditional-context.js";
-import { advanceStructures, collapseStructuresOfCaster, renderStructureControls, registerStructureContact } from "./structures.js";
-import { registerStructureRendering } from "./structure-render.js";
-import { registerShieldLightHooks } from "./lights.js";
-import { registerShieldPoolReconcile } from "./shield-pools.js";
-import { registerStatusConditions, interceptManualCondition } from "./conditions.js";
-import { renderDamageControls, renderDamageTrace } from "./damage-apply.js";
-import { isSpeciesLocked, normalizeSpeciesCatalog } from "./species-rules.js";
+import { registerInitiative } from "./combat/combat.js";
+import { registerMovementLimit } from "./combat/movement.js";
+import { registerConditionalRefresh } from "./combat/conditional-context.js";
+import { advanceStructures, collapseStructuresOfCaster, renderStructureControls, registerStructureContact } from "./structures/structures.js";
+import { registerStructureRendering } from "./structures/structure-render.js";
+import { registerShieldLightHooks } from "./combat/lights.js";
+import { registerShieldPoolReconcile } from "./combat/shield-pools.js";
+import { registerStatusConditions, interceptManualCondition } from "./combat/conditions.js";
+import { renderDamageControls, renderDamageTrace } from "./combat/damage-apply.js";
+import { isSpeciesLocked, normalizeSpeciesCatalog } from "./species/species-rules.js";
 import { notifyIncomingPadMessage } from "./pad/pad-messaging.js";
 import {
   isEnergyPoolEnabled,
@@ -71,7 +66,7 @@ import {
   vesselSizeLabel,
   sizeFitsClass,
   describeClassSizeRange
-} from "./config.js";
+} from "./core/config.js";
 import { registerPortraitHelper } from "./helpers/portrait-frame.js";
 import {
   actorsCollection,

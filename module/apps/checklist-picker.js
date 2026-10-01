@@ -6,7 +6,7 @@
  * formulário mostra só o que foi escolhido (chips com ×) e um botão "+ Elemento · N" abre esta
  * janela. É a prancheta 6 do redesenho da Ficha de Item.
  */
-import { getActiveDamageElements, getActiveTraits } from "../config.js";
+import { getActiveDamageElements, getActiveTraits } from "../core/config.js";
 
 const { DialogV2 } = foundry.applications.api;
 

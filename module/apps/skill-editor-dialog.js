@@ -16,10 +16,10 @@ import {
   isStructuresEnabled,
   isStructureMechanic,
   MAGIC_TAG_LABELS
-} from "../config.js";
-import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../skill-effects.js";
+} from "../core/config.js";
+import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../combat/resistance.js";
 import { pickerFieldHtml, readPickerField, wireElementPickerField } from "./checklist-picker.js";
-import { openLightConfigDialog, describeLight } from "../lights.js";
+import { openLightConfigDialog, describeLight } from "../combat/lights.js";
 
 const { DialogV2 } = foundry.applications.api;
 

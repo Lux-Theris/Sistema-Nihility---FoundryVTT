@@ -1,7 +1,7 @@
-import { MEU_SISTEMA, getStructures } from "../config.js";
+import { MEU_SISTEMA, getStructures } from "../core/config.js";
 import { pickerFieldHtml, readPickerField, wireElementPickerField } from "./checklist-picker.js";
 import { createCardListConfigApp, escapeHtml, optionsHtml } from "./card-list-config-factory.js";
-import { openLightConfigDialog, describeLight } from "../lights.js";
+import { openLightConfigDialog, describeLight } from "../combat/lights.js";
 
 /**
  * Editor do catálogo de Estruturas (Parede de Pedra, Bloco de Gelo, Barreira de Mana…) que as

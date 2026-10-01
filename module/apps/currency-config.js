@@ -1,4 +1,4 @@
-import { getActiveCurrencies } from "../config.js";
+import { getActiveCurrencies } from "../core/config.js";
 import { createListConfigApp } from "./list-config-app-factory.js";
 
 /**

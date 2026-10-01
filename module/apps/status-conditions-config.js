@@ -1,6 +1,6 @@
-import { MEU_SISTEMA, getActiveStatusConditions, getAttributeLabels } from "../config.js";
+import { MEU_SISTEMA, getActiveStatusConditions, getAttributeLabels } from "../core/config.js";
 import { createCardListConfigApp, escapeHtml, optionsHtml } from "./card-list-config-factory.js";
-import { registerStatusConditions } from "../conditions.js";
+import { registerStatusConditions } from "../combat/conditions.js";
 import { pickerFieldHtml, readPickerField, wireElementPickerField } from "./checklist-picker.js";
 
 /**

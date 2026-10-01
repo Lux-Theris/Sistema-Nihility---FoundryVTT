@@ -5,14 +5,15 @@
  * de peso; na Nave, efeitos de sistema, Raio Trator e Escudo adaptativo. O Mestre encerra dali.
  * Só lê; quem escreve são as funções de sempre (endShipSystemEffect, regenerateSustainedShields…).
  */
-import { SYSTEM_ID, getEnergyLabelForActor, getActiveStatusConditions, getActiveDamageElements, getEffectTargetLabels, actorElements } from "../config.js";
+import { SYSTEM_ID, getEnergyLabelForActor, getActiveStatusConditions, getActiveDamageElements, getEffectTargetLabels, actorElements } from "../core/config.js";
 import { readEffectChanges, effectModes } from "../helpers/foundry-compat.js";
-import { describeShieldPools } from "../shield-pools.js";
-import { structuresOnScene } from "../structures.js";
-import { describeEffectChangeKey, collectActiveUpkeepSources } from "../skill-effects.js";
-import { endShipSystemEffect } from "../starship-power.js";
+import { describeShieldPools } from "../combat/shield-pools.js";
+import { structuresOnScene } from "../structures/structures.js";
+import { describeEffectChangeKey } from "../skills/effect-targets.js";
+import { collectActiveUpkeepSources } from "../skills/upkeep.js";
+import { endShipSystemEffect } from "../starship/starship-power.js";
 import { runAsGm } from "../helpers/gm-relay.js";
-import { effectAnchors, finiteRemaining, anchorLifetime, PERMANENT } from "../effect-anchors.js";
+import { effectAnchors, finiteRemaining, anchorLifetime, PERMANENT } from "../combat/effect-anchors.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 

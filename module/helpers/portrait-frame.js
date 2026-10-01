@@ -7,7 +7,7 @@
  * são deslocamentos em FRAÇÕES do quadro (não pixels), então o mesmo enquadramento fica idêntico
  * no retrato de 84px da ficha e na prévia grande do editor.
  */
-import { SYSTEM_ID } from "../config.js";
+import { SYSTEM_ID } from "../core/config.js";
 
 const { DialogV2 } = foundry.applications.api;
 

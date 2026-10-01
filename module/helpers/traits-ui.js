@@ -5,7 +5,7 @@
  * config.js). Retirar um Traço que veio da Espécie não mexe na Espécie: ele entra em
  * `traitsRemoved` e volta com "restaurar". Só o Mestre edita; o jogador só vê.
  */
-import { getActiveTraits, getTraitLabel, getActiveSpeciesPresets, actorTraits } from "../config.js";
+import { getActiveTraits, getTraitLabel, getActiveSpeciesPresets, actorTraits } from "../core/config.js";
 import { pickTraits } from "../apps/checklist-picker.js";
 
 /** Dados pro template: chips efetivos, retirados (só Mestre) e o tamanho do catálogo (botão "+ Traço · N"). */

@@ -116,37 +116,22 @@ https://raw.githubusercontent.com/Lux-Theris/Sistema-Nihility---FoundryVTT/main/
 ├── system.json                        # Manifesto do sistema
 ├── module/
 │   ├── nihility-rpg-system.js         # Ponto de entrada (hooks init/ready/combate/chat)
-│   ├── config.js                      # Settings, FEATURES, presets, catálogos e seus leitores
-│   ├── dice.js                        # Pool de d20 escalável dos Atributos
-│   ├── roll-modifiers.js              # Vantagem e modificadores do shift+clique (regra pura)
-│   ├── damage-rules.js                # Dano por elemento, Imunidade, Escala, efeito de Condição (regra pura)
-│   ├── conditional-modifiers.js       # Bônus "Quando → Então" (regra pura)
-│   ├── conditional-context.js         # …e a ponte com Atores/combate
-│   ├── skill-economy.js               # Fusão, Evolução, Pontos de Habilidade, skills concedidas
-│   ├── skill-effects.js               # "Usar Habilidade": dano, efeitos, Condições, upkeep, Mana em 0
-│   ├── skill-snapshot.js              # Snapshot de Skill em Sub-Skill e Habilidade Concedida
-│   ├── area-effects.js                # Habilidades de Emissão e Zonas (Measured Templates)
-│   ├── structures.js                  # Estruturas no mapa (paredes, blocos, barreiras)
-│   ├── structure-geometry.js          # …e a geometria delas (regra pura)
-│   ├── movement.js                    # Deslocamento por rodada e Correr
-│   ├── combat.js                      # Iniciativa pelo pool de Atributo
-│   ├── conditions.js                  # Condições na paleta do HUD do token
-│   ├── damage-apply.js                # Aplicar/Desfazer dano no chat (Escudo pessoal primeiro)
-│   ├── config-transfer.js             # Exportar/Importar configurações
-│   ├── starship-power.js              # Tick de energia/sobrecarga/recarga de Nave
-│   ├── starship-repair.js             # Macro de reparo em campo
-│   ├── currency.js                    # Conversão e transferência de moedas
-│   ├── compendium.js                  # Compêndios de World auto-geridos
-│   ├── voice-of-the-world.js          # Canal de anúncio privado
-│   ├── vfx.js                         # Animações via Sequencer (opcional)
-│   ├── ai-generation.js               # Geração/edição de conteúdo via IA
-│   ├── ai-helper.js                   # Montagem da API pública game.nihility.ai
-│   ├── ai/                            # Provedores, loop de agente e tools
+│   ├── core/                          # config (settings, FEATURES, catálogos), dados, compêndios,
+│   │                                  # Voz do Mundo, Exportar/Importar, vfx
+│   ├── combat/                        # Iniciativa, deslocamento, dano (regras, rolagem, card),
+│   │                                  # Resistência, Antimagia, Condições, Escudo pessoal, áreas, luzes
+│   ├── skills/                        # "Usar Habilidade", efeitos, Habilidades Ativas, Zonas,
+│   │                                  # fusão/evolução e Pontos de Habilidade
+│   ├── species/                       # Espécies: regras (puras) e aplicação com prévia
+│   ├── structures/                    # Estruturas no mapa: geometria, desenho, contato
+│   ├── starship/                      # Naves/Veículos: modelo, ficha, energia, dano, reparo, tripulação
+│   ├── economy/                       # Moedas e inventário
+│   ├── ai/                            # Geração por IA, provedores, agente e ferramentas
+│   ├── world/                         # Validar Mundo e backup de lotes
 │   ├── pad/                           # PAD: tripulação, biblioteca e mensagens
-│   ├── helpers/                       # foundry-compat, gm-relay (socket), target-picker,
-│   │                                  # world-backup, traits-ui, crew-ownership
-│   ├── data/                          # DataModels (character, starship, item)
-│   ├── sheets/                        # Fichas de Actor/Item
+│   ├── helpers/                       # foundry-compat, gm-relay (socket), target-picker, traits-ui
+│   ├── data/                          # DataModels de Personagem e Itens
+│   ├── sheets/                        # Fichas de Personagem e Item
 │   └── apps/                          # Menu, Assistente de IA, PAD e editores de catálogo
 ├── templates/                         # .hbs de fichas, apps, partials (parts/) e cards de chat
 ├── styles/nihility-rpg-system.css
@@ -273,7 +258,7 @@ Não há build nem dependências: o Foundry carrega os arquivos estáticos diret
 verificações locais disponíveis são:
 
 ```bash
-node --check module/caminho/do/arquivo.js   # sintaxe de um arquivo
+node --input-type=module --check < module/pasta/arquivo.js   # sintaxe de um arquivo (como módulo)
 node --test test/rules.test.mjs             # testes das funções puras de regra
 ```
 

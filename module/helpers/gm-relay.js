@@ -15,7 +15,7 @@
  * payload um valor que o cliente possa ter inflado (o `gain` de XP é calculado no emissor por
  * conveniência, mas é re-limitado ao teto do nível no destino).
  */
-import { SYSTEM_ID } from "../config.js";
+import { SYSTEM_ID } from "../core/config.js";
 
 const CHANNEL = `system.${SYSTEM_ID}`;
 
@@ -56,13 +56,13 @@ const HANDLERS = {
   },
 
   /**
-   * Contabiliza exposição a um tipo de dano (ver `registerResistanceExposure` em skill-effects.js).
+   * Contabiliza exposição a um tipo de dano (ver `registerResistanceExposure` em resistance.js).
    * @param {{actorUuid:string, elements:string[]}} payload
    */
   async resistanceExposure({ actorUuid, elements }) {
     const actor = await fromUuid(actorUuid);
     if (!actor) return;
-    const { applyResistanceExposure } = await import("../skill-effects.js");
+    const { applyResistanceExposure } = await import("../combat/resistance.js");
     await applyResistanceExposure(actor, elements);
   },
 
@@ -78,7 +78,7 @@ const HANDLERS = {
    */
   async registerCompendiumItem({ itemData }) {
     if (!itemData || typeof itemData.name !== "string") return;
-    const { registerItemInCompendium, getCompendiumForItemType } = await import("../compendium.js");
+    const { registerItemInCompendium, getCompendiumForItemType } = await import("../core/compendium.js");
     if (!getCompendiumForItemType(itemData.type)) return;
     await registerItemInCompendium({
       name: itemData.name,
@@ -90,7 +90,7 @@ const HANDLERS = {
 
   /** Ergue uma Estrutura (Paredes + Desenho). Validação e catálogo ficam em structures.js. */
   async createStructure(payload) {
-    const { createStructureAsGm } = await import("../structures.js");
+    const { createStructureAsGm } = await import("../structures/structures.js");
     await createStructureAsGm(payload);
   },
 
@@ -99,7 +99,7 @@ const HANDLERS = {
     const scene = typeof sceneId === "string" ? game.scenes.get(sceneId) : null;
     const value = Math.max(0, Math.round(Number(amount) || 0));
     if (!scene || typeof instanceId !== "string" || !value) return;
-    const { damageStructure } = await import("../structures.js");
+    const { damageStructure } = await import("../structures/structures.js");
     await damageStructure(scene, instanceId, value);
   },
 
@@ -107,45 +107,45 @@ const HANDLERS = {
   async regenerateSustainedShields(payload) {
     const actor = typeof payload?.actorUuid === "string" ? await fromUuid(payload.actorUuid) : null;
     if (!actor) return;
-    const { regenerateSustainedShields } = await import("../skill-effects.js");
+    const { regenerateSustainedShields } = await import("../skills/sustained-shields.js");
     await regenerateSustainedShields(actor);
   },
 
   /** Raio Trator: prende um alvo (a força é recalculada aqui, ver engageTractorAsGm). */
   async engageTractor(payload) {
-    const { engageTractorAsGm } = await import("../starship-power.js");
+    const { engageTractorAsGm } = await import("../starship/starship-power.js");
     await engageTractorAsGm(payload ?? {});
   },
 
   /** Raio Trator: solta o alvo. */
   async releaseTractor(payload) {
-    const { releaseTractorAsGm } = await import("../starship-power.js");
+    const { releaseTractorAsGm } = await import("../starship/starship-power.js");
     await releaseTractorAsGm(payload ?? {});
   },
 
   /** Acende a luz de um Escudo pessoal nos Tokens do alvo (ver lights.js). */
   async setShieldLight(payload) {
-    const { setShieldLightAsGm } = await import("../lights.js");
+    const { setShieldLightAsGm } = await import("../combat/lights.js");
     await setShieldLightAsGm(payload ?? {});
   },
 
   /** Apaga as luzes de Escudo que uma Skill Ativa acendeu (ao desligá-la). */
   async clearShieldLights({ actorUuid, skillId, subSkillIndex }) {
     if (typeof actorUuid !== "string") return;
-    const { clearShieldLightsFromSourceAsGm } = await import("../lights.js");
+    const { clearShieldLightsFromSourceAsGm } = await import("../combat/lights.js");
     await clearShieldLightsFromSourceAsGm({ actorUuid, skillId: String(skillId ?? ""), subSkillIndex: Number.isInteger(subSkillIndex) ? subSkillIndex : null });
   },
 
   /** Desligar uma Skill Ativa: tira a âncora dela dos efeitos em Atores que quem desligou não possui. */
   async releaseSkillAnchors(payload) {
-    const { releaseSkillAnchorsAsGm } = await import("../skill-effects.js");
+    const { releaseSkillAnchorsAsGm } = await import("../skills/upkeep.js");
     await releaseSkillAnchorsAsGm(payload ?? {});
   },
 
   /** Derruba as Estruturas que uma Skill Ativa mantinha (ao desligá-la). */
   async removeStructures({ sourceUuid, skillId, subSkillIndex }) {
     if (typeof sourceUuid !== "string") return;
-    const { removeStructuresForAsGm } = await import("../structures.js");
+    const { removeStructuresForAsGm } = await import("../structures/structures.js");
     await removeStructuresForAsGm({ sourceUuid, skillId: String(skillId ?? ""), subSkillIndex: Number.isInteger(subSkillIndex) ? subSkillIndex : null });
   },
 

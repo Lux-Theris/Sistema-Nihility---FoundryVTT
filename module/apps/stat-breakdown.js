@@ -8,12 +8,12 @@
  * Só lê. As contas vêm de stat-explain.js (puro) sobre as mesmas listas que a preparação da ficha
  * soma (titleBonusSources/itemAttributeSources/statModifierSources em character-model.js).
  */
-import { SYSTEM_ID, MEU_SISTEMA, getAttributeLabel, getVitalFormula, getEnergyLabelForActor, isMovementEnabled, describeMovement } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getAttributeLabel, getVitalFormula, getEnergyLabelForActor, isMovementEnabled, describeMovement } from "../core/config.js";
 import { readEffectChanges, effectModes } from "../helpers/foundry-compat.js";
 import { titleBonusSources, itemAttributeSources, statModifierSources } from "../data/character-model.js";
-import { conditionalModifierSources, buildModifierContext } from "../conditional-context.js";
-import { sumConditionalModifiers } from "../conditional-modifiers.js";
-import { explainAttribute, explainVital } from "../stat-explain.js";
+import { conditionalModifierSources, buildModifierContext } from "../combat/conditional-context.js";
+import { sumConditionalModifiers } from "../combat/conditional-modifiers.js";
+import { explainAttribute, explainVital } from "../combat/stat-explain.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 

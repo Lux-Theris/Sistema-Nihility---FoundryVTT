@@ -11,7 +11,7 @@
  *   toda vez que a tripulação muda (`syncLibraryOwnershipToCrew`, chamado pelos handlers de
  *   add/remove-crew em starship-sheet.js) pra quem sai da tripulação perder o acesso.
  */
-import { SYSTEM_ID, MEU_SISTEMA } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA } from "../core/config.js";
 
 const LIBRARY_PACK_COLLECTION = `world.${MEU_SISTEMA.COMPENDIUM.padLibrary.key}`;
 

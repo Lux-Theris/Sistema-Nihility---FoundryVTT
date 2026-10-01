@@ -2,7 +2,7 @@
  * Diálogo de shift+clique: Vantagem/Normal/Desvantagem e modificadores livres antes de rolar.
  * A regra em si (o que cada operação faz, em que ordem) mora em roll-modifiers.js.
  */
-import { ROLL_OPERATIONS, ROLL_OPERATION_SYMBOLS, normalizeRollOptions } from "../roll-modifiers.js";
+import { ROLL_OPERATIONS, ROLL_OPERATION_SYMBOLS, normalizeRollOptions } from "../core/roll-modifiers.js";
 
 const { DialogV2 } = foundry.applications.api;
 

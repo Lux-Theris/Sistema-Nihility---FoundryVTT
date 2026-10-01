@@ -1,4 +1,4 @@
-import { SYSTEM_ID, debugLog } from "../config.js";
+import { SYSTEM_ID, debugLog } from "../core/config.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 

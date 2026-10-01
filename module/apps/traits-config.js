@@ -1,4 +1,4 @@
-import { getActiveTraits } from "../config.js";
+import { getActiveTraits } from "../core/config.js";
 import { createListConfigApp } from "./list-config-app-factory.js";
 
 /**

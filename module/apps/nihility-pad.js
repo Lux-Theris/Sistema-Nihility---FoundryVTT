@@ -1,4 +1,4 @@
-import { SYSTEM_ID, isPadShipEnabled, isPadLibraryEnabled, isPadMessagingEnabled } from "../config.js";
+import { SYSTEM_ID, isPadShipEnabled, isPadLibraryEnabled, isPadMessagingEnabled } from "../core/config.js";
 import { findCrewedShipsForActor } from "../pad/pad-crew.js";
 import {
   getPersonalLibrary,
@@ -25,7 +25,7 @@ import {
   markThreadRead
 } from "../pad/pad-messaging.js";
 import { getDragEventData } from "../helpers/foundry-compat.js";
-import { applyPowerFocus } from "../starship-power.js";
+import { applyPowerFocus } from "../starship/starship-power.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 

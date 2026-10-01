@@ -1,5 +1,5 @@
-import { MEU_SISTEMA, getActiveDamageElements, getActiveStatusConditions, getActiveTraits, getAffinityConfig } from "../config.js";
-import { cycleAffinityLevel, clampAffinityLevel, affinityMultiplier } from "../damage-rules.js";
+import { MEU_SISTEMA, getActiveDamageElements, getActiveStatusConditions, getActiveTraits, getAffinityConfig } from "../core/config.js";
+import { cycleAffinityLevel, clampAffinityLevel, affinityMultiplier } from "../combat/damage-rules.js";
 import { createCardListConfigApp, escapeHtml, optionsHtml } from "./card-list-config-factory.js";
 
 /**

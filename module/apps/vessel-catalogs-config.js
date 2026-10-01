@@ -2,7 +2,7 @@
  * Catálogos de Nave editáveis no jogo: Categorias de Módulo, Classes de Nave, Classes de Veículo
  * e Postos de Tripulação. Todos em cartão/lista (factories), salvos como JSON nas settings.
  */
-import { MEU_SISTEMA, getModuleCategories, getVesselClasses, getVesselSizes, getCrewRoles, getAmmoTypes } from "../config.js";
+import { MEU_SISTEMA, getModuleCategories, getVesselClasses, getVesselSizes, getCrewRoles, getAmmoTypes } from "../core/config.js";
 import { createCardListConfigApp, escapeHtml, optionsHtml } from "./card-list-config-factory.js";
 import { createListConfigApp } from "./list-config-app-factory.js";
 

@@ -19,8 +19,8 @@ import {
   getModuleCategories,
   getVesselSizes,
   getVesselClasses
-} from "../config.js";
-import { buildCatalogIndex, validateActor, validateItem, validateCatalogs, CATALOG_LABELS } from "../world-validator.js";
+} from "../core/config.js";
+import { buildCatalogIndex, validateActor, validateItem, validateCatalogs, CATALOG_LABELS } from "../world/world-validator.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 

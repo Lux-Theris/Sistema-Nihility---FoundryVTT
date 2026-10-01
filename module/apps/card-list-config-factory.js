@@ -1,4 +1,4 @@
-import { SYSTEM_ID, MEU_SISTEMA, debugLog } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, debugLog } from "../core/config.js";
 import { pickImageFile } from "../helpers/foundry-compat.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;

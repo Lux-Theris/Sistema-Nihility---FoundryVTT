@@ -1,4 +1,4 @@
-import { SYSTEM_ID, MEU_SISTEMA, getScaleConfig, getFeatureOption, isScaleEnabled, getVesselSizes } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getScaleConfig, getFeatureOption, isScaleEnabled, getVesselSizes } from "../core/config.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 

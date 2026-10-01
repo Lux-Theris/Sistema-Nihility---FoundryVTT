@@ -14,7 +14,7 @@
  *  3. O resto do mundo só existe atrás da busca, e com teto — é o que impede a lista de virar
  *     centenas de linhas num mundo com muitos NPCs.
  */
-import { SYSTEM_ID, MEU_SISTEMA, sceneActorCandidates, sameActor, actorDisplayName } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, sceneActorCandidates, sameActor, actorDisplayName } from "../core/config.js";
 
 const { DialogV2 } = foundry.applications.api;
 

@@ -25,10 +25,10 @@ import {
   debugLog,
   getVesselSizes,
   getAmmoTypes
-} from "../config.js";
-import { ensureSystemCompendiums, registerItemInCompendium } from "../compendium.js";
+} from "../core/config.js";
+import { ensureSystemCompendiums, registerItemInCompendium } from "../core/compendium.js";
 import { saveTextToFile, readFileAsText } from "../helpers/foundry-compat.js";
-import { readTransferBundle, buildTransferBundle, diffTransfer, transferGroup } from "../config-transfer.js";
+import { readTransferBundle, buildTransferBundle, diffTransfer, transferGroup } from "../core/config-transfer.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 

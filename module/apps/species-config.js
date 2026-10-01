@@ -1,6 +1,6 @@
-import { SYSTEM_ID, MEU_SISTEMA, getActiveSpeciesPresets, debugLog, speciesCarry } from "../config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getActiveSpeciesPresets, debugLog, speciesCarry } from "../core/config.js";
 import { openSkillEditorDialog } from "./skill-editor-dialog.js";
-import { normalizeSpeciesCatalog, bumpSpeciesVersions } from "../species-rules.js";
+import { normalizeSpeciesCatalog, bumpSpeciesVersions } from "../species/species-rules.js";
 import { readPickerField, wireTraitPickerField, wireElementPickerField } from "./checklist-picker.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;

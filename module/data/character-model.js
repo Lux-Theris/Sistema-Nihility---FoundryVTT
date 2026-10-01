@@ -17,9 +17,9 @@ import {
   getFeatureOption,
   isInventoryEnabled,
   isEncumbranceEnabled
-} from "../config.js";
-import { collectConditionalModifiers, buildModifierContext } from "../conditional-context.js";
-import { sumConditionalModifiers } from "../conditional-modifiers.js";
+} from "../core/config.js";
+import { collectConditionalModifiers, buildModifierContext } from "../combat/conditional-context.js";
+import { sumConditionalModifiers } from "../combat/conditional-modifiers.js";
 
 const fields = foundry.data.fields;
 
@@ -176,7 +176,7 @@ function baseActorSchema() {
      * Aprimoramento das armas EQUIPADAS vindo de Skills (alvos "weapon*" de Efeito Temporário).
      * Nunca editado à mão — só por Active Effect. Multiplicador começa em 1 (MULTIPLY multiplica
      * o valor atual); Mágico/Absoluto são contadores (várias fontes somam, desligar uma não apaga
-     * as outras): maior que 0 = ligado. Ver useWeaponAttack em skill-effects.js.
+     * as outras): maior que 0 = ligado. Ver useWeaponAttack em damage-roll.js.
      */
     weaponBonuses: new fields.SchemaField({
       damageFlat: new fields.NumberField({ required: true, initial: 0 }),

@@ -2,7 +2,7 @@
  * Efeitos Temporários: criar/renovar Active Effects e Condições num alvo, e os ticks periódicos (Veneno, cura).
  * (Separado de skill-effects.js na reorganização de pastas — mesma lógica de antes.)
  */
-import { SYSTEM_ID, getActiveStatusConditions, getEffectTargetLabels, skillLevelBonuses, getDamageElement } from "../core/config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions, getEffectTargetLabels, skillLevelBonuses, getDamageElement } from "../core/config.js";
 import { makeAnchor, addAnchor, effectAnchors, finiteRemaining, serializeFinite, durationRemaining, refreshFiniteRounds, PERMANENT } from "../combat/effect-anchors.js";
 import { applyStructuralDamage, damageCasco, repairModules } from "../starship/starship-power.js";
 import { resolveConditionEffect, refreshReapplication } from "../combat/damage-rules.js";
@@ -15,6 +15,13 @@ import { grantResistanceXp, registerResistanceExposure } from "../combat/resista
 import { isShipLike, applyShipInstantEffect } from "../starship/ship-damage.js";
 import { recordSustainedShield } from "./sustained-shields.js";
 import { combatNow } from "./upkeep.js";
+import { healBodyParts, healPlan } from "../species/anatomy.js";
+import { skillIsMagic } from "../core/magic-rules.js";
+import { applyAntimagic, suppressionLevel } from "./dispel.js";
+import { applyCurse } from "./curses.js";
+
+/** Tiers cuja Regeneração também conserta próteses ("a partir da Única"). */
+const PROSTHESIS_REGEN_TIERS = ["unique", "ultimate"];
 
 /**
  * Um efeito é "periódico" (veneno/cura contínua — bate um tick de `amount` em vez de aplicar
@@ -120,8 +127,43 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
   // Condição aplicada por elemento (sem Skill de origem) — ícone e origem vêm da própria Condição.
   const origin = originSkill ?? { id: null, uuid: null, img: null };
 
+  // Nível e magia de quem aplicou, guardados em cada efeito criado (prancha 8): a Antimagia corta só
+  // o que alcança e uma cura forte passa por cima de um bloqueio de nível menor. Sem Skill de origem
+  // (marcado à mão) = nível 0; elemento = nível do golpe (`sourceLevel`/`sourceMagic` vindos de quem chama).
+  const sourceLevel = Math.max(0, Number(mech.sourceLevel ?? (originSkill?.parent ? mech.level : 0)) || 0);
+  const sourceMagic = mech.sourceMagic ?? (originSkill?.parent ? skillIsMagic({ ...mech, tier: mech.tier ?? originSkill.system?.tier }) : false);
+  // Quem está Suprimido (Antimagia) não sente Skill mágica nem cura de nível ≤ a supressão.
+  const suppressed = targetActor.type === "character" ? suppressionLevel(targetActor) : null;
+  const shielded = entry => {
+    if (suppressed === null || entry.target === "antimagic" || !originSkill?.parent) return false;
+    const isHeal = entry.target === "hp" && Number(entry.amount) > 0;
+    return (sourceMagic || isHeal) && sourceLevel <= suppressed;
+  };
+
   for (let entry of entries) {
+    if (shielded(entry)) {
+      summary.push(`${getEffectTargetLabels()[entry.target] ?? entry.target}: sem efeito (${targetActor.name} está Suprimido)`);
+      continue;
+    }
+    // Antimagia (prancha 8): corta, desliga e suprime — com o nível desta Skill.
+    if (entry.target === "antimagic") {
+      if (targetActor.type !== "character") {
+        summary.push(`Antimagia: não se aplica a ${targetActor.name}`);
+        continue;
+      }
+      summary.push(...(await applyAntimagic(targetActor, { level: sourceLevel, rounds: entry.durationRounds })));
+      continue;
+    }
     const condition = entry.conditionId ? getActiveStatusConditions().find(c => c.id === entry.conditionId) : null;
+    // Maldição (prancha 6): vários efeitos num só, sem prazo, paga pela Mana da vítima.
+    if (condition?.curse?.enabled) {
+      if (targetActor.type !== "character") {
+        summary.push(`${condition.label}: não se aplica a ${targetActor.name}`);
+        continue;
+      }
+      summary.push(await applyCurse(targetActor, condition, { level: sourceLevel, label, onUnpaid: entry.curseOnUnpaid || "", partId: entry.healBlockPartId || "", caster: originSkill?.parent?.name ?? "" }));
+      continue;
+    }
     // Condição com efeito padrão e valor 0 na entrada: usa o padrão da Condição (ver
     // resolveConditionEffect em damage-rules.js). Sem golpe de onde tirar "% do dano", fica só o ícone.
     if (condition?.effect?.kind && !Number(entry.amount)) {
@@ -212,6 +254,10 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
 
     if (existing) {
       const existingFlags = existing.flags[SYSTEM_ID];
+      // Reaplicar com nível maior sobe o nível guardado (a Antimagia e o bloqueio de cura leem ele).
+      if (sourceLevel > (Number(existingFlags.sourceLevel) || 0)) {
+        await existing.update({ [`flags.${SYSTEM_ID}.sourceLevel`]: sourceLevel, [`flags.${SYSTEM_ID}.magic`]: Boolean(sourceMagic || existingFlags.magic) });
+      }
 
       if (periodic) {
         // Uma aplicação "Ativa" nunca soma ticks (contribui 0 de duração) — só registra sua
@@ -292,7 +338,16 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
               activeAnchors: tiedToActive ? [anchor] : [],
               // Snapshot no momento da aplicação (mesma filosofia de Sub-Skill) — só usado
               // quando o tick é dano (amount negativo); cura periódica nunca é reduzida.
-              tickDamageElements: Array.isArray(entry.damageElements) ? entry.damageElements : []
+              tickDamageElements: Array.isArray(entry.damageElements) ? entry.damageElements : [],
+              sourceLevel,
+              magic: sourceMagic,
+              healBlockPartId: entry.healBlockPartId || "",
+              // Cura nas partes do corpo (Ferimentos por parte): o tipo e, numa Regeneração de Skill
+              // Única ou Ultimate, se ela também conserta próteses.
+              healKind: MEU_SISTEMA.HEAL_KINDS.includes(entry.healKind) ? entry.healKind : "cura",
+              repairsProsthesis: entry.healKind === "regeneracao" && PROSTHESIS_REGEN_TIERS.includes(mech.tier),
+              // Cura focada numa parte (escolhida ao usar): ela enche primeiro.
+              focusPartId: entry.focusPartId || ""
             }
           }
         }
@@ -320,7 +375,10 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
             activeAnchors: tiedToActive ? [anchor] : [],
             sourceSkillId: origin.id,
             sourceSubSkillIndex: subSkillIndex,
-            bodyElement: change.bodyElement ?? ""
+            bodyElement: change.bodyElement ?? "",
+            sourceLevel,
+            magic: sourceMagic,
+            healBlockPartId: entry.healBlockPartId || ""
           }
         }
       }
@@ -413,6 +471,15 @@ export async function tickPeriodicEffect(actor, effect) {
 
   let delta = flags.tickAmount;
   let appliedReductions = [];
+  let note = "";
+  // Cura bloqueada (Fogo, Ácido, Maldição) contra o nível de quem curou: passa só a fração que a
+  // regra deixa (ver healBlockReduction). Plano calculado uma vez para a Vida e para as partes.
+  const heal = delta > 0 && attrKey === "hp" ? { kind: flags.healKind || "cura", level: Number(flags.sourceLevel) || 0, repairsProsthesis: Boolean(flags.repairsProsthesis) } : null;
+  const plan = heal ? healPlan(actor, heal) : null;
+  if (plan && plan.bodyFactor < 1) {
+    delta = Math.floor(delta * plan.bodyFactor);
+    note = plan.bodyFactor > 0 ? `cura reduzida (${Math.round((1 - plan.bodyFactor) * 100)}% bloqueado)` : "cura bloqueada";
+  }
   if (delta < 0) {
     const mech = { damageElements: flags.tickDamageElements ?? [] };
     const reduction = applyDamageReductions(-delta, mech, actor, { skipMagicDefense: true, triggerConditions: false });
@@ -422,8 +489,18 @@ export async function tickPeriodicEffect(actor, effect) {
     await registerResistanceExposure(actor, mech.damageElements, reduction.finalDamage);
   }
 
-  const newValue = Math.clamp(attr.value + delta, 0, attr.max);
+  // Cura de Vida com Ferimentos por parte: uma parte a 0% que este tipo de cura não conserta
+  // bloqueia o % dela (braço perdido: a Cura para em 80%; a Regeneração não para). Nunca desce.
+  let ceiling = attr.max;
+  if (delta > 0 && plan) ceiling = Math.max(attr.value, Math.floor(attr.max * plan.cap + 1e-9));
+  const newValue = Math.clamp(attr.value + delta, 0, ceiling);
   await actor.update({ [`system.attributes.${attrKey}.value`]: newValue });
+  // O que a Vida de fato subiu vai para as Partes do Corpo (a focada primeiro, o resto proporcional).
+  if (delta > 0 && heal) {
+    const parts = await healBodyParts(actor, newValue - attr.value, { ...heal, focusPartId: flags.focusPartId || null });
+    note = [note, parts].filter(Boolean).join(" · ");
+    delta = newValue - attr.value;
+  }
 
   // `activeAnchors` não-vazio = pelo menos uma Skill "Ativa" está segurando este efeito vivo
   // (reaplicações Ativas contribuem 0 de duração — só registram a âncora, ver
@@ -442,7 +519,7 @@ export async function tickPeriodicEffect(actor, effect) {
   // número normal mesmo que exista uma âncora em paralelo.
   const displayTicks = anchored && ticksRemaining <= 0 ? null : ticksRemaining;
 
-  return { attrKey, delta, newValue, ticksRemaining: displayTicks, expired, effectName: effect.name, appliedReductions };
+  return { attrKey, delta, newValue, ticksRemaining: displayTicks, expired, effectName: effect.name, appliedReductions, note };
 }
 
 /**
@@ -465,7 +542,7 @@ export async function tickCombatRoundEffects(actor) {
       const attrLabel = { hp: "HP", casco: "Casco", hull: "Integridade" }[r.attrKey] ?? getEffectTargetLabels().energy;
       const statusText = r.expired ? "encerrou" : r.ticksRemaining === null ? "até desativar" : `${r.ticksRemaining} tick(s) restante(s)`;
       // Nunca revela NO CHAT que/quanto de Resistência foi aplicada no tick — só o delta final.
-      return `<li><strong>${r.effectName}</strong>: ${r.delta >= 0 ? "+" : ""}${r.delta} ${attrLabel} (${statusText})</li>`;
+      return `<li><strong>${r.effectName}</strong>: ${r.delta >= 0 ? "+" : ""}${r.delta} ${attrLabel} (${statusText})${r.note ? ` — ${r.note}` : ""}</li>`;
     });
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor }),

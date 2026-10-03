@@ -12,11 +12,18 @@ import { createCardListConfigApp, escapeHtml, optionsHtml } from "./card-list-co
  *    Escudo, Torpedo −50% no Escudo e +30% no Casco (o de Escudo vale também pro Escudo pessoal);
  *  - Dano extra em Escudo — o antigo, que continua funcionando como Escudo +X%;
  *  - Penetração — ex.: Transfásico ignora parte das defesas (nunca Imunidade);
+ *  - Decepar — com chance: a parte do corpo atingida que chega no 0 vira Perdida (Ferimentos por parte);
+ *  - Impede regeneração — com chance, por N rodadas (0 = até ser removida): aplica uma Condição
+ *    marcada "Impede regeneração" (Fogo/Ácido cauterizando);
  *  - Nave: derrubar Módulo, drenar energia, baixar resistência — com chance e rodadas, só com a
  *    parte do golpe que passou do Escudo, e menos chance contra Endurecimento.
  *
  * Um golpe com vários elementos é dividido em partes iguais; cada parte sofre só a Resistência
  * do seu elemento e dispara só os efeitos dele (ver damage-rules.js).
+ *
+ * **Subtipo de** (`parent`): Cortante é subtipo de Físico. A parte de Cortante passa pela
+ * Resistência a Cortante e pela Resistência Física (uma depois da outra; Imunidade em qualquer uma
+ * imuniza), herda os efeitos do Físico que não tiver e a linha dele na tabela de vantagens.
  */
 
 function effectRowHtml(effect = {}) {
@@ -24,18 +31,27 @@ function effectRowHtml(effect = {}) {
   const conditions = getActiveStatusConditions().map(c => [c.id, c.label]);
   const traits = getActiveTraits().map(t => [t.id, t.label]);
   const types = MEU_SISTEMA.ELEMENT_EFFECT_TYPES.map(t => [t, MEU_SISTEMA.ELEMENT_EFFECT_TYPE_LABELS[t]]);
+  // Só Condições com a marca "Impede regeneração" (vazio = a padrão, "Regeneração bloqueada").
+  const blocking = [["", "Regeneração bloqueada (padrão)"], ...getActiveStatusConditions().filter(c => (c.healBlock || c.blocksRegeneration) && c.id !== "regen-blocked").map(c => [c.id, c.label])];
   return `
     <div class="element-effect-row">
       <select data-effect-field="type">${optionsHtml(types, type)}</select>
       <select data-effect-field="conditionId" data-shows="condition">${optionsHtml(conditions, effect.conditionId)}</select>
       <select data-effect-field="trait" data-shows="traitBonus">${optionsHtml(traits, effect.trait)}</select>
       <select data-effect-field="layer" data-shows="layer">${optionsHtml(MEU_SISTEMA.DAMAGE_LAYERS.map(l => [l, MEU_SISTEMA.DAMAGE_LAYER_LABELS[l]]), effect.layer ?? "shield")}</select>
-      <label data-shows="condition moduleDisable energyDrain resistanceDown">Chance % <input type="number" data-effect-field="chance" min="0" max="100" value="${effect.chance ?? 25}"/></label>
+      <select data-effect-field="blockConditionId" data-shows="blockRegen" title="A Condição aplicada (precisa ter a marca Impede regeneração no catálogo de Condições)">${optionsHtml(blocking, effect.type === "blockRegen" ? effect.conditionId ?? "" : "")}</select>
+      <label data-shows="condition sever blockRegen moduleDisable energyDrain resistanceDown">Chance % <input type="number" data-effect-field="chance" min="0" max="100" value="${effect.chance ?? (effect.type === "blockRegen" ? 100 : 25)}"/></label>
+      <label data-shows="blockRegen" title="0 = até ser removida (uma maldição). Ácido: 2 rodadas.">Rodadas <input type="number" data-effect-field="blockRounds" min="0" value="${effect.type === "blockRegen" ? effect.rounds ?? 2 : 2}"/></label>
       <label data-shows="traitBonus shieldDrain penetration energyDrain resistanceDown">% <input type="number" data-effect-field="percent" min="0" value="${effect.percent ?? 20}"/></label>
       <label data-shows="layer" title="Negativo = fraqueza (o torpedo sofre −50% no Escudo)">% <input type="number" data-effect-field="layerPercent" value="${effect.type === "layer" ? effect.percent ?? 20 : 20}"/></label>
       <label data-shows="moduleDisable energyDrain resistanceDown">Rodadas <input type="number" data-effect-field="rounds" min="1" value="${effect.rounds ?? 2}"/></label>
       <a class="element-effect-remove" title="Remover efeito"><i class="fas fa-times"></i></a>
     </div>`;
+}
+
+/** "—" + os outros elementos do catálogo (um elemento não é subtipo de si mesmo). */
+function parentOptions(selfId) {
+  return [["", "— (nenhum)"], ...getActiveDamageElements().filter(el => el.id !== selfId).map(el => [el.id, el.label])];
 }
 
 function renderCard(values) {
@@ -47,6 +63,9 @@ function renderCard(values) {
       <input type="color" data-field="color" value="${escapeHtml(values.color ?? "#c084fc")}"/>
       <input type="text" data-field="group" value="${escapeHtml(values.group ?? "")}" placeholder="Grupo" list="nihility-element-groups"/>
       <datalist id="nihility-element-groups">${groups.map(g => `<option value="${escapeHtml(g)}"></option>`).join("")}</datalist>
+    </div>
+    <div class="card-config-row">
+      <label title="Cortante é subtipo de Físico: a Resistência Física também vale contra ele (e a dele entra depois), e ele herda os efeitos e as vantagens do Físico que não tiver.">Subtipo de <select data-field="parent">${optionsHtml(parentOptions(values.id), values.parent ?? "")}</select></label>
     </div>
     <input type="hidden" data-field="affinity" value="${escapeHtml(JSON.stringify(values.affinity ?? {}))}"/>
     <p class="affinity-summary hint-inline"></p>
@@ -110,6 +129,12 @@ function readCard(card) {
     if (type === "traitBonus") return { type, trait: read("trait"), percent: Math.max(0, Number(read("percent")) || 0) };
     if (type === "layer") return { type, layer: read("layer") || "shield", percent: Math.max(-100, Number(read("layerPercent")) || 0) };
     const chance = Math.min(100, Math.max(0, Number(read("chance")) || 0));
+    if (type === "sever") return { type, chance };
+    if (type === "blockRegen") {
+      const out = { type, chance, rounds: Math.max(0, Math.round(Number(read("blockRounds")) || 0)) };
+      if (read("blockConditionId")) out.conditionId = read("blockConditionId");
+      return out;
+    }
     const rounds = Math.max(1, Math.round(Number(read("rounds")) || 1));
     if (type === "moduleDisable") return { type, chance, rounds };
     if (type === "energyDrain" || type === "resistanceDown") return { type, chance, percent: Math.max(0, Number(read("percent")) || 0), rounds };
@@ -120,7 +145,10 @@ function readCard(card) {
     const value = clampAffinityLevel(level);
     if (value) affinity[defenseId] = value;
   }
-  return { id, label: get("label").trim() || id, color: get("color") || "#c084fc", group: get("group").trim() || "Outros", effects, affinity };
+  const row = { id, label: get("label").trim() || id, color: get("color") || "#c084fc", group: get("group").trim() || "Outros", effects, affinity };
+  const parent = get("parent").trim();
+  if (parent && parent !== id) row.parent = parent;
+  return row;
 }
 
 const DamageElementsCards = createCardListConfigApp({

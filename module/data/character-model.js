@@ -22,9 +22,10 @@ import {
 } from "../core/config.js";
 import { collectConditionalModifiers, buildModifierContext } from "../combat/conditional-context.js";
 import { actorOriginLayers } from "../species/origin.js";
-import { bodyFunctionState, injuredMovement, legacyFunctionsFor } from "../species/anatomy-rules.js";
+import { bodyFunctionState, injuredMovement, legacyFunctionsFor, resolvePartVitals } from "../species/anatomy-rules.js";
 import { originAttributeRows, originStatRows, originMovement, originScale } from "../species/species-rules.js";
 import { sumConditionalModifiers } from "../combat/conditional-modifiers.js";
+import { sourceSuppressed, suppressionLevel } from "../core/suppression.js";
 
 const fields = foundry.data.fields;
 
@@ -262,11 +263,13 @@ export function itemAttributeSources(actor, key) {
       if (entry.attribute === key && value) list.push({ label, value, uuid, kind });
     }
   };
+  // Antimagia: fonte mágica suprimida não conta (ver core/suppression.js).
+  const suppression = suppressionLevel(actor);
   for (const item of actor.items) {
-    if (item.type === "skill") add(item.system.attributeBonuses, item.name, item.uuid, "skill");
-    else if (item.type === "item" && item.system.equipped) add(item.system.attributeBonuses, item.name, item.uuid, "item");
+    if (item.type === "skill" && !sourceSuppressed(actor, item, null, suppression)) add(item.system.attributeBonuses, item.name, item.uuid, "skill");
+    else if (item.type === "item" && item.system.equipped && !sourceSuppressed(actor, item, null, suppression)) add(item.system.attributeBonuses, item.name, item.uuid, "item");
     else if (item.type === "body_part") {
-      for (const mod of item.system.installedMods ?? []) add(mod.attributeBonuses, `${item.name} › ${mod.name || "Modificação"}`, item.uuid, "mod");
+      for (const mod of item.system.installedMods ?? []) if (!sourceSuppressed(actor, item, mod, suppression)) add(mod.attributeBonuses, `${item.name} › ${mod.name || "Modificação"}`, item.uuid, "mod");
     }
   }
   return list;
@@ -290,11 +293,12 @@ export function statModifierSources(actor, stat) {
     const value = Number(modifiers?.[stat]) || 0;
     if (value) list.push({ label, value, uuid, kind });
   };
+  const suppression = suppressionLevel(actor);
   for (const item of actor.items) {
-    if (item.type === "skill") add(item.system.statModifiers, item.name, item.uuid, "skill");
-    else if (item.type === "item" && item.system.equipped) add(item.system.statModifiers, item.name, item.uuid, "item");
+    if (item.type === "skill" && !sourceSuppressed(actor, item, null, suppression)) add(item.system.statModifiers, item.name, item.uuid, "skill");
+    else if (item.type === "item" && item.system.equipped && !sourceSuppressed(actor, item, null, suppression)) add(item.system.statModifiers, item.name, item.uuid, "item");
     else if (item.type === "body_part") {
-      for (const mod of item.system.installedMods ?? []) add(mod.statModifiers, `${item.name} › ${mod.name || "Modificação"}`, item.uuid, "mod");
+      for (const mod of item.system.installedMods ?? []) if (!sourceSuppressed(actor, item, mod, suppression)) add(mod.statModifiers, `${item.name} › ${mod.name || "Modificação"}`, item.uuid, "mod");
     }
   }
   return list;
@@ -323,6 +327,27 @@ function deriveMovement(dataModel) {
 }
 
 /**
+ * Vida das Partes do Corpo em % (board 5, revisão): o máximo de cada parte com `hpPercent` é esse %
+ * da Vida máxima do personagem — já com buffs, senão um buff grande deixaria as partes em 0% com o
+ * personagem cheio de Vida — e o valor sai da proporção salva (`integrity`). Parte Perdida vale 0.
+ * Precisa rodar depois de deriveVitalStats e antes de deriveBodyState. Nada é salvo.
+ */
+function derivePartVitals(dataModel) {
+  const actorMax = dataModel.attributes.hp.max ?? 0;
+  for (const item of dataModel.parent.items) {
+    if (item.type !== "body_part") continue;
+    const sys = item.system;
+    const vitals = resolvePartVitals(
+      { hpPercent: sys.hpPercent, integrity: sys.integrity, hpValue: sys.hp.value, hpMax: sys.hp.max, lost: sys.lost, isProsthetic: sys.isProsthetic },
+      actorMax
+    );
+    sys.hp.max = vitals.max;
+    sys.hp.value = vitals.value;
+    sys.status = vitals.state;
+  }
+}
+
+/**
  * Ferimentos por parte (board 5): o estado do corpo a partir das Funções das partes — Condições
  * que as partes perdidas causam (aplicadas pelo Mestre designado, ver species/anatomy.js),
  * Deslocamento proporcional às partes que andam (mínimo de arrastar) e Traços perdidos (voo).
@@ -346,6 +371,7 @@ function deriveBodyState(dataModel) {
         slot,
         hpValue: i.system.hp.value,
         hpMax: i.system.hp.max,
+        lost: i.system.status === "lost",
         functions: i.system.functions?.length ? i.system.functions : fallback,
         isProsthetic: Boolean(i.system.isProsthetic),
         mods: (i.system.installedMods ?? []).map(m => ({ kind: m.kind || "implant", functions: m.functions ?? [] }))
@@ -568,8 +594,9 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
     deriveCombatAttributes(this);
     deriveInventory(this);
     deriveMovement(this);
-    deriveBodyState(this);
     deriveVitalStats(this);
+    derivePartVitals(this);
+    deriveBodyState(this);
     deriveConditionalAttributes(this);
     deriveExperience(this);
   }

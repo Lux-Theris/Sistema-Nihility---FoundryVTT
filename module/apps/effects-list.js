@@ -6,6 +6,7 @@
  * Só lê; quem escreve são as funções de sempre (endShipSystemEffect, regenerateSustainedShields…).
  */
 import { SYSTEM_ID, getEnergyLabelForActor, getActiveStatusConditions, getActiveDamageElements, getEffectTargetLabels, actorElements } from "../core/config.js";
+import { normalizeCurse, CURSE_UNPAID_LABELS } from "../core/curse-rules.js";
 import { readEffectChanges, effectModes } from "../helpers/foundry-compat.js";
 import { describeShieldPools } from "../combat/shield-pools.js";
 import { structuresOnScene } from "../structures/structures.js";
@@ -77,6 +78,19 @@ function describeActiveEffect(effect, actor) {
       remaining = rounds ? `${Math.max(0, Math.ceil(rounds))} rodada(s)` : "sem prazo";
     }
   }
+  // Maldição (prancha 6): quem lançou, custo na Mana da vítima, o que faz sem Mana e o estado.
+  if (flags.curse) {
+    const curse = normalizeCurse(condition?.curse);
+    const unpaid = CURSE_UNPAID_LABELS[flags.curse.onUnpaid] ?? CURSE_UNPAID_LABELS[curse.onUnpaid];
+    lines = [
+      ...lines,
+      ...curse.effects.filter(fx => fx.kind === "tick").map(fx => `${fx.tickSign === "heal" ? "+" : "−"}${fx.value}${fx.valueMode === "maxPercent" ? "%" : ""} ${fx.tickTarget === "energy" ? "energia" : "Vida"} por rodada`),
+      `Custo: ${curse.costPercent}% da energia máx. por rodada · sem energia: ${unpaid}`,
+      `Nível ${flags.sourceLevel ?? 0}${flags.curse.caster ? ` · lançada por ${flags.curse.caster}` : ""}${flags.curse.sleeping ? " · dormindo" : ""}${(flags.curse.factor ?? 1) > 1 ? ` · piorou ×${Number(flags.curse.factor).toFixed(2)}` : ""}`
+    ];
+    remaining = "até Antimagia ou o Mestre";
+  }
+  if (flags.suppression !== undefined && flags.suppression !== null) lines = [`Passivos, itens e Skills mágicos de nível ≤ ${flags.suppression} não valem; Skills mágicas usadas nele não têm efeito`];
   if (condition && !lines.length) lines = ["só o marcador (o Mestre decide o efeito)"];
   return {
     img: effect.img,

@@ -63,6 +63,10 @@ function buildEffectRowHtml(entry) {
     m => `<option value="${m}" ${m === (entry.modifierType || "flat") ? "selected" : ""}>${MEU_SISTEMA.EFFECT_MODIFIER_TYPE_LABELS[m]}</option>`
   ).join("");
   const periodicVisible = targetAcceptsPeriodic(entry.target);
+  // Periódico de Vida positivo = cura: o Tipo diz o que ela faz nas Partes do Corpo.
+  const healKindOptions = MEU_SISTEMA.HEAL_KINDS.map(
+    k => `<option value="${k}" ${k === (entry.healKind || "cura") ? "selected" : ""}>${MEU_SISTEMA.HEAL_KIND_LABELS[k]} — ${MEU_SISTEMA.HEAL_KIND_HINTS[k]}</option>`
+  ).join("");
   const modifierTypeVisible = MEU_SISTEMA.SHIP_EFFECT_TARGETS.includes(entry.target);
   const entryElements = Array.isArray(entry.damageElements) ? entry.damageElements : [];
 
@@ -83,6 +87,8 @@ function buildEffectRowHtml(entry) {
         <input type="checkbox" class="se-effect-periodic" ${entry.periodic ? "checked" : ""}/> Periódico
       </label>
       <select class="se-effect-tick-unit" style="display:${periodicVisible && entry.periodic ? "inline-block" : "none"};">${tickUnitOptions}</select>
+      <select class="se-effect-curse-unpaid" title="Maldição: quando a vítima não tem Mana para pagar (só para esta Skill)" style="display:${getActiveStatusConditions().find(c => c.id === entry.conditionId)?.curse?.enabled ? "inline-block" : "none"};">${[["", "Como na maldição"], ["hp", "Paga com Vida"], ["sleep", "Dorme"], ["worsen", "Piora"], ["continue", "Continua igual"]].map(([v, l]) => `<option value="${v}" ${v === (entry.curseOnUnpaid ?? "") ? "selected" : ""}>Sem Mana: ${l}</option>`).join("")}</select>
+      <select class="se-effect-heal-kind" title="Se o tick for cura (valor positivo): o que ela faz nas Partes do Corpo" style="display:${periodicVisible && entry.periodic && entry.target === "hp" ? "inline-block" : "none"};">${healKindOptions}</select>
       <select class="se-effect-modifier-type" style="display:${modifierTypeVisible ? "inline-block" : "none"};" title="Fixo soma direto no resultado; Multiplicador lê Quantidade como percentual (20 = ×1.20)">${modifierTypeOptions}</select>
     </div>
     <div class="effect-row-periodic-extra" style="display:${(periodicVisible && entry.periodic) || entry.target === "shield" ? "flex" : "none"};">
@@ -580,6 +586,7 @@ function setupSkillEditorInteractivity(root, data) {
       if (!accepts) periodicCheckbox.checked = false;
       const periodicOn = accepts && periodicCheckbox.checked;
       tickUnitSelect.style.display = periodicOn ? "inline-block" : "none";
+      li.querySelector(".se-effect-heal-kind").style.display = periodicOn && targetSelect.value === "hp" ? "inline-block" : "none";
       // A mesma lista de elementos serve de "elemento do escudo" num Efeito de Escudo.
       const isShield = targetSelect.value === "shield";
       periodicExtra.style.display = periodicOn || isShield ? "flex" : "none";
@@ -619,6 +626,11 @@ function setupSkillEditorInteractivity(root, data) {
       li.querySelector(".se-effect-element-id").style.display = ["weaponElement", "bodyElement"].includes(targetSelect.value) ? "inline-block" : "none";
     });
     periodicCheckbox.addEventListener("change", applyPeriodicVisibility);
+    // Maldição: o "sem Mana" aparece só quando a Condição escolhida é uma Maldição.
+    li.querySelector(".se-effect-condition")?.addEventListener("change", event => {
+      const isCurse = Boolean(getActiveStatusConditions().find(c => c.id === event.target.value)?.curse?.enabled);
+      li.querySelector(".se-effect-curse-unpaid").style.display = isCurse ? "inline-block" : "none";
+    });
 
     wireElementPickerField(li.querySelector(".se-effect-elements"));
 
@@ -689,6 +701,8 @@ function readSkillEditorForm(root, lockTier) {
             icon: row.querySelector(".se-effect-icon")?.value.trim() || "",
             periodic: row.querySelector(".se-effect-periodic").checked,
             tickUnit: row.querySelector(".se-effect-tick-unit").value,
+            healKind: row.querySelector(".se-effect-heal-kind")?.value || "cura",
+            curseOnUnpaid: row.querySelector(".se-effect-curse-unpaid")?.value || "",
             damageElements: readPickerField(row.querySelector(".se-effect-elements")),
             shieldRegen: row.querySelector(".se-effect-target").value === "shield" ? Math.max(0, Number(row.querySelector(".se-effect-shield-regen")?.value) || 0) : 0,
             shieldCap: row.querySelector(".se-effect-target").value === "shield" ? Math.max(0, Number(row.querySelector(".se-effect-shield-cap")?.value) || 0) : 0,

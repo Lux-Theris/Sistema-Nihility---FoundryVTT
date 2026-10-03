@@ -36,6 +36,7 @@ export async function applyStructureContactAsGm(tokenDocument, instance, info) {
         shieldMultiplier: reduction.shieldMultiplier ?? 1,
         shieldPenetration: reduction.shieldPenetration ?? 0,
         triggeredConditions: reduction.triggeredConditions ?? [],
+        sever: reduction.sever,
         label: instance.label
       }),
       [{ name: tokenDocument.name, rows: [{ label: "Rolagem (contato)", value: String(roll.total) }, ...personalTraceTail(reduction, target)] }]

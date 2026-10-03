@@ -62,7 +62,7 @@ export function normalizeSpeciesCatalog(catalog = {}) {
 
 /** O que, quando muda, deixa as fichas desatualizadas: só o que é COPIADO (partes e Skills). */
 export function speciesContentFingerprint(entry = {}) {
-  const parts = (entry.parts ?? []).map(p => [p.key, p.label, p.slot, Number(p.hpMax) || 0, p.tags ?? []]);
+  const parts = (entry.parts ?? []).map(p => [p.key, p.label, p.slot, Number(p.hpMax) || 0, p.tags ?? [], ...(Number(p.hpPercent) > 0 ? [Number(p.hpPercent)] : [])]);
   const skills = (entry.skills ?? []).map(s => [s.key, skillDataHash(s), s.unlockLevel ?? null]);
   return JSON.stringify({ parts, skills, lineages: entry.lineages ?? [] });
 }
@@ -128,7 +128,7 @@ export function resolveSpeciesTemplate({ species = null, speciesId = "", lineage
 
     for (const p of e.parts) {
       parts = parts.filter(existing => existing.key !== p.key);
-      parts.push({ key: p.key, label: p.label || p.key, slot: p.slot || "body", hpMax: Math.max(1, Number(p.hpMax) || 1), tags: p.tags ?? [], prosthetic: Boolean(p.prosthetic), source });
+      parts.push({ key: p.key, label: p.label || p.key, slot: p.slot || "body", hpMax: Math.max(1, Number(p.hpMax) || 1), hpPercent: Math.max(0, Number(p.hpPercent) || 0), tags: p.tags ?? [], prosthetic: Boolean(p.prosthetic), source });
     }
     for (const s of e.skills) {
       const unlock = Number(s.unlockLevel) || 0;
@@ -215,10 +215,17 @@ export function speciesDiff(current = {}, template = {}, { mode = "change", remo
     const isProsthetic = tpl.prosthetic ? true : heritageProsthesis ? false : Boolean(cur.isProsthetic);
     const hpMax = keepOwnProsthesis ? oldMax : tpl.hpMax;
     const hpValue = keepOwnProsthesis ? oldValue : tpl.prosthetic && !cur.isProsthetic ? tpl.hpMax : oldMax > 0 ? Math.round((oldValue / oldMax) * tpl.hpMax) : tpl.hpMax;
+    // Vida em % (da Vida máxima do personagem): a proporção da parte é o que segue — prótese nova
+    // chega inteira, prótese da ficha fica com o % e a proporção dela.
+    const oldPercent = Number(cur.hpPercent) || 0;
+    const hpPercent = keepOwnProsthesis ? oldPercent : Number(tpl.hpPercent) || 0;
+    const integrity = keepOwnProsthesis ? cur.integrity ?? 1 : tpl.prosthetic && !cur.isProsthetic ? 1 : oldMax > 0 ? Math.min(1, oldValue / oldMax) : 1;
     // Parte antiga sem marca de origem não conta como "mudou": ela ganha a marca quando a origem for
     // aplicada de novo (as partes "keep" também são gravadas), sem gerar aviso falso de desatualizada.
-    const changed = cur.name !== tpl.label || cur.slot !== tpl.slot || hpMax !== oldMax || isProsthetic !== Boolean(cur.isProsthetic) || Boolean(cur.grant?.key && cur.grant.key !== tpl.key);
-    const entry = { id: cur.id, key: tpl.key, label: tpl.label, slot: tpl.slot, hpMax, hpValue, source: tpl.source, tags: tpl.tags, from: { name: cur.name, max: oldMax, value: oldValue }, how, carries: cur.mods ?? [], isProsthetic, wasProsthetic: Boolean(cur.isProsthetic) };
+    // Com %, o máximo é calculado — compara o %, não o número.
+    const sizeChanged = hpPercent > 0 || oldPercent > 0 ? hpPercent !== oldPercent : hpMax !== oldMax;
+    const changed = cur.name !== tpl.label || cur.slot !== tpl.slot || sizeChanged || isProsthetic !== Boolean(cur.isProsthetic) || Boolean(cur.grant?.key && cur.grant.key !== tpl.key);
+    const entry = { id: cur.id, key: tpl.key, label: tpl.label, slot: tpl.slot, hpMax, hpValue, hpPercent, integrity, source: tpl.source, tags: tpl.tags, from: { name: cur.name, max: oldMax, value: oldValue, percent: oldPercent }, how, carries: cur.mods ?? [], isProsthetic, wasProsthetic: Boolean(cur.isProsthetic) };
     if (changed) parts.update.push(entry);
     else parts.keep.push(entry);
   };
@@ -239,7 +246,7 @@ export function speciesDiff(current = {}, template = {}, { mode = "change", remo
     tplParts.splice(tplParts.indexOf(tpl), 1);
   }
   // (3) criar
-  for (const tpl of tplParts) parts.create.push({ key: tpl.key, label: tpl.label, slot: tpl.slot, hpMax: tpl.hpMax, tags: tpl.tags, isProsthetic: tpl.prosthetic, source: tpl.source });
+  for (const tpl of tplParts) parts.create.push({ key: tpl.key, label: tpl.label, slot: tpl.slot, hpMax: tpl.hpMax, hpPercent: Number(tpl.hpPercent) || 0, tags: tpl.tags, isProsthetic: tpl.prosthetic, source: tpl.source });
   // (4) sobras da ficha
   for (const cur of pending) {
     if (cur.isProsthetic || (cur.mods ?? []).length) parts.detach.push({ id: cur.id, name: cur.name, carries: cur.mods ?? [], isProsthetic: Boolean(cur.isProsthetic) });

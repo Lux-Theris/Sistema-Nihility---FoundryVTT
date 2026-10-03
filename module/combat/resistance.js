@@ -3,6 +3,7 @@
  * (Separado de skill-effects.js na reorganização de pastas — mesma lógica de antes.)
  */
 import { SYSTEM_ID, MEU_SISTEMA, getActiveDamageElements, resistanceXpGain, getResistanceLearnThreshold } from "../core/config.js";
+import { sourceSuppressed, suppressionLevel } from "../core/suppression.js";
 import { runAsGm } from "../helpers/gm-relay.js";
 import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
 import { originResistance } from "../species/species-rules.js";
@@ -72,8 +73,10 @@ export function resistanceSourceFor(targetActor, resistanceTarget) {
   let bestSkillItem = null;
   let bestTitle = 0;
 
+  // Antimagia: Resistência de Skill mágica suprimida não conta (Título e Espécie continuam).
+  const suppression = suppressionLevel(targetActor);
   for (const item of targetActor.items) {
-    if (item.type === "skill" && item.system.resistanceTarget === resistanceTarget) {
+    if (item.type === "skill" && item.system.resistanceTarget === resistanceTarget && !sourceSuppressed(targetActor, item, null, suppression)) {
       const percent = computeResistancePercent(resistanceTarget, item.system.level);
       if (percent > bestSkill) {
         bestSkill = percent;

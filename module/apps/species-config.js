@@ -46,6 +46,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
       addRow: SpeciesConfigApp.#onAddRow,
       removeRow: SpeciesConfigApp.#onRemoveRow,
       moveRow: SpeciesConfigApp.#onMoveRow,
+      fillPartPercent: SpeciesConfigApp.#onFillPartPercent,
       addRacialSkill: SpeciesConfigApp.#onAddRacialSkill,
       editRacialSkill: SpeciesConfigApp.#onEditRacialSkill,
       toggleLineage: SpeciesConfigApp.#onToggleLineage,
@@ -183,6 +184,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
       skills: entry.skills.map((s, i) => ({ index: i, name: s.name, key: s.key, summary: mechanicSummaryFor(s), unlockLevel: s.unlockLevel ?? "" })),
       bonuses: (entry.passives.attributeBonuses ?? []).map((b, i) => ({ ...b, index: i })),
       hpMod: entry.passives.statModifiers?.hp ?? 0,
+      regen: { energyPercent: 0, hpPercent: 0, hpKind: "cura", ...(entry.passives.regen ?? {}) },
       energyMod: entry.passives.statModifiers?.energy ?? 0,
       resistances: (entry.passives.resistances ?? []).map((r, i) => ({ ...r, index: i })),
       rules: (entry.passives.conditionalModifiers ?? []).map((r, i) => {
@@ -372,7 +374,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
     const path = target.dataset.list;
     const list = clone(foundry.utils.getProperty(entry, path) ?? []);
     const templates = {
-      part: () => ({ key: "", label: "", slot: "body", hpMax: 10, tags: [] }),
+      part: () => ({ key: "", label: "", slot: "body", hpMax: 10, hpPercent: MEU_SISTEMA.PART_HP_PERCENT_BY_SLOT.default, tags: [] }),
       bonus: () => ({ attribute: "strength", amount: 1 }),
       resistance: () => ({ target: "general", amount: 10 }),
       rule: () => ({ when: { kind: "always", value: "", threshold: 50 }, then: { kind: "attributeFlat", target: "any", value: 1 }, perEach: "" }),
@@ -396,6 +398,20 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
     const list = clone(foundry.utils.getProperty(this.entry, path) ?? []);
     list.splice(Number(target.dataset.index), 1);
     this.#write(path, list, { render: true });
+  }
+
+  /** "% pelo slot": partes sem % ganham o padrão do slot (cabeça 30, braço 20…); as com % ficam. */
+  static #onFillPartPercent() {
+    const table = MEU_SISTEMA.PART_HP_PERCENT_BY_SLOT;
+    const parts = clone(this.entry?.parts ?? []);
+    let changed = 0;
+    for (const part of parts) {
+      if (Number(part.hpPercent) > 0) continue;
+      part.hpPercent = table[part.slot] ?? table.default;
+      changed++;
+    }
+    if (!changed) return ui.notifications.info("Todas as partes já têm % da Vida.");
+    this.#write("parts", parts, { render: true });
   }
 
   static #onMoveRow(event, target) {

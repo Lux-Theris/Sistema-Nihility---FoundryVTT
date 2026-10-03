@@ -44,6 +44,8 @@ export function actorSpeciesSnapshot(actor) {
       grant: grantOf(i),
       origin: i.system.speciesOrigin || "",
       hp: { value: i.system.hp.value, max: i.system.hp.max },
+      hpPercent: Number(i.system.hpPercent) || 0,
+      integrity: Number(i.system.integrity ?? 1),
       isProsthetic: Boolean(i.system.isProsthetic),
       mods: (i.system.installedMods ?? []).map(m => m.name || "Modificação")
     }));
@@ -120,8 +122,11 @@ export async function applySpeciesPreview(preview, { announce = false, reason = 
       _id: p.id,
       name: p.label,
       "system.slot": p.slot,
-      "system.hp.max": p.hpMax,
-      "system.hp.value": Math.min(p.hpValue, p.hpMax),
+      // Vida em %: grava o % e a proporção (o máximo é calculado); Vida fixa: os números.
+      "system.hpPercent": Number(p.hpPercent) || 0,
+      ...(Number(p.hpPercent) > 0
+        ? { "system.integrity": Math.min(1, Math.max(0, Number(p.integrity ?? 1))) }
+        : { "system.hp.max": p.hpMax, "system.hp.value": Math.min(p.hpValue, p.hpMax) }),
       "system.isProsthetic": Boolean(p.isProsthetic),
       "system.functions": functionsOf(p),
       "system.speciesOrigin": speciesId,
@@ -135,7 +140,7 @@ export async function applySpeciesPreview(preview, { announce = false, reason = 
       diff.parts.create.map(p => ({
         name: p.label,
         type: "body_part",
-        system: { slot: p.slot, speciesOrigin: speciesId, hp: { value: p.hpMax, max: p.hpMax }, status: "intact", isProsthetic: Boolean(p.isProsthetic), functions: functionsOf(p), installedMods: [] },
+        system: { slot: p.slot, speciesOrigin: speciesId, hp: { value: p.hpMax, max: p.hpMax }, hpPercent: Number(p.hpPercent) || 0, integrity: 1, status: "intact", isProsthetic: Boolean(p.isProsthetic), functions: functionsOf(p), installedMods: [] },
         flags: { [SYSTEM_ID]: { speciesGrant: { kind: p.source?.kind ?? "species", id: p.source?.id ?? "", key: p.key } } }
       }))
     );

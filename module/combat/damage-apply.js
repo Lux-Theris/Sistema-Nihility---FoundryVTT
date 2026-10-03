@@ -22,6 +22,7 @@
 import { SYSTEM_ID } from "../core/config.js";
 import { absorbLayer, consumeShieldPools, hitAffinityFactor } from "./damage-rules.js";
 import { getElementAffinityMatrix, getAffinityConfig } from "../core/config.js";
+import { damageBodyPart, restoreBodyPart } from "../species/anatomy.js";
 
 const SHIELD_PATH = "system.attributes.shield.value";
 const POOLS_PATH = "system.attributes.shield.pools";
@@ -60,7 +61,7 @@ function hpPath(actor) {
  * @param {{absolute?: boolean, shieldExtra?: number, triggeredConditions?: object[], label?: string}} [options]
  *   - Dano Absoluto não passa pelo Escudo pessoal
  */
-export function damageApplyFlags(targetActor, finalDamage, { absolute = false, shieldExtra = 0, shieldMultiplier = 1, shieldPenetration = 0, triggeredConditions = [], label = "", shieldBase = null, elementIds = [] } = {}) {
+export function damageApplyFlags(targetActor, finalDamage, { absolute = false, shieldExtra = 0, shieldMultiplier = 1, shieldPenetration = 0, triggeredConditions = [], label = "", shieldBase = null, elementIds = [], sever = false, bodyPart = null } = {}) {
   if (!targetActor || !hpPath(targetActor)) return {};
   // Corpo imune ao elemento (vantagem ×0) ainda pode gastar um Escudo de outro elemento: o card vale
   // se sobrar dano pro Escudo.
@@ -86,6 +87,9 @@ export function damageApplyFlags(targetActor, finalDamage, { absolute = false, s
         shieldBase: Math.round(base),
         bodyFactor: base > 0 ? Math.max(0, finalDamage / base) : 1,
         elementIds: Array.isArray(elementIds) ? elementIds : [],
+        // Ferimentos por parte: a parte mirada (senão o Aplicar sorteia) e se o golpe decepa.
+        bodyPartId: bodyPart?.id ?? "",
+        sever: Boolean(sever),
         label: String(label || ""),
         applied: null
       }
@@ -155,6 +159,8 @@ function describeApplied(applied) {
   const parts = [];
   if (applied.toShield) parts.push(`${applied.toShield} no Escudo`);
   if (applied.toHp || !applied.toShield) parts.push(`${applied.toHp} na Vida`);
+  const hit = applied.bodyPart;
+  if (hit) parts.push(`${hit.name} ${hit.from} → ${hit.to}${hit.lost ? " (perdida)" : hit.to === 0 ? " (inutilizada)" : ""}`);
   return parts.join(" · ");
 }
 
@@ -246,19 +252,22 @@ async function applyDamage(message, factor) {
   }
   await actor.update(update);
 
+  // Ferimentos por parte: o que chegou na Vida também cai numa parte (a mirada ou uma sorteada).
+  const bodyPart = toHp > 0 ? await damageBodyPart(actor, toHp, { partId: state.bodyPartId || null, sever: state.sever }) : null;
+
   // Condições do elemento (Queimadura do Fogo…): só agora, com o acerto confirmado. O valor
   // "% do dano" acompanha Metade/Dobro.
   let createdEffectIds = [];
   if (state.triggeredConditions?.length) {
     const { applyTriggeredConditions } = await import("./damage-roll.js");
-    ({ createdIds: createdEffectIds } = await applyTriggeredConditions(actor, state.triggeredConditions, { label: state.label, factor }));
+    ({ createdIds: createdEffectIds } = await applyTriggeredConditions(actor, state.triggeredConditions, { label: state.label, factor, partId: bodyPart?.id ?? null }));
   }
 
   // Guarda os valores ANTERIORES, não o aplicado: desfazer restaura o estado exato, sem depender
   // de nada mais ter mexido no HP/Escudo nesse meio-tempo.
   await message.setFlag(SYSTEM_ID, "damageApply", {
     ...state,
-    applied: { amount, toShield, toHp, previousValue: previousHp, previousShield, previousPools, createdEffectIds }
+    applied: { amount, toShield, toHp, previousValue: previousHp, previousShield, previousPools, createdEffectIds, bodyPart }
   });
 }
 
@@ -281,6 +290,7 @@ async function undoDamage(message) {
     if (Array.isArray(state.applied.previousPools)) update[POOLS_PATH] = state.applied.previousPools;
   }
   await actor.update(update);
+  if (state.applied.bodyPart?.before) await restoreBodyPart(actor, state.applied.bodyPart.before);
   // Condições que este Aplicar criou saem junto. Uma Condição que já existia e só foi renovada
   // fica como está — não há como saber a duração de antes.
   const created = (state.applied.createdEffectIds ?? []).filter(id => actor.effects.has(id));

@@ -308,6 +308,7 @@ export async function fireStarshipWeapon(sourceActor, weaponModule, targetActor 
         shieldMultiplier: reduction.shieldMultiplier,
         shieldPenetration: reduction.shieldPenetration,
         triggeredConditions: reduction.triggeredConditions,
+        sever: reduction.sever,
         label: weaponModule.name
       });
       traceRows.push(...personalTraceTail(reduction, targetActor));

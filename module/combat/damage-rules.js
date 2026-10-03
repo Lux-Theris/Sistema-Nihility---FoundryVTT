@@ -166,7 +166,10 @@ export function resolveConditionEffect(condition, ctx = {}) {
     }
     magnitude = Math.max(1, Math.round(Math.abs(magnitude)));
     const amount = effect.tickSign === "heal" ? magnitude : -magnitude;
-    return { target, amount, periodic: true, durationRounds: rounds, tickUnit: effect.tickUnit === "manual" ? "manual" : "combatRound", conditionId: condition.id };
+    const out = { target, amount, periodic: true, durationRounds: rounds, tickUnit: effect.tickUnit === "manual" ? "manual" : "combatRound", conditionId: condition.id };
+    // Cura da Condição: Cura / Regeneração / Reparo nas partes do corpo (ver partHealing).
+    if (effect.tickSign === "heal" && effect.healKind) out.healKind = effect.healKind;
+    return out;
   }
 
   if (effect.kind === "modifier") {
@@ -358,6 +361,65 @@ export function hitAffinityFactor(hitElements, defenderElements, matrix, config)
   return ids.reduce((sum, id) => sum + elementVsDefender(id, defenderElements, matrix, config), 0) / ids.length;
 }
 
+/* ------------------------------------------------------------------ hierarquia de elementos */
+
+/**
+ * Ancestrais de um elemento pelo campo `parent` ("Subtipo de"): Cortante → [Físico]. Protegido
+ * contra ciclo e profundidade absurda. Pura.
+ * @param {string} id
+ * @param {Array<{id:string, parent?:string}>} elements
+ * @returns {string[]} do pai para cima
+ */
+export function elementAncestors(id, elements = []) {
+  const byId = new Map((elements ?? []).filter(e => e?.id).map(e => [e.id, e]));
+  const out = [];
+  const seen = new Set([id]);
+  let current = byId.get(id)?.parent;
+  while (current && !seen.has(current) && byId.has(current) && out.length < 8) {
+    out.push(current);
+    seen.add(current);
+    current = byId.get(current)?.parent;
+  }
+  return out;
+}
+
+/**
+ * Resistência de uma parte com a cadeia do elemento (o próprio e os ancestrais): cada camada reduz o
+ * que sobrou da anterior, como Geral → elemento já faz — Resistência Física 30% e Resistência a
+ * Cortante 20% deixam passar 0,7 × 0,8 = 56%. Imunidade em qualquer camada (≥ 100%) imuniza. Pura.
+ * @param {number[]} percents - frações (0.3 = 30%)
+ */
+export function chainedResistance(percents = []) {
+  let passes = 1;
+  for (const raw of percents) {
+    const r = Math.max(0, Number(raw) || 0);
+    if (r >= 1) return 1;
+    passes *= 1 - r;
+  }
+  return 1 - passes;
+}
+
+/**
+ * Efeitos ao acertar de um elemento com herança: os dele primeiro, depois os dos ancestrais que ele
+ * não tiver (mesmo tipo e mesmo alvo — Condição, Traço, camada). Fogo Infernal herda a Queimadura do
+ * Fogo sem rolar duas vezes. Pura.
+ * @param {Array<{effects?:Array}>} chain - [o elemento, o pai, o avô…]
+ */
+export function inheritedElementEffects(chain = []) {
+  const keyOf = e => [e?.type, e?.conditionId ?? "", e?.trait ?? "", e?.layer ?? ""].join("|");
+  const seen = new Set();
+  const out = [];
+  for (const element of chain) {
+    for (const effect of element?.effects ?? []) {
+      const key = keyOf(effect);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(effect);
+    }
+  }
+  return out;
+}
+
 /**
  * Tabela de vantagens a partir do catálogo (`affinity` de cada elemento), convertendo o antigo
  * efeito "Dano extra contra elemento" (percentual) em nível: ≥ +75% Super efetivo, > 0 Efetivo,
@@ -377,7 +439,24 @@ export function buildAffinityMatrix(elements) {
     for (const [defenseId, level] of Object.entries(row)) if (!level) delete row[defenseId];
     if (Object.keys(row).length) matrix[element.id] = row;
   }
-  return matrix;
+  // Hierarquia: o subtipo herda a linha do pai (a dele manda), e contra um subtipo vale o que se
+  // escreveu contra o pai quando não há nada contra ele.
+  const list = (elements ?? []).filter(e => e?.id);
+  if (!list.some(e => e.parent)) return matrix;
+  const inherited = {};
+  for (const element of list) {
+    const chain = [element.id, ...elementAncestors(element.id, list)].reverse();
+    const row = Object.assign({}, ...chain.map(id => matrix[id] ?? {}));
+    if (Object.keys(row).length) inherited[element.id] = row;
+  }
+  for (const row of Object.values(inherited)) {
+    for (const element of list) {
+      if (row[element.id] !== undefined) continue;
+      const from = elementAncestors(element.id, list).find(id => row[id] !== undefined);
+      if (from) row[element.id] = row[from];
+    }
+  }
+  return inherited;
 }
 
 /** Chave da adaptação de um Escudo: elemento + frequência das armas de quem atacou. */

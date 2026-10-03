@@ -243,7 +243,13 @@ Cada moeda: id, nome, ícone, **peso** por unidade e **valor base** (quantas uni
 
 ### Tipos de Dano (elementos)
 
-Cada elemento: id, nome, **cor**, **grupo** (Físico, Fantasia, Energia, Exótico… — organiza a janela de escolha) e **Efeitos ao acertar**:
+Cada elemento: id, nome, **cor**, **grupo** (Físico, Fantasia, Energia, Exótico… — organiza a janela de escolha), **Subtipo de** e **Efeitos ao acertar**:
+
+**Subtipo de (hierarquia).** O Físico de fábrica tem três subtipos: **Cortante** (Decepar 10% + Sangramento 25%), **Perfurante** (Penetração 20%) e **Contundente** (+20% contra Mecânico, Atordoamento 10%). Um subtipo:
+- passa pela Resistência **dele e de cada ancestral**, uma depois da outra (Geral → Físico → Cortante): Resistência Física 30% e Resistência a Cortante 20% deixam passar 56%. Imunidade em qualquer nível imuniza. As Skills de Resistência Física que já existem continuam valendo contra os três;
+- herda os **efeitos ao acertar** do pai que não tiver (o mesmo efeito não rola duas vezes) e a linha do pai na **tabela de vantagens** (a dele manda); contra um subtipo vale o que se escreveu contra o pai, se nada foi escrito contra ele.
+
+Armas e Skills marcadas "Físico" continuam o golpe genérico — escolha Cortante para ter Decepar. Catálogos salvos antes ganham os três subtipos sozinhos (uma vez, sem mexer no resto). Serve para qualquer elemento: Fogo › Fogo Infernal, Energia › Plasma…
 
 **Tabela de vantagens entre elementos** (botão **Tabela de vantagens** no topo do editor; o mesmo botão volta aos cartões): linha = elemento que **ataca**, coluna = elemento que **defende**. Cada célula tem um de cinco níveis, estilo Pokémon — **Imune** ×0, **Ineficaz** ×0,5, **Neutro** ×1, **Efetivo** ×1,5, **Super efetivo** ×2 (multiplicadores em Regras da Mesa › Combate). **Clique esquerdo sobe um nível, direito desce.** A tabela é montada dos elementos na tela, então um elemento novo aparece nela na hora; cada cartão mostra o resumo ("Efetivo contra: Gelo · Ineficaz contra: Fogo"). O antigo efeito "Dano extra contra elemento" é convertido sozinho em nível (≥ +75% Super efetivo, acima de 0 Efetivo, abaixo de 0 Ineficaz, −100% Imune). Padrão: Fogo efetivo contra Gelo, Gelo ineficaz contra Fogo, Sombrio e Sagrado efetivos um contra o outro.
 
@@ -260,6 +266,8 @@ A vantagem vale contra quem **É** de um elemento:
 | **Dano extra contra Traço** | Traço, % | +X% nesta parte se o alvo tiver o Traço. |
 | **Dano por camada** | Camada (Escudo, Casco, Integridade), % | Multiplica a parte do golpe que chega naquela camada. **Pode ser negativo** (fraqueza): Phaser +20% no Escudo e −20% no Casco; Torpedo −50% no Escudo e +30% no Casco. O de Escudo vale também para o Escudo pessoal. |
 | **Dano extra em Escudo** | % | O antigo; funciona como Escudo +X%. |
+| **Decepar** | Chance % | Ferimentos por parte: se o golpe levar a parte atingida a 0, ela vira **Perdida**. |
+| **Impede regeneração** | Chance %, Rodadas, Condição | Aplica uma Condição marcada "Impede regeneração" (padrão: Regeneração bloqueada). **0 rodadas = até ser removida.** |
 | **Penetração** | % | Suaviza cada defesa proporcionalmente (Penetração 30% transforma 50% de Resistência em 35%). **Nunca atravessa Imunidade.** |
 | **Nave: derrubar Módulo** | Chance %, Rodadas | Desliga um Módulo do alvo (o mirado, se houver; senão um ao acaso) por N rodadas da Nave atingida. |
 | **Nave: drenar energia** | Chance %, %, Rodadas | Tira X% da Bateria na hora e o Reator gera X% a menos por N rodadas. |
@@ -735,7 +743,7 @@ Crie com **+ Novo Título** na ficha (ou no Compêndio de Títulos). Campos: **C
 
 ### Anatomia, Funções e implantes
 
-Partes do Corpo nascem da Espécie. Cada uma tem **slot** (o encaixe: decide onde um implante cabe e para onde uma prótese vai numa troca de Espécie) e **Funções** (visão, audição, manipulação, locomoção, voo, equilíbrio, vital, regenerativa).
+Partes do Corpo nascem da Espécie. Cada uma tem **slot** (o encaixe: decide onde um implante cabe e para onde uma prótese vai numa troca de Espécie) e **Funções** (visão, audição, manipulação, locomoção, voo, equilíbrio, vital). Parte não regenera sozinha: quem regenera é Skill ou Condição de Regeneração.
 
 **Implantes e próteses** são Itens Gerais com a aba **Implante** ligada: tipo (prótese substitui a parte; implante aprimora), slots em que serve, onde fica ("Mão"), Funções que dá ou repõe e Vida da prótese. O jogador arrasta o Item para a parte na aba Anatomia; o × devolve ao inventário. Modificações feitas à mão na ficha da Parte continuam funcionando.
 
@@ -748,6 +756,29 @@ Partes do Corpo nascem da Espécie. Cada uma tem **slot** (o encaixe: decide ond
 | Ao perder todas | só quando não sobra nenhuma | Cego (perdeu a cabeça) |
 
 Locomoção: sem nenhuma parte que ande, o personagem se arrasta o **mínimo** (1 m) se ainda tiver a Função de arrastar (manipulação) funcionando; sem ela, 0. "Ferida conta pela Vida": uma perna a 50% vale meia perna. Espécie sem partes de locomoção (Slime) não é afetada. As Condições do corpo são criadas e removidas sozinhas; parte **vital** destruída só **avisa** você.
+
+**Vida da parte em %.** No editor de Espécies (aba Corpo), cada parte tem **% Vida**: a Vida dela é esse % da Vida máxima do personagem, **com buffs**, e o que fica salvo é a proporção — subir de nível ou ganhar um buff não fere nem cura parte nenhuma. Os % não somam 100: dizem quanto dano *naquela parte* a destrói. Vazio = a Vida fixa de antes; **% pelo slot** preenche as partes vazias com o padrão (cabeça 30, tronco 50, braço 20, perna 25, cauda 15). Catálogos salvos antes disso continuam com Vida fixa até você preencher e sincronizar as fichas. Próteses têm o próprio % (ou "Fixa", para a perna de pau).
+
+**Dano nas partes** (com Ferimentos por parte): o que chega na Vida ao clicar **Aplicar** também cai numa parte — a mirada ("Mirar numa parte?", pergunta desligável nas opções do bloco) ou uma sorteada pelo tamanho. **Desfazer** devolve as duas coisas. Dano em área continua aplicado à mão e não mexe nas partes; ticks (Veneno, Sangramento) também não.
+
+| Estado | Como chega | Cura | Regeneração | Reparo |
+|---|---|---|---|---|
+| Ferida | Vida entre 0 e o máximo | ✓ | ✓ | |
+| Inutilizada | Vida 0 | ✓ | ✓ | |
+| Perdida | sobra ≥ X% da Vida da parte (opção do bloco, padrão 50), efeito **Decepar** do elemento, ou o Mestre marca (ícone de osso na aba Anatomia) | | ✓ | |
+| Prótese | Item instalado | | só Skill Única/Ultimate | ✓ |
+
+**Cura × Regeneração × Reparo.** Um Efeito Periódico de Vida positivo tem **Tipo**: Cura (padrão), Regeneração ou Reparo. A Vida sobe igual nos três; cada parte sobe a mesma fração conforme o tipo. Na Condição do catálogo, a cura por rodada também tem o tipo (a "Regeneração" de fábrica é Regeneração). As Skills Raciais de fábrica que regeneram (Regeneração Amorfa, Carne Instável) são do tipo Regeneração.
+
+**Cura nas partes.** A Vida que uma cura **de fato** devolve é repartida entre as partes que ela conserta: com um membro só ferido, vai tudo para ele; com o corpo todo ferido, cada parte recebe um pouco (proporcional ao que falta). Uma Skill de cura de alvo único pergunta **"Focar a cura numa parte?"**: a escolhida enche primeiro. Uma parte a 0% que aquela cura **não conserta** segura o % dela na Vida (braço perdido de 20%: a Cura para em 80%; a Regeneração não para, e usa essa diferença para refazer o braço). Uma **Cura de nível 10 ou mais** (Regras da Mesa) também refaz parte perdida.
+
+**Impede cura (com nível).** No catálogo de Condições: **o que** bloqueia (só Regeneração, ou toda cura) e **onde** (corpo todo, ou só a parte atingida — a que o golpe pegou, ou a escolhida ao usar a Skill). O nível é o de quem aplicou. Uma cura de nível até **o do bloqueio + ⅓** não passa (maldição 9: até 12); acima disso passa reduzida, cada vez menos, e passa inteira no **dobro** desse limite (24 — Regras da Mesa). Descanso, regeneração natural, Título e o que você marcou à mão são **nível 0**: sempre bloqueados. Fogo e Ácido de fábrica bloqueiam a Regeneração por 2 rodadas com o nível de quem atacou.
+
+**Antimagia.** Efeito de Skill (grupo "Magia"), de alvo único ou em área, com as rodadas de supressão. Alcança até o nível da Skill **× 1,5** (Regras da Mesa — nível 10 alcança 15). Na hora: remove os efeitos **mágicos** de Skill desse nível ou menor (buffs de aliado também, maldições, Escudos de Skill), desliga as Habilidades Ativas mágicas e aplica a Condição **Suprimido (Antimagia)**. Enquanto ela durar: passivos, Resistências, Itens e implantes **Mágicos** não contam, Skills mágicas não se usam, e Skills mágicas ou curas usadas **nele** não têm efeito (dano em área ainda acerta). É mágico: toda Skill comprada/fundida (marque "Mundana" na Skill para tirar), Skill Racial só se gastar energia (teleporte sim, Couro Grosso não), Item/implante com a caixa **Mágico**. Título, Espécie e partes naturais nunca. Só você (ou outra Antimagia) tira Suprimido e Maldição.
+
+**Maldições.** Uma Condição com **Maldição** ligada: vários efeitos (atributo/Deslocamento e dano/cura por rodada), sem prazo, nível = o da Skill que lançou, e um **custo por rodada sempre tirado da energia da vítima**. Sem energia para pagar, a maldição faz o que você escolheu nela: **Paga com Vida**, **Dorme** (efeitos param até a vítima pagar inteiro), **Piora** (+25% por rodada sem pagar, até ×3; não desfaz) ou **Continua igual**. A Skill que lança pode trocar isso só para ela. Pode também ter **Impede cura**. Sai com Antimagia de alcance suficiente ou com você. De fábrica: *Maldição de Sangue*.
+
+**Regeneração por rodada e Descanso.** O bloco **Regeneração natural de energia** (Módulos do Sistema, desligado por padrão) devolve um % da energia máxima no início do turno, em combate. Skill (escala com o nível; Ativa só ligada), Título, Item equipado e Espécie/Linhagem/Herança têm o bloco **Regeneração por rodada** (energia e Vida, com o tipo Cura ou Regeneração — "Automatic HP Regeneration"), que vale mesmo com o bloco natural desligado. O botão **Descansar…** da ficha escolhe **Curto** (Vida 25%, energia 50% — Regras da Mesa) ou **Completo**; partes a 0% seguram o % delas na Vida, e o que a Vida subiu vai para as partes feridas.
 
 ---
 

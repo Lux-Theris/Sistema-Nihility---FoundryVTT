@@ -14,6 +14,7 @@ import { titleBonusSources, itemAttributeSources, statModifierSources, originBon
 import { conditionalModifierSources, buildModifierContext } from "../combat/conditional-context.js";
 import { sumConditionalModifiers } from "../combat/conditional-modifiers.js";
 import { explainAttribute, explainVital } from "../combat/stat-explain.js";
+import { regenExplainRows } from "../combat/regeneration.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -252,6 +253,11 @@ export class StatBreakdownApp extends HandlebarsApplicationMixin(ApplicationV2) 
     });
     if (ex.max !== vital.max) {
       sections.push({ title: "Atenção", notes: [`A ficha mostra ${vital.max}; a diferença vem de algo que esta janela não reconhece (outro módulo mexendo no valor).`] });
+    }
+    // Regeneração por rodada (início do turno, em combate) — de onde vem cada %.
+    const regenRows = regenExplainRows(this.actor, this.stat);
+    if (regenRows.length) {
+      sections.push({ title: "Regeneração por rodada", hint: "No início do turno, em combate. Fora de combate, quem devolve é o Descanso.", rows: regenRows });
     }
     return sections;
   }

@@ -58,7 +58,8 @@ export function mechanicsGuide(catalogs = {}) {
     `- Condições: ${list(catalogs.conditions)}`,
     `- Atributos: ${list(catalogs.attributes)}`,
     `- Alvos de efeito: ${targets || "strength, defense, magic, hp, energy, shield"}`,
-    "Prefira mecânica simples e coerente com a descrição. Uma Skill de cura é temporary com hp positivo; um veneno é temporary com hp negativo, periodic e conditionId do veneno."
+    "Prefira mecânica simples e coerente com a descrição. Uma Skill de cura é temporary com hp positivo e periodic; um veneno é temporary com hp negativo, periodic e conditionId do veneno.",
+    'Numa cura periódica, "healKind": "cura" (fecha feridas), "regeneracao" (também refaz membros perdidos — regeneração de troll, de slime) ou "reparo" (conserta próteses e máquinas).'
   ].join("\n");
 }
 
@@ -131,6 +132,8 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
         if (!entry.elementId) continue;
       }
       if (periodic && entry.durationRounds === 0) entry.durationRounds = 3;
+      // Cura periódica: Cura (padrão), Regeneração (refaz partes perdidas) ou Reparo (próteses).
+      if (periodic && e.target === "hp" && amount > 0) entry.healKind = ["regeneracao", "reparo"].includes(e.healKind) ? e.healKind : "cura";
       effects.push(entry);
     }
     out.effects = effects;
@@ -214,7 +217,7 @@ export function originGuide(catalogs = {}, { kind = "species" } = {}) {
     "{",
     '  "label": nome, "group": "fantasia"|"isekai"|"scifi"|"besta", "description": uma ou duas frases,',
     '  "traits": [ids de Traço], ' + (heritage ? '"removesTraits": [ids de Traço que a Herança TIRA], ' : "") + '"elements": [ids de elemento do corpo, normalmente vazio],',
-    '  "parts": [{"label": nome da parte, "slot": "head"|"torso"|"arm"|"leg"|"tail"|"wing"|"core"|"body"|outro, "hpMax": 5–60, "functions": [ids de Função]}],',
+    '  "parts": [{"label": nome da parte, "slot": "head"|"torso"|"arm"|"leg"|"tail"|"wing"|"core"|"body"|outro, "hpPercent": % da Vida máxima do personagem (cabeça 30, tronco 50, braço 20, perna 25, cauda 15), "functions": [ids de Função]}],',
     heritage ? '  "replacesSlots": [slots cujas partes da Espécie esta Herança substitui; vazio se não mexe no corpo],' : '  "lineages": [{"label", "description", "elements": [ids], "skills": [Skills como abaixo], "replacesSkills": [nomes de Skills da Espécie que esta Linhagem substitui]}] (0 a 3),',
     '  "resistances": [{"target": "general" ou id de elemento, "amount": 5–30}],',
     `  "skills": [{"name", "description", "level": 1, "mechanics": objeto}] (1 a 3; Skills ${heritage ? "da Herança" : "Raciais"})`,
@@ -255,6 +258,8 @@ export function sanitizeOriginEntry(raw = {}, catalogs = {}, { kind = "species",
       label: String(p?.label || key).slice(0, 40),
       slot: slug(p?.slot) || "body",
       hpMax: clampInt(p?.hpMax, 1, 200, 10),
+      // Vida da parte em % da Vida máxima; sem número, o padrão do slot.
+      hpPercent: clampInt(p?.hpPercent, 1, 100, MEU_SISTEMA.PART_HP_PERCENT_BY_SLOT?.[slug(p?.slot)] ?? MEU_SISTEMA.PART_HP_PERCENT_BY_SLOT?.default ?? 20),
       tags: pickIds(p?.functions, functions, 4)
     };
   });

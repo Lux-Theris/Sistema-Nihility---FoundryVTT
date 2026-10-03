@@ -2110,7 +2110,7 @@ test("Evolução: as Skills Raciais antigas ficam, o corpo muda", () => {
   assert.equal(diff.skills.create[0].key, "adaptabilidade");
 });
 
-import { legacyFunctionsFor, implantFits, partFunctions, bodyFunctionState, injuredMovement } from "../module/species/anatomy-rules.js";
+import { legacyFunctionsFor, implantFits, partFunctions, bodyFunctionState, injuredMovement, partHpPercentForSlot, partMaxFromPercent, resolvePartVitals, pickHitPart, partDamage, partHealing, healCap, restOutcome } from "../module/species/anatomy-rules.js";
 
 const BODY_FNS = MEU_SISTEMA.DEFAULT_BODY_FUNCTIONS;
 const leg = (id, hp, max = 10, extra = {}) => ({ id, name: id, slot: "leg", hpValue: hp, hpMax: max, functions: ["locomocao"], ...extra });
@@ -2122,7 +2122,7 @@ test("Anatomia: tags antigas viram Funções pelo slot", () => {
   assert.deepEqual(legacyFunctionsFor(["limb"], "leg", known), ["locomocao"]);
   assert.deepEqual(legacyFunctionsFor(["limb", "flight"], "wing", known), ["voo"]);
   assert.deepEqual(legacyFunctionsFor(["vital"], "head", known).sort(), ["audicao", "visao", "vital"]);
-  assert.deepEqual(legacyFunctionsFor(["vital", "regenerative"], "core", known), ["vital", "regenerativa"]);
+  assert.deepEqual(legacyFunctionsFor(["vital", "regenerative"], "core", known), ["vital"], "regenerative não vira Função (parte não regenera sozinha)");
   assert.deepEqual(legacyFunctionsFor(["mechanical", "chitinous"], "torso", known), []);
   assert.deepEqual(legacyFunctionsFor(["locomocao"], "tail", known), ["locomocao"], "Função conhecida passa direto");
 });
@@ -2174,8 +2174,8 @@ test("Anatomia: Condições por parte × quando todas se perdem, Traço e regene
   assert.equal(twoHeads.conditions.length, 0, "Cego só quando perde todas as cabeças");
   const wing = bodyFunctionState([{ id: "w", name: "Asa", slot: "wing", hpValue: 0, hpMax: 10, functions: ["voo"] }, { id: "w2", name: "Asa 2", slot: "wing", hpValue: 10, hpMax: 10, functions: ["voo"] }], BODY_FNS);
   assert.deepEqual(wing.removedTraits, ["flying"], "uma asa perdida já tira o Voador");
-  const regen = bodyFunctionState([{ id: "m", name: "Massa", slot: "body", hpValue: 20, hpMax: 40, functions: ["regenerativa"] }], BODY_FNS);
-  assert.deepEqual(regen.regen, [{ id: "m", amount: 2 }]);
+  // Parte não regenera sozinha (quem regenera é Skill/Condição de Regeneração).
+  assert.equal(bodyFunctionState([{ id: "m", name: "Massa", slot: "body", hpValue: 20, hpMax: 40, functions: ["regenerativa"] }], BODY_FNS).regen, undefined);
   const vital = bodyFunctionState([{ id: "t", name: "Tronco", slot: "torso", hpValue: 0, hpMax: 20, functions: ["vital"] }], BODY_FNS);
   assert.equal(vital.vitalLost[0].name, "Tronco");
 });
@@ -2227,4 +2227,236 @@ test("Evolução: Skill de mesma chave recebe a mecânica nova e mantém o níve
   assert.equal(diff.skills.update.length, 1);
   assert.equal(diff.skills.update[0].name, "Regeneração Demoníaca");
   assert.equal(diff.skills.update[0].level, 4);
+});
+
+test("Partes do corpo: Vida em % da Vida máxima, proporção salva e estados", () => {
+  const table = { head: 30, arm: 20, default: 20 };
+  assert.equal(partHpPercentForSlot("head", table), 30);
+  assert.equal(partHpPercentForSlot("antena", table), 20, "slot sem linha usa o padrão");
+  assert.equal(partMaxFromPercent(480, 30), 144);
+  assert.equal(partMaxFromPercent(1, 5), 1, "nunca menos de 1");
+  // A proporção fica: subir de nível (ou ganhar buff de Vida) não fere nem cura a parte.
+  const head = { hpPercent: 30, integrity: 124 / 144 };
+  assert.deepEqual(resolvePartVitals(head, 480), { max: 144, value: 124, state: "damaged" });
+  assert.deepEqual(resolvePartVitals(head, 720), { max: 216, value: 186, state: "damaged" });
+  assert.deepEqual(resolvePartVitals({ hpPercent: 20, integrity: 0 }, 480), { max: 96, value: 0, state: "destroyed" });
+  assert.deepEqual(resolvePartVitals({ hpPercent: 20, integrity: 1, lost: true }, 480), { max: 96, value: 0, state: "lost" });
+  assert.equal(resolvePartVitals({ hpPercent: 35, integrity: 1, lost: true, isProsthetic: true }, 480).state, "intact", "prótese ocupa o lugar do coto");
+  // Sem %: a Vida fixa de antes.
+  assert.deepEqual(resolvePartVitals({ hpValue: 8, hpMax: 14 }, 480), { max: 14, value: 8, state: "damaged" });
+});
+
+test("Partes do corpo: golpe sem mira cai numa parte sorteada pelo tamanho; perdidas não entram", () => {
+  const parts = [
+    { id: "torso", max: 240, state: "intact" },
+    { id: "arm", max: 96, state: "lost" },
+    { id: "tail", max: 60, state: "intact" }
+  ];
+  assert.equal(pickHitPart(parts, () => 0), "torso");
+  assert.equal(pickHitPart(parts, () => 0.79), "torso");
+  assert.equal(pickHitPart(parts, () => 0.81), "tail");
+  assert.equal(pickHitPart([{ id: "a", max: 10, state: "lost" }], () => 0), null);
+});
+
+test("Partes do corpo: dano leva a Inutilizada; sobra grande ou Decepar deixa Perdida; prótese só quebra", () => {
+  const arm = { value: 96, max: 96 };
+  assert.deepEqual(partDamage(arm, 40), { value: 56, lost: false, overflow: 0 });
+  assert.deepEqual(partDamage(arm, 120), { value: 0, lost: false, overflow: 24 }, "sobra de 25% < 50%: Inutilizada");
+  assert.deepEqual(partDamage(arm, 150), { value: 0, lost: true, overflow: 54 }, "sobra de 56% ≥ 50%: Perdida");
+  assert.equal(partDamage(arm, 150, { lossOverflow: 0 }).lost, false, "0 = nunca por sobra");
+  assert.equal(partDamage(arm, 96, { sever: true }).lost, true, "Decepar quando chega no 0");
+  assert.equal(partDamage(arm, 40, { sever: true }).lost, false, "Decepar sem chegar no 0 só fere");
+  assert.equal(partDamage({ value: 0, max: 96 }, 48).lost, true, "inutilizada que leva mais metade da Vida dela cai");
+  assert.equal(partDamage({ value: 50, max: 168, isProsthetic: true }, 500, { sever: true }).lost, false, "prótese nunca vira Perdida");
+});
+
+test("Partes do corpo: Cura × Regeneração × Reparo — o que a Vida subiu é repartido", () => {
+  const parts = [
+    { id: "leg", max: 120, value: 60, state: "damaged" },
+    { id: "tail", max: 72, value: 0, state: "destroyed" },
+    { id: "arm", max: 96, value: 0, state: "lost" },
+    { id: "pro", max: 168, value: 100, state: "damaged", isProsthetic: true }
+  ];
+  const ids = list => list.map(h => h.id);
+  // Cura: feridas e inutilizadas, nunca a perdida nem a prótese; proporcional ao que falta (60 + 72).
+  const cura = partHealing(parts, 66, { kind: "cura" });
+  assert.deepEqual(ids(cura), ["leg", "tail"]);
+  assert.equal(cura.reduce((sum, h, i) => sum + h.value - [60, 0][i], 0), 66, "reparte exatamente o que a Vida subiu");
+  assert.deepEqual(cura.map(h => h.value), [90, 36], "metade do que falta em cada uma");
+  // Um membro só ferido leva tudo (até encher).
+  assert.deepEqual(partHealing([{ id: "leg", max: 120, value: 60, state: "damaged" }], 500, { kind: "cura" }), [{ id: "leg", value: 120, regrow: false }]);
+  // Focada: enche primeiro; o resto vai proporcional.
+  const focused = partHealing(parts, 80, { kind: "cura", focusId: "tail" });
+  assert.deepEqual(focused.map(h => [h.id, h.value]), [["leg", 68], ["tail", 72]]);
+  const regen = partHealing(parts, 24, { kind: "regeneracao", focusId: "arm" });
+  assert.deepEqual(regen, [{ id: "arm", value: 24, regrow: true }], "a perdida volta a crescer");
+  assert.ok(ids(partHealing(parts, 500, { kind: "regeneracao", repairsProsthesis: true })).includes("pro"), "Regeneração de Skill Única conserta prótese");
+  assert.deepEqual(partHealing(parts, 50, { kind: "regeneracao", blocked: true }), [], "bloqueada (Fogo, Ácido, Maldição)");
+  assert.deepEqual(ids(partHealing(parts, 50, { kind: "reparo" })), ["pro"], "Reparo: só prótese");
+});
+
+test("Partes do corpo: parte a 0% que a cura não conserta bloqueia o % dela na Vida", () => {
+  const arm = { id: "arm", max: 96, value: 0, state: "lost", share: 20 };
+  const leg = { id: "leg", max: 120, value: 68, state: "damaged", share: 25 };
+  assert.equal(healCap([arm, leg], 480, "cura"), 0.8, "Cura não refaz a perdida");
+  assert.equal(healCap([arm, leg], 480, "regeneracao"), 1, "Regeneração refaz");
+  assert.equal(healCap([{ ...arm, state: "destroyed" }, leg], 480, "cura"), 1, "Cura conserta a inutilizada");
+  assert.equal(healCap([{ ...arm, state: "destroyed" }, leg], 480, "descanso"), 0.8, "Descanso não conserta nada a 0%");
+});
+
+test("Descanso: Curto/Completo, partes a 0% limitam a Vida, ferida recebe o que a Vida subiu", () => {
+  const parts = [
+    { id: "arm", max: 96, value: 0, state: "lost", share: 20 },
+    { id: "leg", max: 120, value: 68, state: "damaged", share: 25 }
+  ];
+  const short = restOutcome({ hp: { value: 330, max: 480 }, energy: { value: 40, max: 240 }, parts, kind: "short", injury: true });
+  assert.equal(short.hp, 384, "+120 daria 450; o braço perdido segura em 80%");
+  assert.equal(short.energy, 160, "+50% de Mana");
+  assert.deepEqual(short.healedParts, [{ id: "leg", value: 120, regrow: false }], "subiu 54; a perna só precisava de 52");
+  const long = restOutcome({ hp: { value: 100, max: 480 }, energy: { value: 0, max: 240 }, parts, kind: "long", injury: true });
+  assert.equal(long.hp, 384);
+  assert.equal(long.energy, 240);
+  const plain = restOutcome({ hp: { value: 100, max: 480 }, energy: { value: 0, max: 240 }, kind: "long" });
+  assert.equal(plain.hp, 480, "sem Ferimentos por parte: enche como sempre");
+  const above = restOutcome({ hp: { value: 420, max: 480 }, energy: { value: 0, max: 240 }, parts, kind: "short", injury: true });
+  assert.equal(above.hp, 420, "descanso nunca tira Vida");
+});
+
+test("Espécie: parte com % — sincronizar troca a Vida fixa por % e mantém a proporção", () => {
+  const species = { label: "Humano", parts: [{ key: "left_arm", label: "Braço Esquerdo", slot: "arm", hpMax: 12, hpPercent: 20 }] };
+  const tpl = resolveSpeciesTemplate({ species, speciesId: "humano" });
+  assert.equal(tpl.parts[0].hpPercent, 20);
+  const current = { parts: [{ id: "p", name: "Braço Esquerdo", slot: "arm", grant: { kind: "species", id: "humano", key: "left_arm" }, hp: { value: 6, max: 12 }, hpPercent: 0, mods: [] }], skills: [] };
+  const diff = speciesDiff(current, tpl, { mode: "sync" });
+  assert.equal(diff.parts.update.length, 1, "Vida fixa → % é uma mudança");
+  assert.equal(diff.parts.update[0].hpPercent, 20);
+  assert.equal(diff.parts.update[0].integrity, 0.5, "a proporção da parte segue");
+  const same = speciesDiff({ parts: [{ ...current.parts[0], hpPercent: 20, integrity: 0.5, hp: { value: 48, max: 96 } }], skills: [] }, tpl, { mode: "sync" });
+  assert.equal(same.parts.update.length, 0, "com o mesmo %, o número calculado não conta como mudança");
+});
+
+import { elementAncestors, chainedResistance, inheritedElementEffects, buildAffinityMatrix as buildMatrixForHierarchy } from "../module/combat/damage-rules.js";
+
+test("Elementos: hierarquia (Subtipo de) — ancestrais, ciclo e resistência em cadeia", () => {
+  const els = [{ id: "physical" }, { id: "slashing", parent: "physical" }, { id: "a", parent: "b" }, { id: "b", parent: "a" }];
+  assert.deepEqual(elementAncestors("slashing", els), ["physical"]);
+  assert.deepEqual(elementAncestors("physical", els), []);
+  assert.deepEqual(elementAncestors("a", els), ["b"], "ciclo é cortado");
+  // Resistência a Cortante 20% depois da Física 30%: passa 0,8 × 0,7 = 56%.
+  assert.ok(Math.abs(chainedResistance([0.2, 0.3]) - 0.44) < 1e-9);
+  assert.equal(chainedResistance([0, 1]), 1, "Imunidade a Físico imuniza contra Cortante");
+  assert.equal(chainedResistance([]), 0);
+});
+
+test("Elementos: subtipo herda efeitos e vantagens do pai (os dele mandam)", () => {
+  const fire = { id: "fire", effects: [{ type: "condition", conditionId: "burn", chance: 25 }, { type: "penetration", percent: 10 }], affinity: { ice: 1 } };
+  const hellfire = { id: "hellfire", parent: "fire", effects: [{ type: "condition", conditionId: "burn", chance: 60 }], affinity: { holy: 2 } };
+  const effects = inheritedElementEffects([hellfire, fire]);
+  assert.deepEqual(effects.map(e => [e.type, e.chance ?? e.percent]), [["condition", 60], ["penetration", 10]], "Queimadura não rola duas vezes");
+  const matrix = buildMatrixForHierarchy([fire, hellfire, { id: "ice" }, { id: "glacier", parent: "ice" }, { id: "holy" }]);
+  assert.equal(matrix.hellfire.ice, 1, "herda a linha do Fogo");
+  assert.equal(matrix.hellfire.holy, 2, "e mantém a dele");
+  assert.equal(matrix.fire.glacier, 1, "contra um subtipo de Gelo vale o que vale contra o Gelo");
+  assert.equal(matrix.fire.holy, undefined);
+});
+
+test("Elementos: Físico de fábrica tem Cortante, Perfurante e Contundente; validador acusa Subtipo inválido", () => {
+  const subs = MEU_SISTEMA.DEFAULT_DAMAGE_ELEMENTS.filter(el => el.parent === "physical").map(el => el.id);
+  assert.deepEqual(subs, ["slashing", "piercing", "blunt"]);
+  assert.ok(MEU_SISTEMA.DEFAULT_DAMAGE_ELEMENTS.find(el => el.id === "slashing").effects.some(e => e.type === "sever"));
+  const broken = { ...VALIDATOR_CATALOGS, elements: [...(VALIDATOR_CATALOGS.elements ?? []), { id: "x", label: "X", parent: "nao-existe" }, { id: "y", label: "Y", parent: "y" }] };
+  const issues = validateCatalogs(broken).flatMap(group => group.items ?? [group]).flatMap(item => item.issues ?? [item]);
+  const text = JSON.stringify(validateCatalogs(broken));
+  assert.match(text, /nao-existe/);
+  assert.match(text, /subtipo de si mesmo/);
+  assert.ok(issues.length > 0);
+});
+
+import { healBlockReduction, healBlockApplies, healBlockFactor, skillIsMagic, dispelledEffects, isSuppressedBy } from "../module/core/magic-rules.js";
+import { normalizeRegen, sumRegen, regenAmount } from "../module/core/regen-rules.js";
+import { normalizeCurse, curseCostRound, curseScaled } from "../module/core/curse-rules.js";
+
+test("Bloqueio de cura: total até nível + ⅓; depois a redução cai em linha reta e zera no dobro do limite", () => {
+  const reduction = lvl => Math.round(healBlockReduction(lvl, 9) * 1000) / 10;
+  assert.equal(reduction(12), 100, "maldição 9 bloqueia até 12");
+  assert.equal(reduction(13), 91.7);
+  assert.equal(reduction(15), 75);
+  assert.equal(reduction(18), 50);
+  assert.equal(reduction(24), 0);
+  assert.ok(healBlockReduction(13, 9) > healBlockReduction(15, 9), "nível 13 cura menos que 15");
+  assert.equal(healBlockReduction(4, 3), 1, "maldição 3: cura nível 4 não passa");
+  assert.equal(healBlockReduction(0, 1), 1, "Descanso/Título (nível 0) é sempre bloqueado");
+  assert.equal(healBlockReduction(23.9, 9), 0, "abaixo de 1% passa inteira");
+  assert.equal(healBlockReduction(18, 9, 3), 0.75, "a Regra da Mesa muda onde zera");
+});
+
+test("Bloqueio de cura: o que pega e o pior entre vários", () => {
+  assert.equal(healBlockApplies("regen", "cura"), false);
+  assert.equal(healBlockApplies("regen", "regeneracao"), true);
+  assert.equal(healBlockApplies("all", "descanso"), true);
+  assert.equal(healBlockApplies("all", "reparo"), false, "máquina não é cura");
+  const blocks = [{ level: 9, kinds: "all" }, { level: 3, kinds: "regen" }];
+  assert.equal(healBlockFactor(blocks, 15, "cura"), 0.25);
+  assert.equal(healBlockFactor(blocks, 15, "reparo"), 1);
+  assert.equal(healBlockFactor([], 1, "cura"), 1);
+});
+
+test("Antimagia: o que é mágico e o que ela alcança", () => {
+  assert.equal(skillIsMagic({ tier: "normal", cost: 0 }), true, "Skill comprada (Resistência, passivo) é mágica");
+  assert.equal(skillIsMagic({ tier: "normal", magicTag: "mundane" }), false);
+  assert.equal(skillIsMagic({ tier: "racial", cost: 0 }), false, "Couro Grosso: corpo, não magia");
+  assert.equal(skillIsMagic({ tier: "racial", cost: 10 }), true, "teleporte racial gasta Mana");
+  assert.equal(skillIsMagic({ tier: "racial", magicTag: "magic" }), true);
+  const effects = [{ id: "a", magic: true, level: 15 }, { id: "b", magic: true, level: 16 }, { id: "c", magic: false, level: 1 }, { id: "d", magic: true }];
+  assert.deepEqual(dispelledEffects(effects, 15), ["a", "d"], "nível ≤ alcance; sem nível = 0; mundano fica");
+  assert.equal(isSuppressedBy(15, 15), true);
+  assert.equal(isSuppressedBy(16, 15), false);
+  assert.equal(isSuppressedBy(1, null), false);
+});
+
+test("Regeneração por rodada: soma as fontes; Vida agrupada por tipo e nível", () => {
+  assert.deepEqual(normalizeRegen({ energyPercent: "2", hpKind: "x" }), { energyPercent: 2, hpPercent: 0, hpKind: "cura" });
+  const total = sumRegen([
+    { label: "Natural", energyPercent: 5, level: 0 },
+    { label: "Título: Arquimago", energyPercent: 3, level: 0 },
+    { label: "Skill: Fluxo Arcano", energyPercent: 2, power: 1.2, level: 4 },
+    { label: "Skill: Automatic HP Regeneration", hpPercent: 3, hpKind: "regeneracao", level: 6 },
+    { label: "Título: Troll", hpPercent: 1, hpKind: "regeneracao", level: 0 }
+  ]);
+  assert.ok(Math.abs(total.energy - 10.4) < 1e-9);
+  assert.deepEqual(total.hp, [{ kind: "regeneracao", level: 6, percent: 3 }, { kind: "regeneracao", level: 0, percent: 1 }]);
+  assert.equal(total.rows.length, 5);
+  assert.equal(regenAmount(240, 10.4), 25);
+});
+
+test("Maldição: custo sempre na Mana da vítima; sem Mana faz o que foi escolhido", () => {
+  const base = { energyMax: 240, costPercent: 5 };
+  assert.deepEqual(curseCostRound({ ...base, energy: 100, onUnpaid: "hp" }), { energy: 88, cost: 12, paid: true, missing: 0, hpLoss: 0, sleeping: false, factor: 1 });
+  const hp = curseCostRound({ ...base, energy: 5, onUnpaid: "hp" });
+  assert.equal(hp.energy, 0, "consome o que tem");
+  assert.equal(hp.hpLoss, 7, "o que faltou sai da Vida");
+  assert.equal(curseCostRound({ ...base, energy: 5, onUnpaid: "sleep" }).sleeping, true);
+  assert.equal(curseCostRound({ ...base, energy: 50, onUnpaid: "sleep", sleeping: true }).sleeping, false, "acorda quando paga inteiro");
+  const worse = curseCostRound({ ...base, energy: 0, onUnpaid: "worsen", factor: 2.9, worsenStep: 25, worsenCap: 3 });
+  assert.equal(worse.factor, 3, "piora até o teto");
+  assert.equal(curseCostRound({ ...base, energy: 50, onUnpaid: "worsen", factor: 2 }).factor, 2, "pagar de novo não desfaz a piora");
+  const cont = curseCostRound({ ...base, energy: 0, onUnpaid: "continue" });
+  assert.equal(cont.hpLoss + Number(cont.sleeping), 0);
+  assert.equal(curseScaled(-20, 1.5), -30);
+  assert.equal(normalizeCurse({ enabled: true, onUnpaid: "x" }).onUnpaid, "hp");
+});
+
+test("Cura: bloqueio preso numa parte e Cura de nível alto refazendo a perdida", () => {
+  const parts = [
+    { id: "leg", max: 120, value: 60, state: "damaged" },
+    { id: "arm", max: 96, value: 0, state: "lost" }
+  ];
+  const blocked = partHealing(parts, 60, { kind: "cura", partFactor: { leg: 0.5 } });
+  assert.deepEqual(blocked, [{ id: "leg", value: 90, regrow: false }].map(h => ({ ...h, value: 60 + Math.floor(60 * 0.5) })), "a parte amaldiçoada recebe só a fração que passa");
+  assert.deepEqual(partHealing(parts, 60, { kind: "cura", partFactor: { leg: 0 } }), [], "totalmente bloqueada: fora da partilha");
+  const regrow = partHealing(parts, 200, { kind: "cura", regrowLost: true });
+  assert.ok(regrow.some(h => h.id === "arm" && h.regrow), "Cura nível 10+ refaz a perdida");
+  const rest = restOutcome({ hp: { value: 100, max: 480 }, energy: { value: 0, max: 240 }, kind: "long", bodyFactor: 0 });
+  assert.equal(rest.hp, 100, "maldição de toda cura no corpo segura o Descanso");
+  assert.equal(rest.energy, 240, "a energia volta mesmo assim");
 });

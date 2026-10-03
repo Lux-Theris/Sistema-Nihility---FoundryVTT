@@ -6,6 +6,7 @@
 import {
   SYSTEM_ID,
   MEU_SISTEMA,
+  PHYSICAL_SUBTYPES,
   registerSystemSettings,
   getSkillPointsPerLevel,
   getSkillPointsStarting,
@@ -38,7 +39,7 @@ import { NihilityMenuApp } from "./apps/nihility-menu.js";
 import { FeatureConfigApp } from "./apps/feature-config.js";
 import { AttributeConfigApp } from "./apps/attribute-config.js";
 import { tickCombatRoundEffects } from "./skills/effects-apply.js";
-import { registerAnatomyHooks, registerImplantDragTracking, tickBodyRegeneration } from "./species/anatomy.js";
+import { registerAnatomyHooks, registerImplantDragTracking } from "./species/anatomy.js";
 import { tickActorUpkeepSkills, shutdownActiveSkillsOnDepletion, processPendingUpkeepRemoval } from "./skills/upkeep.js";
 import { advanceZones, tickZonesForCombatant } from "./skills/zones.js";
 import { isDesignatedGm } from "./helpers/gm-relay.js";
@@ -164,6 +165,7 @@ Hooks.once("init", () => {
   // de Item). Precisa estar registrado antes da primeira ficha abrir.
   registerSystemPartials({
     "nihility.grantedSkill": `systems/${SYSTEM_ID}/templates/parts/granted-skill.hbs`,
+    "nihility.regenBlock": `systems/${SYSTEM_ID}/templates/parts/regen-block.hbs`,
     "nihility.elementChips": `systems/${SYSTEM_ID}/templates/parts/element-chips.hbs`,
     "nihility.traits": `systems/${SYSTEM_ID}/templates/parts/traits.hbs`,
     "nihility.conditionalModifiers": `systems/${SYSTEM_ID}/templates/parts/conditional-modifiers.hbs`
@@ -246,6 +248,7 @@ Hooks.once("ready", async () => {
   await runMigrationIfNeeded("tierCommonToNormal", migrateCommonTierToNormal);
   await runMigrationIfNeeded("elementalDamageToMagicTag", migrateElementalDamageToMagicTag);
   await runMigrationIfNeeded("speciesStableKeys", migrateSpeciesStableKeys);
+  await runMigrationIfNeeded("physicalSubtypes", migratePhysicalSubtypes);
   console.log(`${SYSTEM_ID} | Sistema pronto.`);
 });
 
@@ -279,6 +282,28 @@ async function runMigrationIfNeeded(key, migrationFn) {
   await migrationFn();
   await markMigrationCompleted(key);
   console.log(`${SYSTEM_ID} | Migração "${key}" concluída e marcada — não roda de novo neste mundo.`);
+}
+
+/**
+ * Migração única: catálogo de Tipos de Dano já salvo que tem o Físico ganha os subtipos Cortante,
+ * Perfurante e Contundente (só os que ainda não existem — nada é trocado nem removido). Catálogo
+ * nunca salvo usa o padrão, que já os tem.
+ */
+async function migratePhysicalSubtypes() {
+  const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.damageElementsData);
+  if (!raw) return;
+  let list;
+  try {
+    list = typeof raw === "string" ? JSON.parse(raw) : raw;
+  } catch (err) {
+    return;
+  }
+  if (!Array.isArray(list) || !list.some(el => el?.id === "physical")) return;
+  const missing = PHYSICAL_SUBTYPES.filter(sub => !list.some(el => el?.id === sub.id));
+  if (!missing.length) return;
+  const index = list.findIndex(el => el?.id === "physical");
+  list.splice(index + 1, 0, ...foundry.utils.deepClone(missing));
+  await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.damageElementsData, JSON.stringify(list, null, 2));
 }
 
 /**
@@ -640,11 +665,14 @@ Hooks.on("updateCombat", async (combat, changed) => {
     console.error(`${SYSTEM_ID} | Falha ao ticar Efeitos Periódicos no início do turno.`, err);
   }
 
+
   try {
-    // Partes com Função "regenerativa" curam no início do turno (Ferimentos por parte).
-    await tickBodyRegeneration(actor);
+    // Regeneração por rodada (natural + passivos de Skill/Título/Item/Espécie) — antes da manutenção
+    // das Habilidades Ativas, para uma regeneração alta poder bancar uma Ativa barata.
+    const { tickRegeneration } = await import("./combat/regeneration.js");
+    await tickRegeneration(actor);
   } catch (err) {
-    console.error(`${SYSTEM_ID} | Falha na regeneração das Partes do Corpo.`, err);
+    console.error(`${SYSTEM_ID} | Falha na regeneração por rodada.`, err);
   }
 
   try {
@@ -658,6 +686,14 @@ Hooks.on("updateCombat", async (combat, changed) => {
     await tickActorUpkeepSkills(actor);
   } catch (err) {
     console.error(`${SYSTEM_ID} | Falha ao drenar Energia de Habilidades Ativas no início do turno.`, err);
+  }
+
+  try {
+    // Maldições (prancha 6): cobram da Mana da vítima depois da regeneração e da manutenção.
+    const { tickCurses } = await import("./skills/curses.js");
+    await tickCurses(actor);
+  } catch (err) {
+    console.error(`${SYSTEM_ID} | Falha ao processar Maldições no início do turno.`, err);
   }
 
   if (["starship", "vehicle"].includes(actor.type)) {

@@ -60,6 +60,19 @@ function conditionalModifiersSchema() {
  * Modificação instalada). Reaproveitado por SkillDataModel, GenericItemDataModel
  * e cada entrada de installedMods do BodyPartDataModel.
  */
+/**
+ * "Regeneração por rodada" (prancha 7): % da máxima que volta no início do turno, em combate —
+ * energia (Mana, Ki…) e Vida (com o tipo: Cura ou Regeneração). Em Skill (escala com o Poder do
+ * nível; Ativa só ligada), Título e Item Geral (só equipado). Ver regen-rules.js.
+ */
+function regenSchema() {
+  return new fields.SchemaField({
+    energyPercent: new fields.NumberField({ required: false, initial: 0, min: 0 }),
+    hpPercent: new fields.NumberField({ required: false, initial: 0, min: 0 }),
+    hpKind: new fields.StringField({ required: false, initial: "cura", choices: ["cura", "regeneracao"] })
+  });
+}
+
 function statModifiersSchema() {
   return new fields.SchemaField({
     hp: new fields.NumberField({ required: true, integer: true, initial: 0 }),
@@ -188,7 +201,18 @@ function effectEntrySchema() {
      * teto do total do Escudo (0 = sem teto). Ver sustainedShieldGain em damage-rules.js.
      */
     shieldRegen: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
-    shieldCap: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 })
+    shieldCap: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+    /**
+     * Só num Periódico de Vida positivo (cura), com "Ferimentos por parte" ligado: o que a cura faz
+     * nas Partes do Corpo — "cura" (feridas), "regeneracao" (também refaz partes perdidas; numa
+     * Skill Única/Ultimate conserta próteses) ou "reparo" (só próteses). Ver partHealing.
+     */
+    healKind: new fields.StringField({ required: false, initial: "cura", blank: true }),
+    /**
+     * Só quando a Condição é uma Maldição: o que fazer quando a vítima não tem Mana para pagar,
+     * só para esta Skill ("" = o que a Maldição do catálogo diz). Ver curse-rules.js.
+     */
+    curseOnUnpaid: new fields.StringField({ required: false, initial: "", blank: true })
   });
 }
 
@@ -417,6 +441,7 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
 
       /** Modificador PERMANENTE de HP/Mana, sempre ativo enquanto a skill estiver na ficha. */
       statModifiers: statModifiersSchema(),
+      regen: regenSchema(),
 
       /**
        * Bônus/penalidade PERMANENTE de Atributo (Passiva sem ativar): mesma regra dos Itens
@@ -465,6 +490,17 @@ export class BodyPartDataModel extends foundry.abstract.TypeDataModel {
       isProsthetic: new fields.BooleanField({ required: false, initial: false }),
 
       /**
+       * Vida em % da Vida máxima do personagem (com buffs). 0 = Vida fixa (`hp.max`, dados de antes).
+       * Com %, o que fica salvo é `integrity` (a proporção, 0–1); `hp.max`/`hp.value` são calculados
+       * na preparação do personagem (ver derivePartVitals em character-model.js) e quem grava
+       * `system.hp.value` tem o valor convertido em proporção (ver `_preUpdate`).
+       */
+      hpPercent: new fields.NumberField({ required: false, initial: 0, min: 0 }),
+      integrity: new fields.NumberField({ required: false, initial: 1, min: 0, max: 1 }),
+      /** Perdida: a parte não existe mais (decepada). Só Regeneração refaz; sob uma prótese, fica o coto. */
+      lost: new fields.BooleanField({ required: false, initial: false }),
+
+      /**
        * Funções desta parte (ids do catálogo Funções de Parte: visao, manipulacao, locomocao…) —
        * vêm da Espécie; com "Ferimentos por parte" ligado, perder a parte desliga as Funções dela.
        */
@@ -491,10 +527,15 @@ export class BodyPartDataModel extends foundry.abstract.TypeDataModel {
           location: new fields.StringField({ required: false, initial: "", blank: true }),
           /** Funções que repõe (prótese) ou soma (implante). */
           functions: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
+          /** Mágico (copiado do Item ao instalar): a Antimagia suprime esta modificação. */
+          magic: new fields.BooleanField({ required: false, initial: false }),
           /** O Item de onde veio (para voltar ao inventário ao remover). */
           sourceItem: new fields.ObjectField({ required: false, nullable: true, initial: null }),
           /** Vida máxima da parte natural antes da prótese (volta ao remover a prótese). */
-          naturalHpMax: new fields.NumberField({ required: false, nullable: true, initial: null })
+          naturalHpMax: new fields.NumberField({ required: false, nullable: true, initial: null }),
+          /** % e proporção da parte natural antes da prótese (Vida em %): voltam ao remover. */
+          naturalHpPercent: new fields.NumberField({ required: false, nullable: true, initial: null }),
+          naturalIntegrity: new fields.NumberField({ required: false, nullable: true, initial: null })
         }),
         { required: false, initial: [] }
       )
@@ -502,10 +543,37 @@ export class BodyPartDataModel extends foundry.abstract.TypeDataModel {
   }
 
   prepareDerivedData() {
+    // Parte com Vida em %: o personagem recalcula máximo, valor e estado depois de ter a própria Vida
+    // máxima (derivePartVitals). Aqui fica só o caso da Vida fixa (e o de uma parte fora de ficha).
     this.hp.value = Math.clamp(this.hp.value, 0, this.hp.max);
-    if (this.hp.value <= 0) this.status = "destroyed";
+    if (this.lost && !this.isProsthetic) {
+      this.hp.value = 0;
+      this.status = "lost";
+    } else if (this.hp.value <= 0) this.status = "destroyed";
     else if (this.hp.value < this.hp.max) this.status = "damaged";
     else this.status = "intact";
+  }
+
+  /**
+   * Parte com Vida em %: quem grava `system.hp.value` (ficha, dano, cura, tick) grava, na verdade, a
+   * proporção — `hp.max` aqui já é o calculado na preparação. Escrita que já traz `integrity` manda.
+   * @override
+   */
+  async _preUpdate(changes, options, user) {
+    const allowed = await super._preUpdate?.(changes, options, user);
+    if (allowed === false) return false;
+    if (!(Number(this.hpPercent) > 0) && !(Number(changes?.system?.hpPercent ?? changes?.["system.hpPercent"]) > 0)) return;
+    const sys = changes?.system;
+    const flatValue = changes?.["system.hp.value"];
+    const value = sys?.hp?.value ?? flatValue;
+    const hasIntegrity = sys?.integrity !== undefined || changes?.["system.integrity"] !== undefined;
+    if (value === undefined || hasIntegrity) return;
+    // A ficha reenvia o valor calculado em todo submit: igual ao de agora, não é uma mudança.
+    if (Number(value) === Number(this.hp.value)) return;
+    const max = Number(this.hp.max) || 0;
+    const integrity = max > 0 ? Math.min(1, Math.max(0, Number(value) / max)) : 1;
+    if (sys) sys.integrity = integrity;
+    else changes["system.integrity"] = integrity;
   }
 }
 
@@ -518,6 +586,7 @@ export class TitleDataModel extends foundry.abstract.TypeDataModel {
     return {
       description: new fields.HTMLField({ required: false, initial: "" }),
       grantedBy: new fields.StringField({ required: false, initial: "" }),
+      regen: regenSchema(),
       rarity: new fields.StringField({ required: false, initial: "comum" }),
 
       /** Bônus permanentes concedidos: [{ attribute, amount }], attribute em MEU_SISTEMA.TITLE_BONUS_TARGETS (os atributos de combate + hp/energy diretos). */
@@ -555,6 +624,8 @@ export class StarshipModuleDataModel extends foundry.abstract.TypeDataModel {
   /** @override */
   static migrateData(source) {
     migrateGrantedStructure(source?.grantsSkill);
+    // Implantes de antes da Vida em %: a Vida da prótese era fixa.
+    if (source?.implant?.enabled && source.implant.hpMode === undefined) source.implant.hpMode = "fixed";
     return super.migrateData(source);
   }
 
@@ -744,6 +815,8 @@ export class GenericItemDataModel extends foundry.abstract.TypeDataModel {
       quantity: new fields.NumberField({ required: true, integer: true, initial: 1, min: 0 }),
       weight: new fields.NumberField({ required: true, initial: 0, min: 0 }),
       equipped: new fields.BooleanField({ required: false, initial: false }),
+      /** Mágico: a Antimagia suprime os bônus deste Item (e do implante feito dele) enquanto durar. */
+      magic: new fields.BooleanField({ required: false, initial: false }),
       value: new fields.SchemaField({
         amount: new fields.NumberField({ required: true, initial: 0, min: 0 }),
         currency: new fields.StringField({ required: false, initial: "gold" })
@@ -813,7 +886,9 @@ export class GenericItemDataModel extends foundry.abstract.TypeDataModel {
         fitsSlots: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
         location: new fields.StringField({ required: false, initial: "", blank: true }),
         functions: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
-        hp: new fields.NumberField({ required: false, integer: true, initial: 10, min: 1 })
+        /** Vida da prótese: "percent" = `hp` % da Vida máxima do portador (cresce com ele); "fixed" = `hp` pontos. */
+        hpMode: new fields.StringField({ required: false, initial: "percent", choices: ["percent", "fixed"] }),
+        hp: new fields.NumberField({ required: false, integer: true, initial: 20, min: 1 })
       }),
 
       /** Habilidade opcional concedida ao dono enquanto o item estiver "equipado" (ver grantedSkillSchema). */
@@ -821,6 +896,7 @@ export class GenericItemDataModel extends foundry.abstract.TypeDataModel {
 
       /** Modificador PERMANENTE de HP/Mana enquanto o item estiver "equipado". */
       statModifiers: statModifiersSchema(),
+      regen: regenSchema(),
 
       /** Bônus PERMANENTE de Atributo (rolagem) enquanto o item estiver "equipado" — nunca entra no HP/Mana. */
       attributeBonuses: attributeBonusesSchema(),

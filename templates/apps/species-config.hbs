@@ -101,11 +101,11 @@
 
       {{!-- ================= CORPO ================= --}}
       {{#if (eq tab "body")}}
-      <div class="se-strip info"><span class="se-badge copy">copiado</span>Cada parte vira um Item na ficha, com Vida própria. Mudar aqui sobe a versão; as fichas mostram "a Espécie mudou".</div>
+      <div class="se-strip info"><span class="se-badge copy">copiado</span>Cada parte vira um Item na ficha. A Vida dela é um % da Vida máxima do personagem (com buffs) e cresce junto; não precisa somar 100%. Mudar aqui sobe a versão; as fichas mostram "a Espécie mudou".</div>
       <div class="se-sec">
-        <div class="se-sh">Partes do Corpo <span class="se-sp"></span><a class="se-add" data-action="addRow" data-list="parts" data-template="part">+ Parte</a></div>
+        <div class="se-sh">Partes do Corpo <span class="se-sp"></span><a class="se-add" data-action="fillPartPercent" title="Partes sem % ganham o padrão do slot (cabeça 30, tronco 50, braço 20, perna 25, cauda 15…)">% pelo slot</a> <a class="se-add" data-action="addRow" data-list="parts" data-template="part">+ Parte</a></div>
         <div class="se-table se-parts">
-          <div class="se-th"><span></span><span>chave</span><span>nome</span><span>slot</span><span>Vida</span><span>Funções</span><span></span></div>
+          <div class="se-th"><span></span><span>chave</span><span>nome</span><span>slot</span><span title="% da Vida máxima do personagem. Vazio = a Vida fixa de antes.">% Vida</span><span>Funções</span><span></span></div>
           {{#each sel.parts as |p|}}
           <div class="se-tr {{#unless p.locked}}is-new{{/unless}}">
             <span class="se-move">
@@ -115,7 +115,7 @@
             {{#if p.locked}}<span class="se-mono" title="A chave não muda depois de salva">{{p.key}} <i class="fas fa-lock"></i></span>{{else}}<input type="text" data-path="parts.{{p.index}}.key" value="{{p.key}}" placeholder="chave" aria-label="Chave"/>{{/if}}
             <input type="text" data-path="parts.{{p.index}}.label" value="{{p.label}}" aria-label="Nome"/>
             <input type="text" data-path="parts.{{p.index}}.slot" value="{{p.slot}}" aria-label="Slot" title="Encaixe: decide em que parte um implante cabe e para onde uma prótese vai numa troca de Espécie"/>
-            <input type="number" data-path="parts.{{p.index}}.hpMax" data-kind="int" value="{{p.hpMax}}" aria-label="Vida"/>
+            <input type="number" data-path="parts.{{p.index}}.hpPercent" data-kind="int" min="0" value="{{#if p.hpPercent}}{{p.hpPercent}}{{/if}}" placeholder="fixa {{p.hpMax}}" aria-label="% da Vida" title="% da Vida máxima do personagem. Vazio = Vida fixa ({{p.hpMax}})"/>
             <span class="se-tagcell"><input type="text" data-path="parts.{{p.index}}.tags" data-kind="tags" value="{{p.tagsText}}" placeholder="vital, visao…" aria-label="Funções"/>{{#if @root.isHeritage}}<label class="se-pros" title="A parte é uma prótese (a Vida é a dela)"><input type="checkbox" data-path="parts.{{p.index}}.prosthetic" {{#if p.prosthetic}}checked{{/if}}/> prót.</label>{{/if}}</span>
             <a class="se-x" data-action="removeRow" data-list="parts" data-index="{{p.index}}" title="Remover"><i class="fas fa-times"></i></a>
           </div>
@@ -189,6 +189,14 @@
         <div class="se-grid g2">
           <label class="se-f"><span class="se-l">Vida máx. +</span><input type="number" data-path="passives.statModifiers.hp" data-kind="int" value="{{sel.hpMod}}"/></label>
           <label class="se-f"><span class="se-l">Mana máx. +</span><input type="number" data-path="passives.statModifiers.energy" data-kind="int" value="{{sel.energyMod}}"/></label>
+        </div>
+      </div>
+      <div class="se-sec">
+        <div class="se-sh">Regeneração por rodada <span class="se-badge live">ao vivo</span></div>
+        <div class="se-grid g3">
+          <label class="se-f"><span class="se-l">Mana · % da máx.</span><input type="number" min="0" step="0.1" data-path="passives.regen.energyPercent" data-kind="number" value="{{sel.regen.energyPercent}}"/></label>
+          <label class="se-f"><span class="se-l">Vida · % da máx.</span><input type="number" min="0" step="0.1" data-path="passives.regen.hpPercent" data-kind="number" value="{{sel.regen.hpPercent}}"/></label>
+          <label class="se-f"><span class="se-l">Vida conta como</span><select data-path="passives.regen.hpKind"><option value="cura" {{#unless (eq sel.regen.hpKind "regeneracao")}}selected{{/unless}}>Cura</option><option value="regeneracao" {{#if (eq sel.regen.hpKind "regeneracao")}}selected{{/if}}>Regeneração</option></select></label>
         </div>
       </div>
       <div class="se-sec">

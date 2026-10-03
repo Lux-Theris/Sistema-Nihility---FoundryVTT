@@ -7,7 +7,9 @@
  *    HP/Mana Máximo mesmo quando o alvo é um atributo); "shield" é somado
  *    direto, sem duração, gasto na mão pelo jogador conforme absorve dano.
  */
-import { getEnergyLabelForActor, isEnergyPoolEnabled, effectiveSkillCost, isStructureMechanic, manaInvestmentPower, getManaInvestConfig } from "../core/config.js";
+import { getActiveStatusConditions, getEnergyLabelForActor, isEnergyPoolEnabled, effectiveSkillCost, isStructureMechanic, manaInvestmentPower, getManaInvestConfig } from "../core/config.js";
+import { suppressionLevel } from "../core/suppression.js";
+import { skillIsMagic } from "../core/magic-rules.js";
 import { createZoneTemplate } from "../combat/area-effects.js";
 import { playSkillAnimation } from "../core/vfx.js";
 import { requestStructure } from "../structures/structures.js";
@@ -63,6 +65,13 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
       content: `<p><strong>${sourceActor.name}</strong> desativou <strong>${label}</strong>.</p>`
     });
     return true;
+  }
+
+  // Suprimido (Antimagia): Skill mágica de nível ≤ a supressão não se usa — nem liga, se for Ativa.
+  const suppression = sourceActor.type === "character" ? suppressionLevel(sourceActor) : null;
+  if (suppression !== null && skillIsMagic({ ...mech, tier: skill.system.tier }) && (Number(mech.level) || 0) <= suppression) {
+    ui.notifications?.warn(`${sourceActor.name} está Suprimido (Antimagia nv ${suppression}): ${label} não funciona.`);
+    return null;
   }
 
   // Numa campanha sem pool de Mana/Energia (setting `energyPoolEnabled`), Personagem/Criatura
@@ -178,17 +187,32 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
   return true;
 }
 
+/** Entrada de Efeito que é cura de Vida (Periódico, valor positivo). */
+function isHealEntry(entry) {
+  return entry?.target === "hp" && Boolean(entry.periodic) && Number(entry.amount) > 0;
+}
+
 export async function applySkillEffects(sourceActor, skill, mech, label, targetActor, subSkillIndex = null) {
   if (!(mech.effects ?? []).length) {
     ui.notifications?.warn("Essa skill não tem nenhum Efeito configurado.");
     return null;
   }
 
-  const summary = await applyEffectsToActor(mech, label, skill, targetActor, subSkillIndex);
+  // Cura com Ferimentos por parte: quem usa pode focar numa parte (ela enche primeiro).
+  const { promptHealFocus, promptTargetBodyPart } = await import("../species/anatomy.js");
+  const focus = await promptHealFocus(targetActor, mech);
+  let effective = focus ? { ...mech, effects: mech.effects.map(e => (isHealEntry(e) ? { ...e, focusPartId: focus.id } : e)) } : mech;
+  // Condição "Impede cura" presa na parte atingida (Ferida Amaldiçoada): quem usa escolhe a parte.
+  const conditions = getActiveStatusConditions();
+  if (effective.effects.some(e => conditions.find(c => c.id === e.conditionId)?.healBlock?.scope === "part")) {
+    const part = await promptTargetBodyPart(targetActor);
+    if (part) effective = { ...effective, effects: effective.effects.map(e => (conditions.find(c => c.id === e.conditionId)?.healBlock?.scope === "part" ? { ...e, healBlockPartId: part.id } : e)) };
+  }
+  const summary = await applyEffectsToActor(effective, label, skill, targetActor, subSkillIndex);
 
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
-    content: `<p><strong>${sourceActor.name}</strong> usou <strong>${label}</strong> em <strong>${targetActor.name}</strong>: ${summary.join(", ")}.</p>`
+    content: `<p><strong>${sourceActor.name}</strong> usou <strong>${label}</strong> em <strong>${targetActor.name}</strong>${focus ? ` (focando ${foundry.utils.escapeHTML(focus.name)})` : ""}: ${summary.join(", ")}.</p>`
   });
 
   return true;

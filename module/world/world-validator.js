@@ -266,9 +266,24 @@ export function validateCatalogs(catalogs, idx = buildCatalogIndex(catalogs)) {
     const list = [];
     (element.effects ?? []).forEach((effect, i) => {
       if (effect?.type === "condition") checkRef(list, idx, `Efeito ${i + 1} › Condição`, "conditions", effect.conditionId);
+      if (effect?.type === "blockRegen" && effect.conditionId) checkRef(list, idx, `Efeito ${i + 1} › Condição (Impede regeneração)`, "conditions", effect.conditionId);
       if (effect?.type === "traitBonus") checkRef(list, idx, `Efeito ${i + 1} › Traço`, "traits", effect.trait);
     });
     checkRefs(list, idx, "Tabela de vantagens", "elements", Object.keys(element.affinity ?? {}));
+    if (element.parent) {
+      if (element.parent === element.id) list.push({ where: "Subtipo de", catalog: "elements", ref: element.parent, message: "o elemento é subtipo de si mesmo" });
+      else checkRef(list, idx, "Subtipo de", "elements", element.parent);
+      // Ciclo (A subtipo de B, B subtipo de A): a cadeia é cortada no ciclo, mas vale avisar.
+      const byId = new Map((catalogs.elements ?? []).map(e => [e.id, e]));
+      const seen = new Set([element.id]);
+      for (let current = element.parent; current && byId.has(current); current = byId.get(current)?.parent) {
+        if (seen.has(current)) {
+          list.push({ where: "Subtipo de", catalog: "elements", ref: current, message: `ciclo em "Subtipo de" passando por "${current}"` });
+          break;
+        }
+        seen.add(current);
+      }
+    }
     push("elements", element.label ?? element.id, list);
   }
 

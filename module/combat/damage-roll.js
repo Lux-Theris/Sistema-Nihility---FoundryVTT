@@ -2,15 +2,17 @@
  * Rolar dano de Skill/arma: escala, bônus, Shift, Estruturas no caminho, reduções do alvo por elemento e o card de dano.
  * (Separado de skill-effects.js na reorganização de pastas — mesma lógica de antes.)
  */
-import { getActiveDamageElements, getActiveStatusConditions, getEnergyLabelForActor, getAttributeLabel, damageScalingMultiplier, skillLevelBonuses, getDamageElement, actorTraits, isScaleEnabled, getFeatureOption, actorScaleIndex, scaleIndexOf, actorElements, getElementAffinityMatrix, getAffinityConfig } from "../core/config.js";
+import { SYSTEM_ID, isMagicUse, damageElementChain, getActiveDamageElements, getActiveStatusConditions, getEnergyLabelForActor, getAttributeLabel, damageScalingMultiplier, skillLevelBonuses, getDamageElement, actorTraits, isScaleEnabled, getFeatureOption, actorScaleIndex, scaleIndexOf, actorElements, getElementAffinityMatrix, getAffinityConfig } from "../core/config.js";
 import { playSkillAnimation } from "../core/vfx.js";
 import { damageApplyFlags, withDamageTrace } from "./damage-apply.js";
 import { applyAdvantageToFormula, applyRollModifiers, describeRollOptions, normalizeRollOptions } from "../core/roll-modifiers.js";
-import { splitDamageParts, resolveDamageParts, describeDamageParts, scaleMultiplier, rollChance, elementVsDefender } from "./damage-rules.js";
+import { splitDamageParts, resolveDamageParts, describeDamageParts, scaleMultiplier, rollChance, elementVsDefender, chainedResistance, inheritedElementEffects } from "./damage-rules.js";
 import { conditionalBonus } from "./conditional-context.js";
 import { interceptingStructure, hitStructure } from "../structures/structures.js";
 import { chargeAntimagic } from "./antimagic.js";
 import { applyEffectsToActor } from "../skills/effects-apply.js";
+import { promptTargetBodyPart } from "../species/anatomy.js";
+import { suppressionLevel } from "../skills/dispel.js";
 import { magicDefenseReduction, resistanceSourceFor, grantResistanceXp, registerResistanceExposure } from "./resistance.js";
 import { isShipLike, applyShipWeaponBonus, applyStarshipDamageCascade } from "../starship/ship-damage.js";
 
@@ -89,11 +91,21 @@ export function applyDamageReductions(rawTotal, mech, targetActor, options = {})
   const situational = element =>
     targetActor ? conditionalBonus(targetActor, options.attacker ?? null, "resistancePercent", { elements: mech.damageElements, element }) / 100 : 0;
   const generalPercent = general.percent + situational("general");
+  // Hierarquia de elementos: a parte passa pela Resistência do próprio elemento e pela de cada
+  // ancestral (Cortante: Resistência a Cortante e Resistência Física), uma depois da outra.
   const elementSources = new Map();
   const resistanceFor = elementId => {
     if (!targetActor) return 0;
-    if (!elementSources.has(elementId)) elementSources.set(elementId, resistanceSourceFor(targetActor, elementId));
-    return elementSources.get(elementId).percent + situational(elementId);
+    if (!elementSources.has(elementId)) {
+      const chain = damageElementChain(elementId).map(el => el.id);
+      const ids = chain.length ? chain : [elementId];
+      const layers = ids.map(id => ({ id, ...resistanceSourceFor(targetActor, id) }));
+      // A Skill que aprende com o bloqueio: a do próprio elemento, senão a do ancestral mais próximo.
+      const skill = layers.find(l => l.skill)?.skill ?? null;
+      const percent = chainedResistance(layers.map(l => l.percent + situational(l.id)));
+      elementSources.set(elementId, { percent, skill, names: layers.filter(l => l.skill).map(l => l.skill.name) });
+    }
+    return elementSources.get(elementId).percent;
   };
 
   const result = resolveDamageParts({ parts, magicDefense, general: generalPercent, resistanceFor, absolute: Boolean(mech.isAbsoluteDamage) });
@@ -101,7 +113,7 @@ export function applyDamageReductions(rawTotal, mech, targetActor, options = {})
   const traceRows = describeDamageParts(result.parts, {
     elementLabel: id => getDamageElement(id)?.label ?? id,
     generalLabel: `Resistência Geral${general.skill ? ` (${general.skill.name})` : ""}${situational("general") ? " + Quando → Então" : ""}`,
-    elementSourceLabel: id => [elementSources.get(id)?.skill?.name, situational(id) ? "Quando → Então" : ""].filter(Boolean).join(" + ")
+    elementSourceLabel: id => [...(elementSources.get(id)?.names ?? []), situational(id) ? "Quando → Então" : ""].filter(Boolean).join(" + ")
   });
 
   // Quem de fato abateu dano, e quanto — insumo do XP de Resistência (a Skill aprende apanhando).
@@ -117,14 +129,22 @@ export function applyDamageReductions(rawTotal, mech, targetActor, options = {})
   // Efeitos de elemento: dreno de Escudo e Condições ao acertar. Ticks periódicos não disparam
   // Condição nova (senão uma Queimadura geraria outra Queimadura a cada rodada).
   let shieldExtra = 0;
+  let sever = false;
   const triggeredConditions = [];
+  // Nível e magia do golpe vão junto com o que ele dispara (prancha 8: Antimagia e bloqueio de cura).
+  const hitLevel = Math.max(1, Number(mech.level) || 1);
+  const hitMagic = Boolean(mech.isMagicDamage) || mech.magicTag === "magic";
   result.parts.forEach((part, index) => {
     const ctx = parts[index].ctx;
     if (part.immune || !(part.final > 0)) return;
     shieldExtra += part.final * ctx.shieldDrain;
     if (options.triggerConditions === false) return;
     for (const effect of ctx.conditions) {
-      if (rollChance(effect.chance)) triggeredConditions.push({ conditionId: effect.conditionId, elementId: part.elementId, hitDamage: part.final });
+      if (rollChance(effect.chance)) triggeredConditions.push({ conditionId: effect.conditionId, elementId: part.elementId, hitDamage: part.final, level: hitLevel, magic: hitMagic });
+    }
+    for (const chance of ctx.sever) if (rollChance(chance)) sever = true;
+    for (const effect of ctx.blockRegen) {
+      if (rollChance(effect.chance)) triggeredConditions.push({ conditionId: effect.conditionId || "regen-blocked", elementId: part.elementId, blockRegen: true, rounds: effect.rounds, level: hitLevel, magic: hitMagic });
     }
   });
 
@@ -157,7 +177,8 @@ export function applyDamageReductions(rawTotal, mech, targetActor, options = {})
     shieldExtra: Math.floor(shieldExtra),
     shieldMultiplier,
     shieldPenetration,
-    triggeredConditions
+    triggeredConditions,
+    sever
   };
 }
 
@@ -166,11 +187,12 @@ export function applyDamageReductions(rawTotal, mech, targetActor, options = {})
  * Condições (ver ELEMENT_EFFECT_TYPES em config.js). Tudo em fração (0.3 = 30%).
  */
 function elementContext(elementId, targetActor) {
-  const ctx = { penetration: 0, bonus: 0, shieldDrain: 0, layers: { shield: 0, casco: 0, hull: 0 }, conditions: [], shipEffects: [] };
+  const ctx = { penetration: 0, bonus: 0, shieldDrain: 0, layers: { shield: 0, casco: 0, hull: 0 }, conditions: [], shipEffects: [], sever: [], blockRegen: [] };
   const element = elementId ? getDamageElement(elementId) : null;
   if (!element) return ctx;
   const traits = targetActor ? actorTraits(targetActor) : [];
-  for (const effect of element.effects ?? []) {
+  // Subtipo herda os efeitos do pai que não tiver (Cortante herda os do Físico).
+  for (const effect of inheritedElementEffects(damageElementChain(elementId))) {
     const percent = (Number(effect.percent) || 0) / 100;
     if (effect.type === "penetration") ctx.penetration += percent;
     else if (effect.type === "traitBonus" && traits.includes(effect.trait)) ctx.bonus += percent;
@@ -178,6 +200,10 @@ function elementContext(elementId, targetActor) {
     // "Dano por camada": pode ser negativo (fraqueza) — ver resolveShipCascade/absorbLayer.
     else if (effect.type === "layer" && effect.layer in ctx.layers) ctx.layers[effect.layer] += percent;
     else if (effect.type === "condition" && effect.conditionId) ctx.conditions.push({ conditionId: effect.conditionId, chance: Number(effect.chance) || 0 });
+    // Ferimentos por parte: Decepar (a parte atingida que chega no 0 vira Perdida) e Impede
+    // regeneração (Condição marcada "Impede regeneração"; 0 rodadas = até ser removida).
+    else if (effect.type === "sever") ctx.sever.push(Number(effect.chance) || 0);
+    else if (effect.type === "blockRegen") ctx.blockRegen.push({ chance: Number(effect.chance) || 0, rounds: Math.max(0, Math.round(Number(effect.rounds) || 0)), conditionId: effect.conditionId || "" });
     else if (["moduleDisable", "energyDrain", "resistanceDown"].includes(effect.type)) {
       ctx.shipEffects.push({
         type: effect.type,
@@ -233,29 +259,67 @@ export function situationalDamageFactor(sourceActor, targetActor, mech) {
  * direto na cascata de Nave). Devolve os ids dos efeitos NOVOS (renovações não contam), pra o
  * Desfazer poder removê-los.
  */
-export async function applyTriggeredConditions(targetActor, triggered, { label = "", factor = 1 } = {}) {
+export async function applyTriggeredConditions(targetActor, triggered, { label = "", factor = 1, partId = null } = {}) {
   if (!targetActor || !triggered?.length) return { summary: [], createdIds: [] };
   const before = new Set(targetActor.effects.map(e => e.id));
   const summary = [];
   for (const hit of triggered) {
+    if (hit.blockRegen) {
+      summary.push(...(await applyRegenBlock(targetActor, hit, label, partId)));
+      continue;
+    }
     const entry = {
       target: "hp",
       amount: 0,
       durationRounds: 0,
       conditionId: hit.conditionId,
       damageElements: hit.elementId ? [hit.elementId] : [],
-      hitDamage: Math.max(0, (Number(hit.hitDamage) || 0) * factor)
+      hitDamage: Math.max(0, (Number(hit.hitDamage) || 0) * factor),
+      // Condição com "Impede cura" na parte atingida: prende-se à parte que levou o golpe.
+      healBlockPartId: partId || ""
     };
-    summary.push(...(await applyEffectsToActor({ effects: [entry], level: 1, hasUpkeep: false }, label, null, targetActor)));
+    summary.push(...(await applyEffectsToActor({ effects: [entry], level: 1, hasUpkeep: false, sourceLevel: hit.level ?? 1, sourceMagic: Boolean(hit.magic) }, label, null, targetActor)));
   }
   const createdIds = targetActor.effects.filter(e => !before.has(e.id)).map(e => e.id);
   return { summary, createdIds };
 }
 
+/**
+ * "Impede regeneração" vindo de um elemento: a Condição escolhida (padrão "Regeneração bloqueada"),
+ * por `rounds` rodadas — 0 = até ser removida (Maldição). Catálogo salvo sem essa Condição: cria o
+ * efeito do mesmo jeito, com a marca na flag (isRegenerationBlocked lê as duas).
+ */
+async function applyRegenBlock(targetActor, hit, label, partId = null) {
+  const condition = getActiveStatusConditions().find(c => c.id === hit.conditionId);
+  if (condition) {
+    return applyEffectsToActor(
+      { effects: [{ target: "hp", amount: 0, durationRounds: hit.rounds ?? 0, conditionId: condition.id, damageElements: [], healBlockPartId: partId || "" }], level: 1, hasUpkeep: false, sourceLevel: hit.level ?? 1, sourceMagic: Boolean(hit.magic) },
+      label,
+      null,
+      targetActor
+    );
+  }
+  const existing = targetActor.effects.find(e => e.getFlag(SYSTEM_ID, "regenBlocked"));
+  const rounds = Number(hit.rounds) || 0;
+  if (existing) {
+    await existing.update({ "duration.rounds": rounds > 0 ? Math.max(rounds, existing.duration?.remaining ?? 0) : null });
+  } else {
+    await targetActor.createEmbeddedDocuments("ActiveEffect", [
+      {
+        name: "Regeneração bloqueada",
+        img: "icons/svg/acid.svg",
+        duration: rounds > 0 ? { rounds } : {},
+        flags: { [SYSTEM_ID]: { skillEffect: true, conditionId: "regen-blocked", regenBlocked: true, sourceLevel: hit.level ?? 1, magic: Boolean(hit.magic) } }
+      }
+    ]);
+  }
+  return [`Regeneração bloqueada${rounds > 0 ? ` (${rounds} rodada(s))` : " (até ser removida)"}`];
+}
+
 /** Nomes das Condições disparadas, pra mostrar no chat ("causa Queimadura"). */
 export function triggeredLabel(triggered) {
   if (!triggered?.length) return "";
-  const names = [...new Set(triggered.map(t => getActiveStatusConditions().find(c => c.id === t.conditionId)?.label ?? t.conditionId))];
+  const names = [...new Set(triggered.map(t => getActiveStatusConditions().find(c => c.id === t.conditionId)?.label ?? (t.blockRegen ? "Regeneração bloqueada" : t.conditionId)))];
   return ` — causa ${names.join(", ")}`;
 }
 
@@ -342,6 +406,13 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
     });
     return { roll, finalDamage: 0 };
   }
+  // Alvo Suprimido (Antimagia): golpe mágico de alvo único, de nível ≤ a supressão, não tem efeito.
+  // Em área continua acertando (rollSkillDamageArea não passa por aqui).
+  const suppressedAt = targetActor?.type === "character" ? suppressionLevel(targetActor) : null;
+  if (suppressedAt !== null && (isMagicUse(mech, actor) || mech.magicTag === "magic") && (Number(mech.level) || 1) <= suppressedAt) {
+    await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor }), flavor: `${flavor} — ${targetActor.name}: sem efeito (Suprimido)` });
+    return { roll, finalDamage: 0 };
+  }
   const blocked = targetActor ? await throughStructures(actor, targetActor, rawDamage, { elementIds: mech.damageElements }) : { damage: rawDamage, note: "", impact: null };
   const scaledDamage = blocked.damage;
   const traceRows = attackTraceRows({ rolled: roll.total, boosted: boostedTotal, scale, situational, beforeStructure: rawDamage, arriving: scaledDamage });
@@ -352,6 +423,7 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
 
   let finalDamage;
   let reduction = null;
+  let aimedPart = null;
   if (isShipLike(targetActor)) {
     const ctx = averageElementContext(mech.damageElements, targetActor);
     const cascade = await applyStarshipDamageCascade(scaledDamage, actor, targetActor, null, {
@@ -386,6 +458,9 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
     // "Alvo: número" que a versão em área (`rollSkillDamageArea`) já usava.
     if (targetActor) flavor += ` — ${targetActor.name}: ${finalDamage}${triggeredLabel(reduction.triggeredConditions)}`;
     if (targetActor) traceRows.push(...personalTraceTail(reduction, targetActor));
+    // Ferimentos por parte: quem ataca pode mirar numa parte (senão o Aplicar sorteia uma).
+    if (targetActor && finalDamage > 0) aimedPart = await promptTargetBodyPart(targetActor);
+    if (aimedPart) flavor += ` (mirando: ${aimedPart.name})`;
   }
 
   await roll.toMessage({
@@ -402,6 +477,8 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
         shieldMultiplier: reduction?.shieldMultiplier ?? 1,
         shieldPenetration: reduction?.shieldPenetration ?? 0,
         triggeredConditions: reduction?.triggeredConditions ?? [],
+        sever: Boolean(reduction?.sever),
+        bodyPart: aimedPart,
         label
       }),
       targetActor ? [{ name: targetActor.name, rows: traceRows }] : []

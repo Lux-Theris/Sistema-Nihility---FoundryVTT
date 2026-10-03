@@ -114,7 +114,7 @@
       {{/if}}
 
       <button type="button" class="rest-button" data-action="restActor">
-        <i class="fas fa-moon"></i> Descanso Completo <span class="hint-inline">(restaura HP e {{energyLabel}} ao máximo)</span>
+        <i class="fas fa-moon"></i> Descansar… <span class="hint-inline">(Curto ou Completo)</span>
       </button>
       {{#if canSeeEffects}}<button type="button" class="initiative-button effects-list-button" data-action="openEffectsList" title="Tudo o que está agindo sobre este personagem: efeitos, Escudos, Skills Ativas, Estruturas">✦ Efeitos{{#if effectsCount}} ({{effectsCount}}){{/if}}</button>{{/if}}
       <button type="button" class="initiative-button" data-action="rollInitiative" title="Rola {{initiativeLabel}} no pool de dados e lança no rastreador de combate">⚔ Iniciativa</button>
@@ -443,14 +443,19 @@
       {{/if}}
       <ol class="item-list body-parts-list anat-list">
         {{#each anatomy.parts as |part|}}
-        <li class="anat-part {{#if part.destroyed}}is-lost{{/if}}" data-part-id="{{part.id}}" data-slot="{{part.slot}}">
+        <li class="anat-part {{#if part.destroyed}}is-lost{{/if}} state-{{part.state}}" data-part-id="{{part.id}}" data-slot="{{part.slot}}">
           <div class="item-row" data-item-id="{{part.id}}">
             <span class="anat-name"><b>{{part.name}}</b> <span class="anat-slot">{{part.slot}}</span></span>
-            <span class="anat-hp"><span class="anat-bar {{#if part.prosthetic}}pro{{/if}}"><i style="width:{{part.hpPct}}%"></i></span><span class="anat-num">{{part.hpValue}}/{{part.hpMax}}{{#if part.destroyed}} destruída{{/if}}</span></span>
+            {{#if part.isLost}}
+            <span class="anat-hp"><span class="anat-state lost" title="A parte não existe mais: só Regeneração a traz de volta (ou uma prótese ocupa o lugar).">PERDIDA</span><span class="anat-num">só Regeneração</span></span>
+            {{else}}
+            <span class="anat-hp"><span class="anat-bar {{#if part.prosthetic}}pro{{/if}}"><i style="width:{{part.hpPct}}%"></i></span><span class="anat-num">{{part.hpValue}}/{{part.hpMax}}{{#if part.hpPercent}} · {{part.hpPercent}}%{{/if}}{{#if part.showState}} <span class="anat-state {{part.state}}">{{part.stateLabel}}</span>{{/if}}</span></span>
+            {{/if}}
             <span class="anat-fns">
               {{#each part.implants as |m|}}<span class="anat-imp {{#if m.prosthesis}}pro{{/if}}" title="{{#if m.prosthesis}}Prótese{{else}}Implante{{/if}}{{#if m.location}} · {{m.location}}{{/if}}">{{#if m.prosthesis}}⚙{{else}}◆{{/if}} {{m.name}}{{#if m.removable}}<a class="anat-imp-x" data-action="uninstallImplant" data-index="{{m.index}}" title="Remover (volta ao inventário)"><i class="fas fa-times"></i></a>{{/if}}</span>{{/each}}
               {{#each part.functions as |f|}}<span class="anat-fn {{#if f.off}}off{{/if}}">{{f.label}}</span>{{/each}}
             </span>
+            {{#if (and @root.isGM @root.anatomy.injury)}}<a class="anat-lose" data-action="toggleBodyPartLost" title="{{#if part.isLost}}Desmarcar Perdida (a parte volta inutilizada){{else}}Marcar como Perdida (decepada){{/if}}"><i class="fas {{#if part.isLost}}fa-seedling{{else}}fa-bone{{/if}}"></i></a>{{else}}<span></span>{{/if}}
             <a class="item-edit" data-action="editItem" title="Editar"><i class="fas fa-edit"></i></a>
             <a class="item-delete" data-action="deleteItem" title="Excluir"><i class="fas fa-trash"></i></a>
           </div>

@@ -14,6 +14,13 @@ function row(op, text, note = "") {
   return `<div class="sp-row"><span class="sp-op ${cls}">${op}</span><span class="sp-text">${text}</span><span class="sp-note">${esc(note)}</span></div>`;
 }
 
+/** "Vida 14 → 30%", "Vida 20% → 25%", "Vida 12 → 14" — ou "" quando o tamanho da parte não muda. */
+function partSizeChange(p) {
+  const before = p.from.percent > 0 ? `${p.from.percent}%` : String(p.from.max);
+  const after = p.hpPercent > 0 ? `${p.hpPercent}%` : String(p.hpMax);
+  return before !== after ? `Vida ${before} → ${after}` : "";
+}
+
 function section(title, rows, { loss = false, aside = "" } = {}) {
   if (!rows.length) return "";
   return `<section class="sp-sec${loss ? " is-loss" : ""}"><h4>${esc(title)}${aside ? `<small>${esc(aside)}</small>` : ""}</h4>${rows.join("")}</section>`;
@@ -42,9 +49,9 @@ export function speciesPreviewHtml(preview, { allowAnnounce = false, warnings = 
   ];
   const changeRows = [
     ...diff.parts.update.map(p =>
-      row("~", p.from.name !== p.label ? `<b>${esc(p.from.name)}</b> → <b>${esc(p.label)}</b>` : `<b>${esc(p.label)}</b>`, p.from.max !== p.hpMax ? `Vida ${p.from.max} → ${p.hpMax}` : "")
+      row("~", p.from.name !== p.label ? `<b>${esc(p.from.name)}</b> → <b>${esc(p.label)}</b>` : `<b>${esc(p.label)}</b>`, partSizeChange(p))
     ),
-    ...diff.parts.create.map(p => row("+", `Parte <b>${esc(p.label)}</b>`, `Vida ${p.hpMax}`)),
+    ...diff.parts.create.map(p => row("+", `Parte <b>${esc(p.label)}</b>`, p.hpPercent > 0 ? `Vida ${p.hpPercent}%` : `Vida ${p.hpMax}`)),
     ...diff.skills.update.map(s => row("~", `Skill Racial <b>${esc(s.name)}</b> · Nv ${esc(s.level)}`, "mecânica atualizada")),
     ...diff.skills.create.map(s => row("+", `Skill Racial <b>${esc(s.name)}</b>`, s.restored ? `volta com Nv ${s.restored.level}` : "entra")),
     ...diff.skills.keep.filter(s => s.from && s.from !== s.name).map(s => row("=", `<b>${esc(s.name)}</b> · Nv ${esc(s.level)}`, "fica")),

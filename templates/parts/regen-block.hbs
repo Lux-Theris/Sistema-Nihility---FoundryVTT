@@ -1,0 +1,14 @@
+<div class="sec regen-block">
+  <div class="sec-head">Regeneração por rodada<span class="sp"></span><span class="sec-head-note">{{note}}</span><span class="help" title="% da máxima que volta no início do turno, em combate. Soma com a regeneração natural e com as outras fontes. Fora de combate, quem devolve é o Descanso.">?</span></div>
+  <div class="sec-body g3">
+    <label class="fld"><span class="fld-label">{{energyLabel}} · % da máx.</span><input class="num" type="number" min="0" step="0.1" name="system.regen.energyPercent" value="{{regen.energyPercent}}"/></label>
+    <label class="fld"><span class="fld-label">Vida · % da máx.</span><input class="num" type="number" min="0" step="0.1" name="system.regen.hpPercent" value="{{regen.hpPercent}}"/></label>
+    <div class="fld">
+      <span class="fld-label">Vida conta como <span class="help" title="Cura fecha feridas. Regeneração também refaz partes perdidas (Ferimentos por parte) e para diante de um bloqueio de regeneração.">?</span></span>
+      <div class="seg compact" role="radiogroup" aria-label="Vida conta como">
+        <label class="seg-opt {{#unless (eq regen.hpKind "regeneracao")}}on{{/unless}}"><input type="radio" name="system.regen.hpKind" value="cura" {{#unless (eq regen.hpKind "regeneracao")}}checked{{/unless}}/>Cura</label>
+        <label class="seg-opt {{#if (eq regen.hpKind "regeneracao")}}on{{/if}}"><input type="radio" name="system.regen.hpKind" value="regeneracao" {{#if (eq regen.hpKind "regeneracao")}}checked{{/if}}/>Regeneração</label>
+      </div>
+    </div>
+  </div>
+</div>

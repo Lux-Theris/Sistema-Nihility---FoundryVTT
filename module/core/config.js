@@ -4,9 +4,19 @@
  * e consultado por Data Models, Sheets e o AI Helper.
  */
 // damage-rules.js é puro e não importa nada: não há ciclo.
-import { buildAffinityMatrix } from "../combat/damage-rules.js";
+import { buildAffinityMatrix, elementAncestors } from "../combat/damage-rules.js";
 
 export const SYSTEM_ID = "nihility-rpg-system";
+
+/**
+ * Cortante, Perfurante e Contundente — subtipos do Físico. Fora do objeto porque a migração
+ * `physicalSubtypes` acrescenta exatamente estes num catálogo de Tipos de Dano já salvo.
+ */
+export const PHYSICAL_SUBTYPES = [
+  { id: "slashing", label: "Cortante", color: "#c9ced9", group: "Físico", parent: "physical", effects: [{ type: "sever", chance: 10 }, { type: "condition", conditionId: "bleeding", chance: 25 }] },
+  { id: "piercing", label: "Perfurante", color: "#a7b0c8", group: "Físico", parent: "physical", effects: [{ type: "penetration", percent: 20 }] },
+  { id: "blunt", label: "Contundente", color: "#8c93ad", group: "Físico", parent: "physical", effects: [{ type: "traitBonus", trait: "mechanical", percent: 20 }, { type: "condition", conditionId: "stun", chance: 10 }] }
+];
 
 export const MEU_SISTEMA = {
   id: SYSTEM_ID,
@@ -49,6 +59,10 @@ export const MEU_SISTEMA = {
     damageScalingDivisor: "damageScalingDivisor",
     manaInvestExponent: "manaInvestExponent",
     manaInvestMinPercent: "manaInvestMinPercent",
+    restShortHpPercent: "restShortHpPercent",
+    restShortEnergyPercent: "restShortEnergyPercent",
+    healBlockZeroMultiplier: "healBlockZeroMultiplier",
+    cureRegrowLevel: "cureRegrowLevel",
     shipTargetAsk: "shipTargetAsk",
     shipTargetShare: "shipTargetShare",
     shipBracePercent: "shipBracePercent",
@@ -59,6 +73,7 @@ export const MEU_SISTEMA = {
     affinityEffective: "affinityEffective",
     affinitySuperEffective: "affinitySuperEffective",
     antimagicGrowth: "antimagicGrowth",
+    antimagicReach: "antimagicReach",
     shipFocusBoost: "shipFocusBoost",
     shipFocusCut: "shipFocusCut",
     skillPowerPerLevel: "skillPowerPerLevel",
@@ -215,6 +230,16 @@ export const MEU_SISTEMA = {
       hint: "Troca de mensagens privadas (diretas e em grupo) entre Personagens no PAD.",
       default: true
     },
+    naturalRegen: {
+      setting: "naturalRegenEnabled",
+      name: "Regeneração natural de energia",
+      hint: "Em combate, no início do turno de cada Personagem, a energia (Mana, Ki…) volta um % da máxima. Fora de combate, quem devolve é o Descanso. Passivos de Skill, Título, Item e Espécie somam por cima — e valem mesmo com este bloco desligado.",
+      // Desligado por padrão: mundos que já existem não ganham uma regra nova só por atualizar.
+      default: false,
+      options: {
+        naturalEnergyRegenPercent: { label: "% da energia máxima por rodada", hint: "Mana 240 com 5% = +12 por rodada.", type: "number", default: 5, min: 0 }
+      }
+    },
     speciesEvolution: {
       setting: "speciesEvolutionEnabled",
       name: "Evolução de Espécie",
@@ -227,7 +252,22 @@ export const MEU_SISTEMA = {
       hint: "As Funções das Partes do Corpo passam a ter efeito: parte destruída aplica a Condição da Função (Cego, Sem mão…), locomoção reduz o Deslocamento, prótese repõe a Função e implantes arrastados só encaixam no slot certo.",
       parent: "anatomy",
       // Desligado por padrão: muda o que acontece com quem leva dano numa parte.
-      default: false
+      default: false,
+      options: {
+        partLossOverflow: {
+          label: "Sobra que deixa a parte Perdida (%)",
+          hint: "Golpe que passa do 0 com esta sobra (em % da Vida da parte) ou mais arranca a parte: só Regeneração a traz de volta. 0 = nunca por sobra (só pelo efeito Decepar ou pelo Mestre).",
+          type: "number",
+          default: 50,
+          min: 0
+        },
+        aimBodyPart: {
+          label: "Perguntar \"Mirar numa parte?\"",
+          hint: "Ao atacar um Personagem com alvo único, quem ataca pode escolher a parte. Sem mirar (ou desligado), o dano cai numa parte sorteada, com chance proporcional ao tamanho dela.",
+          type: "boolean",
+          default: true
+        }
+      }
     },
     movement: {
       setting: "movementEnabled",
@@ -388,13 +428,38 @@ export const MEU_SISTEMA = {
    */
   ITEM_GRANTABLE_SKILL_TIERS: ["extra", "normal", "racial"],
 
-  /** Estados possíveis de uma Parte do Corpo. */
-  BODY_PART_STATUS: ["intact", "damaged", "destroyed"],
+  /**
+   * Estados possíveis de uma Parte do Corpo. "destroyed" é a Vida 0 (Inutilizada: a parte existe
+   * mas não funciona — Cura recupera); "lost" é a parte que não existe mais (decepada — só
+   * Regeneração refaz). Ver resolvePartVitals em species/anatomy-rules.js.
+   */
+  BODY_PART_STATUS: ["intact", "damaged", "destroyed", "lost"],
 
   BODY_PART_STATUS_LABELS: {
-    intact: "Intacto",
-    damaged: "Danificado",
-    destroyed: "Destruído"
+    intact: "Íntegra",
+    damaged: "Ferida",
+    destroyed: "Inutilizada",
+    lost: "Perdida"
+  },
+
+  /**
+   * Vida de cada parte em % da Vida máxima do personagem, por slot — o padrão das Espécies de
+   * fábrica e o "Preencher pelo slot" do editor. Não soma 100%: diz quanto dano NAQUELA parte a
+   * destrói. Slot sem linha usa `default`.
+   */
+  PART_HP_PERCENT_BY_SLOT: { head: 30, torso: 50, core: 50, body: 60, arm: 20, leg: 25, tail: 15, wing: 20, horn: 10, cosmetic: 5, default: 20 },
+
+  /**
+   * Tipos de cura de um Efeito Periódico de Vida positivo (bloco "Ferimentos por parte"): Cura
+   * fecha feridas (Vida e partes feridas/inutilizadas); Regeneração também refaz partes perdidas
+   * (e, numa Skill Única ou Ultimate, conserta próteses); Reparo conserta só próteses.
+   */
+  HEAL_KINDS: ["cura", "regeneracao", "reparo"],
+  HEAL_KIND_LABELS: { cura: "Cura", regeneracao: "Regeneração", reparo: "Reparo" },
+  HEAL_KIND_HINTS: {
+    cura: "fecha feridas: Vida e partes feridas ou inutilizadas",
+    regeneracao: "também refaz partes perdidas",
+    reparo: "conserta próteses"
   },
 
   /**
@@ -912,10 +977,12 @@ export const MEU_SISTEMA = {
     "shipShieldRestore",
     "shipCasco",
     "shipHull",
-    "shipDamageReduction"
+    "shipDamageReduction",
+    "antimagic"
   ],
 
   EFFECT_TARGET_LABELS: {
+    antimagic: "Antimagia (corta efeitos mágicos e suprime)",
     strength: "Força",
     defense: "Defesa",
     magic: "Magia",
@@ -955,6 +1022,7 @@ export const MEU_SISTEMA = {
     { label: "Vitais", actor: "character", targets: ["hp", "energy", "shield", "movement"] },
     { label: "Arma", actor: "any", targets: ["weaponDamage", "weaponElement", "weaponMagic", "weaponAbsolute"] },
     { label: "Elemento", actor: "any", targets: ["bodyElement"] },
+    { label: "Magia", actor: "character", targets: ["antimagic"] },
     { label: "Nave", actor: "ship", targets: ["shipWeaponDamage", "shipWeaponPenetration", "shipShieldCapacity", "shipShieldRegen", "shipReactorOutput", "shipPropulsion", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"] }
   ],
 
@@ -999,11 +1067,15 @@ export const MEU_SISTEMA = {
   /** Tipos de dano elemental padrão, sobrescritos pela setting `damageElementsData` (editor visual). */
   DEFAULT_DAMAGE_ELEMENTS: [
     { id: "physical", label: "Físico", color: "#9aa1c2", group: "Físico", effects: [] },
+    // Subtipos do Físico ("Subtipo de", `parent`): Resistência Física vale para os três, e a deles
+    // entra depois (Geral → Físico → Cortante). Armas e Skills "Físico" continuam o golpe genérico.
+    ...PHYSICAL_SUBTYPES,
     // `affinity`: vantagem contra outros elementos (−2 Imune … 2 Super efetivo) — ver a tabela no editor.
-    { id: "fire", label: "Fogo", color: "#ff7043", group: "Fantasia", effects: [{ type: "condition", conditionId: "burn", chance: 25 }], affinity: { ice: 1 } },
+    // Fogo e Ácido cauterizam: a Regeneração não age por 2 rodadas (o troll só morre assim).
+    { id: "fire", label: "Fogo", color: "#ff7043", group: "Fantasia", effects: [{ type: "condition", conditionId: "burn", chance: 25 }, { type: "blockRegen", chance: 100, rounds: 2 }], affinity: { ice: 1 } },
     { id: "ice", label: "Gelo", color: "#6ee7ff", group: "Fantasia", effects: [{ type: "condition", conditionId: "slow", chance: 25 }], affinity: { fire: -1 } },
     { id: "lightning", label: "Elétrico", color: "#ffe066", group: "Fantasia", effects: [] },
-    { id: "acid", label: "Ácido", color: "#8bc34a", group: "Fantasia", effects: [] },
+    { id: "acid", label: "Ácido", color: "#8bc34a", group: "Fantasia", effects: [{ type: "blockRegen", chance: 100, rounds: 2 }] },
     { id: "dark", label: "Sombrio", color: "#7b5ea7", group: "Fantasia", effects: [], affinity: { holy: 1 } },
     { id: "holy", label: "Sagrado", color: "#e8c170", group: "Fantasia", effects: [], affinity: { dark: 1 } }
   ],
@@ -1016,7 +1088,7 @@ export const MEU_SISTEMA = {
    *  - shieldDrain: +X% de dano só contra Escudo (camada de Escudo da Nave ou Escudo pessoal);
    *  - penetration: ignora X% das defesas do alvo (nunca atravessa Imunidade).
    */
-  ELEMENT_EFFECT_TYPES: ["condition", "traitBonus", "layer", "shieldDrain", "penetration", "moduleDisable", "energyDrain", "resistanceDown"],
+  ELEMENT_EFFECT_TYPES: ["condition", "traitBonus", "layer", "shieldDrain", "penetration", "sever", "blockRegen", "moduleDisable", "energyDrain", "resistanceDown"],
   /** Níveis da tabela de vantagens entre elementos (clique esquerdo sobe, direito desce). */
   AFFINITY_LEVEL_LABELS: { "-2": "Imune", "-1": "Ineficaz", 0: "Neutro", 1: "Efetivo", 2: "Super efetivo" },
   ELEMENT_EFFECT_TYPE_LABELS: {
@@ -1025,6 +1097,8 @@ export const MEU_SISTEMA = {
     layer: "Dano por camada (Escudo, Casco, Integridade)",
     shieldDrain: "Dano extra em Escudo (antigo: use Dano por camada)",
     penetration: "Penetração",
+    sever: "Decepar (parte do corpo)",
+    blockRegen: "Impede regeneração",
     moduleDisable: "Nave: derrubar Módulo",
     energyDrain: "Nave: drenar energia",
     resistanceDown: "Nave: baixar resistência"
@@ -1123,7 +1197,21 @@ export const MEU_SISTEMA = {
     { id: "bleeding", label: "Sangramento", icon: "icons/svg/blood.svg",
       effect: { kind: "tick", tickTarget: "hp", tickSign: "damage", valueMode: "hitPercent", value: 5, durationRounds: 3, tickUnit: "combatRound" } },
     { id: "regeneration", label: "Regeneração", icon: "icons/svg/regen.svg",
-      effect: { kind: "tick", tickTarget: "hp", tickSign: "heal", valueMode: "maxPercent", value: 5, durationRounds: 3, tickUnit: "combatRound" } },
+      effect: { kind: "tick", tickTarget: "hp", tickSign: "heal", healKind: "regeneracao", valueMode: "maxPercent", value: 5, durationRounds: 3, tickUnit: "combatRound" } },
+    // Marca "Impede cura" (`healBlock`): só Regeneração ou toda cura, no corpo todo ou só na parte
+    // atingida; o nível é o de quem aplicou (ver healBlockReduction). É a Condição que o efeito de
+    // elemento "Impede regeneração" aplica (0 rodadas = até ser removida).
+    { id: "regen-blocked", label: "Regeneração bloqueada", icon: "icons/svg/acid.svg", healBlock: { kinds: "regen", scope: "body" } },
+    // Antimagia (prancha 8): enquanto durar, passivos, Resistências, itens e implantes mágicos de
+    // nível ≤ o da supressão não contam, e Habilidades Ativas mágicas desse nível não ligam.
+    { id: "antimagic-suppressed", label: "Suprimido (Antimagia)", icon: "icons/svg/cancel.svg", suppressesMagic: true },
+    // Exemplo de Maldição (prancha 6): vários efeitos, sem prazo, paga pela Mana da vítima.
+    { id: "curse-blood", label: "Maldição de Sangue", icon: "icons/svg/blood.svg", healBlock: { kinds: "regen", scope: "body" },
+      curse: { enabled: true, costPercent: 5, onUnpaid: "hp", worsenStep: 25, worsenCap: 3, effects: [
+        { kind: "modifier", modTarget: "strength", modMode: "percent", value: -20 },
+        { kind: "modifier", modTarget: "movement", modMode: "percent", value: -30 },
+        { kind: "tick", tickSign: "damage", tickTarget: "hp", valueMode: "maxPercent", value: 2 }
+      ] } },
     // Usadas pelas Funções de Parte (Ferimentos por parte): só o marcador, o Mestre arbitra.
     { id: "deafness", label: "Surdo", icon: "icons/svg/deaf.svg" },
     { id: "maimed", label: "Sem mão", icon: "icons/svg/bones.svg" },
@@ -1137,7 +1225,8 @@ export const MEU_SISTEMA = {
    * perder qualquer uma; mostra quantas) ou "once" (só quando TODAS se perdem).
    * `effect.kind`: "none" | "notify" (aviso ao Mestre) | "condition" (conditionId) |
    * "movement" (proporcional; `crawlMeters` se ainda houver `crawlFunction` funcionando) |
-   * "removeTrait" (traitId) | "regen" (`value` % da Vida da parte por rodada, enquanto intacta).
+   * "removeTrait" (traitId). Parte não regenera sozinha: quem regenera é Skill/Condição com cura
+   * periódica do tipo Regeneração (ver partHealing) — o antigo "regen" foi tirado de propósito.
    * `woundedByHp`: a parte ferida conta pela Vida (perna a 50% = meia perna).
    */
   DEFAULT_BODY_FUNCTIONS: [
@@ -1147,8 +1236,7 @@ export const MEU_SISTEMA = {
     { id: "manipulacao", label: "manipulação", count: "perPart", effect: { kind: "condition", conditionId: "maimed" } },
     { id: "locomocao", label: "locomoção", count: "proportional", woundedByHp: true, effect: { kind: "movement", crawlMeters: 1, crawlFunction: "manipulacao" } },
     { id: "voo", label: "voo", count: "perPart", effect: { kind: "removeTrait", traitId: "flying" } },
-    { id: "equilibrio", label: "equilíbrio", count: "once", effect: { kind: "condition", conditionId: "unbalanced" } },
-    { id: "regenerativa", label: "regenerativa", count: "once", effect: { kind: "regen", value: 5 } }
+    { id: "equilibrio", label: "equilíbrio", count: "once", effect: { kind: "condition", conditionId: "unbalanced" } }
   ],
 
   /** Valores padrão (fallback) dos rótulos de energia — Personagens e Naves usam energias diferentes. */
@@ -1370,10 +1458,10 @@ export const MEU_SISTEMA = {
       evolvesTo: [{ species: "slime_demoniaco", minLevel: 10, hint: "Ao receber um Nome de um Lorde Demônio.", keepLineage: true, resistancesToImmunity: true }],
       parts: [
         { key: "core", label: "Núcleo", slot: "core", hpMax: 30, tags: ["vital", "regenerative"] },
-        { key: "mass", label: "Massa Gelatinosa", slot: "body", hpMax: 40, tags: ["amorphous", "regenerative"] }
+        { key: "mass", label: "Massa Gelatinosa", slot: "body", hpMax: 40, hpPercent: 100, tags: ["amorphous", "regenerative"] }
       ],
       skills: [
-        { name: "Regeneração Amorfa", description: "Recupera uma fração do HP máximo por turno enquanto o Núcleo estiver intacto.", level: 1, cost: 0, effectType: "temporary", targetType: "self", hasUpkeep: true, upkeepCost: 2, effects: [{ target: "hp", amount: 5, durationRounds: 0, periodic: true, tickUnit: "combatRound", conditionId: "", damageElements: [] }] }
+        { name: "Regeneração Amorfa", description: "Recupera uma fração do HP máximo por turno enquanto o Núcleo estiver intacto.", level: 1, cost: 0, effectType: "temporary", targetType: "self", hasUpkeep: true, upkeepCost: 2, effects: [{ target: "hp", amount: 5, durationRounds: 0, periodic: true, tickUnit: "combatRound", healKind: "regeneracao", conditionId: "", damageElements: [] }] }
       ]
     },
     dragoide: {
@@ -1521,7 +1609,7 @@ export const MEU_SISTEMA = {
         { key: "right_leg", label: "Perna Direita", slot: "leg", hpMax: 11, tags: ["limb"] }
       ],
       skills: [
-        { name: "Carne Instável", description: "O corpo se reconfigura sob estresse — fecha ferimentos rápido demais para ser natural.", level: 1, cost: 0, effectType: "temporary", targetType: "self", hasUpkeep: true, upkeepCost: 3, effects: [{ target: "hp", amount: 3, durationRounds: 0, periodic: true, tickUnit: "combatRound", conditionId: "", damageElements: [] }] },
+        { name: "Carne Instável", description: "O corpo se reconfigura sob estresse — fecha ferimentos rápido demais para ser natural.", level: 1, cost: 0, effectType: "temporary", targetType: "self", hasUpkeep: true, upkeepCost: 3, effects: [{ target: "hp", amount: 3, durationRounds: 0, periodic: true, tickUnit: "combatRound", healKind: "regeneracao", conditionId: "", damageElements: [] }] },
         { name: "Anomalia Latente", description: "Cada Mutante carrega uma mutação única, definida com o Mestre na criação.", level: 1, cost: 0 }
       ]
     },
@@ -1554,7 +1642,7 @@ export const MEU_SISTEMA = {
       passives: { statModifiers: { hp: 0, energy: 100 } },
       parts: [
         { key: "core", label: "Núcleo", slot: "core", hpMax: 60, tags: ["vital", "regenerative"] },
-        { key: "mass", label: "Massa Gelatinosa", slot: "body", hpMax: 80, tags: ["amorphous", "regenerative"] }
+        { key: "mass", label: "Massa Gelatinosa", slot: "body", hpMax: 80, hpPercent: 100, tags: ["amorphous", "regenerative"] }
       ],
       skills: [
         { key: "regeneracao_amorfa", name: "Regeneração Demoníaca", description: "Recupera Vida a cada rodada, mais rápido que um Slime comum.", level: 1, cost: 0, effectType: "temporary", targetType: "self", hasUpkeep: true, upkeepCost: 3, effects: [{ target: "hp", amount: 12, durationRounds: 0, periodic: true, tickUnit: "combatRound", conditionId: "", damageElements: [] }] },
@@ -1663,6 +1751,20 @@ export const MEU_SISTEMA = {
     }
   }
 };
+
+/**
+ * Espécies, Linhagens e Heranças de fábrica: a Vida de cada parte é um % da Vida máxima do
+ * personagem, pelo slot (PART_HP_PERCENT_BY_SLOT), quando a parte não diz o próprio. O `hpMax`
+ * fica como a Vida fixa de antes (catálogo salvo sem % continua usando ele).
+ */
+for (const entry of [...Object.values(MEU_SISTEMA.DEFAULT_SPECIES_PRESETS), ...(MEU_SISTEMA.DEFAULT_HERITAGES ?? [])]) {
+  const layers = [entry, ...(entry.lineages ?? [])];
+  for (const layer of layers) {
+    for (const part of layer.parts ?? []) {
+      part.hpPercent ??= MEU_SISTEMA.PART_HP_PERCENT_BY_SLOT[part.slot] ?? MEU_SISTEMA.PART_HP_PERCENT_BY_SLOT.default;
+    }
+  }
+}
 
 /**
  * Lê a lista de moedas atualmente ativa (setting > default).
@@ -1895,7 +1997,25 @@ export function getActiveStatusConditions() {
  * @returns {Array<{value:string,label:string}>}
  */
 export function getResistanceTargetOptions() {
-  return [{ value: "general", label: "Geral" }, ...getActiveDamageElements().map(el => ({ value: el.id, label: el.label }))];
+  return [{ value: "general", label: "Geral" }, ...getActiveDamageElements().map(el => ({ value: el.id, label: damageElementPathLabel(el.id) }))];
+}
+
+/**
+ * O elemento e os ancestrais dele ("Subtipo de"), como objetos do catálogo: Cortante → [Cortante,
+ * Físico]. Elemento que não existe: lista vazia.
+ */
+export function damageElementChain(id) {
+  const elements = getActiveDamageElements();
+  const self = elements.find(el => el.id === id);
+  if (!self) return [];
+  return [self, ...elementAncestors(id, elements).map(a => elements.find(el => el.id === a)).filter(Boolean)];
+}
+
+/** "Físico › Cortante" para um subtipo; o nome simples para o resto. */
+export function damageElementPathLabel(id) {
+  const chain = damageElementChain(id);
+  if (!chain.length) return id;
+  return chain.map(el => el.label).reverse().join(" › ");
 }
 
 /**
@@ -2401,6 +2521,16 @@ export function getAntimagicConfig() {
   return { base: Math.max(0, read("antimagicBase", 10)), growth: Math.max(1, read("antimagicGrowth", 2)) };
 }
 
+/** Alcance da Antimagia (prancha 8): nível × isto = até onde ela corta, desliga e suprime. Padrão 1,5. */
+export function getAntimagicReach() {
+  try {
+    const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.antimagicReach));
+    return Number.isFinite(value) && value > 0 ? value : 1.5;
+  } catch (err) {
+    return 1.5;
+  }
+}
+
 /** Nível do "Selo antimagia" que o próprio Ator carrega (a maior Condição ativa com antimagia). */
 export function actorAntimagicLevel(actor) {
   const sealed = getActiveStatusConditions().filter(c => Number(c.antimagicLevel) > 0);
@@ -2508,6 +2638,24 @@ export function getShipTargetingConfig() {
     /* setting ainda não registrada — padrão */
   }
   return { ask, share };
+}
+
+/** Descanso Curto, bloqueio de cura e o nível em que a Cura refaz parte perdida (com os padrões). */
+export function getHealingRules() {
+  const read = (key, fallback) => {
+    try {
+      const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[key]));
+      return Number.isFinite(value) ? value : fallback;
+    } catch (err) {
+      return fallback;
+    }
+  };
+  return {
+    shortHpPercent: Math.max(0, read("restShortHpPercent", 25)),
+    shortEnergyPercent: Math.max(0, read("restShortEnergyPercent", 50)),
+    zeroMultiplier: Math.max(1, read("healBlockZeroMultiplier", 2)),
+    cureRegrowLevel: Math.max(0, read("cureRegrowLevel", 10))
+  };
 }
 
 /** Expoente e mínimo (% do Custo) da Mana variável, com os padrões quando a setting falta. */
@@ -3390,6 +3538,42 @@ export function registerSystemSettings() {
     default: 0.75
   });
 
+  game.settings.register(SYSTEM_ID, S.restShortHpPercent, {
+    name: "Descanso Curto — Vida (%)",
+    hint: "Quanto da Vida máxima o Descanso Curto devolve. Partes a 0% seguram o % delas (a Vida não passa do que sobra). Padrão 25%.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 25
+  });
+
+  game.settings.register(SYSTEM_ID, S.restShortEnergyPercent, {
+    name: "Descanso Curto — energia (%)",
+    hint: "Quanto da energia máxima (Mana, Ki…) o Descanso Curto devolve. Padrão 50%.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 50
+  });
+
+  game.settings.register(SYSTEM_ID, S.healBlockZeroMultiplier, {
+    name: "Cura contra bloqueio — a redução zera em (× o limite)",
+    hint: "Maldição/bloqueio de nível N bloqueia toda cura até N + N/3 (o limite). Acima disso a cura passa reduzida, e a redução cai em linha reta até zerar neste múltiplo do limite. Padrão 2 (maldição 9: bloqueia até 12, cura nível 24 passa inteira).",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 2
+  });
+
+  game.settings.register(SYSTEM_ID, S.cureRegrowLevel, {
+    name: "Cura — nível que refaz parte perdida",
+    hint: "Com Ferimentos por parte: uma Skill de Cura (qualquer tier) deste nível ou mais também refaz parte perdida, como uma Regeneração. Padrão 10.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 10
+  });
+
   game.settings.register(SYSTEM_ID, S.manaInvestMinPercent, {
     name: "Custo variável — Mínimo (% do Custo)",
     hint: "O menos que se pode investir numa Skill que aceita variar o investimento de energia, em % do Custo dela. Padrão 25%.",
@@ -3432,6 +3616,15 @@ export function registerSystemSettings() {
       default: value
     });
   }
+
+  game.settings.register(SYSTEM_ID, S.antimagicReach, {
+    name: "Antimagia — alcance (× o nível)",
+    hint: "A Skill de Antimagia corta efeitos mágicos, desliga Habilidades Ativas e suprime (passivos, itens mágicos, Skills usadas no alvo) até o nível dela vezes isto. Padrão 1,5 (nível 10 alcança até 15); 2 = o dobro.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 1.5
+  });
 
   game.settings.register(SYSTEM_ID, S.antimagicBase, {
     name: "Antimagia — Base do custo extra",

@@ -604,7 +604,22 @@ A aba **Anatomia** lista suas **Partes do Corpo**, cada uma com Vida própria, o
 - **voo**: perder uma asa tira o Traço Voador;
 - **vital**: avisa o Mestre — o sistema não mata ninguém sozinho.
 
-As Condições somem sozinhas quando a parte volta a ter Vida ou ganha uma prótese.
+As Condições somem sozinhas quando a parte volta a funcionar ou ganha uma prótese.
+
+**Vida da parte.** Cada parte tem um **% da sua Vida máxima** (cabeça 30%, braço 20%, perna 25%…) e cresce com você: subir de nível ou ganhar um buff de Vida aumenta o máximo das partes sem ferir nem curar nenhuma. Todo dano que chega na sua Vida também cai numa parte — a que o atacante mirou ("Mirar numa parte?") ou uma sorteada (as maiores têm mais chance).
+
+| Estado | O que é | Volta com |
+|---|---|---|
+| **Ferida** | machucada | Cura ou Regeneração |
+| **Inutilizada** | Vida 0: existe, mas não funciona | Cura ou Regeneração |
+| **Perdida** | decepada, não existe mais | só **Regeneração** (cresce de novo a partir do 0%) |
+| **Prótese** | o Item no lugar da parte | só **Reparo** (ou a Regeneração de uma Skill Única/Ultimate) |
+
+Uma parte vira Perdida quando um golpe passa do 0 com sobra grande (padrão: metade da Vida dela), quando o elemento do golpe tem **Decepar**, ou quando o Mestre marca. A Vida que uma cura devolve é repartida entre as partes feridas (uma Skill de cura pode **focar** numa parte). Uma parte a 0% que a cura não conserta segura o % dela na sua Vida. **Fogo**, **Ácido** e **maldições** podem bloquear a cura — uma cura de nível bem maior que o bloqueio passa (cada vez mais, quanto maior a diferença).
+
+**Descansar…** (botão da ficha): **Curto** devolve parte da Vida e da energia, **Completo** enche. Partes a 0% não voltam com descanso e seguram a Vida abaixo do máximo; as feridas melhoram com a Vida que você ganhou.
+
+**Antimagia.** Sob **Suprimido**, seus passivos, Resistências, itens e implantes **Mágicos** param de valer, suas Skills mágicas não funcionam e Skills mágicas ou curas usadas em você não têm efeito (dano em área ainda acerta). Racial que não gasta energia (Couro Grosso) continua.
 
 ---
 

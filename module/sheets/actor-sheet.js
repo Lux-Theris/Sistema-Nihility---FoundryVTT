@@ -1,6 +1,6 @@
 import { effectAnchors, finiteRemaining, anchorLifetime, PERMANENT } from "../combat/effect-anchors.js";
 import { changeActorSpecies, originContext, openSpeciesSync, changeActorHeritage, openEvolution } from "../species/species.js";
-import { anatomyContext, installImplant, uninstallImplant, currentDraggedImplant } from "../species/anatomy.js";
+import { anatomyContext, installImplant, uninstallImplant, currentDraggedImplant, setBodyPartLost } from "../species/anatomy.js";
 import { implantFits } from "../species/anatomy-rules.js";
 import { isSpeciesLocked } from "../species/species-rules.js";
 import {
@@ -155,6 +155,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       heritageAdd: NihilityActorSheet.#onHeritageAdd,
       originEvolve: NihilityActorSheet.#onOriginEvolve,
       uninstallImplant: NihilityActorSheet.#onUninstallImplant,
+      toggleBodyPartLost: NihilityActorSheet.#onToggleBodyPartLost,
       heritageRemove: NihilityActorSheet.#onHeritageRemove,
       splitStack: NihilityActorSheet.#onSplitStack
     }
@@ -228,6 +229,16 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     if (!this.actor.isOwner) return;
     const row = target.closest("[data-part-id]");
     await uninstallImplant(this.actor, row.dataset.partId, Number(target.dataset.index));
+  }
+
+  /** Mestre: marca/desmarca uma parte como Perdida (decepada) — só Regeneração refaz uma perdida. */
+  static async #onToggleBodyPartLost(event, target) {
+    event.preventDefault();
+    if (!game.user.isGM) return;
+    const partId = target.closest("[data-part-id]")?.dataset.partId;
+    const part = this.actor.items.get(partId);
+    if (!part) return;
+    await setBodyPartLost(this.actor, partId, part.system.status !== "lost");
   }
 
   /** Mestre: "Evoluir…" — destinos da Espécie, prévia e anúncio (species.js#openEvolution). */
@@ -724,15 +735,11 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     }
   }
 
-  /** Descanso Completo: cura HP e Mana/Energia direto pro Máximo. */
+  /** "Descansar…": Curto ou Completo, com prévia (combat/regeneration.js#openRestDialog). */
   static async #onRest(event, target) {
     event.preventDefault();
-    const { hp, energy } = this.actor.system.attributes;
-    await this.actor.update({
-      "system.attributes.hp.value": hp.max,
-      "system.attributes.energy.value": energy.max
-    });
-    ui.notifications.info(`${this.actor.name} descansou e recuperou HP/${getCharacterEnergyLabel()} ao máximo.`);
+    const { openRestDialog } = await import("../combat/regeneration.js");
+    await openRestDialog(this.actor);
   }
 
   /* -------------------------------------------- */
@@ -761,13 +768,19 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       : result.ticksRemaining === null
         ? " (até desativar)."
         : ` (${result.ticksRemaining} tick(s) restante(s)).`;
-    ui.notifications.info(`${effect.name}: ${result.delta >= 0 ? "+" : ""}${result.delta} ${attrLabel}${reductionText}${statusText}`);
+    ui.notifications.info(`${effect.name}: ${result.delta >= 0 ? "+" : ""}${result.delta} ${attrLabel}${reductionText}${result.note ? ` — ${result.note}` : ""}${statusText}`);
   }
 
   /** Remove uma Condição Ativa antes do prazo (ex: curada por outra Skill/poção). */
   static async #onDeleteCondition(event, target) {
     event.preventDefault();
     const effectId = target.closest("[data-effect-id]")?.dataset.effectId;
+    // Maldição e Supressão só saem com Antimagia ou pelo Mestre.
+    const effect = this.actor.effects.get(effectId);
+    if (!game.user.isGM && (effect?.getFlag(SYSTEM_ID, "curse") || effect?.getFlag(SYSTEM_ID, "suppression") !== undefined)) {
+      ui.notifications.warn("Só uma Antimagia de nível suficiente — ou o Mestre — tira isto.");
+      return;
+    }
     await this.actor.deleteEmbeddedDocuments("ActiveEffect", [effectId]);
   }
 

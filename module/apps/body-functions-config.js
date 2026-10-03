@@ -1,7 +1,7 @@
 /**
  * Catálogo "Funções de Parte" (board 5): o que acontece quando a parte que tem a Função é perdida.
  * Lista com uma linha por Função; o "detalhe" muda com o efeito (Condição, Traço, metros de
- * arrastar, % de regeneração). Vale só com "Ferimentos por parte" ligado.
+ * arrastar). Vale só com "Ferimentos por parte" ligado.
  */
 import { SYSTEM_ID, MEU_SISTEMA, getActiveBodyFunctions, getActiveStatusConditions, getActiveTraits } from "../core/config.js";
 
@@ -12,8 +12,7 @@ const KINDS = [
   { id: "notify", label: "Aviso ao Mestre" },
   { id: "condition", label: "Condição" },
   { id: "movement", label: "Reduz Deslocamento" },
-  { id: "removeTrait", label: "Tira Traço" },
-  { id: "regen", label: "Regenera (intacta)" }
+  { id: "removeTrait", label: "Tira Traço" }
 ];
 const COUNTS = [
   { id: "proportional", label: "Proporcional" },
@@ -59,12 +58,12 @@ export class BodyFunctionsConfigApp extends HandlebarsApplicationMixin(Applicati
         isCondition: kind === "condition",
         isTrait: kind === "removeTrait",
         isMovement: kind === "movement",
-        isRegen: kind === "regen",
+
         conditionOptions: conditions.map(c => ({ id: c.id, label: c.label, selected: c.id === r.effect?.conditionId })),
         traitOptions: traits.map(t => ({ id: t.id, label: t.label, selected: t.id === r.effect?.traitId })),
         crawlMeters: r.effect?.crawlMeters ?? 1,
         crawlOptions: [{ id: "", label: "— nenhuma —", selected: !r.effect?.crawlFunction }, ...fnIds.filter(id => id !== r.id).map(id => ({ id, label: id, selected: id === r.effect?.crawlFunction }))],
-        regenValue: r.effect?.value ?? 5,
+
         woundedByHp: Boolean(r.woundedByHp)
       };
     });

@@ -554,6 +554,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       else if (entry.target === "shield") extra.push("até absorver");
       else extra.push(`${entry.durationRounds} ${periodic ? "tick(s)" : "rodada(s)"}`);
       if (condition) extra.push(condition.label);
+      if (periodic && entry.target === "hp" && Number(entry.amount) > 0 && entry.healKind && entry.healKind !== "cura") extra.push(MEU_SISTEMA.HEAL_KIND_LABELS[entry.healKind] ?? entry.healKind);
       if (entry.target === "shield" && entry.damageElements?.length) {
         extra.push(`Escudo de ${entry.damageElements.map(id => elements.find(el => el.id === id)?.label ?? id).join(" + ")}`);
       }
@@ -596,6 +597,14 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         tickUnitOptions: MEU_SISTEMA.PERIODIC_TICK_UNITS.map(u => ({
           value: u, label: MEU_SISTEMA.PERIODIC_TICK_UNIT_LABELS[u], selected: u === entry.tickUnit
         })),
+        // Maldição: o que fazer sem Mana, só para esta Skill ("" = o da maldição).
+        isCurse: Boolean(condition?.curse?.enabled),
+        curseUnpaidOptions: [["", "Como na maldição"], ["hp", "Paga com Vida"], ["sleep", "Dorme"], ["worsen", "Piora"], ["continue", "Continua igual"]].map(([value, label]) => ({ value, label, selected: value === (entry.curseOnUnpaid ?? "") })),
+        // Periódico de Vida positivo = cura: Cura / Regeneração / Reparo nas Partes do Corpo.
+        isHeal: periodic && entry.target === "hp" && Number(entry.amount) > 0,
+        healKindOptions: MEU_SISTEMA.HEAL_KINDS.map(k => ({
+          value: k, label: MEU_SISTEMA.HEAL_KIND_LABELS[k], hint: MEU_SISTEMA.HEAL_KIND_HINTS[k], selected: k === (entry.healKind || "cura")
+        })),
         modifierTypeOptions: MEU_SISTEMA.EFFECT_MODIFIER_TYPES.map(m => ({
           value: m, label: MEU_SISTEMA.EFFECT_MODIFIER_TYPE_LABELS[m], selected: m === (entry.modifierType || "flat")
         })),
@@ -617,6 +626,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const fns = new Set(implant.functions ?? []);
     context.implantFunctionChips = getActiveBodyFunctions().map(f => ({ id: f.id, label: f.label, checked: fns.has(f.id) }));
     context.implantIsProsthesis = implant.kind === "prosthesis";
+    context.implantHpFixed = implant.hpMode === "fixed";
     const weapon = this.item.system.weapon;
     context.weaponScalingOptions = scalingOptions(weapon.scalingAttribute);
     context.weaponScaleOptions = scaleOptions(weapon.damageScale);

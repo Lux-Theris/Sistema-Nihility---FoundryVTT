@@ -74,7 +74,7 @@ function buildEffectRowHtml(entry) {
     <div class="effect-row-main">
       <select class="se-effect-target">${options}</select>
       <select class="se-effect-element-id" title="Elemento (das armas, ou que o alvo passa a ser)" style="display:${["weaponElement", "bodyElement"].includes(entry.target) ? "inline-block" : "none"};">${elementIdOptions}</select>
-      <input type="number" class="se-effect-amount" value="${entry.amount}" placeholder="Qtd."/>
+      <input type="number" class="se-effect-amount" value="${entry.amount}" placeholder="Qtd." style="display:${entry.target === "antimagic" ? "none" : ""};"/>
       <input type="number" class="se-effect-duration" value="${entry.durationRounds}" min="0" placeholder="Rounds/Ticks"/>
       <a class="se-effect-delete" title="Remover"><i class="fas fa-trash"></i></a>
     </div>
@@ -600,6 +600,10 @@ function setupSkillEditorInteractivity(root, data) {
       if (!isShipTarget) modifierTypeSelect.value = "flat";
     }
     targetSelect.addEventListener("change", applyPeriodicVisibility);
+    // Antimagia não tem quantidade: a força é o nível da Skill; a duração é a da supressão.
+    targetSelect.addEventListener("change", () => {
+      li.querySelector(".se-effect-amount").style.display = targetSelect.value === "antimagic" ? "none" : "";
+    });
     targetSelect.addEventListener("change", applyModifierTypeVisibility);
     // Luz do Escudo pessoal: só pro alvo Escudo; a luz fica em `data-light` (JSON) até salvar.
     const lightRow = li.querySelector(".effect-row-light");

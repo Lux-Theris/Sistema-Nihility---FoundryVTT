@@ -462,6 +462,8 @@ export function anatomyContext(actor) {
         stateLabel: MEU_SISTEMA.BODY_PART_STATUS_LABELS[state] ?? state,
         isLost: state === "lost",
         showState: injury && state !== "intact",
+        // Quem conserta (prancha 5): prótese só com Reparo; parte inutilizada com Cura.
+        fixHint: injury && state !== "intact" && state !== "lost" ? (sys.isProsthetic ? "conserta: Reparo" : state === "destroyed" ? "Cura recupera" : "") : "",
         destroyed: lost,
         prosthetic: Boolean(sys.isProsthetic),
         functions: [...new Set([...own, ...implantFns])].map(id => ({ id, label: label(id), off: injury && lost })),

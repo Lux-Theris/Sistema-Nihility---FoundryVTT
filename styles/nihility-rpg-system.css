@@ -5646,3 +5646,7 @@ button.prio-chip { cursor: pointer; }
 .nihility-config-app .curse-effect-row input[type="number"] { width: 80px; }
 .nihility-config-app .curse-effect-add { color: #c084fc; cursor: pointer; font-size: 12px; }
 .nihility-config-app .curse-effect-remove { color: var(--nihility-text-dim, #9aa1c2); cursor: pointer; }
+
+.nihility-sheet .anat-fix { font-size: 10.5px; color: #9aa1c2; margin-left: 4px; }
+
+.nihility-sheet .effect-note { font-size: 11.5px; color: #c084fc; white-space: nowrap; align-self: center; }

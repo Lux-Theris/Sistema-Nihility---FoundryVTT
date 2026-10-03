@@ -222,6 +222,8 @@
                 <option value="">— elemento —</option>
                 {{#each eff.elementIdOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
               </select>
+              {{else if eff.isAntimagic}}
+              <span class="effect-note" title="Alcança até o nível desta Skill × o alcance das Regras da Mesa (padrão 1,5).">alcança nível {{eff.antimagicReach}}</span>
               {{else}}
               <input class="num skill-effect-input" type="number" data-effect-field="amount" value="{{eff.amount}}" aria-label="Quantidade"/>
               {{/if}}
@@ -238,11 +240,14 @@
               </label>
               <label class="fld"><span class="fld-label">Ícone</span><input type="text" class="skill-effect-input" data-effect-field="icon" value="{{eff.icon}}" placeholder="herdado da Condição"/></label>
               {{#if eff.isCurse}}
-              <label class="fld"><span class="fld-label">Sem Mana para pagar <span class="help" title="Maldição: o custo sai sempre da Mana da vítima. Quando não dá, faz isto — só para esta Skill. O nível da maldição é o desta Skill.">?</span></span>
-                <select class="skill-effect-input" data-effect-field="curseOnUnpaid">
-                  {{#each eff.curseUnpaidOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
-                </select>
-              </label>
+              <div class="fld-row span-all">
+                <span class="fld-label">Sem Mana para pagar <span class="help" title="Maldição: o custo sai sempre da Mana da vítima. Quando não dá, faz isto — só para esta Skill. O nível da maldição é o desta Skill.">?</span></span>
+                <div class="seg compact" role="radiogroup" aria-label="Sem Mana para pagar">
+                  {{#each eff.curseUnpaidOptions as |opt|}}
+                  <label class="seg-opt {{#if opt.selected}}on{{/if}}"><input type="radio" class="skill-effect-input" data-effect-field="curseOnUnpaid" value="{{opt.value}}" {{#if opt.selected}}checked{{/if}}/>{{opt.label}}</label>
+                  {{/each}}
+                </div>
+              </div>
               {{/if}}
               {{/if}}
               {{#if eff.acceptsPeriodic}}

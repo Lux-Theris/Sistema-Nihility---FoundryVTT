@@ -1,4 +1,4 @@
-import {
+import { getAntimagicReach,
   SYSTEM_ID,
   MEU_SISTEMA,
   getActiveDamageElements,
@@ -571,7 +571,9 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         index,
         amount,
         durationRounds: entry.durationRounds,
-        durationUnit: sys.hasUpkeep ? "ativa" : periodic ? "ticks" : "rod.",
+        durationUnit: entry.target === "antimagic" ? "rod. de supressão (0 = até tirar)" : sys.hasUpkeep ? "ativa" : periodic ? "ticks" : "rod.",
+        isAntimagic: entry.target === "antimagic",
+        antimagicReach: Math.floor((Number(sys.level) || 0) * getAntimagicReach() + 1e-9),
         icon: entry.icon ?? "",
         summary,
         summaryExtra: extra.join(" · "),

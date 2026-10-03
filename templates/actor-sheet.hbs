@@ -449,7 +449,7 @@
             {{#if part.isLost}}
             <span class="anat-hp"><span class="anat-state lost" title="A parte não existe mais: só Regeneração a traz de volta (ou uma prótese ocupa o lugar).">PERDIDA</span><span class="anat-num">só Regeneração</span></span>
             {{else}}
-            <span class="anat-hp"><span class="anat-bar {{#if part.prosthetic}}pro{{/if}}"><i style="width:{{part.hpPct}}%"></i></span><span class="anat-num">{{part.hpValue}}/{{part.hpMax}}{{#if part.hpPercent}} · {{part.hpPercent}}%{{/if}}{{#if part.showState}} <span class="anat-state {{part.state}}">{{part.stateLabel}}</span>{{/if}}</span></span>
+            <span class="anat-hp"><span class="anat-bar {{#if part.prosthetic}}pro{{/if}}"><i style="width:{{part.hpPct}}%"></i></span><span class="anat-num">{{part.hpValue}}/{{part.hpMax}}{{#if part.hpPercent}} · {{part.hpPercent}}%{{/if}}{{#if part.showState}} <span class="anat-state {{part.state}}">{{part.stateLabel}}</span>{{/if}}{{#if part.fixHint}} <span class="anat-fix">{{part.fixHint}}</span>{{/if}}</span></span>
             {{/if}}
             <span class="anat-fns">
               {{#each part.implants as |m|}}<span class="anat-imp {{#if m.prosthesis}}pro{{/if}}" title="{{#if m.prosthesis}}Prótese{{else}}Implante{{/if}}{{#if m.location}} · {{m.location}}{{/if}}">{{#if m.prosthesis}}⚙{{else}}◆{{/if}} {{m.name}}{{#if m.removable}}<a class="anat-imp-x" data-action="uninstallImplant" data-index="{{m.index}}" title="Remover (volta ao inventário)"><i class="fas fa-times"></i></a>{{/if}}</span>{{/each}}

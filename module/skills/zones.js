@@ -17,12 +17,12 @@ import { applySkillEffects } from "./skill-effects.js";
  * atinge exatamente N rodadas de turnos, contando a do lançamento.
  */
 export async function advanceZones(scene) {
-  for (const template of zonesOnScene(scene)) {
-    const zone = foundry.utils.deepClone(template.getFlag(SYSTEM_ID, "zone"));
+  for (const zoneDoc of zonesOnScene(scene)) {
+    const zone = foundry.utils.deepClone(zoneDoc.getFlag(SYSTEM_ID, "zone"));
     if (zone.untilDeactivated) continue; // vive até a Skill Ativa ser desligada
     zone.roundsRemaining -= 1;
-    if (zone.roundsRemaining <= 0) await template.delete();
-    else await template.setFlag(SYSTEM_ID, "zone", zone);
+    if (zone.roundsRemaining <= 0) await zoneDoc.delete();
+    else await zoneDoc.setFlag(SYSTEM_ID, "zone", zone);
   }
 }
 
@@ -36,18 +36,19 @@ export async function tickZonesForCombatant(combatant) {
   const scene = combatant.scene;
   const tokenDoc = combatant.token;
   const targetActor = combatant.actor;
-  if (!scene || !tokenDoc || !targetActor || scene.id !== canvas?.scene?.id) return;
+  // A área é geometria pura sobre documentos: não precisa que o Mestre esteja olhando a cena.
+  if (!scene || !tokenDoc || !targetActor) return;
 
-  for (const template of zonesOnScene(scene)) {
-    if (!zoneContainsToken(template, tokenDoc)) continue;
-    const zone = template.getFlag(SYSTEM_ID, "zone");
+  for (const zoneDoc of zonesOnScene(scene)) {
+    if (!zoneContainsToken(zoneDoc, tokenDoc)) continue;
+    const zone = zoneDoc.getFlag(SYSTEM_ID, "zone");
     const sourceActor = await fromUuid(zone.sourceUuid);
     const skill = sourceActor?.items.get(zone.skillId);
     const sub = skill && zone.subSkillIndex != null ? skill.system.subSkills?.[zone.subSkillIndex] : null;
     const mech = sub ?? skill?.system;
     // Zona de Skill Ativa cujo dono desligou (ou apagou) a Skill por outro caminho: limpa aqui.
     if (!mech || (zone.untilDeactivated && !mech.active)) {
-      if (zone.untilDeactivated) await template.delete();
+      if (zone.untilDeactivated) await zoneDoc.delete();
       continue;
     }
     const label = zone.label;

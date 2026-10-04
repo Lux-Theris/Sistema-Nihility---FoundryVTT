@@ -2460,3 +2460,70 @@ test("Cura: bloqueio preso numa parte e Cura de nível alto refazendo a perdida"
   assert.equal(rest.hp, 100, "maldição de toda cura no corpo segura o Descanso");
   assert.equal(rest.energy, 240, "a energia volta mesmo assim");
 });
+
+import { areaFromSkill, normalizeArea, areaContains, areaPolygon, tokenDocCenter, areaFromTemplateData, zoneDocumentData } from "../module/combat/area-geometry.js";
+
+test("Área de Skill: círculo, cone e linha decidem quem está dentro sem Measured Template", () => {
+  const grid = { pxPerUnit: 50, cellPx: 100 }; // célula de 100 px = 2 m
+  const circle = areaFromSkill({ areaShape: "circle", areaDistance: 4 }, { x: 0, y: 0 }, grid);
+  assert.equal(circle.radius, 200, "4 m × 50 px/m");
+  assert.ok(areaContains(circle, { x: 0, y: 0 }), "o centro do círculo conta");
+  assert.ok(areaContains(circle, { x: 200, y: 0 }), "a borda conta");
+  assert.ok(!areaContains(circle, { x: 150, y: 150 }), "fora do raio na diagonal");
+
+  // Cone de 90° apontando para baixo (90° = sul, porque o y do canvas cresce para baixo).
+  const cone = areaFromSkill({ areaShape: "cone", areaDistance: 6, areaAngle: 90 }, { x: 0, y: 0 }, { ...grid, direction: 90 });
+  assert.ok(areaContains(cone, { x: 0, y: 200 }), "no eixo");
+  assert.ok(areaContains(cone, { x: 100, y: 120 }), "dentro da abertura");
+  assert.ok(!areaContains(cone, { x: 200, y: 100 }), "fora da abertura");
+  assert.ok(!areaContains(cone, { x: 0, y: -100 }), "atrás de quem lança");
+  assert.ok(!areaContains(cone, { x: 0, y: 0 }), "o vértice (quem lança) não é atingido");
+  assert.ok(!areaContains(cone, { x: 0, y: 301 }), "além do alcance");
+
+  // Cone atravessando o 0°: direção 350, abertura 60 → cobre de 320 a 20.
+  const wrap = normalizeArea({ shape: "cone", x: 0, y: 0, radius: 100, angle: 60, direction: 350 });
+  assert.ok(areaContains(wrap, { x: 50, y: 10 }), "ângulo 11° fica dentro de um cone que passa pelo 0°");
+
+  // Linha para a direita, largura de uma célula (100 px), 8 m.
+  const ray = areaFromSkill({ areaShape: "ray", areaDistance: 8 }, { x: 0, y: 0 }, grid);
+  assert.equal(ray.width, 100);
+  assert.ok(areaContains(ray, { x: 399, y: 49 }), "dentro do retângulo");
+  assert.ok(!areaContains(ray, { x: 200, y: 60 }), "mais longe que meia largura do eixo");
+  assert.ok(!areaContains(ray, { x: -10, y: 0 }), "atrás da origem");
+  assert.ok(!areaContains(ray, { x: 401, y: 0 }), "além do comprimento");
+
+  assert.throws(() => areaFromSkill({ areaShape: "" }, { x: 0, y: 0 }, grid), "Skill sem formato não vira área");
+});
+
+test("Área de Skill: normalização (payload do relay), polígono, Token e Zona por versão", () => {
+  assert.equal(normalizeArea({ shape: "rect" }), null, "forma desconhecida é recusada");
+  const wild = normalizeArea({ shape: "cone", x: "abc", y: 5e9, radius: -3, angle: 9999, direction: -90 });
+  assert.deepEqual(wild, { shape: "cone", x: 0, y: 1e6, radius: 0, angle: 360, direction: 270, width: 0 });
+
+  const ray = normalizeArea({ shape: "ray", x: 0, y: 0, radius: 300, direction: 0, width: 100 });
+  assert.deepEqual(areaPolygon(ray), [0, 50, 300, 50, 300, -50, 0, -50]);
+  const cone = normalizeArea({ shape: "cone", x: 0, y: 0, radius: 100, angle: 90, direction: 0 });
+  const pts = areaPolygon(cone);
+  assert.deepEqual(pts.slice(0, 2), [0, 0], "o polígono do cone começa no vértice");
+  for (let i = 2; i < pts.length; i += 2) {
+    assert.ok(Math.abs(Math.hypot(pts[i], pts[i + 1]) - 100) < 0.05, "os pontos do arco ficam no raio");
+  }
+
+  assert.deepEqual(tokenDocCenter({ x: 100, y: 200, width: 2, height: 1 }, 100), { x: 200, y: 250 });
+
+  // Zona salva na V13 antes desta versão (template em metros) volta para pixels.
+  const legacy = areaFromTemplateData({ t: "ray", x: 0, y: 0, distance: 8, direction: 0, width: 2 }, 50);
+  assert.deepEqual(legacy, { shape: "ray", x: 0, y: 0, radius: 400, angle: 0, direction: 0, width: 100 });
+  assert.equal(areaFromTemplateData({ t: "rect" }, 50), null);
+
+  const flags = { x: 1 };
+  const v14 = zoneDocumentData(cone, { generation: 14, pxPerUnit: 50, color: "#00ff00", name: "Névoa", flags, visibility: 2 });
+  assert.equal(v14.documentName, "Region", "V14 não tem mais MeasuredTemplate");
+  assert.equal(v14.data.shapes[0].type, "polygon", "cone vira polígono — a forma desenhada é a que o sistema testa");
+  assert.equal(v14.data.flags, flags);
+  const circleV14 = zoneDocumentData(normalizeArea({ shape: "circle", x: 10, y: 20, radius: 150 }), { generation: 14, pxPerUnit: 50 });
+  assert.deepEqual(circleV14.data.shapes, [{ type: "circle", x: 10, y: 20, radius: 150 }]);
+  const v13 = zoneDocumentData(ray, { generation: 13, pxPerUnit: 50, color: "#00ff00", flags });
+  assert.equal(v13.documentName, "MeasuredTemplate");
+  assert.deepEqual([v13.data.t, v13.data.distance, v13.data.width], ["ray", 6, 2], "de volta a metros na V13");
+});

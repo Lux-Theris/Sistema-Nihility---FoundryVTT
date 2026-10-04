@@ -150,46 +150,52 @@ const HANDLERS = {
   },
 
   async removeZones({ sourceUuid, skillId, subSkillIndex }) {
+    const { zonesOnScene } = await import("../combat/area-effects.js");
     for (const scene of game.scenes) {
-      for (const template of scene.templates) {
-        const zone = template.getFlag(SYSTEM_ID, "zone");
+      for (const doc of zonesOnScene(scene)) {
+        const zone = doc.getFlag(SYSTEM_ID, "zone");
         if (zone?.sourceUuid === sourceUuid && zone.skillId === skillId && (zone.subSkillIndex ?? null) === (subSkillIndex ?? null)) {
-          await template.delete();
+          await doc.delete();
         }
       }
     }
   },
 
-  async createZone({ sceneId, data, zone }) {
+  /**
+   * Cria a Zona na cena: Region na V14, Measured Template na V13 (`zoneDocumentData`). A área
+   * vem do cliente de quem lançou, então passa por `normalizeArea` (formas e números limitados).
+   */
+  async createZone({ sceneId, area, color, zone }) {
     const scene = game.scenes.get(sceneId);
     const source = zone?.sourceUuid ? await fromUuid(zone.sourceUuid) : null;
-    if (!scene || !source || !["circle", "cone", "ray"].includes(data?.t)) return;
+    const { normalizeArea, zoneDocumentData } = await import("../combat/area-geometry.js");
+    const { sceneScale } = await import("../combat/area-effects.js");
+    const { foundryGeneration } = await import("./foundry-compat.js");
+    const clean = normalizeArea(area);
+    if (!scene || !source || !clean) return;
 
-    const num = (v, max) => Math.min(Math.max(Number(v) || 0, 0), max);
-    await scene.createEmbeddedDocuments("MeasuredTemplate", [
-      {
-        t: data.t,
-        x: num(data.x, 1e6),
-        y: num(data.y, 1e6),
-        direction: Number(data.direction) || 0,
-        distance: num(data.distance, 1000),
-        angle: num(data.angle, 360) || 53,
-        width: num(data.width, 1000) || 1,
-        fillColor: typeof data.fillColor === "string" ? data.fillColor : "#ff0000",
-        flags: {
-          [SYSTEM_ID]: {
-            zone: {
-              sourceUuid: source.uuid,
-              skillId: String(zone.skillId ?? ""),
-              subSkillIndex: Number.isInteger(zone.subSkillIndex) ? zone.subSkillIndex : null,
-              label: String(zone.label ?? "Zona"),
-              untilDeactivated: Boolean(zone.untilDeactivated),
-              roundsRemaining: Math.min(Math.max(Number(zone.roundsRemaining) || 1, 1), 100)
-            }
+    const label = String(zone.label ?? "Zona");
+    const { documentName, data } = zoneDocumentData(clean, {
+      generation: foundryGeneration(),
+      pxPerUnit: sceneScale(scene).pxPerUnit,
+      color: /^#[0-9a-f]{6}$/i.test(color ?? "") ? color : "#ff0000",
+      name: label,
+      visibility: CONST.REGION_VISIBILITY?.ALWAYS ?? 2,
+      flags: {
+        [SYSTEM_ID]: {
+          zone: {
+            sourceUuid: source.uuid,
+            skillId: String(zone.skillId ?? ""),
+            subSkillIndex: Number.isInteger(zone.subSkillIndex) ? zone.subSkillIndex : null,
+            label,
+            untilDeactivated: Boolean(zone.untilDeactivated),
+            roundsRemaining: Math.min(Math.max(Number(zone.roundsRemaining) || 1, 1), 100),
+            area: clean
           }
         }
       }
-    ]);
+    });
+    await scene.createEmbeddedDocuments(documentName, [data]);
   }
 };
 

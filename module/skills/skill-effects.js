@@ -10,7 +10,7 @@
 import { getActiveStatusConditions, getEnergyLabelForActor, isEnergyPoolEnabled, effectiveSkillCost, isStructureMechanic, manaInvestmentPower, getManaInvestConfig } from "../core/config.js";
 import { suppressionLevel } from "../core/suppression.js";
 import { skillIsMagic } from "../core/magic-rules.js";
-import { createZoneTemplate } from "../combat/area-effects.js";
+import { createZone } from "../combat/area-effects.js";
 import { playSkillAnimation } from "../core/vfx.js";
 import { requestStructure } from "../structures/structures.js";
 import { promptManaInvestment } from "../apps/mana-invest-dialog.js";
@@ -149,7 +149,7 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
     // Zona: nada é aplicado agora — o efeito só cai em quem estiver DENTRO dela no início do
     // próprio turno (ver `tickZonesForCombatant`). Aqui só nasce a área na cena.
     if (!options.zonePlacement) return null;
-    await createZoneTemplate(options.zonePlacement, {
+    await createZone(options.zonePlacement, {
       sourceActor,
       skillId,
       subSkillIndex: options.subSkillIndex ?? null,

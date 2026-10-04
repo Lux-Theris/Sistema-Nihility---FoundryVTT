@@ -157,3 +157,29 @@ export async function createActiveEffects(parent, dataList) {
     );
   }
 }
+
+/* -------------------------------------------- */
+/*  Combate × Cena                               */
+/* -------------------------------------------- */
+
+/**
+ * A Cena de um Combatente. Na V14 o Combate nasce SEM cena (`combat.scene === null`, a menos que
+ * o Mestre o ligue a uma) e `combatant.scene` não existe: o Combatente guarda `sceneId` e acha o
+ * Token por ele. Até a 1.65.0 o sistema lia `combat.scene`/`combatant.scene`, e na V14 Zonas e
+ * Estruturas nunca contavam rodada nem davam dano no turno.
+ */
+export function combatantScene(combatant) {
+  if (!combatant) return null;
+  return combatant.token?.parent ?? (combatant.sceneId ? game.scenes.get(combatant.sceneId) : null) ?? combatant.parent?.scene ?? null;
+}
+
+/** As Cenas onde este Combate acontece: a ligada (se houver) e as dos Tokens dos combatentes, sem repetir. */
+export function combatScenes(combat) {
+  const scenes = new Map();
+  if (combat?.scene) scenes.set(combat.scene.id, combat.scene);
+  for (const combatant of combat?.combatants ?? []) {
+    const scene = combatantScene(combatant);
+    if (scene) scenes.set(scene.id, scene);
+  }
+  return [...scenes.values()];
+}

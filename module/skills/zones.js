@@ -3,23 +3,36 @@
  * (Separado de skill-effects.js na reorganização de pastas — mesma lógica de antes.)
  */
 import { SYSTEM_ID } from "../core/config.js";
+import { combatantScene } from "../helpers/foundry-compat.js";
 import { zonesOnScene, zoneContainsToken } from "../combat/area-effects.js";
 import { rollSkillDamage } from "../combat/damage-roll.js";
-import { applySkillEffects } from "./skill-effects.js";
+import { applySkillEffects, damageXpMeasures } from "./skill-effects.js";
+import { grantSkillUseXp } from "./skill-xp.js";
 
 /* -------------------------------------------- */
 /*  Zonas (área persistente na cena)             */
 /* -------------------------------------------- */
 
 /**
- * Nova rodada de combate: cada Zona da cena perde 1 rodada e some quando zera. GM-only.
- * Roda ANTES de aplicar os efeitos do primeiro turno da rodada, então uma Zona de N rodadas
- * atinge exatamente N rodadas de turnos, contando a do lançamento.
+ * Início de um turno: as Zonas de quem está começando o turno perdem 1 rodada e somem quando
+ * zeram. GM-only. Roda ANTES dos efeitos do turno.
+ *
+ * A contagem é pelo turno de QUEM LANÇOU, não pela virada da rodada: a rodada vira no topo da
+ * iniciativa, que raramente é o conjurador, e aí uma Zona de 2 rodadas sumia antes de o
+ * conjurador ter o segundo turno (achado no primeiro teste na V14). Assim, lançada no turno do
+ * conjurador, dura até o começo do turno dele N rodadas depois, e cada outro combatente começa
+ * exatamente N turnos dentro dela. Quem lançou e não está no combate (o Mestre pondo uma Zona de
+ * um NPC de fora) cai na regra antiga: perde 1 a cada virada de rodada.
+ * @param {Scene} scene
+ * @param {{combat: Combat, combatant: Combatant, roundChanged: boolean}} turn
  */
-export async function advanceZones(scene) {
+export async function advanceZones(scene, { combat, combatant, roundChanged }) {
   for (const zoneDoc of zonesOnScene(scene)) {
     const zone = foundry.utils.deepClone(zoneDoc.getFlag(SYSTEM_ID, "zone"));
     if (zone.untilDeactivated) continue; // vive até a Skill Ativa ser desligada
+    const casterFighting = combat?.combatants.some(c => c.actor?.uuid === zone.sourceUuid);
+    const casterTurn = combatant?.actor?.uuid === zone.sourceUuid;
+    if (casterFighting ? !casterTurn : !roundChanged) continue;
     zone.roundsRemaining -= 1;
     if (zone.roundsRemaining <= 0) await zoneDoc.delete();
     else await zoneDoc.setFlag(SYSTEM_ID, "zone", zone);
@@ -33,7 +46,7 @@ export async function advanceZones(scene) {
  * aplicação, senão reaplicar todo turno empilharia cópias do mesmo efeito. GM-only.
  */
 export async function tickZonesForCombatant(combatant) {
-  const scene = combatant.scene;
+  const scene = combatantScene(combatant);
   const tokenDoc = combatant.token;
   const targetActor = combatant.actor;
   // A área é geometria pura sobre documentos: não precisa que o Mestre esteja olhando a cena.
@@ -54,7 +67,10 @@ export async function tickZonesForCombatant(combatant) {
     const label = zone.label;
 
     if (mech.effectType === "damage") {
-      await rollSkillDamage(sourceActor, mech, label, targetActor);
+      // XP por uso: o que a Zona fez neste turno vai pra Skill que a criou (efeitos já creditam
+      // dentro de applySkillEffects).
+      const result = await rollSkillDamage(sourceActor, mech, label, targetActor);
+      await grantSkillUseXp(skill, damageXpMeasures(result, targetActor));
     } else if (mech.effectType === "temporary") {
       const zoned = {
         ...mech,

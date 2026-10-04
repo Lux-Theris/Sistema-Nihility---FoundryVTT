@@ -19,6 +19,7 @@ import { healBodyParts, healPlan } from "../species/anatomy.js";
 import { skillIsMagic } from "../core/magic-rules.js";
 import { applyAntimagic, suppressionLevel } from "./dispel.js";
 import { applyCurse } from "./curses.js";
+import { effectMeasuresFor, vitalBase, grantSkillUseXp } from "./skill-xp.js";
 
 /** Tiers cuja Regeneração também conserta próteses ("a partir da Única"). */
 const PROSTHESIS_REGEN_TIERS = ["unique", "ultimate"];
@@ -104,6 +105,9 @@ function findStackableEffect(targetActor, conditionId, periodic, damageElements 
 export async function applyEffectsToActor(mech, label, originSkill, targetActor, subSkillIndex = null) {
   const rawEntries = mech.effects ?? [];
   const summary = [];
+  // XP por uso (skill-xp.js): o que cada entrada que PEGOU fez neste alvo. Volta pendurado no
+  // `summary` (`summary.xp`), pra quem chama somar e creditar na Skill uma vez só.
+  const xp = [];
 
   // O Poder do nível também vale pros valores de Efeito — um buff/veneno de Skill nível 10 é
   // mais forte que o mesmo de nível 1, igual acontece com o dano. Entrada de tipo "multiplicador"
@@ -151,7 +155,9 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
         summary.push(`Antimagia: não se aplica a ${targetActor.name}`);
         continue;
       }
-      summary.push(...(await applyAntimagic(targetActor, { level: sourceLevel, rounds: entry.durationRounds })));
+      const dispelled = await applyAntimagic(targetActor, { level: sourceLevel, rounds: entry.durationRounds });
+      summary.push(...dispelled);
+      xp.push(...(dispelled.xp ?? []));
       continue;
     }
     const condition = entry.conditionId ? getActiveStatusConditions().find(c => c.id === entry.conditionId) : null;
@@ -162,6 +168,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
         continue;
       }
       summary.push(await applyCurse(targetActor, condition, { level: sourceLevel, label, onUnpaid: entry.curseOnUnpaid || "", partId: entry.healBlockPartId || "", caster: originSkill?.parent?.name ?? "" }));
+      xp.push({ flat: true });
       continue;
     }
     // Condição com efeito padrão e valor 0 na entrada: usa o padrão da Condição (ver
@@ -220,6 +227,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
           subSkillIndex
         });
       }
+      if (change) xp.push({ value: change, base: vitalBase(targetActor) });
       summary.push(sustained ? `Escudo +${change} (mantido${entry.shieldRegen ? `, +${entry.shieldRegen}/rodada` : ""}${entry.shieldCap ? `, teto ${entry.shieldCap}` : ""})` : `Escudo ${sign}${entry.amount}`);
       continue;
     }
@@ -234,6 +242,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
     }
     if (shipTarget && !isPeriodicEntry(entry)) {
       summary.push(await applyShipInstantEffect(targetActor, entry, label));
+      xp.push({ flat: true });
       continue;
     }
 
@@ -248,6 +257,12 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
     const isMultiplier = change.isMultiplier;
 
     const periodic = isPeriodicEntry(entry);
+    // Periódico conta a cada tick (tickPeriodicEffect); aqui só a Condição, se houver.
+    if (periodic) {
+      if (entry.conditionId) xp.push({ flat: true });
+    } else {
+      xp.push(...effectMeasuresFor(entry, targetActor, { hasCondition: Boolean(entry.conditionId) }));
+    }
     const tiedToActive = Boolean(mech.hasUpkeep);
     const anchor = makeAnchor({ skillUuid: origin.uuid, skillId: origin.id, subSkillIndex });
     const existing = findStackableEffect(targetActor, entry.conditionId, periodic, entry.damageElements);
@@ -395,6 +410,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
     );
   }
 
+  summary.xp = xp;
   return summary;
 }
 
@@ -436,6 +452,9 @@ export async function applyManualCondition(actor, conditionId, entry) {
 export async function tickPeriodicEffect(actor, effect) {
   const flags = effect.flags?.[SYSTEM_ID];
   if (!flags?.periodic) return null;
+  // XP por uso: cada tick credita à Skill que aplicou (`origin` é o uuid dela) o que fez agora.
+  // Condição de elemento ou marcada à mão não tem Skill de origem e não dá XP a ninguém.
+  const xpSource = effect.origin;
 
   // Nave: dano contínuo (ou reparo por rodada) no Casco ou na Integridade Estrutural. O dano leva o
   // "Dano por camada" dos elementos do tick (Plasma +15% no Casco…); o reparo nunca é reduzido.
@@ -455,6 +474,7 @@ export async function tickPeriodicEffect(actor, effect) {
     const expired = ticksRemaining <= 0 && !anchored;
     if (expired) await effect.delete();
     else await effect.update({ [`flags.${SYSTEM_ID}.ticksRemaining`]: ticksRemaining });
+    if (delta && xpSource) await grantSkillUseXp(xpSource, [{ value: delta, base: vitalBase(actor) }]);
     return {
       attrKey: layer,
       delta,
@@ -518,6 +538,7 @@ export async function tickPeriodicEffect(actor, effect) {
   // zeraram e só a âncora está segurando — enquanto ainda há ticks finitos contando, mostra o
   // número normal mesmo que exista uma âncora em paralelo.
   const displayTicks = anchored && ticksRemaining <= 0 ? null : ticksRemaining;
+  if (delta && xpSource) await grantSkillUseXp(xpSource, [{ value: delta, base: attr.max }]);
 
   return { attrKey, delta, newValue, ticksRemaining: displayTicks, expired, effectName: effect.name, appliedReductions, note };
 }

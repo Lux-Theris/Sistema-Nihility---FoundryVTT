@@ -28,7 +28,8 @@ import {
   antimagicSurcharge,
   getAntimagicConfig,
   getElementAffinityMatrix,
-  getAffinityConfig
+  getAffinityConfig,
+  getActiveStatusConditions
 } from "../core/config.js";
 import { runAsGm, isDesignatedGm } from "../helpers/gm-relay.js";
 import {
@@ -43,6 +44,12 @@ import {
 } from "./structure-geometry.js";
 import { hitAffinityFactor } from "../combat/damage-rules.js";
 import { lightSourceData } from "../combat/lights.js";
+import { grantSkillUseXp, vitalBase } from "../skills/skill-xp.js";
+
+/** A Skill que ergueu a Estrutura (uuid), pra XP por uso. Null em registros sem Skill. */
+function structureSkillUuid(instance) {
+  return instance?.sourceActorUuid && instance.skillId ? `${instance.sourceActorUuid}.Item.${instance.skillId}` : null;
+}
 
 const FLAG = "structures";
 /** Por que cada Estrutura caiu (id → {reason, label, time}): lido pela animação de queda e pelo cartão. */
@@ -407,11 +414,16 @@ export function interceptingStructure(attacker, target, { origin = null } = {}) 
  * alvo continua nos botões de Aplicar do chat.
  * @returns {{absorbed: number, passed: number, label: string, point: {x: number, y: number}}}
  */
-export async function hitStructure(block, amount, elementIds = []) {
+export async function hitStructure(block, amount, elementIds = [], protectedActor = null) {
   // Vantagem entre elementos: Fogo contra Parede de Gelo bate mais forte NELA (o que passa volta à escala do golpe).
   const factor = hitAffinityFactor(elementIds, instanceInfo(block.instance).elements, getElementAffinityMatrix(), getAffinityConfig());
   const { absorbed, passed } = splitStructureHit(amount * factor, block.capacity);
-  if (absorbed > 0) await runAsGm("damageStructure", { sceneId: block.scene.id, instanceId: block.instance.id, amount: absorbed, attackerUuid: block.attackerUuid });
+  if (absorbed > 0) {
+    await runAsGm("damageStructure", { sceneId: block.scene.id, instanceId: block.instance.id, amount: absorbed, attackerUuid: block.attackerUuid });
+    // XP por uso da Skill que ergueu: o dano segurado sobre a Vida de quem ela protegeu.
+    const skillUuid = structureSkillUuid(block.instance);
+    if (skillUuid && protectedActor) await grantSkillUseXp(skillUuid, [{ value: absorbed, base: vitalBase(protectedActor) }]);
+  }
   return { absorbed, passed: factor > 0 ? Math.round(passed / factor) : passed, label: block.instance.label, point: block.point };
 }
 
@@ -447,25 +459,49 @@ function fieldLevelAt(fields, point) {
 }
 
 /**
- * Nível de antimagia de um ataque de `attacker` em `target`: o Selo que o atacante carrega, e os
- * campos que a linha do ataque atravessa, de onde ele sai ou onde o alvo está. Sem mapa, só o Selo.
+ * Os Selos que `actor` carrega (Condição com antimagia), com a Skill que aplicou cada um
+ * (`effect.origin`) — pra XP por uso de quem selou.
  */
-export function antimagicLevelBetween(attacker, target, { origin = null } = {}) {
-  let level = actorAntimagicLevel(attacker);
-  const scene = canvas?.scene;
-  if (!canvas?.ready || !scene) return level;
-  const fields = antimagicFields(scene);
-  if (!fields.length) return level;
-  const from = origin ?? actorToken(attacker, canvas.tokens?.controlled ?? [])?.center;
-  const to = target ? actorToken(target, [...(game.user?.targets ?? [])])?.center : null;
-  if (from) level = Math.max(level, fieldLevelAt(fields, [from.x, from.y]));
-  if (to) level = Math.max(level, fieldLevelAt(fields, [to.x, to.y]));
-  if (from && to) {
-    for (const f of fields) {
-      if (f.segments.some(seg => segmentCrossing([from.x, from.y], [to.x, to.y], seg) !== null)) level = Math.max(level, f.info.antimagicLevel);
+function sealSources(actor) {
+  const sealed = getActiveStatusConditions().filter(c => Number(c.antimagicLevel) > 0);
+  if (!sealed.length || !actor?.effects) return [];
+  const out = [];
+  for (const effect of actor.effects) {
+    if (effect.disabled) continue;
+    for (const status of effect.statuses ?? []) {
+      const condition = sealed.find(c => c.id === status);
+      if (condition) out.push({ level: Number(condition.antimagicLevel) || 0, skillUuid: effect.origin ?? null });
     }
   }
-  return level;
+  return out;
+}
+
+/**
+ * Antimagia num ataque de `attacker` em `target`: o Selo que o atacante carrega, e os campos que a
+ * linha do ataque atravessa, de onde ele sai ou onde o alvo está. Sem mapa, só o Selo. Devolve o
+ * nível e as Skills responsáveis por ele (as fontes no nível máximo), pra XP por uso.
+ * @returns {{level: number, sources: string[]}}
+ */
+export function antimagicBetween(attacker, target, { origin = null } = {}) {
+  const hits = [...sealSources(attacker), { level: actorAntimagicLevel(attacker), skillUuid: null }];
+  const scene = canvas?.scene;
+  const fields = canvas?.ready && scene ? antimagicFields(scene) : [];
+  if (fields.length) {
+    const from = origin ?? actorToken(attacker, canvas.tokens?.controlled ?? [])?.center;
+    const to = target ? actorToken(target, [...(game.user?.targets ?? [])])?.center : null;
+    for (const f of fields) {
+      const inside = p => f.info.closed && pointInSegments([p.x, p.y], f.segments);
+      const crosses = from && to && f.segments.some(seg => segmentCrossing([from.x, from.y], [to.x, to.y], seg) !== null);
+      if ((from && inside(from)) || (to && inside(to)) || crosses) hits.push({ level: f.info.antimagicLevel, skillUuid: structureSkillUuid(f.instance) });
+    }
+  }
+  const level = Math.max(0, ...hits.map(h => h.level));
+  return { level, sources: [...new Set(hits.filter(h => level > 0 && h.level === level && h.skillUuid).map(h => h.skillUuid))] };
+}
+
+/** Só o nível de `antimagicBetween`. */
+export function antimagicLevelBetween(attacker, target, { origin = null } = {}) {
+  return antimagicBetween(attacker, target, { origin }).level;
 }
 
 /** Nível de antimagia onde o Ator está (Selo + campo em volta do Token dele) — pra efeito contínuo. */
@@ -489,10 +525,8 @@ async function enforceAntimagicOnStructures(scene) {
     const info = instanceInfo(instance);
     if (!info.magic || info.antimagicLevel > 0) continue;
     const segments = structureSegmentsOf(scene, instance);
-    const level = fields.reduce((max, f) => {
-      const touches = segmentsCross(segments, f.segments) || (f.info.closed && segments.some(([x, y]) => pointInSegments([x, y], f.segments)));
-      return touches ? Math.max(max, f.info.antimagicLevel) : max;
-    }, 0);
+    const touching = fields.filter(f => segmentsCross(segments, f.segments) || (f.info.closed && segments.some(([x, y]) => pointInSegments([x, y], f.segments))));
+    const level = Math.max(0, ...touching.map(f => f.info.antimagicLevel));
     if (!level) continue;
     const caster = await fromUuid(instance.sourceActorUuid);
     const energy = caster?.system?.attributes?.energy;
@@ -506,6 +540,11 @@ async function enforceAntimagicOnStructures(scene) {
       });
     } else {
       await removeStructureInstance(scene, instance.id, "antimagic");
+      // XP por uso: o campo (ou campos) no nível que venceu desfez uma Estrutura mágica.
+      for (const f of touching.filter(t => t.info.antimagicLevel === level)) {
+        const skillUuid = structureSkillUuid(f.instance);
+        if (skillUuid) await grantSkillUseXp(skillUuid, [{ flat: true }]);
+      }
     }
   }
 }

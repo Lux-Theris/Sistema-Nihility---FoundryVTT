@@ -11,6 +11,7 @@ import { getActiveStatusConditions, getEnergyLabelForActor, isEnergyPoolEnabled,
 import { suppressionLevel } from "../core/suppression.js";
 import { skillIsMagic } from "../core/magic-rules.js";
 import { createZone } from "../combat/area-effects.js";
+import { grantSkillUseXp, vitalBase } from "./skill-xp.js";
 import { playSkillAnimation } from "../core/vfx.js";
 import { requestStructure } from "../structures/structures.js";
 import { promptManaInvestment } from "../apps/mana-invest-dialog.js";
@@ -133,7 +134,8 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
 
   if (isStructureMechanic(mech)) {
     // Estrutura: a Skill ergue parede/bloco no mapa (ver structures.js). Sem mapa, só o cartão.
-    return requestStructure({
+    // XP por uso: o fixo ao erguer; o dano que ela segurar conta depois (hitStructure).
+    const raised = await requestStructure({
       sourceActor,
       skillId,
       subSkillIndex: options.subSkillIndex ?? null,
@@ -143,6 +145,8 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
       label,
       power: mech.investPower ?? 1
     });
+    if (raised) await grantSkillUseXp(skill, [{ flat: true }]);
+    return raised;
   }
 
   if (mech.targetType === "zone") {
@@ -161,15 +165,19 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
       speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
       content: `<p><strong>${sourceActor.name}</strong> criou a zona <strong>${label}</strong> (${mech.hasUpkeep ? "até desativar" : `${mech.zoneRounds} rodada(s)`}) — afeta quem permanecer nela no início do próprio turno.</p>`
     });
+    // XP por uso: o fixo ao criar; o que ela fizer em cada turno conta depois (tickZonesForCombatant).
+    await grantSkillUseXp(skill, [{ flat: true }]);
     return true;
   }
 
   const isEmission = mech.targetType === "emission";
 
   if (mech.effectType === "damage") {
-    return isEmission
-      ? rollSkillDamageArea(sourceActor, mech, label, options.targetActors ?? [], options.rollOptions ?? null)
-      : rollSkillDamage(sourceActor, mech, label, options.targetActor ?? null, options.rollOptions ?? null);
+    const result = isEmission
+      ? await rollSkillDamageArea(sourceActor, mech, label, options.targetActors ?? [], options.rollOptions ?? null)
+      : await rollSkillDamage(sourceActor, mech, label, options.targetActor ?? null, options.rollOptions ?? null);
+    await grantSkillUseXp(skill, damageXpMeasures(result, options.targetActor));
+    return result;
   }
   if (mech.effectType === "temporary") {
     return isEmission
@@ -185,6 +193,16 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
     content: `<p><strong>${sourceActor.name}</strong> usou <strong>${label}</strong>${upkeepNote}.</p>`
   });
   return true;
+}
+
+/**
+ * XP por uso de uma rolagem de dano: o dano final de cada alvo sobre a "Vida" dele (Nave: Escudo +
+ * Casco + Integridade). Alvo único vem de `finalDamage`; área, de `hits`.
+ */
+export function damageXpMeasures(result, targetActor = null) {
+  if (!result) return [];
+  if (Array.isArray(result.hits)) return result.hits.filter(h => h.damage > 0).map(h => ({ value: h.damage, base: vitalBase(h.actor) }));
+  return targetActor && result.finalDamage > 0 ? [{ value: result.finalDamage, base: vitalBase(targetActor) }] : [];
 }
 
 /** Entrada de Efeito que é cura de Vida (Periódico, valor positivo). */
@@ -209,6 +227,7 @@ export async function applySkillEffects(sourceActor, skill, mech, label, targetA
     if (part) effective = { ...effective, effects: effective.effects.map(e => (conditions.find(c => c.id === e.conditionId)?.healBlock?.scope === "part" ? { ...e, healBlockPartId: part.id } : e)) };
   }
   const summary = await applyEffectsToActor(effective, label, skill, targetActor, subSkillIndex);
+  await grantSkillUseXp(skill, summary.xp);
 
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
@@ -238,10 +257,13 @@ async function applySkillEffectsArea(sourceActor, skill, mech, label, targetActo
   }
 
   const rows = [];
+  const xp = [];
   for (const targetActor of targetActors) {
     const summary = await applyEffectsToActor(mech, label, skill, targetActor, subSkillIndex);
+    xp.push(...(summary.xp ?? []));
     rows.push(`<li><strong>${targetActor.name}</strong>: ${summary.join(", ")}</li>`);
   }
+  await grantSkillUseXp(skill, xp);
 
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor: sourceActor }),

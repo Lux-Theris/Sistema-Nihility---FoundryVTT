@@ -77,7 +77,8 @@ import {
   itemsCollection,
   coreActorSheetClass,
   coreItemSheetClass,
-  registerSystemPartials
+  registerSystemPartials,
+  combatScenes
 } from "./helpers/foundry-compat.js";
 
 Hooks.once("init", () => {
@@ -658,8 +659,13 @@ Hooks.on("updateCombat", async (combat, changed) => {
   if (!actor) return;
 
   try {
-    if (changed.round !== undefined && combat.scene) await advanceZones(combat.scene);
-    if (changed.round !== undefined && combat.scene) await advanceStructures(combat.scene);
+    // Na V14 o Combate não tem Cena por padrão: as Cenas vêm dos Tokens dos combatentes.
+    // Zonas contam pelo turno de quem lançou (ver advanceZones); Estruturas, pela rodada.
+    const roundChanged = changed.round !== undefined;
+    for (const scene of combatScenes(combat)) {
+      await advanceZones(scene, { combat, combatant: combat.combatant, roundChanged });
+      if (roundChanged) await advanceStructures(scene);
+    }
     await tickZonesForCombatant(combat.combatant);
   } catch (err) {
     console.error(`${SYSTEM_ID} | Falha ao processar Zonas no início do turno.`, err);

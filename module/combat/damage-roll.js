@@ -352,7 +352,7 @@ function damageFlavorPrefix(mech, label) {
 export async function throughStructures(attacker, targetActor, damage, { origin = null, elementIds = [] } = {}) {
   const block = interceptingStructure(attacker, targetActor, { origin });
   if (!block) return { damage, note: "", impact: null };
-  const { absorbed, passed, label, point } = await hitStructure(block, damage, elementIds);
+  const { absorbed, passed, label, point } = await hitStructure(block, damage, elementIds, targetActor);
   return { damage: passed, note: absorbed ? ` — ${label} bloqueou ${absorbed}` : "", impact: point };
 }
 
@@ -571,6 +571,8 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
   // Rastro por alvo, só do Mestre (ver renderDamageTrace).
   const traces = [];
   const applyEntries = [];
+  // O dano final de cada alvo, pra XP por uso da Skill (damageXpMeasures em skill-effects.js).
+  const hits = [];
   for (const targetActor of targetActors) {
     // Escala por alvo: a mesma rolagem vale diferente contra uma pessoa e contra uma Nave.
     const scale = damageScaleFor(actor, mech, targetActor);
@@ -585,7 +587,7 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
     const block = interceptingStructure(actor, targetActor, { origin });
     if (block) {
       if (!shielded.has(block.instance.id)) {
-        const { absorbed, passed, label: wall } = await hitStructure(block, targetDamage, mech.damageElements);
+        const { absorbed, passed, label: wall } = await hitStructure(block, targetDamage, mech.damageElements, targetActor);
         shielded.set(block.instance.id, targetDamage > 0 ? passed / targetDamage : 1);
         if (absorbed) blockedNotes.push(`${wall} bloqueou ${absorbed}`);
       }
@@ -607,6 +609,7 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
         absolute: Boolean(mech.isAbsoluteDamage)
       });
       traceRows.push(...(cascadeRows ?? []));
+      hits.push({ actor: targetActor, damage: toShield + toCasco + toHull });
       const detalhe = structuralHits?.length ? ` (${structuralHits.map(h => (h.damage == null ? h.name : `${h.name} -${h.damage}`)).join(", ")})` : "";
       rows.push(
         `<li><strong>${targetActor.name}</strong>: Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}${detalhe}</li>`
@@ -631,6 +634,7 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
         label
       })[SYSTEM_ID]?.damageApply;
       if (hit) applyEntries.push({ ...hit, name: targetActor.name });
+      hits.push({ actor: targetActor, damage: reduction.finalDamage });
       rows.push(`<li><strong>${targetActor.name}</strong>: ${reduction.finalDamage}${triggeredLabel(reduction.triggeredConditions)}</li>`);
       traceRows.push(...personalTraceTail(reduction, targetActor));
     }
@@ -644,5 +648,5 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
     content: `<p>${title} — rolagem bruta: <strong>${roll.total}</strong>${boostedTotal !== roll.total ? ` (bônus de arma: ${Math.floor(boostedTotal)})` : ""}</p>${blockedNotes.length ? `<p>${blockedNotes.join(" · ")}</p>` : ""}<ul>${rows.join("")}</ul>`
   });
 
-  return { roll };
+  return { roll, hits };
 }

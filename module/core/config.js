@@ -286,6 +286,16 @@ export const MEU_SISTEMA = {
         movementGmIgnores: { label: "Mestre ignora o limite", hint: "O Mestre move tokens sem gastar nem respeitar o deslocamento.", type: "boolean", default: true }
       }
     },
+    skillUseXp: {
+      setting: "skillUseXpEnabled",
+      name: "XP por uso de Skill",
+      hint: "A Skill ganha XP pelo que fez: dano, cura e Escudo pela fração da Vida máxima do alvo; buff/debuff pela fração do valor que mudou; Condição, Estrutura e Zona um valor fixo (Estrutura também pelo dano que segurou). Para no teto do nível — subir continua sendo clique do Mestre.",
+      default: true,
+      options: {
+        skillXpFactor: { label: "XP de um efeito do tamanho de uma Vida", hint: "Um golpe que leva a Vida máxima inteira do alvo vale isto (cada alvo conta no máximo uma vez).", type: "number", default: 100, min: 0 },
+        skillXpFlatPercent: { label: "% fixo (Condição, Estrutura, Zona)", hint: "Porcentagem do valor acima dada por Condição aplicada, Estrutura erguida ou Zona criada.", type: "number", default: 10, min: 0 }
+      }
+    },
     inventory: {
       setting: "inventoryEnabled",
       name: "Inventário (slots, pilhas e contêineres)",

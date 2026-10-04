@@ -34,6 +34,9 @@ function skillMagicLevel(sys) {
 export async function applyAntimagic(target, { level = 0, rounds = 0 } = {}) {
   const reach = antimagicReachLevel(level);
   const summary = [];
+  // XP por uso (skill-xp.js): a Antimagia ganha pelo que desligou — cada efeito cortado, cada
+  // Habilidade Ativa desligada e a Supressão contam o fixo; Escudo cortado conta pelo tamanho.
+  const xp = [];
 
   // 1) Efeitos mágicos de Skill de nível ≤ alcance (a supressão e as Condições do corpo ficam).
   const effects = target.effects.map(e => {
@@ -43,6 +46,7 @@ export async function applyAntimagic(target, { level = 0, rounds = 0 } = {}) {
   const cut = dispelledEffects(effects.filter(e => !e.keep), reach);
   if (cut.length) {
     await target.deleteEmbeddedDocuments("ActiveEffect", cut);
+    for (let i = 0; i < cut.length; i++) xp.push({ flat: true });
     summary.push(`${effects.filter(e => cut.includes(e.id)).map(e => e.name).join(", ")} removido(s)`);
   }
   const kept = effects.filter(e => e.magic && !e.keep && !cut.includes(e.id));
@@ -57,7 +61,10 @@ export async function applyAntimagic(target, { level = 0, rounds = 0 } = {}) {
     const { magic, level: lvl } = skillMagicLevel({ ...sys, tier: skill.system.tier });
     if (!magic || lvl > reach) continue;
     const removed = await removeShieldPool(target, pool);
-    if (removed) summary.push(`Escudo de ${skill.name} (−${removed})`);
+    if (removed) {
+      summary.push(`Escudo de ${skill.name} (−${removed})`);
+      xp.push({ value: removed, base: Number(target.system?.attributes?.hp?.max) || 1 });
+    }
   }
 
   // 3) Habilidades Ativas mágicas do alvo, de nível ≤ alcance: desligam (religar paga de novo).
@@ -70,12 +77,15 @@ export async function applyAntimagic(target, { level = 0, rounds = 0 } = {}) {
       await source.skill.update({ [activeStatePath(source.subSkillIndex)]: false });
       await removeUpkeepLinkedEffects(source.skill, source.subSkillIndex);
       off.push(source.label);
+      xp.push({ flat: true });
     }
     if (off.length) summary.push(`${off.join(", ")} desligada(s)`);
   }
 
   // 4) Condição "Suprimido": renova ficando com o maior nível e a maior duração.
   summary.push(await applySuppression(target, reach, rounds));
+  xp.push({ flat: true });
+  summary.xp = xp;
   return summary;
 }
 

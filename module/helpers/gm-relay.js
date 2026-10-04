@@ -91,6 +91,30 @@ const HANDLERS = {
   },
 
   /**
+   * XP por uso numa Skill que quem pede não possui (hoje: a Estrutura de outro segurando o golpe
+   * de quem atacou). Mesmo raciocínio da `resistanceXp`: não há posse a exigir, então o pedido é
+   * limitado — o Mestre refaz a conta com a configuração DELE, poucas medidas, e no máximo uma
+   * unidade ("uma Vida inteira") por pedido, nunca além do teto do nível.
+   * @param {{skillUuid:string, measures:Array<object>}} payload
+   */
+  async skillUseXp({ skillUuid, measures }) {
+    const skill = typeof skillUuid === "string" ? await fromUuid(skillUuid) : null;
+    if (!skill || skill.type !== "skill" || skill.system.isItemGranted || !Array.isArray(measures)) return;
+    const { skillUseXp } = await import("../skills/skill-xp-rules.js");
+    const { skillXpConfig } = await import("../skills/skill-xp.js");
+    const { isFeatureEnabled } = await import("../core/config.js");
+    if (!isFeatureEnabled("skillUseXp")) return;
+    const config = skillXpConfig();
+    const clean = measures.slice(0, 10).map(m => (m?.flat ? { flat: true } : { value: Number(m?.value) || 0, base: Number(m?.base) || 0 }));
+    const gain = skillUseXp(clean, { ...config, cap: config.factor });
+    if (!gain) return;
+    const current = Number(skill.system.xp) || 0;
+    const max = Number(skill.system.xpMax) || 0;
+    const next = max > 0 ? Math.min(max, current + gain) : current + gain;
+    if (next !== current) await skill.update({ "system.xp": next });
+  },
+
+  /**
    * Liga/desliga o Correr (deslocamento ×2) do Combatant que está no turno.
    * @param {{combatantUuid:string, value:boolean}} payload
    */

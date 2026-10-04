@@ -2580,3 +2580,28 @@ test("Skill numa frase: o que faz · onde · custo · manutenção", () => {
   assert.equal(skillSummary({ effectType: "none", resistanceTarget: "fire" }, { ...ctx, resistance: "Resistência Fogo 30%" }), "Resistência Fogo 30%");
   assert.equal(skillSummary({ effectType: "none" }, ctx), "", "Descritiva e de graça: sem frase");
 });
+
+import { measureFraction, skillUseXp, effectEntryMeasures } from "../module/skills/skill-xp-rules.js";
+
+test("XP por uso: dano, cura e Escudo pela fração da Vida; cada alvo conta no máximo uma Vida", () => {
+  const cfg = { factor: 100, flatPercent: 10 };
+  assert.equal(skillUseXp([{ value: 25, base: 100 }], cfg), 25, "um quarto da Vida = 25");
+  assert.equal(skillUseXp([{ value: 500, base: 100 }], cfg), 100, "overkill não passa de uma Vida");
+  assert.equal(skillUseXp([{ value: 50, base: 100 }, { value: 30, base: 60 }], cfg), 100, "área soma os alvos");
+  assert.equal(skillUseXp([{ value: -40, base: 200 }], cfg), 20, "debuff/dano negativo conta pelo tamanho");
+  assert.equal(skillUseXp([{ flat: true }, { flat: true }], cfg), 20, "Condição/Estrutura/Zona: o fixo de 10% cada");
+  assert.equal(skillUseXp([{ value: 10, base: 0 }], cfg), 100, "base 0 não divide por zero (vira 1)");
+  assert.equal(skillUseXp([{ value: 100, base: 100 }, { value: 100, base: 100 }], { ...cfg, cap: 100 }), 100, "o relay limita o pedido a uma unidade");
+  assert.equal(skillUseXp([], cfg), 0);
+  assert.equal(measureFraction({ flat: true }, 25), 0.25);
+});
+
+test("XP por uso: buff/debuff pela fração do valor atual; Condição soma o fixo", () => {
+  assert.deepEqual(effectEntryMeasures({ amount: 3 }, { attributeTotal: 10 }), [{ value: 3, base: 10 }], "Força +3 em quem tem 10 = 30%");
+  assert.deepEqual(effectEntryMeasures({ amount: -20 }, { vitalMax: 200 }), [{ value: -20, base: 200 }]);
+  assert.deepEqual(effectEntryMeasures({ amount: -50 }, { percent: true }), [{ value: -50, base: 100 }], "Lentidão −50% Deslocamento");
+  assert.deepEqual(effectEntryMeasures({ amount: 0 }, { hasCondition: true }), [{ flat: true }], "Condição pura: só o fixo");
+  assert.deepEqual(effectEntryMeasures({ amount: 2 }, { attributeTotal: 4, hasCondition: true }), [{ flat: true }, { value: 2, base: 4 }]);
+  assert.deepEqual(effectEntryMeasures({ amount: 5 }, {}), [{ flat: true }], "alvo sem número (elemento de arma, corpo) conta o fixo");
+  assert.deepEqual(effectEntryMeasures({ amount: 0 }, {}), [], "nada aplicado, nada medido");
+});

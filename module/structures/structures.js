@@ -378,7 +378,7 @@ function structureCapacity(instance) {
  * Token ao centro do outro (ou da origem da área, `origin`). `null` sem mapa, sem Token ou sem
  * nada no caminho. A Estrutura não bloqueia os ataques de quem a ergueu: quem conjura uma
  * barreira atira de dentro dela.
- * @returns {{scene: Scene, instance: object, capacity: number, point: {x: number, y: number}}|null}
+ * @returns {{scene: Scene, instance: object, capacity: number, point: {x: number, y: number}, attackerUuid: string|null}|null}
  */
 export function interceptingStructure(attacker, target, { origin = null } = {}) {
   const scene = canvas?.scene;
@@ -398,7 +398,7 @@ export function interceptingStructure(attacker, target, { origin = null } = {}) 
   const to = targetToken.center;
   // Ponto de impacto na parede: é até ali que a animação da Skill vai (ver vfx.js).
   const point = { x: from.x + (to.x - from.x) * hit.t, y: from.y + (to.y - from.y) * hit.t };
-  return { scene, instance, capacity: structureCapacity(instance), point };
+  return { scene, instance, capacity: structureCapacity(instance), point, attackerUuid: attacker?.uuid ?? null };
 }
 
 /**
@@ -411,7 +411,7 @@ export async function hitStructure(block, amount, elementIds = []) {
   // Vantagem entre elementos: Fogo contra Parede de Gelo bate mais forte NELA (o que passa volta à escala do golpe).
   const factor = hitAffinityFactor(elementIds, instanceInfo(block.instance).elements, getElementAffinityMatrix(), getAffinityConfig());
   const { absorbed, passed } = splitStructureHit(amount * factor, block.capacity);
-  if (absorbed > 0) await runAsGm("damageStructure", { sceneId: block.scene.id, instanceId: block.instance.id, amount: absorbed });
+  if (absorbed > 0) await runAsGm("damageStructure", { sceneId: block.scene.id, instanceId: block.instance.id, amount: absorbed, attackerUuid: block.attackerUuid });
   return { absorbed, passed: factor > 0 ? Math.round(passed / factor) : passed, label: block.instance.label, point: block.point };
 }
 

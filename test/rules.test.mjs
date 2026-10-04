@@ -2527,3 +2527,29 @@ test("Área de Skill: normalização (payload do relay), polígono, Token e Zona
   assert.equal(v13.documentName, "MeasuredTemplate");
   assert.deepEqual([v13.data.t, v13.data.distance, v13.data.width], ["ray", 6, 2], "de volta a metros na V13");
 });
+
+import { VITAL_TRACKS, FLOAT_COLORS, vitalSnapshot, vitalDeltas } from "../module/combat/vital-deltas.js";
+
+test("Números flutuantes: o golpe aparece como Escudo e Vida, de fora para dentro", () => {
+  const tracks = VITAL_TRACKS.character;
+  const before = vitalSnapshot({ attributes: { hp: { value: 100 }, shield: { value: 20 }, energy: { value: 50 } } }, tracks);
+  const after = vitalSnapshot({ attributes: { hp: { value: 66 }, shield: { value: 0 }, energy: { value: 50 } } }, tracks);
+  const deltas = vitalDeltas(before, after, tracks);
+  assert.deepEqual(deltas.map(d => d.text), ["−20 Escudo", "−34"], "Escudo primeiro, Vida só com o número; Mana parada não aparece");
+  assert.equal(deltas[1].fill, FLOAT_COLORS.damage);
+
+  const heal = vitalDeltas({ hp: 66, energy: 50 }, { hp: 78, energy: 40 }, tracks, { labels: { energy: "Ki" } });
+  assert.deepEqual(heal.map(d => [d.text, d.ownerOnly]), [["+12", false], ["−10 Ki", true]], "cura em verde; Mana com o rótulo da mesa e só para o dono");
+  assert.equal(heal[0].fill, FLOAT_COLORS.heal);
+
+  assert.deepEqual(vitalDeltas({}, { hp: 50 }, tracks), [], "ficha que ainda não tinha sido lida não inventa número");
+  assert.deepEqual(vitalDeltas({ hp: 10.2 }, { hp: 10.4 }, tracks), [], "fração que arredonda para 0 não aparece");
+});
+
+test("Números flutuantes: Nave mostra Escudo, Casco e Integridade", () => {
+  const tracks = VITAL_TRACKS.ship;
+  const before = vitalSnapshot({ shields: { value: 30 }, casco: { value: 80 }, hull: { value: 100 } }, tracks);
+  const after = vitalSnapshot({ shields: { value: 0 }, casco: { value: 55 }, hull: { value: 90 } }, tracks);
+  assert.deepEqual(vitalDeltas(before, after, tracks).map(d => d.text), ["−30 Escudo", "−25 Casco", "−10 Integridade"]);
+  assert.equal(vitalDeltas({ hull: 90 }, { hull: 100 }, tracks)[0].fill, FLOAT_COLORS.heal, "reparo em verde");
+});

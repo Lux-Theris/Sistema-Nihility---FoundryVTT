@@ -51,6 +51,7 @@ import { registerMovementLimit } from "./combat/movement.js";
 import { registerConditionalRefresh } from "./combat/conditional-context.js";
 import { advanceStructures, collapseStructuresOfCaster, renderStructureControls, registerStructureContact } from "./structures/structures.js";
 import { registerStructureRendering } from "./structures/structure-render.js";
+import { registerFloatingNumbers } from "./combat/floating-numbers.js";
 import { registerShieldLightHooks } from "./combat/lights.js";
 import { registerShieldPoolReconcile } from "./combat/shield-pools.js";
 import { registerStatusConditions, interceptManualCondition } from "./combat/conditions.js";
@@ -160,6 +161,7 @@ Hooks.once("init", () => {
   registerShieldPoolReconcile();
   registerShieldAdaptationReset();
   registerStructureContact();
+  registerFloatingNumbers();
 
   // Partials reaproveitados entre templates (hoje só a Habilidade Concedida, usada 3x na ficha
   // de Item). Precisa estar registrado antes da primeira ficha abrir.

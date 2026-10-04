@@ -104,6 +104,7 @@ export const MEU_SISTEMA = {
     vitalFormulaFloor: "vitalFormulaFloor",
     completedMigrations: "completedMigrations",
     debugMode: "debugMode",
+    floatingNumbers: "floatingNumbers",
     aiProvider: "aiProvider",
     aiEndpointUrl: "aiEndpointUrl",
     aiModel: "aiModel",
@@ -4003,6 +4004,17 @@ export function registerSystemSettings() {
     config: true,
     type: Boolean,
     default: false
+  });
+
+  // Números sobre o Token (combat/floating-numbers.js). Por usuário: quem prefere a tela limpa
+  // desliga só para si. O "texto de status flutuante" do core (world) desliga para todos.
+  game.settings.register(SYSTEM_ID, S.floatingNumbers, {
+    name: "Números flutuantes sobre o Token",
+    hint: "Mostra dano, cura, Escudo e Mana subindo do Token quando mudam (Nave: Escudo, Casco e Integridade). Só neste navegador.",
+    scope: "client",
+    config: true,
+    type: Boolean,
+    default: true
   });
 
   // scope:"client" (não "world"): fica só no navegador de quem configura, nunca

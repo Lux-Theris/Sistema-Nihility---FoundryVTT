@@ -402,6 +402,20 @@
   flex: 1;
 }
 
+/* A Skill numa frase, embaixo do nome (L2). Cor explícita: o core pinta texto escuro. */
+.nihility-sheet .item-row .skill-summary {
+  display: block;
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--nihility-text-dim);
+}
+.nihility-sheet .item-row .skill-summary:empty {
+  display: none;
+}
+.nihility-sheet .item-row[data-hotbar-drag] {
+  cursor: grab;
+}
+
 .nihility-sheet .item-row img {
   border-radius: 3px;
   border: 1px solid var(--nihility-border);
@@ -3348,6 +3362,39 @@ form.nihility-config-app {
   font-size: 0.78rem;
   color: var(--nihility-ok);
   font-weight: 600;
+}
+
+/* Card de área: uma linha por alvo, ações de grupo em cima (L10). */
+.nihility-damage-controls.is-many {
+  flex-direction: column;
+  align-items: stretch;
+}
+.nihility-damage-controls .damage-many-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.nihility-damage-controls .damage-many-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.nihility-damage-controls .damage-many-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.nihility-damage-controls .damage-many-list button:first-child { border-color: var(--nihility-border); color: var(--nihility-text); }
+.nihility-damage-controls .damage-many-list .damage-apply:first-of-type { border-color: var(--nihility-accent); color: var(--nihility-accent); }
+.nihility-damage-controls .damage-many-name {
+  flex: 1;
+  min-width: 6em;
+  font-size: 0.8rem;
+  color: var(--nihility-text);
 }
 
 /* Não lidas do PAD — badge por conversa e no botão da ficha. */

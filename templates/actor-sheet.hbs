@@ -313,8 +313,7 @@
                   {{#if ../../skillFusionEnabled}}<input type="checkbox" class="skill-fuse-checkbox" data-item-id="{{skill.id}}"/>{{/if}}
                   {{/if}}
                   <img src="{{skill.img}}" width="24" height="24"/>
-                  <span class="item-name">{{skill.name}}</span>
-                  <span class="item-cost">Custo: {{skill.system.cost}}{{#if skill.system.hasUpkeep}} + {{skill.system.upkeepCost}}/rodada{{/if}}</span>
+                  <span class="item-name">{{skill.name}}<span class="skill-summary">{{lookup ../../skillSummaries skill.id}}</span></span>
                   {{#if skill.system.active}}
                   <button type="button" class="skill-use-button active" data-action="useSkill" title="Desativar (drenando {{skill.system.upkeepCost}} de {{../../energyLabel}} por rodada)">🔥 Desativar</button>
                   {{else if skill.system.subSkills.length}}

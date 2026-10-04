@@ -570,6 +570,7 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
   // Casco foi aplicada — só o número final por alvo (a redução em si continua acontecendo).
   // Rastro por alvo, só do Mestre (ver renderDamageTrace).
   const traces = [];
+  const applyEntries = [];
   for (const targetActor of targetActors) {
     // Escala por alvo: a mesma rolagem vale diferente contra uma pessoa e contra uma Nave.
     const scale = damageScaleFor(actor, mech, targetActor);
@@ -614,8 +615,22 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
       const reduction = applyDamageReductions(targetDamage, mech, targetActor, { attacker: actor });
       await grantResistanceXp(reduction.defenders, targetActor);
       await registerResistanceExposure(targetActor, mech.damageElements, reduction.finalDamage);
-      // Em área o dano de Personagem continua sendo aplicado à mão (sem botões por alvo), então
-      // as Condições disparadas só são listadas — o Mestre marca no token se confirmar o acerto.
+      // Botões por alvo no card (Aplicar / em todos / aos selecionados — ver damage-apply.js): o
+      // número de cada um já sai com as defesas dele, e as Condições disparadas só valem quando o
+      // Mestre aplica, como no alvo único. Área não cai em parte do corpo (`noBodyPart`).
+      const hit = damageApplyFlags(targetActor, reduction.finalDamage, {
+        shieldBase: reduction.shieldBase,
+        elementIds: reduction.elementIds ?? [],
+        absolute: Boolean(mech.isAbsoluteDamage),
+        shieldExtra: reduction.shieldExtra ?? 0,
+        shieldMultiplier: reduction.shieldMultiplier ?? 1,
+        shieldPenetration: reduction.shieldPenetration ?? 0,
+        triggeredConditions: reduction.triggeredConditions ?? [],
+        sever: Boolean(reduction.sever),
+        noBodyPart: true,
+        label
+      })[SYSTEM_ID]?.damageApply;
+      if (hit) applyEntries.push({ ...hit, name: targetActor.name });
       rows.push(`<li><strong>${targetActor.name}</strong>: ${reduction.finalDamage}${triggeredLabel(reduction.triggeredConditions)}</li>`);
       traceRows.push(...personalTraceTail(reduction, targetActor));
     }
@@ -625,7 +640,7 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
     speaker: ChatMessage.getSpeaker({ actor }),
     rolls: [roll],
     flavor: title,
-    flags: withDamageTrace({}, traces),
+    flags: withDamageTrace(applyEntries.length ? { [SYSTEM_ID]: { damageApplyMany: { entries: applyEntries } } } : {}, traces),
     content: `<p>${title} — rolagem bruta: <strong>${roll.total}</strong>${boostedTotal !== roll.total ? ` (bônus de arma: ${Math.floor(boostedTotal)})` : ""}</p>${blockedNotes.length ? `<p>${blockedNotes.join(" · ")}</p>` : ""}<ul>${rows.join("")}</ul>`
   });
 

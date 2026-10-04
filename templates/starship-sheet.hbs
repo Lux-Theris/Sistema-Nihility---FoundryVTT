@@ -571,8 +571,7 @@
           {{#each skills as |skill|}}
           <li class="item-row" data-item-id="{{skill.id}}">
             <img src="{{skill.img}}" width="24" height="24"/>
-            <span class="item-name">{{skill.name}}</span>
-            <span class="item-cost">Custo: {{skill.system.cost}}{{#if skill.system.hasUpkeep}} + {{skill.system.upkeepCost}}/rodada{{/if}}</span>
+            <span class="item-name">{{skill.name}}<span class="skill-summary">{{lookup ../skillSummaries skill.id}}</span></span>
             {{#if skill.system.active}}
             <button type="button" class="skill-use-button active" data-action="useSkill" title="Desativar (drenando {{skill.system.upkeepCost}} de {{../energyLabel}} do Reator por rodada)">🔥 Desativar</button>
             {{else if (eq skill.system.effectType "damage")}}

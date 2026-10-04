@@ -49,6 +49,8 @@ import { pickImageFile, getDragEventData } from "../helpers/foundry-compat.js";
 
 import { handleItemDrop, splitStack, cargoContext } from "../economy/inventory.js";
 import { EffectsListApp } from "../apps/effects-list.js";
+import { enableHotbarDrag } from "../core/hotbar.js";
+import { skillSummariesFor } from "../skills/skill-summary-ui.js";
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
 
@@ -210,6 +212,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   _onRender(context, options) {
     super._onRender(context, options);
+    enableHotbarDrag(this.element, this.actor);
     // O chip que abriu o seletor de grupo acabou de ser redesenhado: o menu solto ficaria órfão.
     this._closePowerGroupMenu();
     this._onRenderThrottleInputs();
@@ -668,7 +671,11 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async onUseSkill(event, target) {
     event.preventDefault();
-    const itemId = target.closest("[data-item-id]")?.dataset.itemId;
+    await this.useSkillItem(target.closest("[data-item-id]")?.dataset.itemId, event);
+  }
+
+  /** O corpo do botão "Usar", público para a macro da hotbar (`core/hotbar.js`). `event` só serve para o Shift. */
+  async useSkillItem(itemId, event = null) {
     const skill = this.actor.items.get(itemId);
     if (!skill) return;
 
@@ -892,7 +899,11 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
   /** Dispara uma Arma nativa (Overhaul de Naves, Fase 5) — sempre pede alvo, igual "damage" de Skill. */
   static async onFireWeapon(event, target) {
     event.preventDefault();
-    const itemId = target.closest("[data-item-id]")?.dataset.itemId;
+    await this.fireWeaponItem(target.closest("[data-item-id]")?.dataset.itemId, event);
+  }
+
+  /** O corpo do botão "Disparar", público para a macro da hotbar (`core/hotbar.js`). */
+  async fireWeaponItem(itemId, event = null) {
     const weaponModule = this.actor.items.get(itemId);
     if (!weaponModule) return;
 
@@ -1056,6 +1067,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     });
 
     context.skills = actor.system.skills;
+    context.skillSummaries = skillSummariesFor(actor);
     context.padShipEnabled = isPadShipEnabled();
     context.crewActors = actor.system.crewActors;
     context.totalConsumption = actor.system.totalConsumption;

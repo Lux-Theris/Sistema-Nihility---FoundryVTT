@@ -52,6 +52,7 @@ import { registerConditionalRefresh } from "./combat/conditional-context.js";
 import { advanceStructures, collapseStructuresOfCaster, renderStructureControls, registerStructureContact } from "./structures/structures.js";
 import { registerStructureRendering } from "./structures/structure-render.js";
 import { registerFloatingNumbers } from "./combat/floating-numbers.js";
+import { registerHotbarMacros, useItemFromHotbar } from "./core/hotbar.js";
 import { registerShieldLightHooks } from "./combat/lights.js";
 import { registerShieldPoolReconcile } from "./combat/shield-pools.js";
 import { registerStatusConditions, interceptManualCondition } from "./combat/conditions.js";
@@ -92,7 +93,9 @@ Hooks.once("init", () => {
     ai: AIHelper,
     openAssistant: () => new NihilityMenuApp().render(true),
     // Overhaul de Naves, Fase 7 — rode via macro na hotbar pra pedir reparo de Módulo/Nave.
-    requestShipRepair: () => requestShipRepair()
+    requestShipRepair: () => requestShipRepair(),
+    // Macro criada ao arrastar uma Skill/arma da ficha para a hotbar (ver core/hotbar.js).
+    useItem: uuid => useItemFromHotbar(uuid)
   };
 
   registerSystemSettings();
@@ -162,6 +165,7 @@ Hooks.once("init", () => {
   registerShieldAdaptationReset();
   registerStructureContact();
   registerFloatingNumbers();
+  registerHotbarMacros();
 
   // Partials reaproveitados entre templates (hoje só a Habilidade Concedida, usada 3x na ficha
   // de Item). Precisa estar registrado antes da primeira ficha abrir.

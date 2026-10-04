@@ -2553,3 +2553,30 @@ test("Números flutuantes: Nave mostra Escudo, Casco e Integridade", () => {
   assert.deepEqual(vitalDeltas(before, after, tracks).map(d => d.text), ["−30 Escudo", "−25 Casco", "−10 Integridade"]);
   assert.equal(vitalDeltas({ hull: 90 }, { hull: 100 }, tracks)[0].fill, FLOAT_COLORS.heal, "reparo em verde");
 });
+
+import { skillSummary } from "../module/skills/skill-summary.js";
+
+test("Skill numa frase: o que faz · onde · custo · manutenção", () => {
+  const ctx = { elements: { fire: "Fogo", ice: "Gelo" }, conditions: { poison: "Envenenado" }, targets: { strength: "Força", hp: "Vida" }, structures: { wall: "Muralha" }, energyLabel: "Mana" };
+  assert.equal(
+    skillSummary({ effectType: "damage", damageFormula: "3d6", damageElements: ["fire"], targetType: "emission", areaShape: "cone", areaDistance: 6, cost: 30 }, { ...ctx, cost: 20 }),
+    "3d6 de Fogo · cone de 6 m · 20 Mana",
+    "custo já com o desconto do nível vem do ctx"
+  );
+  assert.equal(skillSummary({ effectType: "damage", damageFormula: "2d8", isMagicDamage: true, targetType: "targeted" }, ctx), "2d8 mágico · num alvo");
+  assert.equal(
+    skillSummary({ effectType: "temporary", targetType: "self", hasUpkeep: true, upkeepCost: 3, cost: 10, effects: [{ target: "strength", amount: 3 }] }, ctx),
+    "Força +3 · em si · 10 Mana · Ativa: −3/rodada"
+  );
+  assert.equal(
+    skillSummary({ effectType: "temporary", targetType: "targeted", effects: [{ target: "hp", amount: -5, periodic: true, conditionId: "poison" }, { target: "strength", amount: -2 }, { target: "hp", amount: -1 }] }, ctx),
+    "Envenenado (Vida −5/rodada) e Força −2 +1 · num alvo",
+    "dois efeitos por extenso, o resto contado"
+  );
+  assert.equal(skillSummary({ effectType: "temporary", targetType: "zone", areaShape: "circle", areaDistance: 4, zoneRounds: 3, effects: [{ target: "hp", amount: 0, conditionId: "poison" }] }, ctx), "Envenenado · zona de 4 m por 3 rod.");
+  assert.equal(skillSummary({ effectType: "structure", structureId: "wall", cost: 15 }, ctx), "ergue Muralha · 15 Mana", "Estrutura não tem alvo");
+  assert.equal(skillSummary({ effectType: "none", variableMana: true, cost: 10 }, ctx), "Mana variável (base 10)");
+  assert.equal(skillSummary({ effectType: "none", subSkills: [{}, {}] }, ctx), "2 Sub-Skills");
+  assert.equal(skillSummary({ effectType: "none", resistanceTarget: "fire" }, { ...ctx, resistance: "Resistência Fogo 30%" }), "Resistência Fogo 30%");
+  assert.equal(skillSummary({ effectType: "none" }, ctx), "", "Descritiva e de graça: sem frase");
+});

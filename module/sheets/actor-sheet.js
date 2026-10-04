@@ -55,6 +55,8 @@ import { pickImageFile } from "../helpers/foundry-compat.js";
 
 import { handleItemDrop, splitStack, toggleEquipped, inventoryContext } from "../economy/inventory.js";
 import { EffectsListApp } from "../apps/effects-list.js";
+import { enableHotbarDrag } from "../core/hotbar.js";
+import { skillSummariesFor } from "../skills/skill-summary-ui.js";
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
 
@@ -490,6 +492,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       context.skillsByTier[tier] = skills.filter(s => s.system.tier === tier);
     }
     context.tierLabels = MEU_SISTEMA.SKILL_TIER_LABELS;
+    // A Skill numa frase, na linha da ficha (o que faz · onde · custo · manutenção).
+    context.skillSummaries = skillSummariesFor(actor);
     context.fusableTiers = FUSABLE_TARGET_TIERS.filter(t => t !== "ultimate" || ultimateVisible);
     context.hasUltimateSkill = actor.system.hasUltimateSkill;
 
@@ -552,6 +556,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
   _onRender(context, options) {
     super._onRender(context, options);
     this._onRenderInventory();
+    enableHotbarDrag(this.element, this.actor);
     if (!this.isEditable) return;
 
     this.element.querySelector(".species-select")?.addEventListener("change", this._onSpeciesChange.bind(this));
@@ -1159,7 +1164,14 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
   static async #onUseSkill(event, target) {
     event.preventDefault();
-    const itemId = target.closest(".item-row").dataset.itemId;
+    await this.useSkillItem(target.closest(".item-row").dataset.itemId, event);
+  }
+
+  /**
+   * O corpo do botão "Usar", público para a macro da hotbar (`core/hotbar.js`) seguir exatamente o
+   * mesmo caminho. `event` só serve para o Shift (modificadores de rolagem): a macro passa `{shiftKey}`.
+   */
+  async useSkillItem(itemId, event = null) {
     const skill = this.actor.items.get(itemId);
     if (!skill) return;
 
@@ -1260,7 +1272,11 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
    */
   static async #onAttackWithWeapon(event, target) {
     event.preventDefault();
-    const itemId = target.closest(".item-row").dataset.itemId;
+    await this.attackWithWeaponItem(target.closest(".item-row").dataset.itemId, event);
+  }
+
+  /** O corpo do botão "Atacar", público para a macro da hotbar (ver `useSkillItem`). */
+  async attackWithWeaponItem(itemId, event = null) {
     const weapon = this.actor.items.get(itemId);
     if (!weapon?.system.weapon?.enabled) return;
     if (!weapon.system.equipped) {

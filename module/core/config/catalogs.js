@@ -7,22 +7,44 @@ import { buildAffinityMatrix, elementAncestors } from "../../combat/damage-rules
 import { MEU_SISTEMA, SYSTEM_ID } from "./constants.js";
 import { getFeatureOption } from "./features.js";
 import { normalizeLightConfig } from "./rules.js";
+import { createRawCache, memoByObject } from "./cache.js";
+
+const rawCache = createRawCache();
+
+/**
+ * Lê a setting de catálogo `settingKey` e devolve `build(raw)`, guardado enquanto o texto salvo
+ * não mudar (ver cache.js — quem recebe NÃO altera o resultado; copie antes). Setting que ainda não
+ * existe (carga do Foundry, testes): reconstrói sempre, como antes do cache.
+ * @param {string} settingKey - chave em MEU_SISTEMA.SETTINGS
+ * @param {(raw: unknown) => unknown} build
+ * @param {string} [cacheKey] - quando duas leituras da mesma setting montam coisas diferentes
+ */
+function cachedCatalog(settingKey, build, cacheKey = settingKey) {
+  let raw;
+  try {
+    raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[settingKey]);
+  } catch (err) {
+    return build(undefined);
+  }
+  return rawCache(cacheKey, raw, build);
+}
 
 /**
  * Lê a lista de moedas atualmente ativa (setting > default).
  * @returns {Array<{id:string,label:string,icon:string,weight:number,baseValue:number}>}
  */
 export function getActiveCurrencies() {
-  try {
-    const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.currenciesData);
-    if (raw) {
-      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-      if (Array.isArray(parsed) && parsed.length) return parsed;
+  return cachedCatalog("currenciesData", raw => {
+    try {
+      if (raw) {
+        const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+        if (Array.isArray(parsed) && parsed.length) return parsed;
+      }
+    } catch (err) {
+      console.warn(`${SYSTEM_ID} | JSON de moedas inválido, usando padrão.`, err);
     }
-  } catch (err) {
-    console.warn(`${SYSTEM_ID} | JSON de moedas inválido, usando padrão.`, err);
-  }
-  return MEU_SISTEMA.DEFAULT_CURRENCIES;
+    return MEU_SISTEMA.DEFAULT_CURRENCIES;
+  });
 }
 
 /**
@@ -43,9 +65,13 @@ export function convertCurrencyAmount(fromId, toId, amount) {
  * @returns {Array<{id:string,label:string,color:string}>}
  */
 export function getActiveDamageElements() {
+  return cachedCatalog("damageElementsData", buildDamageElements);
+}
+
+/** O catálogo de elementos normalizado a partir do texto salvo (ver getActiveDamageElements). */
+function buildDamageElements(raw) {
   let list = MEU_SISTEMA.DEFAULT_DAMAGE_ELEMENTS;
   try {
-    const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.damageElementsData);
     if (raw) {
       const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
       if (Array.isArray(parsed) && parsed.length) list = parsed;
@@ -68,9 +94,10 @@ export function getActiveDamageElements() {
   }));
 }
 
-/** Tabela de vantagens `{atacante: {defensor: nível}}` do catálogo ativo. */
+/** Tabela de vantagens `{atacante: {defensor: nível}}` do catálogo ativo (refeita só quando a lista muda). */
+const affinityMatrixOf = memoByObject(list => buildAffinityMatrix(list));
 export function getElementAffinityMatrix() {
-  return buildAffinityMatrix(getActiveDamageElements());
+  return affinityMatrixOf(getActiveDamageElements());
 }
 
 /** Multiplicador de cada nível da tabela (Regras da Mesa). */
@@ -98,14 +125,15 @@ export function getDamageElement(id) {
 
 /** Catálogo de Traços (setting > padrão). */
 export function getActiveTraits() {
-  try {
-    const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.traitsData);
-    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-    if (Array.isArray(parsed)) return parsed.filter(t => t?.id);
-  } catch (err) {
-    /* setting ausente/inválida — cai no padrão */
-  }
-  return MEU_SISTEMA.DEFAULT_TRAITS;
+  return cachedCatalog("traitsData", raw => {
+    try {
+      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+      if (Array.isArray(parsed)) return parsed.filter(t => t?.id);
+    } catch (err) {
+      /* setting ausente/inválida — cai no padrão */
+    }
+    return MEU_SISTEMA.DEFAULT_TRAITS;
+  });
 }
 
 /** Rótulo de um Traço (cai no id se o Traço sumiu do catálogo). */
@@ -115,20 +143,21 @@ export function getTraitLabel(id) {
 
 /** Configuração de Escala (setting > padrão), sempre com as três chaves. */
 export function getScaleConfig() {
-  let saved = null;
-  try {
-    const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.scalesData);
-    saved = typeof raw === "string" ? JSON.parse(raw) : raw;
-  } catch (err) {
-    /* setting ausente/inválida — cai no padrão */
-  }
-  const fallback = MEU_SISTEMA.DEFAULT_SCALES;
-  const scales = Array.isArray(saved?.scales) && saved.scales.length ? saved.scales : fallback.scales;
-  return {
-    scales,
-    shipSizeMap: { ...fallback.shipSizeMap, ...(saved?.shipSizeMap ?? {}) },
-    vehicleSizeMap: { ...fallback.vehicleSizeMap, ...(saved?.vehicleSizeMap ?? {}) }
-  };
+  return cachedCatalog("scalesData", raw => {
+    let saved = null;
+    try {
+      saved = typeof raw === "string" ? JSON.parse(raw) : raw;
+    } catch (err) {
+      /* setting ausente/inválida — cai no padrão */
+    }
+    const fallback = MEU_SISTEMA.DEFAULT_SCALES;
+    const scales = Array.isArray(saved?.scales) && saved.scales.length ? saved.scales : fallback.scales;
+    return {
+      scales,
+      shipSizeMap: { ...fallback.shipSizeMap, ...(saved?.shipSizeMap ?? {}) },
+      vehicleSizeMap: { ...fallback.vehicleSizeMap, ...(saved?.vehicleSizeMap ?? {}) }
+    };
+  });
 }
 
 /** Índice de uma Escala pelo id, ou `null` se vazio/desconhecido (quem chama usa a de quem ataca). */
@@ -143,16 +172,17 @@ export function scaleIndexOf(id) {
  * @returns {Array<{id:string,label:string,icon:string}>}
  */
 export function getActiveStatusConditions() {
-  try {
-    const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData);
-    if (raw) {
-      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-      if (Array.isArray(parsed) && parsed.length) return parsed;
+  return cachedCatalog("statusConditionsData", raw => {
+    try {
+      if (raw) {
+        const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+        if (Array.isArray(parsed) && parsed.length) return parsed;
+      }
+    } catch (err) {
+      console.warn(`${SYSTEM_ID} | JSON de condições de status inválido, usando padrão.`, err);
     }
-  } catch (err) {
-    console.warn(`${SYSTEM_ID} | JSON de condições de status inválido, usando padrão.`, err);
-  }
-  return MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS;
+    return MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS;
+  });
 }
 
 /**
@@ -187,16 +217,17 @@ export function damageElementPathLabel(id) {
 
 /** Catálogo de Funções de Parte (setting > padrão). Ver DEFAULT_BODY_FUNCTIONS. */
 export function getActiveBodyFunctions() {
-  try {
-    const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.bodyFunctionsData);
-    if (raw) {
-      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-      if (Array.isArray(parsed)) return parsed.filter(f => f?.id);
+  return cachedCatalog("bodyFunctionsData", raw => {
+    try {
+      if (raw) {
+        const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+        if (Array.isArray(parsed)) return parsed.filter(f => f?.id);
+      }
+    } catch (err) {
+      /* setting ausente/inválida — cai no padrão */
     }
-  } catch (err) {
-    /* setting ausente/inválida — cai no padrão */
-  }
-  return MEU_SISTEMA.DEFAULT_BODY_FUNCTIONS;
+    return MEU_SISTEMA.DEFAULT_BODY_FUNCTIONS;
+  });
 }
 
 /**
@@ -206,16 +237,17 @@ export function getActiveBodyFunctions() {
  * Setting salva > padrão (MEU_SISTEMA.DEFAULT_HERITAGES).
  */
 export function getActiveHeritages() {
-  try {
-    const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.heritagesData);
-    if (raw) {
-      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-      if (Array.isArray(parsed)) return parsed.filter(h => h?.id);
+  return cachedCatalog("heritagesData", raw => {
+    try {
+      if (raw) {
+        const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+        if (Array.isArray(parsed)) return parsed.filter(h => h?.id);
+      }
+    } catch (err) {
+      /* setting ausente/inválida — cai no padrão */
     }
-  } catch (err) {
-    /* setting ausente/inválida — cai no padrão */
-  }
-  return MEU_SISTEMA.DEFAULT_HERITAGES;
+    return MEU_SISTEMA.DEFAULT_HERITAGES;
+  });
 }
 
 /**
@@ -225,16 +257,17 @@ export function getActiveHeritages() {
  * @returns {Record<string, {label:string, parts:Array, skills:Array}>}
  */
 export function getActiveSpeciesPresets() {
-  try {
-    const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.speciesPresetsData);
-    if (raw) {
-      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-      if (parsed && typeof parsed === "object" && Object.keys(parsed).length) return parsed;
+  return cachedCatalog("speciesPresetsData", raw => {
+    try {
+      if (raw) {
+        const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+        if (parsed && typeof parsed === "object" && Object.keys(parsed).length) return parsed;
+      }
+    } catch (err) {
+      console.warn(`${SYSTEM_ID} | JSON de presets de espécie inválido, usando padrão.`, err);
     }
-  } catch (err) {
-    console.warn(`${SYSTEM_ID} | JSON de presets de espécie inválido, usando padrão.`, err);
-  }
-  return MEU_SISTEMA.DEFAULT_SPECIES_PRESETS;
+    return MEU_SISTEMA.DEFAULT_SPECIES_PRESETS;
+  });
 }
 
 /**
@@ -309,26 +342,35 @@ export function getModuleSizePreset(category, moduleSize) {
   return preset;
 }
 
-/** Lê uma lista JSON de uma setting; cai no padrão se vazia/inválida/ausente. */
-function readCatalog(settingKey, fallback) {
+/** A lista JSON de uma setting (só as entradas com id), ou null se vazia/inválida/ausente. */
+function parseCatalogList(raw) {
   try {
-    const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[settingKey]);
     const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
     if (Array.isArray(parsed) && parsed.length) return parsed.filter(e => e?.id);
   } catch (err) {
     /* setting ausente/inválida — cai no padrão */
   }
-  return fallback;
+  return null;
+}
+
+/** Lê uma lista JSON de uma setting; cai no padrão se vazia/inválida/ausente. */
+function readCatalog(settingKey, fallback) {
+  return cachedCatalog(settingKey, parseCatalogList, `${settingKey}:lista`) ?? fallback;
+}
+
+/** Catálogo inteiro (leitura + normalização) guardado pelo texto salvo; `normalize` recebe a lista. */
+function cachedList(settingKey, fallback, normalize) {
+  return cachedCatalog(settingKey, raw => normalize(parseCatalogList(raw) ?? fallback));
 }
 
 /** Catálogo de Categorias de Módulo (setting > padrão), com Função válida em toda entrada. */
 export function getModuleCategories() {
-  return readCatalog("moduleCategoriesData", MEU_SISTEMA.DEFAULT_MODULE_CATEGORIES).map(c => ({
+  return cachedList("moduleCategoriesData", MEU_SISTEMA.DEFAULT_MODULE_CATEGORIES, list => list.map(c => ({
     ...c,
     label: c.label || c.id,
     role: MEU_SISTEMA.MODULE_ROLES[c.role] ? c.role : "utility",
     slots: Math.max(0, Math.round(Number(c.slots) || 0))
-  }));
+  })));
 }
 
 /**
@@ -351,14 +393,17 @@ export function moduleCategoryLabel(categoryId) {
 
 /** Catálogo de Tipos de Munição. */
 export function getAmmoTypes() {
-  return readCatalog("ammoTypesData", MEU_SISTEMA.DEFAULT_AMMO_TYPES).map(a => ({ ...a, label: a.label || a.id }));
+  return cachedList("ammoTypesData", MEU_SISTEMA.DEFAULT_AMMO_TYPES, list => list.map(a => ({ ...a, label: a.label || a.id })));
 }
 
 /** Catálogo de Classes: `"ship"` (Nave) ou `"vehicle"` (Veículo). */
 export function getVesselClasses(kind) {
-  const list = kind === "vehicle"
-    ? readCatalog("vehicleClassesData", MEU_SISTEMA.DEFAULT_VEHICLE_CLASSES)
-    : readCatalog("shipClassesData", MEU_SISTEMA.DEFAULT_SHIP_CLASSES);
+  return kind === "vehicle"
+    ? cachedList("vehicleClassesData", MEU_SISTEMA.DEFAULT_VEHICLE_CLASSES, normalizeVesselClasses)
+    : cachedList("shipClassesData", MEU_SISTEMA.DEFAULT_SHIP_CLASSES, normalizeVesselClasses);
+}
+
+function normalizeVesselClasses(list) {
   return list.map(c => ({
     ...c,
     label: c.label || c.id,
@@ -432,7 +477,7 @@ export function vesselSizeLabel(kind, sizeId) {
 
 /** Catálogo de Estruturas (setting > padrão), com números saneados. */
 export function getStructures() {
-  return readCatalog("structuresData", MEU_SISTEMA.DEFAULT_STRUCTURES).map(s => ({
+  return cachedList("structuresData", MEU_SISTEMA.DEFAULT_STRUCTURES, list => list.map(s => ({
     ...s,
     label: s.label || s.id,
     shape: MEU_SISTEMA.STRUCTURE_SHAPES.includes(s.shape) ? s.shape : "line",
@@ -452,7 +497,7 @@ export function getStructures() {
     magic: Boolean(s.magic),
     antimagicLevel: Math.max(0, Math.round(Number(s.antimagicLevel) || 0)),
     contactDamage: typeof s.contactDamage === "string" ? s.contactDamage.trim() : ""
-  }));
+  })));
 }
 
 /* ------------------------------------------------------------------ Antimagia */
@@ -555,7 +600,7 @@ export function getManaInvestConfig() {
 
 /** Catálogo de Funções de Tripulação. */
 export function getCrewRoles() {
-  return readCatalog("crewRolesData", MEU_SISTEMA.DEFAULT_CREW_ROLES).map(r => ({ ...r, label: r.label || r.id }));
+  return cachedList("crewRolesData", MEU_SISTEMA.DEFAULT_CREW_ROLES, list => list.map(r => ({ ...r, label: r.label || r.id })));
 }
 
 /*
@@ -582,20 +627,21 @@ export function getCrewRoles() {
  * @returns {Array<{key:string,label:string,visible:boolean}>} sempre na ordem de COMBAT_ATTRIBUTES
  */
 export function getActiveAttributes() {
-  let saved = {};
-  try {
-    const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.attributesData);
-    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-    if (Array.isArray(parsed)) saved = Object.fromEntries(parsed.map(a => [a.key, a]));
-  } catch (err) {
-    /* setting ausente/inválida — cai nos padrões do código abaixo */
-  }
+  return cachedCatalog("attributesData", raw => {
+    let saved = {};
+    try {
+      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+      if (Array.isArray(parsed)) saved = Object.fromEntries(parsed.map(a => [a.key, a]));
+    } catch (err) {
+      /* setting ausente/inválida — cai nos padrões do código abaixo */
+    }
 
-  return MEU_SISTEMA.COMBAT_ATTRIBUTES.map(key => ({
-    key,
-    label: saved[key]?.label?.trim() || MEU_SISTEMA.COMBAT_ATTRIBUTE_LABELS[key],
-    visible: saved[key]?.visible !== false
-  }));
+    return MEU_SISTEMA.COMBAT_ATTRIBUTES.map(key => ({
+      key,
+      label: saved[key]?.label?.trim() || MEU_SISTEMA.COMBAT_ATTRIBUTE_LABELS[key],
+      visible: saved[key]?.visible !== false
+    }));
+  });
 }
 
 /** Só os atributos que a campanha exibe — use nas fichas e em qualquer seletor mostrado ao jogador. */

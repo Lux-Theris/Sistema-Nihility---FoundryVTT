@@ -2657,3 +2657,26 @@ test("Munição com Carga própria: Célula de 20 e Célula de 10 na mesma arma"
   assert.deepEqual(magazineState({ size: 10, loaded: 18, capacity: 20 }), { uses: true, max: 20, loaded: 18, empty: false, full: false }, "18/20 com a Célula grande");
   assert.equal(magazineState({ size: 0, loaded: 5, capacity: 20 }).uses, false, "sem carregador na arma, munição não muda nada");
 });
+
+import { createRawCache, memoByObject } from "../module/core/config/cache.js";
+
+test("Cache de catálogo: mesmo texto salvo, mesmo resultado; texto novo reconstrói", () => {
+  const cache = createRawCache();
+  let builds = 0;
+  const build = raw => { builds++; return { list: typeof raw === "string" ? JSON.parse(raw) : [] }; };
+  const a = cache("elements", '[{"id":"fire"}]', build);
+  const b = cache("elements", '[{"id":"fire"}]', build);
+  assert.equal(a, b, "mesmo objeto enquanto o texto não muda");
+  assert.equal(builds, 1, "o JSON é lido uma vez só");
+  const c = cache("elements", '[{"id":"ice"}]', build);
+  assert.notEqual(c, a, "o Mestre salvou outro catálogo: reconstrói");
+  assert.equal(c.list[0].id, "ice");
+  assert.equal(cache("traits", '[{"id":"fire"}]', build).list[0].id, "fire", "cada setting tem o seu");
+  cache("elements", undefined, build); cache("elements", undefined, build);
+  assert.equal(builds, 5, "setting ausente (carga do Foundry, testes) nunca é guardada");
+  let calls = 0;
+  const matrix = memoByObject(list => { calls++; return list.length; });
+  const list = [1, 2];
+  matrix(list); matrix(list); matrix([1, 2]);
+  assert.equal(calls, 2, "a Tabela de Vantagens só é refeita quando a lista é outra");
+});

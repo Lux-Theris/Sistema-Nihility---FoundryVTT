@@ -27,6 +27,7 @@ Sistema customizado para [Foundry VTT](https://foundryvtt.com/) (requer **V13+**
 - **Iniciativa pelo Atributo**: usa o mesmo pool de d20 escalável do resto do sistema, em vez do `1d20` solto do Foundry. O Atributo é configurável; o padrão é Destreza.
 - **Experiência e progressão**:
   - Personagens **e** Habilidades acumulam XP numa curva configurável (padrão `100 × nível`). O sistema avisa quando a barra enche; subir de nível continua sendo decisão do Mestre.
+  - **XP por uso de Habilidade** (bloco opcional): a Skill ganha pelo que fez, sempre em fração — dano, cura e Escudo pela fatia da Vida do alvo; buff/debuff pelo tanto que mudou; Condição, Estrutura e Zona um valor fixo; Antimagia pelo que desligou. Um golpe igualmente perigoso vale a mesma XP em qualquer nível.
   - Cada nível de Habilidade segue um ciclo previsível de **Poder** (multiplica o efeito) e **Desconto** (corta o Custo).
   - O dano pode escalar por um Atributo, numa curva quadrática — a única que acompanha o crescimento do HP.
 - **Deslocamento por rodada**: base + Destreza, com teto só na Destreza permanente (Skills passam por cima). Em combate, a régua do token mostra o alcance, o que passa do limite fica pontilhado e o token para no último ponto que alcança. Botão **Correr** dobra o deslocamento do turno.
@@ -43,6 +44,7 @@ Sistema customizado para [Foundry VTT](https://foundryvtt.com/) (requer **V13+**
 - **Resistências que aprendem sozinhas**: uma Skill de Resistência ganha XP ao efetivamente bloquear dano, proporcional à fatia da própria Vida que foi salva. O sistema também **sugere** Resistências ao Mestre depois de muitos golpes do mesmo tipo.
 - **Dano aplicável pelo chat**:
   - O card de dano ganha botões **Aplicar / Metade / Dobro** (só Mestre) com **Desfazer**.
+  - No dano em área, uma linha por alvo, mais **Aplicar em todos**, **Aplicar aos selecionados** (os Tokens selecionados no mapa) e **Desfazer todos**.
   - O Escudo pessoal absorve antes da Vida.
   - As Condições do elemento só entram quando o acerto é confirmado.
 - **Armas de Personagem**: qualquer Item vira arma. Só arma **equipada** ataca. Skills podem **aprimorar as armas equipadas**: mais dano, trocar o elemento, dano mágico ou absoluto.
@@ -54,6 +56,10 @@ Sistema customizado para [Foundry VTT](https://foundryvtt.com/) (requer **V13+**
   - Visível pra todos no mapa (faixa na cor da Estrutura, nome e barra de Vida) e, se quiser, com **luz animada** (Campo de Energia, Domo Hexagonal…), com pré-visualização no mapa antes de salvar.
 - **Escudo pessoal com luz**: um Efeito de Escudo pode acender uma luz no Token de quem recebe; ela é apagada quando o Escudo acaba ou a Skill é desligada.
 - **Condições no HUD do token**: marque "Envenenado" clicando no token, usando o efeito padrão da Condição ou outro valor.
+- **Números sobre o Token**: dano, cura, Escudo e Mana sobem do Token quando mudam (Nave: Escudo, Casco e Integridade), para a mesa narrada que olha o mapa e não o chat. A Mana só aparece para o dono e o Mestre; cada pessoa pode desligar para si.
+- **Áreas e Zonas na V13 e na V14**: Emissão (cone, círculo, linha) e Zonas que ficam na cena funcionam nas duas versões (na V14, como Region). A Zona conta as rodadas pelo turno de quem a lançou.
+- **Skills, armas e consumíveis na hotbar**: arraste da ficha para a barra e use num clique (Shift abre os modificadores).
+- **A Skill numa frase**: embaixo do nome, na ficha — "3d6 de Fogo · cone de 6 m · 20 Mana · Ativa: −3/rodada".
 - **Anatomia por Espécie**: ao trocar a espécie, o sistema aplica o preset de Partes do Corpo (HP próprio, próteses/modificações), as Skills Raciais e os Traços.
 - **Fusão e Evolução de Skills** (só Mestre). Sub-Skills são sempre uma lista plana que o jogador escolhe ao usar.
 - **Habilidade Concedida completa** por Item, Módulo ou Modificação, editada no mesmo editor de Skill. É fixa: não ganha XP nem sobe de nível.
@@ -67,6 +73,9 @@ Sistema customizado para [Foundry VTT](https://foundryvtt.com/) (requer **V13+**
 
 - **Aba Inventário** com slots por Espécie, pilhas (padrão 20, arrastar item igual soma), dividir pilha, contêineres (mochila, bolsa; Skills podem dar bolsa dimensional ilimitada), peso com moedas e carga por Força/Defesa, e perda de Deslocamento por excesso (bloco opcional).
 - **Porão da Nave** (Módulos de Porão, carga pesando no Motor) e **Munição** para lançadores (Torpedo Fotônico, Quântico…).
+- **Consumíveis**: granada, poção, stimpack, kit médico. Botão **Usar** no inventário: Efeito ou Dano, em si, num alvo ou numa área do mapa; cada uso gasta 1 da pilha, ou 1 carga (kit de 5 usos). O dano escala por Atributo, então uma granada continua valendo em nível alto.
+- **Efeitos em "% do máximo"** e **cura na hora**: "Curar Vida 25% do máximo" cura igual no nível 1 e no 50 (vale também para Skills).
+- **Carregador e munição de arma pessoal**: disparos por carga; **Recarregar** gasta uma munição compatível do inventário. Cada munição pode ter a própria Carga (Célula de 20, de 10) e mudar o golpe (fórmula, elemento, Dano Absoluto). Trocar de munição devolve a que estava na arma — cheia para a pilha, pela metade como unidade aberta.
 
 ### Naves e Veículos
 
@@ -116,8 +125,10 @@ https://raw.githubusercontent.com/Lux-Theris/Sistema-Nihility---FoundryVTT/main/
 ├── system.json                        # Manifesto do sistema
 ├── module/
 │   ├── nihility-rpg-system.js         # Ponto de entrada (hooks init/ready/combate/chat)
-│   ├── core/                          # config (settings, FEATURES, catálogos), dados, compêndios,
-│   │                                  # Voz do Mundo, Exportar/Importar, vfx
+│   ├── core/                          # config.js (ponto de entrada da configuração), dados, compêndios,
+│   │   │                              # Voz do Mundo, Exportar/Importar, vfx, hotbar
+│   │   └── config/                    # catálogos, blocos, progressão, regras puras, settings;
+│   │       └── defaults/              # dados de fábrica: Espécies, elementos, naves, blocos, moedas
 │   ├── combat/                        # Iniciativa, deslocamento, dano (regras, rolagem, card),
 │   │                                  # Resistência, Antimagia, Condições, Escudo pessoal, áreas, luzes
 │   ├── skills/                        # "Usar Habilidade", efeitos, Habilidades Ativas, Zonas,
@@ -125,7 +136,7 @@ https://raw.githubusercontent.com/Lux-Theris/Sistema-Nihility---FoundryVTT/main/
 │   ├── species/                       # Espécies: regras (puras) e aplicação com prévia
 │   ├── structures/                    # Estruturas no mapa: geometria, desenho, contato
 │   ├── starship/                      # Naves/Veículos: modelo, ficha, energia, dano, reparo, tripulação
-│   ├── economy/                       # Moedas e inventário
+│   ├── economy/                       # Moedas, inventário, consumíveis e carregador de arma
 │   ├── ai/                            # Geração por IA, provedores, agente e ferramentas
 │   ├── world/                         # Validar Mundo e backup de lotes
 │   ├── pad/                           # PAD: tripulação, biblioteca e mensagens
@@ -274,7 +285,9 @@ Os testes cobrem só o que é chamável sem o Foundry. Entram:
 - **Bônus e Traços:** Modificadores Condicionais e Traços.
 - **Movimento:** deslocamento por rodada; movimento e Evasão de naves.
 - **Naves:** presets e categorias de Módulo, vagas por Classe, dano estrutural.
-- **Estruturas:** geometria.
+- **Estruturas e áreas:** geometria das Estruturas e das áreas de Skill (círculo, cone, linha).
+- **Mesa:** números sobre o Token, a frase da Skill, XP por uso.
+- **Inventário:** consumíveis e cargas, carregador, Carga e troca de munição, valores em % do máximo.
 - **Configuração:** Exportar/Importar e presets de campanha.
 - **Outros:** conversão de moeda, prompts em lote da IA, snapshot de fusão e Habilidade Concedida.
 

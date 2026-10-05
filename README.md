@@ -56,6 +56,7 @@ Sistema customizado para [Foundry VTT](https://foundryvtt.com/) (requer **V13+**
   - Visível pra todos no mapa (faixa na cor da Estrutura, nome e barra de Vida) e, se quiser, com **luz animada** (Campo de Energia, Domo Hexagonal…), com pré-visualização no mapa antes de salvar.
 - **Escudo pessoal com luz**: um Efeito de Escudo pode acender uma luz no Token de quem recebe; ela é apagada quando o Escudo acaba ou a Skill é desligada.
 - **Condições no HUD do token**: marque "Envenenado" clicando no token, usando o efeito padrão da Condição ou outro valor.
+- **Vida 0: Caído e Inconsciente** (bloco opcional): PJ em 0 fica **Caído**, com contador de morte (o Mestre é avisado; o sistema nunca mata sozinho) e botão **Estabilizar**. Saiu do 0 por cura ou regeneração, vira **Inconsciente** por mais 3 rodadas. Enquanto isso não age nem se move, e as Habilidades Ativas desligam — mas regeneração e cura continuam (como no D&D e no Pathfinder). NPC em 0 morre direto. Chave **PJ/NPC** do Mestre na ficha.
 - **Números sobre o Token**: dano, cura, Escudo e Mana sobem do Token quando mudam (Nave: Escudo, Casco e Integridade), para a mesa narrada que olha o mapa e não o chat. A Mana só aparece para o dono e o Mestre; cada pessoa pode desligar para si.
 - **Áreas e Zonas na V13 e na V14**: Emissão (cone, círculo, linha) e Zonas que ficam na cena funcionam nas duas versões (na V14, como Region). A Zona conta as rodadas pelo turno de quem a lançou.
 - **Skills, armas e consumíveis na hotbar**: arraste da ficha para a barra e use num clique (Shift abre os modificadores).

@@ -75,6 +75,7 @@ function renderCard(values) {
       <label title="Enquanto esta Condição estiver no alvo, a cura é bloqueada — totalmente até o nível de quem aplicou + 1/3, depois cada vez menos (Regras da Mesa). Ex.: Fogo/Ácido cauterizando, uma Maldição.">Impede cura <select data-field="healBlockKinds">${optionsHtml(HEAL_BLOCK_KINDS, healBlockKinds(values))}</select></label>
       <label title="Corpo todo, ou só a parte do corpo que o golpe atingiu (ou a escolhida ao usar a Skill).">Onde <select data-field="healBlockScope">${optionsHtml(HEAL_BLOCK_SCOPES, values.healBlock?.scope ?? "body")}</select></label>
       <label title="Antimagia: quem tem esta Condição não sente passivos, Resistências, itens e implantes mágicos, nem Skills mágicas usadas nele, de nível até o da Condição."><input type="checkbox" data-field="suppressesMagic" ${values.suppressesMagic ? "checked" : ""}/> Suprime magia (Antimagia)</label>
+      <label title="Como Caído e Inconsciente: não usa Skill, não ataca, não usa item, não corre e não move o Token (o Mestre move); as Habilidades Ativas desligam ao entrar. Regeneração e cura continuam. Só vale com o bloco Vida 0 ligado."><input type="checkbox" data-field="incapacitates" ${values.incapacitates ? "checked" : ""}/> Incapacita (não age nem se move)</label>
     </div>
     <div class="card-config-row">
       <label title="Maldição: vários efeitos num só, sem prazo (sai com Antimagia de nível que alcance, ou pelo Mestre), com custo por rodada pago pela Mana da vítima. O nível é o da Skill que lançou."><input type="checkbox" data-field="curseEnabled" ${curse.enabled ? "checked" : ""}/> Maldição</label>
@@ -170,6 +171,7 @@ function readCard(card) {
   if (elements.length) row.elements = elements;
   if (get("healBlockKinds")) row.healBlock = { kinds: get("healBlockKinds"), scope: get("healBlockScope") === "part" ? "part" : "body" };
   if (card.querySelector('[data-field="suppressesMagic"]')?.checked) row.suppressesMagic = true;
+  if (card.querySelector('[data-field="incapacitates"]')?.checked) row.incapacitates = true;
   const curse = readCurse(card, get);
   if (curse) row.curse = curse;
 

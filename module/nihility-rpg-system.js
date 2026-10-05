@@ -53,6 +53,7 @@ import { advanceStructures, collapseStructuresOfCaster, renderStructureControls,
 import { registerStructureRendering } from "./structures/structure-render.js";
 import { registerFloatingNumbers } from "./combat/floating-numbers.js";
 import { registerHotbarMacros, useItemFromHotbar } from "./core/hotbar.js";
+import { registerIncapacitation, tickIncapacitation, isDead } from "./combat/incapacitation.js";
 import { registerShieldLightHooks } from "./combat/lights.js";
 import { registerShieldPoolReconcile } from "./combat/shield-pools.js";
 import { registerStatusConditions, interceptManualCondition } from "./combat/conditions.js";
@@ -167,6 +168,7 @@ Hooks.once("init", () => {
   registerStructureContact();
   registerFloatingNumbers();
   registerHotbarMacros();
+  registerIncapacitation();
 
   // Partials reaproveitados entre templates (hoje só a Habilidade Concedida, usada 3x na ficha
   // de Item). Precisa estar registrado antes da primeira ficha abrir.
@@ -257,6 +259,7 @@ Hooks.once("ready", async () => {
   await runMigrationIfNeeded("elementalDamageToMagicTag", migrateElementalDamageToMagicTag);
   await runMigrationIfNeeded("speciesStableKeys", migrateSpeciesStableKeys);
   await runMigrationIfNeeded("physicalSubtypes", migratePhysicalSubtypes);
+  await runMigrationIfNeeded("incapacitationConditions", migrateIncapacitationConditions);
   console.log(`${SYSTEM_ID} | Sistema pronto.`);
 });
 
@@ -297,6 +300,28 @@ async function runMigrationIfNeeded(key, migrationFn) {
  * Perfurante e Contundente (só os que ainda não existem — nada é trocado nem removido). Catálogo
  * nunca salvo usa o padrão, que já os tem.
  */
+/**
+ * Migração única: catálogo de Condições já salvo ganha Caído e Inconsciente (Vida 0), só se ainda
+ * não tiver — nada é trocado nem removido. Catálogo nunca salvo usa o padrão, que já os tem.
+ */
+async function migrateIncapacitationConditions() {
+  const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData);
+  if (!raw) return;
+  let list;
+  try {
+    list = typeof raw === "string" ? JSON.parse(raw) : raw;
+  } catch (err) {
+    return;
+  }
+  if (!Array.isArray(list)) return;
+  const missing = MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS.filter(c => c.incapacitates && !list.some(e => e?.id === c.id));
+  if (!missing.length) return;
+  list.push(...foundry.utils.deepClone(missing));
+  await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData, JSON.stringify(list, null, 2));
+  // A paleta do HUD do Token já foi montada nesta carga: republica para as duas aparecerem agora.
+  registerStatusConditions();
+}
+
 async function migratePhysicalSubtypes() {
   const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.damageElementsData);
   if (!raw) return;
@@ -660,6 +685,18 @@ Hooks.on("updateCombat", async (combat, changed) => {
   if (!actor) return;
 
   try {
+    // Vida 0 (incapacitation.js): contador de morte do Caído e rodadas do Inconsciente — ANTES de
+    // Zonas, ticks e regeneração, para quem sair do 0 neste turno não perder já uma rodada.
+    await tickIncapacitation(actor);
+  } catch (err) {
+    console.error(`${SYSTEM_ID} | Falha ao contar Caído/Inconsciente no início do turno.`, err);
+  }
+  // Morto: o turno dele não processa ticks, regeneração, Zona, manutenção nem Maldição. Seguem só
+  // as Zonas que ELE lançou (contando, para sumirem no prazo) e a limpeza dos efeitos das
+  // Habilidades Ativas que desligaram na morte — senão o buff que ele dava a um aliado ficaria.
+  const dead = isDead(actor);
+
+  try {
     // Na V14 o Combate não tem Cena por padrão: as Cenas vêm dos Tokens dos combatentes.
     // Zonas contam pelo turno de quem lançou (ver advanceZones); Estruturas, pela rodada.
     const roundChanged = changed.round !== undefined;
@@ -667,13 +704,13 @@ Hooks.on("updateCombat", async (combat, changed) => {
       await advanceZones(scene, { combat, combatant: combat.combatant, roundChanged });
       if (roundChanged) await advanceStructures(scene);
     }
-    await tickZonesForCombatant(combat.combatant);
+    if (!dead) await tickZonesForCombatant(combat.combatant);
   } catch (err) {
     console.error(`${SYSTEM_ID} | Falha ao processar Zonas no início do turno.`, err);
   }
 
   try {
-    await tickCombatRoundEffects(actor);
+    if (!dead) await tickCombatRoundEffects(actor);
   } catch (err) {
     console.error(`${SYSTEM_ID} | Falha ao ticar Efeitos Periódicos no início do turno.`, err);
   }
@@ -696,7 +733,7 @@ Hooks.on("updateCombat", async (combat, changed) => {
   }
 
   try {
-    await tickActorUpkeepSkills(actor);
+    if (!dead) await tickActorUpkeepSkills(actor);
   } catch (err) {
     console.error(`${SYSTEM_ID} | Falha ao drenar Energia de Habilidades Ativas no início do turno.`, err);
   }
@@ -704,7 +741,7 @@ Hooks.on("updateCombat", async (combat, changed) => {
   try {
     // Maldições (prancha 6): cobram da Mana da vítima depois da regeneração e da manutenção.
     const { tickCurses } = await import("./skills/curses.js");
-    await tickCurses(actor);
+    if (!dead) await tickCurses(actor);
   } catch (err) {
     console.error(`${SYSTEM_ID} | Falha ao processar Maldições no início do turno.`, err);
   }

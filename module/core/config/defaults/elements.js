@@ -101,5 +101,10 @@ export const DEFAULT_STATUS_CONDITIONS = [
   // Usadas pelas Funções de Parte (Ferimentos por parte): só o marcador, o Mestre arbitra.
   { id: "deafness", label: "Surdo", icon: "icons/svg/deaf.svg" },
   { id: "maimed", label: "Sem mão", icon: "icons/svg/bones.svg" },
-  { id: "unbalanced", label: "Desequilibrado", icon: "icons/svg/falling.svg" }
+  { id: "unbalanced", label: "Desequilibrado", icon: "icons/svg/falling.svg" },
+  // Vida 0 (combat/incapacitation.js): "incapacita" = não age nem se move, Skills Ativas desligam;
+  // o que é do corpo (regeneração, cura) continua. Caído entra sozinho em 0; Inconsciente vem de
+  // sair do 0 (por N rodadas) ou de um desmaio marcado à mão.
+  { id: "fallen", label: "Caído", icon: "icons/svg/skull.svg", incapacitates: true },
+  { id: "unconscious", label: "Inconsciente", icon: "icons/svg/unconscious.svg", incapacitates: true }
 ];

@@ -2680,3 +2680,29 @@ test("Cache de catálogo: mesmo texto salvo, mesmo resultado; texto novo reconst
   matrix(list); matrix(list); matrix([1, 2]);
   assert.equal(calls, 2, "a Tabela de Vantagens só é refeita quando a lista é outra");
 });
+
+import { incapacitatingIds, isIncapacitatedBy, zeroHpOutcome, incapacitationTurn } from "../module/combat/incapacitation-rules.js";
+
+test("Vida 0: quem cai, quem morre, e quem está incapacitado", () => {
+  const ids = incapacitatingIds([{ id: "fallen", incapacitates: true }, { id: "unconscious", incapacitates: true }, { id: "poison" }]);
+  assert.deepEqual([...ids], ["fallen", "unconscious"]);
+  assert.equal(isIncapacitatedBy([{ statuses: ["poison"] }, { statuses: ["fallen"] }], ids), true);
+  assert.equal(isIncapacitatedBy([{ statuses: ["fallen"], disabled: true }], ids), false, "efeito desligado não conta");
+  assert.equal(isIncapacitatedBy([{ statuses: ["dead"] }], ids, "dead"), true, "morto (Derrotado do core) também não age");
+  assert.equal(zeroHpOutcome({ isPlayerCharacter: true }), "fall");
+  assert.equal(zeroHpOutcome({ isPlayerCharacter: false, npcDies: true }), "die", "NPC morre direto");
+  assert.equal(zeroHpOutcome({ isPlayerCharacter: false, npcDies: false }), "fall");
+});
+
+test("Caído: contador de morte; Inconsciente: perde 3 turnos e age no 4º", () => {
+  let s = { kind: "fallen", rounds: 3 };
+  const events = [];
+  for (let i = 0; i < 4; i++) { const r = incapacitationTurn(s); s = r.state; events.push(r.event); }
+  assert.deepEqual(events, ["none", "none", "death", "none"], "avisa uma vez, no 3º turno caído");
+  assert.equal(incapacitationTurn({ kind: "fallen", rounds: 3, stabilized: true }).state.rounds, 3, "estabilizado: o contador para");
+  let u = { kind: "unconscious", rounds: 3 };
+  const wake = [];
+  for (let i = 0; i < 4; i++) { const r = incapacitationTurn(u); u = r.state; wake.push(r.event); }
+  assert.deepEqual(wake, ["none", "none", "none", "wake"]);
+  assert.equal(incapacitationTurn({ kind: "unconscious", rounds: null }).event, "none", "marcado à mão: fica até o Mestre tirar");
+});

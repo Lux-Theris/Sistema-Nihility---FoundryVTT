@@ -363,7 +363,8 @@ async function undoHit(state) {
     // Os pools voltam como estavam (cards de antes dos pools não têm isso e não precisam).
     if (Array.isArray(state.applied.previousPools)) update[POOLS_PATH] = state.applied.previousPools;
   }
-  await actor.update(update);
+  // `nihilityUndo`: se este golpe derrubou o alvo, a queda é desfeita inteira (sem Inconsciente).
+  await actor.update(update, { nihilityUndo: true });
   if (state.applied.bodyPart?.before) await restoreBodyPart(actor, state.applied.bodyPart.before);
   // Condições que este Aplicar criou saem junto. Uma Condição que já existia e só foi renovada
   // fica como está — não há como saber a duração de antes.

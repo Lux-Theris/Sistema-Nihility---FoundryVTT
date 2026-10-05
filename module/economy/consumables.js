@@ -11,6 +11,7 @@
 import { SYSTEM_ID, isAreaEffectsEnabled, getAmmoTypes, getActiveDamageElements } from "../core/config.js";
 import { consumeUse, magazineState, ammoFitsWeapon, reloadPlan } from "./consumable-rules.js";
 import { findStack } from "./inventory.js";
+import { blockIfIncapacitated } from "../combat/incapacitation.js";
 import { pickTargetActor } from "../helpers/target-picker.js";
 import { rollOptionsFromEvent } from "../apps/roll-options-dialog.js";
 import { areaEffectsSupported, pickAreaTargets } from "../combat/area-effects.js";
@@ -57,6 +58,8 @@ async function spendUse(item) {
  */
 export async function useConsumable(actor, item, event = null) {
   if (!actor?.isOwner || !item?.system?.consumable?.enabled) return null;
+  // Caído não bebe a própria poção — um aliado usa nele (o Usar do inventário DO aliado, mirando nele).
+  if (blockIfIncapacitated(actor, "usar itens")) return null;
   if ((item.system.quantity ?? 0) <= 0) {
     ui.notifications.warn(`${item.name} acabou.`);
     return null;

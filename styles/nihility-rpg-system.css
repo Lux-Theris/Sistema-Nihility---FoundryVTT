@@ -5740,3 +5740,7 @@ button.prio-chip { cursor: pointer; }
 .nihility-reload-dialog .rl-option input { accent-color: var(--nihility-accent, #6ee7ff); margin: 0; }
 .nihility-reload-dialog .rl-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .nihility-reload-dialog .rl-meta { font-size: 0.76rem; color: var(--nihility-text-dim, #9aa1c2); }
+
+/* Chave PJ/NPC do Mestre no cabeçalho da ficha (regra da Vida 0). */
+.nihility-sheet .pc-toggle { display: inline-flex; align-items: center; gap: 4px; font-size: 0.78rem; color: var(--nihility-text-dim); cursor: pointer; }
+.nihility-sheet .pc-toggle input { margin: 0; }

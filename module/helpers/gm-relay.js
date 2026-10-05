@@ -124,6 +124,9 @@ const HANDLERS = {
     // Só quem está no seu turno pode declarar Correr — o payload vem de outro cliente.
     const combat = combatant.combat;
     if (!combat?.started || combat.combatant?.id !== combatant.id) return;
+    // Caído/Inconsciente não corre.
+    const { isIncapacitated } = await import("../combat/incapacitation.js");
+    if (value && isIncapacitated(combatant.actor)) return;
     await combatant.setFlag(SYSTEM_ID, "movementDash", Boolean(value));
   },
 

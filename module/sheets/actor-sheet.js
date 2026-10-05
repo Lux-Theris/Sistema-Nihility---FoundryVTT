@@ -59,6 +59,7 @@ import { enableHotbarDrag } from "../core/hotbar.js";
 import { skillSummariesFor } from "../skills/skill-summary-ui.js";
 import { useConsumable, reloadWeapon, weaponCanFire } from "../economy/consumables.js";
 import { magazineState } from "../economy/consumable-rules.js";
+import { blockIfIncapacitated } from "../combat/incapacitation.js";
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
 
@@ -730,6 +731,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
   /** Rola a iniciativa deste Ator e lança no rastreador de combate (ver module/combat.js). */
   static async #onToggleDash(event, target) {
     event.preventDefault();
+    if (blockIfIncapacitated(this.actor, "correr")) return;
     try {
       await toggleMovementDash(this.actor);
     } catch (err) {
@@ -1182,6 +1184,10 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
   async useSkillItem(itemId, event = null) {
     const skill = this.actor.items.get(itemId);
     if (!skill) return;
+    // Caído/Inconsciente: avisa antes de pedir Sub-Skill ou alvo. Desligar uma Ativa continua
+    // possível (ela já foi desligada ao cair, mas uma ligada à mão depois pode ser desligada).
+    const usingMech = skill.system.subSkills?.length ? null : skill.system;
+    if (!(usingMech?.hasUpkeep && usingMech.active) && blockIfIncapacitated(this.actor, "usar Habilidades")) return;
 
     const subSkills = skill.system.subSkills ?? [];
     let subSkillIndex = null;
@@ -1311,6 +1317,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         ui.notifications.warn(`${weapon.name} não tem uma Fórmula de Dano configurada.`);
         return;
       }
+      if (blockIfIncapacitated(this.actor, "atacar")) return;
       // Carregador vazio: avisa antes de pedir alvo (o Recarregar fica na linha da arma).
       if (!weaponCanFire(weapon)) return;
       const { cancelled, options } = await rollOptionsFromEvent(event, `Atacar com ${weapon.name}`);

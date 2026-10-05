@@ -172,6 +172,17 @@ export const FEATURES = {
       movementGmIgnores: { label: "Mestre ignora o limite", hint: "O Mestre move tokens sem gastar nem respeitar o deslocamento.", type: "boolean", default: true }
     }
   },
+  incapacitation: {
+    setting: "incapacitationEnabled",
+    name: "Vida 0: Caído e Inconsciente",
+    hint: "PJ em 0 de Vida fica Caído (não age nem se move, Skills Ativas desligam) com contador de morte — ao zerar, o Mestre é avisado; o sistema nunca mata sozinho. Qualquer coisa que tire a Vida do 0 (regeneração, cura) troca para Inconsciente por mais algumas rodadas. Regeneração e cura continuam funcionando enquanto caído. NPC em 0 pode morrer direto.",
+    default: true,
+    options: {
+      deathRounds: { label: "Rodadas até a morte (Caído)", hint: "Contadas no turno do caído. Ao zerar, o Mestre recebe o aviso. Estabilizar para o contador.", type: "number", default: 3, min: 1 },
+      wakeRounds: { label: "Rodadas Inconsciente ao sair do 0", hint: "Turnos que ele ainda perde depois que a Vida volta; age no seguinte.", type: "number", default: 3, min: 0 },
+      npcDiesAtZero: { label: "NPC morre direto em 0", hint: "Conta como NPC quem está marcado NPC na ficha ou não tem jogador dono. Fica Derrotado no combate, sem passar por Caído.", type: "boolean", default: true }
+    }
+  },
   skillUseXp: {
     setting: "skillUseXpEnabled",
     name: "XP por uso de Skill",

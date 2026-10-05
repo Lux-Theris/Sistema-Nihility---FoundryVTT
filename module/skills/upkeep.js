@@ -164,6 +164,15 @@ function actorInStartedCombat(actor) {
  * @returns {Promise<string[]>} rótulos das Skills desligadas
  */
 export async function shutdownActiveSkillsOnDepletion(actor) {
+  return shutdownActiveSkills(actor);
+}
+
+/**
+ * Desliga TODAS as Habilidades Ativas do personagem de uma vez (Mana em 0, ou Caído/Inconsciente —
+ * ver incapacitation.js). Mesma regra de sempre para o que elas seguravam: em combate, some no
+ * início do próximo turno; fora, na hora. `reason` vira o texto do aviso.
+ */
+export async function shutdownActiveSkills(actor, { reason = null } = {}) {
   if (actor?.type !== "character") return [];
   const sources = collectActiveUpkeepSources(actor);
   if (!sources.length) return [];
@@ -187,7 +196,7 @@ export async function shutdownActiveSkillsOnDepletion(actor) {
     whisper: owners,
     speaker: ChatMessage.getSpeaker({ actor }),
     content:
-      `<p><strong>${actor.name}</strong> ficou sem ${energyLabel}: ${labels.join(", ")} desligada(s).` +
+      `<p><strong>${actor.name}</strong> ${reason ?? `ficou sem ${energyLabel}`}: ${labels.join(", ")} desligada(s).` +
       `${actorInStartedCombat(actor) ? " Os efeitos somem no início do próximo turno." : ""}</p>`
   });
   return labels;

@@ -58,6 +58,12 @@
           {{#if isGM}}<button type="button" class="level-up-button" data-action="levelUpActor" title="Level Up (Voz do Mundo avisa)">+</button>{{/if}}
         </label>
 
+        {{#if isGM}}
+        <label class="pc-toggle" title="Desmarcado = NPC. Decide o grupo da ficha (Fichas, contatos do PAD, alvos) e a regra da Vida 0: NPC — ou ficha sem jogador dono — morre direto em 0, se a opção estiver ligada.">
+          <input type="checkbox" name="system.isPlayerCharacter" {{#if system.isPlayerCharacter}}checked{{/if}}/> PJ
+        </label>
+        {{/if}}
+
         {{#if titlesEnabled}}
         <span class="chip violet">{{titles.length}} Título(s) sempre ativo(s)</span>
         {{/if}}

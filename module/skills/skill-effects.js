@@ -12,6 +12,7 @@ import { suppressionLevel } from "../core/suppression.js";
 import { skillIsMagic } from "../core/magic-rules.js";
 import { createZone } from "../combat/area-effects.js";
 import { grantSkillUseXp, vitalBase } from "./skill-xp.js";
+import { blockIfIncapacitated } from "../combat/incapacitation.js";
 import { playSkillAnimation } from "../core/vfx.js";
 import { requestStructure } from "../structures/structures.js";
 import { promptManaInvestment } from "../apps/mana-invest-dialog.js";
@@ -67,6 +68,9 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
     });
     return true;
   }
+
+  // Caído/Inconsciente (incapacitation.js): não usa Habilidade nenhuma.
+  if (blockIfIncapacitated(sourceActor, "usar Habilidades")) return null;
 
   // Suprimido (Antimagia): Skill mágica de nível ≤ a supressão não se usa — nem liga, se for Ativa.
   const suppression = sourceActor.type === "character" ? suppressionLevel(sourceActor) : null;

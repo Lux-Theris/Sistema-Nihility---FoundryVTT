@@ -190,6 +190,9 @@ export function isStatusConditionsEnabled() {
   return isFeatureEnabled("statusConditions");
 }
 
+export function isIncapacitationEnabled() {
+  return isFeatureEnabled("incapacitation");
+}
 export function isAreaEffectsEnabled() {
   return isFeatureEnabled("areaEffects");
 }

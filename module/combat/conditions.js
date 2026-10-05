@@ -101,6 +101,9 @@ export function interceptManualCondition(effect, data, options, userId) {
 
   const conditionId = Array.from(data.statuses ?? []).find(isSystemCondition);
   if (!conditionId) return;
+  // Condição que incapacita (Caído, Inconsciente): não tem valor a escolher — entra só a marca, e a
+  // regra da Vida 0 (incapacitation.js) cuida do resto.
+  if (getActiveStatusConditions().find(c => c.id === conditionId)?.incapacitates) return;
 
   // Fire-and-forget: o hook não pode ser async, então o diálogo segue por fora e a criação
   // original morre aqui.

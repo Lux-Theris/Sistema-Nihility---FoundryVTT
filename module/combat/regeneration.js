@@ -55,7 +55,12 @@ export function collectRegenSources(actor) {
 /** Início do turno (Mestre): aplica a regeneração por rodada e posta uma linha no chat. */
 export async function tickRegeneration(actor) {
   if (actor?.type !== "character") return null;
+  // Morto não regenera nada; Caído/Inconsciente não regenera Mana (manter a Mana é ação), mas o
+  // corpo segue curando a Vida — é o que pode tirá-lo do 0 (ver incapacitation.js).
+  const { isDead, isIncapacitated } = await import("./incapacitation.js");
+  if (isDead(actor)) return null;
   const total = sumRegen(collectRegenSources(actor));
+  if (isIncapacitated(actor)) total.energy = 0;
   if (!total.energy && !total.hp.length) return null;
   const parts = [];
   const update = {};
@@ -120,7 +125,8 @@ async function applyRest(actor, kind, outcome) {
   const energy = actor.system.attributes.energy;
   const update = { "system.attributes.hp.value": outcome.hp };
   if (isEnergyPoolEnabled()) update["system.attributes.energy.value"] = outcome.energy;
-  await actor.update(update);
+  // `nihilityRest`: quem estava Caído/Inconsciente acorda de vez (ver incapacitation.js).
+  await actor.update(update, { nihilityRest: true });
   if (outcome.healedParts.length) {
     await actor.updateEmbeddedDocuments("Item", outcome.healedParts.map(h => partWrite(actor.items.get(h.id), h.value)).filter(u => u._id));
   }

@@ -6,6 +6,7 @@ import { SYSTEM_ID, isMagicUse, damageElementChain, getActiveDamageElements, get
 import { playSkillAnimation } from "../core/vfx.js";
 import { damageApplyFlags, withDamageTrace } from "./damage-apply.js";
 import { magazineState } from "../economy/consumable-rules.js";
+import { blockIfIncapacitated } from "./incapacitation.js";
 import { applyAdvantageToFormula, applyRollModifiers, describeRollOptions, normalizeRollOptions } from "../core/roll-modifiers.js";
 import { splitDamageParts, resolveDamageParts, describeDamageParts, scaleMultiplier, rollChance, elementVsDefender, chainedResistance, inheritedElementEffects } from "./damage-rules.js";
 import { conditionalBonus } from "./conditional-context.js";
@@ -506,6 +507,7 @@ export async function useWeaponAttack(sourceActor, weaponItem, targetActor = nul
     return null;
   }
 
+  if (blockIfIncapacitated(sourceActor, "atacar")) return null;
   // Carregador (consumables.js): sem disparo, não ataca; a munição que está dentro troca a
   // fórmula/elementos e pode tornar o golpe Absoluto.
   const magazine = magazineState({ size: weapon.magazineSize, loaded: weapon.loaded, capacity: weapon.loadedAmmo?.capacity });

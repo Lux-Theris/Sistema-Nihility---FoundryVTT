@@ -57,6 +57,7 @@ import { handleItemDrop, splitStack, toggleEquipped, inventoryContext } from "..
 import { EffectsListApp } from "../apps/effects-list.js";
 import { enableHotbarDrag } from "../core/hotbar.js";
 import { skillSummariesFor } from "../skills/skill-summary-ui.js";
+import { useConsumable, reloadWeapon, weaponCanFire } from "../economy/consumables.js";
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
 
@@ -127,6 +128,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       resetAttributePoints: NihilityActorSheet.#onResetAttributePoints,
       gmResetAllAttributePoints: NihilityActorSheet.#onGmResetAllAttributePoints,
       attackWithWeapon: NihilityActorSheet.#onAttackWithWeapon,
+      useConsumable: NihilityActorSheet.#onUseConsumable,
+      reloadWeapon: NihilityActorSheet.#onReloadWeapon,
       breakSkillPoints: NihilityActorSheet.#onBreakSkillPoints,
       mergeSkillPoints: NihilityActorSheet.#onMergeSkillPoints,
       adjustSkillPoints: NihilityActorSheet.#onAdjustSkillPoints,
@@ -1275,6 +1278,20 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     await this.attackWithWeaponItem(target.closest(".item-row").dataset.itemId, event);
   }
 
+  /** "Usar" num consumível do inventário (granada, poção, kit). Ver economy/consumables.js. */
+  static async #onUseConsumable(event, target) {
+    event.preventDefault();
+    const item = this.actor.items.get(target.closest("[data-item-id]")?.dataset.itemId);
+    if (item) await useConsumable(this.actor, item, event);
+  }
+
+  /** "Recarregar" uma arma com carregador: gasta 1 munição compatível do inventário. */
+  static async #onReloadWeapon(event, target) {
+    event.preventDefault();
+    const item = this.actor.items.get(target.closest("[data-item-id]")?.dataset.itemId);
+    if (item) await reloadWeapon(this.actor, item);
+  }
+
   /** O corpo do botão "Atacar", público para a macro da hotbar (ver `useSkillItem`). */
   async attackWithWeaponItem(itemId, event = null) {
     const weapon = this.actor.items.get(itemId);
@@ -1289,6 +1306,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         ui.notifications.warn(`${weapon.name} não tem uma Fórmula de Dano configurada.`);
         return;
       }
+      // Carregador vazio: avisa antes de pedir alvo (o Recarregar fica na linha da arma).
+      if (!weaponCanFire(weapon)) return;
       const { cancelled, options } = await rollOptionsFromEvent(event, `Atacar com ${weapon.name}`);
       if (cancelled) return;
       const targetActor = await pickTargetActor({ self: this.actor, title: `Atacar com ${weapon.name}`, confirmLabel: "Atacar", preferMap: true });

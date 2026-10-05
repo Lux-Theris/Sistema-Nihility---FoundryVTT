@@ -1,0 +1,113 @@
+{{!-- Editor de Efeitos (Skill e Consumível). Hash: effects (cards de #effectCards), hasUpkeep. --}}
+      <div class="sec">
+        <div class="sec-head">Efeitos · {{effects.length}}<span class="sp"></span><span class="help" title="Quantidade negativa = debuff. Escudo ignora Duração (some ao absorver dano). Periódico (só HP e {{energyLabel}}) aplica a Quantidade a cada tick; a Duração vira quantos ticks. Reaplicar a mesma Condição RENOVA a duração (não soma) e fica com o valor mais forte. Com uma Condição e Quantidade 0, vale o efeito padrão da Condição.">?</span><span class="sec-head-note">regras</span></div>
+        <div class="sec-body">
+          {{#if hasUpkeep}}
+          <div class="strip info">Habilidade Ativa: os Efeitos duram até desativar. O Periódico continua tickando.</div>
+          {{/if}}
+          {{#if effects.length}}
+          <div class="col-head effect-cols"><span>Alvo</span><span>Qtd.</span><span>Duração</span><span></span></div>
+          {{/if}}
+          {{#each effects as |eff|}}
+          <div class="effect-card" data-index="{{eff.index}}">
+            <div class="effect-card-head">
+              <span class="group-tag {{eff.groupClass}}">{{eff.groupLabel}}</span>
+              <span class="effect-sum">{{eff.summary}}{{#if eff.summaryExtra}} <em>· {{eff.summaryExtra}}</em>{{/if}}</span>
+              <span class="sp"></span>
+              {{#if eff.canOpenCondition}}<a class="link-add" data-action="showEffectCondition">+ Condição</a>{{/if}}
+            </div>
+            <div class="effect-card-main">
+              <select class="skill-effect-input effect-target" data-effect-field="target" aria-label="Alvo">
+                {{#each eff.targetGroups as |group|}}
+                <optgroup label="{{group.label}}">
+                  {{#each group.options as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+                </optgroup>
+                {{/each}}
+              </select>
+              {{#if eff.isElementTarget}}
+              <select class="skill-effect-input" data-effect-field="elementId" aria-label="Elemento">
+                <option value="">— elemento —</option>
+                {{#each eff.elementIdOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+              </select>
+              {{else if eff.isAntimagic}}
+              <span class="effect-note" title="Alcança até o nível desta Skill × o alcance das Regras da Mesa (padrão 1,5).">alcança nível {{eff.antimagicReach}}</span>
+              {{else}}
+              <input class="num skill-effect-input" type="number" data-effect-field="amount" value="{{eff.amount}}" aria-label="Quantidade"/>
+              {{#if eff.acceptsPercent}}
+              <select class="skill-effect-input effect-amount-mode" data-effect-field="amountMode" aria-label="Pontos ou % do máximo" title="% do máximo: do alvo (Vida máxima para Vida e Escudo, Mana máxima para Mana). Vale igual em qualquer nível.">
+                <option value="flat" {{#unless eff.isPercent}}selected{{/unless}}>pts</option>
+                <option value="percentMax" {{#if eff.isPercent}}selected{{/if}}>% máx.</option>
+              </select>
+              {{/if}}
+              {{/if}}
+              <span class="suffix"><input type="number" class="skill-effect-input" data-effect-field="durationRounds" value="{{eff.durationRounds}}" min="0" aria-label="Duração"/><span>{{eff.durationUnit}}</span></span>
+              <a class="row-delete" data-action="deleteSkillEffect" title="Remover Efeito" aria-label="Remover Efeito"><i class="fas fa-trash"></i></a>
+            </div>
+            {{#if eff.hasExtras}}
+            <div class="effect-card-extra">
+              {{#if eff.showCondition}}
+              <label class="fld"><span class="fld-label">Condição</span>
+                <select class="skill-effect-input" data-effect-field="conditionId">
+                  {{#each eff.conditionOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+                </select>
+              </label>
+              <label class="fld"><span class="fld-label">Ícone</span><input type="text" class="skill-effect-input" data-effect-field="icon" value="{{eff.icon}}" placeholder="herdado da Condição"/></label>
+              {{#if eff.isCurse}}
+              <div class="fld-row span-all">
+                <span class="fld-label">Sem Mana para pagar <span class="help" title="Maldição: o custo sai sempre da Mana da vítima. Quando não dá, faz isto — só para esta Skill. O nível da maldição é o desta Skill.">?</span></span>
+                <div class="seg compact" role="radiogroup" aria-label="Sem Mana para pagar">
+                  {{#each eff.curseUnpaidOptions as |opt|}}
+                  <label class="seg-opt {{#if opt.selected}}on{{/if}}"><input type="radio" class="skill-effect-input" data-effect-field="curseOnUnpaid" value="{{opt.value}}" {{#if opt.selected}}checked{{/if}}/>{{opt.label}}</label>
+                  {{/each}}
+                </div>
+              </div>
+              {{/if}}
+              {{/if}}
+              {{#if eff.acceptsPeriodic}}
+              <label class="toggle"><input type="checkbox" class="skill-effect-input" data-effect-field="periodic" {{#if eff.periodic}}checked{{/if}}/><span class="toggle-track"></span><span>Periódico</span></label>
+              {{#if eff.periodic}}
+              <select class="skill-effect-input" data-effect-field="tickUnit" aria-label="Unidade de tick">
+                {{#each eff.tickUnitOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+              </select>
+              <div class="fld span-all"><span class="fld-label">Elemento do tick <span class="help" title="Ignorado se o tick for cura.">?</span></span>{{> nihility.elementChips field=eff.elementField path=eff.elementPath editable=../editable}}</div>
+              {{#if eff.isHeal}}
+              <div class="fld-row span-all">
+                <span class="fld-label">Tipo <span class="help" title="Nas Partes do Corpo (com Ferimentos por parte ligado). Cura: fecha feridas — Vida e partes feridas ou inutilizadas. Regeneração: também refaz partes perdidas (e, numa Skill Única ou Ultimate, conserta próteses); Fogo/Ácido/Maldição podem bloquear. Reparo: conserta próteses.">?</span></span>
+                <div class="seg compact" role="radiogroup" aria-label="Tipo de cura">
+                  {{#each eff.healKindOptions as |opt|}}
+                  <label class="seg-opt {{#if opt.selected}}on{{/if}}" title="{{opt.hint}}"><input type="radio" class="skill-effect-input" data-effect-field="healKind" value="{{opt.value}}" {{#if opt.selected}}checked{{/if}}/>{{opt.label}}</label>
+                  {{/each}}
+                </div>
+              </div>
+              {{/if}}
+              {{/if}}
+              {{/if}}
+              {{#if eff.isShieldTarget}}
+              <div class="fld span-all"><span class="fld-label">Elemento do escudo <span class="help" title="Escudo de Água, de Fogo…: o golpe usa a vantagem do elemento dele contra o do Escudo (tabela em Tipos de Dano). Vazio = neutro.">?</span></span>{{> nihility.elementChips field=eff.elementField path=eff.elementPath editable=../editable}}</div>
+              {{#if ../hasUpkeep}}
+              <label class="fld"><span class="fld-label">Regeneração por rodada <span class="help" title="Escudo mantido: no início de cada turno de quem mantém a Skill, soma isto ao Escudo do alvo (até o Teto). Ao desligar a Skill, as camadas somem.">?</span></span><input class="num skill-effect-input" type="number" data-effect-field="shieldRegen" value="{{eff.shieldRegen}}" min="0"/></label>
+              <label class="fld"><span class="fld-label">Teto <span class="help" title="Total de Escudo que esta Skill mantém. 0 = sem teto. Escudo de outra fonte acima dele fica, só não regenera mais.">?</span></span><input class="num skill-effect-input" type="number" data-effect-field="shieldCap" value="{{eff.shieldCap}}" min="0"/></label>
+              {{/if}}
+              <div class="fld-row span-all light-row">
+                <span class="fld-label">Luz do escudo <span class="help" title="Acende no Token de quem recebe o Escudo. É apagada quando o Escudo chega a 0 ou quando esta Skill Ativa é desligada.">?</span></span>
+                <span class="light-summary {{#if eff.lightOn}}on{{/if}}"><i class="fas fa-lightbulb"></i> {{eff.lightSummary}}</span>
+                {{#if ../editable}}<button type="button" class="btn" data-action="editEffectLight">Configurar luz…</button>{{/if}}
+              </div>
+              {{/if}}
+              {{#if eff.isShipTarget}}
+              <div class="fld-row span-all">
+                <span class="fld-label">Modo</span>
+                <div class="seg compact" role="radiogroup" aria-label="Modo">
+                  {{#each eff.modifierTypeOptions as |opt|}}
+                  <label class="seg-opt {{#if opt.selected}}on{{/if}}"><input type="radio" class="skill-effect-input" data-effect-field="modifierType" value="{{opt.value}}" {{#if opt.selected}}checked{{/if}}/>{{opt.label}}</label>
+                  {{/each}}
+                </div>
+              </div>
+              {{/if}}
+            </div>
+            {{/if}}
+          </div>
+          {{/each}}
+          {{#if editable}}<a class="link-add" data-action="addSkillEffect">+ Efeito</a>{{/if}}
+        </div>
+      </div>

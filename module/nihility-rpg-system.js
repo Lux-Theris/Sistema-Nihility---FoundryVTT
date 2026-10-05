@@ -175,7 +175,8 @@ Hooks.once("init", () => {
     "nihility.regenBlock": `systems/${SYSTEM_ID}/templates/parts/regen-block.hbs`,
     "nihility.elementChips": `systems/${SYSTEM_ID}/templates/parts/element-chips.hbs`,
     "nihility.traits": `systems/${SYSTEM_ID}/templates/parts/traits.hbs`,
-    "nihility.conditionalModifiers": `systems/${SYSTEM_ID}/templates/parts/conditional-modifiers.hbs`
+    "nihility.conditionalModifiers": `systems/${SYSTEM_ID}/templates/parts/conditional-modifiers.hbs`,
+    "nihility.effectCards": `systems/${SYSTEM_ID}/templates/parts/effect-cards.hbs`
   });
 
   // Deslocamento por rodada (ver module/movement.js). Instala a classe de Token e os hooks no

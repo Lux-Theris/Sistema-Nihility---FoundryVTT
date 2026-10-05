@@ -15,12 +15,13 @@
 import { SYSTEM_ID, moduleRole } from "./config.js";
 
 const DRAG_TYPE = "NihilityAction";
-const ACTION_BUTTONS = '[data-action="useSkill"], [data-action="attackWithWeapon"], [data-action="fireWeapon"]';
+const ACTION_BUTTONS = '[data-action="useSkill"], [data-action="attackWithWeapon"], [data-action="fireWeapon"], [data-action="useConsumable"]';
 
 /** O Item faz algo pela hotbar? Skill, arma de Personagem, Módulo de Arma. Só Itens dentro de um Ator. */
 function hotbarKind(item) {
   if (!item || item.parent?.documentName !== "Actor") return null;
   if (item.type === "skill") return "skill";
+  if (item.type === "item" && item.system?.consumable?.enabled) return "consumable";
   if (item.type === "item" && item.system?.weapon?.enabled) return "weapon";
   if (item.type === "starship_module" && moduleRole(item.system?.category) === "weapon") return "shipWeapon";
   return null;
@@ -91,8 +92,13 @@ export async function useItemFromHotbar(uuid) {
     ui.notifications.warn(`Você não controla ${actor.name}.`);
     return;
   }
-  const sheet = actor.sheet;
   const event = { shiftKey: Boolean(game.keyboard?.isModifierActive?.("Shift")) };
+  // Consumível não depende da ficha: o caminho é o mesmo do botão Usar do inventário.
+  if (kind === "consumable") {
+    const { useConsumable } = await import("../economy/consumables.js");
+    return useConsumable(actor, item, event);
+  }
+  const sheet = actor.sheet;
   const method = { skill: "useSkillItem", weapon: "attackWithWeaponItem", shipWeapon: "fireWeaponItem" }[kind];
   if (typeof sheet?.[method] !== "function") {
     ui.notifications.warn(`A ficha de ${actor.name} não sabe usar ${item.name} pela hotbar.`);

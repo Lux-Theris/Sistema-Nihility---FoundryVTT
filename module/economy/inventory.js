@@ -4,20 +4,24 @@
  * (slots, pilhas, peso, carga) são puras e testadas em config.js (`inventoryLoad`, `stackCount`…);
  * os números do Personagem saem prontos de `system.inventory` (character-model.js).
  */
+import { chargesLeft, magazineState } from "./consumable-rules.js";
 import { MEU_SISTEMA, stackCount, isInventoryEnabled } from "../core/config.js";
 import { createGrantedSkill, removeGrantedSkill } from "../skills/skill-economy.js";
 
 const { DialogV2 } = foundry.applications.api;
 
 /** Mesmo Item pra empilhar: Item Geral de mesmo nome e imagem, nenhum dos dois contêiner, no mesmo lugar. */
-function findStack(actor, data, containerId) {
+export function findStack(actor, data, containerId) {
   if (data.system?.container?.enabled) return null;
+  // Munição aberta (com disparos sobrando) não empilha com a cheia, nem com outra aberta diferente.
+  const rounds = Number(data.system?.ammo?.rounds) || 0;
   return actor.items.find(
     i =>
       i.type === "item" &&
       i.name === data.name &&
       i.img === data.img &&
       !i.system.container?.enabled &&
+      (Number(i.system.ammo?.rounds) || 0) === rounds &&
       (i.system.containerId ?? "") === containerId
   ) ?? null;
 }
@@ -147,6 +151,13 @@ function itemRow(item, containers) {
     weaponFormula: sys.weapon?.damageFormula ?? "",
     isContainer: Boolean(sys.container?.enabled),
     isAmmo: Boolean(sys.ammo?.enabled),
+    // Munição aberta (tirada da arma numa troca): quantos disparos sobraram.
+    ammoRounds: sys.ammo?.enabled ? Number(sys.ammo.rounds) || 0 : 0,
+    // Consumível: botão Usar e, com cargas, "3/5" da unidade aberta.
+    isConsumable: Boolean(sys.consumable?.enabled),
+    chargesText: sys.consumable?.enabled && (sys.consumable.charges ?? 0) > 1 ? `${chargesLeft({ charges: sys.consumable.charges, used: sys.consumable.chargesUsed })}/${sys.consumable.charges}` : "",
+    // Arma com carregador: disparos e Recarregar.
+    magazine: sys.weapon?.enabled ? magazineState({ size: sys.weapon.magazineSize, loaded: sys.weapon.loaded }) : null,
     canSplit: quantity > 1,
     hasContainers: containers.some(c => c.id !== item.id),
     containerId: sys.containerId ?? "",

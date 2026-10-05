@@ -192,112 +192,7 @@
       {{/if}}
 
       {{#if (eq skillMechanicType "temporary")}}
-      <div class="sec">
-        <div class="sec-head">Efeitos · {{skillEffects.length}}<span class="sp"></span><span class="help" title="Quantidade negativa = debuff. Escudo ignora Duração (some ao absorver dano). Periódico (só HP e {{energyLabel}}) aplica a Quantidade a cada tick; a Duração vira quantos ticks. Reaplicar a mesma Condição RENOVA a duração (não soma) e fica com o valor mais forte. Com uma Condição e Quantidade 0, vale o efeito padrão da Condição.">?</span><span class="sec-head-note">regras</span></div>
-        <div class="sec-body">
-          {{#if system.hasUpkeep}}
-          <div class="strip info">Habilidade Ativa: os Efeitos duram até desativar. O Periódico continua tickando.</div>
-          {{/if}}
-          {{#if skillEffects.length}}
-          <div class="col-head effect-cols"><span>Alvo</span><span>Qtd.</span><span>Duração</span><span></span></div>
-          {{/if}}
-          {{#each skillEffects as |eff|}}
-          <div class="effect-card" data-index="{{eff.index}}">
-            <div class="effect-card-head">
-              <span class="group-tag {{eff.groupClass}}">{{eff.groupLabel}}</span>
-              <span class="effect-sum">{{eff.summary}}{{#if eff.summaryExtra}} <em>· {{eff.summaryExtra}}</em>{{/if}}</span>
-              <span class="sp"></span>
-              {{#if eff.canOpenCondition}}<a class="link-add" data-action="showEffectCondition">+ Condição</a>{{/if}}
-            </div>
-            <div class="effect-card-main">
-              <select class="skill-effect-input effect-target" data-effect-field="target" aria-label="Alvo">
-                {{#each eff.targetGroups as |group|}}
-                <optgroup label="{{group.label}}">
-                  {{#each group.options as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
-                </optgroup>
-                {{/each}}
-              </select>
-              {{#if eff.isElementTarget}}
-              <select class="skill-effect-input" data-effect-field="elementId" aria-label="Elemento">
-                <option value="">— elemento —</option>
-                {{#each eff.elementIdOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
-              </select>
-              {{else if eff.isAntimagic}}
-              <span class="effect-note" title="Alcança até o nível desta Skill × o alcance das Regras da Mesa (padrão 1,5).">alcança nível {{eff.antimagicReach}}</span>
-              {{else}}
-              <input class="num skill-effect-input" type="number" data-effect-field="amount" value="{{eff.amount}}" aria-label="Quantidade"/>
-              {{/if}}
-              <span class="suffix"><input type="number" class="skill-effect-input" data-effect-field="durationRounds" value="{{eff.durationRounds}}" min="0" aria-label="Duração"/><span>{{eff.durationUnit}}</span></span>
-              <a class="row-delete" data-action="deleteSkillEffect" title="Remover Efeito" aria-label="Remover Efeito"><i class="fas fa-trash"></i></a>
-            </div>
-            {{#if eff.hasExtras}}
-            <div class="effect-card-extra">
-              {{#if eff.showCondition}}
-              <label class="fld"><span class="fld-label">Condição</span>
-                <select class="skill-effect-input" data-effect-field="conditionId">
-                  {{#each eff.conditionOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
-                </select>
-              </label>
-              <label class="fld"><span class="fld-label">Ícone</span><input type="text" class="skill-effect-input" data-effect-field="icon" value="{{eff.icon}}" placeholder="herdado da Condição"/></label>
-              {{#if eff.isCurse}}
-              <div class="fld-row span-all">
-                <span class="fld-label">Sem Mana para pagar <span class="help" title="Maldição: o custo sai sempre da Mana da vítima. Quando não dá, faz isto — só para esta Skill. O nível da maldição é o desta Skill.">?</span></span>
-                <div class="seg compact" role="radiogroup" aria-label="Sem Mana para pagar">
-                  {{#each eff.curseUnpaidOptions as |opt|}}
-                  <label class="seg-opt {{#if opt.selected}}on{{/if}}"><input type="radio" class="skill-effect-input" data-effect-field="curseOnUnpaid" value="{{opt.value}}" {{#if opt.selected}}checked{{/if}}/>{{opt.label}}</label>
-                  {{/each}}
-                </div>
-              </div>
-              {{/if}}
-              {{/if}}
-              {{#if eff.acceptsPeriodic}}
-              <label class="toggle"><input type="checkbox" class="skill-effect-input" data-effect-field="periodic" {{#if eff.periodic}}checked{{/if}}/><span class="toggle-track"></span><span>Periódico</span></label>
-              {{#if eff.periodic}}
-              <select class="skill-effect-input" data-effect-field="tickUnit" aria-label="Unidade de tick">
-                {{#each eff.tickUnitOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
-              </select>
-              <div class="fld span-all"><span class="fld-label">Elemento do tick <span class="help" title="Ignorado se o tick for cura.">?</span></span>{{> nihility.elementChips field=eff.elementField path=eff.elementPath editable=../editable}}</div>
-              {{#if eff.isHeal}}
-              <div class="fld-row span-all">
-                <span class="fld-label">Tipo <span class="help" title="Nas Partes do Corpo (com Ferimentos por parte ligado). Cura: fecha feridas — Vida e partes feridas ou inutilizadas. Regeneração: também refaz partes perdidas (e, numa Skill Única ou Ultimate, conserta próteses); Fogo/Ácido/Maldição podem bloquear. Reparo: conserta próteses.">?</span></span>
-                <div class="seg compact" role="radiogroup" aria-label="Tipo de cura">
-                  {{#each eff.healKindOptions as |opt|}}
-                  <label class="seg-opt {{#if opt.selected}}on{{/if}}" title="{{opt.hint}}"><input type="radio" class="skill-effect-input" data-effect-field="healKind" value="{{opt.value}}" {{#if opt.selected}}checked{{/if}}/>{{opt.label}}</label>
-                  {{/each}}
-                </div>
-              </div>
-              {{/if}}
-              {{/if}}
-              {{/if}}
-              {{#if eff.isShieldTarget}}
-              <div class="fld span-all"><span class="fld-label">Elemento do escudo <span class="help" title="Escudo de Água, de Fogo…: o golpe usa a vantagem do elemento dele contra o do Escudo (tabela em Tipos de Dano). Vazio = neutro.">?</span></span>{{> nihility.elementChips field=eff.elementField path=eff.elementPath editable=../editable}}</div>
-              {{#if ../system.hasUpkeep}}
-              <label class="fld"><span class="fld-label">Regeneração por rodada <span class="help" title="Escudo mantido: no início de cada turno de quem mantém a Skill, soma isto ao Escudo do alvo (até o Teto). Ao desligar a Skill, as camadas somem.">?</span></span><input class="num skill-effect-input" type="number" data-effect-field="shieldRegen" value="{{eff.shieldRegen}}" min="0"/></label>
-              <label class="fld"><span class="fld-label">Teto <span class="help" title="Total de Escudo que esta Skill mantém. 0 = sem teto. Escudo de outra fonte acima dele fica, só não regenera mais.">?</span></span><input class="num skill-effect-input" type="number" data-effect-field="shieldCap" value="{{eff.shieldCap}}" min="0"/></label>
-              {{/if}}
-              <div class="fld-row span-all light-row">
-                <span class="fld-label">Luz do escudo <span class="help" title="Acende no Token de quem recebe o Escudo. É apagada quando o Escudo chega a 0 ou quando esta Skill Ativa é desligada.">?</span></span>
-                <span class="light-summary {{#if eff.lightOn}}on{{/if}}"><i class="fas fa-lightbulb"></i> {{eff.lightSummary}}</span>
-                {{#if ../editable}}<button type="button" class="btn" data-action="editEffectLight">Configurar luz…</button>{{/if}}
-              </div>
-              {{/if}}
-              {{#if eff.isShipTarget}}
-              <div class="fld-row span-all">
-                <span class="fld-label">Modo</span>
-                <div class="seg compact" role="radiogroup" aria-label="Modo">
-                  {{#each eff.modifierTypeOptions as |opt|}}
-                  <label class="seg-opt {{#if opt.selected}}on{{/if}}"><input type="radio" class="skill-effect-input" data-effect-field="modifierType" value="{{opt.value}}" {{#if opt.selected}}checked{{/if}}/>{{opt.label}}</label>
-                  {{/each}}
-                </div>
-              </div>
-              {{/if}}
-            </div>
-            {{/if}}
-          </div>
-          {{/each}}
-          {{#if editable}}<a class="link-add" data-action="addSkillEffect">+ Efeito</a>{{/if}}
-        </div>
-      </div>
+      {{> nihility.effectCards effects=skillEffects hasUpkeep=system.hasUpkeep}}
       {{/if}}
     </div>
 
@@ -651,8 +546,9 @@
       <div class="sec">
         <div class="sec-head">Munição</div>
         <div class="sec-body g3">
-          <label class="toggle span-all"><input type="checkbox" name="system.ammo.enabled" {{#if system.ammo.enabled}}checked{{/if}}/><span class="toggle-track"></span><span>Este item é munição</span><span class="help" title="Fica no Porão da Nave. Um lançador que aceita o tipo dela rola a fórmula DELA, soma a Penetração dela à do lançador e gasta 1 da pilha.">?</span></label>
+          <label class="toggle span-all"><input type="checkbox" name="system.ammo.enabled" {{#if system.ammo.enabled}}checked{{/if}}/><span class="toggle-track"></span><span>Este item é munição</span><span class="help" title="Nave: fica no Porão; um lançador que aceita o tipo dela rola a fórmula DELA, soma a Penetração dela e gasta 1 da pilha. Arma pessoal com Carregador: o Recarregar gasta 1 desta pilha se o Tipo estiver entre os aceitos pela arma; fórmula, elementos e Dano Absoluto preenchidos aqui substituem os da arma até a próxima recarga.">?</span></label>
           {{#if system.ammo.enabled}}
+          <label class="fld"><span class="fld-label">Disparos (aberta) <span class="help" title="0 = cheia (enche o carregador). Maior que 0 = unidade aberta, tirada de uma arma numa troca: dá só esses disparos e não empilha com as cheias.">?</span></span><input class="num" type="number" min="0" name="system.ammo.rounds" value="{{system.ammo.rounds}}"/></label>
           <label class="fld"><span class="fld-label">Tipo</span>
             <select name="system.ammo.type">{{#each ammoTypeOptions as |opt|}}<option value="{{opt.id}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}</select></label>
           <label class="fld"><span class="fld-label">Fórmula de Dano</span><input class="mono" type="text" name="system.ammo.damageFormula" value="{{system.ammo.damageFormula}}" placeholder="4d10"/></label>
@@ -703,8 +599,91 @@
           <div class="fld span-all"><span class="fld-label">Elemento(s)</span>{{> nihility.elementChips field=weaponElementField path="system.weapon.damageElements" editable=editable}}</div>
         </div>
       </div>
+      <div class="sec">
+        <div class="sec-head">Carregador<span class="sp"></span>{{#if weaponLoadedLabel}}<span class="sec-head-note">carregado: {{weaponLoadedLabel}}</span>{{/if}}</div>
+        <div class="sec-body g2">
+          <label class="fld"><span class="fld-label">Disparos por carga <span class="help" title="0 = sem carregador: ataca sem limite, como sempre. Com carregador, cada Atacar gasta 1; vazio, o botão Recarregar gasta 1 munição compatível do inventário e enche.">?</span></span><input class="num" type="number" min="0" name="system.weapon.magazineSize" value="{{system.weapon.magazineSize}}"/></label>
+          {{#if system.weapon.magazineSize}}
+          <label class="fld"><span class="fld-label">Disparos agora</span><input class="num" type="number" min="0" name="system.weapon.loaded" value="{{system.weapon.loaded}}"/></label>
+          <div class="fld span-all"><span class="fld-label">Munição aceita <span class="help" title="Itens Gerais marcados como Munição (aba Geral) de um destes tipos. Nenhum marcado = aceita qualquer munição. A fórmula, os elementos e o Dano Absoluto da munição carregada valem nos disparos.">?</span></span>
+            <span class="element-field">{{#each weaponAmmoChips as |chip|}}<a class="element-chip {{#if chip.checked}}checked{{/if}}" data-action="toggleWeaponAmmoType" data-ammo-type="{{chip.id}}">{{chip.label}}</a>{{else}}<span class="hint-inline">Nenhum tipo de munição no catálogo (Configurações Gerais › Munição).</span>{{/each}}</span></div>
+          {{/if}}
+        </div>
+      </div>
       {{else}}
       <div class="strip dim">Desligado, o item não ataca. Os valores de arma já salvos continuam guardados.</div>
+      {{/if}}
+    </div>
+
+    <div class="tab {{#unless (eq activeTab "consumable")}}hidden{{/unless}}">
+      <div class="sec">
+        <div class="sec-body">
+          <label class="toggle"><input type="checkbox" name="system.consumable.enabled" {{#if system.consumable.enabled}}checked{{/if}}/><span class="toggle-track"></span><span>Este item é um consumível</span><span class="help" title="Põe o botão Usar na linha do inventário (não precisa estar equipado). Cada uso gasta 1 da pilha, ou 1 carga. A última unidade some da ficha.">?</span></label>
+        </div>
+      </div>
+      {{#if system.consumable.enabled}}
+      <div class="fld">
+        <span class="fld-label">O que faz ao usar</span>
+        <div class="seg" role="radiogroup" aria-label="O que faz ao usar">
+          {{#each consumableEffectTypeSeg as |opt|}}
+          <label class="seg-opt {{#if opt.checked}}on{{/if}}"><input type="radio" name="system.consumable.effectType" value="{{opt.value}}" {{#if opt.checked}}checked{{/if}}/>{{opt.label}}</label>
+          {{/each}}
+        </div>
+      </div>
+      <div class="sec">
+        <div class="sec-head">Em quem</div>
+        <div class="sec-body">
+          <div class="seg" role="radiogroup" aria-label="Em quem">
+            {{#each consumableTargetSeg as |opt|}}
+            <label class="seg-opt {{#if opt.checked}}on{{/if}}" title="{{opt.title}}"><input type="radio" name="system.consumable.targetType" value="{{opt.value}}" {{#if opt.checked}}checked{{/if}}/>{{opt.label}}</label>
+            {{/each}}
+          </div>
+          {{#if consumableIsArea}}
+          <div class="area-box">
+            <div class="fld area-shape">
+              <span class="fld-label">Formato de Área</span>
+              <div class="seg" role="radiogroup" aria-label="Formato de Área">
+                {{#each consumableAreaSeg as |opt|}}
+                <label class="seg-opt {{#if opt.checked}}on{{/if}}"><input type="radio" name="system.consumable.areaShape" value="{{opt.value}}" {{#if opt.checked}}checked{{/if}}/>{{opt.label}}</label>
+                {{/each}}
+              </div>
+            </div>
+            <label class="fld"><span class="fld-label">Distância <span class="help" title="Raio do Círculo, ou alcance do Cone/Linha, em unidades de grid. Sem mapa, vira um alvo só.">?</span></span><input class="num" type="number" name="system.consumable.areaDistance" value="{{system.consumable.areaDistance}}" min="0"/></label>
+            {{#if (eq system.consumable.areaShape "cone")}}
+            <label class="fld"><span class="fld-label">Ângulo (°)</span><input class="num" type="number" name="system.consumable.areaAngle" value="{{system.consumable.areaAngle}}" min="1" max="360"/></label>
+            {{/if}}
+          </div>
+          {{/if}}
+        </div>
+      </div>
+      {{#if consumableIsDamage}}
+      <div class="sec">
+        <div class="sec-head">Dano<span class="sp"></span><span class="depends">O que faz = Dano</span></div>
+        <div class="sec-body g2">
+          <label class="fld"><span class="fld-label">Fórmula de Dano</span><input class="mono" type="text" name="system.consumable.damageFormula" value="{{system.consumable.damageFormula}}" placeholder="3d6"/></label>
+          <label class="fld"><span class="fld-label">Atributo de Escala <span class="help" title="Multiplica o dano por (Atributo de quem usa)² ÷ divisor, igual a arma e Skill — é o que faz uma granada continuar valendo em nível alto. Sem escala, a fórmula vale como escrita.">?</span></span>
+            <select name="system.consumable.scalingAttribute">
+              {{#each consumableScalingOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+            </select>
+          </label>
+          <label class="toggle span-all"><input type="checkbox" name="system.consumable.isMagicDamage" {{#if system.consumable.isMagicDamage}}checked{{/if}}/><span class="toggle-track"></span><span>Dano Mágico</span><span class="help" title="Defesa Mágica reduz, e a Antimagia alcança.">?</span></label>
+          <div class="fld span-all"><span class="fld-label">Elemento(s)</span>{{> nihility.elementChips field=consumableElementField path="system.consumable.damageElements" editable=editable}}</div>
+        </div>
+      </div>
+      {{else}}
+      {{> nihility.effectCards effects=consumableEffects hasUpkeep=false}}
+      {{/if}}
+      <div class="sec">
+        <div class="sec-head">Usos</div>
+        <div class="sec-body g2">
+          <label class="fld"><span class="fld-label">Cargas por unidade <span class="help" title="Kit médico de 5 usos = 5. Cada Usar gasta 1 carga; ao zerar, sai 1 da pilha e a próxima começa cheia. 0 ou 1 = cada uso gasta uma unidade.">?</span></span><input class="num" type="number" min="0" name="system.consumable.charges" value="{{system.consumable.charges}}"/></label>
+          {{#if (gt system.consumable.charges 1)}}
+          <label class="fld"><span class="fld-label">Cargas gastas da unidade aberta</span><input class="num" type="number" min="0" name="system.consumable.chargesUsed" value="{{system.consumable.chargesUsed}}"/></label>
+          {{/if}}
+        </div>
+      </div>
+      {{else}}
+      <div class="strip dim">Desligado, o item não tem botão Usar. Os valores já salvos continuam guardados.</div>
       {{/if}}
     </div>
 

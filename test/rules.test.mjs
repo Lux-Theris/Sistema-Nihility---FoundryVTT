@@ -2605,3 +2605,46 @@ test("XP por uso: buff/debuff pela fração do valor atual; Condição soma o fi
   assert.deepEqual(effectEntryMeasures({ amount: 5 }, {}), [{ flat: true }], "alvo sem número (elemento de arma, corpo) conta o fixo");
   assert.deepEqual(effectEntryMeasures({ amount: 0 }, {}), [], "nada aplicado, nada medido");
 });
+
+import { consumeUse, chargesLeft, magazineState, ammoFitsWeapon, resolveEffectAmount } from "../module/economy/consumable-rules.js";
+
+test("Consumível: sem cargas gasta 1 da pilha; com cargas gasta a unidade aberta primeiro", () => {
+  assert.deepEqual(consumeUse({ quantity: 3 }), { quantity: 2, used: 0, unitSpent: true, gone: false, left: 2 }, "granada ×3 → ×2");
+  assert.equal(consumeUse({ quantity: 1 }).gone, true, "a última some");
+  const kit = consumeUse({ quantity: 2, charges: 5, used: 0 });
+  assert.deepEqual(kit, { quantity: 2, used: 1, unitSpent: false, gone: false, left: 9 }, "kit ×2 de 5 cargas: gasta 1 carga, sobram 9 usos");
+  assert.equal(chargesLeft({ charges: 5, used: 1 }), 4);
+  const last = consumeUse({ quantity: 2, charges: 5, used: 4 });
+  assert.deepEqual([last.quantity, last.used, last.unitSpent], [1, 0, true], "acabou a unidade: sai 1 da pilha e a próxima começa cheia");
+  assert.equal(consumeUse({ quantity: 1, charges: 5, used: 4 }).gone, true);
+  assert.equal(chargesLeft({ charges: 0 }), null, "sem cargas não mostra contador");
+  assert.equal(consumeUse({ quantity: 0 }).gone, true, "pilha vazia não usa");
+});
+
+test("Arma com carregador e munição; efeito em % do máximo", () => {
+  assert.deepEqual(magazineState({ size: 0 }), { uses: false, max: 0, loaded: 0, empty: false, full: true }, "sem carregador = infinito");
+  assert.equal(magazineState({ size: 10, loaded: 0 }).empty, true);
+  assert.equal(magazineState({ size: 10, loaded: 25 }).loaded, 10, "carregador diminuído conta como cheio");
+  assert.equal(ammoFitsWeapon("cell", []), true, "arma sem tipos aceita qualquer munição");
+  assert.equal(ammoFitsWeapon("cell", ["cell", "plasma"]), true);
+  assert.equal(ammoFitsWeapon("arrow", ["cell"]), false);
+  assert.equal(resolveEffectAmount(25, "percentMax", 1000), 250, "Poção 25% em quem tem 1000 de Vida");
+  assert.equal(resolveEffectAmount(25, "percentMax", 100), 25);
+  assert.equal(resolveEffectAmount(1, "percentMax", 50), 1, "1% de 50 ainda cura 1");
+  assert.equal(resolveEffectAmount(-10, "percentMax", 200), -20, "dano/debuff em % também");
+  assert.equal(resolveEffectAmount(7, "flat", 1000), 7, "fixo passa direto");
+});
+
+test("Skill numa frase: efeito em % do máximo", () => {
+  assert.equal(skillSummary({ effectType: "temporary", targetType: "self", effects: [{ target: "heal", amount: 25, amountMode: "percentMax" }] }, { targets: { heal: "Curar Vida (na hora)" } }), "Curar Vida (na hora) +25% do máx. · em si");
+});
+
+import { reloadPlan } from "../module/economy/consumable-rules.js";
+
+test("Trocar munição: o que estava dentro volta (cheio pra pilha, aberto com o que sobrou)", () => {
+  assert.deepEqual(reloadPlan({ size: 10, loaded: 5 }), { loaded: 10, returned: { rounds: 5 } }, "5/10 volta como aberta (5)");
+  assert.deepEqual(reloadPlan({ size: 10, loaded: 10 }), { loaded: 10, returned: { rounds: 0 } }, "cheia volta pra pilha normal");
+  assert.deepEqual(reloadPlan({ size: 10, loaded: 0 }), { loaded: 10, returned: null }, "vazia não devolve nada");
+  assert.deepEqual(reloadPlan({ size: 10, loaded: 0, ammoRounds: 4 }), { loaded: 4, returned: null }, "unidade aberta dá só o que tinha");
+  assert.deepEqual(reloadPlan({ size: 10, loaded: 2, ammoRounds: 30 }), { loaded: 10, returned: { rounds: 2 } }, "aberta maior que o carregador enche");
+});

@@ -20,6 +20,7 @@ import { skillIsMagic } from "../core/magic-rules.js";
 import { applyAntimagic, suppressionLevel } from "./dispel.js";
 import { applyCurse } from "./curses.js";
 import { effectMeasuresFor, vitalBase, grantSkillUseXp } from "./skill-xp.js";
+import { resolveEffectAmount } from "../economy/consumable-rules.js";
 
 /** Tiers cuja Regeneração também conserta próteses ("a partir da Única"). */
 const PROSTHESIS_REGEN_TIERS = ["unique", "ultimate"];
@@ -102,6 +103,9 @@ function findStackableEffect(targetActor, conditionId, periodic, damageElements 
  *    saindo do lugar no canvas depois — a área só serviu pra ESCOLHER quem foi afetado no
  *    momento de usar, o efeito em si vive no Ator, não no espaço.
  */
+/** Alvos de Efeito que aceitam "% do máximo do alvo". */
+const PERCENT_TARGETS = ["hp", "energy", "shield", "heal", "restoreEnergy"];
+
 export async function applyEffectsToActor(mech, label, originSkill, targetActor, subSkillIndex = null) {
   const rawEntries = mech.effects ?? [];
   const summary = [];
@@ -145,6 +149,12 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
   };
 
   for (let entry of entries) {
+    // "% do máximo do alvo" (Poção de 25%): vira pontos agora, com o máximo DESTE alvo. Periódico
+    // guarda o valor resolvido no tick. Escudo usa a Vida máxima como referência.
+    if (entry.amountMode === "percentMax" && PERCENT_TARGETS.includes(entry.target)) {
+      const max = ["energy", "restoreEnergy"].includes(entry.target) ? targetActor.system?.attributes?.energy?.max : targetActor.system?.attributes?.hp?.max;
+      entry = { ...entry, amount: resolveEffectAmount(entry.amount, "percentMax", max), amountMode: "flat" };
+    }
     if (shielded(entry)) {
       summary.push(`${getEffectTargetLabels()[entry.target] ?? entry.target}: sem efeito (${targetActor.name} está Suprimido)`);
       continue;
@@ -183,6 +193,23 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
     }
     const targetLabel = getEffectTargetLabels()[entry.target] ?? entry.target;
     const sign = entry.amount >= 0 ? "+" : "";
+
+    // Curar Vida / Recuperar Mana NA HORA (poção, stimpack, Skill de cura instantânea). "HP"/"Mana"
+    // sem Periódico são buff do MÁXIMO, não cura — por isso alvos à parte. A cura respeita os
+    // bloqueios de cura e reparte nas Partes do Corpo, como o tick periódico.
+    if (entry.target === "heal" || entry.target === "restoreEnergy") {
+      const key = entry.target === "heal" ? "hp" : "energy";
+      const attr = targetActor.system?.attributes?.[key];
+      if (targetActor.type !== "character" || !attr) {
+        summary.push(`${targetLabel}: não se aplica a ${targetActor.name}`);
+        continue;
+      }
+      const { change, note } = await restoreVital(targetActor, key, Number(entry.amount) || 0, { level: sourceLevel, focusPartId: entry.focusPartId || null });
+      if (change) xp.push({ value: change, base: attr.max });
+      if (entry.conditionId) xp.push({ flat: true });
+      summary.push(`${key === "hp" ? "Vida" : getEffectTargetLabels().energy} ${change >= 0 ? "+" : ""}${change}${note ? ` (${note})` : ""}`);
+      continue;
+    }
 
     if (entry.target === "shield") {
       // Escudo ignora Condição/Periódico/Duração — é sempre somado direto, gasto na mão. Numa
@@ -541,6 +568,34 @@ export async function tickPeriodicEffect(actor, effect) {
   if (delta && xpSource) await grantSkillUseXp(xpSource, [{ value: delta, base: attr.max }]);
 
   return { attrKey, delta, newValue, ticksRemaining: displayTicks, expired, effectName: effect.name, appliedReductions, note };
+}
+
+/**
+ * Muda Vida ou Mana na hora (alvos "Curar Vida"/"Recuperar Mana"). Cura positiva passa pelo mesmo
+ * plano do tick periódico: bloqueio de cura pelo nível de quem curou, teto das partes a 0%, e o
+ * que a Vida subiu é repartido nas Partes do Corpo. Negativo tira direto (é perda, não dano: não
+ * passa por defesas). Devolve o que de fato mudou.
+ */
+async function restoreVital(actor, key, amount, { level = 0, focusPartId = null } = {}) {
+  const attr = actor.system.attributes[key];
+  let delta = amount;
+  let note = "";
+  let ceiling = attr.max;
+  const heal = delta > 0 && key === "hp" ? { kind: "cura", level: Number(level) || 0 } : null;
+  const plan = heal ? healPlan(actor, heal) : null;
+  if (plan && plan.bodyFactor < 1) {
+    delta = Math.floor(delta * plan.bodyFactor);
+    note = plan.bodyFactor > 0 ? `cura reduzida (${Math.round((1 - plan.bodyFactor) * 100)}% bloqueado)` : "cura bloqueada";
+  }
+  if (delta > 0 && plan) ceiling = Math.max(attr.value, Math.floor(attr.max * plan.cap + 1e-9));
+  const newValue = Math.clamp(attr.value + delta, 0, Math.max(ceiling, attr.value));
+  if (newValue !== attr.value) await actor.update({ [`system.attributes.${key}.value`]: newValue });
+  const change = newValue - attr.value;
+  if (change > 0 && heal) {
+    const parts = await healBodyParts(actor, change, { ...heal, focusPartId });
+    note = [note, parts].filter(Boolean).join(" · ");
+  }
+  return { change, note };
 }
 
 /**

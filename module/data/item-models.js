@@ -163,6 +163,12 @@ function effectEntrySchema() {
     target: new fields.StringField({ required: true, choices: MEU_SISTEMA.EFFECT_TARGETS }),
     amount: new fields.NumberField({ required: true, integer: true, initial: 1 }),
     /**
+     * Vida, Mana e Escudo: "flat" = `amount` em pontos (como sempre foi); "percentMax" = `amount` %
+     * do máximo do alvo (Vida máxima para Vida e Escudo, Mana máxima para Mana), resolvido na hora
+     * de aplicar — uma Poção de 25% vale igual no nível 1 e no 50 (ver resolveEffectAmount).
+     */
+    amountMode: new fields.StringField({ required: false, initial: "flat", choices: ["flat", "percentMax"] }),
+    /**
      * Só relevante pros EFFECT_TARGETS "de Nave" (MEU_SISTEMA.SHIP_EFFECT_TARGETS): "flat" soma
      * `amount` direto no resultado (ADD); "multiplier" multiplica (MULTIPLY) — `amount` nesse
      * caso é lido como percentual (ex: 20 = ×1.20), ver `applyEffectsToActor` em effects-apply.js.
@@ -852,7 +858,13 @@ export class GenericItemDataModel extends foundry.abstract.TypeDataModel {
         damageElements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
         isAbsoluteDamage: new fields.BooleanField({ required: false, initial: false }),
         penetrationBonus: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0, max: 100 }),
-        minLauncherSize: new fields.StringField({ required: false, initial: "", blank: true })
+        minLauncherSize: new fields.StringField({ required: false, initial: "", blank: true }),
+        /**
+         * Unidade aberta (arma pessoal com Carregador): 0 = cheia, enche o carregador; > 0 = os
+         * disparos que sobraram quando ela foi tirada da arma numa troca (ver reloadPlan). Aberta
+         * nunca empilha com cheia.
+         */
+        rounds: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 })
       }),
 
       /**
@@ -872,7 +884,42 @@ export class GenericItemDataModel extends foundry.abstract.TypeDataModel {
         isAbsoluteDamage: new fields.BooleanField({ required: false, initial: false }),
         /** Escala do golpe; vazio = a de quem ataca (uma bazuca anti-tanque pode ser "Veículo"). */
         damageScale: new fields.StringField({ required: false, initial: "", blank: true }),
-        damageElements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] })
+        damageElements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
+        /**
+         * Carregador (ver consumables.js): 0 = sem carregador, ataque infinito (como toda arma
+         * antes disto). Cada Atacar gasta 1 de `loaded`; "Recarregar" gasta 1 Item de munição
+         * (Item Geral com o bloco `ammo`) de um tipo em `ammoTypes` (vazio = qualquer) e enche.
+         * `loadedAmmo` guarda a munição que está dentro (fórmula/elementos/Absoluto dela valem no
+         * disparo), porque o Item de munição já foi gasto.
+         */
+        magazineSize: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+        loaded: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+        ammoTypes: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
+        loadedAmmo: new fields.ObjectField({ required: false, nullable: true, initial: null })
+      }),
+
+      /**
+       * Consumível (granada, poção, kit médico — ver consumables.js): "Usar" no inventário aplica
+       * a mecânica e gasta 1 (ou 1 carga). Mesmo vocabulário da Skill: Efeito (as mesmas entradas
+       * de efeito) ou Dano (fórmula com Escala por Atributo, para acompanhar a curva quadrática
+       * da Vida), em si / num alvo / numa área. Sem Custo, sem XP, sem nível (vale nível 1).
+       */
+      consumable: new fields.SchemaField({
+        enabled: new fields.BooleanField({ required: false, initial: false }),
+        effectType: new fields.StringField({ required: false, initial: "temporary", choices: ["temporary", "damage"] }),
+        targetType: new fields.StringField({ required: false, initial: "self", choices: ["self", "targeted", "emission"] }),
+        areaShape: new fields.StringField({ required: false, initial: "circle", choices: ["circle", "cone", "ray"] }),
+        areaDistance: new fields.NumberField({ required: false, integer: true, initial: 3, min: 0 }),
+        areaAngle: new fields.NumberField({ required: false, integer: true, initial: 53, min: 1, max: 360 }),
+        effects: new fields.ArrayField(effectEntrySchema(), { required: false, initial: [] }),
+        damageFormula: new fields.StringField({ required: false, initial: "" }),
+        scalingAttribute: new fields.StringField({ required: false, initial: "", blank: true }),
+        isMagicDamage: new fields.BooleanField({ required: false, initial: false }),
+        damageElements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
+        /** Usos por unidade (kit de 5 usos). 0 ou 1 = cada uso gasta uma unidade da pilha. */
+        charges: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+        /** Cargas já gastas da unidade aberta. */
+        chargesUsed: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 })
       }),
 
       /**

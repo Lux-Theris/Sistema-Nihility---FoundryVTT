@@ -156,6 +156,8 @@ function headerChipsFor(item) {
         add(`${sys.value.amount} ${currency}`, "Valor");
       }
       if (sys.weapon?.enabled) add(`Arma · ${sys.weapon.damageFormula || "?"}`, "Dano", "accent");
+      if (sys.weapon?.enabled && sys.weapon.magazineSize > 0) add(`Carregador ${Math.min(sys.weapon.loaded ?? 0, sys.weapon.magazineSize)}/${sys.weapon.magazineSize}`, "Disparos antes de recarregar");
+      if (sys.consumable?.enabled) add(sys.consumable.charges > 1 ? `Consumível · ${sys.consumable.charges} cargas` : "Consumível", "Botão Usar no inventário", "accent");
       if (sys.container?.enabled) add(`Contêiner · ${sys.container.slots} slots`, "Guarda outros Itens");
       if (sys.ammo?.enabled) add(`Munição · ${getAmmoTypes().find(a => a.id === sys.ammo.type)?.label ?? "?"}`, "Munição", "accent");
       if (sys.grantsSkill?.name) add(`concede: ${sys.grantsSkill.name}`, "Habilidade Concedida", "violet");
@@ -217,6 +219,7 @@ function tabsFor(item) {
       return [
         { id: "general", label: "Geral" },
         { id: "weapon", label: "Arma", led: true, ledOn: Boolean(sys.weapon?.enabled) },
+        { id: "consumable", label: "Consumível", led: true, ledOn: Boolean(sys.consumable?.enabled) },
         ...(isAnatomyEnabled() ? [{ id: "implant", label: "Implante", led: true, ledOn: Boolean(sys.implant?.enabled) }] : []),
         { id: "equipped", label: sys.implant?.enabled ? "Enquanto instalado" : "Enquanto equipado", count: n(whileEquipped) },
         { id: "description", label: "Descrição" }
@@ -314,6 +317,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       removeElement: NihilityItemSheet.#onRemoveElement,
       showEffectCondition: NihilityItemSheet.#onShowEffectCondition,
       editEffectLight: NihilityItemSheet.#onEditEffectLight,
+      toggleWeaponAmmoType: NihilityItemSheet.#onToggleWeaponAmmoType,
       addConditionalModifier: NihilityItemSheet.#onConditionalModifierAdd,
       editSubSkill: NihilityItemSheet.#onSubSkillEdit,
       deleteConditionalModifier: NihilityItemSheet.#onConditionalModifierDelete,
@@ -535,7 +539,8 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const onShip = ["starship", "vehicle"].includes(this.item.parent?.type);
     const signed = n => (n > 0 ? `+${n}` : `${n}`);
 
-    return (sys.effects ?? []).map((entry, index) => {
+    const effectsPath = this.#effectsPath();
+    return (foundry.utils.getProperty(this.item, effectsPath) ?? []).map((entry, index) => {
       // Periódico: Vida/Mana de Personagem e Casco/Integridade de Nave (dano contínuo, reparo por rodada).
       const acceptsPeriodic = ["hp", "energy", "shipCasco", "shipHull"].includes(entry.target);
       const periodic = acceptsPeriodic && Boolean(entry.periodic);
@@ -548,7 +553,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       let summary;
       if (["weaponElement", "bodyElement"].includes(entry.target)) summary = `${targetLabel} → ${elements.find(el => el.id === entry.elementId)?.label ?? "?"}`;
       else if (isShipTarget && entry.modifierType === "multiplier") summary = `${targetLabel} ×${(1 + amount / 100).toFixed(2).replace(".", ",")}`;
-      else summary = `${targetLabel} ${signed(amount)}${periodic ? " por tick" : ""}`;
+      else summary = `${targetLabel} ${signed(amount)}${entry.amountMode === "percentMax" && ["hp", "energy", "shield", "heal", "restoreEnergy"].includes(entry.target) ? "% do máx." : ""}${periodic ? " por tick" : ""}`;
       const extra = [];
       if (sys.hasUpkeep) extra.push("enquanto ativa");
       else if (entry.target === "shield") extra.push("até absorver");
@@ -611,12 +616,15 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
           value: m, label: MEU_SISTEMA.EFFECT_MODIFIER_TYPE_LABELS[m], selected: m === (entry.modifierType || "flat")
         })),
         elementField: selectedElementChips(entry.damageElements),
-        elementPath: `system.effects.${index}.damageElements`
+        elementPath: `${effectsPath}.${index}.damageElements`,
+        // Vida, Mana e Escudo aceitam "% do máximo do alvo" (Poção de 25%).
+        acceptsPercent: ["hp", "energy", "shield", "heal", "restoreEnergy"].includes(entry.target),
+        isPercent: entry.amountMode === "percentMax"
       };
     });
   }
 
-  #prepareGenericItemContext(context, { scaleOptions, scalingOptions }) {
+  #prepareGenericItemContext(context, { scaleOptions, scalingOptions, seg }) {
     // Implante (board 5): slots conhecidos (das partes de todas as Espécies e Heranças) e Funções.
     const implant = this.item.system.implant ?? {};
     const slots = new Set(implant.fitsSlots ?? []);
@@ -640,6 +648,26 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       id, label, selected: id === (ammo.minLauncherSize ?? "")
     }));
     context.grantSummary = grantedSkillSummary(this.item.system.grantsSkill, "system.grantsSkill");
+
+    // Carregador (C7): tipos de munição aceitos como chips, e o que está dentro.
+    const accepted = new Set(weapon.ammoTypes ?? []);
+    context.weaponAmmoChips = getAmmoTypes().map(a => ({ id: a.id, label: a.label, checked: accepted.has(a.id) }));
+    context.weaponLoadedLabel = weapon.magazineSize > 0 ? `${Math.min(weapon.loaded ?? 0, weapon.magazineSize)}/${weapon.magazineSize}${weapon.loadedAmmo?.label ? ` · ${weapon.loadedAmmo.label}` : ""}` : "";
+
+    // Consumível (J6): o mesmo vocabulário da Skill (Efeito/Dano, em si/alvo/área) e o mesmo
+    // editor de Efeitos (partial nihility.effectCards, caminho system.consumable.effects).
+    const consumable = this.item.system.consumable ?? {};
+    context.consumableEffectTypeSeg = seg([["temporary", "Efeito"], ["damage", "Dano"]], consumable.effectType ?? "temporary");
+    context.consumableTargetSeg = seg(
+      [["self", "Em si", "Quem usa"], ["targeted", "Num alvo", "Escolhe o alvo como numa Skill"], ["emission", "Área", "Posiciona a forma no mapa, como uma Emissão"]],
+      consumable.targetType ?? "self"
+    );
+    context.consumableAreaSeg = seg([["circle", "Círculo"], ["cone", "Cone"], ["ray", "Linha"]], consumable.areaShape ?? "circle");
+    context.consumableIsDamage = consumable.effectType === "damage";
+    context.consumableIsArea = consumable.targetType === "emission";
+    context.consumableScalingOptions = scalingOptions(consumable.scalingAttribute);
+    context.consumableElementField = selectedElementChips(consumable.damageElements ?? []);
+    context.consumableEffects = this.#effectCards(context);
   }
 
   #prepareModuleContext(context, { seg }) {
@@ -887,9 +915,17 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   /*  Efeitos Temporários da Skill (edição inline) */
   /* -------------------------------------------- */
 
-  /** Cópia editável de `system.effects` (objetos simples, nunca o Data Model vivo). */
+  /**
+   * Onde moram os Efeitos editados nesta ficha: `system.effects` numa Skill, `system.consumable.effects`
+   * num Item Geral (Consumível). O editor (partial `nihility.effectCards`) é o mesmo nos dois.
+   */
+  #effectsPath() {
+    return this.item.type === "item" ? "system.consumable.effects" : "system.effects";
+  }
+
+  /** Cópia editável dos Efeitos (objetos simples, nunca o Data Model vivo). */
   #cloneEffects() {
-    return foundry.utils.deepClone(this.item.toObject().system.effects ?? []);
+    return foundry.utils.deepClone(foundry.utils.getProperty(this.item.toObject(), this.#effectsPath()) ?? []);
   }
 
   /**
@@ -913,13 +949,18 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     if (field === "target") {
       if (!["hp", "energy", "shipCasco", "shipHull"].includes(entry.target)) entry.periodic = false;
       if (!MEU_SISTEMA.SHIP_EFFECT_TARGETS.includes(entry.target)) entry.modifierType = "flat";
+      if (!["hp", "energy", "shield", "heal", "restoreEnergy"].includes(entry.target)) entry.amountMode = "flat";
     }
-    await this.item.update({ "system.effects": effects });
+    await this.item.update({ [this.#effectsPath()]: effects });
   }
 
   static async #onSkillEffectAdd(event, target) {
     event.preventDefault();
     const effects = this.#cloneEffects();
+    if (this.item.type === "item") {
+      effects.push({ target: "heal", amount: 25, amountMode: "percentMax", modifierType: "flat", durationRounds: 0, conditionId: "", icon: "", periodic: false, tickUnit: "combatRound", damageElements: [] });
+      return this.item.update({ [this.#effectsPath()]: effects });
+    }
     effects.push({
       target: MEU_SISTEMA.EFFECT_TARGETS[0],
       amount: 1,
@@ -931,7 +972,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       tickUnit: "combatRound",
       damageElements: []
     });
-    await this.item.update({ "system.effects": effects });
+    await this.item.update({ [this.#effectsPath()]: effects });
   }
 
   static async #onSkillEffectDelete(event, target) {
@@ -940,7 +981,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const effects = this.#cloneEffects();
     effects.splice(index, 1);
     this.#openConditionRows.clear();
-    await this.item.update({ "system.effects": effects });
+    await this.item.update({ [this.#effectsPath()]: effects });
   }
 
   static async #onConditionalModifierAdd(event) {
@@ -965,20 +1006,20 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
    * tratado à parte.
    */
   #readElementList(path) {
-    const effect = path?.match(/^system\.effects\.(\d+)\.damageElements$/);
-    if (effect) return this.item.system.effects?.[Number(effect[1])]?.damageElements ?? [];
+    const effect = path?.match(/^system\.(?:consumable\.)?effects\.(\d+)\.damageElements$/);
+    if (effect) return foundry.utils.getProperty(this.item, this.#effectsPath())?.[Number(effect[1])]?.damageElements ?? [];
     // Tabela de elementos do Escudo dentro de um Efeito usa o mesmo campo (damageElements).
     return foundry.utils.getProperty(this.item, path) ?? [];
   }
 
   async #writeElementList(path, list) {
-    const effect = path?.match(/^system\.effects\.(\d+)\.damageElements$/);
+    const effect = path?.match(/^system\.(?:consumable\.)?effects\.(\d+)\.damageElements$/);
     if (effect) {
       const effects = this.#cloneEffects();
       const entry = effects[Number(effect[1])];
       if (!entry) return;
       entry.damageElements = list;
-      return this.item.update({ "system.effects": effects });
+      return this.item.update({ [this.#effectsPath()]: effects });
     }
     if (!path?.startsWith("system.")) return;
     return this.item.update({ [path]: list });
@@ -995,6 +1036,17 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     if (list.has(value)) list.delete(value);
     else list.add(value);
     await this.item.update({ [`system.implant.${key}`]: [...list] });
+  }
+
+  /** Arma com carregador: liga/desliga um Tipo de Munição aceito (vazio = aceita qualquer). */
+  static async #onToggleWeaponAmmoType(event, target) {
+    event.preventDefault();
+    if (!this.isEditable) return;
+    const type = target.dataset.ammoType;
+    const list = new Set(this.item.system.weapon?.ammoTypes ?? []);
+    if (list.has(type)) list.delete(type);
+    else list.add(type);
+    await this.item.update({ "system.weapon.ammoTypes": [...list] });
   }
 
   static async #onToggleAmmoType(event, target) {
@@ -1036,7 +1088,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     });
     if (!light) return;
     entry.light = light.enabled ? light : null;
-    await this.item.update({ "system.effects": effects });
+    await this.item.update({ [this.#effectsPath()]: effects });
   }
 
   /** "+ Condição" numa linha de Efeito: só abre os campos (estado de tela). */

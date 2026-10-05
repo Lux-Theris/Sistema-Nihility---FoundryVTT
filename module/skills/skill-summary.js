@@ -17,7 +17,7 @@ function describeEffect(entry, ctx) {
   const amount = Number(entry.amount) || 0;
   if (!amount) return condition || ctx.targets?.[entry.target] || entry.target || "";
   const target = ctx.targets?.[entry.target] ?? entry.target;
-  const text = `${target} ${signed(amount)}${entry.periodic ? "/rodada" : ""}`;
+  const text = `${target} ${signed(amount)}${entry.amountMode === "percentMax" ? "% do máx." : ""}${entry.periodic ? "/rodada" : ""}`;
   return condition ? `${condition} (${text})` : text;
 }
 

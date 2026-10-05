@@ -972,6 +972,8 @@ export const MEU_SISTEMA = {
     "precision",
     "hp",
     "energy",
+    "heal",
+    "restoreEnergy",
     "shield",
     "movement",
     "weaponDamage",
@@ -1004,6 +1006,8 @@ export const MEU_SISTEMA = {
     precision: "Precisão",
     hp: "HP",
     energy: "Mana/Energia",
+    heal: "Curar Vida (na hora)",
+    restoreEnergy: "Recuperar Mana/Energia (na hora)",
     shield: "Escudo",
     movement: "Deslocamento (%)",
     weaponDamage: "Dano das Armas equipadas",
@@ -1030,7 +1034,7 @@ export const MEU_SISTEMA = {
    */
   EFFECT_TARGET_GROUPS: [
     { label: "Atributos", actor: "character", targets: ["strength", "defense", "magic", "magicalDefense", "dexterity", "stealth", "perception", "precision"] },
-    { label: "Vitais", actor: "character", targets: ["hp", "energy", "shield", "movement"] },
+    { label: "Vitais", actor: "character", targets: ["heal", "restoreEnergy", "hp", "energy", "shield", "movement"] },
     { label: "Arma", actor: "any", targets: ["weaponDamage", "weaponElement", "weaponMagic", "weaponAbsolute"] },
     { label: "Elemento", actor: "any", targets: ["bodyElement"] },
     { label: "Magia", actor: "character", targets: ["antimagic"] },

@@ -5,6 +5,7 @@
 import { SYSTEM_ID, isMagicUse, damageElementChain, getActiveDamageElements, getActiveStatusConditions, getEnergyLabelForActor, getAttributeLabel, damageScalingMultiplier, skillLevelBonuses, getDamageElement, actorTraits, isScaleEnabled, getFeatureOption, actorScaleIndex, scaleIndexOf, actorElements, getElementAffinityMatrix, getAffinityConfig } from "../core/config.js";
 import { playSkillAnimation } from "../core/vfx.js";
 import { damageApplyFlags, withDamageTrace } from "./damage-apply.js";
+import { magazineState } from "../economy/consumable-rules.js";
 import { applyAdvantageToFormula, applyRollModifiers, describeRollOptions, normalizeRollOptions } from "../core/roll-modifiers.js";
 import { splitDamageParts, resolveDamageParts, describeDamageParts, scaleMultiplier, rollChance, elementVsDefender, chainedResistance, inheritedElementEffects } from "./damage-rules.js";
 import { conditionalBonus } from "./conditional-context.js";
@@ -505,25 +506,36 @@ export async function useWeaponAttack(sourceActor, weaponItem, targetActor = nul
     return null;
   }
 
+  // Carregador (consumables.js): sem disparo, não ataca; a munição que está dentro troca a
+  // fórmula/elementos e pode tornar o golpe Absoluto.
+  const magazine = magazineState({ size: weapon.magazineSize, loaded: weapon.loaded });
+  if (magazine.uses && magazine.empty) {
+    ui.notifications?.warn(`${weaponItem.name} está sem munição — use Recarregar.`);
+    return null;
+  }
+  const ammo = magazine.uses ? weapon.loadedAmmo ?? null : null;
+
   // Aprimoramento vindo de Skills (alvos "weapon*"): vale pra qualquer arma equipada do Ator.
   const bonuses = sourceActor.system.weaponBonuses ?? {};
   const override = bonuses.elementOverride && getDamageElement(bonuses.elementOverride) ? bonuses.elementOverride : "";
-  return rollSkillDamage(
+  const result = await rollSkillDamage(
     sourceActor,
     {
-      damageFormula: weapon.damageFormula,
+      damageFormula: ammo?.damageFormula?.trim() || weapon.damageFormula,
       scalingAttribute: weapon.scalingAttribute,
       isMagicDamage: weapon.isMagicDamage || (bonuses.forceMagic ?? 0) > 0,
-      isAbsoluteDamage: weapon.isAbsoluteDamage || (bonuses.absolute ?? 0) > 0,
+      isAbsoluteDamage: weapon.isAbsoluteDamage || Boolean(ammo?.isAbsoluteDamage) || (bonuses.absolute ?? 0) > 0,
       damageScale: weapon.damageScale,
-      damageElements: override ? [override] : weapon.damageElements,
+      damageElements: override ? [override] : ammo?.damageElements?.length ? ammo.damageElements : weapon.damageElements,
       weaponBonus: { flat: Number(bonuses.damageFlat) || 0, multiplier: bonuses.damageMultiplier ?? 1 },
       level: 1
     },
-    weaponItem.name,
+    ammo?.label ? `${weaponItem.name} (${ammo.label})` : weaponItem.name,
     targetActor,
     rollOptions
   );
+  if (result && magazine.uses) await weaponItem.update({ "system.weapon.loaded": magazine.loaded - 1 });
+  return result;
 }
 
 /**

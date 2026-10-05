@@ -207,6 +207,7 @@ export function damageXpMeasures(result, targetActor = null) {
 
 /** Entrada de Efeito que é cura de Vida (Periódico, valor positivo). */
 function isHealEntry(entry) {
+  if (entry?.target === "heal") return Number(entry.amount) > 0;
   return entry?.target === "hp" && Boolean(entry.periodic) && Number(entry.amount) > 0;
 }
 
@@ -246,7 +247,7 @@ export async function applySkillEffects(sourceActor, skill, mech, label, targetA
  * @param {string} label
  * @param {Actor[]} targetActors
  */
-async function applySkillEffectsArea(sourceActor, skill, mech, label, targetActors, subSkillIndex = null) {
+export async function applySkillEffectsArea(sourceActor, skill, mech, label, targetActors, subSkillIndex = null) {
   if (!(mech.effects ?? []).length) {
     ui.notifications?.warn("Essa skill não tem nenhum Efeito configurado.");
     return null;

@@ -3362,6 +3362,10 @@ form.nihility-config-app {
   font-size: 0.78rem;
   color: var(--nihility-ok);
   font-weight: 600;
+  /* Fundo próprio: o verde claro some no card claro do tema padrão da V14. */
+  background: var(--nihility-bg-panel-alt);
+  border-radius: 4px;
+  padding: 2px 8px;
 }
 
 /* Card de área: uma linha por alvo, ações de grupo em cima (L10). */
@@ -3390,11 +3394,14 @@ form.nihility-config-app {
 }
 .nihility-damage-controls .damage-many-list button:first-child { border-color: var(--nihility-border); color: var(--nihility-text); }
 .nihility-damage-controls .damage-many-list .damage-apply:first-of-type { border-color: var(--nihility-accent); color: var(--nihility-accent); }
+/* O card de chat segue o tema do Foundry (claro por padrão na V14): o nome herda a cor do card,
+   em vez da cor clara do sistema, que some no fundo claro. Os botões têm fundo próprio. */
 .nihility-damage-controls .damage-many-name {
   flex: 1;
   min-width: 6em;
   font-size: 0.8rem;
-  color: var(--nihility-text);
+  font-weight: 600;
+  color: inherit;
 }
 
 /* Não lidas do PAD — badge por conversa e no botão da ficha. */
@@ -5459,7 +5466,7 @@ button.prio-chip { cursor: pointer; }
 
 /* Rastro de dano no card (só o Mestre vê — ver renderDamageTrace). */
 .nihility-damage-trace { margin: 4px 0; font-size: 0.78rem; }
-.nihility-damage-trace summary { cursor: pointer; color: var(--nihility-text-dim, #9aa1c2); }
+.nihility-damage-trace summary { cursor: pointer; color: inherit; opacity: 0.75; }
 .nihility-damage-trace .trace-target { margin-top: 4px; font-weight: 600; }
 .nihility-damage-trace ul { list-style: none; margin: 2px 0; padding: 0; }
 .nihility-damage-trace li { display: flex; justify-content: space-between; gap: 8px; padding: 1px 4px; }
@@ -5697,3 +5704,15 @@ button.prio-chip { cursor: pointer; }
 .nihility-sheet .anat-fix { font-size: 10.5px; color: #9aa1c2; margin-left: 4px; }
 
 .nihility-sheet .effect-note { font-size: 11.5px; color: #c084fc; white-space: nowrap; align-self: center; }
+
+/* Carregador de arma e cargas de consumível nas linhas de item (J6/C7). */
+.nihility-sheet .item-row .inv-mag,
+.nihility-sheet .item-row .inv-charges {
+  font-size: 11px;
+  color: var(--nihility-text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.nihility-sheet .item-row .inv-mag.is-empty { color: var(--nihility-danger, #ff6b6b); }
+.nihility-reload-dialog label { display: flex; align-items: center; gap: 8px; color: var(--nihility-text, #e6e8f2); }
+.nihility-reload-dialog select { flex: 1; }

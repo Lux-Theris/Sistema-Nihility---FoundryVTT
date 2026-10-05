@@ -36,11 +36,14 @@ export function chargesLeft({ charges = 0, used = 0 }) {
 
 /**
  * Estado do carregador de uma arma. `size` 0 = arma sem carregador (ataque infinito, como sempre
- * foi). `loaded` acima do tamanho (o Mestre diminuiu o carregador) conta como cheio.
+ * foi). O máximo é a Carga da munição que está dentro (`capacity`, Célula grande = 20) ou, sem ela,
+ * o carregador da arma. `loaded` acima do máximo conta como cheio.
  */
-export function magazineState({ size = 0, loaded = 0 }) {
-  const max = Math.max(0, Math.floor(Number(size) || 0));
-  if (!max) return { uses: false, max: 0, loaded: 0, empty: false, full: true };
+export function magazineState({ size = 0, loaded = 0, capacity = 0 }) {
+  const weaponSize = Math.max(0, Math.floor(Number(size) || 0));
+  if (!weaponSize) return { uses: false, max: 0, loaded: 0, empty: false, full: true };
+  const own = Math.max(0, Math.floor(Number(capacity) || 0));
+  const max = own > 0 ? own : weaponSize;
   const current = Math.min(max, Math.max(0, Math.floor(Number(loaded) || 0)));
   return { uses: true, max, loaded: current, empty: current <= 0, full: current >= max };
 }
@@ -64,19 +67,24 @@ export function resolveEffectAmount(amount, mode, max) {
 }
 
 /**
- * Trocar/recarregar: o que entra e o que volta. A munição escolhida enche o carregador — ou, se for
- * uma unidade aberta (`ammoRounds` > 0), dá só os disparos que ela tinha. O que estava dentro volta
- * para o inventário: cheio volta para a pilha normal (`rounds` 0); pela metade volta como unidade
- * aberta com o que sobrou; vazio não volta nada.
- * @param {{size:number, loaded:number, ammoRounds?:number}} state
- * @returns {{loaded:number, returned:{rounds:number}|null}}
+ * Trocar/recarregar: o que entra e o que volta. A munição escolhida enche até a Carga DELA
+ * (`capacity`; 0 = o carregador da arma, `size`) — ou, se for uma unidade aberta (`ammoRounds` > 0),
+ * dá só os disparos que tinha. O que estava dentro volta para o inventário: cheio (pelo máximo da
+ * munição que estava, `currentMax`) volta para a pilha normal (`rounds` 0); pela metade volta como
+ * unidade aberta com o que sobrou; vazio não volta nada.
+ * @param {{size:number, loaded:number, currentMax?:number, ammoRounds?:number, capacity?:number}} state
+ * @returns {{loaded:number, max:number, returned:{rounds:number}|null}}
  */
-export function reloadPlan({ size, loaded = 0, ammoRounds = 0 }) {
-  const max = Math.max(0, Math.floor(Number(size) || 0));
-  const inside = Math.min(max, Math.max(0, Math.floor(Number(loaded) || 0)));
+export function reloadPlan({ size, loaded = 0, currentMax = null, ammoRounds = 0, capacity = 0 }) {
+  const weaponSize = Math.max(0, Math.floor(Number(size) || 0));
+  const before = Math.max(0, Math.floor(Number(currentMax ?? weaponSize) || 0));
+  const inside = Math.min(before, Math.max(0, Math.floor(Number(loaded) || 0)));
+  const own = Math.max(0, Math.floor(Number(capacity) || 0));
+  const max = own > 0 ? own : weaponSize;
   const open = Math.max(0, Math.floor(Number(ammoRounds) || 0));
   return {
     loaded: open > 0 ? Math.min(open, max) : max,
-    returned: inside > 0 ? { rounds: inside >= max ? 0 : inside } : null
+    max,
+    returned: inside > 0 ? { rounds: inside >= before ? 0 : inside } : null
   };
 }

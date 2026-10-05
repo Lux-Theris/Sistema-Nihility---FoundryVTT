@@ -356,7 +356,7 @@
                 <span class="hint-inline" title="Equipe o item pra poder atacar com ele">(desequipada)</span>
                 {{/if}}
                 {{#if item.system.weapon.magazineSize}}
-                <span class="inv-mag {{#unless item.system.weapon.loaded}}is-empty{{/unless}}" title="Disparos no carregador">🔋 {{item.system.weapon.loaded}}/{{item.system.weapon.magazineSize}}</span>
+                {{#with (lookup ../gearMagazines item.id) as |mag|}}<span class="inv-mag {{#if mag.empty}}is-empty{{/if}}" title="Disparos no carregador">🔋 {{mag.loaded}}/{{mag.max}}</span>{{/with}}
                 <button type="button" class="skill-use-button" data-action="reloadWeapon" title="Recarregar / trocar munição (o que estava dentro volta para o inventário)">⟳</button>
                 {{/if}}
                 {{/if}}

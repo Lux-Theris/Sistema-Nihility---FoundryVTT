@@ -36,6 +36,14 @@
   display: flex;
   flex-direction: column;
   padding: 0;
+  /* clip, não hidden: hidden ainda pode ser rolado por script, e o foco num campo escondido (o
+     checkbox de um interruptor) rolava a JANELA inteira — cabeçalho e abas sumiam em cima e sobrava
+     um vão vazio embaixo. Quem rola é só o .sheet-body. */
+  overflow: clip;
+  /* Obrigatório junto com o clip: com clip a janela deixa de ser contêiner de rolagem e o mínimo
+     automático de um item flex passa a ser a altura do conteúdo — ela crescia junto com a ficha e o
+     .sheet-body nunca ganhava barra de rolagem (1.67.1). */
+  min-height: 0;
 }
 .nihility-sheet {
   font-family: var(--nihility-font);
@@ -4755,6 +4763,9 @@ button.prio-chip { cursor: pointer; }
 
 /* Interruptor (checkbox de verdade, com cara de chave). */
 .nihility-sheet.item-sheet .toggle {
+  /* O checkbox de verdade fica escondido com position:absolute DENTRO do rótulo (como no .seg-opt);
+     sem isto ele se ancorava na janela e o foco rolava a janela, não o corpo da ficha. */
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -5714,5 +5725,18 @@ button.prio-chip { cursor: pointer; }
   white-space: nowrap;
 }
 .nihility-sheet .item-row .inv-mag.is-empty { color: var(--nihility-danger, #ff6b6b); }
-.nihility-reload-dialog label { display: flex; align-items: center; gap: 8px; color: var(--nihility-text, #e6e8f2); }
-.nihility-reload-dialog select { flex: 1; }
+/* Janela de troca de munição. Cor explícita em tudo: o core pinta <label> com o texto do tema claro. */
+.nihility-reload-dialog { display: flex; flex-direction: column; gap: 6px; color: var(--nihility-text, #e6e8f2); }
+.nihility-reload-dialog .rl-label { font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--nihility-text-dim, #9aa1c2); margin-top: 4px; }
+.nihility-reload-dialog .rl-current { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 6px 10px; border: 1px solid var(--nihility-border, #3a4166); border-radius: 6px; background: var(--nihility-bg-panel-alt, #1d2133); }
+.nihility-reload-dialog .rl-name { font-weight: 600; color: var(--nihility-text, #e6e8f2); }
+.nihility-reload-dialog .rl-name em { font-style: normal; font-weight: 400; color: var(--nihility-text-dim, #9aa1c2); }
+.nihility-reload-dialog .rl-empty { color: var(--nihility-text-dim, #9aa1c2); }
+.nihility-reload-dialog .rl-count { font-variant-numeric: tabular-nums; color: var(--nihility-accent, #6ee7ff); white-space: nowrap; }
+.nihility-reload-dialog .rl-note { margin: 0; font-size: 0.78rem; color: var(--nihility-text-dim, #9aa1c2); }
+.nihility-reload-dialog .rl-options { display: flex; flex-direction: column; gap: 4px; max-height: 240px; overflow-y: auto; }
+.nihility-reload-dialog .rl-option { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border: 1px solid var(--nihility-border, #3a4166); border-radius: 6px; cursor: pointer; color: var(--nihility-text, #e6e8f2); }
+.nihility-reload-dialog .rl-option:has(input:checked) { border-color: var(--nihility-accent, #6ee7ff); background: rgba(110, 231, 255, 0.08); }
+.nihility-reload-dialog .rl-option input { accent-color: var(--nihility-accent, #6ee7ff); margin: 0; }
+.nihility-reload-dialog .rl-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.nihility-reload-dialog .rl-meta { font-size: 0.76rem; color: var(--nihility-text-dim, #9aa1c2); }

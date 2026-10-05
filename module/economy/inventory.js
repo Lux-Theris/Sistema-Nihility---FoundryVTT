@@ -157,7 +157,7 @@ function itemRow(item, containers) {
     isConsumable: Boolean(sys.consumable?.enabled),
     chargesText: sys.consumable?.enabled && (sys.consumable.charges ?? 0) > 1 ? `${chargesLeft({ charges: sys.consumable.charges, used: sys.consumable.chargesUsed })}/${sys.consumable.charges}` : "",
     // Arma com carregador: disparos e Recarregar.
-    magazine: sys.weapon?.enabled ? magazineState({ size: sys.weapon.magazineSize, loaded: sys.weapon.loaded }) : null,
+    magazine: sys.weapon?.enabled ? magazineState({ size: sys.weapon.magazineSize, loaded: sys.weapon.loaded, capacity: sys.weapon.loadedAmmo?.capacity }) : null,
     canSplit: quantity > 1,
     hasContainers: containers.some(c => c.id !== item.id),
     containerId: sys.containerId ?? "",

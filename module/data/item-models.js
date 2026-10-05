@@ -864,7 +864,12 @@ export class GenericItemDataModel extends foundry.abstract.TypeDataModel {
          * disparos que sobraram quando ela foi tirada da arma numa troca (ver reloadPlan). Aberta
          * nunca empilha com cheia.
          */
-        rounds: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 })
+        rounds: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+        /**
+         * Carga: quantos disparos uma unidade cheia dá numa arma com Carregador (Célula grande = 20,
+         * pequena = 10). 0 = enche até o carregador da arma (`weapon.magazineSize`).
+         */
+        capacity: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 })
       }),
 
       /**

@@ -2642,9 +2642,18 @@ test("Skill numa frase: efeito em % do máximo", () => {
 import { reloadPlan } from "../module/economy/consumable-rules.js";
 
 test("Trocar munição: o que estava dentro volta (cheio pra pilha, aberto com o que sobrou)", () => {
-  assert.deepEqual(reloadPlan({ size: 10, loaded: 5 }), { loaded: 10, returned: { rounds: 5 } }, "5/10 volta como aberta (5)");
-  assert.deepEqual(reloadPlan({ size: 10, loaded: 10 }), { loaded: 10, returned: { rounds: 0 } }, "cheia volta pra pilha normal");
-  assert.deepEqual(reloadPlan({ size: 10, loaded: 0 }), { loaded: 10, returned: null }, "vazia não devolve nada");
-  assert.deepEqual(reloadPlan({ size: 10, loaded: 0, ammoRounds: 4 }), { loaded: 4, returned: null }, "unidade aberta dá só o que tinha");
-  assert.deepEqual(reloadPlan({ size: 10, loaded: 2, ammoRounds: 30 }), { loaded: 10, returned: { rounds: 2 } }, "aberta maior que o carregador enche");
+  assert.deepEqual(reloadPlan({ size: 10, loaded: 5 }), { loaded: 10, max: 10, returned: { rounds: 5 } }, "5/10 volta como aberta (5)");
+  assert.deepEqual(reloadPlan({ size: 10, loaded: 10 }), { loaded: 10, max: 10, returned: { rounds: 0 } }, "cheia volta pra pilha normal");
+  assert.deepEqual(reloadPlan({ size: 10, loaded: 0 }), { loaded: 10, max: 10, returned: null }, "vazia não devolve nada");
+  assert.deepEqual(reloadPlan({ size: 10, loaded: 0, ammoRounds: 4 }), { loaded: 4, max: 10, returned: null }, "unidade aberta dá só o que tinha");
+  assert.deepEqual(reloadPlan({ size: 10, loaded: 2, ammoRounds: 30 }), { loaded: 10, max: 10, returned: { rounds: 2 } }, "aberta maior que o carregador enche");
+});
+
+test("Munição com Carga própria: Célula de 20 e Célula de 10 na mesma arma", () => {
+  assert.deepEqual(reloadPlan({ size: 10, loaded: 0, capacity: 20 }), { loaded: 20, max: 20, returned: null }, "a Carga da munição manda, não o carregador da arma");
+  assert.deepEqual(reloadPlan({ size: 10, loaded: 20, currentMax: 20, capacity: 10 }), { loaded: 10, max: 10, returned: { rounds: 0 } }, "a de 20 ainda cheia volta pra pilha");
+  assert.deepEqual(reloadPlan({ size: 10, loaded: 12, currentMax: 20, capacity: 10 }).returned, { rounds: 12 }, "12/20 volta aberta (12) — não é 'cheia' só por passar de 10");
+  assert.deepEqual(reloadPlan({ size: 10, loaded: 0, ammoRounds: 12, capacity: 20 }), { loaded: 12, max: 20, returned: null }, "aberta de 20 com 12 entra 12/20");
+  assert.deepEqual(magazineState({ size: 10, loaded: 18, capacity: 20 }), { uses: true, max: 20, loaded: 18, empty: false, full: false }, "18/20 com a Célula grande");
+  assert.equal(magazineState({ size: 0, loaded: 5, capacity: 20 }).uses, false, "sem carregador na arma, munição não muda nada");
 });

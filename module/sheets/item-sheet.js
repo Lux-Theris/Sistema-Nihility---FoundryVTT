@@ -52,6 +52,7 @@ import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
 import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../combat/resistance.js";
 import { openSkillEditorDialog, mechanicSummaryFor } from "../apps/skill-editor-dialog.js";
 import { pickDamageElements, selectedElementChips } from "../apps/checklist-picker.js";
+import { magazineState } from "../economy/consumable-rules.js";
 import { openLightConfigDialog, describeLight } from "../combat/lights.js";
 import { pickImageFile } from "../helpers/foundry-compat.js";
 
@@ -156,7 +157,11 @@ function headerChipsFor(item) {
         add(`${sys.value.amount} ${currency}`, "Valor");
       }
       if (sys.weapon?.enabled) add(`Arma · ${sys.weapon.damageFormula || "?"}`, "Dano", "accent");
-      if (sys.weapon?.enabled && sys.weapon.magazineSize > 0) add(`Carregador ${Math.min(sys.weapon.loaded ?? 0, sys.weapon.magazineSize)}/${sys.weapon.magazineSize}`, "Disparos antes de recarregar");
+      if (sys.weapon?.enabled && sys.weapon.magazineSize > 0) {
+        const mag = magazineState({ size: sys.weapon.magazineSize, loaded: sys.weapon.loaded, capacity: sys.weapon.loadedAmmo?.capacity });
+        add(`Carregador ${mag.loaded}/${mag.max}`, "Disparos antes de recarregar");
+      }
+      if (sys.ammo?.enabled && sys.ammo.capacity > 0) add(`Carga ${sys.ammo.capacity}`, "Disparos por unidade numa arma com Carregador");
       if (sys.consumable?.enabled) add(sys.consumable.charges > 1 ? `Consumível · ${sys.consumable.charges} cargas` : "Consumível", "Botão Usar no inventário", "accent");
       if (sys.container?.enabled) add(`Contêiner · ${sys.container.slots} slots`, "Guarda outros Itens");
       if (sys.ammo?.enabled) add(`Munição · ${getAmmoTypes().find(a => a.id === sys.ammo.type)?.label ?? "?"}`, "Munição", "accent");
@@ -652,7 +657,8 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     // Carregador (C7): tipos de munição aceitos como chips, e o que está dentro.
     const accepted = new Set(weapon.ammoTypes ?? []);
     context.weaponAmmoChips = getAmmoTypes().map(a => ({ id: a.id, label: a.label, checked: accepted.has(a.id) }));
-    context.weaponLoadedLabel = weapon.magazineSize > 0 ? `${Math.min(weapon.loaded ?? 0, weapon.magazineSize)}/${weapon.magazineSize}${weapon.loadedAmmo?.label ? ` · ${weapon.loadedAmmo.label}` : ""}` : "";
+    const mag = magazineState({ size: weapon.magazineSize, loaded: weapon.loaded, capacity: weapon.loadedAmmo?.capacity });
+    context.weaponLoadedLabel = mag.uses ? `${mag.loaded}/${mag.max}${weapon.loadedAmmo?.label ? ` · ${weapon.loadedAmmo.label}` : ""}` : "";
 
     // Consumível (J6): o mesmo vocabulário da Skill (Efeito/Dano, em si/alvo/área) e o mesmo
     // editor de Efeitos (partial nihility.effectCards, caminho system.consumable.effects).

@@ -58,6 +58,7 @@ import { EffectsListApp } from "../apps/effects-list.js";
 import { enableHotbarDrag } from "../core/hotbar.js";
 import { skillSummariesFor } from "../skills/skill-summary-ui.js";
 import { useConsumable, reloadWeapon, weaponCanFire } from "../economy/consumables.js";
+import { magazineState } from "../economy/consumable-rules.js";
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
 
@@ -512,6 +513,10 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.canSeeEffects = actor.isOwner || game.user.isGM;
     context.effectsCount = actor.effects.size;
     context.fichaGear = context.inventoryEnabled ? context.gear.filter(i => i.system.equipped) : context.gear;
+    // Carregador de cada arma da lista: o máximo é a Carga da munição que está dentro (ver magazineState).
+    context.gearMagazines = Object.fromEntries(
+      (context.fichaGear ?? []).filter(i => i.system?.weapon?.enabled).map(i => [i.id, magazineState({ size: i.system.weapon.magazineSize, loaded: i.system.weapon.loaded, capacity: i.system.weapon.loadedAmmo?.capacity })])
+    );
     if (context.inventoryEnabled) context.inventory = inventoryContext(actor, { filter: this.inventoryFilter, sort: this.inventorySort });
 
     debugLog(`${SYSTEM_ID} | NihilityActorSheet._prepareContext:`, actor.name);

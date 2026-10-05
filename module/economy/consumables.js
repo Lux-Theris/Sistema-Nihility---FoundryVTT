@@ -8,7 +8,7 @@
  * do bloco `consumable` do Item. Sem Custo, sem XP (não é Skill), nível 1, não mágico a menos que
  * marque Dano Mágico (uma poção não é desfeita pela Antimagia).
  */
-import { SYSTEM_ID, isAreaEffectsEnabled, getAmmoTypes } from "../core/config.js";
+import { SYSTEM_ID, isAreaEffectsEnabled, getAmmoTypes, getActiveDamageElements } from "../core/config.js";
 import { consumeUse, magazineState, ammoFitsWeapon, reloadPlan } from "./consumable-rules.js";
 import { findStack } from "./inventory.js";
 import { pickTargetActor } from "../helpers/target-picker.js";
@@ -106,7 +106,7 @@ export async function useConsumable(actor, item, event = null) {
 /** A arma pode atacar agora? Sem carregador, sempre; com carregador, só se houver disparo. */
 export function weaponCanFire(weapon) {
   const w = weapon?.system?.weapon ?? {};
-  const mag = magazineState({ size: w.magazineSize, loaded: w.loaded });
+  const mag = magazineState({ size: w.magazineSize, loaded: w.loaded, capacity: w.loadedAmmo?.capacity });
   if (mag.uses && mag.empty) {
     ui.notifications.warn(`${weapon.name} está sem munição — use Recarregar.`);
     return false;
@@ -122,38 +122,65 @@ export function ammoForWeapon(actor, weapon) {
   );
 }
 
-/** Rótulo de uma munição na lista: "Célula comum ×5 · aberta (4) · Célula". */
-function ammoOptionLabel(item, types) {
-  const rounds = Number(item.system.ammo.rounds) || 0;
-  const type = types[item.system.ammo.type];
-  return `${item.name} ×${item.system.quantity}${rounds ? ` · aberta (${rounds})` : ""}${type ? ` · ${type}` : ""}`;
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+/** "4d10 · Fogo", "dano da arma", "+ Absoluto" — o que a munição faz com o golpe. */
+function ammoDamageText(ammo, weapon, elements) {
+  const formula = ammo.damageFormula?.trim();
+  const els = (ammo.damageElements ?? []).map(id => elements[id] ?? id);
+  const parts = [];
+  if (formula || els.length) parts.push(`dano: ${formula || weapon.system.weapon.damageFormula || "da arma"}${els.length ? ` · ${els.join(" + ")}` : ""}`);
+  else parts.push("dano da arma");
+  if (ammo.isAbsoluteDamage) parts.push("Absoluto");
+  return parts.join(" · ");
 }
 
 /**
- * Janela de troca: mostra o que está na arma e o que vai acontecer com ele, deixa escolher a
- * munição nova ou só descarregar. Devolve `{action: "load", item}`, `{action: "unload"}` ou null.
+ * Janela de troca: o que está na arma (e o que acontece com ele), as munições do inventário como
+ * opções com o que cada uma dá, e "Só descarregar". Devolve `{action: "load", item}`,
+ * `{action: "unload"}` ou null.
  */
 async function reloadDialog(weapon, candidates, mag, current) {
   const esc = foundry.utils.escapeHTML;
   const types = Object.fromEntries(getAmmoTypes().map(t => [t.id, t.label]));
-  const plan = reloadPlan({ size: mag.max, loaded: mag.loaded });
+  const elements = Object.fromEntries(getActiveDamageElements().map(e => [e.id, e.label]));
+  const { returned } = reloadPlan({ size: weapon.system.weapon.magazineSize, loaded: mag.loaded, currentMax: mag.max });
+
+  let insideNote = "";
+  if (current && !current.source) insideNote = "Carregada antes desta versão: ao trocar, o que sobrou se perde.";
+  else if (returned?.rounds) insideNote = `Ao trocar, volta para o inventário como unidade aberta (${plural(returned.rounds, "disparo", "disparos")}).`;
+  else if (returned) insideNote = "Ainda cheia: ao trocar, volta para a pilha.";
   const inside = current
-    ? `<p>Na arma: <strong>${mag.loaded}/${mag.max}</strong> · ${esc(current.label ?? "munição")} — ${
-        plan.returned ? (plan.returned.rounds ? `volta para o inventário aberta (${plan.returned.rounds})` : "volta cheia para a pilha") : "vazia"
-      }${current.source ? "" : " <em>(carregada antes desta versão: se perde)</em>"}.</p>`
-    : `<p>Carregador vazio.</p>`;
-  const select = candidates.length
-    ? `<label>Carregar <select name="ammo">${candidates.map(i => `<option value="${i.id}">${esc(ammoOptionLabel(i, types))}</option>`).join("")}</select></label>`
-    : `<p><em>Nenhuma outra munição compatível no inventário.</em></p>`;
+    ? `<div class="rl-current"><span class="rl-name">${esc(current.label ?? "Munição")}</span><span class="rl-count">${mag.loaded}/${mag.max} disparos</span></div>${insideNote ? `<p class="rl-note">${insideNote}</p>` : ""}`
+    : `<div class="rl-current"><span class="rl-name rl-empty">Vazia</span><span class="rl-count">0/${mag.max} disparos</span></div>`;
+
+  const options = candidates.length
+    ? candidates
+        .map((item, index) => {
+          const ammo = item.system.ammo;
+          const plan = reloadPlan({ size: weapon.system.weapon.magazineSize, ammoRounds: ammo.rounds, capacity: ammo.capacity });
+          const gives = (Number(ammo.rounds) || 0) > 0 ? `aberta: ${plan.loaded}/${plan.max} disparos` : `enche: ${plural(plan.max, "disparo", "disparos")}`;
+          const meta = [types[ammo.type], gives, ammoDamageText(ammo, weapon, elements)].filter(Boolean).join(" · ");
+          return `<label class="rl-option"><input type="radio" name="ammo" value="${item.id}" ${index === 0 ? "checked" : ""}/><span class="rl-text"><span class="rl-name">${esc(item.name)} <em>×${item.system.quantity}</em></span><span class="rl-meta">${esc(meta)}</span></span></label>`;
+        })
+        .join("")
+    : `<p class="rl-note">Nenhuma munição compatível no inventário.</p>`;
+
   const buttons = [];
   if (candidates.length) {
-    buttons.push({ action: "load", label: "Carregar", default: true, callback: (event, button, dialog) => dialog.element.querySelector("[name=ammo]").value });
+    buttons.push({
+      action: "load",
+      label: current ? "Trocar" : "Carregar",
+      default: true,
+      callback: (event, button, dialog) => dialog.element.querySelector("[name=ammo]:checked")?.value ?? null
+    });
   }
   if (mag.loaded > 0) buttons.push({ action: "unload", label: "Só descarregar", callback: () => "__unload" });
   buttons.push({ action: "cancel", label: "Cancelar" });
+
   const answer = await foundry.applications.api.DialogV2.wait({
     window: { title: `Munição — ${weapon.name}` },
-    content: `<div class="nihility-reload-dialog">${inside}${select}</div>`,
+    content: `<div class="nihility-reload-dialog"><div class="rl-label">Na arma</div>${inside}<div class="rl-label">${current ? "Trocar por" : "Carregar com"}</div><div class="rl-options">${options}</div></div>`,
     buttons,
     rejectClose: false
   });
@@ -164,7 +191,7 @@ async function reloadDialog(weapon, candidates, mag, current) {
 
 /** Devolve ao inventário o que estava no carregador (cheio para a pilha, aberto à parte). */
 async function returnLoadedAmmo(actor, weapon, mag) {
-  const { returned } = reloadPlan({ size: mag.max, loaded: mag.loaded });
+  const { returned } = reloadPlan({ size: weapon.system.weapon.magazineSize, loaded: mag.loaded, currentMax: mag.max });
   const source = weapon.system.weapon.loadedAmmo?.source;
   if (!returned || !source) return;
   const data = foundry.utils.deepClone(source);
@@ -188,7 +215,7 @@ async function returnLoadedAmmo(actor, weapon, mag) {
 export async function reloadWeapon(actor, weapon) {
   if (!actor?.isOwner || !weapon?.system?.weapon?.enabled) return null;
   const w = weapon.system.weapon;
-  const mag = magazineState({ size: w.magazineSize, loaded: w.loaded });
+  const mag = magazineState({ size: w.magazineSize, loaded: w.loaded, capacity: w.loadedAmmo?.capacity });
   if (!mag.uses) return null;
   const candidates = ammoForWeapon(actor, weapon);
   const current = mag.loaded > 0 ? w.loadedAmmo ?? { label: "munição" } : null;
@@ -208,7 +235,7 @@ export async function reloadWeapon(actor, weapon) {
 
   const ammoItem = choice.item;
   const ammo = ammoItem.system.ammo;
-  const plan = reloadPlan({ size: mag.max, loaded: mag.loaded, ammoRounds: ammo.rounds });
+  const plan = reloadPlan({ size: w.magazineSize, loaded: mag.loaded, currentMax: mag.max, ammoRounds: ammo.rounds, capacity: ammo.capacity });
   // Os dados do Item, para a munição poder voltar ao inventário numa troca futura.
   const source = ammoItem.toObject();
   delete source._id;
@@ -226,9 +253,11 @@ export async function reloadWeapon(actor, weapon) {
       damageFormula: ammo.damageFormula ?? "",
       damageElements: ammo.damageElements ?? [],
       isAbsoluteDamage: Boolean(ammo.isAbsoluteDamage),
+      // A Carga desta munição vira o máximo do carregador enquanto ela estiver dentro.
+      capacity: Number(ammo.capacity) || 0,
       source
     }
   });
-  ui.notifications.info(`${weapon.name} carregada com ${ammoItem.name} (${plan.loaded}/${mag.max}).`);
+  ui.notifications.info(`${weapon.name} carregada com ${ammoItem.name} (${plan.loaded}/${plan.max}).`);
   return true;
 }

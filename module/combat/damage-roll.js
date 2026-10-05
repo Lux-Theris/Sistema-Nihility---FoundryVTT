@@ -508,7 +508,7 @@ export async function useWeaponAttack(sourceActor, weaponItem, targetActor = nul
 
   // Carregador (consumables.js): sem disparo, não ataca; a munição que está dentro troca a
   // fórmula/elementos e pode tornar o golpe Absoluto.
-  const magazine = magazineState({ size: weapon.magazineSize, loaded: weapon.loaded });
+  const magazine = magazineState({ size: weapon.magazineSize, loaded: weapon.loaded, capacity: weapon.loadedAmmo?.capacity });
   if (magazine.uses && magazine.empty) {
     ui.notifications?.warn(`${weaponItem.name} está sem munição — use Recarregar.`);
     return null;

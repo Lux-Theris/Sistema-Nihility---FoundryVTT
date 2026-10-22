@@ -290,6 +290,7 @@ export function validateCatalogs(catalogs, idx = buildCatalogIndex(catalogs)) {
   for (const condition of catalogs.conditions ?? []) {
     const list = [];
     checkRefs(list, idx, "Elementos", "elements", condition.elements);
+    checkRefs(list, idx, "Contágio › Imune com", "traits", condition.spread?.immuneTraits);
     if (condition.effect?.kind === "modifier" && condition.effect.modTarget && condition.effect.modTarget !== "movement") {
       checkRef(list, idx, "Efeito padrão › Atributo", "attributes", condition.effect.modTarget);
     }

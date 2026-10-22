@@ -190,6 +190,9 @@ export function isStatusConditionsEnabled() {
   return isFeatureEnabled("statusConditions");
 }
 
+export function isEnvironmentEnabled() {
+  return isFeatureEnabled("environment");
+}
 export function isIncapacitationEnabled() {
   return isFeatureEnabled("incapacitation");
 }

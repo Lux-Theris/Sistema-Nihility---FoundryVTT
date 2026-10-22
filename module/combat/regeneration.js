@@ -15,6 +15,7 @@ import { SYSTEM_ID, getHealingRules, getFeatureOption, isFeatureEnabled, isEnerg
 import { normalizeRegen, sumRegen, regenAmount } from "../core/regen-rules.js";
 import { sourceSuppressed, suppressionLevel } from "../core/suppression.js";
 import { restOutcome } from "../species/anatomy-rules.js";
+import { manaDensityFor } from "../environment/environment.js";
 import { healPlan, healBodyParts, partsSnapshot, partWrite } from "../species/anatomy.js";
 
 /**
@@ -61,6 +62,8 @@ export async function tickRegeneration(actor) {
   if (isDead(actor)) return null;
   const total = sumRegen(collectRegenSources(actor));
   if (isIncapacitated(actor)) total.energy = 0;
+  // Densidade de mana do lugar (environment.js): a Mana volta na proporção dela; 0 = não volta.
+  total.energy *= manaDensityFor(actor);
   if (!total.energy && !total.hp.length) return null;
   const parts = [];
   const update = {};
@@ -202,7 +205,10 @@ export async function openRestDialog(actor) {
 /** Linhas do "De onde vem" da energia/Vida: regeneração por rodada. */
 export function regenExplainRows(actor, stat = "energy") {
   const total = sumRegen(collectRegenSources(actor));
-  return total.rows
+  const rows = total.rows
     .filter(r => (stat === "energy" ? r.energy : r.hp) > 0)
     .map(r => ({ label: r.label, value: `${Math.round((stat === "energy" ? r.energy : r.hp) * 10) / 10}%${stat === "hp" ? ` · ${r.kind === "regeneracao" ? "Regeneração" : "Cura"}` : ""}` }));
+  const density = stat === "energy" && rows.length ? manaDensityFor(actor) : 1;
+  if (density !== 1) rows.push({ label: "Densidade de mana do lugar", value: `×${density}` });
+  return rows;
 }

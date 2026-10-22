@@ -150,6 +150,17 @@ export function registerSystemSettings() {
     });
   }
 
+  // Densidade de mana do mundo (ambiente, environment.js): multiplica a potência das Skills mágicas
+  // e a regeneração de Mana. Cenas e áreas (Regions com "Ambiente") sobrescrevem.
+  game.settings.register(SYSTEM_ID, S.manaDensityDefault, {
+    name: "Densidade de mana do mundo",
+    hint: "Quanta mana há no ambiente, em geral: multiplica a potência das Skills mágicas e a regeneração de Mana. 1 = normal; 0,5 = pouca; 2 = nexo arcano; 0 = magia não funciona. Cada cena e cada área com 'Ambiente (Nihility)' pode ter a sua.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 1
+  });
+
   game.settings.register(SYSTEM_ID, S.antimagicReach, {
     name: "Antimagia — alcance (× o nível)",
     hint: "A Skill de Antimagia corta efeitos mágicos, desliga Habilidades Ativas e suprime (passivos, itens mágicos, Skills usadas no alvo) até o nível dela vezes isto. Padrão 1,5 (nível 10 alcança até 15); 2 = o dobro.",

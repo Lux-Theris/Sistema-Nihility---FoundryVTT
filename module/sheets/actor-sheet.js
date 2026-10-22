@@ -106,6 +106,35 @@ async function promptDialog({ title, content, confirmLabel = "Confirmar", onConf
  * total ao mesmo sistema de Atributos, Pontos de Habilidade e Fusão de Skills.
  * Migrado pra ApplicationV2 (ActorSheetV2) — ver plano de migração.
  */
+
+/** Janelinha de "Nova Habilidade": só Nome e Tier — o resto se edita na ficha da Skill. */
+async function promptNewSkill(tierChoices) {
+  const esc = foundry.utils.escapeHTML;
+  const options = tierChoices.map(t => `<option value="${t}" ${t === "normal" ? "selected" : ""}>${esc(MEU_SISTEMA.SKILL_TIER_LABELS[t] ?? t)}</option>`).join("");
+  return foundry.applications.api.DialogV2.wait({
+    window: { title: "Nova Habilidade" },
+    classes: ["nihility-skill-editor-dialog"],
+    content: `<div class="skill-editor-form">
+      <div class="form-group"><label>Nome</label><input type="text" name="name" placeholder="Bola de Fogo" autofocus/></div>
+      <div class="form-group"><label>Tier</label><select name="tier">${options}</select></div>
+      <p class="hint-inline">A ficha da Habilidade abre em seguida: Mecânica, alvo, efeitos e passivos ficam lá.</p>
+    </div>`,
+    buttons: [
+      {
+        action: "create",
+        label: "Criar e abrir",
+        default: true,
+        callback: (event, button, dialog) => {
+          const name = dialog.element.querySelector("[name=name]").value.trim();
+          return { name: name || "Nova Habilidade", tier: dialog.element.querySelector("[name=tier]").value };
+        }
+      },
+      { action: "cancel", label: "Cancelar" }
+    ],
+    rejectClose: false
+  }).then(result => (result && typeof result === "object" ? result : null));
+}
+
 export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   static DEFAULT_OPTIONS = {
     classes: [SYSTEM_ID, "sheet", "actor"],
@@ -1074,51 +1103,27 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     // Título e Item só o Mestre cria (o botão some da ficha do jogador; isto fecha a porta dos fundos).
     if ((type === "title" || type === "item") && !game.user.isGM) return;
 
-    // Skill é o único tipo criado através do editor único (mesmo modal usado por Skills
-    // Raciais em species-config.js e pela ficha de Item (que agora edita tudo inline)) — os
-    // outros tipos continuam nascendo em branco e abrindo a própria ficha pra preencher.
+    // Skill: só Nome e Tier numa janelinha, e a mecânica é editada na própria ficha de Item (o
+    // redesenho aprovado, com Geral · Mecânica · Passivos). O modal grande de antes duplicava a
+    // ficha, era o editor menos completo e não seguia o desenho. O registro no Compêndio espera a
+    // ficha fechar, para guardar a Skill já preenchida, e não uma vazia.
     if (type === "skill") {
       const hasUltimate = this.actor.system.hasUltimateSkill;
       const ultimateVisible = hasUltimate || game.user.isGM;
       const tierChoices = MEU_SISTEMA.SKILL_TIERS.filter(t => t !== "racial" && (t !== "ultimate" || ultimateVisible));
-
-      const data = await openSkillEditorDialog({}, { tierChoices, levelReadonly: !game.user.isGM });
-      if (!data) return;
-
+      const picked = await promptNewSkill(tierChoices);
+      if (!picked) return;
       const [created] = await this.actor.createEmbeddedDocuments("Item", [
-        {
-          name: data.name,
-          type: "skill",
-          system: {
-            tier: data.tier,
-            level: data.level,
-            cost: data.cost,
-            hasUpkeep: data.hasUpkeep,
-            variableMana: Boolean(data.variableMana),
-            magicTag: data.magicTag || "auto",
-            upkeepCost: data.upkeepCost,
-            animationPath: data.animationPath,
-            description: data.description,
-            resistanceTarget: data.resistanceTarget,
-            effectType: data.effectType,
-            damageFormula: data.damageFormula,
-            scalingAttribute: data.scalingAttribute,
-            isMagicDamage: data.isMagicDamage,
-            isAbsoluteDamage: data.isAbsoluteDamage,
-            damageScale: data.damageScale,
-            damageElements: data.damageElements,
-            effects: data.effects,
-            targetType: data.targetType,
-            structureId: data.structureId,
-            areaShape: data.areaShape,
-            areaDistance: data.areaDistance,
-            areaAngle: data.areaAngle,
-            zoneRounds: data.zoneRounds
-          }
-        }
+        { name: picked.name, type: "skill", system: { tier: picked.tier, level: 1 } }
       ]);
-      await registerItemInCompendium(created.toObject());
-      created.sheet.render(true);
+      const sheet = created.sheet;
+      const hookId = Hooks.on("closeApplicationV2", async app => {
+        if (app !== sheet) return;
+        Hooks.off("closeApplicationV2", hookId);
+        const current = this.actor.items.get(created.id);
+        if (current) await registerItemInCompendium(current.toObject());
+      });
+      sheet.render(true);
       return;
     }
 

@@ -8,5 +8,6 @@
   "TYPES.Item.body_part": "Body Part",
   "TYPES.Item.title": "Title",
   "TYPES.Item.starship_module": "Starship Module",
-  "TYPES.Item.item": "Item"
+  "TYPES.Item.item": "Item",
+  "TYPES.RegionBehavior.nihilityEnvironment": "Environment (Nihility)"
 }

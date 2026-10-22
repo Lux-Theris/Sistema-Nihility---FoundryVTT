@@ -1769,7 +1769,22 @@ form.nihility-config-app {
   flex-direction: column;
   gap: 3px;
 }
-.skill-editor-form label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--nihility-text-faint); }
+/* O DialogV2 da V14 centraliza o texto: o formulário é alinhado à esquerda, como a ficha de Item. */
+.skill-editor-form { text-align: left; }
+.skill-editor-form label { font-size: 0.76rem; color: var(--nihility-text-dim); }
+.skill-editor-form .form-group > label:first-child { font-weight: 600; letter-spacing: 0.02em; }
+/* Checkbox como opção (não como título): texto claro, alinhado, com a cor de destaque. */
+.skill-editor-form .checkbox-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+  font-size: 0.82rem;
+  color: var(--nihility-text);
+  cursor: pointer;
+}
+.skill-editor-form input[type="checkbox"],
+.skill-editor-form input[type="radio"] { accent-color: var(--nihility-accent); width: 16px; height: 16px; margin: 0; flex-shrink: 0; }
 .skill-editor-form input[type="text"],
 .skill-editor-form input[type="number"],
 .skill-editor-form select,
@@ -1783,6 +1798,9 @@ form.nihility-config-app {
   font-size: 0.84rem;
   width: 100%;
 }
+.skill-editor-form input[type="text"],
+.skill-editor-form input[type="number"],
+.skill-editor-form select { height: 32px; padding-top: 0; padding-bottom: 0; }
 .skill-editor-form input:focus,
 .skill-editor-form select:focus,
 .skill-editor-form textarea:focus {
@@ -5744,3 +5762,60 @@ button.prio-chip { cursor: pointer; }
 /* Chave PJ/NPC do Mestre no cabeçalho da ficha (regra da Vida 0). */
 .nihility-sheet .pc-toggle { display: inline-flex; align-items: center; gap: 4px; font-size: 0.78rem; color: var(--nihility-text-dim); cursor: pointer; }
 .nihility-sheet .pc-toggle input { margin: 0; }
+
+/* Campo de Animação com os botões do navegador do Sequencer e do arquivo. */
+.nihility-sheet.item-sheet .anim-row { display: flex; gap: 6px; align-items: center; }
+.nihility-sheet.item-sheet .anim-row input { flex: 1; min-width: 0; }
+.nihility-sheet.item-sheet .anim-row .btn { flex: 0 0 auto; white-space: nowrap; }
+
+/* Card de Condição (status-conditions-config.js): seções com título, rótulo em cima do campo, como a
+   ficha de Item. Cores explícitas — o core pinta <label> com o texto do tema claro. */
+.nihility-card-config .cond-sec { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--nihility-border-soft, rgba(58, 65, 102, 0.5)); }
+.nihility-card-config .cond-sec-title { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--nihility-text-dim, #9aa1c2); margin-bottom: 6px; }
+.nihility-card-config .cond-sec-title .help { text-transform: none; }
+.nihility-card-config details.cond-fold > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; }
+.nihility-card-config details.cond-fold > summary::before { content: "▸"; font-size: 0.7rem; color: var(--nihility-text-dim, #9aa1c2); }
+.nihility-card-config details.cond-fold[open] > summary::before { content: "▾"; }
+.nihility-card-config .cond-badge { text-transform: none; letter-spacing: 0; font-size: 0.72rem; color: var(--nihility-accent, #6ee7ff); border: 1px solid var(--nihility-accent, #6ee7ff); border-radius: 999px; padding: 0 8px; }
+.nihility-card-config .cond-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 10px; margin-bottom: 6px; }
+.nihility-card-config .cond-grid[hidden], .nihility-card-config .cond-fld[hidden] { display: none; }
+.nihility-card-config .cond-fld { display: flex; flex-direction: column; gap: 3px; min-width: 0; color: var(--nihility-text, #e6e8f2); }
+.nihility-card-config .cond-fld.span-2 { grid-column: span 2; }
+.nihility-card-config .cond-label { font-size: 0.74rem; color: var(--nihility-text-dim, #9aa1c2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nihility-card-config .cond-fld input, .nihility-card-config .cond-fld select { width: 100%; height: 30px; }
+.nihility-card-config .cond-check { display: inline-flex; align-items: center; gap: 8px; margin-right: 16px; font-size: 0.82rem; color: var(--nihility-text, #e6e8f2); cursor: pointer; }
+.nihility-card-config .cond-check input { accent-color: var(--nihility-accent, #6ee7ff); margin: 0; }
+.nihility-card-config .cond-note { margin: 0 0 6px; font-size: 0.76rem; color: var(--nihility-text-dim, #9aa1c2); }
+.nihility-card-config .cond-sec .curse-effect-list { margin-top: 6px; }
+
+/* ==========================================================================
+   Ambiente da Cena (environment-config.js) — perigos e densidade de mana
+   ========================================================================== */
+.nihility-environment-config .env-root { display: flex; flex-direction: column; gap: 8px; padding: 8px 10px; color: var(--nihility-text); min-height: 0; }
+.nihility-environment-config .env-body { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; min-height: 0; }
+.nihility-environment-config .env-sec { display: flex; flex-direction: column; gap: 6px; }
+.nihility-environment-config .env-sec h3 { margin: 0; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--nihility-text-dim); border-bottom: 1px solid var(--nihility-border); padding-bottom: 2px; }
+.nihility-environment-config .env-field { display: flex; flex-direction: column; gap: 2px; }
+.nihility-environment-config .env-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--nihility-text-faint); }
+.nihility-environment-config .env-note,
+.nihility-environment-config .env-empty { font-size: 0.8rem; color: var(--nihility-text-dim); margin: 0; }
+.nihility-environment-config .env-density { display: grid; grid-template-columns: 90px 1fr; gap: 8px; align-items: center; }
+.nihility-environment-config .env-hazard { display: flex; flex-direction: column; gap: 6px; padding: 6px 8px; border: 1px solid var(--nihility-border); border-radius: 6px; background: var(--nihility-bg-panel-alt); }
+.nihility-environment-config .env-hazard-main { display: grid; grid-template-columns: 1fr 1.4fr 20px; gap: 6px; align-items: start; }
+.nihility-environment-config .env-hazard-fx { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 6px; align-items: end; padding-top: 6px; border-top: 1px dashed var(--nihility-border); }
+.nihility-environment-config .env-fx-title { grid-column: 1 / -1; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--nihility-text-dim); }
+.nihility-environment-config .env-color { display: flex; align-items: center; gap: 4px; height: 26px; }
+.nihility-environment-config .env-color input[type="color"] { width: 34px; height: 24px; padding: 0; border: 1px solid var(--nihility-border); background: none; }
+.nihility-environment-config .env-remove { color: var(--nihility-text-dim); cursor: pointer; padding-top: 20px; text-align: center; }
+.nihility-environment-config .env-remove:hover { color: var(--nihility-danger); }
+.nihility-environment-config .env-footer { display: flex; justify-content: flex-end; gap: 6px; }
+.nihility-environment-config .env-footer button { width: auto; }
+@media (max-width: 520px) {
+  .nihility-environment-config .env-hazard-main { grid-template-columns: 1fr 20px; }
+  .nihility-environment-config .env-hazard-fx { grid-template-columns: 1fr 1fr; }
+}
+
+/* Radiação: botão no HUD do Token aceso quando ele emite; diálogo de Passar tempo. */
+#token-hud .nihility-radiation-hud.active { color: #c6ff00; border-color: #c6ff00; }
+.nihility-pass-time .form-group { display: flex; gap: 6px; align-items: center; }
+.nihility-pass-time .form-group input { width: 80px; }

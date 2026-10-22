@@ -54,7 +54,8 @@ import { openSkillEditorDialog, mechanicSummaryFor } from "../apps/skill-editor-
 import { pickDamageElements, selectedElementChips } from "../apps/checklist-picker.js";
 import { magazineState } from "../economy/consumable-rules.js";
 import { openLightConfigDialog, describeLight } from "../combat/lights.js";
-import { pickImageFile } from "../helpers/foundry-compat.js";
+import { pickImageFile, filePickerClass } from "../helpers/foundry-compat.js";
+import { sequencerAvailable } from "../core/vfx.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -71,7 +72,8 @@ const { ItemSheetV2 } = foundry.applications.sheets;
  * (`tabsFor`), chips-resumo no cabeçalho (`headerChipsFor`) e seções em grade. Skill: todos os
  * campos são editados inline nas abas Geral/Mecânica/Passivos/Sub-Skills.
  * `openSkillEditorDialog` só sobrevive como formulário de CRIAÇÃO (Skill Racial em
- * species-config.js, "+ Nova Habilidade (direto)" em actor-sheet.js) e de Evolução. Os
+ * species-config.js, pedido com Pontos de Habilidade, Habilidade Concedida e Sub-Skills) e de
+ * Evolução. O "+ Nova Habilidade" da ficha só pede Nome e Tier e abre ESTA ficha. Os
  * Efeitos (`system.effects[]`) não usam `name=` de formulário: um array submetido por linhas
  * parciais perderia os campos que a linha não renderiza (ícone, elementos), então cada
  * controle é gravado por `_onSkillEffectFieldChange`, que reescreve só o campo tocado.
@@ -322,6 +324,8 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       removeElement: NihilityItemSheet.#onRemoveElement,
       showEffectCondition: NihilityItemSheet.#onShowEffectCondition,
       editEffectLight: NihilityItemSheet.#onEditEffectLight,
+      browseAnimations: NihilityItemSheet.#onBrowseAnimations,
+      pickAnimationFile: NihilityItemSheet.#onPickAnimationFile,
       toggleWeaponAmmoType: NihilityItemSheet.#onToggleWeaponAmmoType,
       addConditionalModifier: NihilityItemSheet.#onConditionalModifierAdd,
       editSubSkill: NihilityItemSheet.#onSubSkillEdit,
@@ -405,6 +409,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.isGM = game.user.isGM;
     context.resistancesEnabled = isResistancesEnabled();
     context.conditionsEnabled = isStatusConditionsEnabled();
+    context.sequencerActive = sequencerAvailable();
     context.scaleEnabled = isScaleEnabled();
     context.energyLabel = getCharacterEnergyLabel();
     context.magicTagOptions = Object.entries(MAGIC_TAG_LABELS).map(([id, label]) => ({ id, label: id === "auto" ? `Automático (custa ${context.energyLabel})` : label }));
@@ -1078,6 +1083,29 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     if (!this.isEditable) return;
     const path = target.dataset.path;
     await this.#writeElementList(path, this.#readElementList(path).filter(id => id !== target.dataset.element));
+  }
+
+  /**
+   * Animação da Skill: abre o navegador de animações do Sequencer (efeitos de módulos como JB2A,
+   * pesquisáveis e com prévia). Ali, o botão de copiar caminho dá o texto a colar no campo.
+   */
+  static #onBrowseAnimations(event) {
+    event.preventDefault();
+    const viewer = globalThis.Sequencer?.DatabaseViewer;
+    if (typeof viewer?.show === "function") viewer.show();
+    else ui.notifications.warn("O navegador de animações precisa do módulo Sequencer ativo.");
+  }
+
+  /** Animação da Skill a partir de um arquivo (.webm, .gif…): o seletor de arquivos do Foundry. */
+  static #onPickAnimationFile(event) {
+    event.preventDefault();
+    if (!this.isEditable) return;
+    const FilePickerClass = filePickerClass();
+    new FilePickerClass({
+      type: "imagevideo",
+      current: this.item.system.animationPath || "",
+      callback: path => this.item.update({ "system.animationPath": path })
+    }).render(true);
   }
 
   /** Luz do Escudo pessoal (Efeito de alvo "Escudo"): editor com pré-visualização no mapa. */

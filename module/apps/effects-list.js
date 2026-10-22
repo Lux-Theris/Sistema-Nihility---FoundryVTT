@@ -57,6 +57,9 @@ function describeActiveEffect(effect, actor) {
   if (!source && flags.sourceSkillId) source = actor.items.get(flags.sourceSkillId)?.name ?? "";
   const anchors = effectAnchors(flags, effect.origin);
   const now = game.combat?.started ? { round: game.combat.round ?? 0, combatId: game.combat.id } : {};
+  // Perigo do Ambiente (environment.js): dura enquanto o Token estiver no lugar.
+  const fromEnvironment = Boolean(flags.environment?.sceneId);
+  if (fromEnvironment) source = "Ambiente";
   if (!source && condition) source = "Condição";
 
   let lines;
@@ -66,7 +69,7 @@ function describeActiveEffect(effect, actor) {
     const amount = Number(flags.tickAmount) || 0;
     const target = labels[flags.tickTarget] ?? flags.tickTarget;
     lines = [`${target} ${amount >= 0 ? "+" : "−"}${Math.abs(amount)} por ${flags.tickUnit === "manual" ? "tick manual" : "rodada"}`];
-    remaining = anchors.length ? "até desligar a Skill" : `${flags.ticksRemaining ?? 0} tick(s)`;
+    remaining = fromEnvironment ? "enquanto estiver no lugar" : anchors.length ? "até desligar a Skill" : `${flags.ticksRemaining ?? 0} tick(s)`;
   } else {
     lines = readEffectChanges(effect).map(describeChange);
     if (anchors.length) {
@@ -75,7 +78,7 @@ function describeActiveEffect(effect, actor) {
       remaining = anchorLifetime({ anchors, finite }).untilOff ? `até desligar a Skill${holders}` : finite === PERMANENT ? "sem prazo" : `${finite} rodada(s) ou até desligar a Skill${holders}`;
     } else {
       const rounds = effect.duration?.remaining ?? effect.duration?.rounds;
-      remaining = rounds ? `${Math.max(0, Math.ceil(rounds))} rodada(s)` : "sem prazo";
+      remaining = fromEnvironment ? "enquanto estiver no lugar" : rounds ? `${Math.max(0, Math.ceil(rounds))} rodada(s)` : "sem prazo";
     }
   }
   // Maldição (prancha 6): quem lançou, custo na Mana da vítima, o que faz sem Mana e o estado.

@@ -2,7 +2,7 @@
   "id": "nihility-rpg-system",
   "title": "Nihility RPG System",
   "description": "Sistema customizado modular para Foundry VTT, compatível com Fantasia/Isekai e Sci-Fi Arcano. Blocos do sistema (Naves, Títulos, Anatomia, Fusão, PAD...) ligam e desligam por campanha, com presets prontos. Suporta economia dinâmica, títulos, anatomia detalhada por espécie, fusão avançada de habilidades e automações via IA. Requer Foundry V13+.",
-  "version": "1.70.0",
+  "version": "1.73.0",
   "compatibility": {
     "minimum": "13",
     "verified": "14"
@@ -43,6 +43,9 @@
       "title": {},
       "starship_module": {},
       "item": {}
+    },
+    "RegionBehavior": {
+      "nihilityEnvironment": {}
     }
   },
   "relationships": {
@@ -51,6 +54,11 @@
         "id": "sequencer",
         "type": "module",
         "reason": "Toca a Animação configurada numa Skill (vídeo/imagem/som) ao usá-la. Opcional — sem ele, a Skill funciona normalmente, só sem o efeito visual."
+      },
+      {
+        "id": "fxmaster",
+        "type": "module",
+        "reason": "Mostra o clima/efeito escolhido para cada perigo do Ambiente da cena (névoa, chuva, brasas…). Opcional — sem ele, o perigo funciona igual, só sem o visual."
       }
     ]
   },

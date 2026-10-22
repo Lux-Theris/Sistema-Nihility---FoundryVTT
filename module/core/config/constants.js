@@ -9,7 +9,7 @@ import { PHYSICAL_SUBTYPES, DEFAULT_DAMAGE_ELEMENTS, SCIFI_DAMAGE_ELEMENTS, DEFA
 import { DEFAULT_SHIP_SIZES, DEFAULT_VEHICLE_SIZES, MODULE_ROLES, DEFAULT_MODULE_CATEGORIES, SCIFI_MODULE_CATEGORIES, DEFAULT_SHIP_CLASSES, DEFAULT_VEHICLE_CLASSES, DEFAULT_CREW_ROLES, MODULE_SIZE_PRESETS } from "./defaults/vessels.js";
 import { FEATURES, CAMPAIGN_PRESETS } from "./defaults/features.js";
 import { DEFAULT_CURRENCIES, DEFAULT_SCALES } from "./defaults/misc.js";
-export { PHYSICAL_SUBTYPES } from "./defaults/elements.js";
+export { PHYSICAL_SUBTYPES, RADIATION_ELEMENT } from "./defaults/elements.js";
 
 export const SYSTEM_ID = "nihility-rpg-system";
 
@@ -70,6 +70,7 @@ export const MEU_SISTEMA = {
     affinitySuperEffective: "affinitySuperEffective",
     antimagicGrowth: "antimagicGrowth",
     antimagicReach: "antimagicReach",
+    manaDensityDefault: "manaDensityDefault",
     shipFocusBoost: "shipFocusBoost",
     shipFocusCut: "shipFocusCut",
     skillPowerPerLevel: "skillPowerPerLevel",

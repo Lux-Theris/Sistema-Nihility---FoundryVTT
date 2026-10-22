@@ -348,6 +348,18 @@ async function importData() {
   input.click();
 }
 
+
+/** Estado do Ambiente na cena aberta, para a linha do menu. */
+function environmentState() {
+  const raw = canvas?.scene?.getFlag?.(SYSTEM_ID, "environment");
+  if (!canvas?.scene) return "sem cena aberta";
+  const hazards = (raw?.hazards ?? []).length;
+  const density = raw?.manaDensity;
+  const parts = [hazards ? `${hazards} perigo(s)` : "sem perigo"];
+  if (density !== null && density !== undefined && density !== "") parts.push(`mana ×${density}`);
+  return parts.join(" · ");
+}
+
 export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static DEFAULT_OPTIONS = {
     id: "nihility-menu",
@@ -459,7 +471,8 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
           { action: "damage-elements-config", icon: "fas fa-fire", title: "Tipos de Dano", desc: "Elementos por grupo e o que cada um causa ao acertar.", state: `${count(elements.length, "tipo", "tipos")} · ${count(new Set(elements.map(e => e.group)).size, "grupo", "grupos")}` },
           { action: "status-conditions-config", icon: "fas fa-skull-crossbones", title: "Condições", desc: "Queimadura, Lentidão, Veneno… com efeito padrão.", state: `${conditions.length} · ${conditions.filter(c => c.effect?.kind).length} com efeito`, feature: "statusConditions" },
           { action: "scales-config", icon: "fas fa-up-right-and-down-left-from-center", title: "Escalas", desc: "Pessoal, Veículo, Nave, Capital — quanto o dano muda entre elas.", state: count(getScaleConfig().scales.length, "escala", "escalas"), feature: "scale" },
-          { action: "structures-config", icon: "fas fa-dungeon", title: "Estruturas", desc: "Paredes, blocos e barreiras que as Skills erguem no mapa.", state: count(getStructures().length, "estrutura", "estruturas"), feature: "structures" }
+          { action: "structures-config", icon: "fas fa-dungeon", title: "Estruturas", desc: "Paredes, blocos e barreiras que as Skills erguem no mapa.", state: count(getStructures().length, "estrutura", "estruturas"), feature: "structures" },
+          { action: "environment-config", icon: "fas fa-smog", title: "Ambiente da Cena", desc: "Perigos da cena (vácuo, radiação…) e densidade de mana. Áreas: Região com \"Ambiente (Nihility)\".", state: environmentState(), feature: "environment" }
         ]
       },
       {
@@ -727,6 +740,11 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
       case "traits-config": {
         const { TraitsConfigApp } = await import("./traits-config.js");
         new TraitsConfigApp().render(true);
+        break;
+      }
+      case "environment-config": {
+        const { EnvironmentConfigApp } = await import("./environment-config.js");
+        EnvironmentConfigApp.open();
         break;
       }
       case "scales-config": {

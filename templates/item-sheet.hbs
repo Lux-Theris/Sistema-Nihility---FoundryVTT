@@ -98,8 +98,15 @@
       <div class="sec">
         <div class="sec-head">Apresentação</div>
         <div class="sec-body">
-          <label class="fld"><span class="fld-label">Animação (Sequencer) <span class="help" title="Caminho opcional de um efeito do Sequencer. Sem o módulo Sequencer, o campo é ignorado.">?</span></span>
-            <input class="mono" type="text" name="system.animationPath" value="{{system.animationPath}}" placeholder="modules/jb2a_patreon/Library/.../explosion.webm"/></label>
+          <div class="fld"><span class="fld-label">Animação (Sequencer) <span class="help" title="Um efeito do banco do Sequencer (ex.: jb2a.fireball.beam.orange) ou um arquivo de vídeo (.webm). Toca de quem usa até o alvo. Sem o módulo Sequencer, o campo é ignorado.">?</span></span>
+            <span class="anim-row">
+              <input class="mono" type="text" name="system.animationPath" value="{{system.animationPath}}" placeholder="jb2a.fireball.beam.orange ou modules/.../efeito.webm"/>
+              {{#if editable}}
+              {{#if sequencerActive}}<button type="button" class="btn" data-action="browseAnimations" title="Navegador do Sequencer: pesquise, veja a prévia e copie o caminho">Ver animações</button>{{/if}}
+              <button type="button" class="btn" data-action="pickAnimationFile" title="Escolher um arquivo de vídeo">Arquivo…</button>
+              {{/if}}
+            </span>
+          </div>
           <label class="fld"><span class="fld-label">Gatilho Emocional</span><input type="text" name="system.emotionTrigger" value="{{system.emotionTrigger}}"/></label>
         </div>
       </div>

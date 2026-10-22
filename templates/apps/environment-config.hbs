@@ -1,0 +1,95 @@
+<div class="env-root">
+  <div class="env-body">
+    <p class="hint">
+      Vale para a <strong>cena inteira</strong> (outra cena: clique com o direito nela na lista de Cenas → Ambiente). Para um pedaço do mapa (uma sala sem ar, um nexo arcano), desenhe uma
+      <strong>Região</strong> e adicione o comportamento <strong>Ambiente (Nihility)</strong> nela.
+    </p>
+
+    {{#if hasScene}}
+    <section class="env-sec">
+      <h3>Densidade de mana</h3>
+      <div class="env-density">
+        <input type="number" name="manaDensity" min="0" step="0.1" value="{{manaDensity}}" placeholder="{{worldDensity}}"/>
+        <span class="env-note">Vazio = a do mundo ({{worldDensity}}). Multiplica a potência das Skills mágicas e a regeneração de Mana. <strong>0</strong> = magia não funciona.</span>
+      </div>
+    </section>
+
+    {{#if radiationEnabled}}
+    <section class="env-sec">
+      <h3><i class="fas fa-radiation"></i> Radiação</h3>
+      <div class="env-density">
+        <input type="number" name="radiation" min="0" step="1" value="{{radiation}}"/>
+        <span class="env-note">Nível da cena inteira (0 = nenhuma). Quem fica aqui vai sendo irradiado até este nível e leva dano por rodada. Áreas e Tokens (botão <i class="fas fa-radiation"></i> no HUD do Token) somam com isto.</span>
+      </div>
+    </section>
+    {{/if}}
+
+    <section class="env-sec">
+      <h3>Perigos</h3>
+      <p class="env-note">Cada perigo é uma Condição mantida em todo Personagem na cena, com o efeito padrão dela, enquanto ele estiver aqui. Quem tem um Traço imune escapa.</p>
+      {{#each hazards as |h|}}
+      <div class="env-hazard">
+        <div class="env-hazard-main">
+          <div class="env-field">
+            <label class="env-label">Condição</label>
+            <select name="conditionId">
+              {{#each h.conditions as |c|}}<option value="{{c.id}}" {{#if c.selected}}selected{{/if}}>{{c.label}}</option>{{/each}}
+            </select>
+          </div>
+          <div class="env-field">
+            <label class="env-label">Imune com</label>
+            {{{h.immuneHtml}}}
+          </div>
+          <a class="env-remove" data-action="removeHazard" data-index="{{h.index}}" title="Tirar perigo"><i class="fas fa-trash"></i></a>
+        </div>
+        {{#if ../fxActive}}
+        <div class="env-hazard-fx">
+          <span class="env-fx-title"><i class="fas fa-wand-magic-sparkles"></i> Visual (FXMaster)</span>
+          <div class="env-field">
+            <label class="env-label">Clima pronto</label>
+            <select name="fx">
+              <option value="">—</option>
+              {{#each h.presetOptions as |o|}}<option value="{{o.id}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>{{/each}}
+            </select>
+          </div>
+          <div class="env-field">
+            <label class="env-label">Partícula</label>
+            <select name="fxParticle">
+              <option value="">—</option>
+              {{#each h.particleOptions as |o|}}<option value="{{o.id}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>{{/each}}
+            </select>
+          </div>
+          <div class="env-field">
+            <label class="env-label">Filtro</label>
+            <select name="fxFilter">
+              <option value="">—</option>
+              {{#each h.filterOptions as |o|}}<option value="{{o.id}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>{{/each}}
+            </select>
+          </div>
+          <div class="env-field">
+            <label class="env-label">Cor</label>
+            <div class="env-color">
+              <input type="checkbox" name="fxTint" {{#if h.tint}}checked{{/if}} title="Tingir a partícula e o filtro de Cor"/>
+              <input type="color" name="fxColor" value="{{h.color}}"/>
+            </div>
+          </div>
+        </div>
+        {{/if}}
+      </div>
+      {{else}}
+      <p class="env-empty">Nenhum perigo nesta cena.</p>
+      {{/each}}
+      <button type="button" data-action="addHazard"><i class="fas fa-plus"></i> Perigo</button>
+    </section>
+    {{#unless fxActive}}<p class="env-note"><i class="fas fa-circle-info"></i> Com o módulo <strong>FXMaster</strong> ativo, cada perigo pode ligar um visual na cena (clima pronto, partícula, filtro e cor).</p>{{/unless}}
+    {{else}}
+    <p class="env-empty">Esta cena não existe mais.</p>
+    {{/if}}
+  </div>
+  {{#if hasScene}}
+  <footer class="env-footer">
+    {{#if radiationEnabled}}<button type="button" data-action="passTime" title="Fora de combate: aplica N rodadas de radiação de uma vez"><i class="fas fa-hourglass-half"></i> Passar tempo…</button>{{/if}}
+    <button type="button" data-action="save"><i class="fas fa-save"></i> Salvar</button>
+  </footer>
+  {{/if}}
+</div>

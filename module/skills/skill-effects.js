@@ -7,7 +7,8 @@
  *    HP/Mana Máximo mesmo quando o alvo é um atributo); "shield" é somado
  *    direto, sem duração, gasto na mão pelo jogador conforme absorve dano.
  */
-import { getActiveStatusConditions, getEnergyLabelForActor, isEnergyPoolEnabled, effectiveSkillCost, isStructureMechanic, manaInvestmentPower, getManaInvestConfig } from "../core/config.js";
+import { getActiveStatusConditions, getEnergyLabelForActor, isEnergyPoolEnabled, effectiveSkillCost, isStructureMechanic, manaInvestmentPower, getManaInvestConfig, isMagicUse } from "../core/config.js";
+import { manaDensityFor } from "../environment/environment.js";
 import { suppressionLevel } from "../core/suppression.js";
 import { skillIsMagic } from "../core/magic-rules.js";
 import { createZone } from "../combat/area-effects.js";
@@ -79,6 +80,14 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
     return null;
   }
 
+  // Densidade de mana do lugar (environment.js): 0 = a magia não funciona aqui (nem gasta Mana);
+  // outro valor multiplica a força da Skill mágica, junto com o investimento de Mana.
+  const manaDensity = isMagicUse(mech, sourceActor) ? manaDensityFor(sourceActor) : 1;
+  if (manaDensity <= 0) {
+    ui.notifications?.warn(`Não há mana neste lugar: ${label} não funciona aqui.`);
+    return null;
+  }
+
   // Numa campanha sem pool de Mana/Energia (setting `energyPoolEnabled`), Personagem/Criatura
   // não paga Custo nenhum — a Habilidade continua funcionando, o recurso é que não existe.
   // Nave/Veículo ignora esse desligamento: o Grid de Energia é um sistema à parte.
@@ -127,7 +136,8 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
     await skill.update({ [activeStatePath(options.subSkillIndex)]: true, [investRatioPath(options.subSkillIndex)]: investRatio });
   }
   // Daqui pra frente a Skill carrega a força do investimento (dano, Efeitos, Vida de Estrutura).
-  const investPower = manaInvestmentPower(investRatio, investConfig.exponent);
+  const investPower = manaInvestmentPower(investRatio, investConfig.exponent) * manaDensity;
+  if (manaDensity !== 1) ui.notifications?.info(`Mana ${manaDensity > 1 ? "densa" : "rarefeita"} aqui (×${manaDensity}): ${label} sai com essa força.`);
   if (investPower !== 1) mech = { ...(typeof mech.toObject === "function" ? mech.toObject() : mech), investPower };
 
   // Dispara e esquece — nunca aguardado, a animação não deve atrasar a mecânica/chat. Dano em alvo

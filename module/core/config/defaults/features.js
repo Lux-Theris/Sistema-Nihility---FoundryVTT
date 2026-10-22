@@ -172,6 +172,24 @@ export const FEATURES = {
       movementGmIgnores: { label: "Mestre ignora o limite", hint: "O Mestre move tokens sem gastar nem respeitar o deslocamento.", type: "boolean", default: true }
     }
   },
+  environment: {
+    setting: "environmentEnabled",
+    name: "Ambiente da cena e densidade de mana",
+    hint: "Perigos de ambiente (vácuo, radiação, gravidade alta…): Condições que a cena inteira ou uma área desenhada (Region com o comportamento 'Ambiente (Nihility)') mantém em quem está lá, com Traços que imunizam e, na cena, visual opcional do FXMaster. E a densidade de mana do lugar, que multiplica a potência das Skills mágicas e a regeneração de Mana (0 = magia não funciona ali).",
+    default: true
+  },
+  radiation: {
+    setting: "radiationEnabled",
+    parent: "environment",
+    name: "Radiação",
+    hint: "Cena, área (Region) ou Token emitindo têm um nível de radiação. Quem fica lá vai sendo irradiado (sobe até o nível do lugar, mais rápido em fonte forte) e leva dano por rodada proporcional à irradiação; fora, a irradiação e o dano caem. Fora de combate o Mestre usa 'Passar tempo' na janela Ambiente da Cena.",
+    default: true,
+    options: {
+      radiationGainPercent: { label: "Sobe por rodada (% do nível do lugar)", hint: "Fonte 100 com 20% irradia +20 por rodada até 100.", type: "number", default: 20, min: 1 },
+      radiationDecayPercent: { label: "Cai por rodada fora (% da irradiação)", hint: "Irradiação 100 com 10% cai para 90, 81… até zerar (mínimo 1 por rodada).", type: "number", default: 10, min: 1 },
+      radiationDamagePerLevel: { label: "Dano por nível de irradiação", hint: "Dano por rodada = irradiação × este número (antes da Resistência a Radiação).", type: "number", default: 1, min: 0 }
+    }
+  },
   incapacitation: {
     setting: "incapacitationEnabled",
     name: "Vida 0: Caído e Inconsciente",

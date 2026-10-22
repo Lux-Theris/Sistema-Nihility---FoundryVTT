@@ -7,6 +7,7 @@ import {
   SYSTEM_ID,
   MEU_SISTEMA,
   PHYSICAL_SUBTYPES,
+  RADIATION_ELEMENT,
   registerSystemSettings,
   getSkillPointsPerLevel,
   getSkillPointsStarting,
@@ -54,6 +55,10 @@ import { registerStructureRendering } from "./structures/structure-render.js";
 import { registerFloatingNumbers } from "./combat/floating-numbers.js";
 import { registerHotbarMacros, useItemFromHotbar } from "./core/hotbar.js";
 import { registerIncapacitation, tickIncapacitation, isDead } from "./combat/incapacitation.js";
+import { tickContagion } from "./combat/contagion.js";
+import { registerEnvironment, syncTokenEnvironment } from "./environment/environment.js";
+import { registerRadiation, tickRadiation } from "./environment/radiation.js";
+import { registerEnvironmentSceneMenu } from "./apps/environment-config.js";
 import { registerShieldLightHooks } from "./combat/lights.js";
 import { registerShieldPoolReconcile } from "./combat/shield-pools.js";
 import { registerStatusConditions, interceptManualCondition } from "./combat/conditions.js";
@@ -169,6 +174,9 @@ Hooks.once("init", () => {
   registerFloatingNumbers();
   registerHotbarMacros();
   registerIncapacitation();
+  registerEnvironment();
+  registerEnvironmentSceneMenu();
+  registerRadiation();
 
   // Partials reaproveitados entre templates (hoje só a Habilidade Concedida, usada 3x na ficha
   // de Item). Precisa estar registrado antes da primeira ficha abrir.
@@ -260,6 +268,7 @@ Hooks.once("ready", async () => {
   await runMigrationIfNeeded("speciesStableKeys", migrateSpeciesStableKeys);
   await runMigrationIfNeeded("physicalSubtypes", migratePhysicalSubtypes);
   await runMigrationIfNeeded("incapacitationConditions", migrateIncapacitationConditions);
+  await runMigrationIfNeeded("radiationElement", migrateRadiationElement);
   console.log(`${SYSTEM_ID} | Sistema pronto.`);
 });
 
@@ -320,6 +329,27 @@ async function migrateIncapacitationConditions() {
   await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData, JSON.stringify(list, null, 2));
   // A paleta do HUD do Token já foi montada nesta carga: republica para as duas aparecerem agora.
   registerStatusConditions();
+}
+
+/**
+ * Migração única: catálogo de Tipos de Dano já salvo com os elementos Sci-Fi ganha "Radiação", que
+ * o Ambiente usa para a Resistência ao dano de radiação. Catálogo de fantasia fica como está (o
+ * Mestre acrescenta pelo editor se quiser).
+ */
+async function migrateRadiationElement() {
+  const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.damageElementsData);
+  if (!raw) return;
+  let list;
+  try {
+    list = typeof raw === "string" ? JSON.parse(raw) : raw;
+  } catch (err) {
+    return;
+  }
+  if (!Array.isArray(list) || list.some(el => el?.id === RADIATION_ELEMENT.id)) return;
+  const scifi = new Set(MEU_SISTEMA.SCIFI_DAMAGE_ELEMENTS.map(el => el.id));
+  if (!list.some(el => scifi.has(el?.id))) return;
+  list.push(foundry.utils.deepClone(RADIATION_ELEMENT));
+  await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.damageElementsData, JSON.stringify(list, null, 2));
 }
 
 async function migratePhysicalSubtypes() {
@@ -695,6 +725,17 @@ Hooks.on("updateCombat", async (combat, changed) => {
   // as Zonas que ELE lançou (contando, para sumirem no prazo) e a limpeza dos efeitos das
   // Habilidades Ativas que desligaram na morte — senão o buff que ele dava a um aliado ficaria.
   const dead = isDead(actor);
+
+  try {
+    // Contágio (contagion.js): Condições com "espalha" passam para quem está no raio.
+    if (!dead) await tickContagion(combat.combatant);
+    // Ambiente (environment.js): confere os perigos da cena/área antes dos ticks da rodada.
+    if (combat.combatant.token) await syncTokenEnvironment(combat.combatant.token);
+    // Radiação (radiation.js): acumula/cai e causa o dano da rodada. Morto não.
+    if (!dead && combat.combatant.token) await tickRadiation(combat.combatant.token);
+  } catch (err) {
+    console.error(`${SYSTEM_ID} | Falha no Contágio/Ambiente no início do turno.`, err);
+  }
 
   try {
     // Na V14 o Combate não tem Cena por padrão: as Cenas vêm dos Tokens dos combatentes.

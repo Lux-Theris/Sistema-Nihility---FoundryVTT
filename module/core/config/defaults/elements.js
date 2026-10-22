@@ -30,6 +30,9 @@ export const DEFAULT_DAMAGE_ELEMENTS = [
   { id: "holy", label: "Sagrado", color: "#e8c170", group: "Fantasia", effects: [], affinity: { dark: 1 } }
 ];
 
+/** Elemento do dano de radiação do Ambiente (environment/radiation.js). */
+export const RADIATION_ELEMENT = { id: "radiation", label: "Radiação", color: "#c6ff00", group: "Exótico", effects: [] };
+
 /** Elementos de energia estilo Star Trek Online — carregados pelo preset Sci-Fi. */
 export const SCIFI_DAMAGE_ELEMENTS = [
   // Cinético/torpedo: fraco contra Escudo, forte contra Casco (Elite e Star Trek Online).
@@ -54,7 +57,9 @@ export const SCIFI_DAMAGE_ELEMENTS = [
   ] },
   { id: "tetryon", label: "Táquion", color: "#74b9ff", group: "Energia", effects: [{ type: "layer", layer: "shield", percent: 30 }] },
   { id: "antiproton", label: "Antiprótons", color: "#fd79a8", group: "Energia", effects: [{ type: "layer", layer: "hull", percent: 15 }] },
-  { id: "transphasic", label: "Transfásico", color: "#e8c170", group: "Exótico", effects: [{ type: "penetration", percent: 40 }] }
+  { id: "transphasic", label: "Transfásico", color: "#e8c170", group: "Exótico", effects: [{ type: "penetration", percent: 40 }] },
+  // Radiação do Ambiente (cena, área, Token emissor): Resistência a ela reduz o dano por rodada.
+  RADIATION_ELEMENT
 ];
 
 /**
@@ -105,6 +110,10 @@ export const DEFAULT_STATUS_CONDITIONS = [
   // Vida 0 (combat/incapacitation.js): "incapacita" = não age nem se move, Skills Ativas desligam;
   // o que é do corpo (regeneração, cura) continua. Caído entra sozinho em 0; Inconsciente vem de
   // sair do 0 (por N rodadas) ou de um desmaio marcado à mão.
+  // Contágio (combat/contagion.js): no início do turno de quem tem, cada Personagem a até 2 m rola 25%.
+  { id: "plague", label: "Praga", icon: "icons/svg/biohazard.svg",
+    effect: { kind: "tick", tickTarget: "hp", tickSign: "damage", valueMode: "maxPercent", value: 3, durationRounds: 5, tickUnit: "combatRound" },
+    spread: { chance: 25, radius: 2, immuneTraits: ["mechanical"] } },
   { id: "fallen", label: "Caído", icon: "icons/svg/skull.svg", incapacitates: true },
   { id: "unconscious", label: "Inconsciente", icon: "icons/svg/unconscious.svg", incapacitates: true }
 ];

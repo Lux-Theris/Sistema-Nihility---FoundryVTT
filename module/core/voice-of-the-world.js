@@ -42,7 +42,8 @@ export async function announceVoiceOfTheWorld(actor, data = {}) {
     content,
     whisper,
     speaker: ChatMessage.getSpeaker({ actor: actor ?? undefined }),
-    flags: { [SYSTEM_ID]: { voiceOfTheWorld: true, kind } }
+    // title/body também nas flags: o cartão na tela (voice-banner.js) lê daqui, sem raspar o HTML.
+    flags: { [SYSTEM_ID]: { voiceOfTheWorld: true, kind, title, body } }
   });
 }
 

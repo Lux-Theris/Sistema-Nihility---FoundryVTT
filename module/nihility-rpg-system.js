@@ -53,6 +53,8 @@ import { registerConditionalRefresh } from "./combat/conditional-context.js";
 import { advanceStructures, collapseStructuresOfCaster, renderStructureControls, registerStructureContact } from "./structures/structures.js";
 import { registerStructureRendering } from "./structures/structure-render.js";
 import { registerFloatingNumbers } from "./combat/floating-numbers.js";
+import { registerEffectBadges } from "./combat/effect-badges.js";
+import { registerVoiceBanner } from "./core/voice-banner.js";
 import { registerHotbarMacros, useItemFromHotbar } from "./core/hotbar.js";
 import { registerIncapacitation, tickIncapacitation, isDead } from "./combat/incapacitation.js";
 import { tickContagion } from "./combat/contagion.js";
@@ -172,6 +174,7 @@ Hooks.once("init", () => {
   registerShieldAdaptationReset();
   registerStructureContact();
   registerFloatingNumbers();
+  registerVoiceBanner();
   registerHotbarMacros();
   registerIncapacitation();
   registerEnvironment();
@@ -192,6 +195,8 @@ Hooks.once("init", () => {
   // Deslocamento por rodada (ver module/movement.js). Instala a classe de Token e os hooks no
   // `init`; cada um confere `isMovementEnabled()` na hora de agir, então o toggle vale sem reload.
   registerMovementLimit();
+  // Depois do limite de deslocamento: as duas subclasses de Token se encadeiam.
+  registerEffectBadges();
 
   // Bônus condicionais que dependem de "estou em combate" (ver conditional-context.js).
   registerConditionalRefresh();

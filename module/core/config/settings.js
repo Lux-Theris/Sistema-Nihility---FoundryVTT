@@ -560,6 +560,27 @@ export function registerSystemSettings() {
     default: true
   });
 
+  // Avisos na tela (mockup aprovado "Avisos na Tela"): cada pessoa desliga só para si.
+  game.settings.register(SYSTEM_ID, S.voiceBanner, {
+    name: "Voz do Mundo na tela",
+    hint: "Level up, XP pronta, Skill nova e outros anúncios aparecem no centro da tela. O sussurro no chat continua. Só neste navegador.",
+    scope: "client",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+  game.settings.register(SYSTEM_ID, S.effectBadges, {
+    name: "Duração sobre os ícones do Token",
+    hint: "Número de rodadas, ∞ ou nível de irradiação no canto de cada ícone de efeito, nos Tokens que você controla. Só neste navegador.",
+    scope: "client",
+    config: true,
+    type: Boolean,
+    default: true,
+    onChange: () => {
+      for (const token of globalThis.canvas?.tokens?.placeables ?? []) token.renderFlags?.set({ redrawEffects: true });
+    }
+  });
+
   // scope:"client" (não "world"): fica só no navegador de quem configura, nunca
   // sincroniza pros outros clientes conectados. Como só o GM usa o Assistente de
   // IA, isso mantém a chave fora do alcance dos jogadores sem precisar de

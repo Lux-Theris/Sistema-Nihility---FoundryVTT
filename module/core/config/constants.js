@@ -102,6 +102,8 @@ export const MEU_SISTEMA = {
     completedMigrations: "completedMigrations",
     debugMode: "debugMode",
     floatingNumbers: "floatingNumbers",
+    voiceBanner: "voiceBanner",
+    effectBadges: "effectBadges",
     aiProvider: "aiProvider",
     aiEndpointUrl: "aiEndpointUrl",
     aiModel: "aiModel",

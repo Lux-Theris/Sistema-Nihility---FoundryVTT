@@ -5819,3 +5819,45 @@ button.prio-chip { cursor: pointer; }
 #token-hud .nihility-radiation-hud.active { color: #c6ff00; border-color: #c6ff00; }
 .nihility-pass-time .form-group { display: flex; gap: 6px; align-items: center; }
 .nihility-pass-time .form-group input { width: 80px; }
+
+/* ==========================================================================
+   Voz do Mundo na tela (core/voice-banner.js) — mockup "Avisos na Tela", quadro 2
+   ========================================================================== */
+#nihility-voice-banner {
+  position: fixed;
+  top: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(520px, calc(100vw - 32px));
+  z-index: 1000;
+  pointer-events: none;
+}
+#nihility-voice-banner .nihility-voice-card {
+  pointer-events: auto;
+  cursor: pointer;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 20px 14px;
+  text-align: center;
+  font-family: var(--nihility-font);
+  color: var(--nihility-text);
+  background: rgba(16, 18, 26, 0.95);
+  border: 1px solid #6b5a33;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 24px rgba(232, 193, 112, 0.18);
+  animation: nihility-voice-in 0.25s ease-out;
+}
+#nihility-voice-banner .nihility-voice-card.leaving { opacity: 0; transform: translateY(-6px); transition: opacity 0.25s, transform 0.25s; }
+#nihility-voice-banner .nvc-label { font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--nihility-gold); }
+#nihility-voice-banner .nvc-title { font-size: 24px; font-weight: 700; color: #f5d899; }
+#nihility-voice-banner .nvc-body { font-size: 15px; color: var(--nihility-text); }
+#nihility-voice-banner .nvc-bar { width: 100%; height: 3px; margin-top: 6px; border-radius: 2px; background: var(--nihility-bg-panel-alt); overflow: hidden; }
+#nihility-voice-banner .nvc-bar > div { height: 3px; width: 100%; background: var(--nihility-gold); transform-origin: left; animation: nihility-voice-timer linear forwards; }
+@keyframes nihility-voice-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@keyframes nihility-voice-timer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) {
+  #nihility-voice-banner .nihility-voice-card { animation: none; }
+}

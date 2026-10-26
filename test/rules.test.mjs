@@ -2811,3 +2811,20 @@ test("Radiação: sobe rápido numa fonte forte, para no teto, cai fora e o dano
   assert.equal(outside.level, 0);
   assert.equal(outside.damage, 4 + 3 + 2 + 1, "fora: o dano vai diminuindo até zerar");
 });
+
+import { effectBadge } from "../module/combat/effect-badge-rules.js";
+
+test("Número no ícone do Token: rodadas, ∞, irradiação, contador do Caído e nada sem prazo", () => {
+  assert.deepEqual(effectBadge({ rounds: 3 }), { text: "3", tone: "time" }, "buff comum com duração do Foundry");
+  assert.equal(effectBadge({ rounds: null }), null, "sem prazo: sem número");
+  assert.deepEqual(effectBadge({ periodic: true, ticksRemaining: 2 }), { text: "2", tone: "time" });
+  assert.deepEqual(effectBadge({ periodic: true, ticksRemaining: 0, anchored: true }), { text: "∞", tone: "anchor" }, "Veneno segurado por Skill Ativa");
+  assert.deepEqual(effectBadge({ anchored: true, finite: Infinity }), { text: "∞", tone: "anchor" });
+  assert.deepEqual(effectBadge({ anchored: true, finite: 2 }), { text: "2", tone: "time" }, "prazo finito correndo junto com a âncora");
+  assert.deepEqual(effectBadge({ radiationLevel: 35 }), { text: "35", tone: "radiation" });
+  assert.deepEqual(effectBadge({ incapacitation: { kind: "fallen", rounds: 2 } }), { text: "2", tone: "danger" });
+  assert.equal(effectBadge({ incapacitation: { kind: "fallen", rounds: 2, stabilized: true } }), null, "estabilizado não conta");
+  assert.equal(effectBadge({ incapacitation: { kind: "unconscious", rounds: null } }), null, "Inconsciente marcado à mão");
+  assert.equal(effectBadge({ environment: true, periodic: true, anchored: true }), null, "perigo do Ambiente: enquanto estiver lá");
+  assert.equal(effectBadge({ curse: true, rounds: 5 }), null);
+});

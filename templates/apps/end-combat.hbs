@@ -1,0 +1,52 @@
+<div class="ec-root">
+  <div class="ec-body">
+    {{#if effectGroups.length}}
+    <section class="ec-sec">
+      <div class="ec-head">
+        <h3>Efeitos que ainda estão correndo</h3>
+        <span class="ec-hint">marcados = removidos ao concluir</span>
+      </div>
+      {{#each effectGroups as |g|}}
+      <div class="ec-actor">{{g.name}}</div>
+      {{#each g.rows as |r|}}
+      <label class="ec-check">
+        <input type="checkbox" data-actor-uuid="{{g.actorUuid}}" data-effect-id="{{r.id}}" {{#if r.checked}}checked{{/if}}/>
+        {{r.name}} <span class="ec-when tone-{{r.tone}}">{{r.label}}</span>
+        {{#if r.danger}}<span class="ec-hint">— fica até você decidir (estabilizar, curar)</span>{{/if}}
+      </label>
+      {{/each}}
+      {{/each}}
+      <p class="ec-hint">Não entram aqui: o que não tem prazo (Maldição, perigo do Ambiente, efeito de Skill Ativa ligada).</p>
+    </section>
+    {{/if}}
+
+    {{#if hasPcs}}
+    <section class="ec-sec">
+      <div class="ec-head"><h3>XP do combate</h3></div>
+      <div class="ec-total">
+        <label for="ec-xp-total">Total</label>
+        <input id="ec-xp-total" type="number" name="xpTotal" min="0" step="1" value="{{xpTotal}}"/>
+        <span class="ec-hint">{{#if suggestion}}Sugestão: {{suggestion}} — pode mudar{{else}}Nenhum NPC derrotado: digite o total, se houver{{/if}}</span>
+      </div>
+      <div class="ec-parts">
+        {{#each pcs as |pc|}}
+        <div class="ec-part">
+          <label for="ec-xp-{{@index}}">{{pc.name}}</label>
+          <input id="ec-xp-{{@index}}" type="number" min="0" step="1" value="{{pc.xp}}" data-xp-uuid="{{pc.uuid}}"/>
+        </div>
+        {{/each}}
+      </div>
+      <p class="ec-hint">Dividido igual entre os PJs que estavam no combate; mude a parte de alguém e o resto não se mexe. Cada um vê o ganho pela Voz do Mundo.</p>
+    </section>
+
+    <section class="ec-sec">
+      <div class="ec-head"><h3>Depois da luta</h3></div>
+      <label class="ec-check"><input type="checkbox" name="shortRest"/> Descanso curto para todos os PJs <span class="ec-hint">({{restLabel}})</span></label>
+    </section>
+    {{/if}}
+  </div>
+  <footer class="ec-footer">
+    <button type="button" data-action="skip">Pular</button>
+    <button type="button" class="ec-primary" data-action="finish">Concluir</button>
+  </footer>
+</div>

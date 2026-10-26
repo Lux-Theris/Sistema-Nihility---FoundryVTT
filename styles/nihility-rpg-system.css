@@ -5861,3 +5861,32 @@ button.prio-chip { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   #nihility-voice-banner .nihility-voice-card { animation: none; }
 }
+
+/* ==========================================================================
+   Fim do combate (apps/end-combat.js) — mockup "Fim do Combate", quadro 1
+   ========================================================================== */
+.nihility-end-combat .ec-root { display: flex; flex-direction: column; color: var(--nihility-text); min-height: 0; }
+.nihility-end-combat .ec-body { display: flex; flex-direction: column; gap: 18px; padding: 14px 16px; overflow-y: auto; min-height: 0; }
+.nihility-end-combat .ec-sec { display: flex; flex-direction: column; gap: 8px; }
+.nihility-end-combat .ec-head { display: flex; align-items: baseline; gap: 8px; border-bottom: 1px solid var(--nihility-border); padding-bottom: 4px; }
+.nihility-end-combat .ec-head h3 { margin: 0; flex-grow: 1; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--nihility-text-dim); border: none; }
+.nihility-end-combat .ec-hint { font-size: 12px; color: var(--nihility-text-faint); margin: 0; }
+.nihility-end-combat .ec-actor { font-size: 13px; font-weight: 600; color: var(--nihility-accent); margin-top: 2px; }
+.nihility-end-combat .ec-check { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--nihility-text); }
+.nihility-end-combat .ec-when { font-family: var(--nihility-font-data); font-size: 12px; color: var(--nihility-warn); }
+.nihility-end-combat .ec-when.tone-danger { color: var(--nihility-danger); }
+.nihility-end-combat .ec-total { display: grid; grid-template-columns: 70px 120px minmax(0, 1fr); gap: 10px; align-items: center; }
+.nihility-end-combat .ec-total label,
+.nihility-end-combat .ec-part label { font-size: 14px; color: var(--nihility-text); }
+.nihility-end-combat .ec-total input { font-family: var(--nihility-font-data); }
+.nihility-end-combat .ec-parts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; }
+.nihility-end-combat .ec-part { display: flex; align-items: center; gap: 10px; }
+.nihility-end-combat .ec-part label { flex-grow: 1; }
+.nihility-end-combat .ec-part input { width: 90px; flex: 0 0 90px; font-family: var(--nihility-font-data); }
+.nihility-end-combat .ec-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--nihility-border); }
+.nihility-end-combat .ec-footer button { width: auto; padding: 0 16px; }
+.nihility-end-combat .ec-footer .ec-primary { background: var(--nihility-accent); border-color: var(--nihility-accent); color: var(--nihility-bg-dark); font-weight: 700; }
+@media (max-width: 520px) {
+  .nihility-end-combat .ec-parts { grid-template-columns: minmax(0, 1fr); }
+  .nihility-end-combat .ec-total { grid-template-columns: 70px minmax(0, 1fr); }
+}

@@ -55,6 +55,7 @@ import { registerStructureRendering } from "./structures/structure-render.js";
 import { registerFloatingNumbers } from "./combat/floating-numbers.js";
 import { registerEffectBadges } from "./combat/effect-badges.js";
 import { registerVoiceBanner } from "./core/voice-banner.js";
+import { registerEndCombat } from "./apps/end-combat.js";
 import { registerHotbarMacros, useItemFromHotbar } from "./core/hotbar.js";
 import { registerIncapacitation, tickIncapacitation, isDead } from "./combat/incapacitation.js";
 import { tickContagion } from "./combat/contagion.js";
@@ -175,6 +176,7 @@ Hooks.once("init", () => {
   registerStructureContact();
   registerFloatingNumbers();
   registerVoiceBanner();
+  registerEndCombat();
   registerHotbarMacros();
   registerIncapacitation();
   registerEnvironment();

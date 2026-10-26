@@ -2828,3 +2828,20 @@ test("Número no ícone do Token: rodadas, ∞, irradiação, contador do Caído
   assert.equal(effectBadge({ environment: true, periodic: true, anchored: true }), null, "perigo do Ambiente: enquanto estiver lá");
   assert.equal(effectBadge({ curse: true, rounds: 5 }), null);
 });
+
+import { suggestCombatXp, splitXp, endCombatEffectChoice } from "../module/combat/end-combat-rules.js";
+
+test("Fim do combate: XP sugerida pelos derrotados, dividida, e quais efeitos entram na lista", () => {
+  const xpFor = level => 100 * level;
+  assert.equal(suggestCombatXp([4, 4, 4], { xpFor, percent: 25 }), 300, "3 Goblins nv 4 = 100 cada");
+  assert.equal(suggestCombatXp([], { xpFor }), 0);
+  assert.equal(suggestCombatXp([0], { xpFor, percent: 25 }), 25, "nível inválido conta como 1");
+  assert.deepEqual(splitXp(300, 2), [150, 150]);
+  assert.deepEqual(splitXp(100, 3), [34, 33, 33], "o resto vai para os primeiros");
+  assert.deepEqual(splitXp(50, 0), []);
+  assert.deepEqual(endCombatEffectChoice({ text: "2", tone: "time" }), { listed: true, checked: true });
+  assert.deepEqual(endCombatEffectChoice({ text: "2", tone: "danger" }), { listed: true, checked: false }, "Caído: o Mestre decide");
+  assert.deepEqual(endCombatEffectChoice({ text: "∞", tone: "anchor" }), { listed: false, checked: false }, "Skill Ativa ligada não entra");
+  assert.deepEqual(endCombatEffectChoice({ text: "35", tone: "radiation" }), { listed: false, checked: false });
+  assert.deepEqual(endCombatEffectChoice(null), { listed: false, checked: false });
+});

@@ -143,6 +143,12 @@ async function applyRest(actor, kind, outcome) {
   });
 }
 
+/** Descanso Curto sem perguntar (Fim do combate: "Descanso curto para todos os PJs"). */
+export async function applyShortRest(actor) {
+  if (actor?.type !== "character") return;
+  await applyRest(actor, "short", restPreview(actor).short);
+}
+
 /** "Descansar…": Curto ou Completo, com o resultado de cada um para esta ficha. */
 export async function openRestDialog(actor) {
   if (!actor?.isOwner) return;

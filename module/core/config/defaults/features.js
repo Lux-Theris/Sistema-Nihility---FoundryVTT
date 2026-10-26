@@ -190,6 +190,15 @@ export const FEATURES = {
       radiationDamagePerLevel: { label: "Dano por nível de irradiação", hint: "Dano por rodada = irradiação × este número (antes da Resistência a Radiação).", type: "number", default: 1, min: 0 }
     }
   },
+  endOfCombat: {
+    setting: "endOfCombatEnabled",
+    name: "Fim do combate",
+    hint: "Ao encerrar o combate, abre uma janela para o Mestre: remover os efeitos com prazo em rodadas que ficariam congelados, distribuir a XP do combate (sugestão pelos NPCs derrotados, dividida entre os PJs) e dar Descanso curto. \"Pular\" fecha sem fazer nada.",
+    default: true,
+    options: {
+      combatXpPercent: { label: "XP sugerida por derrotado (% do nível dele)", hint: "Com 25% e a fórmula padrão (100 × nível), um NPC de nível 4 vale 100 XP. Só sugestão: o Mestre edita.", type: "number", default: 25, min: 0 }
+    }
+  },
   incapacitation: {
     setting: "incapacitationEnabled",
     name: "Vida 0: Caído e Inconsciente",

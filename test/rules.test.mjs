@@ -2845,3 +2845,88 @@ test("Fim do combate: XP sugerida pelos derrotados, dividida, e quais efeitos en
   assert.deepEqual(endCombatEffectChoice({ text: "35", tone: "radiation" }), { listed: false, checked: false });
   assert.deepEqual(endCombatEffectChoice(null), { listed: false, checked: false });
 });
+
+/* ------------------------------------------------------------------ Desfazer uso de Skill (L12) */
+import { diffFields, revertFields, revertPools, diffEffects, actorEntryHasChanges, undoWindowOpen, undoPreviewRows, fieldPairs, asFields } from "../module/skills/skill-undo-rules.js";
+
+test("Desfazer uso: diffFields só lista o que mudou", () => {
+  assert.deepEqual(diffFields({ a: 1, b: true, c: [1] }, { a: 3, b: true, c: [2] }), { a: [1, 3], c: [[1], [2]] });
+  assert.deepEqual(diffFields({}, { x: 5 }), { x: [null, 5] });
+});
+
+test("Desfazer uso: números voltam pela diferença, o resto pelo valor de antes", () => {
+  // Mana 100 → 80 no uso; depois uma reação gastou mais 10 (70). Desfazer devolve só os 20.
+  assert.deepEqual(revertFields({ mana: 70 }, { mana: [100, 80] }), { mana: 90 });
+  // Nunca abaixo de 0.
+  assert.deepEqual(revertFields({ hp: 5 }, { hp: [10, 40] }), { hp: 0 });
+  // Ligada/desligada e listas voltam ao valor de antes.
+  assert.deepEqual(revertFields({ active: true }, { active: [false, true], subs: [[false], [true]] }), { active: false, subs: [false] });
+  // Fração (integridade de parte) não arredonda.
+  assert.equal(revertFields({ i: 0.75 }, { i: [0.5, 0.75] }).i, 0.5);
+});
+
+test("Desfazer uso: pools de Escudo", () => {
+  const p = (skillId, value) => ({ holderUuid: "A", skillId, subSkillIndex: null, value });
+  // Pool criado pelo uso some; pool que o uso não tocou fica.
+  assert.deepEqual(revertPools([p("old", 5), p("new", 30)], [p("old", 5)], [p("old", 5), p("new", 30)]), [p("old", 5)]);
+  // Pool que já tinha apanhado parte (30 → 12) depois do uso: perde o que o uso deu e some.
+  assert.deepEqual(revertPools([p("new", 12)], [], [p("new", 30)]), []);
+  // Pool que o uso aumentou (Escudo mantido 10 → 25) volta a 10.
+  assert.deepEqual(revertPools([p("s", 25)], [p("s", 10)], [p("s", 25)]), [p("s", 10)]);
+  // Pool que a Antimagia apagou volta.
+  assert.deepEqual(revertPools([], [p("x", 20)], []), [p("x", 20)]);
+});
+
+test("Desfazer uso: diffEffects separa criados, mudados e apagados", () => {
+  const before = [{ _id: "a", name: "Lentidão", duration: { rounds: 2 }, _stats: { modifiedTime: 1 } }, { _id: "b", name: "Bênção" }];
+  const after = [{ _id: "a", name: "Lentidão", duration: { rounds: 5 }, _stats: { modifiedTime: 2 } }, { _id: "c", name: "Queimadura" }];
+  const d = diffEffects(before, after);
+  assert.deepEqual(d.created, [{ id: "c", name: "Queimadura" }]);
+  assert.deepEqual(d.deleted, [{ _id: "b", name: "Bênção" }]);
+  assert.deepEqual(d.changed, [{ _id: "a", name: "Lentidão", duration: { rounds: 2 } }]);
+  // Só a data de modificação mudou: não conta.
+  assert.equal(diffEffects([{ _id: "a", _stats: { t: 1 } }], [{ _id: "a", _stats: { t: 2 } }]).changed.length, 0);
+  assert.equal(actorEntryHasChanges({ vitals: {}, effects: d, items: [], flags: {} }), true);
+  assert.equal(actorEntryHasChanges({ vitals: {}, effects: { created: [], deleted: [], changed: [] }, items: [], flags: {} }), false);
+});
+
+test("Desfazer uso: prazo do botão", () => {
+  const rec = { combat: { id: "c1", round: 2, turn: 1 } };
+  assert.equal(undoWindowOpen(rec, { combat: { id: "c1", round: 2, turn: 1 } }), true);
+  assert.equal(undoWindowOpen(rec, { combat: { id: "c1", round: 2, turn: 2 } }), false);
+  assert.equal(undoWindowOpen(rec, { combat: { id: "c1", round: 3, turn: 1 } }), false);
+  assert.equal(undoWindowOpen(rec, { combat: null }), false); // combate encerrado
+  assert.equal(undoWindowOpen({ combat: null }, { newerUse: false }), true);
+  assert.equal(undoWindowOpen({ combat: null }, { newerUse: true }), false);
+  assert.equal(undoWindowOpen({ combat: null, undone: true }, {}), false);
+});
+
+test("Desfazer uso: linhas da confirmação (Bola de Fogo do mockup)", () => {
+  const record = {
+    actors: [
+      { name: "Kira", isSource: true, energyLabel: "Mana", vitals: { "system.attributes.energy.value": [100, 80] }, effects: {}, items: [{ name: "Bola de Fogo", changes: { "system.xp": [10, 16] } }] },
+      { name: "Goblin 2", vitals: {}, effects: { created: [{ id: "x", name: "Lentidão" }] }, items: [] }
+    ]
+  };
+  const rows = undoPreviewRows(record, { damage: [{ name: "Goblin 1", applied: { toHp: 34, toShield: 0 } }, { name: "Goblin 2", applied: null }] });
+  assert.deepEqual(rows.map(r => `${r.tag} ${r.text}`), [
+    "+20 Mana de volta para Kira",
+    "+34 Vida de volta para Goblin 1 (dano já aplicado)",
+    "— Goblin 2: dano ainda não aplicado, nada a voltar",
+    "sai Lentidão em Goblin 2",
+    "−6 XP XP de uso de Bola de Fogo"
+  ]);
+  // Skill Ativa que ligou desliga; cura desfeita sai.
+  const active = undoPreviewRows({ actors: [{ name: "Kira", isSource: true, vitals: { "system.attributes.hp.value": [50, 70] }, items: [{ name: "Aura", changes: { "system.active": [false, true] } }] }], placed: { zone: true } }, { skillLabel: "Aura" });
+  assert.deepEqual(active.map(r => `${r.tag} ${r.text}`), ["−20 Vida que Kira ganhou sai", "desliga Aura (Skill Ativa)", "some Zona criada por Aura"]);
+});
+
+test("Desfazer uso: o registro guarda pares (o flag não expande \"system.xp\")", () => {
+  const pairs = fieldPairs({ "system.xp": [10, 16] });
+  assert.deepEqual(pairs, [["system.xp", [10, 16]]]);
+  assert.deepEqual(asFields(pairs), { "system.xp": [10, 16] });
+  assert.deepEqual(revertFields({ "system.xp": 16 }, pairs), { "system.xp": 10 });
+  const rows = undoPreviewRows({ actors: [{ name: "Kira", vitals: [["system.attributes.energy.value", [100, 80]]], items: [{ name: "Bola", changes: pairs }], flags: [] }] });
+  assert.deepEqual(rows.map(r => r.tag), ["+20", "−6 XP"]);
+  assert.equal(actorEntryHasChanges({ vitals: [], effects: {}, items: [], flags: [] }), false);
+});

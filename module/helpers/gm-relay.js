@@ -287,7 +287,8 @@ const HANDLERS = {
             label,
             untilDeactivated: Boolean(zone.untilDeactivated),
             roundsRemaining: Math.min(Math.max(Number(zone.roundsRemaining) || 1, 1), 100),
-            area: clean
+            area: clean,
+            useId: String(zone.useId ?? "").slice(0, 32)
           }
         }
       }

@@ -18,6 +18,7 @@
  *
  * A geometria (cortar a forma no tamanho máximo) é pura e testada: structure-geometry.js.
  */
+import { currentSkillUseId } from "../skills/skill-use-context.js";
 import {
   SYSTEM_ID,
   getStructures,
@@ -233,7 +234,9 @@ export async function requestStructure({ sourceActor, skillId, subSkillIndex = n
     subSkillIndex,
     untilDeactivated: Boolean(untilDeactivated),
     power,
-    label
+    label,
+    // Desfazer uso (skill-undo.js): o Mestre acha esta Estrutura pelo id do uso.
+    useId: currentSkillUseId()
   });
   return true;
 }
@@ -302,7 +305,8 @@ export async function createStructureAsGm(payload) {
     contactDamage: structure.contactDamage,
     sourceActorUuid: source.uuid,
     skillId: String(payload.skillId ?? ""),
-    subSkillIndex: Number.isInteger(payload.subSkillIndex) ? payload.subSkillIndex : null
+    subSkillIndex: Number.isInteger(payload.subSkillIndex) ? payload.subSkillIndex : null,
+    useId: String(payload.useId ?? "").slice(0, 32)
   };
   await scene.setFlag(SYSTEM_ID, `${FLAG}.${id}`, instance);
 

@@ -56,6 +56,7 @@ import { registerFloatingNumbers } from "./combat/floating-numbers.js";
 import { registerEffectBadges } from "./combat/effect-badges.js";
 import { registerVoiceBanner } from "./core/voice-banner.js";
 import { registerEndCombat } from "./apps/end-combat.js";
+import { registerSkillUndo, renderSkillUndo } from "./skills/skill-undo.js";
 import { registerHotbarMacros, useItemFromHotbar } from "./core/hotbar.js";
 import { registerIncapacitation, tickIncapacitation, isDead } from "./combat/incapacitation.js";
 import { tickContagion } from "./combat/contagion.js";
@@ -177,6 +178,7 @@ Hooks.once("init", () => {
   registerFloatingNumbers();
   registerVoiceBanner();
   registerEndCombat();
+  registerSkillUndo();
   registerHotbarMacros();
   registerIncapacitation();
   registerEnvironment();
@@ -830,6 +832,8 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
   // Botões de aplicar dano (só Mestre) — ver module/damage-apply.js.
   renderDamageControls(message, html);
   renderDamageTrace(message, html);
+  // Desfazer uso de Skill (só o Mestre, até o turno virar) — ver skills/skill-undo.js.
+  renderSkillUndo(message, html);
 
   const padMessage = message.getFlag(SYSTEM_ID, "padMessage");
   const padContactShare = message.getFlag(SYSTEM_ID, "padContactShare");

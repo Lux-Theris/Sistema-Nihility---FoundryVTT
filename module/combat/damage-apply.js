@@ -193,6 +193,8 @@ function buildControls(state) {
  */
 export function renderDamageControls(message, html) {
   if (!game.user.isGM) return;
+  // Uso de Skill desfeito pelo Mestre (skill-undo.js): o card fica riscado, sem Aplicar.
+  if (message.getFlag(SYSTEM_ID, "skillUndone")) return;
 
   const many = message.getFlag(SYSTEM_ID, "damageApplyMany");
   if (many?.entries?.length) {
@@ -384,6 +386,24 @@ async function undoDamage(message) {
   const state = message.getFlag(SYSTEM_ID, "damageApply");
   if (!state?.applied) return;
   if (await undoHit(state)) await message.setFlag(SYSTEM_ID, "damageApply", { ...state, applied: null });
+}
+
+/**
+ * Os alvos deste card de dano e se já foram aplicados (`{name, applied}`), para a confirmação
+ * do Desfazer uso (skill-undo.js). Card sem dano a aplicar → [].
+ */
+export function damageCardHits(message) {
+  const many = message.getFlag(SYSTEM_ID, "damageApplyMany");
+  if (many?.entries?.length) return many.entries.map(e => ({ name: e.name ?? "?", applied: e.applied ?? null }));
+  const state = message.getFlag(SYSTEM_ID, "damageApply");
+  if (!state) return [];
+  return [{ name: state.name ?? fromUuidSync(state.targetUuid)?.name ?? "?", applied: state.applied ?? null }];
+}
+
+/** Desfaz todo dano já aplicado deste card (alvo único ou área). Usado pelo Desfazer uso. */
+export async function undoDamageCard(message) {
+  if (message.getFlag(SYSTEM_ID, "damageApplyMany")?.entries?.length) return undoMany(message, null);
+  return undoDamage(message);
 }
 
 /** Índices do card de área que pertencem aos Tokens selecionados no mapa. */

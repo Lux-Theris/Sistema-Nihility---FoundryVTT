@@ -16,6 +16,7 @@
  * actor-sheet.js só recebem a lista final de Atores já resolvida.
  */
 
+import { currentSkillUseId } from "../skills/skill-use-context.js";
 import { SYSTEM_ID } from "../core/config.js";
 import { runAsGm } from "../helpers/gm-relay.js";
 import { foundryGeneration } from "../helpers/foundry-compat.js";
@@ -195,7 +196,9 @@ export async function createZone(placement, { sourceActor, skillId, subSkillInde
       label,
       // Skill Ativa: a Zona vive até a Skill ser desligada, sem contagem de rodadas.
       untilDeactivated: Boolean(untilDeactivated),
-      roundsRemaining: Math.max(1, Number(rounds) || 1)
+      roundsRemaining: Math.max(1, Number(rounds) || 1),
+      // Desfazer uso (skill-undo.js): o Mestre acha esta Zona pelo id do uso.
+      useId: currentSkillUseId()
     }
   });
 }

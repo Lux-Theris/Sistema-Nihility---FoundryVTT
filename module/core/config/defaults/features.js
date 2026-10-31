@@ -199,6 +199,12 @@ export const FEATURES = {
       combatXpPercent: { label: "XP sugerida por derrotado (% do nível dele)", hint: "Com 25% e a fórmula padrão (100 × nível), um NPC de nível 4 vale 100 XP. Só sugestão: o Mestre edita.", type: "number", default: 25, min: 0 }
     }
   },
+  skillUndo: {
+    setting: "skillUndoEnabled",
+    name: "Desfazer uso de Skill",
+    hint: "No card de cada uso de Skill o Mestre vê \"Desfazer uso\" até o turno de quem usou acabar (fora de combate: até o personagem usar outra Skill). Desfazer devolve a Mana, tira os efeitos e Escudos que o uso deu, desliga a Skill Ativa que ligou, apaga a Estrutura/Zona, tira a XP de uso e devolve o dano já aplicado. O card fica riscado.",
+    default: true
+  },
   incapacitation: {
     setting: "incapacitationEnabled",
     name: "Vida 0: Caído e Inconsciente",

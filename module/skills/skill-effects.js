@@ -22,6 +22,7 @@ import { applyEffectsToActor } from "./effects-apply.js";
 import { isShipLike } from "../starship/ship-damage.js";
 import { activeStatePath, investRatioPath, energyValuePath, currentEnergyValue, warnInsufficientEnergy } from "./skill-state.js";
 import { removeUpkeepLinkedEffects } from "./upkeep.js";
+import { recordSkillUse } from "./skill-undo.js";
 
 /**
  * Ponto de entrada único de "Usar Habilidade".
@@ -47,6 +48,11 @@ import { removeUpkeepLinkedEffects } from "./upkeep.js";
  * @param {{targetActor?: Actor, targetActors?: Actor[], subSkillIndex?: number}} [options]
  */
 export async function useSkillEffect(sourceActor, skillId, options = {}) {
+  // Desfazer uso (skill-undo.js): fotografa antes/depois e guarda o registro no card.
+  return recordSkillUse(sourceActor, skillId, options, () => runSkillEffect(sourceActor, skillId, options));
+}
+
+async function runSkillEffect(sourceActor, skillId, options = {}) {
   const skill = sourceActor.items.get(skillId);
   if (!skill) return null;
 

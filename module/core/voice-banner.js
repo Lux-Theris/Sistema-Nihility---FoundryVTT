@@ -27,9 +27,10 @@ function enabledForMe() {
 
 /** HTML do corpo → texto puro (nunca injetado como HTML no cartão). */
 function plainText(html) {
-  const div = document.createElement("div");
-  div.innerHTML = String(html ?? "");
-  return (div.textContent ?? "").replace(/\s+/g, " ").trim();
+  // DOMParser monta um documento inerte: um `<img onerror=…>` no texto não carrega nem executa
+  // (um <div> criado no documento da página carregaria a imagem mesmo sem entrar na tela).
+  const doc = new DOMParser().parseFromString(String(html ?? ""), "text/html");
+  return (doc.body?.textContent ?? "").replace(/\s+/g, " ").trim();
 }
 
 function stack() {

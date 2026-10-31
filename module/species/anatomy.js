@@ -11,6 +11,7 @@ import { implantFits, legacyFunctionsFor, partDamage, partHealing, pickHitPart, 
 import { isDesignatedGm } from "../helpers/gm-relay.js";
 import { createGrantedSkill, removeGrantedSkill } from "../skills/skill-economy.js";
 import { createActiveEffects } from "../helpers/foundry-compat.js";
+import { reportError } from "../helpers/report.js";
 
 const INJURY_FLAG = "bodyInjury";
 
@@ -363,7 +364,7 @@ function scheduleSync(actor) {
   clearTimeout(pending.get(key));
   pending.set(key, setTimeout(() => {
     pending.delete(key);
-    syncBodyInjuryEffects(actor).catch(err => console.error(`${SYSTEM_ID} | Falha ao atualizar as Condições do corpo.`, err));
+    syncBodyInjuryEffects(actor).catch(err => reportError("Falha ao atualizar as Condições do corpo.", err, { gmOnly: true }));
   }, 150));
 }
 

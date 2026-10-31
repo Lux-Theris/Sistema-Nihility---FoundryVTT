@@ -1,0 +1,205 @@
+/* ==========================================================================
+   Ambiente da Cena (environment-config.js) — perigos e densidade de mana
+   ========================================================================== */
+.nihility-environment-config .env-root { display: flex; flex-direction: column; gap: 8px; padding: 8px 10px; color: var(--nihility-text); min-height: 0; }
+.nihility-environment-config .env-body { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; min-height: 0; }
+.nihility-environment-config .env-sec { display: flex; flex-direction: column; gap: 6px; }
+.nihility-environment-config .env-sec h3 { margin: 0; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--nihility-text-dim); border-bottom: 1px solid var(--nihility-border); padding-bottom: 2px; }
+.nihility-environment-config .env-field { display: flex; flex-direction: column; gap: 2px; }
+.nihility-environment-config .env-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--nihility-text-faint); }
+.nihility-environment-config .env-note,
+.nihility-environment-config .env-empty { font-size: 0.8rem; color: var(--nihility-text-dim); margin: 0; }
+.nihility-environment-config .env-density { display: grid; grid-template-columns: 90px 1fr; gap: 8px; align-items: center; }
+.nihility-environment-config .env-hazard { display: flex; flex-direction: column; gap: 6px; padding: 6px 8px; border: 1px solid var(--nihility-border); border-radius: 6px; background: var(--nihility-bg-panel-alt); }
+.nihility-environment-config .env-hazard-main { display: grid; grid-template-columns: 1fr 1.4fr 20px; gap: 6px; align-items: start; }
+.nihility-environment-config .env-hazard-fx { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 6px; align-items: end; padding-top: 6px; border-top: 1px dashed var(--nihility-border); }
+.nihility-environment-config .env-fx-title { grid-column: 1 / -1; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--nihility-text-dim); }
+.nihility-environment-config .env-color { display: flex; align-items: center; gap: 4px; height: 26px; }
+.nihility-environment-config .env-color input[type="color"] { width: 34px; height: 24px; padding: 0; border: 1px solid var(--nihility-border); background: none; }
+.nihility-environment-config .env-remove { color: var(--nihility-text-dim); cursor: pointer; padding-top: 20px; text-align: center; }
+.nihility-environment-config .env-remove:hover { color: var(--nihility-danger); }
+.nihility-environment-config .env-footer { display: flex; justify-content: flex-end; gap: 6px; }
+.nihility-environment-config .env-footer button { width: auto; }
+@media (max-width: 520px) {
+  .nihility-environment-config .env-hazard-main { grid-template-columns: 1fr 20px; }
+  .nihility-environment-config .env-hazard-fx { grid-template-columns: 1fr 1fr; }
+}
+
+/* Radiação: botão no HUD do Token aceso quando ele emite; diálogo de Passar tempo. */
+#token-hud .nihility-radiation-hud.active { color: #c6ff00; border-color: #c6ff00; }
+.nihility-pass-time .form-group { display: flex; gap: 6px; align-items: center; }
+.nihility-pass-time .form-group input { width: 80px; }
+
+/* ==========================================================================
+   Voz do Mundo na tela (core/voice-banner.js) — mockup "Avisos na Tela", quadro 2
+   ========================================================================== */
+#nihility-voice-banner {
+  position: fixed;
+  top: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(520px, calc(100vw - 32px));
+  z-index: 1000;
+  pointer-events: none;
+}
+#nihility-voice-banner .nihility-voice-card {
+  pointer-events: auto;
+  cursor: pointer;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 20px 14px;
+  text-align: center;
+  font-family: var(--nihility-font);
+  color: var(--nihility-text);
+  background: rgba(16, 18, 26, 0.95);
+  border: 1px solid #6b5a33;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 24px rgba(232, 193, 112, 0.18);
+  animation: nihility-voice-in 0.25s ease-out;
+}
+#nihility-voice-banner .nihility-voice-card.leaving { opacity: 0; transform: translateY(-6px); transition: opacity 0.25s, transform 0.25s; }
+#nihility-voice-banner .nvc-label { font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--nihility-gold); }
+#nihility-voice-banner .nvc-title { font-size: 24px; font-weight: 700; color: #f5d899; }
+#nihility-voice-banner .nvc-body { font-size: 15px; color: var(--nihility-text); }
+#nihility-voice-banner .nvc-bar { width: 100%; height: 3px; margin-top: 6px; border-radius: 2px; background: var(--nihility-bg-panel-alt); overflow: hidden; }
+#nihility-voice-banner .nvc-bar > div { height: 3px; width: 100%; background: var(--nihility-gold); transform-origin: left; animation: nihility-voice-timer linear forwards; }
+@keyframes nihility-voice-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@keyframes nihility-voice-timer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) {
+  #nihility-voice-banner .nihility-voice-card { animation: none; }
+}
+
+/* ==========================================================================
+   Fim do combate (apps/end-combat.js) — mockup "Fim do Combate", quadro 1
+   ========================================================================== */
+.nihility-end-combat .ec-root { display: flex; flex-direction: column; color: var(--nihility-text); min-height: 0; }
+.nihility-end-combat .ec-body { display: flex; flex-direction: column; gap: 18px; padding: 14px 16px; overflow-y: auto; min-height: 0; }
+.nihility-end-combat .ec-sec { display: flex; flex-direction: column; gap: 8px; }
+.nihility-end-combat .ec-head { display: flex; align-items: baseline; gap: 8px; border-bottom: 1px solid var(--nihility-border); padding-bottom: 4px; }
+.nihility-end-combat .ec-head h3 { margin: 0; flex-grow: 1; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--nihility-text-dim); border: none; }
+.nihility-end-combat .ec-hint { font-size: 12px; color: var(--nihility-text-faint); margin: 0; }
+.nihility-end-combat .ec-actor { font-size: 13px; font-weight: 600; color: var(--nihility-accent); margin-top: 2px; }
+.nihility-end-combat .ec-check { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--nihility-text); }
+.nihility-end-combat .ec-when { font-family: var(--nihility-font-data); font-size: 12px; color: var(--nihility-warn); }
+.nihility-end-combat .ec-when.tone-danger { color: var(--nihility-danger); }
+.nihility-end-combat .ec-total { display: grid; grid-template-columns: 70px 120px minmax(0, 1fr); gap: 10px; align-items: center; }
+.nihility-end-combat .ec-total label,
+.nihility-end-combat .ec-part label { font-size: 14px; color: var(--nihility-text); }
+.nihility-end-combat .ec-total input { font-family: var(--nihility-font-data); }
+.nihility-end-combat .ec-parts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; }
+.nihility-end-combat .ec-part { display: flex; align-items: center; gap: 10px; }
+.nihility-end-combat .ec-part label { flex-grow: 1; }
+.nihility-end-combat .ec-part input { width: 90px; flex: 0 0 90px; font-family: var(--nihility-font-data); }
+.nihility-end-combat .ec-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--nihility-border); }
+.nihility-end-combat .ec-footer button { width: auto; padding: 0 16px; }
+.nihility-end-combat .ec-footer .ec-primary { background: var(--nihility-accent); border-color: var(--nihility-accent); color: var(--nihility-bg-dark); font-weight: 700; }
+@media (max-width: 520px) {
+  .nihility-end-combat .ec-parts { grid-template-columns: minmax(0, 1fr); }
+  .nihility-end-combat .ec-total { grid-template-columns: 70px minmax(0, 1fr); }
+}
+
+/* ---------- Desfazer uso de Skill (skill-undo.js; mockup "Desfazer Uso de Skill") ---------- */
+.chat-message .nihility-use-undo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--nihility-border-soft);
+}
+/* O card de chat do core é claro (pergaminho): cores escuras, para ler em qualquer tema. */
+.chat-message .nihility-use-undo .hint { flex: 1 1 auto; font-size: 11px; color: #6b5a33; }
+.chat-message .nihility-use-undo button {
+  flex: 0 0 auto;
+  width: auto;
+  height: 28px;
+  min-height: 0;
+  line-height: normal;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--nihility-gold);
+  border: 1px solid #b8913f;
+  border-radius: 4px;
+  color: #2a1f08;
+  font-size: 13px;
+  font-weight: 600;
+}
+.chat-message .nihility-use-undo button:hover { background: #f0cf86; }
+.chat-message.nihility-use-undone .message-content { text-decoration: line-through; opacity: 0.6; }
+.chat-message .nihility-use-undone-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: #f6e7bf;
+  border: 1px solid #b8913f;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4a3a12;
+  text-decoration: none;
+  opacity: 1;
+}
+.chat-message .nihility-use-undone-strip svg { color: #8a6a22; }
+
+.nihility-undo-dialog .nihility-undo-confirm { display: flex; flex-direction: column; gap: 12px; text-align: left; color: var(--nihility-text, #e6e9f5); }
+.nihility-undo-dialog .undo-lead { margin: 0; font-size: 14px; color: var(--nihility-text-dim, #9aa1c2); }
+.nihility-undo-dialog .undo-rows { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.nihility-undo-dialog .undo-rows li { display: flex; gap: 10px; align-items: baseline; color: var(--nihility-text, #e6e9f5); }
+.nihility-undo-dialog .undo-tag { flex: 0 0 70px; font-family: "JetBrains Mono", Consolas, monospace; }
+.nihility-undo-dialog .tone-energy { color: #d8b4fe; }
+.nihility-undo-dialog .tone-heal { color: #86efac; }
+.nihility-undo-dialog .tone-muted { color: var(--nihility-text-dim); }
+.nihility-undo-dialog .tone-effect { color: var(--nihility-warn); }
+.nihility-undo-dialog .tone-xp { color: #6ee7ff; }
+.nihility-undo-dialog .tone-off { color: #fda4af; }
+.nihility-undo-dialog .undo-empty, .nihility-undo-dialog .undo-foot { margin: 0; font-size: 12px; color: var(--nihility-text-muted, #6b7294); }
+
+/* ---------- "Avançado ▸" dobrado nos editores de Skill (K1; mockup "Avançado nos Editores de Skill") ---------- */
+details.adv { border-top: 1px dashed var(--nihility-border-soft, rgba(58, 65, 102, 0.7)); }
+details.adv > summary.adv-summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--nihility-text-dim, #9aa1c2);
+  user-select: none;
+}
+details.adv > summary.adv-summary::-webkit-details-marker { display: none; }
+details.adv > summary .adv-toggle { color: #6ee7ff; font-weight: 600; white-space: nowrap; }
+details.adv > summary .adv-toggle::after { content: " ▸"; }
+details.adv[open] > summary .adv-toggle::after { content: " ▾"; }
+details.adv > summary .adv-labels { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+details.adv > summary .sp { flex: 1 1 auto; }
+details.adv > summary .adv-used {
+  flex: 0 0 auto;
+  font: 500 10.5px "JetBrains Mono", Consolas, monospace;
+  color: var(--nihility-gold);
+  border: 1px solid rgba(232, 193, 112, 0.4);
+  border-radius: 999px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+details.adv > .adv-body { padding: 10px; display: grid; gap: 10px; background: rgba(16, 18, 26, 0.45); border-top: 1px solid rgba(58, 65, 102, 0.35); color: var(--nihility-text, #e6e9f5); }
+details.adv > .adv-body.g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+details.adv > .adv-body.g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+details.adv > .adv-body > .span-all { grid-column: 1 / -1; }
+/* Dentro de um card de Efeito: sem moldura extra, o card já tem a dele. */
+.effect-card details.adv-card { border-top-color: rgba(58, 65, 102, 0.7); margin: 0 -10px -9px; }
+.effect-card details.adv-card > summary.adv-summary { padding: 6px 10px; }
+/* Editor rápido (janela): a linha fica no fluxo do formulário. */
+.skill-editor-form details.adv { margin: 4px 0; }
+.skill-editor-form details.adv > .adv-body { display: flex; flex-direction: column; gap: 8px; }
+.skill-editor-form .effect-row-adv-selects { display: flex; gap: 6px; flex-wrap: wrap; }
+@media (max-width: 520px) {
+  details.adv > .adv-body.g2, details.adv > .adv-body.g3 { grid-template-columns: minmax(0, 1fr); }
+}

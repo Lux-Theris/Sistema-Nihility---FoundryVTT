@@ -1,5 +1,5 @@
 /**
- * Desfazer o uso de uma Skill (backlog L12) — a parte pura, testada em test/rules.test.mjs.
+ * Desfazer o uso de uma Skill (backlog L12) — a parte pura, testada em test/.
  *
  * O uso é registrado por FOTOGRAFIA: antes e depois do uso, os mesmos campos de cada Ator
  * envolvido (quem usou e os alvos) são lidos; o registro guarda só o que mudou. Desfazer então:
@@ -179,7 +179,7 @@ export function undoPreviewRows(record, { damage = [], skillLabel = "" } = {}) {
       const changes = asFields(item.changes);
       const xp = changes["system.xp"];
       if (xp && typeof xp[0] === "number" && typeof xp[1] === "number" && xp[1] !== xp[0]) {
-        rows.push({ tag: `${fmt(xp[0] - xp[1])} XP`, tone: "xp", text: `XP de uso de ${item.name}` });
+        rows.push({ tag: `${fmt(xp[0] - xp[1])} XP`, tone: "xp", text: actor.isSource ? `XP de uso de ${item.name}` : `XP de ${item.name} (${actor.name})` });
       }
       const active = changes["system.active"] ?? null;
       const subs = changes.subSkillsActive ?? null;

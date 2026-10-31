@@ -18,6 +18,7 @@
 import { SYSTEM_ID, MEU_SISTEMA, sceneActorCandidates } from "../core/config.js";
 import { findCrewedShipsForActor } from "./pad-crew.js";
 import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
+import { escapeHtml } from "../helpers/html.js";
 
 const GROUPS_PACK_COLLECTION = `world.${MEU_SISTEMA.COMPENDIUM.padGroups.key}`;
 
@@ -31,10 +32,6 @@ function gmUserIds() {
 
 function owningUserIds(actor) {
   return game.users.filter(u => !u.isGM && actor.testUserPermission(u, "OWNER")).map(u => u.id);
-}
-
-function escapeHtml(str) {
-  return String(str).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
 }
 
 /** Chave de thread determinística pra uma conversa direta — os dois lados chegam na mesma sem tabela de lookup. */

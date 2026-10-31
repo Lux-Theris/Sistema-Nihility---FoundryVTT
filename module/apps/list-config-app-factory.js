@@ -1,5 +1,6 @@
 import { SYSTEM_ID, MEU_SISTEMA, debugLog } from "../core/config.js";
 import { pickImageFile } from "../helpers/foundry-compat.js";
+import { escapeHtml } from "../helpers/html.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -28,20 +29,21 @@ function gridColumnsFor(fields) {
 function buildRowInputsHtml(fields, values) {
   return fields
     .map(field => {
-      const value = values[field.key] ?? field.default ?? "";
+      // Escapado: um rótulo com aspas ("Moeda \"Ouro\"") cortava o atributo e o resto se perdia ao salvar.
+      const value = escapeHtml(values[field.key] ?? field.default ?? "");
       if (field.type === "color") {
         return `<input type="color" data-field="${field.key}" value="${value}"/>`;
       }
       if (field.type === "number") {
-        return `<input type="number" step="${field.step ?? 1}" data-field="${field.key}" value="${value}" placeholder="${field.label}"/>`;
+        return `<input type="number" step="${field.step ?? 1}" data-field="${field.key}" value="${value}" placeholder="${escapeHtml(field.label)}"/>`;
       }
       if (field.type === "icon") {
         return (
-          `<input type="text" data-field="${field.key}" value="${value}" placeholder="${field.placeholder ?? field.label}"/>` +
+          `<input type="text" data-field="${field.key}" value="${value}" placeholder="${escapeHtml(field.placeholder ?? field.label)}"/>` +
           `<a class="list-config-icon-pick" data-action="pickIcon" data-field="${field.key}" title="Escolher ícone"><i class="fas fa-image"></i></a>`
         );
       }
-      return `<input type="text" data-field="${field.key}" value="${value}" placeholder="${field.placeholder ?? field.label}"/>`;
+      return `<input type="text" data-field="${field.key}" value="${value}" placeholder="${escapeHtml(field.placeholder ?? field.label)}"/>`;
     })
     .join("");
 }

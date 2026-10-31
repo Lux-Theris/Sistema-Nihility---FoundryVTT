@@ -4,10 +4,7 @@
  * que está trocando. A regra da força mora em `manaInvestmentPower` (config.js).
  */
 import { manaInvestmentPower } from "../core/config.js";
-
-function escapeHtml(value) {
-  return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
-}
+import { escapeHtml } from "../helpers/html.js";
 
 /**
  * @param {object} options

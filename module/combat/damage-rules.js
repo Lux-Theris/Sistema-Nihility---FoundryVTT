@@ -1,7 +1,7 @@
 /**
  * Regras puras de dano: divisão por elemento, Penetração, Imunidade, Dano Absoluto, Escala e o
  * efeito padrão das Condições. Nada aqui toca Actor/Item/canvas — quem chama (skill-effects.js)
- * monta os números e grava o resultado. Tudo testado em test/rules.test.mjs.
+ * monta os números e grava o resultado. Tudo testado em test/.
  *
  * **Por que dividir por elemento:** antes, a Resistência de cada elemento era aplicada sobre o
  * golpe INTEIRO, uma depois da outra. Um golpe Fogo+Gelo contra alguém imune a Fogo dava 0,

@@ -9,6 +9,7 @@ import { applyAdvantageToFormula, applyRollModifiers, normalizeRollOptions } fro
 import { rollChance, resolveShipCascade, adaptShield, hitAffinityFactor } from "../combat/damage-rules.js";
 import { attackTraceRows, applyDamageReductions, averageElementContext, damageScaleFor, situationalDamageFactor, applyTriggeredConditions, triggeredLabel, formatScale, modifiersFlavor, throughStructures } from "../combat/damage-roll.js";
 import { grantResistanceXp, registerResistanceExposure } from "../combat/resistance.js";
+import { escapeHtml } from "../helpers/html.js";
 
 /** Nave OU Veículo — os dois compartilham o mesmo `ShipSystemsDataModel` desde o overhaul de Porte. */
 export function isShipLike(actor) {
@@ -188,7 +189,7 @@ async function promptTargetModule(targetActor) {
   if (!modules.length) return null;
   const { DialogV2 } = foundry.applications.api;
   const options = modules
-    .map(m => `<option value="${m.id}">${foundry.utils.escapeHTML?.(m.name) ?? m.name} — ${moduleCategoryLabel(m.system.category)} (${m.system.hp.value}/${m.system.hp.max})</option>`)
+    .map(m => `<option value="${m.id}">${escapeHtml(m.name)} — ${escapeHtml(moduleCategoryLabel(m.system.category))} (${m.system.hp.value}/${m.system.hp.max})</option>`)
     .join("");
   const chosen = await DialogV2.wait({
     window: { title: `Mirar num sistema — ${targetActor.name}` },
@@ -250,7 +251,7 @@ export async function fireStarshipWeapon(sourceActor, weaponModule, targetActor 
   // Modificadores do shift+clique: depois de throttle e bônus, antes da cascata do alvo.
   const boostedTotal = applyRollModifiers(bonusTotal, options);
 
-  let flavor = `${weaponModule.name}${ammoItem ? ` (${ammoItem.name})` : ""} — Dano`;
+  let flavor = `${escapeHtml(weaponModule.name)}${ammoItem ? ` (${escapeHtml(ammoItem.name)})` : ""} — Dano`;
   if (Math.floor(bonusTotal) !== roll.total) flavor += ` — throttle/bônus (${roll.total} → ${Math.floor(bonusTotal)})`;
   flavor += modifiersFlavor(options, bonusTotal, boostedTotal);
 
@@ -291,7 +292,7 @@ export async function fireStarshipWeapon(sourceActor, weaponModule, targetActor 
       finalDamage = toShield + toCasco + toHull;
       traceRows.push(...(cascadeRows ?? []));
       flavor += ` — Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}`;
-      if (structuralHits?.length) flavor += ` (${structuralHits.map(h => (h.damage == null ? h.name : `${h.name} -${h.damage}`)).join(", ")})`;
+      if (structuralHits?.length) flavor += ` (${structuralHits.map(h => (h.damage == null ? escapeHtml(h.name) : `${escapeHtml(h.name)} -${h.damage}`)).join(", ")})`;
     } else {
       // Arma de Nave contra uma pessoa: mesmo caminho de dano de Personagem (a Escala é que faz
       // o tiro de canhão valer o que vale).
@@ -299,7 +300,7 @@ export async function fireStarshipWeapon(sourceActor, weaponModule, targetActor 
       finalDamage = reduction.finalDamage;
       await grantResistanceXp(reduction.defenders, targetActor);
       await registerResistanceExposure(targetActor, mech.damageElements, finalDamage);
-      flavor += ` — ${targetActor.name}: ${finalDamage}${triggeredLabel(reduction.triggeredConditions)}`;
+      flavor += ` — ${escapeHtml(targetActor.name)}: ${finalDamage}${triggeredLabel(reduction.triggeredConditions)}`;
       messageFlags = damageApplyFlags(targetActor, finalDamage, {
         shieldBase: reduction.shieldBase,
         elementIds: reduction.elementIds,
@@ -369,7 +370,7 @@ async function pickLauncherAmmo(ship, launcher) {
   const chosen = await DialogV2.wait({
     window: { title: `${launcher.name} — munição` },
     content: `<div class="nihility-ammo-pick"><select name="ammo">${options
-      .map(i => `<option value="${i.id}">${foundry.utils.escapeHTML?.(i.name) ?? i.name} (×${i.system.quantity}) — ${i.system.ammo.damageFormula || "fórmula do lançador"}</option>`)
+      .map(i => `<option value="${i.id}">${escapeHtml(i.name)} (×${i.system.quantity}) — ${escapeHtml(i.system.ammo.damageFormula || "fórmula do lançador")}</option>`)
       .join("")}</select></div>`,
     buttons: [
       { action: "fire", label: "Disparar", default: true, callback: (event, button, dialog) => dialog.element.querySelector('[name="ammo"]').value },

@@ -1,6 +1,6 @@
 /**
  * "De onde vem esse número?" — a explicação de um Atributo ou de Vida/Mana máxima, PURA (testada
- * em test/rules.test.mjs). Recebe as parcelas já com a fonte (as listas `*Sources` de
+ * em test/). Recebe as parcelas já com a fonte (as listas `*Sources` de
  * character-model.js, os Active Effects lidos pela janela) e devolve as contas na mesma ordem e
  * com os mesmos arredondamentos da preparação da ficha. Quem desenha é apps/stat-breakdown.js.
  *

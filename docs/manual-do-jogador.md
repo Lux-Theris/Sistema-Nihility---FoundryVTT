@@ -89,7 +89,7 @@ No nível 1 você tem **35 Pontos de Atributo** (padrão) para distribuir entre 
 | 5 | **Traços** | Etiquetas do personagem (Orgânico, Voador…). Vêm da Espécie; só o Mestre acrescenta ou retira. |
 | 6 | **HP e Mana** | Barras com valor atual e máximo. Dá para digitar o valor atual direto no campo. |
 | 7 | **+** ao lado da barra | Abre um campo rápido: digite um número e clique **− Dano**/**+ Cura** (HP) ou **− Gastar**/**+ Restaurar** (Mana). Nunca passa de 0 nem do máximo. |
-| 8 | **Descanso Completo**, **Iniciativa**, **Correr** | Descanso volta HP e Mana ao máximo (use quando o Mestre disser que houve descanso). Iniciativa rola e entra no rastreador de combate. Correr só aparece se a mesa usa Deslocamento por rodada. |
+| 8 | **Descansar…**, **Iniciativa**, **Correr**, **✦ Efeitos** | Descansar abre a escolha **Curto** ou **Completo** (use quando o Mestre disser que houve descanso — veja [Recuperando](#recuperando)). Iniciativa rola e entra no rastreador de combate. Correr só aparece se a mesa usa Deslocamento por rodada. ✦ Efeitos abre a [Janela de Efeitos](#janela-de-efeitos). |
 | 9 | **Condições ativas** | Queimadura, Veneno, buffs… com rodadas ou ticks restantes. O **✕** remove (ex.: foi curado). A ampulheta aplica um tick manual. |
 | 10 | **Abas** | **Ficha**, **Inventário**, **Anatomia** (se a mesa usa), **Origem** e **Biografia**. |
 | 11 | **Pool de Pontos de Atributo** | Quantos pontos ainda estão livres. |
@@ -97,9 +97,9 @@ No nível 1 você tem **35 Pontos de Atributo** (padrão) para distribuir entre 
 | 13 | **Fórmula de dados** e botão **d20** | O pool que o Atributo rola hoje. O botão rola no chat. |
 | 14 | **Resetar / Confirmar** | Descarta ou grava os pontos pendentes. |
 | 15 | **Pontos de Habilidade** | Extra, Normal e Único, com **▼** (quebrar) e **▲** (juntar). |
-| 16 | **Habilidades** | Suas Skills agrupadas por tier, com **Usar** ou **Desativar**. ✎ abre a ficha da Skill. |
+| 16 | **Habilidades** | Suas Skills agrupadas por tier, com **Usar** ou **Desativar** e, embaixo do nome, a [Skill numa frase](#a-lista-de-habilidades-na-ficha). ✎ abre a ficha da Skill. Dá para arrastar a linha para a [hotbar](#skills-e-armas-na-hotbar). |
 | 17 | **+ Pedir Criação com Pontos** | Pede uma Skill nova ao Mestre gastando 1 Ponto de Habilidade. |
-| 18 | **Itens Gerais** | Inventário. Armas equipadas ganham o botão **Atacar**. |
+| 18 | **Itens Gerais** | Inventário. Armas equipadas ganham o botão **Atacar** (e **⟳ Recarregar**, se tiverem carregador); consumíveis ganham **Usar**. |
 | 19 | **Economia** | Moedas, peso total, **Converter** e **Enviar Dinheiro**. |
 
 A linha do **Escudo** só aparece enquanto você tem Escudo acima de 0.
@@ -222,9 +222,23 @@ Um Escudo pode acender uma **luz** no seu Token (um campo de energia brilhando).
 
 ### Recuperando
 
-- **Descanso Completo** (botão no cabeçalho): Vida e Mana voltam ao máximo.
+- **Descansar…** (botão no cabeçalho): **Curto** devolve uma parte (padrão: 25% da Vida e 50% da Mana); **Completo** enche as duas. A janela mostra antes quanto você vai recuperar.
 - O campo **+** ao lado de cada barra: cura ou restaura um valor.
-- Skills de cura e Condições como **Regeneração**.
+- Skills de cura, consumíveis (poções, kits) e Condições como **Regeneração**.
+- Se a mesa ligou a **regeneração natural**, um pouco da Mana volta sozinha no início de cada turno seu em combate.
+
+### Vida 0: Caído e Inconsciente
+
+Se a mesa usa esta regra (vem ligada), chegar a **0 de Vida** não é o fim na hora:
+
+- **Personagem de jogador** fica **Caído**, com um **contador de morte** (padrão: 3 rodadas, contadas no início do seu turno). O número aparece em vermelho sobre o ícone no seu Token. Quando o contador zera, o Mestre é **avisado** — o sistema nunca mata ninguém sozinho; quem decide é ele.
+- Um aliado (ou o Mestre, pelo botão **Estabilizar** do card) pode **estabilizar** você: o contador para, mas você continua caído.
+- Qualquer coisa que tire a sua Vida do 0 (cura, poção, regeneração) troca **Caído** por **Inconsciente**: você ainda perde alguns turnos (padrão 3) e acorda depois. Um **Descanso** acorda de vez.
+- **NPCs** (e personagens sem jogador dono) morrem direto em 0, a menos que o Mestre tenha desligado isso.
+
+**Caído ou Inconsciente, você não age:** não usa Habilidades, não ataca, não usa consumíveis, não corre e o Token não se move. Ao cair, **todas as suas Habilidades Ativas desligam**.
+
+**O que continua funcionando:** o que o corpo faz sozinho — Regeneração (da Espécie, de Título, de Skill), curas periódicas e curas que os outros usam em você. Um aliado pode usar uma poção **em você**. A **Mana não regenera** enquanto você estiver incapacitado; só a Vida.
 
 ---
 
@@ -242,7 +256,7 @@ Um Escudo pode acender uma **luz** no seu Token (um campo de energia brilhando).
 
 ### A lista de Habilidades na ficha
 
-Cada Skill aparece com o nome, o **Custo** (e o Custo por Rodada, se for Ativa) e um botão:
+Cada Skill aparece com o nome e, embaixo dele, **a Skill numa frase**: o que ela faz · onde · quanto custa · quanto custa por rodada. Exemplo: *"3d6 de Fogo · cone de 6 m · 20 Mana · Ativa: −3/rodada"*. O Custo já vem com o desconto do nível; uma Resistência mostra o seu %; uma Skill com Sub-Skills mostra quantas tem. Ao lado, um botão:
 
 | Botão | Significa |
 |---|---|
@@ -251,6 +265,12 @@ Cada Skill aparece com o nome, o **Custo** (e o Custo por Rodada, se for Ativa) 
 | **Usar** (quebra-cabeça) | A Skill tem Sub-Skills: você vai escolher qual usar. |
 | **Desativar** | Habilidade Ativa que está ligada agora. Clicar desliga. |
 | ⚙ no começo da linha | Skill **concedida** por um Item, Módulo ou modificação. É fixa. |
+
+### Skills e armas na hotbar
+
+Toda linha com **Usar**, **Atacar** ou **Disparar** pode ser **arrastada para a hotbar** (a barra de macros embaixo da tela). Clicar no atalho faz exatamente o que o botão da ficha faz, sem abrir a ficha; **Shift** + clique abre os modificadores de rolagem, como na ficha. Consumíveis também vão para a hotbar.
+
+Arrastar para a hotbar não copia a Skill para lugar nenhum: o atalho só aponta para ela. Se não funcionar, o Mestre pode ter tirado dos jogadores a permissão de criar macros.
 
 ### O que acontece ao clicar em Usar
 
@@ -264,6 +284,12 @@ Em ordem:
 4. **Onde ou em quem** — depende do **Tipo de Alvo** da Skill (veja abaixo).
 5. **Custo** — a Mana é descontada. Se não houver Mana suficiente, aparece um aviso só para você e nada acontece.
 6. **Resultado** — rolagem de dano no chat, efeitos aplicados, estrutura erguida, ou só um aviso de uso.
+
+Se algo der errado no meio do caminho, aparece um **aviso vermelho** no topo da tela dizendo o que falhou — avise o Mestre. Caído ou Inconsciente, o clique é recusado com um aviso (desligar uma Habilidade Ativa continua possível).
+
+**Errou o clique?** O Mestre tem **Desfazer uso** no card da Skill até o fim do seu turno: a Mana volta, os efeitos saem e o dano já aplicado volta junto. Só o Mestre vê o botão; o card fica riscado para todos.
+
+**A Skill aprende com o uso.** Se a mesa usa XP por uso (vem ligado), cada uso dá XP à Skill pelo tamanho do que ela fez: dano, cura e Escudo pela fração da Vida máxima do alvo; buff/debuff pela fração do valor que mudou; Condição, Estrutura e Zona um pouco fixo. Arranhão dá quase nada; um golpe que leva a Vida inteira do alvo dá muito. Subir de nível continua sendo clique do Mestre. Armas não ganham XP (não são Skills).
 
 ### Tipos de Alvo
 
@@ -472,6 +498,16 @@ Num golpe com vários elementos, cada parte usa a sua vantagem. Dano Absoluto ig
 
 Se a mesa usa **Escala**, dano entre tamanhos diferentes é multiplicado ou dividido (fator 10 por degrau): **Pessoal → Veículo → Nave → Capital**. Uma pistola faz 1/100 do dano numa Nave; um canhão de Nave faz 100× numa pessoa. Uma arma pode ter a própria escala (uma bazuca anti-tanque pode ser "Veículo" mesmo na mão de uma pessoa).
 
+### Na tela: números e avisos
+
+A mesa é narrada por voz e todo mundo olha o mapa, então o sistema mostra as coisas **sobre o Token**, não só no chat:
+
+- **Números flutuantes**: quando a Vida, o Escudo ou a Mana mudam, o número sobe do Token — **vermelho** dano, **verde** cura, **azul** Escudo, **roxo** Mana (Nave: Escudo, Casco e Integridade). Você vê o número exato do golpe; a Mana de alguém só o dono e o Mestre veem. Condições entrando e saindo ("+Envenenado") o próprio Foundry já mostra.
+- **Números sobre os ícones de efeito** no Token: **amarelo** = rodadas ou ticks que faltam; **∞ ciano** = dura até a Habilidade Ativa ser desligada; **verde-limão** = nível de irradiação; **vermelho** = o contador do Caído/Inconsciente. Efeitos sem prazo não mostram número. Você vê os números só nos Tokens que controla (o Mestre vê em todos).
+- **Voz do Mundo na tela**: os anúncios para você (subiu de nível, XP cheio, Skill nova…) aparecem como um card dourado no topo da tela por alguns segundos (clique fecha). O sussurro no chat continua, como registro.
+
+As três coisas têm opção para desligar **só no seu navegador**, em *Configurações → Configurar Definições → Nihility RPG System*: **Números flutuantes sobre o Token**, **Duração sobre os ícones do Token** e **Voz do Mundo na tela**.
+
 ### Janela de Efeitos
 
 O botão **✦ Efeitos** (no topo da ficha, ao lado de Iniciativa; na Nave, ao lado da Classe) abre uma janela com **tudo o que está agindo sobre você** agora, em palavras: cada efeito (de onde veio, o que muda — "Força +3", "Vida −5 por rodada", "Deslocamento −50%" — e quanto falta), o Escudo e os pools dele, Escudos que você mantém em alguém (com **Regenerar agora**, para fora de combate), Habilidades Ativas ligadas e o custo por rodada, Estruturas que você mantém, efeitos que somem no próximo turno e sobrecarga de peso. Na Nave: efeitos de sistema, Raio Trator e o que o Escudo adaptativo já aprendeu. A janela se atualiza sozinha; só o Mestre encerra efeitos por ela.
@@ -485,6 +521,7 @@ Condições são estados com nome e ícone no Token: **Cegueira, Veneno, Queimad
 - Ticks por rodada acontecem sozinhos no **início do seu turno**. Ticks **manuais** (cura de longo prazo fora de combate) esperam um clique na ampulheta do chip na sua ficha.
 - Dano por tick é reduzido pelas suas Resistências, mas **não** pela Defesa Mágica. Cura nunca é reduzida.
 - **Reaplicar a mesma Condição renova, não acumula**: a duração passa a ser a maior entre a que restava e a nova, e o valor fica o mais forte.
+- **Contágio**: algumas Condições (a "Praga" de fábrica, fungos, nanitos…) **passam de um para outro**. No início do turno de quem a carrega, cada personagem perto (no raio dela) rola a chance de pegar. Certos Traços deixam imune, e a sua Resistência ao elemento da Condição diminui a chance. O chat mostra quem pegou e quem resistiu. Só acontece em combate.
 
 ### Bônus condicionais
 
@@ -540,6 +577,30 @@ Uma Skill que custa energia (Mana, Ki… o nome da sua mesa) é **Mágica** por 
 
 O chat mostra quanto foi cobrado ("antimagia nível 2: +90 Mana") ou que o ataque foi anulado.
 
+### Ambiente e densidade de mana
+
+O lugar pode ser perigoso por si só: vácuo, gás venenoso, calor extremo, uma sala sem ar. O Mestre marca isso na cena inteira ou numa área do mapa, e quem está lá **ganha a Condição** do perigo enquanto ficar — e perde ao sair. Alguns Traços deixam imune (um Androide não respira, então gás não o afeta).
+
+A **densidade de mana** do lugar muda a força da magia:
+
+- **1** é o normal;
+- acima de 1 (um nexo arcano), Skills **mágicas** ficam mais fortes — dano, Efeitos e a Vida das Estruturas — e a Mana regenera mais;
+- abaixo de 1, ficam mais fracas;
+- em **0**, magia não funciona ali: a Skill é recusada antes de cobrar a Mana.
+
+O **Custo** e o Custo por Rodada não mudam com a densidade. A janela ⓘ "De onde vem" mostra o fator do lugar onde você está.
+
+### Radiação
+
+Um lugar (ou um Token, como um reator vazando) pode ter um **nível de radiação**. Quem fica lá vai sendo **irradiado**:
+
+- a cada rodada, a sua irradiação **sobe** em direção ao nível do lugar (mais rápido perto de uma fonte forte) — o ícone **Irradiado** no Token mostra o número;
+- você leva **dano por rodada** proporcional à sua irradiação, direto na Vida (o Escudo não segura). Resistência Geral e Resistência a Radiação reduzem;
+- fora da radiação, a irradiação **cai** devagar (padrão: 10% por rodada), e o dano cai junto;
+- perto de um Token que emite, a exposição diminui com a distância.
+
+Fora de combate, o Mestre pode "passar o tempo" e aplicar várias rodadas de uma vez. Para se curar de vez da irradiação, fale com o Mestre.
+
 ---
 
 ## 8. Itens e armas
@@ -556,7 +617,7 @@ Com o bloco **Inventário** ligado, a ficha ganha a aba **Inventário** (a aba F
 - **Mover** entre fichas: arrastar um item da ficha de um personagem seu (ou do Porão de uma Nave da tripulação) para outra **move** o item; do Diretório ou Compêndio, **copia**.
 - Busca, filtro (Equipados, Armas, Contêineres, Munição) e ordem (Nome, Peso, Quantidade) no topo; equipados sempre primeiro.
 
-A ficha de um Item Geral tem as abas **Geral**, **Arma** e **Enquanto equipado** (além de **Descrição**).
+A ficha de um Item Geral tem as abas **Geral**, **Arma**, **Consumível** e **Enquanto equipado** (além de **Descrição**, e **Implante** quando a mesa usa Anatomia).
 
 - **Geral**: Quantidade, Peso, Valor (com a moeda) e o interruptor **Equipado**.
 - **Arma**: liga **"Este item é uma arma"** e define **Fórmula de Dano**, **Atributo de Escala**, **Dano Mágico**, **Dano Absoluto**, **Escala do golpe** e **Elemento(s)** — os mesmos campos de uma Skill de Dano.
@@ -569,6 +630,26 @@ A ficha de um Item Geral tem as abas **Geral**, **Arma** e **Enquanto equipado**
 Clique **Atacar** (Shift para modificadores), escolha o alvo como numa Skill Targetada, e o dano segue exatamente o mesmo caminho de uma Skill de Dano. Diferenças: arma não tem nível, não custa Mana e só ataca um alvo (arma de área é uma Skill).
 
 Skills de **aprimoramento de arma** (Efeito Temporário com alvo "Dano das Armas equipadas", "Elemento das Armas", "Armas causam dano Mágico", "Armas causam Dano Absoluto") valem para **todas as armas equipadas** enquanto durarem.
+
+### Carregador e munição
+
+Uma arma pode ter **carregador** (**Disparos por carga** na aba Arma; 0 = sem carregador, ataca sem limite). Com carregador:
+
+- a linha da arma mostra **🔋 disparos/máximo**; cada **Atacar** gasta 1;
+- vazio, a arma não ataca (o aviso aparece antes de pedir alvo);
+- **⟳ Recarregar** gasta 1 **munição** compatível do seu inventário (um Item marcado como munição, de um tipo que a arma aceita). Se só houver uma munição que serve, recarrega direto; senão, abre uma janela para escolher (ou **só descarregar**);
+- o ⟳ também serve para **trocar de munição**: o que estava dentro **volta para o inventário** — cheio volta para a pilha, pela metade volta como uma unidade "aberta" com os disparos que sobraram;
+- a munição pode mudar o golpe: fórmula, elementos e Dano Absoluto dela substituem os da arma até a próxima recarga, e algumas têm **Carga** própria (Célula grande = 20 disparos, pequena = 10).
+
+### Consumíveis
+
+Poção, granada, kit médico, estimulante: um Item com a aba **Consumível** ligada ganha o botão **Usar** na linha do inventário — **não precisa estar equipado**.
+
+- Pode ser **Efeito** (cura, buff, Condição) ou **Dano**, e agir **em si**, **num alvo** ou numa **área** (uma granada se posiciona como uma Emissão).
+- Cada uso gasta **1 da pilha**; com **Cargas por unidade** (kit de 5 usos), gasta 1 carga e só tira 1 da pilha quando as cargas acabam. A última unidade some da ficha.
+- Cancelar a escolha de alvo ou de área **não gasta nada**. Uma granada lançada onde não havia ninguém é gasta.
+- O dano de um consumível escala por Atributo como uma Skill, e os efeitos podem ser em **% do máximo** ("Curar Vida 25% do máximo"). Não custa Mana e não ganha XP.
+- **Caído?** Você não usa nada, mas um aliado pode usar uma poção **em você**.
 
 Só o Mestre cria Itens na sua ficha (botão **+ Novo Item**). Você pode receber itens arrastados de compêndios ou de outras fichas.
 
@@ -639,7 +720,8 @@ Os valores só são editáveis pelo Mestre. Você usa dois botões:
 - O **XP** do personagem e de cada Skill fica num bloco que **só o Mestre vê**. Ele concede XP e decide quando subir o nível.
 - O XP para no teto do nível: não dá para "guardar" XP para o próximo nível. Quando a barra enche, a Voz do Mundo avisa.
 - Curva padrão: **100 × nível** de XP para passar de nível (100 no nível 1, 1000 no nível 10).
-- Skills de Resistência ganham XP sozinhas ao bloquear dano.
+- Skills de Resistência ganham XP sozinhas ao bloquear dano, e as outras Skills pelo uso (veja [O que acontece ao clicar em Usar](#o-que-acontece-ao-clicar-em-usar)).
+- No **fim de um combate**, o Mestre pode distribuir a XP da luta entre os personagens que participaram; o anúncio chega pela Voz do Mundo.
 
 **Ao subir de nível** (padrão):
 
@@ -648,7 +730,9 @@ Os valores só são editáveis pelo Mestre. Você usa dois botões:
 
 ### Voz do Mundo
 
-É o canal de anúncios privados do sistema: aparece no chat **só para você e para o Mestre** (sussurro). Anuncia subidas de nível, XP cheio, Skills aprovadas, Fusões, Evoluções, Resistências ao alcance e pontos devolvidos.
+É o canal de anúncios privados do sistema: aparece no chat **só para você e para o Mestre** (sussurro). Anuncia subidas de nível, XP cheio, XP de combate, Skills aprovadas, Fusões, Evoluções, Heranças, Resistências ao alcance e pontos devolvidos.
+
+Além do chat, cada anúncio aparece como um **card dourado no topo da sua tela** por uns 6 segundos (clique fecha). Para desligar só o card, veja [Na tela: números e avisos](#na-tela-números-e-avisos).
 
 ---
 
@@ -733,7 +817,9 @@ Diferente de personagens, a Nave **aplica o dano sozinha**, camada por camada: *
 
 ### Habilidades da Nave
 
-A aba **Habilidades** lista as Skills concedidas pelos Módulos ligados. Usam-se como as suas, mas o Custo sai do **Capacitor**, e o Custo por Rodada das Ativas é descontado da geração do Reator enquanto estiverem ligadas.
+A aba **Habilidades** lista as Skills concedidas pelos Módulos ligados. Usam-se **exatamente como as suas** — Sub-Skills, Emissão, Zona, Estrutura e Shift para modificadores funcionam igual —, mas o Custo sai do **Capacitor**, e o Custo por Rodada das Ativas é descontado da geração do Reator enquanto estiverem ligadas.
+
+Uma Skill de Efeito Temporário da Nave pede o alvo como qualquer Skill Targetada, **com a própria Nave já marcada**: confirmar aplica nela mesma; escolher outra Nave (ou um tripulante) aplica nela. Skills marcadas **Si mesmo** não perguntam.
 
 ### Porão e munição
 
@@ -770,7 +856,19 @@ Três telas, que o Mestre pode ligar ou desligar uma a uma:
 ## 15. Perguntas frequentes
 
 **Cliquei em Usar e não aconteceu nada.**
-Provavelmente faltou Mana: o aviso aparece só para você no canto da tela. Confira também se você não cancelou a escolha de alvo ou o posicionamento da área.
+Provavelmente faltou Mana: o aviso aparece só para você no canto da tela. Confira também se você não cancelou a escolha de alvo ou o posicionamento da área, se está Caído/Inconsciente, e se o lugar não tem densidade de mana 0 (magia não funciona ali).
+
+**Apareceu um aviso vermelho dizendo que algo falhou.**
+Foi um erro do sistema, não da regra. Avise o Mestre com o texto do aviso.
+
+**Ergui uma Estrutura (ou Zona) e ela não apareceu.**
+Estruturas e Zonas são criadas pelo Mestre conectado. Se aparecer "Nenhum Mestre conectado", espere ele entrar e use de novo.
+
+**Estou Caído. O que posso fazer?**
+Nada por conta própria — não age, não se move. Seus aliados podem curar você, usar uma poção em você ou pedir ao Mestre para **Estabilizar**. A regeneração do seu corpo continua funcionando.
+
+**A arma diz que está sem munição.**
+O carregador esvaziou: clique **⟳** para recarregar com munição compatível do inventário.
 
 **O botão Atacar não aparece na minha arma.**
 A arma precisa estar **Equipada** (ficha do item, aba Geral) e ter **"Este item é uma arma"** ligado com uma Fórmula de Dano.
@@ -819,7 +917,14 @@ A ficha é sua e os campos são editáveis, mas combine com o Mestre: ele é que
 | **Escala** | Degrau de tamanho (Pessoal, Veículo, Nave, Capital). |
 | **Traço** | Etiqueta de criatura (Orgânico, Dracônico, Voador…). |
 | **Estrutura** | Parede/barreira que uma Skill ergue no mapa. |
-| **Voz do Mundo** | Anúncio privado do sistema no chat. |
+| **Voz do Mundo** | Anúncio privado do sistema, no chat e num card dourado na tela. |
+| **Caído** | Vida 0 em personagem de jogador: não age, contador de morte correndo. |
+| **Inconsciente** | Saiu do 0, mas ainda perde alguns turnos antes de acordar. |
+| **Consumível** | Item com **Usar** (poção, granada, kit); gasta 1 da pilha ou 1 carga. |
+| **Carregador** | Disparos de uma arma até precisar de **Recarregar**. |
+| **Densidade de mana** | Fator do lugar sobre a força da magia (1 normal, 0 = magia não funciona). |
+| **Irradiação** | Quanto de radiação você acumulou; causa dano por rodada. |
+| **Contágio** | Condição que passa de um personagem para quem está perto. |
 | **Porte** | Tamanho de Nave/Veículo (Mini → Capital) ou de Módulo (Compacto → Colossal). |
 | **Throttle** | Potência de um Módulo de nave, em %. |
 | **Capacitor** | Reserva de energia da Nave, que paga as Skills dela. |

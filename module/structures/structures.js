@@ -33,6 +33,9 @@ import {
   getActiveStatusConditions
 } from "../core/config.js";
 import { runAsGm, isDesignatedGm } from "../helpers/gm-relay.js";
+import { refuse, relayFailureMessage } from "../helpers/gm-relay-rules.js";
+import { escapeHtml } from "../helpers/html.js";
+import { reportError } from "../helpers/report.js";
 import {
   structureSegments,
   capPolyline,
@@ -220,11 +223,13 @@ export async function requestStructure({ sourceActor, skillId, subSkillIndex = n
   if (!placement) {
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
-      content: `<p><strong>${sourceActor.name}</strong> usou <strong>${label}</strong> e ergueu <strong>${structure.label}</strong>.</p>`
+      content: `<p><strong>${escapeHtml(sourceActor.name)}</strong> usou <strong>${escapeHtml(label)}</strong> e ergueu <strong>${escapeHtml(structure.label)}</strong>.</p>`
     });
     return true;
   }
-  await runAsGm("createStructure", {
+  // Com resposta: o jogador espera VER a Estrutura; sem Mestre online, ou recusada, ele é avisado
+  // (antes ela simplesmente não aparecia).
+  const outcome = await runAsGm("createStructure", {
     sceneId: placement.sceneId,
     shape: placement.shape,
     points: placement.points,
@@ -237,7 +242,14 @@ export async function requestStructure({ sourceActor, skillId, subSkillIndex = n
     label,
     // Desfazer uso (skill-undo.js): o Mestre acha esta Estrutura pelo id do uso.
     useId: currentSkillUseId()
-  });
+  }, { reply: true });
+  const failure = relayFailureMessage(outcome, `erguer ${structure.label}`);
+  if (failure) {
+    ui.notifications.warn(failure);
+    // Timeout: o Mestre pode ter erguido mesmo assim (só demorou) — conta como erguida para não
+    // tirar a XP de quem usou; recusa ou falta de Mestre não ergueram nada.
+    return outcome.reason === "timeout";
+  }
   return true;
 }
 
@@ -253,14 +265,16 @@ export async function createStructureAsGm(payload) {
   const scene = game.scenes.get(payload?.sceneId);
   const structure = getStructure(payload?.structureId);
   const source = payload?.sourceActorUuid ? await fromUuid(payload.sourceActorUuid) : null;
-  if (!scene || !structure || !source) return;
+  if (!scene) return refuse("a cena não existe mais");
+  if (!structure) return refuse("essa Estrutura não está mais no catálogo");
+  if (!source) return refuse("quem usou a Skill não existe mais");
 
   const points = (Array.isArray(payload.points) ? payload.points : [])
     .slice(0, MAX_POINTS)
     .map(p => [Number(p?.[0]), Number(p?.[1])])
     .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
   const segments = structureSegments(structure.shape, points, metersToPx(scene, structure.size));
-  if (!segments.length) return;
+  if (!segments.length) return refuse("a forma desenhada ficou sem tamanho");
 
   const S = CONST.WALL_SENSE_TYPES;
   const M = CONST.WALL_MOVEMENT_TYPES;
@@ -312,7 +326,7 @@ export async function createStructureAsGm(payload) {
 
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor: source }),
-    content: `<p><strong>${source.name}</strong> usou <strong>${String(payload.label ?? "")}</strong> e ergueu <strong>${structure.label}</strong>.</p>`,
+    content: `<p><strong>${escapeHtml(source.name)}</strong> usou <strong>${escapeHtml(payload.label)}</strong> e ergueu <strong>${escapeHtml(structure.label)}</strong>.</p>`,
     flags: { [SYSTEM_ID]: { structureCard: { sceneId: scene.id, instanceId: id } } }
   });
 }
@@ -355,7 +369,7 @@ async function createStructureLights(scene, structure, segments, id) {
       }))
     );
   } catch (err) {
-    console.error(`${SYSTEM_ID} | Falha ao criar a luz da Estrutura ${structure.label}.`, err);
+    reportError(`Falha ao criar a luz da Estrutura ${structure.label}.`, err, { gmOnly: true });
     return [];
   }
 }
@@ -540,7 +554,7 @@ async function enforceAntimagicOnStructures(scene) {
       await ChatMessage.create({
         speaker: ChatMessage.getSpeaker({ actor: caster }),
         whisper: ChatMessage.getWhisperRecipients("GM").map(u => u.id).concat(caster.isOwner ? [] : []),
-        content: `<p><strong>${instance.label}</strong> resiste à antimagia (nível ${level}): −${cost} ${getEnergyLabelForActor(caster)} de ${caster.name}.</p>`
+        content: `<p><strong>${escapeHtml(instance.label)}</strong> resiste à antimagia (nível ${level}): −${cost} ${escapeHtml(getEnergyLabelForActor(caster))} de ${escapeHtml(caster.name)}.</p>`
       });
     } else {
       await removeStructureInstance(scene, instance.id, "antimagic");
@@ -731,7 +745,7 @@ export function renderStructureControls(message, html) {
   box.className = "nihility-structure-controls";
   if (!instance) {
     const fall = structureFallOf(scene, card.instanceId);
-    box.innerHTML = `<span class="structure-state">${fall ? `${fall.label ?? "A Estrutura"} ${FALL_TEXT[fall.reason] ?? FALL_TEXT.dismissed}.` : "Estrutura derrubada."}</span>`;
+    box.innerHTML = `<span class="structure-state">${fall ? `${escapeHtml(fall.label ?? "A Estrutura")} ${FALL_TEXT[fall.reason] ?? FALL_TEXT.dismissed}.` : "Estrutura derrubada."}</span>`;
     html.appendChild(box);
     return;
   }
@@ -740,7 +754,7 @@ export function renderStructureControls(message, html) {
   if (instance.manaBarrier) {
     const caster = fromUuidSync(instance.sourceActorUuid);
     const energy = caster?.system?.attributes?.energy;
-    state = `Barreira de mana — dano sai da ${caster ? getEnergyLabelForActor(caster) : "Mana"} de ${caster?.name ?? "?"} (${energy?.value ?? 0}/${energy?.max ?? 0})`;
+    state = `Barreira de mana — dano sai da ${escapeHtml(caster ? getEnergyLabelForActor(caster) : "Mana")} de ${escapeHtml(caster?.name ?? "?")} (${energy?.value ?? 0}/${energy?.max ?? 0})`;
   } else {
     state = `Vida ${instance.hp}/${instance.hpMax}`;
   }

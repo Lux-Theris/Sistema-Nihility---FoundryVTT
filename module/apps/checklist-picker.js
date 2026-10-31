@@ -7,12 +7,9 @@
  * janela. É a prancheta 6 do redesenho da Ficha de Item.
  */
 import { getActiveDamageElements, getActiveTraits } from "../core/config.js";
+import { escapeHtml } from "../helpers/html.js";
 
 const { DialogV2 } = foundry.applications.api;
-
-function escapeHtml(value) {
-  return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
-}
 
 /**
  * Abre a janela e devolve os ids marcados, na ordem do catálogo — ou `null` se cancelou.

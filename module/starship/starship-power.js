@@ -11,7 +11,7 @@ import { splitTargetedStructural, hardenedChance } from "../combat/damage-rules.
  * não há mais o que quebrar.
  *
  * Função PURA (recebe a lista e a fonte de aleatoriedade, devolve a repartição): é a única forma
- * de testar uma regra de sorteio sem depender do que o dado deu — ver test/rules.test.mjs, onde
+ * de testar uma regra de sorteio sem depender do que o dado deu — ver test/, onde
  * `random` é substituído por uma sequência fixa.
  * @param {number} amount
  * @param {Array<{id: string, remaining: number}>} targets
@@ -364,6 +364,22 @@ export function moduleCanRestart(module) {
  * um alvo por vez: prender outro solta o anterior.
  * @returns {Promise<number>} fração segurada (0 = grande demais pra este Módulo)
  */
+/**
+ * Por que o Mestre não prenderia este alvo (texto pt-BR para o aviso de quem pediu), ou `null`
+ * quando pode. Mesmas condições de `engageTractorAsGm`, que continua conferindo por conta própria.
+ */
+export async function tractorRefusal({ moduleUuid, targetUuid }) {
+  const module = typeof moduleUuid === "string" ? await fromUuid(moduleUuid) : null;
+  const target = typeof targetUuid === "string" ? await fromUuid(targetUuid) : null;
+  if (!module || moduleRole(module.system?.category) !== "tractor") return "o Módulo não é um Raio Trator";
+  if (!target?.system?.modules) return "o alvo não é uma Nave ou Veículo";
+  if (module.system.status !== "online") return "o Raio Trator está desligado";
+  const moduleRank = MEU_SISTEMA.MODULE_SIZE_RANK[module.system.moduleSize] ?? 0;
+  const targetRank = target.system.vesselSize?.rank ?? 0;
+  if (tractorHold(moduleRank, targetRank, (module.system.powerAllocationPercent ?? 100) / 100) <= 0) return "o alvo é grande demais para este Raio Trator";
+  return null;
+}
+
 export async function engageTractorAsGm({ moduleUuid, targetUuid }) {
   const module = typeof moduleUuid === "string" ? await fromUuid(moduleUuid) : null;
   const target = typeof targetUuid === "string" ? await fromUuid(targetUuid) : null;

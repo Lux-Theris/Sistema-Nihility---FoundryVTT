@@ -27,7 +27,9 @@ import {
 import { syncShipOwnershipToCrew } from "./crew-ownership.js";
 import { registerItemInCompendium } from "../core/compendium.js";
 import { createGrantedSkill, removeGrantedSkill } from "../skills/skill-economy.js";
-import { useSkillEffect } from "../skills/skill-effects.js";
+import { useSkillFlow } from "../skills/skill-use-flow.js";
+import { reportError } from "../helpers/report.js";
+import { escapeHtml } from "../helpers/html.js";
 import { fireStarshipWeapon } from "./ship-damage.js";
 import {
   moduleCanRestart,
@@ -40,6 +42,7 @@ import {
 } from "./starship-power.js";
 import { requestShipRepair } from "./starship-repair.js";
 import { runAsGm } from "../helpers/gm-relay.js";
+import { relayFailureMessage } from "../helpers/gm-relay-rules.js";
 import { syncLibraryOwnershipToCrew } from "../pad/pad-library.js";
 import { pickTargetActor } from "../helpers/target-picker.js";
 import { rollOptionsFromEvent } from "../apps/roll-options-dialog.js";
@@ -61,10 +64,6 @@ function percentOf(value, max) {
 }
 
 /** Texto livre (nome de grupo) dentro do HTML de um diálogo — inclusive dentro de `value="…"`. */
-function escapeText(text) {
-  return String(text ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
-}
-
 /** Tipo próprio do arraste de Módulo entre grupos da aba Prioridade (não é um drop de Item). */
 const POWER_MODULE_DRAG_TYPE = "application/x-nihility-power-module";
 
@@ -319,7 +318,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
   async _promptPowerGroupName(title, current) {
     const name = await promptDialog({
       title,
-      content: `<div class="nihility-power-group-name"><label>Nome do grupo<input type="text" name="label" value="${escapeText(current)}" autofocus/></label></div>`,
+      content: `<div class="nihility-power-group-name"><label>Nome do grupo<input type="text" name="label" value="${escapeHtml(current)}" autofocus/></label></div>`,
       confirmLabel: "Salvar",
       onConfirm: element => element.querySelector('[name="label"]')?.value ?? ""
     });
@@ -378,7 +377,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (members.length) {
       const confirmed = await DialogV2.confirm({
         window: { title: `Apagar ${group.label}` },
-        content: `<p>${members.length} Módulo(s) deste grupo vão para <strong>${escapeText(fallback.label)}</strong>.</p>`,
+        content: `<p>${members.length} Módulo(s) deste grupo vão para <strong>${escapeHtml(fallback.label)}</strong>.</p>`,
         rejectClose: false
       });
       if (!confirmed) return;
@@ -664,10 +663,10 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
-   * "Usar" uma Habilidade de Nave/Veículo — mesmo `useSkillEffect` de actor-sheet.js, só que
-   * mais simples: nem Nave nem Veículo fundem Skills (sem Sub-Skills a escolher). "damage"
-   * (armas) sempre pede alvo, igual Personagem; "temporary" (aprimoramento) aplica no próprio
-   * Ator por padrão — uma Skill de "melhorar a arma" faz sentido mirar em si mesma, não noutro.
+   * "Usar" uma Habilidade de Nave/Veículo — o mesmo fluxo da ficha de Personagem
+   * (skills/skill-use-flow.js). Desde a 1.78, "temporary" com Tipo de Alvo "Alvo" abre o seletor
+   * (com a própria nave já marcada) em vez de cair sempre na nave; para pular o seletor, use
+   * Tipo de Alvo "Si mesmo".
    */
   static async onUseSkill(event, target) {
     event.preventDefault();
@@ -676,37 +675,9 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   /** O corpo do botão "Usar", público para a macro da hotbar (`core/hotbar.js`). `event` só serve para o Shift. */
   async useSkillItem(itemId, event = null) {
-    const skill = this.actor.items.get(itemId);
-    if (!skill) return;
-
-    const mech = skill.system;
-    // Habilidade Ativa já ligada: este clique só DESATIVA — nunca re-pede alvo (ver mesmo
-    // comentário em actor-sheet.js#onUseSkill).
-    const isDeactivating = mech.hasUpkeep && mech.active;
-    const usesMechanic = !isDeactivating && (mech.effectType === "temporary" || mech.effectType === "damage");
-
-    if (!usesMechanic) {
-      try {
-        await useSkillEffect(this.actor, itemId, {});
-      } catch (err) {
-        console.error(`${SYSTEM_ID} | Falha ao usar habilidade.`, err);
-      }
-      return;
-    }
-
-    try {
-      if (mech.effectType === "damage") {
-        const { cancelled, options } = await rollOptionsFromEvent(event, `Dano — ${skill.name}`);
-        if (cancelled) return;
-        const targetActor = await this._promptSkillTarget();
-        if (!targetActor) return;
-        await useSkillEffect(this.actor, itemId, { targetActor, rollOptions: options });
-      } else {
-        await useSkillEffect(this.actor, itemId, { targetActor: this.actor });
-      }
-    } catch (err) {
-      console.error(`${SYSTEM_ID} | Falha ao usar habilidade.`, err);
-    }
+    // Mesmo fluxo da ficha de Personagem (Sub-Skill, Zona, Emissão, Estrutura, alvo) — ver
+    // skills/skill-use-flow.js. O seletor de alvo já vem com a própria nave marcada.
+    await useSkillFlow(this.actor, itemId, { event, pickTarget: () => this._promptSkillTarget() });
   }
 
   /**
@@ -768,7 +739,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     await addShipSystemEffect(this.actor, { kind: "brace", percent: bracePercent, rounds: 1, label: "Preparar para impacto" });
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-      content: `<p><strong>${this.actor.name}</strong> se prepara para o impacto: −${bracePercent}% de dano recebido até o próximo turno.</p>`
+      content: `<p><strong>${escapeHtml(this.actor.name)}</strong> se prepara para o impacto: −${bracePercent}% de dano recebido até o próximo turno.</p>`
     });
   }
 
@@ -796,7 +767,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (moved) {
       await ChatMessage.create({
         speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-        content: `<p><strong>${this.actor.name}</strong> desvia ${moved} ${getStarshipEnergyAbbr()} da Bateria para os Escudos.</p>`
+        content: `<p><strong>${escapeHtml(this.actor.name)}</strong> desvia ${moved} ${getStarshipEnergyAbbr()} da Bateria para os Escudos.</p>`
       });
     }
   }
@@ -824,7 +795,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (ended) {
       await ChatMessage.create({
         speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-        content: `<p><strong>${this.actor.name}</strong> reinicia os sistemas.</p>`
+        content: `<p><strong>${escapeHtml(this.actor.name)}</strong> reinicia os sistemas.</p>`
       });
     }
   }
@@ -852,7 +823,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     const frequency = await modulateWeaponFrequency(this.actor);
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-      content: `<p><strong>${this.actor.name}</strong> modula a frequência das armas (${frequency}). Escudos adaptados à frequência antiga não seguram mais este fogo.</p>`
+      content: `<p><strong>${escapeHtml(this.actor.name)}</strong> modula a frequência das armas (${frequency}). Escudos adaptados à frequência antiga não seguram mais este fogo.</p>`
     });
   }
 
@@ -877,10 +848,15 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
       ui.notifications.warn(`${victim.name} é grande demais pra ${module.name} segurar.`);
       return;
     }
-    await runAsGm("engageTractor", { moduleUuid: module.uuid, targetUuid: victim.uuid });
+    // Com resposta: o Mestre confere a força de novo; se recusar (ou não houver Mestre), não posta o card.
+    const outcome = await runAsGm("engageTractor", { moduleUuid: module.uuid, targetUuid: victim.uuid }, { reply: true });
+    if (!outcome.ok) {
+      ui.notifications.warn(relayFailureMessage(outcome, "prender o alvo no Raio Trator"));
+      return;
+    }
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-      content: `<p><strong>${this.actor.name}</strong> prende <strong>${victim.name}</strong> no Raio Trator: −${Math.round(hold * 100)}% de deslocamento enquanto durar.</p>`
+      content: `<p><strong>${escapeHtml(this.actor.name)}</strong> prende <strong>${escapeHtml(victim.name)}</strong> no Raio Trator: −${Math.round(hold * 100)}% de deslocamento enquanto durar.</p>`
     });
   }
 
@@ -915,7 +891,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     try {
       await fireStarshipWeapon(this.actor, weaponModule, targetActor, options);
     } catch (err) {
-      console.error(`${SYSTEM_ID} | Falha ao disparar Arma.`, err);
+      reportError("Falha ao disparar Arma.", err);
     }
   }
 

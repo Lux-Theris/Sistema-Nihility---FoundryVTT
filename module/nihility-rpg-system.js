@@ -44,6 +44,7 @@ import { registerAnatomyHooks, registerImplantDragTracking } from "./species/ana
 import { tickActorUpkeepSkills, shutdownActiveSkillsOnDepletion, processPendingUpkeepRemoval } from "./skills/upkeep.js";
 import { advanceZones, tickZonesForCombatant } from "./skills/zones.js";
 import { isDesignatedGm } from "./helpers/gm-relay.js";
+import { reportError } from "./helpers/report.js";
 import { tickStarshipPower, registerShieldAdaptationReset } from "./starship/starship-power.js";
 import { requestShipRepair, approveShipRepairRoll, restoreShipRepairTarget } from "./starship/starship-repair.js";
 import { registerGmRelay } from "./helpers/gm-relay.js";
@@ -53,7 +54,7 @@ import { registerConditionalRefresh } from "./combat/conditional-context.js";
 import { advanceStructures, collapseStructuresOfCaster, renderStructureControls, registerStructureContact } from "./structures/structures.js";
 import { registerStructureRendering } from "./structures/structure-render.js";
 import { registerFloatingNumbers } from "./combat/floating-numbers.js";
-import { registerEffectBadges } from "./combat/effect-badges.js";
+import { registerEffectBadges, registerSystemEffectIcons, migrateSystemEffectIcons } from "./combat/effect-badges.js";
 import { registerVoiceBanner } from "./core/voice-banner.js";
 import { registerEndCombat } from "./apps/end-combat.js";
 import { registerSkillUndo, renderSkillUndo } from "./skills/skill-undo.js";
@@ -202,6 +203,7 @@ Hooks.once("init", () => {
   registerMovementLimit();
   // Depois do limite de deslocamento: as duas subclasses de Token se encadeiam.
   registerEffectBadges();
+  registerSystemEffectIcons();
 
   // Bônus condicionais que dependem de "estou em combate" (ver conditional-context.js).
   registerConditionalRefresh();
@@ -279,6 +281,7 @@ Hooks.once("ready", async () => {
   await runMigrationIfNeeded("physicalSubtypes", migratePhysicalSubtypes);
   await runMigrationIfNeeded("incapacitationConditions", migrateIncapacitationConditions);
   await runMigrationIfNeeded("radiationElement", migrateRadiationElement);
+  await runMigrationIfNeeded("systemEffectIcons", migrateSystemEffectIcons);
   console.log(`${SYSTEM_ID} | Sistema pronto.`);
 });
 
@@ -306,7 +309,8 @@ async function migrateSpeciesStableKeys() {
  * @param {() => Promise<void>} migrationFn
  */
 async function runMigrationIfNeeded(key, migrationFn) {
-  if (!game.user.isGM) return;
+  // Mestre designado, não `isGM`: com dois Mestres entrando juntos, os dois migravam ao mesmo tempo.
+  if (!isDesignatedGm()) return;
   if (getCompletedMigrations().includes(key)) return;
 
   await migrationFn();
@@ -540,7 +544,8 @@ Hooks.on("preUpdateActor", (actor, changes) => {
  * schema, ganhos posteriores não geram update nenhum e portanto não repetem o aviso.
  */
 function announceXpReadyIfJustFilled(actor, label, xp, xpMax) {
-  if (!game.user.isGM || !(xpMax > 0) || xp < xpMax) return;
+  // Mestre designado: o hook roda em todos os clientes, e com `isGM` dois Mestres anunciavam em dobro.
+  if (!isDesignatedGm() || !(xpMax > 0) || xp < xpMax) return;
   announceVoiceOfTheWorld(actor, {
     kind: "xp-ready",
     title: "Experiência no limite",
@@ -565,7 +570,7 @@ Hooks.on("updateActor", (actor, changes) => {
   const hpZero = hp !== undefined && hp <= 0;
   const energyZero = energy !== undefined && energy <= 0;
   if (!hpZero && !energyZero) return;
-  collapseStructuresOfCaster(actor, { hpZero, energyZero }).catch(err => console.error(`${SYSTEM_ID} | Falha ao derrubar Estruturas.`, err));
+  collapseStructuresOfCaster(actor, { hpZero, energyZero }).catch(err => reportError("Falha ao derrubar Estruturas.", err, { gmOnly: true }));
 });
 
 // Mana em 0 desliga todas as Habilidades Ativas (ver shutdownActiveSkillsOnDepletion). Roda só
@@ -574,7 +579,7 @@ Hooks.on("updateActor", (actor, changes) => {
   if (actor.type !== "character" || !isEnergyPoolEnabled() || !isDesignatedGm()) return;
   const energy = foundry.utils.getProperty(changes, "system.attributes.energy.value");
   if (energy === undefined || energy > 0) return;
-  shutdownActiveSkillsOnDepletion(actor).catch(err => console.error(`${SYSTEM_ID} | Falha ao desligar Habilidades Ativas sem Mana.`, err));
+  shutdownActiveSkillsOnDepletion(actor).catch(err => reportError("Falha ao desligar Habilidades Ativas sem Mana.", err, { gmOnly: true }));
 });
 
 Hooks.on("updateActor", (actor, changes) => {
@@ -715,11 +720,22 @@ Hooks.on("preUpdateItem", (item, changes, options, userId) => {
 
 // Tica Efeitos Periódicos (veneno/cura contínua com tickUnit "combatRound", ver
 // skill-effects.js) sempre que chega a vez de um combatente — só o dono desse turno tica,
-// uma vez por turno próprio (não uma vez por rodada global). Guardado por isGM: só o GM
-// aplica o dano/cura de verdade, senão cada cliente conectado ticaria o mesmo efeito.
-Hooks.on("updateCombat", async (combat, changed) => {
-  if (!game.user.isGM) return;
+// uma vez por turno próprio (não uma vez por rodada global). Só o Mestre DESIGNADO executa:
+// com `isGM`, um segundo Mestre (ou um Assistente) conectado ticava tudo de novo — veneno,
+// regeneração e manutenção em dobro. Várias funções abaixo não se protegem por dentro.
+Hooks.on("updateCombat", async (combat, changed, options) => {
+  if (!isDesignatedGm()) return;
   if (changed.turn === undefined && changed.round === undefined) return;
+  // "Turno anterior"/"Rodada anterior" do Foundry (direction −1): o turno já começou uma vez.
+  // Tudo daqui é início de turno (ticks, Zonas, regeneração, manutenção, Maldição, radiação,
+  // Contágio) e rodaria DE NOVO — o Mestre que volta um turno por engano cobraria tudo duas vezes.
+  if (options?.direction < 0) return;
+  // Voltar e avançar de novo cai num turno que já começou: só processa turno NOVO (rodada/turno
+  // além do último já processado, guardado no próprio Combate pelo Mestre designado).
+  const position = (Number(combat.round) || 0) * 1000 + (Number(combat.turn) || 0);
+  const processed = combat.getFlag(SYSTEM_ID, "turnProcessed");
+  if (processed != null && position <= Number(processed)) return;
+  await combat.setFlag(SYSTEM_ID, "turnProcessed", position);
 
   const actor = combat.combatant?.actor;
   if (!actor) return;
@@ -729,7 +745,7 @@ Hooks.on("updateCombat", async (combat, changed) => {
     // Zonas, ticks e regeneração, para quem sair do 0 neste turno não perder já uma rodada.
     await tickIncapacitation(actor);
   } catch (err) {
-    console.error(`${SYSTEM_ID} | Falha ao contar Caído/Inconsciente no início do turno.`, err);
+    reportError("Falha ao contar Caído/Inconsciente no início do turno.", err, { gmOnly: true });
   }
   // Morto: o turno dele não processa ticks, regeneração, Zona, manutenção nem Maldição. Seguem só
   // as Zonas que ELE lançou (contando, para sumirem no prazo) e a limpeza dos efeitos das
@@ -744,7 +760,7 @@ Hooks.on("updateCombat", async (combat, changed) => {
     // Radiação (radiation.js): acumula/cai e causa o dano da rodada. Morto não.
     if (!dead && combat.combatant.token) await tickRadiation(combat.combatant.token);
   } catch (err) {
-    console.error(`${SYSTEM_ID} | Falha no Contágio/Ambiente no início do turno.`, err);
+    reportError("Falha no Contágio/Ambiente no início do turno.", err, { gmOnly: true });
   }
 
   try {
@@ -757,13 +773,13 @@ Hooks.on("updateCombat", async (combat, changed) => {
     }
     if (!dead) await tickZonesForCombatant(combat.combatant);
   } catch (err) {
-    console.error(`${SYSTEM_ID} | Falha ao processar Zonas no início do turno.`, err);
+    reportError("Falha ao processar Zonas no início do turno.", err, { gmOnly: true });
   }
 
   try {
     if (!dead) await tickCombatRoundEffects(actor);
   } catch (err) {
-    console.error(`${SYSTEM_ID} | Falha ao ticar Efeitos Periódicos no início do turno.`, err);
+    reportError("Falha ao ticar Efeitos Periódicos no início do turno.", err, { gmOnly: true });
   }
 
 
@@ -773,20 +789,20 @@ Hooks.on("updateCombat", async (combat, changed) => {
     const { tickRegeneration } = await import("./combat/regeneration.js");
     await tickRegeneration(actor);
   } catch (err) {
-    console.error(`${SYSTEM_ID} | Falha na regeneração por rodada.`, err);
+    reportError("Falha na regeneração por rodada.", err, { gmOnly: true });
   }
 
   try {
     // Efeitos das Skills que a Mana em 0 desligou no turno anterior somem agora.
     await processPendingUpkeepRemoval(actor);
   } catch (err) {
-    console.error(`${SYSTEM_ID} | Falha ao remover efeitos de Habilidades desligadas por falta de Mana.`, err);
+    reportError("Falha ao remover efeitos de Habilidades desligadas por falta de Mana.", err, { gmOnly: true });
   }
 
   try {
     if (!dead) await tickActorUpkeepSkills(actor);
   } catch (err) {
-    console.error(`${SYSTEM_ID} | Falha ao drenar Energia de Habilidades Ativas no início do turno.`, err);
+    reportError("Falha ao drenar Energia de Habilidades Ativas no início do turno.", err, { gmOnly: true });
   }
 
   try {
@@ -794,14 +810,14 @@ Hooks.on("updateCombat", async (combat, changed) => {
     const { tickCurses } = await import("./skills/curses.js");
     if (!dead) await tickCurses(actor);
   } catch (err) {
-    console.error(`${SYSTEM_ID} | Falha ao processar Maldições no início do turno.`, err);
+    reportError("Falha ao processar Maldições no início do turno.", err, { gmOnly: true });
   }
 
   if (["starship", "vehicle"].includes(actor.type)) {
     try {
       await tickStarshipPower(actor);
     } catch (err) {
-      console.error(`${SYSTEM_ID} | Falha ao ticar Energia/Sobrecarga de Módulos no início do turno.`, err);
+      reportError("Falha ao ticar Energia/Sobrecarga de Módulos no início do turno.", err, { gmOnly: true });
     }
   }
 });

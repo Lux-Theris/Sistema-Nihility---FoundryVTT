@@ -21,13 +21,9 @@ import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } f
 import { pickerFieldHtml, readPickerField, wireElementPickerField } from "./checklist-picker.js";
 import { openLightConfigDialog, describeLight } from "../combat/lights.js";
 import { advancedFold } from "../helpers/advanced-fold.js";
+import { escapeHtml } from "../helpers/html.js";
 
 const { DialogV2 } = foundry.applications.api;
-
-/** Escapa texto pra uso seguro dentro de atributos/conteúdo HTML (nome/descrição vêm de texto livre do GM). */
-function escapeHtml(value) {
-  return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
-}
 
 /** A linha "Avançado ▸" (K1) de um <details class="adv">, a partir de advancedFold. */
 function advSummaryHtml(fold) {
@@ -59,7 +55,7 @@ function buildEffectRowHtml(entry) {
   const conditionOptions = conditionsEnabled
     ? `<option value="">— sem Condição —</option>` +
       getActiveStatusConditions()
-        .map(c => `<option value="${c.id}" ${c.id === entry.conditionId ? "selected" : ""}>${c.label}</option>`)
+        .map(c => `<option value="${escapeHtml(c.id)}" ${c.id === entry.conditionId ? "selected" : ""}>${escapeHtml(c.label)}</option>`)
         .join("")
     : `<option value="" selected>— sem Condição —</option>`;
   const tickUnitOptions = MEU_SISTEMA.PERIODIC_TICK_UNITS.map(
@@ -227,7 +223,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
           ? [{ key: data.scalingAttribute, label: `${getAttributeLabel(data.scalingAttribute)} (oculto)` }]
           : []
       )
-      .map(a => `<option value="${a.key}" ${a.key === data.scalingAttribute ? "selected" : ""}>${a.label}</option>`)
+      .map(a => `<option value="${a.key}" ${a.key === data.scalingAttribute ? "selected" : ""}>${escapeHtml(a.label)}</option>`)
       .join("");
 
   const effectTypeOptions = MEU_SISTEMA.SKILL_EFFECT_TYPES.filter(t => t !== "structure" || isStructuresEnabled() || data.effectType === "structure").map(
@@ -262,7 +258,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     .map(
       opt =>
         `<label class="element-chip resist-chip ${data.resistanceTarget === opt.value ? "checked" : ""}">
-          <input type="radio" name="resistTarget" value="${opt.value}" ${data.resistanceTarget === opt.value ? "checked" : ""}/>${opt.label}
+          <input type="radio" name="resistTarget" value="${escapeHtml(opt.value)}" ${data.resistanceTarget === opt.value ? "checked" : ""}/>${escapeHtml(opt.label)}
         </label>`
     )
     .join("");
@@ -595,6 +591,10 @@ function setupSkillEditorInteractivity(root, data) {
     });
   });
 
+  // Cada linha de Efeito registra aqui o seu refreshAdv (o Avançado depende de "Habilidade Ativa").
+  const rowRefreshers = [];
+  root.querySelector('[name="hasUpkeep"]')?.addEventListener("change", () => rowRefreshers.forEach(fn => fn()));
+
   function addEffectRow(entry = { target: MEU_SISTEMA.EFFECT_TARGETS[0], amount: 1, modifierType: "flat", durationRounds: 1, conditionId: "", periodic: false, tickUnit: "combatRound", damageElements: [] }) {
     const li = document.createElement("li");
     li.className = "effect-row";
@@ -688,11 +688,16 @@ function setupSkillEditorInteractivity(root, data) {
       }
       const shieldRegen = Number(li.querySelector(".se-effect-shield-regen")?.value) || 0;
       const shieldCap = Number(li.querySelector(".se-effect-shield-cap")?.value) || 0;
+      // Como na ficha: Tipo de cura só numa cura (valor positivo), Escudo mantido só em Skill Ativa.
+      const isHeal = periodicOn && target === "hp" && Number(li.querySelector(".se-effect-amount")?.value) > 0;
+      const active = Boolean(root.querySelector('[name="hasUpkeep"]')?.checked);
+      healSelect.style.display = isHeal ? "inline-block" : "none";
+      li.querySelector(".effect-row-shield").style.display = isShield && active ? "flex" : "none";
       const fold = advancedFold([
         periodicOn ? { label: "Elemento do tick", used: elements } : null,
-        periodicOn && target === "hp" ? { label: "Tipo de cura", used: healSelect.value !== "cura" } : null,
+        isHeal ? { label: "Tipo de cura", used: healSelect.value !== "cura" } : null,
         isShield ? { label: "Elemento do escudo", used: elements } : null,
-        isShield ? { label: "Escudo mantido", used: Boolean(shieldRegen || shieldCap) } : null,
+        isShield && active ? { label: "Escudo mantido", used: Boolean(shieldRegen || shieldCap) } : null,
         isShield ? { label: "Luz", used: Boolean(light?.enabled) } : null,
         curseSelect.style.display !== "none" ? { label: "Sem Mana para pagar", used: Boolean(curseSelect.value) } : null
       ]);
@@ -704,6 +709,7 @@ function setupSkillEditorInteractivity(root, data) {
       }
     }
     li.addEventListener("change", () => refreshAdv());
+    rowRefreshers.push(refreshAdv);
     li.querySelector(".se-light-edit").addEventListener("click", () => setTimeout(refreshAdv, 0));
 
     wireElementPickerField(li.querySelector(".se-effect-elements"), { onChange: () => refreshAdv() });

@@ -4,33 +4,15 @@
  */
 import { SYSTEM_ID, getEnergyLabelForActor, isEnergyPoolEnabled, effectiveSkillCost, combatantIsActor, isMagicUse, antimagicSurcharge, getAntimagicConfig } from "../core/config.js";
 import { runAsGm } from "../helpers/gm-relay.js";
-import { makeAnchor, removeAnchor, effectAnchors, finiteRemaining, anchorLifetime, PERMANENT } from "../combat/effect-anchors.js";
+import { makeAnchor, removeAnchor, effectAnchors, finiteRemaining, anchorLifetime, PERMANENT, ANCHORED_TARGETS_FLAG, ANCHORED_TARGETS_CAP, anchoredTargetsFor, forgetAnchoredTargets } from "../combat/effect-anchors.js";
+import { worldActors, actorsFromUuids } from "../helpers/world-actors.js";
+import { escapeHtml } from "../helpers/html.js";
 import { removeZonesFor } from "../combat/area-effects.js";
 import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
 import { removeStructuresFor, antimagicLevelAt } from "../structures/structures.js";
 import { isShipLike } from "../starship/ship-damage.js";
 import { activeStatePath, energyValuePath, currentEnergyValue } from "./skill-state.js";
 import { regenerateSustainedShields, dropSustainedShields } from "./sustained-shields.js";
-
-/**
- * Todos os Atores do mundo que podem carregar um efeito: os do Diretório E os sintéticos dos
- * Tokens não vinculados de todas as cenas (que não estão em `game.actors` — varrer só o Diretório
- * deixava o efeito para sempre num Drone não vinculado).
- */
-function worldActors() {
-  const seen = new Set();
-  const list = [];
-  const push = actor => {
-    if (!actor || seen.has(actor.uuid)) return;
-    seen.add(actor.uuid);
-    list.push(actor);
-  };
-  for (const actor of game.actors) push(actor);
-  for (const scene of game.scenes) {
-    for (const token of scene.tokens) if (!token.actorLink) push(token.actor);
-  }
-  return list;
-}
 
 /** "Agora" para o prazo finito dos efeitos ancorados (ver finiteRemaining em effect-anchors.js). */
 export function combatNow() {
@@ -79,16 +61,16 @@ async function releaseAnchorOnEffect(effect, anchor) {
 /**
  * Tira a âncora `anchor` de todos os efeitos dos Atores dados. `canWrite(actor)` decide quem este
  * cliente pode alterar; os outros são devolvidos para o Mestre resolver (ver releaseSkillAnchorsAsGm).
- * @returns {Promise<boolean>} sobrou Ator com efeito desta Skill que este cliente não pôde escrever
+ * @returns {Promise<Actor[]>} Atores com efeito desta Skill que este cliente não pôde escrever
  */
 async function releaseAnchorOnActors(actors, anchor, canWrite) {
-  let pending = false;
+  const pending = [];
   for (const actor of actors) {
     for (const effect of [...actor.effects]) {
       const flags = effect.flags?.[SYSTEM_ID];
       if (!flags?.skillEffect) continue;
       if (!canWrite(actor)) {
-        if (removeAnchor(effectAnchors(flags, effect.origin), anchor).removed) pending = true;
+        if (removeAnchor(effectAnchors(flags, effect.origin), anchor).removed && !pending.includes(actor)) pending.push(actor);
         continue;
       }
       await releaseAnchorOnEffect(effect, anchor);
@@ -98,11 +80,36 @@ async function releaseAnchorOnActors(actors, anchor, canWrite) {
 }
 
 /**
+ * Onde procurar os efeitos desta âncora: os alvos que o Ator que segura a Skill registrou ao
+ * aplicar (`anchoredTargets`, ver effect-anchors.js), ou o mundo inteiro quando não há registro
+ * (Skill ligada antes da 1.78) — o caminho antigo, caro mas completo.
+ * @returns {{actors: Actor[], listed: boolean}}
+ */
+function anchorSearchScope(holder, anchor) {
+  const listed = anchoredTargetsFor(holder?.getFlag?.(SYSTEM_ID, ANCHORED_TARGETS_FLAG), anchor);
+  if (!listed) return { actors: worldActors(), listed: false };
+  return { actors: actorsFromUuids(listed), listed: true };
+}
+
+/** Apaga o registro de alvos desta âncora no Ator que segura a Skill (ela foi desligada). */
+async function clearAnchoredTargets(holder, anchor) {
+  if (!holder?.isOwner) return;
+  const { records, changed } = forgetAnchoredTargets(holder.getFlag(SYSTEM_ID, ANCHORED_TARGETS_FLAG), anchor);
+  if (!changed) return;
+  // Lista inteira gravada de novo (não `-=`): ela é um array, e setFlag de um array substitui.
+  await holder.setFlag(SYSTEM_ID, ANCHORED_TARGETS_FLAG, records);
+}
+
+/**
  * Lado do Mestre (relay `releaseSkillAnchors`): tira as âncoras de uma Skill dos Atores que quem
  * pediu não pode escrever. O payload não é confiável: a Skill tem que estar DESLIGADA (ou não
  * existir mais — então não há nada a proteger), senão um cliente apagaria efeitos de uma Skill ligada.
+ *
+ * `targetUuids` (opcional) são os Atores que quem pediu não pôde escrever; sem eles (pedido de
+ * uma versão anterior, ou Skill sem registro de alvos), varre o mundo. Uma lista forjada só pode
+ * fazer o Mestre soltar MENOS — a âncora solta é sempre a de uma Skill desligada.
  */
-export async function releaseSkillAnchorsAsGm({ skillUuid, skillId, subSkillIndex, requesterId }) {
+export async function releaseSkillAnchorsAsGm({ skillUuid, skillId, subSkillIndex, requesterId, targetUuids }) {
   if (typeof skillUuid !== "string") return;
   const index = Number.isInteger(subSkillIndex) ? subSkillIndex : null;
   const skill = await fromUuid(skillUuid);
@@ -113,16 +120,18 @@ export async function releaseSkillAnchorsAsGm({ skillUuid, skillId, subSkillInde
   }
   const requester = game.users.get(requesterId);
   const anchor = makeAnchor({ skillUuid, skillId: typeof skillId === "string" ? skillId : null, subSkillIndex: index });
-  await releaseAnchorOnActors(worldActors(), anchor, actor => !requester || !actor.testUserPermission(requester, "OWNER"));
+  const listed = Array.isArray(targetUuids) && targetUuids.length <= ANCHORED_TARGETS_CAP && targetUuids.every(u => typeof u === "string");
+  const actors = listed ? actorsFromUuids(targetUuids) : worldActors();
+  await releaseAnchorOnActors(actors, anchor, actor => !requester || !actor.testUserPermission(requester, "OWNER"));
 }
 
 /**
- * Desliga a "âncora" desta Skill/Sub-Skill "Ativa" em TODOS os Atores do mundo — chamado ao
- * desativar (clique manual ou falta de Energia, ver `useSkillEffect`/`tickActorUpkeepSkills`).
- * Precisa varrer o mundo inteiro (não só quem usou a Skill) porque um Efeito de Emissão em área
- * pode ter afetado vários Atores diferentes: a área só serviu pra ESCOLHER os alvos no momento
- * de usar — o efeito em si vive em cada Ator atingido, não no espaço, então continua neles
- * mesmo se saírem do lugar no canvas depois, até a Skill ser desativada aqui.
+ * Desliga a "âncora" desta Skill/Sub-Skill "Ativa" em todos os Atores que ela atingiu — chamado
+ * ao desativar (clique manual ou falta de Energia, ver `useSkillEffect`/`tickActorUpkeepSkills`).
+ * Não basta olhar quem usou a Skill: um Efeito de Emissão em área pode ter afetado vários Atores,
+ * e o efeito vive em cada um deles, não no espaço (continua mesmo se saírem da área no canvas).
+ * Quem foi atingido está no registro `anchoredTargets` de quem segura a Skill (gravado em
+ * applyEffectsToActor); sem registro (Skill ligada antes da 1.78), varre o mundo como antes.
  *
  * Buff/debuff comum e periódico seguem o mesmo modelo (effect-anchors.js): esta Skill só sai da
  * lista de âncoras; o efeito continua se outra Skill Ativa ainda o segura ou se ainda há prazo
@@ -140,9 +149,18 @@ export async function removeUpkeepLinkedEffects(skill, subSkillIndex) {
   if (skill.parent) await runAsGm("clearShieldLights", { actorUuid: skill.parent.uuid, skillId: skill.id, subSkillIndex: subSkillIndex ?? null });
 
   const anchor = makeAnchor({ skillUuid: skill.uuid, skillId: skill.id, subSkillIndex });
-  const pending = await releaseAnchorOnActors(worldActors(), anchor, actor => game.user.isGM || actor.isOwner);
-  if (pending) {
-    await runAsGm("releaseSkillAnchors", { skillUuid: skill.uuid, skillId: skill.id, subSkillIndex: anchor.sourceSubSkillIndex, requesterId: game.user.id });
+  const { actors, listed } = anchorSearchScope(skill.parent, anchor);
+  const pending = await releaseAnchorOnActors(actors, anchor, actor => game.user.isGM || actor.isOwner);
+  await clearAnchoredTargets(skill.parent, anchor);
+  if (pending.length) {
+    await runAsGm("releaseSkillAnchors", {
+      skillUuid: skill.uuid,
+      skillId: skill.id,
+      subSkillIndex: anchor.sourceSubSkillIndex,
+      requesterId: game.user.id,
+      // Com registro, o Mestre resolve só quem este cliente não pôde escrever; sem, varre o mundo.
+      ...(listed ? { targetUuids: pending.map(a => a.uuid) } : {})
+    });
   }
 }
 
@@ -196,7 +214,7 @@ export async function shutdownActiveSkills(actor, { reason = null } = {}) {
     whisper: owners,
     speaker: ChatMessage.getSpeaker({ actor }),
     content:
-      `<p><strong>${actor.name}</strong> ${reason ?? `ficou sem ${energyLabel}`}: ${labels.join(", ")} desligada(s).` +
+      `<p><strong>${escapeHtml(actor.name)}</strong> ${escapeHtml(reason ?? `ficou sem ${energyLabel}`)}: ${labels.map(escapeHtml).join(", ")} desligada(s).` +
       `${actorInStartedCombat(actor) ? " Os efeitos somem no início do próximo turno." : ""}</p>`
   });
   return labels;
@@ -341,17 +359,17 @@ export async function tickActorUpkeepSkills(actor) {
   // Depois do dreno: Skill que caiu por falta de Mana já tirou os Escudos dela, e não regenera.
   await regenerateSustainedShields(actor);
 
-  const energyLabel = getEnergyLabelForActor(actor);
+  const energyLabel = escapeHtml(getEnergyLabelForActor(actor));
   // Nave não "perde" a energia do upkeep — ela fica reservada enquanto a Skill estiver ligada
   // (e volta sozinha ao desligar), então o verbo no chat é outro.
   const rows = results.map(r => {
     const amount = shipLike ? `${r.drained} ${energyLabel} reservado(s) do Reator` : `-${r.drained} ${energyLabel}`;
     const reason = shipLike ? "Reator não sustenta" : `${energyLabel} insuficiente`;
-    return `<li><strong>${r.label}</strong>: ${amount}${r.deactivated ? ` (desativada — ${reason})` : ""}</li>`;
+    return `<li><strong>${escapeHtml(r.label)}</strong>: ${amount}${r.deactivated ? ` (desativada — ${reason})` : ""}</li>`;
   });
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor }),
-    content: `<p><strong>${actor.name}</strong> — início de turno, Habilidades Ativas:</p><ul>${rows.join("")}</ul>`
+    content: `<p><strong>${escapeHtml(actor.name)}</strong> — início de turno, Habilidades Ativas:</p><ul>${rows.join("")}</ul>`
   });
 
   for (const r of results.filter(r => r.deactivated)) {
@@ -360,7 +378,8 @@ export async function tickActorUpkeepSkills(actor) {
       title: "Habilidade Desativada",
       body: shipLike
         ? `${r.label} foi desativada automaticamente — o Reator de ${actor.name} não tem geração suficiente pra sustentá-la.`
-        : `${r.label} foi desativada automaticamente — ${actor.name} ficou sem ${energyLabel} suficiente pra mantê-la.`
+        // Texto puro (o template da Voz do Mundo já escapa com {{body}}): o rótulo sem escape.
+        : `${r.label} foi desativada automaticamente — ${actor.name} ficou sem ${getEnergyLabelForActor(actor)} suficiente pra mantê-la.`
     });
   }
 

@@ -1,4 +1,22 @@
 /**
+ * Testes das funções PURAS do sistema — as que decidem números de regra e não dependem de nada
+ * do Foundry em tempo de execução. É a verificação automatizada do projeto; tudo que é
+ * UI/documento continua sendo teste manual dentro de um mundo aberto (temp/testes-no-foundry.md).
+ *
+ * Os testes ficam divididos por assunto em `test/*.test.mjs` (combate, naves, espécies…); cada
+ * arquivo começa com `import "./setup.mjs"`. Para rodar todos:
+ *
+ *   node --test "test/*.test.mjs"
+ *
+ * (`node --test test/` não funciona: o Node trata a pasta como um módulo. `node --test` sem
+ * argumento também roda tudo, mas conta este setup.mjs como um teste vazio.)
+ *
+ * Critério pra entrar aqui: a função tem que ser chamável sem Actor/Item/canvas. Se um teste
+ * precisar simular documento do Foundry, o alvo está errado — extraia a parte pura primeiro.
+ * Teste novo vai no arquivo do assunto dele (ou num arquivo novo `<assunto>.test.mjs`).
+ *
+ * ---
+ *
  * Stubs mínimos do ambiente do Foundry pra rodar os testes em Node puro.
  *
  * Os módulos testados são as funções PURAS do sistema (matemática de dados, conversão de moeda,
@@ -7,8 +25,6 @@
  * (`Math.clamp`, `foundry.utils.*`) que em Node não existem. Este arquivo preenche só o que é
  * de fato tocado no caminho de import — deliberadamente NÃO é um mock do Foundry inteiro: se um
  * teste precisar de algo além disto, o certo é testar uma função mais pura, não crescer o mock.
- *
- * Rode com:  node --test test/
  */
 
 // `Math.clamp` é uma extensão do Foundry (não existe no JS padrão).
@@ -23,7 +39,7 @@ foundry.utils ??= {};
 // `foundry.abstract.TypeDataModel` na definição das classes — as duas coisas acontecem só por
 // IMPORTAR o arquivo, antes de qualquer teste rodar. Os stubs existem pra que o import não
 // exploda; nenhum teste chama schema ou Data Model de verdade (se precisasse, o alvo estaria
-// errado — ver o critério no cabeçalho de rules.test.mjs).
+// errado — ver o critério no cabeçalho deste arquivo).
 foundry.data ??= { fields: {} };
 foundry.abstract ??= { TypeDataModel: class {} };
 

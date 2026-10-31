@@ -1,5 +1,5 @@
 /**
- * Regras puras (sem `game`), testadas em test/rules.test.mjs: inventário, Grid de Energia, deslocamento, Antimagia…
+ * Regras puras (sem `game`), testadas em test/: inventário, Grid de Energia, deslocamento, Antimagia…
  * (Parte de core/config.js, dividido em 1.68.0 sem mudar nenhuma função; importe de
  * `core/config.js`, que reexporta tudo.)
  */

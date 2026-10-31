@@ -1,0 +1,641 @@
+/* ==========================================================================
+   Ficha de Item — redesenho aprovado (artifact "Redesenho da Ficha de Item").
+   Seções com título e grade, rótulo acima do campo, ajuda no (?), controle segmentado,
+   blocos de Categoria, interruptores e o campo compacto de Elementos. Tudo com cor explícita
+   (armadilha do tema do core) e botões com altura livre (armadilha da altura fixa de botão).
+   ========================================================================== */
+.nihility-sheet.item-sheet .item-header-fields { display: flex; flex-direction: column; gap: 6px; flex: 1 1 auto; min-width: 0; }
+.nihility-sheet.item-sheet .item-header-fields > input[name="name"] { font: 600 1.05rem var(--nihility-font); padding: 4px 8px; }
+.nihility-sheet .item-header-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.nihility-sheet .item-chip {
+  font: 500 0.7rem var(--nihility-font-data);
+  line-height: 16px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text-dim);
+  white-space: nowrap;
+}
+.nihility-sheet .item-chip.violet { color: var(--nihility-accent-2); border-color: rgba(192, 132, 252, 0.5); }
+.nihility-sheet .item-chip.gold { color: var(--nihility-gold); border-color: rgba(232, 193, 112, 0.45); }
+.nihility-sheet .item-chip.ok { color: var(--nihility-ok); border-color: rgba(110, 231, 160, 0.45); }
+.nihility-sheet .item-chip.hp { color: var(--nihility-hp); border-color: rgba(239, 83, 80, 0.45); }
+.nihility-sheet .item-chip.accent { color: var(--nihility-accent); border-color: rgba(110, 231, 255, 0.4); }
+
+/* Abas com contador/indicador. */
+.nihility-sheet .item-tabs { align-items: flex-end; background: #141722; padding: 6px 10px 0; gap: 2px; }
+.nihility-sheet .item-tabs .item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; border: 1px solid transparent; border-bottom: none; }
+.nihility-sheet .tab-count { font: 0.66rem var(--nihility-font-data); color: var(--nihility-text-faint); }
+.nihility-sheet .tab-led { width: 7px; height: 7px; border-radius: 50%; background: var(--nihility-border); }
+.nihility-sheet .tab-led.on { background: var(--nihility-ok); box-shadow: 0 0 5px var(--nihility-ok); }
+
+/* Cada aba é uma coluna de seções. `.hidden` precisa ganhar do `display:flex` daqui. */
+.nihility-sheet.item-sheet .tab { display: flex; flex-direction: column; gap: 12px; }
+.nihility-sheet.item-sheet .tab.hidden { display: none; }
+.nihility-sheet.item-sheet .tab-description prose-mirror { min-height: 320px; }
+
+.nihility-sheet.item-sheet .sec {
+  border: 1px solid rgba(58, 65, 102, 0.55);
+  border-radius: 8px;
+  background: rgba(31, 35, 51, 0.45);
+  color: var(--nihility-text);
+}
+.nihility-sheet.item-sheet .sec.var { border-color: rgba(110, 231, 255, 0.35); }
+.nihility-sheet.item-sheet .sec.gm-sec { border-color: rgba(232, 193, 112, 0.45); }
+.nihility-sheet.item-sheet .sec-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-bottom: 1px solid rgba(58, 65, 102, 0.45);
+  font: 500 0.68rem var(--nihility-font-data);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--nihility-text-dim);
+}
+.nihility-sheet.item-sheet .sec.gm-sec .sec-head { color: var(--nihility-gold); }
+.nihility-sheet.item-sheet .sec-head-note { text-transform: none; letter-spacing: 0; color: var(--nihility-text-faint); }
+.nihility-sheet.item-sheet .sec-head-input { flex: 1 1 auto; text-transform: none; letter-spacing: 0; font: 600 0.85rem var(--nihility-font); }
+.nihility-sheet.item-sheet .sp { flex-grow: 1; }
+.nihility-sheet.item-sheet .sec-body { padding: 10px; display: grid; gap: 10px; }
+.nihility-sheet.item-sheet .sec-body.tight { gap: 6px; }
+.nihility-sheet.item-sheet .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.nihility-sheet.item-sheet .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.nihility-sheet.item-sheet .inner-grid { display: grid; gap: 10px; }
+.nihility-sheet.item-sheet .inventory-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.6fr); }
+.nihility-sheet.item-sheet .span-all { grid-column: 1 / -1; }
+
+/* Campo: rótulo sempre acima; números à direita em fonte mono. */
+.nihility-sheet.item-sheet .fld { display: flex; flex-direction: column; gap: 4px; min-width: 0; color: var(--nihility-text); }
+.nihility-sheet.item-sheet .fld-label { display: flex; align-items: center; gap: 5px; font-size: 0.72rem; color: var(--nihility-text-dim); }
+.nihility-sheet.item-sheet .fld-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.nihility-sheet.item-sheet .fld input[type="text"],
+.nihility-sheet.item-sheet .fld input[type="number"],
+.nihility-sheet.item-sheet .fld select,
+.nihility-sheet.item-sheet .pair-row select,
+.nihility-sheet.item-sheet .pair-row input,
+.nihility-sheet.item-sheet .effect-card select,
+.nihility-sheet.item-sheet .effect-card input[type="number"],
+.nihility-sheet.item-sheet .effect-card input[type="text"] {
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  box-sizing: border-box;
+  padding: 4px 8px;
+  font-size: 0.82rem;
+}
+.nihility-sheet.item-sheet .fld-row input.narrow { width: 64px; }
+.nihility-sheet.item-sheet .narrow-fld { max-width: 220px; }
+.nihility-sheet.item-sheet input.num { font-family: var(--nihility-font-data); text-align: right; }
+.nihility-sheet.item-sheet input.mono { font-family: var(--nihility-font-data); font-size: 0.76rem; }
+.nihility-sheet.item-sheet .of { color: var(--nihility-text-faint); }
+
+/* Sufixo/prefixo dentro do campo ("%", "rod.", "EPS", "×"). */
+.nihility-sheet.item-sheet .suffix {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  border-radius: 4px;
+  min-width: 0;
+}
+.nihility-sheet.item-sheet .suffix input {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  font-family: var(--nihility-font-data);
+  text-align: right;
+}
+.nihility-sheet.item-sheet .suffix:focus-within { border-color: var(--nihility-accent); }
+.nihility-sheet.item-sheet .suffix > span { font: 0.7rem var(--nihility-font-data); color: var(--nihility-text-faint); white-space: nowrap; }
+
+/* Valor + moeda colados. */
+.nihility-sheet.item-sheet .joined { display: flex; }
+.nihility-sheet.item-sheet .joined input { border-radius: 4px 0 0 4px; flex: 1 1 0; }
+.nihility-sheet.item-sheet .joined select { border-radius: 0 4px 4px 0; border-left: none; flex: 1 1 0; }
+
+/* Ajuda (?) com title. */
+.nihility-sheet.item-sheet .help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 1px solid var(--nihility-text-faint);
+  color: var(--nihility-text-faint);
+  font: 9px var(--nihility-font-data);
+  cursor: help;
+  text-transform: none;
+}
+
+/* Selo "muda com X". */
+.nihility-sheet.item-sheet .depends {
+  font: 500 0.62rem var(--nihility-font-data);
+  letter-spacing: 0.03em;
+  text-transform: none;
+  color: var(--nihility-accent);
+  border: 1px solid rgba(110, 231, 255, 0.35);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+/* Faixas: estado que muda o que se pode fazer (continuam visíveis, não viram (?)). */
+.nihility-sheet.item-sheet .strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+.nihility-sheet.item-sheet .strip.info { background: rgba(110, 231, 255, 0.07); border: 1px solid rgba(110, 231, 255, 0.25); color: var(--nihility-text-dim); }
+.nihility-sheet.item-sheet .strip.gold { background: rgba(232, 193, 112, 0.07); border: 1px solid rgba(232, 193, 112, 0.3); color: var(--nihility-gold); }
+.nihility-sheet.item-sheet .strip.dim { background: rgba(31, 35, 51, 0.6); border: 1px solid rgba(58, 65, 102, 0.5); color: var(--nihility-text-dim); }
+.nihility-sheet.item-sheet .strip.split { justify-content: space-between; }
+.nihility-sheet.item-sheet .strip .mono { font: 0.7rem var(--nihility-font-data); }
+.nihility-sheet.item-sheet .empty-note { margin: 0; font-size: 0.76rem; line-height: 1.45; color: var(--nihility-text-dim); }
+.nihility-sheet.item-sheet .empty-note a,
+.nihility-sheet.item-sheet .link-add { color: var(--nihility-accent); cursor: pointer; font-size: 0.78rem; justify-self: start; }
+.nihility-sheet.item-sheet .locked-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 4px;
+  border: 1px dashed var(--nihility-accent-2);
+  color: var(--nihility-accent-2);
+  font-size: 0.82rem;
+}
+
+/* Botões pequenos (o core fixa a altura de todo <button>). */
+.nihility-sheet.item-sheet .btn {
+  height: auto;
+  min-height: 0;
+  line-height: normal;
+  width: auto;
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  font: 500 0.76rem var(--nihility-font);
+  border-radius: 4px;
+  border: 1px solid var(--nihility-border);
+  background: var(--nihility-bg-panel-alt);
+  color: var(--nihility-text);
+  white-space: nowrap;
+  justify-self: start;
+}
+.nihility-sheet.item-sheet .btn.gm { border-color: var(--nihility-gold); color: var(--nihility-gold); background: rgba(232, 193, 112, 0.06); }
+
+/* Controle segmentado: rádios com cara de régua. */
+.nihility-sheet.item-sheet .seg {
+  display: flex;
+  border: 1px solid var(--nihility-border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--nihility-bg-panel);
+}
+.nihility-sheet.item-sheet .seg-opt {
+  position: relative;
+  flex: 1 1 0;
+  padding: 6px 4px;
+  text-align: center;
+  font-size: 0.76rem;
+  color: var(--nihility-text-dim);
+  border-left: 1px solid var(--nihility-border);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.nihility-sheet.item-sheet .seg-opt:first-child { border-left: none; }
+.nihility-sheet.item-sheet .seg-opt.on { background: rgba(110, 231, 255, 0.12); color: var(--nihility-accent); }
+.nihility-sheet.item-sheet .seg-opt:hover { color: var(--nihility-text); }
+.nihility-sheet.item-sheet .seg-opt input,
+.nihility-sheet.item-sheet .tile input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+.nihility-sheet.item-sheet .seg-opt:has(input:focus-visible),
+.nihility-sheet.item-sheet .tile:has(input:focus-visible) { outline: 2px solid var(--nihility-accent); outline-offset: -2px; }
+.nihility-sheet.item-sheet .seg.compact { display: inline-flex; }
+.nihility-sheet.item-sheet .seg.compact .seg-opt { flex: 0 0 auto; padding: 4px 10px; }
+
+/* Área dentro de Alvo: Formato | Distância | Ângulo/Duração. */
+.nihility-sheet.item-sheet .area-box {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(58, 65, 102, 0.5);
+  border-radius: 6px;
+}
+
+/* Categoria do Módulo em blocos; o número é quantas cabem por Nave. */
+.nihility-sheet.item-sheet .tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.nihility-sheet.item-sheet .tile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 6px;
+  border: 1px solid var(--nihility-border);
+  border-radius: 6px;
+  background: var(--nihility-bg-panel);
+  color: var(--nihility-text-dim);
+  font-size: 0.76rem;
+  text-align: center;
+  cursor: pointer;
+}
+.nihility-sheet.item-sheet .tile.on { border-color: var(--nihility-accent); color: var(--nihility-accent); background: rgba(110, 231, 255, 0.1); }
+.nihility-sheet.item-sheet .tile-slots {
+  font: 600 0.6rem var(--nihility-font-data);
+  color: var(--nihility-gold);
+  border: 1px solid rgba(232, 193, 112, 0.5);
+  border-radius: 999px;
+  padding: 0 5px;
+}
+
+/* Interruptor (checkbox de verdade, com cara de chave). */
+.nihility-sheet.item-sheet .toggle {
+  /* O checkbox de verdade fica escondido com position:absolute DENTRO do rótulo (como no .seg-opt);
+     sem isto ele se ancorava na janela e o foco rolava a janela, não o corpo da ficha. */
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  font-size: 0.82rem;
+  color: var(--nihility-text);
+  cursor: pointer;
+  justify-self: start;
+}
+.nihility-sheet.item-sheet .toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.nihility-sheet.item-sheet .toggle-track {
+  position: relative;
+  width: 30px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--nihility-border);
+  transition: background 0.12s ease;
+}
+.nihility-sheet.item-sheet .toggle-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--nihility-text-dim);
+  transition: left 0.12s ease;
+}
+.nihility-sheet.item-sheet .toggle input:checked + .toggle-track { background: rgba(110, 231, 255, 0.35); }
+.nihility-sheet.item-sheet .toggle input:checked + .toggle-track::after { left: 16px; background: var(--nihility-accent); }
+.nihility-sheet.item-sheet .toggle input:focus-visible + .toggle-track { outline: 2px solid var(--nihility-accent); outline-offset: 2px; }
+
+/* Listas "Atributo | Valor | lixeira" com cabeçalho de colunas. */
+.nihility-sheet.item-sheet .col-head {
+  display: grid;
+  gap: 6px;
+  font: 0.62rem var(--nihility-font-data);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--nihility-text-faint);
+}
+.nihility-sheet.item-sheet .pair-cols,
+.nihility-sheet.item-sheet .pair-row { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) 22px; }
+.nihility-sheet.item-sheet .pair-cols span:nth-child(2) { text-align: right; }
+.nihility-sheet.item-sheet .pair-row { display: grid; gap: 6px; align-items: center; }
+.nihility-sheet.item-sheet .row-delete { color: var(--nihility-text-faint); text-align: center; cursor: pointer; }
+.nihility-sheet.item-sheet .row-delete:hover { color: var(--nihility-danger); }
+
+/* Efeitos em card com frase-resumo e selo do grupo. */
+.nihility-sheet.item-sheet .effect-cols { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) 20px; padding: 0 10px; }
+.nihility-sheet.item-sheet .effect-cols span:nth-child(2),
+.nihility-sheet.item-sheet .effect-cols span:nth-child(3) { text-align: right; }
+.nihility-sheet.item-sheet .effect-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 1px solid rgba(58, 65, 102, 0.6);
+  border-radius: 8px;
+  background: rgba(31, 35, 51, 0.5);
+}
+.nihility-sheet.item-sheet .effect-card-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.nihility-sheet.item-sheet .effect-sum { font-size: 0.8rem; color: var(--nihility-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nihility-sheet.item-sheet .effect-sum em { font-style: normal; color: var(--nihility-text-dim); }
+.nihility-sheet.item-sheet .effect-card-main { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) 20px; gap: 6px; align-items: center; }
+.nihility-sheet.item-sheet .effect-card-extra {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: end;
+  padding-top: 6px;
+  border-top: 1px solid rgba(58, 65, 102, 0.45);
+}
+.nihility-sheet.item-sheet .group-tag {
+  flex-shrink: 0;
+  font: 600 0.58rem var(--nihility-font-data);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text-dim);
+  white-space: nowrap;
+}
+.nihility-sheet.item-sheet .group-tag.attr { color: var(--nihility-accent); border-color: rgba(110, 231, 255, 0.45); }
+.nihility-sheet.item-sheet .group-tag.vit { color: var(--nihility-hp); border-color: rgba(239, 83, 80, 0.5); }
+.nihility-sheet.item-sheet .group-tag.arma { color: var(--nihility-accent-2); border-color: rgba(192, 132, 252, 0.55); }
+.nihility-sheet.item-sheet .group-tag.nave { color: var(--nihility-gold); border-color: rgba(232, 193, 112, 0.5); }
+
+/* Sub-Skills. */
+.nihility-sheet.item-sheet .subskill-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1.2fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  border: 1px solid rgba(58, 65, 102, 0.5);
+  border-radius: 6px;
+}
+.nihility-sheet.item-sheet .subskill-row input { height: 28px; }
+.nihility-sheet.item-sheet .subskill-mechanic { font-size: 0.74rem; color: var(--nihility-text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nihility-sheet.item-sheet .subskill-row a { color: var(--nihility-text-faint); cursor: pointer; }
+.nihility-sheet.item-sheet .tier-chip {
+  font: 600 0.62rem var(--nihility-font-data);
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text-dim);
+}
+.nihility-sheet.item-sheet .tier-chip.tier-extra { color: var(--nihility-accent); border-color: rgba(110, 231, 255, 0.4); }
+.nihility-sheet.item-sheet .tier-chip.tier-unique,
+.nihility-sheet.item-sheet .tier-chip.tier-ultimate { color: var(--nihility-accent-2); border-color: rgba(192, 132, 252, 0.5); }
+.nihility-sheet.item-sheet .chip-row { display: flex; flex-wrap: wrap; gap: 5px; }
+
+/* Campo compacto de Elementos: só os escolhidos + botão que abre a janela de escolha. */
+.element-field { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.element-field .element-chip { cursor: default; }
+.element-field .element-chip-remove { color: var(--nihility-text-dim); font-size: 0.65rem; cursor: pointer; margin-left: 2px; }
+.element-field .element-chip-remove:hover { color: var(--nihility-danger); }
+.element-field-empty { font-size: 0.76rem; color: var(--nihility-text-faint); }
+.element-field-add {
+  height: auto;
+  min-height: 0;
+  line-height: normal;
+  width: auto;
+  flex: 0 0 auto;
+  padding: 3px 10px;
+  font: 500 0.74rem var(--nihility-font);
+  border-radius: 999px;
+  border: 1px dashed var(--nihility-accent);
+  background: transparent;
+  color: var(--nihility-accent);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* Janela de escolha (apps/checklist-picker.js). */
+.nihility-picker,
+.nihility-picker label,
+.nihility-picker legend { color: var(--nihility-text); }
+.nihility-picker { display: flex; flex-direction: column; gap: 8px; }
+.nihility-picker .picker-filter {
+  width: 100%;
+  height: 30px;
+  box-sizing: border-box;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+}
+.nihility-picker .picker-count { font: 0.7rem var(--nihility-font-data); color: var(--nihility-accent-2); }
+.nihility-picker .picker-list { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; }
+.nihility-picker .picker-group { border: 1px solid var(--nihility-border-soft); border-radius: 6px; padding: 4px 8px 6px; margin: 0; }
+.nihility-picker .picker-group[hidden] { display: none; }
+.nihility-picker .picker-group legend {
+  padding: 0 4px;
+  font: 600 0.62rem var(--nihility-font-data);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--nihility-text-faint);
+}
+.nihility-picker .picker-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 8px; }
+.nihility-picker .picker-option { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 4px; font-size: 0.82rem; cursor: pointer; }
+.nihility-picker .picker-option[hidden] { display: none; }
+.nihility-picker .picker-option:hover { background: rgba(110, 231, 255, 0.06); }
+.nihility-picker .picker-option:has(input:checked) { background: rgba(192, 132, 252, 0.1); }
+.nihility-picker .picker-option .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.nihility-picker .hint { margin: 0; font-size: 0.74rem; color: var(--nihility-text-dim); }
+
+/* Editor de luz (module/lights.js) — Estrutura e Escudo pessoal. Cor explícita (tema do core). */
+.nihility-light-editor,
+.nihility-light-editor label { color: var(--nihility-text); }
+.nihility-light-editor { display: flex; flex-direction: column; gap: 10px; }
+.nihility-light-editor .light-enable { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+.nihility-light-editor .light-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+.nihility-light-editor .light-fields label { display: flex; flex-direction: column; gap: 3px; font-size: 0.76rem; color: var(--nihility-text-dim); }
+.nihility-light-editor .light-fields .light-wide { grid-column: 1 / -1; }
+.nihility-light-editor input[type="number"],
+.nihility-light-editor select {
+  height: 28px;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+}
+.nihility-light-editor input[type="color"] { width: 100%; height: 28px; padding: 0; }
+.nihility-light-editor .hint { margin: 0; font-size: 0.74rem; color: var(--nihility-text-dim); }
+.nihility-light-editor .light-preview-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.nihility-light-editor .light-preview-toggle,
+.nihility-card-config .structure-light-edit,
+.skill-editor-form .se-light-edit {
+  height: auto;
+  min-height: 0;
+  line-height: normal;
+  width: auto;
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--nihility-accent);
+  background: rgba(110, 231, 255, 0.08);
+  color: var(--nihility-accent);
+  cursor: pointer;
+}
+.nihility-card-config .structure-light-summary,
+.nihility-sheet .light-summary { font-size: 0.78rem; color: var(--nihility-text-dim); }
+.nihility-sheet .light-summary.on { color: var(--nihility-warn); }
+.nihility-sheet.item-sheet .light-row { align-items: center; }
+.skill-editor-form .effect-row-light { align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Escudo mantido no editor de Skill (Regenera/rodada e Teto). */
+.skill-editor-form .effect-row-shield { align-items: center; gap: 10px; flex-wrap: wrap; }
+.skill-editor-form .effect-row-shield input { width: 70px; }
+
+/* Investir Mana (apps/mana-invest-dialog.js). */
+.nihility-mana-invest,
+.nihility-mana-invest p { color: var(--nihility-text); }
+.nihility-mana-invest { display: flex; flex-direction: column; gap: 8px; }
+.nihility-mana-invest .mana-invest-row { display: grid; grid-template-columns: 1fr 90px; gap: 10px; align-items: center; }
+.nihility-mana-invest input[type="number"] {
+  height: 28px;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+  text-align: right;
+}
+.nihility-mana-invest .mana-invest-power { margin: 0; font-size: 0.9rem; }
+.nihility-mana-invest .hint { margin: 0; font-size: 0.74rem; color: var(--nihility-text-dim); }
+
+/* Pools do Escudo pessoal (um por Skill) embaixo do total. */
+.nihility-sheet .shield-row { flex-wrap: wrap; }
+.nihility-sheet .shield-pools { flex: 1 1 100%; font: 0.68rem var(--nihility-font-data); color: var(--nihility-text-dim); }
+
+/* Atalhos de energia e Ações da Nave (ficha da Nave). */
+.nihility-sheet .power-focus { display: flex; gap: 4px; margin: 4px 0 8px; flex-wrap: wrap; }
+.nihility-sheet .power-focus-btn {
+  flex: 1 1 0;
+  height: auto;
+  min-height: 0;
+  line-height: normal;
+  padding: 5px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--nihility-border);
+  background: var(--nihility-bg-panel-alt);
+  color: var(--nihility-text-dim);
+  font-size: 0.76rem;
+  text-align: center;
+  white-space: nowrap;
+}
+.nihility-sheet .power-focus-btn.active { border-color: var(--nihility-accent); color: var(--nihility-accent); background: rgba(110, 231, 255, 0.1); }
+.nihility-sheet .ship-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.nihility-sheet .ship-actions button {
+  height: auto;
+  min-height: 0;
+  line-height: normal;
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--nihility-border);
+  background: var(--nihility-bg-panel-alt);
+  color: var(--nihility-text);
+  font-size: 0.78rem;
+  text-align: left;
+}
+.nihility-sheet .ship-effects { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; color: var(--nihility-text); }
+.nihility-sheet .ship-effects li { display: flex; gap: 8px; align-items: center; font-size: 0.78rem; padding: 3px 6px; border-left: 2px solid var(--nihility-warn); background: var(--nihility-bg-panel-alt); }
+.nihility-sheet .ship-effects a { margin-left: auto; color: var(--nihility-accent); cursor: pointer; }
+.nihility-ship-action, .nihility-ship-action p { color: var(--nihility-text); }
+.nihility-ship-action input { width: 100%; height: 28px; background: var(--nihility-bg-panel-alt); border: 1px solid var(--nihility-border); color: var(--nihility-text); }
+
+/* PAD — atalhos de energia da Nave. */
+.nihility-pad-app .pad-focus-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin-top: 6px; }
+.nihility-pad-app .pad-focus-btn {
+  height: auto;
+  min-height: 0;
+  line-height: normal;
+  padding: 4px 2px;
+  font-size: 0.7rem;
+  border-radius: 4px;
+  border: 1px solid var(--nihility-border);
+  background: transparent;
+  color: var(--nihility-text-dim);
+}
+.nihility-pad-app .pad-focus-btn.active { border-color: var(--nihility-accent); color: var(--nihility-accent); }
+
+/* Nave fora da faixa de Porte da Classe (só o Mestre vê). */
+.nihility-sheet .vessel-class-warning { margin: 4px 0 0; padding: 4px 8px; font-size: 0.76rem; color: var(--nihility-warn); border-left: 2px solid var(--nihility-warn); background: rgba(255, 207, 92, 0.08); }
+
+/* Inventário (aba da ficha de Personagem) e Porão da Nave. */
+.nihility-sheet .inventory-summary { display: flex; flex-direction: column; gap: 6px; color: var(--nihility-text); }
+.nihility-sheet .inv-meter { display: grid; grid-template-columns: 48px 1fr auto; align-items: center; gap: 8px; font-size: 0.8rem; }
+.nihility-sheet .inv-meter-label { color: var(--nihility-text-dim); }
+.nihility-sheet .inv-bar { height: 8px; border-radius: 4px; background: var(--nihility-bg-panel-alt); border: 1px solid var(--nihility-border); overflow: hidden; }
+.nihility-sheet .inv-bar > span { display: block; height: 100%; background: var(--nihility-accent); }
+.nihility-sheet .inv-meter.is-over .inv-bar > span { background: var(--nihility-danger); }
+.nihility-sheet .inv-meter.is-over .inv-meter-value { color: var(--nihility-danger); }
+.nihility-sheet .inv-meter-value { font-family: var(--nihility-font-data); }
+.nihility-sheet .inv-penalty { margin: 0; color: var(--nihility-warn); font-size: 0.8rem; }
+.nihility-sheet .inv-gm { display: flex; gap: 12px; flex-wrap: wrap; }
+.nihility-sheet .inv-gm label { color: var(--nihility-text-dim); font-size: 0.78rem; display: flex; align-items: center; gap: 6px; }
+.nihility-sheet .inv-gm input { width: 70px; }
+.nihility-sheet .inventory-toolbar { display: flex; gap: 6px; margin: 8px 0; }
+.nihility-sheet .inventory-toolbar .inventory-search { flex: 1 1 auto; min-width: 0; }
+.nihility-sheet .inventory-toolbar select { flex: 0 0 auto; width: auto; }
+.nihility-sheet .inventory-row { gap: 6px; }
+.nihility-sheet .inventory-row.is-equipped { border-left: 2px solid var(--nihility-ok); }
+.nihility-sheet .inventory-row .inv-weight, .nihility-sheet .cargo-row .inv-weight { color: var(--nihility-text-dim); font-size: 0.75rem; font-family: var(--nihility-font-data); white-space: nowrap; }
+.nihility-sheet .inventory-row .inventory-container-select { width: 110px; flex: 0 0 auto; height: 22px; font-size: 0.72rem; }
+.nihility-sheet .inventory-row .inv-equip { color: var(--nihility-text-faint); }
+.nihility-sheet .inventory-row .inv-equip.is-on { color: var(--nihility-ok); }
+.nihility-sheet .inventory-container { border-left: 2px solid var(--nihility-accent-2); }
+.nihility-sheet .inventory-container.is-over, .nihility-sheet .cargo-block.is-over { border-left: 2px solid var(--nihility-danger); }
+.nihility-sheet .inventory-row[hidden] { display: none; }
+.nihility-config-app .species-carry { display: flex; gap: 12px; margin: 4px 0 6px; }
+.nihility-config-app .species-carry label { color: var(--nihility-text-dim); font-size: 0.78rem; display: flex; align-items: center; gap: 6px; }
+.nihility-config-app .species-carry input { width: 70px; }
+.nihility-split-stack, .nihility-split-stack p, .nihility-ammo-pick { color: var(--nihility-text); }
+.nihility-split-stack input, .nihility-ammo-pick select { width: 100%; }
+
+/* Janela "Efeitos" (apps/effects-list.js). */
+.nihility-effects-list .effects-list-body { padding: 8px 10px; color: var(--nihility-text); }
+.nihility-effects-list .effects-sec { margin-bottom: 12px; }
+.nihility-effects-list .effects-sec-head { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--nihility-border); margin-bottom: 4px; }
+.nihility-effects-list .effects-sec-head h3 { flex: 1 1 auto; margin: 0; font-size: 0.9rem; color: var(--nihility-accent); border: none; }
+.nihility-effects-list .effects-sec-head button { flex: 0 0 auto; width: auto; height: auto; min-height: 0; line-height: normal; padding: 2px 8px; font-size: 0.75rem; }
+.nihility-effects-list .effects-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.nihility-effects-list .effects-row { display: grid; grid-template-columns: auto 1fr auto auto; gap: 8px; align-items: center; padding: 4px 6px; background: var(--nihility-bg-panel-alt); border-radius: 4px; color: var(--nihility-text); }
+.nihility-effects-list .effects-row.is-muted { opacity: 0.55; }
+.nihility-effects-list .effects-row img { border: none; border-radius: 4px; }
+.nihility-effects-list .effects-main strong { color: var(--nihility-text); }
+.nihility-effects-list .effects-source { color: var(--nihility-text-dim); font-size: 0.75rem; }
+.nihility-effects-list .effects-what { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 0.78rem; color: var(--nihility-text-dim); }
+.nihility-effects-list .effects-remaining { font-size: 0.75rem; color: var(--nihility-warn); white-space: nowrap; }
+.nihility-effects-list .effects-end { color: var(--nihility-danger); cursor: pointer; }
+.nihility-effects-list .effects-empty { color: var(--nihility-text-dim); }
+.nihility-sheet .effects-list-button { height: auto; min-height: 0; line-height: normal; padding: 3px 8px; font-size: 0.78rem; width: auto; }
+
+/* Tipos de Dano: tabela de vantagens entre elementos (estilo Pokémon). */
+.nihility-config-app .affinity-toolbar { display: flex; justify-content: flex-end; margin: 0 0 8px; }
+.nihility-config-app .affinity-toolbar button { width: auto; height: auto; min-height: 0; line-height: normal; padding: 4px 10px; color: var(--nihility-text); }
+.nihility-config-app.affinity-mode .card-config-list,
+.nihility-config-app.affinity-mode [data-action="addCard"] { display: none; }
+.nihility-config-app .affinity-summary { margin: 2px 0 6px; color: var(--nihility-text-dim); }
+.nihility-config-app .affinity-matrix-wrap { color: var(--nihility-text); }
+.nihility-config-app .affinity-scroll { overflow: auto; max-height: 440px; border: 1px solid var(--nihility-border); border-radius: 4px; }
+.nihility-config-app .affinity-matrix { border-collapse: collapse; margin: 0; background: var(--nihility-bg-panel); }
+.nihility-config-app .affinity-matrix th, .nihility-config-app .affinity-matrix td { padding: 2px; text-align: center; color: var(--nihility-text); border: 1px solid var(--nihility-border-soft); }
+.nihility-config-app .affinity-matrix thead th { position: sticky; top: 0; background: var(--nihility-bg-panel-alt); z-index: 1; }
+.nihility-config-app .affinity-matrix .affinity-row { position: sticky; left: 0; background: var(--nihility-bg-panel-alt); text-align: left; white-space: nowrap; padding: 2px 8px; font-weight: normal; }
+.nihility-config-app .affinity-matrix .affinity-corner { font-size: 0.7rem; color: var(--nihility-text-faint); font-weight: normal; left: 0; z-index: 2; }
+.nihility-config-app .affinity-col span { writing-mode: vertical-rl; transform: rotate(180deg); display: inline-block; padding: 4px 0; border-left: 3px solid; font-weight: normal; font-size: 0.78rem; white-space: nowrap; }
+.nihility-config-app .affinity-row .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+.nihility-config-app .affinity-cell {
+  width: 38px; height: 28px; min-height: 0; line-height: normal; padding: 0; border-radius: 3px;
+  font-size: 0.72rem; font-family: var(--nihility-font-data); cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--nihility-border-soft); background: transparent; color: var(--nihility-text-dim);
+}
+.nihility-config-app .affinity-cell.level-super { background: #2e7d32; color: #fff; border-color: #43a047; }
+.nihility-config-app .affinity-cell.level-strong { background: rgba(110, 231, 160, 0.25); color: var(--nihility-ok); border-color: var(--nihility-ok); }
+.nihility-config-app .affinity-cell.level-weak { background: rgba(255, 207, 92, 0.18); color: var(--nihility-warn); border-color: var(--nihility-warn); }
+.nihility-config-app .affinity-cell.level-immune { background: #3b1f24; color: var(--nihility-danger); border-color: var(--nihility-danger); }
+.nihility-config-app .affinity-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; font-size: 0.78rem; color: var(--nihility-text-dim); }
+.nihility-config-app .affinity-legend-item { display: inline-flex; align-items: center; gap: 4px; }
+.nihility-config-app .affinity-legend .affinity-cell { cursor: default; }
+

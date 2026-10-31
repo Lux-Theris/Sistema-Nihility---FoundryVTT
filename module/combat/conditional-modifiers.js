@@ -6,7 +6,7 @@
  * Escolhidos em menus, nunca em expressão digitada: é o modelo do Pathfinder 2e (predicados
  * checados na hora da rolagem), não o do Midi-QOL (código livre, frágil). Este arquivo é puro —
  * recebe o contexto já montado e devolve números; quem monta o contexto e junta as regras do
- * Ator é `conditional-context.js`. Testado em test/rules.test.mjs.
+ * Ator é `conditional-context.js`. Testado em test/.
  *
  * **Quando cada regra vale** decorre do "Então", não de uma escolha à parte:
  *  - `attributeFlat` (+N num atributo) é **contínuo**: entra na preparação da ficha como um buff

@@ -25,22 +25,29 @@ function enabledForMe() {
   }
 }
 
-function combatNow() {
-  const combat = game.combat;
+function combatNow(combat = game.combat) {
   return combat?.started ? { round: combat.round ?? 0, combatId: combat.id } : {};
 }
 
 /** Rodadas que faltam na duração do próprio Foundry (só quando ela é contada em rodadas/turnos). */
-function foundryRounds(effect) {
+function foundryRounds(effect, combat = null) {
   const d = effect.duration;
   if (!d) return null;
   // V14: `units` ("rounds"/"turns"/"seconds"…); V13: `type` ("turns"/"seconds"/"none").
   const roundBased = d.units ? ["rounds", "turns"].includes(d.units) : d.type === "turns";
-  return roundBased && Number.isFinite(d.remaining) ? d.remaining : null;
+  if (!roundBased) return null;
+  // Combate que acabou de ser apagado (Fim do combate): o Foundry já não conta por ele, então a
+  // conta sai do início gravado no efeito (V14 `start`, V13 `duration.startRound`).
+  if (combat) {
+    const start = effect._source?.start ?? null;
+    if (start?.combat === combat.id && d.units === "rounds" && Number.isFinite(Number(d.value))) return Math.max(0, Number(start.round) + Number(d.value) - combat.round);
+    if (d.combat === combat.id && Number.isFinite(Number(d.rounds)) && Number.isFinite(Number(d.startRound))) return Math.max(0, Number(d.startRound) + Number(d.rounds) - combat.round);
+  }
+  return Number.isFinite(d.remaining) ? d.remaining : null;
 }
 
 /** O que o efeito tem de prazo, no formato que `effectBadge` lê. */
-export function badgeFor(effect) {
+export function badgeFor(effect, { combat = null } = {}) {
   const f = effect.flags?.[SYSTEM_ID] ?? {};
   const anchors = effectAnchors(f, effect.origin);
   return effectBadge({
@@ -51,8 +58,8 @@ export function badgeFor(effect) {
     periodic: Boolean(f.periodic),
     ticksRemaining: f.ticksRemaining ?? null,
     anchored: anchors.length > 0,
-    finite: anchors.length ? finiteRemaining(f.finite, combatNow()) : 0,
-    rounds: foundryRounds(effect)
+    finite: anchors.length ? finiteRemaining(f.finite, combatNow(combat ?? game.combat)) : 0,
+    rounds: foundryRounds(effect, combat)
   });
 }
 
@@ -125,6 +132,39 @@ export function refreshAllBadges() {
 }
 
 /** Chamado uma vez, no `init`. */
+/**
+ * V14 só desenha no Token o ícone de um efeito que tem duração ou que está marcado "mostrar
+ * sempre" (`showIcon`; a V13 também desenhava quem tinha `statuses`). Os efeitos do sistema sem
+ * duração do Foundry — os de Skill Ativa (até desligar), Irradiado, perigos de Ambiente, Maldição,
+ * Caído/Inconsciente — ficavam invisíveis no mapa (e sem lugar para o número). As Condições
+ * marcadas pelo HUD já vêm "sempre" do próprio core (`ActiveEffect.fromStatusEffect`); aqui todo
+ * efeito criado pelo sistema ganha o mesmo, a não ser que quem criou tenha escolhido outro.
+ */
+export function registerSystemEffectIcons() {
+  const ALWAYS = CONST.ACTIVE_EFFECT_SHOW_ICON?.ALWAYS;
+  if (ALWAYS === undefined) return; // V13: o campo não existe
+  Hooks.on("preCreateActiveEffect", (effect, data) => {
+    if (data?.showIcon !== undefined || !data?.flags?.[SYSTEM_ID]) return;
+    if (effect.parent?.documentName !== "Actor") return;
+    effect.updateSource({ showIcon: ALWAYS });
+  });
+}
+
+/** Migração única: os efeitos do sistema já existentes que a V14 esconde passam a aparecer. */
+export async function migrateSystemEffectIcons() {
+  const SHOW = CONST.ACTIVE_EFFECT_SHOW_ICON;
+  if (SHOW?.ALWAYS === undefined) return;
+  const actors = new Map();
+  for (const actor of game.actors) actors.set(actor.uuid, actor);
+  for (const scene of game.scenes) for (const token of scene.tokens) if (!token.actorLink && token.actor) actors.set(token.actor.uuid, token.actor);
+  for (const actor of actors.values()) {
+    const updates = actor.effects
+      .filter(e => e.flags?.[SYSTEM_ID] && e.showIcon === SHOW.CONDITIONAL && !e.isTemporary)
+      .map(e => ({ _id: e.id, showIcon: SHOW.ALWAYS }));
+    if (updates.length) await actor.updateEmbeddedDocuments("ActiveEffect", updates);
+  }
+}
+
 export function registerEffectBadges() {
   const BaseToken = CONFIG.Token.objectClass;
   CONFIG.Token.objectClass = class NihilityBadgedToken extends BaseToken {

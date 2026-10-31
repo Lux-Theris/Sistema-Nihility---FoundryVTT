@@ -1,6 +1,6 @@
 /**
  * Âncoras de Skill Ativa — o que segura um efeito vivo "até desligar a Skill". Puro (sem Foundry),
- * testado em test/rules.test.mjs; skill-effects.js só lê e grava as flags.
+ * testado em test/; skill-effects.js só lê e grava as flags.
  *
  * Um efeito (buff/debuff comum OU periódico) vive enquanto tiver PELO MENOS UMA âncora OU duração
  * finita sobrando. Cada Skill Ativa que aplica a mesma Condição vira uma âncora a mais; desligar
@@ -125,4 +125,62 @@ export function anchorLifetime({ anchors = [], finite = 0 } = {}) {
     untilOff: anchored && !(finite > 0),
     permanent: finite === PERMANENT
   };
+}
+
+/* -------------------------------------------- */
+/*  Alvos ancorados (quem segura a Skill)       */
+/* -------------------------------------------- */
+
+/**
+ * Nome do flag, no Ator que SEGURA a Skill Ativa, com a lista de quem recebeu efeitos ancorados
+ * nela. Desligar a Skill resolve só esses Atores, em vez de varrer todo Token não vinculado de
+ * toda cena (o que criava o ator sintético de cada um a cada desligamento).
+ *
+ * Formato: `[{ skillUuid, sourceSkillId, sourceSubSkillIndex, targets: [uuid…] }]` — uma lista e
+ * não um objeto por chave, porque o uuid tem pontos e `setFlag` transformaria "Actor.x.Item.y" em
+ * objetos aninhados. Sem registro para a Skill (ligada antes da 1.78), quem solta cai na varredura.
+ */
+export const ANCHORED_TARGETS_FLAG = "anchoredTargets";
+
+/** Máximo de alvos guardados por Skill — passou disso, o registro vira "varrer o mundo" (null). */
+export const ANCHORED_TARGETS_CAP = 200;
+
+/**
+ * Acrescenta `targetUuid` aos alvos da âncora (sem duplicar). Devolve uma lista nova.
+ * @returns {{records: Array, changed: boolean}}
+ */
+export function recordAnchoredTarget(records, anchor, targetUuid) {
+  const list = Array.isArray(records) ? records : [];
+  if (!targetUuid || typeof targetUuid !== "string" || !anchor) return { records: [...list], changed: false };
+  const index = list.findIndex(r => sameAnchor(r, anchor));
+  if (index < 0) {
+    const fresh = { skillUuid: anchor.skillUuid ?? null, sourceSkillId: anchor.sourceSkillId ?? null, sourceSubSkillIndex: anchor.sourceSubSkillIndex ?? null, targets: [targetUuid] };
+    return { records: [...list, fresh], changed: true };
+  }
+  const record = list[index];
+  const targets = Array.isArray(record.targets) ? record.targets : [];
+  if (record.overflow || targets.includes(targetUuid)) return { records: [...list], changed: false };
+  // Lista grande demais: deixa de guardar e marca para varrer o mundo ao soltar (nunca perde alvo).
+  const next = targets.length >= ANCHORED_TARGETS_CAP
+    ? { ...record, targets: [], overflow: true }
+    : { ...record, targets: [...targets, targetUuid] };
+  return { records: list.map((r, i) => (i === index ? next : r)), changed: true };
+}
+
+/**
+ * Os uuids que receberam efeito desta âncora, ou `null` quando não há registro confiável (Skill
+ * ligada antes do registro existir, ou lista que estourou o teto) — aí quem solta varre o mundo.
+ */
+export function anchoredTargetsFor(records, anchor) {
+  const list = Array.isArray(records) ? records : [];
+  const record = list.find(r => sameAnchor(r, anchor));
+  if (!record || record.overflow || !Array.isArray(record.targets)) return null;
+  return record.targets.filter(t => typeof t === "string" && t);
+}
+
+/** Tira o registro desta âncora (a Skill foi desligada). */
+export function forgetAnchoredTargets(records, anchor) {
+  const list = Array.isArray(records) ? records : [];
+  const remaining = list.filter(r => !sameAnchor(r, anchor));
+  return { records: remaining, changed: remaining.length !== list.length };
 }

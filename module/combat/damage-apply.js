@@ -29,7 +29,7 @@ const POOLS_PATH = "system.attributes.shield.pools";
 
 /**
  * Divide um dano entre o Escudo pessoal e a Vida: o Escudo absorve até acabar, o resto vai pra
- * Vida. Pura (testada em test/rules.test.mjs).
+ * Vida. Pura (testada em test/).
  * @param {number} amount - dano já com reduções e fator (Metade/Dobro) aplicados
  * @param {number} shield - Escudo atual
  * @param {{bypassShield?: boolean, shieldExtra?: number, shieldMultiplier?: number}} [options] - Dano

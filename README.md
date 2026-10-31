@@ -152,8 +152,8 @@ https://raw.githubusercontent.com/Lux-Theris/Sistema-Nihility---FoundryVTT/main/
 │   ├── sheets/                        # Fichas de Personagem e Item
 │   └── apps/                          # Menu, Assistente de IA, PAD e editores de catálogo
 ├── templates/                         # .hbs de fichas, apps, partials (parts/) e cards de chat
-├── styles/nihility-rpg-system.css
-├── test/                              # Testes das regras puras (node --test test/rules.test.mjs)
+├── styles/                           # CSS em 13 arquivos por área (01-base … 13-screen-and-combat), na ordem do system.json
+├── test/                              # Testes das regras puras (node --test "test/*.test.mjs")
 └── lang/{pt-BR,en}.json
 ```
 
@@ -277,7 +277,7 @@ verificações locais disponíveis são:
 
 ```bash
 node --input-type=module --check < module/pasta/arquivo.js   # sintaxe de um arquivo (como módulo)
-node --test test/rules.test.mjs             # testes das funções puras de regra
+node --test "test/*.test.mjs"               # testes das funções puras de regra
 ```
 
 O `system.json` declara `flags.hotReload` para `styles/`, `templates/` e `lang/`: editar um

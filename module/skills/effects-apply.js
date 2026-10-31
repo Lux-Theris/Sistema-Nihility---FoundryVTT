@@ -3,7 +3,8 @@
  * (Separado de skill-effects.js na reorganização de pastas — mesma lógica de antes.)
  */
 import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions, getEffectTargetLabels, skillLevelBonuses, getDamageElement } from "../core/config.js";
-import { makeAnchor, addAnchor, effectAnchors, finiteRemaining, serializeFinite, durationRemaining, refreshFiniteRounds, PERMANENT } from "../combat/effect-anchors.js";
+import { makeAnchor, addAnchor, effectAnchors, finiteRemaining, serializeFinite, durationRemaining, refreshFiniteRounds, PERMANENT, ANCHORED_TARGETS_FLAG, recordAnchoredTarget } from "../combat/effect-anchors.js";
+import { escapeHtml } from "../helpers/html.js";
 import { applyStructuralDamage, damageCasco, repairModules } from "../starship/starship-power.js";
 import { resolveConditionEffect, refreshReapplication } from "../combat/damage-rules.js";
 import { requestShieldLight } from "../combat/lights.js";
@@ -292,6 +293,10 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
     }
     const tiedToActive = Boolean(mech.hasUpkeep);
     const anchor = makeAnchor({ skillUuid: origin.uuid, skillId: origin.id, subSkillIndex });
+    // Antes de ancorar: quem segura a Skill anota este alvo, para o desligar achar o efeito sem
+    // varrer o mundo (ver removeUpkeepLinkedEffects). Antes, e não depois: se a anotação faltasse
+    // e o efeito existisse, ele ficaria ancorado para sempre.
+    if (tiedToActive) await rememberAnchoredTarget(originSkill?.parent, anchor, targetActor.uuid);
     const existing = findStackableEffect(targetActor, entry.conditionId, periodic, entry.damageElements);
 
     if (existing) {
@@ -439,6 +444,18 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
 
   summary.xp = xp;
   return summary;
+}
+
+/**
+ * Anota `targetUuid` no registro `anchoredTargets` do Ator que segura a Skill Ativa (ver
+ * effect-anchors.js). Quem aplica um efeito ancorado é o dono dessa Skill (ao ligá-la) ou o Mestre
+ * (Zona ticando), então a escrita é permitida; se não for, não anota — e aí não há como garantir a
+ * lista, mas também nenhum caminho de hoje chega aqui assim.
+ */
+async function rememberAnchoredTarget(holder, anchor, targetUuid) {
+  if (!holder || !anchor?.skillUuid || !targetUuid || !holder.isOwner) return;
+  const { records, changed } = recordAnchoredTarget(holder.getFlag(SYSTEM_ID, ANCHORED_TARGETS_FLAG), anchor, targetUuid);
+  if (changed) await holder.setFlag(SYSTEM_ID, ANCHORED_TARGETS_FLAG, records);
 }
 
 /**
@@ -618,11 +635,11 @@ export async function tickCombatRoundEffects(actor) {
       const attrLabel = { hp: "HP", casco: "Casco", hull: "Integridade" }[r.attrKey] ?? getEffectTargetLabels().energy;
       const statusText = r.expired ? "encerrou" : r.ticksRemaining === null ? "até desativar" : `${r.ticksRemaining} tick(s) restante(s)`;
       // Nunca revela NO CHAT que/quanto de Resistência foi aplicada no tick — só o delta final.
-      return `<li><strong>${r.effectName}</strong>: ${r.delta >= 0 ? "+" : ""}${r.delta} ${attrLabel} (${statusText})${r.note ? ` — ${r.note}` : ""}</li>`;
+      return `<li><strong>${escapeHtml(r.effectName)}</strong>: ${r.delta >= 0 ? "+" : ""}${r.delta} ${escapeHtml(attrLabel)} (${statusText})${r.note ? ` — ${escapeHtml(r.note)}` : ""}</li>`;
     });
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor }),
-      content: `<p><strong>${actor.name}</strong> — início de turno, Condições ativas:</p><ul>${rows.join("")}</ul>`
+      content: `<p><strong>${escapeHtml(actor.name)}</strong> — início de turno, Condições ativas:</p><ul>${rows.join("")}</ul>`
     });
   }
 

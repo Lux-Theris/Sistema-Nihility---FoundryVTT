@@ -13,6 +13,7 @@
 import { SYSTEM_ID, MEU_SISTEMA, getAttributeLabel, combatantIsActor, actorToken } from "../core/config.js";
 import { buildAttributeRollFormula } from "../core/dice.js";
 import { buildModifiedFormula, describeRollOptions, isNeutralRollOptions } from "../core/roll-modifiers.js";
+import { escapeHtml } from "../helpers/html.js";
 
 /** Atributo que rege a iniciativa (setting; cai em Destreza se a setting sumir ou virar inválida). */
 export function getInitiativeAttribute() {
@@ -97,7 +98,7 @@ export async function rollInitiativeForActor(actor, rollOptions = null) {
   if (!isNeutralRollOptions(rollOptions)) {
     options.formula = buildModifiedFormula(combatant._getInitiativeFormula(), rollOptions);
     const text = describeRollOptions(rollOptions);
-    options.messageOptions = { flavor: `${actor.name} rola Iniciativa — ${text}` };
+    options.messageOptions = { flavor: `${escapeHtml(actor.name)} rola Iniciativa — ${escapeHtml(text)}` };
   }
   await combat.rollInitiative([combatant.id], options);
   return combatant;

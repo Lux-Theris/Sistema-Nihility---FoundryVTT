@@ -912,6 +912,18 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
    * O toggle de equipar (type "item") dispara em "change", não em clique — a API de
    * `actions` só cobre clique, então esse listener é ligado manualmente aqui.
    */
+  /**
+   * @override
+   * A ficha é a mesma instância depois de fechar (`item.sheet`): o estado de tela ("+ Condição"
+   * aberto, "Avançado ▸" aberto/fechado à mão) tem de ser esquecido aqui, senão a próxima
+   * abertura herda o que o usuário fez da última vez.
+   */
+  _onClose(options) {
+    super._onClose(options);
+    this.#advOpen.clear();
+    this.#openConditionRows.clear();
+  }
+
   _onRender(context, options) {
     super._onRender(context, options);
     // "Avançado ▸" (K1): lembra o que o usuário abriu/fechou até a janela fechar. O clique no

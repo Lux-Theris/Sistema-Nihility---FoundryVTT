@@ -7,6 +7,7 @@
 import { MEU_SISTEMA, getAttributeLabel } from "./config.js";
 import { buildModifiedFormula, describeRollOptions } from "./roll-modifiers.js";
 import { conditionalBonus } from "../combat/conditional-context.js";
+import { escapeHtml } from "../helpers/html.js";
 
 /** @returns {{diceCount:number, flat:number}} */
 export function computeAttributeDicePool(bonus) {
@@ -50,7 +51,8 @@ export async function rollAttribute(actor, attributeKey, options = {}) {
   await roll.evaluate();
   await roll.toMessage({
     speaker: ChatMessage.getSpeaker({ actor }),
-    flavor: `${flavor || label}${modifiersText ? ` — ${modifiersText}` : ""}`
+    // `flavor` vem pronto (HTML) de quem chama; o rótulo e o motivo digitado no Shift+clique, não.
+    flavor: `${flavor || escapeHtml(label)}${modifiersText ? ` — ${escapeHtml(modifiersText)}` : ""}`
   });
   return roll;
 }

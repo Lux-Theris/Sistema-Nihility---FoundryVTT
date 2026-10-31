@@ -92,7 +92,9 @@ export function registerConditionalRefresh() {
     for (const combatant of combat?.combatants ?? []) {
       const actor = combatant.actor;
       if (!actor) continue;
-      actor.prepareData();
+      // reset(), não prepareData(): este reaplicava os Active Effects por cima do já preparado e
+      // cada buff que soma (Força +1) somava de novo a cada início/fim de combate.
+      actor.reset();
       if (actor.sheet?.rendered) actor.sheet.render();
     }
   };

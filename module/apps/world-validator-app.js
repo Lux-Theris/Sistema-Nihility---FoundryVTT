@@ -24,6 +24,8 @@ import {
 } from "../core/config.js";
 import { buildCatalogIndex, validateActor, validateItem, validateCatalogs, CATALOG_LABELS } from "../world/world-validator.js";
 import { syncPreviewFor } from "../species/species.js";
+// Atores do Diretório + sintéticos dos Tokens não vinculados (cada Drone é um Ator diferente).
+import { worldActors } from "../helpers/world-actors.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -49,22 +51,6 @@ function readCatalogs() {
     shipClasses: getVesselClasses("starship"),
     vehicleClasses: getVesselClasses("vehicle")
   };
-}
-
-/** Atores do Diretório + sintéticos dos Tokens não vinculados (cada Drone é um Ator diferente). */
-function worldActors() {
-  const seen = new Set();
-  const list = [];
-  const push = actor => {
-    if (!actor || seen.has(actor.uuid)) return;
-    seen.add(actor.uuid);
-    list.push(actor);
-  };
-  for (const actor of game.actors) push(actor);
-  for (const scene of game.scenes) {
-    for (const token of scene.tokens) if (!token.actorLink) push(token.actor);
-  }
-  return list;
 }
 
 function uuidExists(uuid) {

@@ -9,7 +9,7 @@
  * feitas (é do mundo, não da configuração).
  *
  * Parte pura (formato, compatibilidade com o arquivo antigo, diferença) testada em
- * test/rules.test.mjs; a parte que lê/grava settings e mostra diálogo fica nas funções abaixo.
+ * test/; a parte que lê/grava settings e mostra diálogo fica nas funções abaixo.
  */
 
 export const TRANSFER_FORMAT = 2;

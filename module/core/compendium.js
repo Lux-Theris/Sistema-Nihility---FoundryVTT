@@ -65,21 +65,31 @@ export function registerCompendiumCreateDefaults() {
 
 /**
  * Garante que todos os Compêndios de World do sistema existam.
- * Só o GM pode criá-los (permissão do Foundry); chamado no hook `ready`.
+ * Só o GM pode criá-los (permissão do Foundry); chamado no hook `ready` e antes de Fusão/IA.
+ *
+ * Fica em `isGM` (não no Mestre designado) de propósito: um Assistente fazendo uma Fusão com o
+ * Mestre principal online também precisa garantir o pacote. A corrida de dois Mestres entrando
+ * juntos é tratada abaixo: se o outro criou o pacote primeiro, o servidor recusa o nome repetido
+ * e aqui isso não é erro.
  */
 export async function ensureSystemCompendiums() {
   if (!game.user.isGM) return;
   for (const def of Object.values(MEU_SISTEMA.COMPENDIUM)) {
     const collectionId = `world.${def.key}`;
     if (game.packs.get(collectionId)) continue;
-    await compendiumCollectionClass().createCompendium({
-      type: def.type,
-      label: def.label,
-      name: def.key,
-      package: "world",
-      system: SYSTEM_ID
-    });
-    console.log(`${SYSTEM_ID} | Compêndio criado automaticamente: ${def.label}`);
+    try {
+      await compendiumCollectionClass().createCompendium({
+        type: def.type,
+        label: def.label,
+        name: def.key,
+        package: "world",
+        system: SYSTEM_ID
+      });
+      console.log(`${SYSTEM_ID} | Compêndio criado automaticamente: ${def.label}`);
+    } catch (err) {
+      if (game.packs.get(collectionId)) continue; // outro Mestre criou no mesmo instante
+      throw err;
+    }
   }
 }
 

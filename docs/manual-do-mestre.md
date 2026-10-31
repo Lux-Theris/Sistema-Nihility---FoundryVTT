@@ -87,7 +87,7 @@ As abas de Mestre aparecem com cadeado para os jogadores. Cada linha de Configur
 |---|---|
 | **Campanha** | Módulos do Sistema, Regras da Mesa |
 | **Personagem** | Atributos, Espécies, Traços, Moedas, Compêndio de Títulos, Compêndio de Itens |
-| **Combate e Dano** | Tipos de Dano, Condições, Escalas, Estruturas |
+| **Combate e Dano** | Tipos de Dano, Condições, Escalas, Estruturas, Ambiente da Cena |
 | **Naves** | Categorias de Módulo, Classes de Nave, Classes de Veículo, Postos de Tripulação |
 
 ---
@@ -123,6 +123,17 @@ Mudar um interruptor pede recarga do mundo. Os campos numéricos dentro de um bl
 | **Estruturas** | ligado | Some a Mecânica "Estrutura" do editor de Skill. |
 | **Escala (Personagem × Nave)** | **desligado** | Todo dano vale ×1 entre tamanhos. Campo: **Fator por degrau** 10. |
 | **Movimento e Evasão de naves** | **desligado** | Naves andam livres e não têm Evasão; a ficha mostra Manobra/Velocidade. Campo: o teto de Evasão; as casas e a Evasão de cada Porte ficam nos catálogos de Portes (ver [11](#movimento-e-evasão)). |
+| **Inventário (slots, pilhas e contêineres)** | ligado | Some a aba Inventário e o Porão; os Itens Gerais voltam para a aba Ficha. Campos: **Carga por ponto de Força** 1 kg, **por ponto de Defesa** 0,5 kg. |
+| ↳ **Peso limita o Deslocamento** | **desligado** | Passar da carga só avisa. Ligado: excesso tira Deslocamento na mesma proporção, e o Porão pesa no Motor das naves. |
+| **Regeneração natural de energia** | **desligado** | Só passivos (Skill, Título, Item, Espécie) regeneram. Campo: **% da energia máxima por rodada** 5. |
+| **Evolução de Espécie** | ligado | Some o botão **Evoluir…** da aba Origem. |
+| ↳ **Ferimentos por parte** (filho de Anatomia) | **desligado** | Funções das partes não têm efeito, o dano não cai em partes. Campos: **Sobra que deixa a parte Perdida** 50%, **Perguntar "Mirar numa parte?"** ligado. |
+| **Vida 0: Caído e Inconsciente** | ligado | Vida 0 não faz nada sozinha. Campos: **Rodadas até a morte** 3, **Rodadas Inconsciente ao sair do 0** 3, **NPC morre direto em 0** ligado. Ver [9](#vida-0-caído-e-inconsciente). |
+| **XP por uso de Skill** | ligado | Skills só ganham XP pelo **+ XP** e pela Resistência. Campos: **XP de um efeito do tamanho de uma Vida** 100, **% fixo (Condição, Estrutura, Zona)** 10. |
+| **Ambiente da cena e densidade de mana** | ligado | Perigos de cena/área não aplicam nada e a densidade fica sempre 1. Ver [9](#ambiente-da-cena-e-densidade-de-mana). |
+| ↳ **Radiação** | ligado | Ninguém é irradiado; o ☢ some do HUD do Token. Campos: **Sobe por rodada** 20% do nível do lugar, **Cai por rodada fora** 10% da irradiação, **Dano por nível** 1. |
+| **Fim do combate** | ligado | Encerrar o combate não abre a janela. Campo: **XP sugerida por derrotado** 25% do nível dele. |
+| **Desfazer uso de Skill** | ligado | Some o **Desfazer uso** dos cards de Skill. |
 
 Deslocamento, Escala e Movimento de naves vêm desligados porque mudam o comportamento dos tokens em combate: um mundo que só atualizou o sistema não deve ganhar uma regra nova sem você decidir.
 
@@ -177,6 +188,10 @@ No topo de Módulos do Sistema há três botões. Um preset liga/desliga blocos 
 | Sigla da Energia de Naves | EPS | Forma curta, usada nas tabelas da ficha de Nave. |
 | Custo variável — Expoente | 0,75 | Numa Skill que aceita variar a energia, investir r× o Custo dá força r^expoente (abaixo do Custo, proporcional). Menor = cada ponto extra vale menos. Sem teto. |
 | Custo variável — Mínimo (% do Custo) | 25 | O menos que se pode investir. |
+| Densidade de mana do mundo | 1 | Fator padrão da magia onde nenhuma cena/área diz outro (ver [Ambiente](#ambiente-da-cena-e-densidade-de-mana)). |
+| Descanso Curto — Vida (%) / energia (%) | 25 / 50 | O que o Descanso Curto devolve (também o do Fim do combate). |
+| Cura — nível que refaz parte perdida | 10 | Cura desse nível em diante também regenera parte Perdida. |
+| Cura contra bloqueio — a redução zera em (× o limite) | 2 | Ver "Impede cura" na seção [10](#anatomia-funções-e-implantes). |
 
 ### Combate
 
@@ -197,6 +212,11 @@ Ficam só no seu navegador, nunca sincronizam com jogadores e nunca entram no Ex
 | Modelo de IA | Nome do modelo |
 | Chave de API de IA | Chave do provedor |
 | Modo Debug | Loga cada render/ação no console. Deixe desligado no dia a dia. |
+| Números flutuantes sobre o Token | Dano, cura, Escudo e Mana subindo do Token. |
+| Duração sobre os ícones do Token | Rodadas, ∞, irradiação e contador do Caído nos ícones de efeito. |
+| Voz do Mundo na tela | O card dourado no topo da tela (o sussurro no chat continua). |
+
+Os três últimos também aparecem para os jogadores, cada um desliga no próprio navegador.
 
 ---
 
@@ -306,6 +326,16 @@ O efeito padrão é usado sempre que a Condição chega **sem valor próprio**: 
 | Regeneração | +5% da Vida máxima por rodada, 3 rodadas |
 | Lentidão | −50% de Deslocamento, 2 rodadas |
 | Cegueira, Atordoamento, Silêncio, Paralisia, Medo | só o ícone |
+| Caído, Inconsciente | incapacitam (ver [Vida 0](#vida-0-caído-e-inconsciente)) |
+| Praga | espalha (ver [Contágio](#contágio)) |
+
+Outros campos de uma Condição:
+
+- **Incapacita (não age nem se move)** — como Caído/Inconsciente: as Habilidades Ativas desligam;
+- seção **Contágio** — **Chance (%)**, **Raio (m)** e **Imune com** (Traços): passa para quem está perto no início do turno do portador ([Contágio](#contágio));
+- **Impede cura**, **Esta Condição é uma Maldição**, **Suprime magia** — ver [Anatomia](#anatomia-funções-e-implantes).
+
+Uma Condição usada como **perigo de Ambiente** ([Ambiente da cena](#ambiente-da-cena-e-densidade-de-mana)) é aplicada com o efeito padrão dela.
 
 Salvar o catálogo atualiza a paleta do HUD do token na hora.
 
@@ -394,7 +424,7 @@ Personagens de jogadores, NPCs, monstros e montarias são **todos** do tipo **Pe
 
 - **Token padrão**: um Personagem novo nasce com barras de Vida e Mana no token. Nave/Veículo nascem com Escudo/Casco e com o token **vinculado** ao Ator (uma nave é única no mundo).
 - **Tokens não vinculados** de uma mesma ficha (Drone 1, Drone 2) são criaturas **independentes**: cada uma tem Vida, Condições, iniciativa e alvo próprios.
-- **NPC ou PJ?** A distinção existe por dentro (usada em listas como "Personagens" do alvo e contatos do PAD), mas não há um campo na ficha para mudá-la. Atores gerados pela IA nascem como NPC; Atores criados à mão contam como Personagem.
+- **NPC ou PJ?** A caixa **PJ** no cabeçalho da ficha (só você vê) marca o Ator como personagem de jogador. Ela decide listas ("Personagens" do alvo, contatos do PAD), a XP do Fim do combate e a regra de Vida 0: **conta como NPC quem não está marcado PJ ou não tem jogador dono** — esse morre direto em 0 (se a opção estiver ligada) em vez de ficar Caído. Atores gerados pela IA nascem como NPC.
 
 ### Ferramentas do Mestre na ficha
 
@@ -409,7 +439,8 @@ Personagens de jogadores, NPCs, monstros e montarias são **todos** do tipo **Pe
 | **− / +** nos Pontos de Habilidade | bloco Pontos | Dá ou tira 1 ponto do tier, fora da economia. |
 | **⚡ Fundir Selecionadas** e caixas | Habilidades | Fusão (seção [8](#fusão)). |
 | **↑** (Evoluir) | linha da Skill | Evolução (seção [8](#evolução)). |
-| **+ Nova Habilidade (direto)** | Habilidades | Cria Skill sem gastar ponto, no editor completo. |
+| **+ Nova Habilidade (direto)** | Habilidades | Cria Skill sem gastar ponto: pede Nome e Tier e abre a ficha da Skill. |
+| **Descansar…**, **Estabilizar** | cabeçalho / card de queda | Descanso Curto ou Completo; Estabilizar para o contador de morte do Caído. |
 | **+ Novo Título**, **+ Novo Item** | blocos | Só o Mestre cria. |
 | **+ Traço** e **Escala** | abaixo do cabeçalho | Traços e degrau de Escala da criatura. |
 | Moedas editáveis | Economia | Os jogadores só convertem e enviam. |
@@ -423,7 +454,8 @@ Personagens de jogadores, NPCs, monstros e montarias são **todos** do tipo **Pe
 - Personagens **e** Skills têm XP. A curva é a mesma para os dois (`100 × nível`, padrão). A curva é linear de propósito: como a Vida cresce de forma quadrática, um XP linear mantém o "preço por ponto de poder" estável.
 - O XP **trava no teto** do nível: não acumula excedente. Quando enche, a **Voz do Mundo** avisa você e o dono ("Experiência no limite").
 - **Nada sobe de nível sozinho.** Subir é sempre o seu clique.
-- Fontes de XP: você (**+ XP**) e, para Skills de Resistência, o próprio sistema ao bloquear dano.
+- Fontes de XP: você (**+ XP**); a janela de [Fim do combate](#fim-do-combate) (personagens); para Skills de Resistência, o próprio sistema ao bloquear dano; e, com **XP por uso de Skill** ligado, cada uso de Skill.
+- **XP por uso**: tudo é medido em **fração**, como a XP de Resistência, para não inflar com a curva quadrática. Dano, cura e Escudo valem (quantidade ÷ Vida máxima do alvo) × fator (padrão 100), cada alvo no máximo 1×; buff/debuff, a fração do valor que mudou; Condição aplicada, Estrutura erguida e Zona criada, um % fixo (padrão 10% do fator); uma Estrutura também ganha pelo dano que segura, uma Zona pelo que faz a cada turno, e uma Antimagia pelo que desliga. Periódicos creditam a cada tick. Armas e Skills concedidas não ganham. Quando o jogador não é dono da Skill, o crédito passa por você (Mestre conectado).
 
 ### Subir o nível do personagem
 
@@ -457,7 +489,9 @@ Configurável em Regras da Mesa. O ciclo é fixo para que qualquer jogador saiba
 
 ### Voz do Mundo
 
-Canal de anúncio **sempre por sussurro**, para os Mestres e os donos do Ator. Anuncia: subida de nível, XP no limite, Skill aprovada, subida de nível de Skill, Fusão, Evolução, Resistência ao alcance, pontos de Atributo devolvidos, transferência de moedas e mensagens do PAD.
+Canal de anúncio **sempre por sussurro**, para os Mestres e os donos do Ator. Anuncia: subida de nível, XP no limite, XP de combate, Skill aprovada, subida de nível de Skill, Fusão, Evolução, Heranças, Resistência ao alcance, pontos de Atributo devolvidos, transferência de moedas e mensagens do PAD.
+
+Cada anúncio também aparece como um **card dourado no topo da tela** de quem recebe o sussurro (um de cada vez, ~6 s, clique fecha). Cada pessoa desliga o card no próprio navegador (**Voz do Mundo na tela**).
 
 ---
 
@@ -465,7 +499,18 @@ Canal de anúncio **sempre por sussurro**, para os Mestres e os donos do Ator. A
 
 ### Criar direto
 
-**+ Nova Habilidade (direto)** na ficha abre o **editor de Skill** — o mesmo usado em Skills Raciais, Evolução e Habilidades Concedidas. A Skill criada vai para a ficha e para o Compêndio de Habilidades.
+**+ Nova Habilidade (direto)** na ficha pede só **Nome** e **Tier**, cria a Skill e abre a **ficha da Skill** (o editor mais completo). Ela é registrada no Compêndio de Habilidades quando você fecha essa ficha pela primeira vez — assim o Compêndio guarda a Skill preenchida, não um rascunho. Skills Raciais, Sub-Skills, Evolução, Habilidades Concedidas e o pedido com Pontos usam o **editor rápido** (uma janela), porque ainda não existe Item para abrir.
+
+### Avançado ▸
+
+Nos dois editores (ficha da Skill e editor rápido) e nos cards de Efeito, os campos que quase nenhuma Skill usa ficam dobrados atrás de uma linha **Avançado ▸**, que lista o que tem lá dentro ("Variar a Mana · Mágica (Antimagia)"; "Dano Absoluto · Escala do golpe"; no card de Efeito, "Elemento do tick", "Tipo de cura", "Elemento do escudo · Luz", "Escudo mantido", "Sem Mana para pagar" da Maldição). Regras:
+
+- **abre sozinho** quando algum campo de dentro tem valor, e mostra o selo **em uso** — nada que a Skill faz fica escondido;
+- fechar à mão vale até você fechar a ficha;
+- só aparece o que faz sentido ali: "Escudo mantido" só numa Habilidade Ativa, "Tipo de cura" só num tick de cura;
+- salvar com o Avançado fechado não perde nada.
+
+Os cards de Efeito de um **Consumível** usam o mesmo Avançado.
 
 ### Referência completa dos campos
 
@@ -568,15 +613,25 @@ Jogadores podem rolar pelo botão **Iniciativa** da ficha, mas só **você adici
 
 ### O que acontece no início de cada turno
 
-Para o Ator cujo turno começou (só o Mestre executa, uma vez):
+Para o Ator cujo turno começou, nesta ordem:
 
-1. Zonas avançam (na virada da rodada) e atingem quem estiver dentro delas;
-2. Estruturas com prazo perdem uma rodada (na virada da rodada);
-3. Ticks periódicos das Condições do Ator;
-4. Efeitos pendentes de Skills desligadas por Mana 0 são removidos;
-5. Dreno das Habilidades Ativas (Custo por Rodada);
-6. Naves: sobrecarga de Módulos, Recarga de armas/FTL, regeneração/recarga do Escudo e carga/descarga do Capacitor;
-7. O deslocamento gasto do combatente zera (se a regra estiver ligada).
+1. **Vida 0**: o contador do Caído desce (ou o do Inconsciente);
+2. **Contágio**: as Condições contagiosas dele tentam passar para quem está perto;
+3. **Ambiente**: confere os perigos da cena/área onde o Token está; **Radiação** sobe/cai e causa o dano da rodada;
+4. **Zonas**: as que **ele** lançou perdem uma rodada; as Estruturas com prazo perdem uma rodada (na virada da rodada); quem está dentro de uma Zona sofre o efeito dela;
+5. Ticks periódicos das Condições do Ator;
+6. **Regeneração** por rodada (natural e de passivos) — antes da manutenção, para uma regeneração alta poder bancar uma Ativa barata;
+7. Efeitos pendentes de Skills desligadas por Mana 0 são removidos;
+8. Dreno das Habilidades Ativas (Custo por Rodada);
+9. **Maldições** cobram o custo da vítima;
+10. Naves: sobrecarga de Módulos, Recarga de armas/FTL, regeneração/recarga do Escudo, efeitos de sistema e carga/descarga do Capacitor;
+11. O deslocamento gasto do combatente zera (se a regra estiver ligada).
+
+Um personagem **morto** (o "Derrotado" do Foundry) não processa nada disso no turno dele — só as Zonas que ele lançou continuam contando e os buffs que as Ativas dele davam a aliados somem.
+
+**Quem executa:** um Mestre só. Com dois Mestres conectados (um Assistente basta), executa o de **papel mais alto** — Mestre antes de Assistente —, e entre iguais o mais antigo; é a mesma escolha que o próprio Foundry faz, e a mesma das escritas em nome do Mestre. Antes, o segundo Mestre conectado processava tudo de novo (veneno e regeneração em dobro).
+
+**Voltar o turno não repete nada.** "Turno anterior" e "Rodada anterior" não disparam o início de turno, e avançar de novo até um turno que já começou também não: o combate guarda o último turno processado e só processa turnos novos. O que o início de turno já fez (o veneno que bateu) não é desfeito por voltar — se precisar, corrija à mão.
 
 ### Aplicar dano pelo chat
 
@@ -593,7 +648,11 @@ O card de dano contra um Personagem ganha, **só para você**:
 
 O estado fica no card: quem recarregar a página ou abrir o chat depois vê o mesmo card.
 
+**Card de área** (Emissão, granada): uma linha por alvo com **Aplicar / ½ / ×2** e, depois, **✓** e **↩**, mais as ações do grupo no topo: **Aplicar em todos**, **Aplicar aos selecionados** (os Tokens que você tem selecionados) e **Desfazer todos**. Cada alvo já vem com as próprias defesas aplicadas, e as Condições disparadas entram no clique, como no alvo único.
+
 Dano em **Nave/Veículo** não tem botões: a cascata aplica sozinha.
+
+O **rastro de dano** (▸ no card, só para você) mostra passo a passo o que cada defesa fez com o golpe: rolagem → escala → Estrutura → cada elemento com as reduções → número final.
 
 ### As contas, com os padrões
 
@@ -665,7 +724,7 @@ Uma Skill de **Zona** deixa um modelo de área na cena por N rodadas (ou até se
 
 ![Estruturas no mapa](img/estruturas.svg)
 
-Ao usar uma Skill de Estrutura, o jogador posiciona a forma e **você (o Mestre conectado)** a ergue automaticamente — o sistema cria as paredes em nome do Mestre. Sem Mestre conectado, nada é erguido.
+Ao usar uma Skill de Estrutura, o jogador posiciona a forma e **você (o Mestre conectado)** a ergue automaticamente — o sistema cria as paredes em nome do Mestre. Sem Mestre conectado, nada é erguido, e o jogador recebe o aviso **"Nenhum Mestre conectado"** (o mesmo vale para Zonas). Se o pedido for recusado (por exemplo, o jogador não é dono de quem conjurou), ele vê o motivo.
 
 Cada Estrutura gera um **card no chat** com botões **só seus**: estado (Vida, rodadas restantes, ou a Mana do conjurador numa barreira), um campo **Dano** + botão **Dano** para aplicar dano à mão, e **Derrubar**.
 
@@ -714,6 +773,80 @@ Títulos, Skills e Itens podem ter regras escolhidas em menus — nunca express�
 
 Fontes ativas: Título sempre; Item só equipado; Skill sempre, ou só ligada se for Ativa.
 
+### Vida 0: Caído e Inconsciente
+
+Bloco **Vida 0: Caído e Inconsciente** (ligado; opções em Módulos do Sistema). O fluxo:
+
+- **PJ em 0 de Vida** ganha **Caído**, com contador de morte (padrão 3), contado **no início do turno dele**. Um card público mostra a queda com o botão **Estabilizar** (só você), que para o contador — ele continua caído. Quando o contador zera, você é **avisado** e o card ganha **Marcar como morto**: o sistema **nunca mata sozinho**.
+- **NPC em 0** — quem não está marcado **PJ** na ficha, ou não tem jogador dono — morre direto: fica Derrotado no combate (desligue **NPC morre direto em 0** se preferir que NPCs caiam também).
+- Qualquer coisa que tire a Vida do 0 troca Caído por **Inconsciente** por mais N turnos (padrão 3); depois ele age. **Descanso** acorda de vez (fora de combate não há turno para contar).
+- Caído e Inconsciente (e qualquer Condição do catálogo marcada **Incapacita**, e o Derrotado do Foundry) **impedem**: usar Skill, atacar, usar consumível (um aliado ainda usa nele), Correr e mover o Token (você, Mestre, move). Ao cair, **todas as Habilidades Ativas desligam**.
+- **Continua funcionando** o que o corpo faz: regeneração natural/de Título/de Espécie, curas periódicas, curas de outros — como a Regeneração do troll. Os bloqueios de cura (Fogo, Ácido) são o que mantém um regenerador no chão. A **Mana não regenera** enquanto incapacitado.
+- **Morto** não processa nada no turno dele (ver acima).
+- **Desfazer** no card de dano desfaz a queda inteira, inclusive um NPC que tinha morrido.
+- Caído/Inconsciente marcados à mão no Token não abrem a janela de valor; um Inconsciente marcado à mão não tem contador e fica até você tirar.
+
+### Desfazer uso de Skill
+
+Bloco **Desfazer uso de Skill** (ligado). No card de cada uso de Skill aparece **Desfazer uso** — **só para você** — enquanto o turno de quem usou não acabar (fora de combate: até aquele personagem usar outra Skill). Ao clicar, uma confirmação lista o que volta, e então:
+
+- a Mana gasta volta; efeitos criados saem, efeitos mudados voltam ao que eram, efeitos apagados voltam;
+- Escudos e pools que o uso deu saem; uma Habilidade Ativa ligada por ele desliga;
+- o **dano já aplicado volta junto** (o card de dano do uso é desfeito); dano ainda não aplicado não tem o que voltar;
+- Estruturas e Zonas criadas pelo uso são removidas;
+- Vida, Mana e Escudo voltam **pela diferença**: o que mais aconteceu nesse meio-tempo continua;
+- todos os cards do uso ficam **riscados** para todos, com a faixa "Uso desfeito pelo Mestre".
+
+Não voltam: o dano que uma Estrutura levou do uso e a XP de Resistência que o alvo ganhou depois. Desligar uma Habilidade Ativa não é registrado (não há o que desfazer). Usos feitos antes da 1.76 não têm o botão.
+
+### Fim do combate
+
+Bloco **Fim do combate** (ligado). Ao encerrar um combate pelo botão do próprio Foundry (depois da rodada 0), abre uma janela só para você:
+
+- **Efeitos ainda correndo**, por personagem: os com prazo em rodadas vêm **marcados** para remover (fora de combate ficariam congelados); o contador do Caído/Inconsciente vem **desmarcado** (você decide). Efeitos sem prazo (Maldição, Ambiente, Habilidade Ativa) não aparecem.
+- **XP do combate**: sugestão = 25% (opção do bloco) da XP que o nível de cada NPC **derrotado** pede, somada e dividida entre os PJs que lutaram. Mudar o total redivide; mudar uma parte mantém as outras. Vai para a ficha com anúncio da Voz do Mundo.
+- **Descanso curto para todos os PJs** (desmarcado).
+
+**Concluir** aplica o que está marcado; **Pular** fecha sem mudar nada.
+
+### Contágio
+
+Uma Condição do catálogo pode ter a seção **Contágio** preenchida: **Chance (%)**, **Raio (m)** e **Imune com** (Traços) — exemplo de fábrica: **Praga**. No **início do turno de quem a carrega** (em combate), cada Personagem com Token na mesma cena dentro do raio, vivo e sem a Condição, rola um d100 contra a chance — zero com um Traço da lista, reduzida pela melhor Resistência ao elemento da Condição (100% = imune). Quem pega recebe a Condição com o **efeito padrão** dela. Um card lista quem pegou e quem resistiu, com as rolagens; vai só para você se algum Token envolvido estiver oculto. O **Validar Mundo** confere os Traços citados.
+
+### Ambiente da cena e densidade de mana
+
+Bloco **Ambiente da cena e densidade de mana** (ligado). Duas fontes:
+
+- **A cena inteira** — **Configurações Gerais → Combate e Dano → Ambiente da Cena** abre a janela da cena **aberta no mapa**; para outra cena, **clique direito na cena** na lista de Cenas → **Ambiente (Nihility)**. Cada cena tem a sua janela.
+- **Uma área** — desenhe uma **Região** do Foundry e adicione o comportamento **Ambiente (Nihility)** (Condições, Traços que imunizam e densidade de mana opcional; a janela é a do próprio Foundry).
+
+Um **perigo** é uma Condição do catálogo, mantida em todo Personagem que está ali (exceto quem tem um Traço da lista), com o **efeito padrão** dela; sai quando ele sai. Uma Condição que o personagem já tem por outro motivo não é duplicada nem removida. Tudo é conferido ao entrar/sair do Token, ao mudar a cena ou a Região, ao mudar Traços/Espécie e no início de cada turno.
+
+**Densidade de mana**: vale a **menor** das áreas onde o Token está; sem área, a da cena; sem cena, a do mundo (Regras da Mesa, padrão 1). Em Skills **mágicas**: 0 recusa a Skill antes de cobrar; outro valor multiplica a força (dano, Efeitos, Vida de Estrutura). Também multiplica a regeneração de energia. **Custo e manutenção não mudam** (decisão de design). O ⓘ "De onde vem" mostra o fator.
+
+**FXMaster** (opcional, só se instalado e ativo): cada perigo da cena ganha uma linha **Visual** — **Clima pronto** (chuva, neve…) e/ou **Partícula** + **Filtro** + **Cor** — que liga e desliga junto com o perigo. Só a janela liga e desliga o visual: mudando o ambiente por macro, ele não acompanha. Para áreas, use os comportamentos de Região do próprio FXMaster na mesma Região. Sem o módulo, a linha some e uma dica explica o que ele traria.
+
+### Radiação
+
+Sub-bloco **Radiação** (ligado, filho de Ambiente). Fontes que **somam**:
+
+- **a cena** — campo **Radiação** na janela Ambiente da Cena;
+- **uma área** — campo de radiação no comportamento **Ambiente (Nihility)** da Região;
+- **um Token** — botão **☢ Emitir radiação** no HUD do Token (só você): nível e raio. A exposição cai linearmente do centro até o raio; o Token não irradia a si mesmo.
+
+Quem está exposto ganha **Irradiado (N)** (um efeito, nível no ícone). Abaixo do nível do lugar, sobe **20% do nível do lugar** por rodada (fonte forte irradia mais rápido, mínimo 1); acima, cai **10% da irradiação** (mínimo 1). Dano por rodada = irradiação × **Dano por nível** (1), direto na Vida (sem Escudo), reduzido por Resistência Geral e por Resistência a **Radiação** se o catálogo tiver esse elemento (o Sci-Fi tem). Apagar o efeito **Irradiado** é a cura.
+
+Em combate, conta no início do turno de cada Personagem. **Fora de combate**, o botão **Passar tempo…** da janela Ambiente da Cena aplica N rodadas (ou minutos/horas) de uma vez a todos na cena e sussurra o resumo para você.
+
+### Avisos na tela
+
+- **Números flutuantes** sobre o Token quando Vida/Escudo/Mana mudam (Nave: Escudo/Casco/Integridade). Os jogadores veem o número exato (os dados já são públicos; só as reduções ficam escondidas). Mana só para o dono e você; Token oculto só para quem o vê. Também desliga pela opção do core "texto de status flutuante".
+- **Números sobre os ícones de efeito**: rodadas/ticks, ∞ (até desligar a Ativa), nível de irradiação, contador do Caído. Jogador vê só nos Tokens dele; você vê em todos.
+- **Card da Voz do Mundo** no topo da tela.
+- **Quando algo falha** (uma Skill, um tick de início de turno), aparece um **aviso vermelho** na tela de quem clicou — e, para falhas do início de turno, na sua. O detalhe completo continua no console (F12).
+
+Cada pessoa desliga os três primeiros no próprio navegador (seção [4](#configurações-por-navegador-tela-nativa-do-foundry)).
+
 ---
 
 ## 10. Itens, Títulos e Anatomia
@@ -732,8 +865,11 @@ Bloco **Inventário (slots, pilhas e contêineres)** em Módulos do Sistema (lig
 Só você cria Itens na ficha (**+ Novo Item**), ou arrasta do Compêndio de Itens. Campos principais (ficha do Item):
 
 - **Geral**: Quantidade, Peso, **Empilha até**, Valor + moeda, **Equipado**, **Contêiner** (slots e redução de peso), **Munição** (tipo, fórmula, elementos, Absoluto, Penetração extra, lançador mínimo); e, só para o Mestre, **Dispositivo PAD** (quem carregar um item assim ganha o botão PAD — não precisa estar equipado).
-- **Arma**: "Este item é uma arma", Fórmula, Atributo de Escala, Mágico, Absoluto, Escala do golpe, Elementos.
+- **Arma**: "Este item é uma arma", Fórmula, Atributo de Escala, Mágico, Absoluto, Escala do golpe, Elementos, e o **carregador**: **Disparos por carga** (0 = sem carregador, como antes), os tipos de munição aceitos (nenhum marcado = qualquer). Cada Atacar gasta 1; vazio, não ataca. **⟳ Recarregar** gasta 1 Munição compatível do inventário e a "fotografa" no carregador: fórmula, elementos e Absoluto dela substituem os da arma até a próxima recarga, e o que estava dentro volta ao inventário (cheio na pilha; pela metade como unidade aberta, com os disparos restantes). A Munição pode ter **Carga (disparos)** própria (Célula grande 20, pequena 10).
+- **Consumível**: "Este item é um consumível" → **Usar** na linha do inventário (sem precisar equipar). **Efeito** ou **Dano**; **Em si / Num alvo / Área** (Círculo/Cone/Linha); Dano com fórmula, Atributo de Escala (é o que mantém uma granada relevante contra a Vida quadrática), Mágico e Elementos; Efeitos com os mesmos cards das Skills, inclusive **"% do máximo"** e os alvos **Curar Vida (na hora)** / **Restaurar energia (na hora)**. **Cargas por unidade** (kit de 5 usos). Passa pelo mesmo caminho de uma Skill de nível 1 e custo 0; não ganha XP; só é Mágico com Dano Mágico (Antimagia não dissipa uma poção). Cancelar alvo/área não gasta; granada sem ninguém na área é gasta.
 - **Enquanto equipado**: Habilidade Concedida, Modificador de HP/Mana máx., Bônus de atributo, Bônus condicionais.
+
+> Os alvos **Vida**/**Mana** de um Efeito **sem Periódico** são um buff temporário do **máximo**, não uma cura. Para curar na hora, use **Curar Vida (na hora)** / **Restaurar energia (na hora)**; para curar ao longo do tempo, Vida Periódica positiva.
 
 Bônus de atributo de item **nunca** entram no pool de d20 nem na Vida/Mana: somam por fora na rolagem.
 
@@ -759,7 +895,7 @@ Locomoção: sem nenhuma parte que ande, o personagem se arrasta o **mínimo** (
 
 **Vida da parte em %.** No editor de Espécies (aba Corpo), cada parte tem **% Vida**: a Vida dela é esse % da Vida máxima do personagem, **com buffs**, e o que fica salvo é a proporção — subir de nível ou ganhar um buff não fere nem cura parte nenhuma. Os % não somam 100: dizem quanto dano *naquela parte* a destrói. Vazio = a Vida fixa de antes; **% pelo slot** preenche as partes vazias com o padrão (cabeça 30, tronco 50, braço 20, perna 25, cauda 15). Catálogos salvos antes disso continuam com Vida fixa até você preencher e sincronizar as fichas. Próteses têm o próprio % (ou "Fixa", para a perna de pau).
 
-**Dano nas partes** (com Ferimentos por parte): o que chega na Vida ao clicar **Aplicar** também cai numa parte — a mirada ("Mirar numa parte?", pergunta desligável nas opções do bloco) ou uma sorteada pelo tamanho. **Desfazer** devolve as duas coisas. Dano em área continua aplicado à mão e não mexe nas partes; ticks (Veneno, Sangramento) também não.
+**Dano nas partes** (com Ferimentos por parte): o que chega na Vida ao clicar **Aplicar** também cai numa parte — a mirada ("Mirar numa parte?", pergunta desligável nas opções do bloco) ou uma sorteada pelo tamanho. **Desfazer** devolve as duas coisas. Dano em área (aplicado pelos botões por alvo do card de área) não mexe nas partes; ticks (Veneno, Sangramento) também não.
 
 | Estado | Como chega | Cura | Regeneração | Reparo |
 |---|---|---|---|---|
@@ -848,6 +984,12 @@ Dano, Penetração e Recarga moram na própria arma. **Disparar** rola a fórmul
 **Lançadores e Porão:** uma Arma com **Usa munição** dispara a Munição do Porão (ver [Inventário](#inventário)). **Porão de Carga** é uma Função: slots por Porte (10/20/40/80/160) × **Multiplicador de slots** do Módulo; com **Peso limita o Deslocamento** ligado, a razão do Motor é dividida por `1 + peso da carga ÷ Carga que pesa` (coluna dos Portes).
 
 **FTL** tem dois modos: **Dobra Espacial** (propulsão contínua, Fator de Dobra, sem recarga) e **Salto** (alcance + tempo de carga; pensado para ser raro e liberado pela narrativa — o sistema não restringe).
+
+### Habilidades da Nave
+
+A aba **Habilidades** da ficha de Nave/Veículo usa uma Skill **pelo mesmo caminho da ficha de Personagem** (e da hotbar): pergunta a **Sub-Skill** de uma Skill fundida, posiciona **Emissão**, **Zona** e **Estrutura**, aceita Shift para modificadores. O Custo sai do Capacitor e a manutenção das Ativas sai da geração do Reator (ver [Energia](#energia)).
+
+**Mudou nesta versão:** uma Skill de **Efeito Temporário** com Tipo de Alvo **Targetada** (o padrão) agora **pede o alvo** — antes ela sempre caía na própria Nave. O seletor já vem com a Nave marcada, então aplicar nela mesma é só confirmar; escolher outra Nave ou um tripulante permite buffar aliados. Para não perguntar nada, mude o Tipo de Alvo da Skill para **Si mesmo**.
 
 ### Dano em naves
 
@@ -972,6 +1114,7 @@ Use Exportar antes de aplicar um preset com conteúdo e para levar a configuraç
 ```js
 game.nihility.openAssistant();          // abre o Menu Principal
 game.nihility.requestShipRepair();      // pedido de reparo (jogadores)
+game.nihility.useItem("Actor.abc.Item.def"); // o que a hotbar chama: usa a Skill/arma/consumível como o botão da ficha
 game.nihility.ai.generateActorFromAI("um mercador anão desconfiado...", { isMount: false });
 game.nihility.ai.generateVesselFromAI("uma corveta de reconhecimento rápida...", "starship");
 game.nihility.ai.generateSkillFromAI("uma cura baseada em luz estelar...");
@@ -985,7 +1128,13 @@ game.nihility.ai.announceVoiceOfTheWorld(actor, { kind: "info", title: "...", bo
 
 ## 15. Solução de problemas e boas práticas
 
-**Mantenha um Mestre conectado durante o jogo.** Várias ações escrevem em fichas de outras pessoas "em nome do Mestre": XP de Resistência quando um jogador ataca um NPC, erguer Estruturas, ligar a luz de Escudo no Token de outro, registrar o deslocamento, ativar Correr. Sem Mestre conectado, essas ações são **descartadas em silêncio**. Com dois Mestres, só um executa (não duplica).
+**Mantenha um Mestre conectado durante o jogo.** Várias ações escrevem em fichas de outras pessoas "em nome do Mestre": XP de Resistência e XP de uso quando um jogador ataca um NPC, erguer Estruturas e Zonas, ligar a luz de Escudo no Token de outro, registrar o deslocamento, ativar Correr, prender com Raio Trator. Sem Mestre conectado, as escritas de bastidor (XP) são **descartadas em silêncio**; nas que o jogador espera ver (Estrutura, Zona, luz, Correr, Raio Trator) ele recebe **"Nenhum Mestre conectado"**. O início de turno também só roda com um Mestre conectado.
+
+**Dois Mestres conectados.** Só um executa (início de turno, migrações, escritas em nome do Mestre, aviso de XP): o de papel mais alto, e entre iguais o mais antigo — a mesma escolha do Foundry. Nada duplica.
+
+**Voltei um turno por engano.** Voltar não reprocessa nada, e avançar de novo até um turno já processado também não. O que já tinha acontecido (o veneno que bateu) continua; corrija à mão se precisar.
+
+**Apareceu um aviso vermelho "Falha ao…".** Um erro do sistema, não da regra. O texto diz o quê; o detalhe está no console (F12). Mande os dois para quem cuida do sistema.
 
 **Mudei um interruptor e nada aconteceu.** Recarregue o mundo (F5). Interruptores de bloco pedem recarga.
 
@@ -1001,7 +1150,9 @@ game.nihility.ai.announceVoiceOfTheWorld(actor, { kind: "info", title: "...", bo
 
 **Não consigo instalar o Módulo.** Leia a mensagem: Porte maior que o da nave, vaga da Categoria cheia ou Espaço de Arma excedido.
 
-**Trocar a Espécie de um personagem veterano.** Substitui Partes do Corpo e Skills Raciais atuais. Modificações instaladas nas partes antigas se perdem — anote antes.
+**Trocar a Espécie de um personagem veterano.** Abre uma prévia antes de gravar. Partes com o mesmo slot são **transformadas** (próteses e modificações seguem); partes sem par que tinham implante viram partes soltas; Skills Raciais que saem vão para um arquivo e voltam com nível/XP se a origem voltar. Leia a prévia (as perdas vêm primeiro, em vermelho).
+
+**O jogador diz que está travado.** Confira se ele está **Caído**/**Inconsciente** (ícone com número vermelho no Token) ou numa área com densidade de mana 0.
 
 **Investigando bugs.** Ligue **Modo Debug** (Configurações, por navegador) e olhe o console (F12). Desligue depois.
 
@@ -1032,3 +1183,9 @@ game.nihility.ai.announceVoiceOfTheWorld(actor, { kind: "info", title: "...", bo
 | Sobrecarga de Módulo | (excesso ÷ 100) × Vida máx. × 0,5 por rodada |
 | Religar Módulo | ≥ 15% da Vida |
 | Reparo | Destreza do engenheiro; restaura 2d6 |
+| Caído | contador de 3 rodadas; Inconsciente 3 rodadas ao sair do 0 |
+| XP por uso de Skill | (efeito ÷ Vida máx. do alvo) × 100; Condição/Estrutura/Zona 10 |
+| XP do combate (sugestão) | 25% da XP do nível de cada NPC derrotado, dividida entre os PJs |
+| Descanso Curto | 25% da Vida, 50% da energia |
+| Densidade de mana | 1 (0 = magia não funciona; multiplica a força, não o Custo) |
+| Radiação | sobe 20% do nível do lugar/rodada, cai 10%/rodada; dano = irradiação × 1 |

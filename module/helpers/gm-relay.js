@@ -20,10 +20,18 @@
  *  - **O payload não é confiável:** resolva UUIDs e valide tudo do lado do Mestre; nunca aceite
  *    um valor que o cliente possa ter inflado (o `gain` de XP é calculado no emissor por
  *    conveniência, mas é re-limitado no destino).
+ *  - **Recusar com motivo:** um handler pode devolver `refuse("…")` (motivo em pt-BR, ou um dos
+ *    códigos de `RELAY_REASONS`). Só chega a alguém quando o pedido foi feito com `reply: true`
+ *    (ver `runAsGm`); devolver nada continua significando "feito".
  */
 import { SYSTEM_ID, resistanceXpGain } from "../core/config.js";
+import { reportError } from "./report.js";
+import { RELAY_REASONS, createReplyRegistry, normalizeRelayOutcome, refuse } from "./gm-relay-rules.js";
 
 const CHANNEL = `system.${SYSTEM_ID}`;
+
+/** Pedidos com `reply: true` deste cliente esperando o Mestre responder. */
+const pendingReplies = createReplyRegistry();
 
 /**
  * `user` pode agir em nome de `doc`? Mestre sempre pode (inclusive quando a origem não existe,
@@ -120,13 +128,14 @@ const HANDLERS = {
    */
   async setMovementDash({ combatantUuid, value }, user) {
     const combatant = typeof combatantUuid === "string" ? await fromUuid(combatantUuid) : null;
-    if (combatant?.documentName !== "Combatant" || !owns(user, combatant.actor)) return;
+    if (combatant?.documentName !== "Combatant") return refuse(RELAY_REASONS.invalid);
+    if (!owns(user, combatant.actor)) return refuse(RELAY_REASONS.permission);
     // Só quem está no seu turno pode declarar Correr — o payload vem de outro cliente.
     const combat = combatant.combat;
-    if (!combat?.started || combat.combatant?.id !== combatant.id) return;
+    if (!combat?.started || combat.combatant?.id !== combatant.id) return refuse("não é o turno deste personagem");
     // Caído/Inconsciente não corre.
     const { isIncapacitated } = await import("../combat/incapacitation.js");
-    if (value && isIncapacitated(combatant.actor)) return;
+    if (value && isIncapacitated(combatant.actor)) return refuse("o personagem está caído ou inconsciente");
     await combatant.setFlag(SYSTEM_ID, "movementDash", Boolean(value));
   },
 
@@ -166,9 +175,9 @@ const HANDLERS = {
 
   /** Ergue uma Estrutura (Paredes + Desenho). Validação e catálogo ficam em structures.js. */
   async createStructure(payload, user) {
-    if (!(await mayActFor(user, payload?.sourceActorUuid))) return;
+    if (!(await mayActFor(user, payload?.sourceActorUuid))) return refuse(RELAY_REASONS.permission);
     const { createStructureAsGm } = await import("../structures/structures.js");
-    await createStructureAsGm(payload);
+    return createStructureAsGm(payload);
   },
 
   /**
@@ -195,8 +204,10 @@ const HANDLERS = {
 
   /** Raio Trator: prende um alvo (a força é recalculada aqui, ver engageTractorAsGm). */
   async engageTractor(payload, user) {
-    if (!(await mayActFor(user, payload?.moduleUuid))) return;
-    const { engageTractorAsGm } = await import("../starship/starship-power.js");
+    if (!(await mayActFor(user, payload?.moduleUuid))) return refuse(RELAY_REASONS.permission);
+    const { engageTractorAsGm, tractorRefusal } = await import("../starship/starship-power.js");
+    const refusal = await tractorRefusal(payload ?? {});
+    if (refusal) return refuse(refusal);
     await engageTractorAsGm(payload ?? {});
   },
 
@@ -209,9 +220,9 @@ const HANDLERS = {
 
   /** Acende a luz de um Escudo pessoal nos Tokens do alvo (ver lights.js). Quem pede: dono de quem lançou. */
   async setShieldLight(payload, user) {
-    if (!(await mayActFor(user, payload?.source?.actorUuid))) return;
+    if (!(await mayActFor(user, payload?.source?.actorUuid))) return refuse(RELAY_REASONS.permission);
     const { setShieldLightAsGm } = await import("../combat/lights.js");
-    await setShieldLightAsGm(payload ?? {});
+    return setShieldLightAsGm(payload ?? {});
   },
 
   /** Apaga as luzes de Escudo que uma Skill Ativa acendeu (ao desligá-la). */
@@ -269,7 +280,9 @@ const HANDLERS = {
     const { sceneScale } = await import("../combat/area-effects.js");
     const { foundryGeneration } = await import("./foundry-compat.js");
     const clean = normalizeArea(area);
-    if (!scene || !source || !clean) return;
+    if (!scene) return refuse("a cena não existe mais");
+    if (!source) return refuse(RELAY_REASONS.permission);
+    if (!clean) return refuse("a área da Zona ficou inválida");
 
     const label = String(zone.label ?? "").trim() || "Zona"; // Region recusa nome vazio
     const { documentName, data } = zoneDocumentData(clean, {
@@ -298,10 +311,17 @@ const HANDLERS = {
 };
 
 /**
- * O Mestre "designado" — o de menor id entre os conectados. Com dois Mestres online, sem isso os
- * dois executariam a mesma ação e o XP seria creditado em dobro.
+ * O Mestre "designado": exatamente um entre os Mestres conectados. Com dois Mestres online (um
+ * Assistente basta), sem isso os dois executariam a mesma ação — XP em dobro, veneno em dobro.
+ *
+ * Segue a regra do próprio Foundry (`game.users.activeGM`: o de PAPEL mais alto, depois o menor
+ * id), para o relay, os ticks de turno e os eventos de turno do core escolherem a mesma pessoa.
+ * Até a 1.77 a regra era só "menor id", e com um Mestre e um Assistente online os dois lados
+ * podiam discordar. O fallback cobre uma versão sem `activeGM`.
  */
 export function isDesignatedGm() {
+  const activeGM = game.users?.activeGM;
+  if (activeGM !== undefined) return activeGM?.id === game.user?.id;
   const activeGms = game.users.filter(u => u.isGM && u.active).map(u => u.id).sort();
   return activeGms[0] === game.user.id;
 }
@@ -314,37 +334,78 @@ export function isDesignatedGm() {
  * executar pedidos anônimos com permissão de Mestre.
  */
 export function registerGmRelay() {
-  game.socket.on(CHANNEL, async ({ action, payload } = {}, senderId) => {
+  game.socket.on(CHANNEL, async (message = {}, senderId) => {
+    // Resposta a um pedido com `reply: true`: só interessa a quem pediu, e só vale vinda de um
+    // Mestre (o remetente vem do servidor). Serve apenas para o aviso na tela.
+    if (message?.relayReply) {
+      if (message.replyTo !== game.user?.id) return;
+      if (!game.users.get(senderId)?.isGM) return;
+      pendingReplies.resolve(message.requestId, { ok: message.ok, reason: message.reason });
+      return;
+    }
+
+    const { action, payload, requestId } = message ?? {};
     if (!isDesignatedGm()) return;
-    const handler = HANDLERS[action];
-    if (!handler) return;
     const user = typeof senderId === "string" ? game.users.get(senderId) : null;
     if (!user) {
       console.warn(`${SYSTEM_ID} | Pedido "${action}" sem remetente identificado pelo servidor; ignorado.`);
       return;
     }
 
-    try {
-      await handler(payload ?? {}, user);
-    } catch (err) {
-      console.error(`${SYSTEM_ID} | Falha ao executar "${action}" como Mestre (pedido de ${user.name}).`, err);
+    const outcome = await executeHandler(action, payload, user);
+    // `replyTo` sai do remetente que o SERVIDOR informou, nunca do payload.
+    if (typeof requestId === "string" && requestId) {
+      game.socket.emit(CHANNEL, { relayReply: true, replyTo: user.id, requestId, ok: outcome.ok, reason: outcome.reason });
     }
   });
+}
+
+/** Roda um handler no Mestre e devolve `{ok, reason}`; um erro vira `{ok:false, reason: mensagem}`. */
+async function executeHandler(action, payload, user) {
+  const handler = HANDLERS[action];
+  if (!handler) return { ok: false, reason: RELAY_REASONS.unknownAction };
+  try {
+    return normalizeRelayOutcome(await handler(payload ?? {}, user));
+  } catch (err) {
+    reportError(`Falha ao executar "${action}" como Mestre (pedido de ${user?.name ?? "?"}).`, err, { gmOnly: true });
+    return { ok: false, reason: err?.message || "erro no Mestre" };
+  }
 }
 
 /**
  * Executa a ação: direto, se quem chamou já é o Mestre designado; senão pede pelo socket.
  *
- * Sem nenhum Mestre conectado a ação é perdida (não há quem tenha permissão de escrever) — em
- * silêncio de propósito, porque isto é chamado no meio da resolução de dano e um aviso a cada
- * golpe seria pior que a perda do XP.
+ * **Sem `reply`** (o padrão, e o de quase todo pedido de bastidor): dispara e esquece. Sem nenhum
+ * Mestre conectado a ação é perdida — em silêncio de propósito, porque isto é chamado no meio da
+ * resolução de dano e um aviso a cada golpe seria pior que a perda do XP. Um erro no caminho
+ * direto sobe para quem chamou, como sempre foi.
+ *
+ * **Com `reply: true`** (o que o jogador espera VER acontecer: Estrutura, Zona, luz de Escudo,
+ * Correr, Raio Trator): devolve `Promise<{ok, reason}>` — `noGm` sem Mestre online, `timeout` se
+ * ninguém respondeu em `timeout` ms, ou o motivo da recusa. Nunca lança. Use
+ * `relayFailureMessage` (gm-relay-rules.js) para o aviso. A resposta só serve para avisar: não é
+ * prova de nada.
+ *
+ * @param {string} action
+ * @param {object} [payload]
+ * @param {{reply?: boolean, timeout?: number}} [options]
  */
-export async function runAsGm(action, payload) {
-  if (isDesignatedGm()) {
-    const handler = HANDLERS[action];
-    if (handler) await handler(payload ?? {}, game.user);
+export async function runAsGm(action, payload, { reply = false, timeout = 5000 } = {}) {
+  if (!reply) {
+    if (isDesignatedGm()) {
+      const handler = HANDLERS[action];
+      if (handler) await handler(payload ?? {}, game.user);
+      return;
+    }
+    if (!game.users.some(u => u.isGM && u.active)) return;
+    game.socket.emit(CHANNEL, { action, payload });
     return;
   }
-  if (!game.users.some(u => u.isGM && u.active)) return;
-  game.socket.emit(CHANNEL, { action, payload });
+
+  if (isDesignatedGm()) return executeHandler(action, payload, game.user);
+  if (!game.users.some(u => u.isGM && u.active)) return { ok: false, reason: RELAY_REASONS.noGm };
+  const requestId = foundry.utils.randomID();
+  const answer = pendingReplies.wait(requestId, timeout);
+  game.socket.emit(CHANNEL, { action, payload, requestId, replyTo: game.user.id });
+  return answer;
 }

@@ -8,6 +8,7 @@
 import { SYSTEM_ID, MEU_SISTEMA, sceneActorCandidates, getCrewRoles, actorDisplayName, getShipActionConfig } from "../core/config.js";
 import { rollAttribute } from "../core/dice.js";
 import { renderSystemTemplate } from "../helpers/foundry-compat.js";
+import { escapeHtml } from "../helpers/html.js";
 
 const { DialogV2 } = foundry.applications.api;
 
@@ -99,7 +100,7 @@ export async function requestShipRepair(shipArg = null) {
   const engineerOptions =
     (engineers.length ? `<optgroup label="Engenharia${repairEngineerFormula ? ` — reparam +${repairEngineerFormula} de Vida` : ""}">${engineers.map(option).join("")}</optgroup>` : "") +
     (others.length ? `<optgroup label="${engineers.length ? "Outros tripulantes" : "Tripulação"}">${others.map(option).join("")}</optgroup>` : "");
-  const targetOptions = repairTargetsFor(ship).map(t => `<option value="${t.id}">${t.label}</option>`).join("");
+  const targetOptions = repairTargetsFor(ship).map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.label)}</option>`).join("");
 
   const result = await DialogV2.wait({
     window: { title: `Pedido de Reparo — ${ship.name}` },
@@ -154,11 +155,6 @@ function repairEngineer(req) {
 /** "Fulano (Engenharia: +1d6 de Vida)" no card, quando o bônus vale. */
 function engineerLabel(name, bonus) {
   return typeof bonus === "string" && bonus ? `${name} (Engenharia: +${bonus} de Vida)` : name;
-}
-
-/** Escapa texto de nome pra dentro do HTML do diálogo. */
-function escapeHtml(value) {
-  return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
 }
 
 async function createShipRepairRequestMessage(ship, engineer, target, engineerBonus = "") {
@@ -227,7 +223,7 @@ export async function approveShipRepairRoll(message, modifier = 0) {
 
   await rollAttribute(engineer, "dexterity", {
     extraFlat: modifier,
-    flavor: `${actorDisplayName(engineer)} — Reparo (${req.targetLabel})${modifier ? ` — modificador ${modifier > 0 ? "+" : ""}${modifier}` : ""}`
+    flavor: `${escapeHtml(actorDisplayName(engineer))} — Reparo (${escapeHtml(req.targetLabel)})${modifier ? ` — modificador ${modifier > 0 ? "+" : ""}${modifier}` : ""}`
   });
 
   await updateShipRepairMessage(message, "rolled");
@@ -258,7 +254,7 @@ export async function restoreShipRepairTarget(message) {
   await roll.evaluate();
   await roll.toMessage({
     speaker: ChatMessage.getSpeaker({ actor: ship }),
-    flavor: `Reparo — ${req.targetLabel}${extra ? ` — Engenharia +${extra}` : ""}`
+    flavor: `Reparo — ${escapeHtml(req.targetLabel)}${extra ? ` — Engenharia +${extra}` : ""}`
   });
 
   const newValue = Math.clamp(resolved.current + roll.total, 0, resolved.max);

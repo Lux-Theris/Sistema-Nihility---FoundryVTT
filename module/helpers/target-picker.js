@@ -15,6 +15,7 @@
  *     centenas de linhas num mundo com muitos NPCs.
  */
 import { SYSTEM_ID, MEU_SISTEMA, sceneActorCandidates, sameActor, actorDisplayName } from "../core/config.js";
+import { escapeHtml } from "./html.js";
 
 const { DialogV2 } = foundry.applications.api;
 
@@ -23,10 +24,6 @@ const DIRECTORY_LIMIT = 20;
 
 /** Mínimo de caracteres pra busca varrer o diretório do mundo. */
 const SEARCH_MIN = 2;
-
-function escapeHtml(value) {
-  return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
-}
 
 /** A setting que libera alvos sem Token na cena (padrão desligado — o comportamento de sempre). */
 function offSceneAllowed() {

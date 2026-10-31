@@ -1,7 +1,7 @@
 /**
  * Geometria pura das Estruturas (parede de pedra, bloco de gelo, barreira de mana…): transforma
  * a forma posicionada no mapa nos segmentos de Parede que o Foundry vai criar, respeitando o
- * tamanho máximo da Estrutura. Sem canvas nem Documento — testado em test/rules.test.mjs.
+ * tamanho máximo da Estrutura. Sem canvas nem Documento — testado em test/.
  *
  * Unidades: pontos em pixels da cena; `sizePx` já convertido de metros pelo chamador
  * (tamanho ÷ grid.distance × grid.size).

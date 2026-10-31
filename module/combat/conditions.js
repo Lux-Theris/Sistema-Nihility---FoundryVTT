@@ -20,13 +20,9 @@ import {
   debugLog
 } from "../core/config.js";
 import { applyManualCondition } from "../skills/effects-apply.js";
+import { escapeHtml } from "../helpers/html.js";
 
 const { DialogV2 } = foundry.applications.api;
-
-/** Escapa texto livre do Mestre antes de entrar no HTML do diálogo. */
-function escapeHtml(value) {
-  return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
-}
 
 /** true se `id` é uma Condição deste sistema (e não um status do core ou de outro módulo). */
 function isSystemCondition(id) {
@@ -113,7 +109,7 @@ export function interceptManualCondition(effect, data, options, userId) {
 
 /** Alvos que uma Condição manual pode mexer: HP/Energia (dano ou cura) e os Atributos visíveis. */
 function buildTargetOptions() {
-  const attributes = getVisibleAttributes().map(a => `<option value="${a.key}">${a.label}</option>`).join("");
+  const attributes = getVisibleAttributes().map(a => `<option value="${a.key}">${escapeHtml(a.label)}</option>`).join("");
   return (
     '<option value="">— nenhum (só o ícone) —</option>' +
     '<option value="hp">HP</option>' +

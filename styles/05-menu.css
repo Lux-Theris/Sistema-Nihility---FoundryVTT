@@ -1,0 +1,194 @@
+/* ==========================================================================
+   Menu Principal (NihilityMenuApp) — trilha lateral + conteúdo, com a aba
+   "Fichas" acessível a jogadores e as demais travadas por CSS (opacidade +
+   cadeado) quando quem está olhando não é o Mestre.
+   ========================================================================== */
+
+.nihility-menu-app .window-content {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.nihility-menu {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  flex: 1 1 auto;
+  min-height: 0;
+  font-family: var(--nihility-font);
+  color: var(--nihility-text);
+}
+
+.nm-rail {
+  background: var(--nihility-bg-panel);
+  border-right: 1px solid var(--nihility-border);
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+.nm-rail-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  border-radius: 7px;
+  color: var(--nihility-text-dim);
+  font-size: 0.86rem;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.nm-rail-item:hover { background: var(--nihility-bg-panel-alt); color: var(--nihility-text); }
+.nm-rail-item.active {
+  background: var(--nihility-bg-panel-alt);
+  color: var(--nihility-accent);
+  border-color: var(--nihility-border-soft);
+  font-weight: 600;
+}
+.nm-rail-item.locked {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.nm-rail-item .nm-rail-lock {
+  margin-left: auto;
+  font-size: 0.7rem;
+}
+
+.nm-content {
+  padding: 18px 22px 22px;
+  overflow-y: auto;
+  min-height: 0;
+}
+.nm-content-head { margin-bottom: 14px; }
+.nm-content-head h2 { margin: 0; font-size: 1.15rem; color: var(--nihility-text); }
+.nm-content-sub { font-size: 0.78rem; color: var(--nihility-text-faint); margin: 3px 0 0; }
+
+.nm-gm-only-note {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin: 0 0 14px;
+  padding: 9px 12px;
+  border-radius: 7px;
+  background: rgba(255, 207, 92, 0.08);
+  border: 1px solid rgba(255, 207, 92, 0.28);
+  color: var(--nihility-text-dim);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+.nm-gm-only-note i { color: var(--nihility-warn); margin-top: 2px; }
+
+.nm-toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.nm-search-box { position: relative; flex: 1; min-width: 180px; }
+.nm-search-box i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 0.72rem; color: var(--nihility-text-faint); }
+.nm-search-box input {
+  width: 100%;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+  border-radius: 7px;
+  padding: 7px 10px 7px 26px;
+  font-size: 0.84rem;
+}
+.nm-search-box input:focus { outline: none; border-color: var(--nihility-accent); box-shadow: 0 0 0 3px rgba(110, 231, 255, 0.12); }
+
+.nm-type-filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.nm-type-filter {
+  font-family: var(--nihility-font-data);
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--nihility-border);
+  background: var(--nihility-bg-panel-alt);
+  color: var(--nihility-text-dim);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.nm-type-filter:hover { color: var(--nihility-text); }
+.nm-type-filter.active { background: var(--nihility-accent); color: var(--nihility-bg-dark); border-color: var(--nihility-accent); font-weight: 600; }
+
+.nm-actor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.nm-actor-card {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border-soft);
+  border-radius: 9px;
+  padding: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.nm-actor-card:hover { border-color: var(--nihility-accent-2); transform: translateY(-1px); }
+.nm-actor-card.hidden { display: none; }
+.nm-actor-portrait {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  background-size: cover;
+  background-position: center;
+  border: 1px solid var(--nihility-border-soft);
+}
+.nm-actor-meta { min-width: 0; flex: 1; }
+.nm-actor-name { font-size: 0.86rem; font-weight: 600; color: var(--nihility-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nm-actor-line2 { font-size: 0.7rem; color: var(--nihility-text-faint); margin-top: 2px; }
+.nm-type-badge {
+  display: inline-block;
+  font-family: var(--nihility-font-data);
+  font-size: 0.58rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  margin-top: 5px;
+  border: 1px solid transparent;
+}
+.nm-type-badge.pc { color: var(--nihility-accent); background: rgba(110, 231, 255, 0.1); border-color: rgba(110, 231, 255, 0.25); }
+.nm-type-badge.npc { color: var(--nihility-text-dim); background: rgba(154, 161, 194, 0.1); border-color: var(--nihility-border-soft); }
+.nm-type-badge.ship { color: var(--nihility-accent-2); background: rgba(192, 132, 252, 0.1); border-color: rgba(192, 132, 252, 0.25); }
+.nm-type-badge.vehicle { color: var(--nihility-ok); background: rgba(110, 231, 160, 0.1); border-color: rgba(110, 231, 160, 0.25); }
+
+.nm-actor-empty { color: var(--nihility-text-faint); font-size: 0.82rem; grid-column: 1 / -1; }
+.nm-actor-empty.hidden { display: none; }
+
+.nm-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.nm-feature-card {
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border-soft);
+  border-radius: 9px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.nm-icon-badge {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--nihility-bg-dark);
+  color: var(--nihility-accent);
+  border: 1px solid var(--nihility-border-soft);
+}
+.nm-icon-badge.gold { color: var(--nihility-gold); }
+.nm-icon-badge.violet { color: var(--nihility-accent-2); }
+.nm-feature-card h4 { margin: 0; font-size: 0.86rem; }
+.nm-feature-card p { font-size: 0.75rem; color: var(--nihility-text-faint); line-height: 1.4; flex: 1; margin: 0; }
+.nm-card-button {
+  align-self: flex-start;
+  font-family: var(--nihility-font);
+  font-size: 0.75rem;
+  color: var(--nihility-accent);
+  background: transparent;
+  border: 1px solid var(--nihility-border);
+  border-radius: 6px;
+  padding: 5px 11px;
+  cursor: pointer;
+}
+.nm-card-button:hover { background: rgba(110, 231, 255, 0.08); border-color: var(--nihility-accent); }
+

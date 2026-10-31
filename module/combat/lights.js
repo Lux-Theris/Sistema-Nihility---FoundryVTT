@@ -14,15 +14,13 @@
  */
 import { SYSTEM_ID, normalizeLightConfig } from "../core/config.js";
 import { runAsGm, isDesignatedGm } from "../helpers/gm-relay.js";
+import { refuse, relayFailureMessage } from "../helpers/gm-relay-rules.js";
+import { escapeHtml } from "../helpers/html.js";
 
 
 const SHIELD_FLAG = "shieldLight";
 /** Raio padrão da luz de Escudo pessoal quando o editor deixa em 0 (automático), em unidades da cena. */
 const SHIELD_DEFAULT_RADIUS = { dim: 2, bright: 1 };
-
-function escapeHtml(value) {
-  return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
-}
 
 /** Animações de luz disponíveis nesta instalação do Foundry (inclui as de módulos). */
 export function lightAnimationOptions() {
@@ -247,14 +245,24 @@ function tokensOf(actor) {
 export async function requestShieldLight(targetActor, rawLight, source) {
   const light = normalizeLightConfig(rawLight);
   if (!light || !targetActor) return;
-  await runAsGm("setShieldLight", { actorUuid: targetActor.uuid, light, source });
+  const outcome = await runAsGm("setShieldLight", { actorUuid: targetActor.uuid, light, source }, { reply: true });
+  // O Escudo em si já entrou (é da ficha); só a luz depende do Mestre. Um aviso por vez: numa
+  // Emissão com vários alvos, sem Mestre, seria um aviso por alvo.
+  const failure = relayFailureMessage(outcome, "acender a luz do Escudo");
+  if (failure && Date.now() - lastShieldLightWarning > 3000) {
+    lastShieldLightWarning = Date.now();
+    ui.notifications.warn(failure);
+  }
 }
+
+let lastShieldLightWarning = 0;
 
 /** Lado do Mestre de `requestShieldLight`. O payload vem de outro cliente: normaliza de novo. */
 export async function setShieldLightAsGm({ actorUuid, light, source }) {
   const actor = typeof actorUuid === "string" ? await fromUuid(actorUuid) : null;
   const normalized = normalizeLightConfig(light);
-  if (!actor || !normalized) return;
+  if (!actor) return refuse("o alvo não existe mais");
+  if (!normalized) return refuse("a luz do Escudo está mal configurada");
   const entrySource = {
     actorUuid: String(source?.actorUuid ?? ""),
     skillId: String(source?.skillId ?? ""),

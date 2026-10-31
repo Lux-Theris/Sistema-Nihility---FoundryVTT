@@ -17,6 +17,7 @@ import { promptTargetBodyPart } from "../species/anatomy.js";
 import { suppressionLevel } from "../skills/dispel.js";
 import { magicDefenseReduction, resistanceSourceFor, grantResistanceXp, registerResistanceExposure } from "./resistance.js";
 import { isShipLike, applyShipWeaponBonus, applyStarshipDamageCascade } from "../starship/ship-damage.js";
+import { escapeHtml } from "../helpers/html.js";
 
 /**
  * Cascata de dano de 3 camadas pra Nave/Veículo (Overhaul de Naves, Fase 4): Escudo → Casco →
@@ -322,7 +323,7 @@ async function applyRegenBlock(targetActor, hit, label, partId = null) {
 export function triggeredLabel(triggered) {
   if (!triggered?.length) return "";
   const names = [...new Set(triggered.map(t => getActiveStatusConditions().find(c => c.id === t.conditionId)?.label ?? (t.blockRegen ? "Regeneração bloqueada" : t.conditionId)))];
-  return ` — causa ${names.join(", ")}`;
+  return ` — causa ${names.map(escapeHtml).join(", ")}`;
 }
 
 /** "100", "0.01" — escala sem casas decimais inúteis. */
@@ -334,7 +335,9 @@ export function formatScale(value) {
 export function modifiersFlavor(options, before, after) {
   const text = describeRollOptions(options);
   if (!text) return "";
-  return Math.floor(after) !== Math.floor(before) ? ` — ${text} (${Math.floor(before)} → ${Math.floor(after)})` : ` — ${text}`;
+  // `text` traz o motivo digitado no Shift+clique: escapado, porque o flavor é HTML.
+  const safe = escapeHtml(text);
+  return Math.floor(after) !== Math.floor(before) ? ` — ${safe} (${Math.floor(before)} → ${Math.floor(after)})` : ` — ${safe}`;
 }
 
 /** `label` já vem pronto de `useSkillEffect` (nome da Skill, ou "Skill — Sub-Skill" quando aplicável). */
@@ -342,7 +345,7 @@ function damageFlavorPrefix(mech, label) {
   const elementLabels = (mech.damageElements ?? [])
     .map(id => getActiveDamageElements().find(e => e.id === id)?.label)
     .filter(Boolean);
-  return elementLabels.length ? `${label} — Dano ${elementLabels.join("+")}` : `${label} — Dano`;
+  return elementLabels.length ? `${escapeHtml(label)} — Dano ${elementLabels.map(escapeHtml).join("+")}` : `${escapeHtml(label)} — Dano`;
 }
 
 /**
@@ -355,7 +358,7 @@ export async function throughStructures(attacker, targetActor, damage, { origin 
   const block = interceptingStructure(attacker, targetActor, { origin });
   if (!block) return { damage, note: "", impact: null };
   const { absorbed, passed, label, point } = await hitStructure(block, damage, elementIds, targetActor);
-  return { damage: passed, note: absorbed ? ` — ${label} bloqueou ${absorbed}` : "", impact: point };
+  return { damage: passed, note: absorbed ? ` — ${escapeHtml(label)} bloqueou ${absorbed}` : "", impact: point };
 }
 
 export async function rollSkillDamage(actor, mech, label, targetActor = null, rollOptions = null) {
@@ -403,7 +406,7 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
   if (antimagic?.nulled.has(targetActor.uuid)) {
     await roll.toMessage({
       speaker: ChatMessage.getSpeaker({ actor }),
-      flavor: `${flavor} — ${targetActor.name}: 0`,
+      flavor: `${flavor} — ${escapeHtml(targetActor.name)}: 0`,
       flags: withDamageTrace({}, [{ name: targetActor.name, rows: attackTraceRows({ rolled: roll.total, boosted: boostedTotal, scale, situational, nulled: true }) }])
     });
     return { roll, finalDamage: 0 };
@@ -412,7 +415,7 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
   // Em área continua acertando (rollSkillDamageArea não passa por aqui).
   const suppressedAt = targetActor?.type === "character" ? suppressionLevel(targetActor) : null;
   if (suppressedAt !== null && (isMagicUse(mech, actor) || mech.magicTag === "magic") && (Number(mech.level) || 1) <= suppressedAt) {
-    await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor }), flavor: `${flavor} — ${targetActor.name}: sem efeito (Suprimido)` });
+    await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor }), flavor: `${flavor} — ${escapeHtml(targetActor.name)}: sem efeito (Suprimido)` });
     return { roll, finalDamage: 0 };
   }
   const blocked = targetActor ? await throughStructures(actor, targetActor, rawDamage, { elementIds: mech.damageElements }) : { damage: rawDamage, note: "", impact: null };
@@ -443,7 +446,7 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
     traceRows.push(...cascade.traceRows);
     finalDamage = toShield + toCasco + toHull;
     flavor += ` — Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}`;
-    if (structuralHits?.length) flavor += ` (${structuralHits.map(h => (h.damage == null ? h.name : `${h.name} -${h.damage}`)).join(", ")})`;
+    if (structuralHits?.length) flavor += ` (${structuralHits.map(h => (h.damage == null ? escapeHtml(h.name) : `${escapeHtml(h.name)} -${h.damage}`)).join(", ")})`;
   } else {
     // Nunca revela NO CHAT que/quanto de Resistência ou Defesa Mágica foi aplicada — só o
     // número final. A redução em si continua acontecendo (applyDamageReductions), só não
@@ -458,11 +461,11 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
     // final (já reduzido) nunca chegava ao chat, e o Mestre acabava aplicando o bruto: na
     // prática, Resistência e Defesa Mágica não valiam nada contra alvo único. Mesmo formato
     // "Alvo: número" que a versão em área (`rollSkillDamageArea`) já usava.
-    if (targetActor) flavor += ` — ${targetActor.name}: ${finalDamage}${triggeredLabel(reduction.triggeredConditions)}`;
+    if (targetActor) flavor += ` — ${escapeHtml(targetActor.name)}: ${finalDamage}${triggeredLabel(reduction.triggeredConditions)}`;
     if (targetActor) traceRows.push(...personalTraceTail(reduction, targetActor));
     // Ferimentos por parte: quem ataca pode mirar numa parte (senão o Aplicar sorteia uma).
     if (targetActor && finalDamage > 0) aimedPart = await promptTargetBodyPart(targetActor);
-    if (aimedPart) flavor += ` (mirando: ${aimedPart.name})`;
+    if (aimedPart) flavor += ` (mirando: ${escapeHtml(aimedPart.name)})`;
   }
 
   await roll.toMessage({
@@ -593,7 +596,7 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
     const situational = situationalDamageFactor(actor, targetActor, mech);
     let targetDamage = boostedTotal * scale * situational;
     if (antimagic.nulled.has(targetActor.uuid)) {
-      rows.push(`<li><strong>${targetActor.name}</strong>: 0 (antimagia)</li>`);
+      rows.push(`<li><strong>${escapeHtml(targetActor.name)}</strong>: 0 (antimagia)</li>`);
       traces.push({ name: targetActor.name, rows: attackTraceRows({ rolled: roll.total, boosted: boostedTotal, scale, situational, nulled: true }) });
       continue;
     }
@@ -603,7 +606,7 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
       if (!shielded.has(block.instance.id)) {
         const { absorbed, passed, label: wall } = await hitStructure(block, targetDamage, mech.damageElements, targetActor);
         shielded.set(block.instance.id, targetDamage > 0 ? passed / targetDamage : 1);
-        if (absorbed) blockedNotes.push(`${wall} bloqueou ${absorbed}`);
+        if (absorbed) blockedNotes.push(`${escapeHtml(wall)} bloqueou ${absorbed}`);
       }
       targetDamage = Math.round(targetDamage * shielded.get(block.instance.id));
     }
@@ -624,9 +627,9 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
       });
       traceRows.push(...(cascadeRows ?? []));
       hits.push({ actor: targetActor, damage: toShield + toCasco + toHull });
-      const detalhe = structuralHits?.length ? ` (${structuralHits.map(h => (h.damage == null ? h.name : `${h.name} -${h.damage}`)).join(", ")})` : "";
+      const detalhe = structuralHits?.length ? ` (${structuralHits.map(h => (h.damage == null ? escapeHtml(h.name) : `${escapeHtml(h.name)} -${h.damage}`)).join(", ")})` : "";
       rows.push(
-        `<li><strong>${targetActor.name}</strong>: Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}${detalhe}</li>`
+        `<li><strong>${escapeHtml(targetActor.name)}</strong>: Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}${detalhe}</li>`
       );
     } else {
       const reduction = applyDamageReductions(targetDamage, mech, targetActor, { attacker: actor });
@@ -649,7 +652,7 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
       })[SYSTEM_ID]?.damageApply;
       if (hit) applyEntries.push({ ...hit, name: targetActor.name });
       hits.push({ actor: targetActor, damage: reduction.finalDamage });
-      rows.push(`<li><strong>${targetActor.name}</strong>: ${reduction.finalDamage}${triggeredLabel(reduction.triggeredConditions)}</li>`);
+      rows.push(`<li><strong>${escapeHtml(targetActor.name)}</strong>: ${reduction.finalDamage}${triggeredLabel(reduction.triggeredConditions)}</li>`);
       traceRows.push(...personalTraceTail(reduction, targetActor));
     }
   }

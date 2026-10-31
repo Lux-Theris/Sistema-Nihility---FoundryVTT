@@ -25,6 +25,7 @@
  */
 import { SYSTEM_ID, isMovementEnabled, isShipManeuverEnabled, getMovementConfig, combatantIsActor } from "../core/config.js";
 import { isDesignatedGm, runAsGm } from "../helpers/gm-relay.js";
+import { relayFailureMessage } from "../helpers/gm-relay-rules.js";
 
 const USED_FLAG = "movementUsed";
 /** Correr: dobra o deslocamento do turno. Zera junto com o gasto. */
@@ -228,5 +229,7 @@ export async function toggleMovementDash(actor) {
     ui.notifications.info("Só dá para correr no seu turno.");
     return;
   }
-  await runAsGm("setMovementDash", { combatantUuid: status.combatantUuid, value: !status.active });
+  const outcome = await runAsGm("setMovementDash", { combatantUuid: status.combatantUuid, value: !status.active }, { reply: true });
+  const failure = relayFailureMessage(outcome, status.active ? "parar de correr" : "correr");
+  if (failure) ui.notifications.warn(failure);
 }

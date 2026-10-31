@@ -10,6 +10,7 @@ import { buildSubSkillsFromSources, buildGrantedSkillData } from "./skill-snapsh
 import { requestAISpecialSkill } from "../ai/ai-generation.js";
 import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
 import { renderSystemTemplate } from "../helpers/foundry-compat.js";
+import { escapeHtml } from "../helpers/html.js";
 
 /* -------------------------------------------- */
 /*  Habilidades concedidas por Item/Módulo       */
@@ -88,7 +89,7 @@ function buildGenericFusionData(sources, tier) {
       tier,
       level: Math.max(1, ...sources.map(s => s.system.level ?? 1)),
       cost: sources.reduce((sum, s) => sum + (s.system.cost ?? 0), 0),
-      description: `<p>Habilidade resultante da fusão de: ${sources.map(s => s.name).join(", ")}.</p>`,
+      description: `<p>Habilidade resultante da fusão de: ${sources.map(s => escapeHtml(s.name)).join(", ")}.</p>`,
       subSkills: buildSubSkillsFromSources(sources),
       fusionSources: sources.map(s => s.name),
       isFused: true
@@ -358,11 +359,21 @@ export async function requestSkillCreation(actor, data) {
   return createSkillRequestMessage(actor, { tier, name: name.trim(), description, cost, status: "pending" });
 }
 
+/**
+ * A descrição do pedido é HTML escrito pelo jogador, e o card a mostra com `{{{ }}}` no chat do
+ * Mestre: passa pela limpeza do próprio Foundry (tira script, onerror…). Sem ela, vira texto.
+ */
+function safeRequestDescription(description) {
+  if (!description) return description;
+  return foundry.utils.cleanHTML?.(String(description)) ?? escapeHtml(description);
+}
+
 async function createSkillRequestMessage(actor, req) {
   const content = await renderSystemTemplate(`systems/${SYSTEM_ID}/templates/chat/skill-request.hbs`, {
     actorName: actor.name,
     tierLabel: MEU_SISTEMA.SKILL_TIER_LABELS[req.tier],
-    ...req
+    ...req,
+    description: safeRequestDescription(req.description)
   });
 
   const gmIds = game.users.filter(u => u.isGM).map(u => u.id);
@@ -388,7 +399,8 @@ async function updateSkillRequestMessage(message, status) {
   const content = await renderSystemTemplate(`systems/${SYSTEM_ID}/templates/chat/skill-request.hbs`, {
     actorName: requestActor(req)?.name ?? "?",
     tierLabel: MEU_SISTEMA.SKILL_TIER_LABELS[req.tier],
-    ...req
+    ...req,
+    description: safeRequestDescription(req.description)
   });
   await message.update({ content, [`flags.${SYSTEM_ID}.skillRequest.status`]: status });
 }

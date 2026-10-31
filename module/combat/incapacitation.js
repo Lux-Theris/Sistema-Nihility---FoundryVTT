@@ -18,6 +18,7 @@
  */
 import { SYSTEM_ID, getActiveStatusConditions, getFeatureOption, isIncapacitationEnabled } from "../core/config.js";
 import { isDesignatedGm } from "../helpers/gm-relay.js";
+import { escapeHtml } from "../helpers/html.js";
 import { incapacitatingIds, isIncapacitatedBy, zeroHpOutcome, incapacitationTurn } from "./incapacitation-rules.js";
 
 const FLAG = "incapacitation";
@@ -99,7 +100,7 @@ async function fall(actor) {
   await addIncapacitation(actor, "fallen", { kind: "fallen", rounds, stabilized: false, warned: false });
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor }),
-    content: `<p><strong>${actor.name}</strong> caiu! Sem ajuda, morre em ${rounds} rodada(s).</p>`,
+    content: `<p><strong>${escapeHtml(actor.name)}</strong> caiu! Sem ajuda, morre em ${rounds} rodada(s).</p>`,
     flags: { [SYSTEM_ID]: { incapacitationCard: { actorUuid: actor.uuid } } }
   });
 }
@@ -179,7 +180,7 @@ export async function tickIncapacitation(actor) {
     const { state: next, event } = incapacitationTurn(state);
     if (event === "wake") {
       await effect.delete();
-      await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor }), content: `<p><strong>${actor.name}</strong> recobra a consciência.</p>` });
+      await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor }), content: `<p><strong>${escapeHtml(actor.name)}</strong> recobra a consciência.</p>` });
       continue;
     }
     await effect.setFlag(SYSTEM_ID, FLAG, next);
@@ -187,14 +188,14 @@ export async function tickIncapacitation(actor) {
       await ChatMessage.create({
         whisper: gmIds(),
         speaker: ChatMessage.getSpeaker({ actor }),
-        content: `<p><strong>${actor.name}</strong> chegou ao fim do contador caído, sem ajuda. Pela regra, morreria agora — a decisão é sua.</p>`,
+        content: `<p><strong>${escapeHtml(actor.name)}</strong> chegou ao fim do contador caído, sem ajuda. Pela regra, morreria agora — a decisão é sua.</p>`,
         flags: { [SYSTEM_ID]: { incapacitationCard: { actorUuid: actor.uuid, death: true } } }
       });
     } else if (id === "fallen" && !next.stabilized) {
       await ChatMessage.create({
         whisper: ownersOf(actor),
         speaker: ChatMessage.getSpeaker({ actor }),
-        content: `<p><strong>${actor.name}</strong> segue caído: ${next.rounds} rodada(s) até a morte.</p>`
+        content: `<p><strong>${escapeHtml(actor.name)}</strong> segue caído: ${next.rounds} rodada(s) até a morte.</p>`
       });
     }
   }
@@ -223,7 +224,7 @@ function renderIncapacitationCard(message, html) {
       await fallen.setFlag(SYSTEM_ID, FLAG, { ...state, stabilized: true });
       // Grava no card também: só esta mensagem redesenha, e todos veem o ✓.
       await message.setFlag(SYSTEM_ID, "incapacitationCard", { ...card, stabilized: true });
-      await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor }), content: `<p><strong>${actor.name}</strong> foi estabilizado: não corre mais risco de morrer, mas segue caído.</p>` });
+      await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor }), content: `<p><strong>${escapeHtml(actor.name)}</strong> foi estabilizado: não corre mais risco de morrer, mas segue caído.</p>` });
     });
   } else if ((state?.stabilized || card.stabilized) && !card.death) {
     const done = document.createElement("span");

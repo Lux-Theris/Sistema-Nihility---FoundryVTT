@@ -1,0 +1,293 @@
+/* ==========================================================================
+   Atributos, Pontos de Habilidade, Títulos sempre-ativos, Economia (v2)
+   ========================================================================== */
+
+.nihility-sheet .chip-inline,
+.nihility-sheet .hint-inline {
+  font-size: 0.72rem;
+  color: var(--nihility-text-dim);
+}
+.nihility-sheet .chip-inline {
+  padding: 3px 8px;
+  border: 1px solid var(--nihility-accent-2);
+  border-radius: 999px;
+  color: var(--nihility-accent-2);
+}
+.nihility-sheet .hint-inline {
+  display: block;
+  margin: 4px 0 8px;
+  font-style: italic;
+}
+
+/* Alocação de Pontos de Atributo: banner de Pool + linhas travadas (confirmado) com
+   alocação pendente (stepper +/-) e prévia da fórmula de dado — ver actor-sheet.js
+   (incrementAttributePoint/decrementAttributePoint/confirmAttributePoints/resetAttributePoints). */
+.nihility-sheet .attr-pool-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.nihility-sheet .attr-pool-readout {
+  font-family: var(--nihility-font-data);
+  font-size: 1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.nihility-sheet .attr-pool-readout .of {
+  color: var(--nihility-text-faint);
+  font-size: 0.78rem;
+  font-weight: 400;
+}
+.nihility-sheet .attr-pool-track {
+  flex: 1;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--nihility-bg-dark);
+  border: 1px solid var(--nihility-border-soft);
+  overflow: hidden;
+}
+.nihility-sheet .attr-pool-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--nihility-accent-2), var(--nihility-accent));
+  border-radius: 3px;
+}
+
+.nihility-sheet .attr-row-v2 {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--nihility-border);
+  border-radius: 7px;
+  background: var(--nihility-bg-panel);
+  margin-bottom: 6px;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.nihility-sheet .attr-row-v2.is-pending {
+  border-color: rgba(232, 193, 112, 0.55);
+  background: linear-gradient(180deg, rgba(232, 193, 112, 0.06), var(--nihility-bg-panel) 60%);
+}
+.nihility-sheet .attr-row-v2 .attr-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.nihility-sheet .attr-row-v2 .attr-name { min-width: 0; }
+.nihility-sheet .attr-row-v2 .attr-name .label { display: block; font-size: 0.82rem; font-weight: 600; }
+.nihility-sheet .attr-row-v2 .attr-name .pts {
+  font-family: var(--nihility-font-data);
+  font-size: 0.66rem;
+  color: var(--nihility-text-faint);
+}
+.nihility-sheet .attr-row-v2 .attr-name .pts .pending-add { color: var(--nihility-gold); font-weight: 600; }
+
+.nihility-sheet .attr-row-v2 .attr-formula {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.nihility-sheet .attr-row-v2 .dice-pill {
+  font-family: var(--nihility-font-data);
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border-soft);
+  border-radius: 999px;
+  padding: 3px 10px;
+  color: var(--nihility-accent);
+  white-space: nowrap;
+}
+.nihility-sheet .attr-row-v2 .dice-pill.will-change {
+  border-color: rgba(110, 231, 255, 0.55);
+  box-shadow: 0 0 0 1px rgba(110, 231, 255, 0.15);
+}
+.nihility-sheet .attr-row-v2 .dice-pill.preview {
+  color: var(--nihility-gold);
+  border-color: rgba(232, 193, 112, 0.5);
+  font-size: 0.76rem;
+}
+.nihility-sheet .attr-row-v2 .formula-arrow { color: var(--nihility-text-faint); font-size: 0.7rem; }
+
+.nihility-sheet .attr-row-v2 .stepper { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+.nihility-sheet .attr-row-v2 .step-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--nihility-border);
+  background: var(--nihility-bg-panel-alt);
+  color: var(--nihility-text);
+  font-family: var(--nihility-font-data);
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.nihility-sheet .attr-row-v2 .step-btn:hover:not(:disabled) { border-color: var(--nihility-accent); color: var(--nihility-accent); }
+.nihility-sheet .attr-row-v2 .step-btn.minus:hover:not(:disabled) { border-color: var(--nihility-danger); color: var(--nihility-danger); }
+.nihility-sheet .attr-row-v2 .step-btn:disabled { opacity: 0; pointer-events: none; }
+.nihility-sheet .attr-row-v2 .step-readout {
+  font-family: var(--nihility-font-data);
+  font-size: 0.72rem;
+  color: var(--nihility-text-faint);
+  width: 16px;
+  text-align: center;
+}
+.nihility-sheet .attr-row-v2 .step-readout.has-pending { color: var(--nihility-gold); font-weight: 600; }
+
+.nihility-sheet .attr-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid rgba(232, 193, 112, 0.4);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-top: 4px;
+}
+.nihility-sheet .attr-action-bar .summary { font-size: 0.76rem; color: var(--nihility-text-dim); }
+.nihility-sheet .attr-action-bar .summary strong { color: var(--nihility-gold); font-family: var(--nihility-font-data); }
+.nihility-sheet .attr-action-bar .buttons { display: flex; gap: 6px; }
+.nihility-sheet .btn-mini {
+  font-family: var(--nihility-font);
+  font-size: 0.76rem;
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.nihility-sheet .btn-mini.reset { background: transparent; border-color: var(--nihility-border); color: var(--nihility-text-dim); }
+.nihility-sheet .btn-mini.reset:hover { border-color: var(--nihility-danger); color: var(--nihility-danger); }
+.nihility-sheet .btn-mini.confirm { background: linear-gradient(120deg, var(--nihility-gold), #f0d48f); color: #201a0c; }
+.nihility-sheet .btn-mini.confirm:hover { filter: brightness(1.08); }
+.nihility-sheet .btn-mini.gm-attr-reset { height: auto; min-height: 0; line-height: normal; margin-top: 6px; }
+.nihility-sheet .item-weapon-formula { font-size: 0.76rem; color: var(--nihility-text-dim); white-space: nowrap; }
+
+.nihility-sheet .attribute-roll {
+  background: transparent;
+  border: 1px solid var(--nihility-accent-2);
+  border-radius: 5px;
+  cursor: pointer;
+  padding: 2px 8px;
+  flex-shrink: 0;
+}
+.nihility-sheet .attribute-roll:hover {
+  background: rgba(192, 132, 252, 0.15);
+}
+
+.nihility-sheet .level-up-button {
+  background: rgba(224, 183, 104, 0.12);
+  border: 1px solid var(--nihility-gold);
+  color: var(--nihility-gold);
+  border-radius: 5px;
+  cursor: pointer;
+  padding: 2px 10px;
+  margin-left: 6px;
+}
+.nihility-sheet .level-up-button:hover {
+  background: rgba(224, 183, 104, 0.25);
+}
+
+.nihility-sheet .sp-ledger {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.nihility-sheet .sp-item {
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  text-align: center;
+}
+.nihility-sheet .sp-label {
+  display: block;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  color: var(--nihility-text-dim);
+}
+.nihility-sheet .sp-value {
+  font-size: 1.1rem;
+  color: var(--nihility-accent);
+}
+.nihility-sheet .sp-actions {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+.nihility-sheet .sp-actions button {
+  background: transparent;
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text-dim);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.7rem;
+  padding: 1px 6px;
+}
+.nihility-sheet .sp-actions button:hover {
+  border-color: var(--nihility-accent);
+  color: var(--nihility-accent);
+}
+
+.nihility-sheet .skill-request-button,
+.nihility-sheet .currency-convert,
+.nihility-sheet .currency-send {
+  display: inline-block;
+  margin: 6px 6px 0 0;
+  padding: 4px 10px;
+  border: 1px solid var(--nihility-accent);
+  border-radius: 4px;
+  background: rgba(110, 231, 255, 0.08);
+  color: var(--nihility-accent);
+  cursor: pointer;
+}
+.nihility-sheet .skill-request-button:hover,
+.nihility-sheet .currency-convert:hover,
+.nihility-sheet .currency-send:hover {
+  background: rgba(110, 231, 255, 0.2);
+}
+
+.nihility-sheet .title-list .item-rarity {
+  font-size: 0.7rem;
+  color: var(--nihility-gold);
+  text-transform: uppercase;
+}
+
+/* Editor de Espécie: subtítulo de Skills Raciais + grid de linhas */
+.nihility-config-app .species-block-subtitle {
+  margin: 14px 0 6px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--nihility-accent-2);
+}
+.nihility-config-app .racial-skill-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--nihility-border-soft);
+}
+.nihility-config-app .racial-skill-summary {
+  flex: 1;
+}
+.nihility-config-app .racial-skill-edit,
+.nihility-config-app .racial-skill-delete {
+  color: var(--nihility-text-dim);
+  cursor: pointer;
+}
+.nihility-config-app .racial-skill-edit:hover { color: var(--nihility-accent); }
+.nihility-config-app .racial-skill-delete:hover { color: var(--nihility-danger); }
+

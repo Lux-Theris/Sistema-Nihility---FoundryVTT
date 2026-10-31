@@ -4,6 +4,7 @@
  */
 import { SYSTEM_ID } from "../core/config.js";
 import { addShieldToPool, removeShieldPool } from "../combat/shield-pools.js";
+import { escapeHtml } from "../helpers/html.js";
 
 /* ------------------------------------------------------------------ Escudo mantido */
 
@@ -44,13 +45,13 @@ export async function regenerateSustainedShields(holder) {
     const source = { holderUuid: holder.uuid, skillId: record.skillId, subSkillIndex: record.subSkillIndex ?? null, label: record.label, elements: record.elements ?? [] };
     const gain = await addShieldToPool(target, source, record.regen, { cap: record.cap });
     if (!gain) continue;
-    rows.push(`${record.label}: Escudo de ${target.name} +${gain}`);
+    rows.push(`${escapeHtml(record.label)}: Escudo de ${escapeHtml(target.name)} +${gain}`);
   }
   await holder.setFlag(SYSTEM_ID, SUSTAINED_SHIELD_FLAG, kept);
   if (rows.length) {
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor: holder }),
-      content: `<p><strong>${holder.name}</strong> — Escudos mantidos regeneram:</p><ul>${rows.map(r => `<li>${r}</li>`).join("")}</ul>`
+      content: `<p><strong>${escapeHtml(holder.name)}</strong> — Escudos mantidos regeneram:</p><ul>${rows.map(r => `<li>${r}</li>`).join("")}</ul>`
     });
   }
   return rows;

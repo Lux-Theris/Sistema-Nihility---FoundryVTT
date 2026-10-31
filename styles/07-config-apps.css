@@ -1,0 +1,657 @@
+/* ==========================================================================
+   Configurar Módulos do Sistema (apps/feature-config.js) — liga/desliga cada
+   bloco por campanha + presets prontos. Reaproveita .nihility-config-app (moldura,
+   fundo, footer) dos outros editores; aqui ficam só as partes próprias.
+   ========================================================================== */
+
+.nihility-feature-config .feature-presets {
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.nihility-feature-config .feature-preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.nihility-feature-config .feature-preset-btn {
+  flex: 1 1 auto;
+  min-width: 140px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+}
+.nihility-feature-config .feature-preset-btn:hover {
+  border-color: var(--nihility-accent);
+  color: var(--nihility-accent);
+}
+
+/* A lista não rola sozinha: quem rola é `.config-editor-body`, uma só barra. O teto continua
+   existindo (a janela é `height: "auto"` e cresceria além da tela com 15 blocos), só que agora
+   mora no elemento certo — ver a regra de max-height logo abaixo. Com o teto AQUI havia duas
+   barras aninhadas, e a de dentro era a que aparecia cortando a lista. */
+.nihility-feature-config .feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Janela de altura automática: cresce com o conteúdo até caber na tela e só então rola.
+   `vh` é a unidade certa justamente aqui — o limite que se quer é "não passar da tela", e é a
+   tela que a janela ocupa. (Diferente das grades da ficha, onde o que importa é a largura da
+   própria ficha e por isso usam @container.) */
+.nihility-feature-config .config-editor-body {
+  max-height: 70vh;
+}
+
+.nihility-feature-config .feature-row {
+  padding: 7px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.03);
+  transition: opacity 0.15s ease;
+}
+
+/* Bloco desligado continua legível (não é erro, é escolha de campanha) — só recuado. */
+.nihility-feature-config .feature-row.is-off {
+  opacity: 0.55;
+}
+
+/* `.feature-main` é um <label>, e o core do Foundry dá aos labels a cor do TEMA CLARO — os
+   filhos herdam e o texto some no painel escuro (mesma armadilha que já tinha apagado o
+   conteúdo do editor de texto rico). Por isso a cor é explícita aqui e em todo texto das
+   telas próprias do sistema, em vez de herdada. */
+.nihility-feature-config .feature-row,
+.nihility-feature-config .feature-main {
+  color: var(--nihility-text);
+}
+
+.nihility-feature-config .feature-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.nihility-feature-config .feature-main input[type="checkbox"] {
+  margin-top: 3px;
+  flex: 0 0 auto;
+}
+
+.nihility-feature-config .feature-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* Item de flex tem min-width:auto por padrão e se recusa a encolher abaixo do conteúdo —
+     é o que faz uma dica longa empurrar a linha pra fora em vez de quebrar. */
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.nihility-feature-config .feature-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--nihility-text);
+}
+
+.nihility-feature-config .feature-hint {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--nihility-text-dim);
+}
+
+/* Sub-features (as do PAD) entram recuadas sob o pai, com um fio ligando visualmente. */
+.nihility-feature-config .feature-children {
+  margin: 6px 0 0 22px;
+  padding-left: 10px;
+  border-left: 2px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+/* Campos numéricos sob o interruptor (ex.: Deslocamento: Base, Passo, Teto). Cada um é um
+   <label>, então a cor é explícita pelo mesmo motivo do resto desta tela. */
+.nihility-feature-config .feature-options {
+  margin: 6px 0 0 22px;
+  padding-left: 10px;
+  border-left: 2px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nihility-feature-config .feature-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--nihility-text);
+}
+
+.nihility-feature-config .feature-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.nihility-feature-config .feature-option-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--nihility-text);
+}
+
+.nihility-feature-config .feature-option input[type="number"] {
+  width: 72px;
+  flex: 0 0 auto;
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+}
+
+/* Sub-feature ligada sob um pai desligado: some visualmente sem perder o estado salvo. */
+.nihility-feature-config .feature-main.child.is-inherited-off {
+  opacity: 0.5;
+}
+
+/* Tela inicial do PAD: layout de coluna explícito em vez de depender de margem entre
+   irmãos. A linha "PAD Pessoal · sinal estável" estava aparecendo POR BAIXO da grade de
+   ícones; com flex + gap, cada faixa ocupa a própria linha e não há margem pra colapsar
+   ou sobrepor, seja qual for a largura da janela. Escopado em .pad-screen-home de
+   propósito — as outras telas (Nave/Biblioteca/Mensagens) têm layout próprio. */
+.pad-screen-home {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pad-screen-home .pad-home-head,
+.pad-screen-home .pad-home-sub {
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.pad-screen-home .pad-icon-grid {
+  flex: 0 0 auto;
+  margin-top: 4px;
+}
+
+/* Texto rico em modo leitura (quem não é dono da ficha) — o <prose-mirror> só é renderizado
+   pra quem pode editar; sem isso o conteúdo saía cru, sem respiro nem rolagem. */
+.rich-text-readonly {
+  padding: 8px 10px;
+  border: 1px solid var(--nihility-border);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.rich-text-readonly:empty::before {
+  content: "Sem conteúdo.";
+  opacity: 0.5;
+  font-style: italic;
+}
+
+/* O botão de ícone da tela inicial do PAD é a tile inteira, não só o rótulo: sem zerar o
+   padding herdado do core, sobra uma borda morta em volta da área clicável. `.pad-device` na
+   frente só pra vencer a especificidade do reset acima (que é `.pad-device button`). */
+.pad-device .pad-icon {
+  padding: 0;
+  height: auto;
+  min-height: 0;
+  width: 100%;
+}
+
+/* Piso de altura da tile: `aspect-ratio` sozinho depende de a largura estar resolvida, o que
+   nem sempre acontece no primeiro layout dentro de uma janela redimensionável. O mínimo
+   garante que a tile (e portanto a área clicável) nunca colapse. */
+.pad-device .pad-icon-tile {
+  min-height: 64px;
+}
+
+/* ==========================================================================
+   Editor de texto rico (<prose-mirror>) dentro das fichas — Biografia/Descrição.
+   O conteúdo digitado existia (aparecia no editor de código-fonte) mas ficava
+   INVISÍVEL no modo visual: a área editável do core herda a cor de texto do tema
+   claro do Foundry, que some no fundo escuro deste sistema. Daí a cor explícita.
+   ========================================================================== */
+.nihility-sheet prose-mirror {
+  display: flex;
+  flex-direction: column;
+  min-height: 260px;
+  border: 1px solid var(--nihility-border);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--nihility-text);
+}
+
+.nihility-sheet prose-mirror .editor-container,
+.nihility-sheet prose-mirror .editor-content {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.nihility-sheet prose-mirror .ProseMirror {
+  min-height: 200px;
+  padding: 8px 10px;
+  color: var(--nihility-text);
+  overflow-y: auto;
+}
+
+/* O texto digitado quase sempre nasce dentro de um bloco (<p>, <h1>…) — sem herdar a cor
+   explicitamente, cada um desses volta a pegar a cor do tema claro do core. */
+.nihility-sheet prose-mirror .ProseMirror :is(p, h1, h2, h3, h4, h5, h6, li, td, th, blockquote) {
+  color: inherit;
+}
+
+.nihility-sheet prose-mirror .ProseMirror a { color: var(--nihility-accent); }
+
+/* A barra de ferramentas do editor também é feita de <button> do core: mesma armadilha de
+   altura fixa da grade do PAD, só que aqui o sintoma seria o ícone cortado. */
+.nihility-sheet prose-mirror .editor-menu button {
+  height: auto;
+  min-height: 0;
+  line-height: normal;
+}
+
+
+/* ==========================================================================
+   Configurar Atributos (apps/attribute-config.js) — renomear/esconder os sete
+   Atributos de Combate. Mesma moldura de .nihility-config-app dos outros editores.
+   ========================================================================== */
+
+.nihility-attribute-config .attribute-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 56vh;
+  overflow-y: auto;
+}
+
+.nihility-attribute-config .attribute-row {
+  display: grid;
+  grid-template-columns: 150px 1fr 110px;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.nihility-attribute-config .attribute-row.header {
+  border: 0;
+  background: none;
+  padding-block: 0 2px;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--nihility-text-faint);
+  font-weight: 600;
+}
+
+/* Atributo escondido continua legível — é escolha de campanha, não erro. */
+.nihility-attribute-config .attribute-row.is-off { opacity: 0.55; }
+
+.nihility-attribute-config .attribute-key {
+  font-family: var(--nihility-font-data);
+  font-size: 0.78rem;
+  color: var(--nihility-text-faint);
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 3px;
+  padding: 2px 6px;
+  justify-self: start;
+  cursor: help;
+}
+
+.nihility-attribute-config .attribute-label-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.nihility-attribute-config .attribute-label-input { width: 100%; }
+
+.nihility-attribute-config .attribute-formula-note {
+  font-size: 0.68rem;
+  color: var(--nihility-gold);
+  opacity: 0.85;
+}
+
+.nihility-attribute-config .attribute-visible-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--nihility-text-dim);
+  cursor: pointer;
+}
+
+/* Janela de app também é redimensionável à parte da tela — container, não media. */
+.nihility-attribute-config .attribute-list {
+  container-type: inline-size;
+  container-name: attrlist;
+}
+@container attrlist (max-width: 520px) {
+  .nihility-attribute-config .attribute-row { grid-template-columns: 1fr; gap: 6px; }
+  .nihility-attribute-config .attribute-row.header { display: none; }
+}
+
+/* Botão de Iniciativa — mesma faixa do Descanso Completo no cabeçalho da ficha. */
+.nihility-sheet .initiative-button {
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-gold);
+  color: var(--nihility-gold);
+  border-radius: 4px;
+  padding: 5px 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.nihility-sheet .initiative-button:hover {
+  box-shadow: 0 0 0 1px rgba(232, 193, 112, 0.3);
+}
+
+/* Correr: mesmo botão da Iniciativa, em verde quando ativo e apagado fora do turno. */
+.nihility-sheet .dash-button.is-active {
+  border-color: var(--nihility-ok);
+  color: var(--nihility-ok);
+}
+.nihility-sheet .dash-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Peso das moedas — coluna discreta à direita do saldo; é só informação, não há limite de carga. */
+.nihility-sheet .currency-row .currency-weight {
+  font-family: var(--nihility-font-data);
+  font-size: 0.72rem;
+  color: var(--nihility-text-faint);
+  min-width: 46px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.nihility-sheet .currency-weight-total {
+  margin: 6px 0 0;
+  text-align: right;
+  font-size: 0.74rem;
+  color: var(--nihility-text-dim);
+}
+.nihility-sheet .currency-weight-total strong {
+  font-family: var(--nihility-font-data);
+  color: var(--nihility-gold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   Experiência (bloco só-Mestre da ficha). O jogador não vê nem que existe —
+   o contexto `xpEntries` só é montado quando isGM (ver actor-sheet.js).
+   ========================================================================== */
+
+.nihility-sheet .xp-block .gm-only-tag {
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--nihility-text-faint);
+  border: 1px solid var(--nihility-border);
+  border-radius: 99px;
+  padding: 1px 7px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.nihility-sheet .xp-grant-button {
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text-dim);
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.nihility-sheet .xp-grant-button:hover { border-color: var(--nihility-gold); color: var(--nihility-gold); }
+
+.nihility-sheet .xp-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+
+.nihility-sheet .xp-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(70px, 120px) auto;
+  gap: 9px;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.nihility-sheet .xp-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nihility-sheet .xp-detail { color: var(--nihility-text-faint); font-size: 0.72rem; }
+
+.nihility-sheet .xp-track {
+  height: 6px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+.nihility-sheet .xp-fill { display: block; height: 100%; background: var(--nihility-gold); border-radius: 99px; }
+
+/* Cheio = pronto pra subir de nível; o verde separa "acumulando" de "esperando sua decisão". */
+.nihility-sheet .xp-row.is-ready .xp-fill { background: var(--nihility-ok); }
+.nihility-sheet .xp-row.is-ready .xp-value { color: var(--nihility-ok); }
+
+.nihility-sheet .xp-value {
+  font-family: var(--nihility-font-data);
+  font-size: 0.74rem;
+  color: var(--nihility-text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Campo de ícone por efeito no editor de Skill (herda o da Condição quando vazio). */
+.skill-editor-form .se-effect-icon {
+  min-width: 0;
+  flex: 1 1 90px;
+  font-family: var(--nihility-font-data);
+  font-size: 0.72rem;
+}
+
+/* Diálogo da Condição aplicada à mão pelo Mestre no HUD do token. */
+.nihility-condition-dialog { display: flex; flex-direction: column; gap: 10px; }
+.nihility-condition-dialog .hint { margin: 0; font-size: 0.82rem; color: var(--nihility-text-dim); }
+.nihility-condition-dialog .form-group { display: flex; flex-direction: column; gap: 3px; }
+.nihility-condition-dialog .checkbox-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 0.8rem;
+  color: var(--nihility-text-dim);
+}
+
+/* ==========================================================================
+   Escolha de alvo (helpers/target-picker.js) e botões de dano no chat
+   (damage-apply.js).
+   ========================================================================== */
+
+.nihility-target-picker { display: flex; flex-direction: column; gap: 10px; }
+.nihility-target-picker .form-group { display: flex; flex-direction: column; gap: 3px; }
+.nihility-target-picker select { width: 100%; }
+.nihility-target-picker optgroup {
+  font-style: normal;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nihility-text-faint);
+}
+.nihility-target-picker optgroup option {
+  font-size: 0.86rem;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--nihility-text);
+}
+.nihility-target-picker .target-search-note { font-size: 0.7rem; color: var(--nihility-text-faint); }
+
+.nihility-damage-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--nihility-border-soft);
+}
+
+.nihility-damage-controls button {
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  height: auto;
+  min-height: 0;
+  line-height: normal;
+}
+.nihility-damage-controls button:first-child { border-color: var(--nihility-accent); color: var(--nihility-accent); }
+.nihility-damage-controls button:hover { box-shadow: 0 0 0 1px rgba(110, 231, 255, 0.25); }
+
+.nihility-damage-controls .damage-applied {
+  font-size: 0.78rem;
+  color: var(--nihility-ok);
+  font-weight: 600;
+  /* Fundo próprio: o verde claro some no card claro do tema padrão da V14. */
+  background: var(--nihility-bg-panel-alt);
+  border-radius: 4px;
+  padding: 2px 8px;
+}
+
+/* Card de área: uma linha por alvo, ações de grupo em cima (L10). */
+.nihility-damage-controls.is-many {
+  flex-direction: column;
+  align-items: stretch;
+}
+.nihility-damage-controls .damage-many-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.nihility-damage-controls .damage-many-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.nihility-damage-controls .damage-many-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.nihility-damage-controls .damage-many-list button:first-child { border-color: var(--nihility-border); color: var(--nihility-text); }
+.nihility-damage-controls .damage-many-list .damage-apply:first-of-type { border-color: var(--nihility-accent); color: var(--nihility-accent); }
+/* O card de chat segue o tema do Foundry (claro por padrão na V14): o nome herda a cor do card,
+   em vez da cor clara do sistema, que some no fundo claro. Os botões têm fundo próprio. */
+.nihility-damage-controls .damage-many-name {
+  flex: 1;
+  min-width: 6em;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: inherit;
+}
+
+/* Não lidas do PAD — badge por conversa e no botão da ficha. */
+.pad-unread-badge {
+  flex: 0 0 auto;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 99px;
+  background: var(--nihility-accent);
+  color: #06121a;
+  font-family: var(--nihility-font-data);
+  font-size: 0.68rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pad-thread-row.has-unread .pad-t-name { font-weight: 700; }
+.pad-thread-row.has-unread .pad-t-preview { color: var(--nihility-text); }
+
+.nihility-sheet .pad-open-button.has-unread {
+  border-color: var(--nihility-accent);
+  box-shadow: 0 0 0 1px rgba(110, 231, 255, 0.25);
+}
+.nihility-sheet .pad-open-button .pad-unread-badge {
+  min-width: 16px;
+  height: 16px;
+  font-size: 0.62rem;
+  margin-left: 5px;
+}
+
+/* Grupo e marcador de criação no editor de Espécies. */
+.species-block legend .species-group {
+  max-width: 130px;
+  font-size: 0.76rem;
+}
+.species-block legend .species-at-creation-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  color: var(--nihility-text-dim);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   Cor explícita em todo texto das telas próprias do sistema.
+
+   O core do Foundry estiliza <label>, <p> e <span> dentro de aplicação com a cor
+   do tema CLARO. Em qualquer painel escuro deste sistema isso resulta em texto
+   invisível — o mesmo defeito que já tinha apagado o conteúdo do editor de texto
+   rico e a lista de Módulos do Sistema. Herdar a cor não é seguro aqui.
+   ========================================================================== */
+
+.nihility-config-app,
+.nihility-config-app label,
+.nihility-config-app p,
+.nihility-config-app legend,
+.nihility-condition-dialog,
+.nihility-condition-dialog label,
+.nihility-target-picker,
+.nihility-target-picker label {
+  color: var(--nihility-text);
+}
+
+.nihility-config-app .hint,
+.nihility-config-app .hint-inline,
+.nihility-condition-dialog .hint,
+.nihility-condition-dialog .hint-inline,
+.nihility-target-picker .hint-inline {
+  color: var(--nihility-text-dim);
+}
+
+/* Campos de formulário dentro dessas telas: o core também os pinta pro tema claro. */
+.nihility-config-app input[type="text"],
+.nihility-config-app input[type="number"],
+.nihility-config-app select,
+.nihility-condition-dialog input[type="text"],
+.nihility-condition-dialog input[type="number"],
+.nihility-condition-dialog select,
+.nihility-target-picker select {
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+}
+

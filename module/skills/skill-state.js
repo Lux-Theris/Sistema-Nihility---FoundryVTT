@@ -4,6 +4,7 @@
  */
 import { getEnergyLabelForActor } from "../core/config.js";
 import { isShipLike } from "../starship/ship-damage.js";
+import { escapeHtml } from "../helpers/html.js";
 
 /** Caminho de update pro flag `active` — top-level ou dentro de um Sub-Skill específico. */
 export function activeStatePath(subSkillIndex) {
@@ -46,6 +47,6 @@ export async function warnInsufficientEnergy(sourceActor, label, cost) {
   await ChatMessage.create({
     whisper: [game.user.id],
     speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
-    content: `<p>${energyLabel} insuficiente pra usar <strong>${label}</strong> (precisa ${cost}, ${sourceActor.name} tem ${current}).</p>`
+    content: `<p>${energyLabel} insuficiente pra usar <strong>${escapeHtml(label)}</strong> (precisa ${cost}, ${escapeHtml(sourceActor.name)} tem ${current}).</p>`
   });
 }

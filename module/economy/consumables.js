@@ -17,6 +17,7 @@ import { rollOptionsFromEvent } from "../apps/roll-options-dialog.js";
 import { areaEffectsSupported, pickAreaTargets } from "../combat/area-effects.js";
 import { rollSkillDamage, rollSkillDamageArea } from "../combat/damage-roll.js";
 import { applySkillEffects, applySkillEffectsArea } from "../skills/skill-effects.js";
+import { reportError } from "../helpers/report.js";
 
 /** A "mecânica" de um consumível, no formato que os caminhos de Skill entendem. */
 export function consumableMech(item) {
@@ -100,7 +101,7 @@ export async function useConsumable(actor, item, event = null) {
       if (!done) return null;
     }
   } catch (err) {
-    console.error(`${SYSTEM_ID} | Falha ao usar ${item.name}.`, err);
+    reportError(`Falha ao usar ${item.name}.`, err);
     return null;
   }
   return spendUse(item);

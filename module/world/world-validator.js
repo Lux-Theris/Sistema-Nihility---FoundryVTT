@@ -1,5 +1,5 @@
 /**
- * Validador do mundo — a parte PURA (testada em test/rules.test.mjs). Procura referências que
+ * Validador do mundo — a parte PURA (testada em test/). Procura referências que
  * apontam para fora dos catálogos do Mestre: uma Skill com Condição que foi apagada, um elemento
  * que aplica uma Condição inexistente, uma Nave com Porte removido, um tripulante deletado…
  *

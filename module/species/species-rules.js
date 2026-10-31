@@ -1,5 +1,5 @@
 /**
- * Regras PURAS de Espécie (testadas em test/rules.test.mjs): normalizar o catálogo, montar o
+ * Regras PURAS de Espécie (testadas em test/): normalizar o catálogo, montar o
  * "molde" de um personagem (Espécie → Linhagem → Heranças) e comparar o molde com o que a ficha
  * tem (o diff que a prévia mostra e que species.js aplica). Nada aqui toca Actor/Item.
  *
@@ -82,13 +82,51 @@ export function bumpSpeciesVersions(previous = {}, next = {}) {
   return out;
 }
 
-/** Hash curto e estável da mecânica de uma Skill Racial (sem nível/XP/estado). */
-export function skillDataHash(skill = {}) {
-  const { key, level, xp, active, unlockLevel, ...rest } = skill ?? {};
-  const json = JSON.stringify(rest, Object.keys(rest).sort());
+function hashString(json) {
   let h = 0;
   for (let i = 0; i < json.length; i++) h = (Math.imul(31, h) + json.charCodeAt(i)) | 0;
   return (h >>> 0).toString(36);
+}
+
+/** JSON com as chaves ordenadas em TODOS os níveis (o mesmo objeto dá sempre o mesmo texto). */
+function stableJson(value) {
+  if (Array.isArray(value)) return `[${value.map(v => stableJson(v === undefined ? null : v)).join(",")}]`;
+  if (value && typeof value === "object") {
+    const keys = Object.keys(value).filter(k => value[k] !== undefined).sort();
+    return `{${keys.map(k => `${JSON.stringify(k)}:${stableJson(value[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
+}
+
+const SKILL_HASH_PREFIX = "2-";
+
+/**
+ * Hash curto e estável da mecânica de uma Skill Racial (sem nível/XP/estado).
+ *
+ * Versão 2 (prefixo "2-"): até a 1.77 o hash usava `JSON.stringify(rest, chavesDoTopo)`, que filtra
+ * TODOS os níveis pelas chaves do topo — tudo que era aninhado (efeitos, área, elementos) sumia, e
+ * mudar o valor de um efeito não marcava a ficha como "Espécie mudou". Os hashes antigos continuam
+ * salvos nas fichas (`speciesGrant.hash`); compare sempre com `skillHashMatches`, nunca com `===`.
+ */
+export function skillDataHash(skill = {}) {
+  const { key, level, xp, active, unlockLevel, ...rest } = skill ?? {};
+  return SKILL_HASH_PREFIX + hashString(stableJson(rest));
+}
+
+/** O hash de antes da 1.78 (só o topo da Skill). Só para reconhecer marcas antigas. */
+function legacySkillDataHash(skill = {}) {
+  const { key, level, xp, active, unlockLevel, ...rest } = skill ?? {};
+  return hashString(JSON.stringify(rest, Object.keys(rest).sort()));
+}
+
+/**
+ * A marca salva numa ficha (`saved`) corresponde à Skill do catálogo? Marca nova compara com o hash
+ * atual; marca antiga (sem prefixo) com o antigo — senão trocar a fórmula do hash marcaria TODAS as
+ * fichas como desatualizadas de uma vez. Sem marca → false.
+ */
+export function skillHashMatches(saved, skill) {
+  if (!saved) return false;
+  return String(saved).startsWith(SKILL_HASH_PREFIX) ? saved === skillDataHash(skill) : saved === legacySkillDataHash(skill);
 }
 
 /* ------------------------------------------------------------------ molde */
@@ -263,10 +301,12 @@ export function speciesDiff(current = {}, template = {}, { mode = "change", remo
       const cur = pendingSkills.splice(idx, 1)[0];
       const entry = { id: cur.id, key: tpl.key, name: tpl.name, from: cur.name, level: cur.level, xp: cur.xp, data: tpl.data, hash: tpl.hash, source: tpl.source };
       // Só compara a mecânica quando a Skill já tem marca com hash (dados antigos: sem aviso falso).
-      const mechanicsChanged = Boolean(cur.grant?.hash) && cur.grant.hash !== tpl.hash;
+      // Compara por `skillHashMatches`: a marca pode ser do hash antigo (antes da 1.78).
+      const sameMechanics = skillHashMatches(cur.grant?.hash, tpl.data);
+      const mechanicsChanged = Boolean(cur.grant?.hash) && !sameMechanics;
       // Sincronizar atualiza a mecânica quando o catálogo mudou; evoluir também (Regeneração Amorfa
       // → Regeneração Demoníaca: mesma chave, mecânica e nome novos, nível mantido).
-      if ((mode === "sync" && mechanicsChanged) || (mode === "evolution" && cur.grant?.hash !== tpl.hash)) skills.update.push(entry);
+      if ((mode === "sync" && mechanicsChanged) || (mode === "evolution" && !sameMechanics)) skills.update.push(entry);
       else skills.keep.push({ ...entry, needsMark: !cur.grant || cur.grant.key !== tpl.key });
       continue;
     }

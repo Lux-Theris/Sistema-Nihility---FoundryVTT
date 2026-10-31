@@ -19,6 +19,7 @@
 import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions, getActiveTraits, actorTraits, isEnvironmentEnabled } from "../core/config.js";
 import { isDesignatedGm } from "../helpers/gm-relay.js";
 import { desiredEnvironmentConditions, environmentDiff, resolveManaDensity, normalizeHazard, normalizeDensity, wantedSceneFx, sceneFxPlan, fxPresetLabel } from "./environment-rules.js";
+import { reportError } from "../helpers/report.js";
 
 export const BEHAVIOR_TYPE = "nihilityEnvironment";
 const FLAG = "environment";
@@ -113,7 +114,7 @@ export function syncTokenEnvironment(tokenDoc) {
   const key = actor.uuid;
   const next = (pending.get(key) ?? Promise.resolve())
     .then(() => syncNow(tokenDoc, actor))
-    .catch(err => console.error(`${SYSTEM_ID} | Ambiente: falha ao sincronizar ${actor.name}.`, err));
+    .catch(err => reportError(`Ambiente: falha ao sincronizar ${actor.name}.`, err, { gmOnly: true }));
   pending.set(key, next);
   next.finally(() => {
     if (pending.get(key) === next) pending.delete(key);

@@ -1,5 +1,7 @@
 import { SYSTEM_ID, MEU_SISTEMA, debugLog } from "../core/config.js";
 import { pickImageFile } from "../helpers/foundry-compat.js";
+import { escapeHtml } from "../helpers/html.js";
+export { escapeHtml };
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -106,11 +108,6 @@ export function createCardListConfigApp({ id, title, settingsKey, getActiveList,
   }
 
   return CardListConfigApp;
-}
-
-/** Escapa texto de catálogo pra atributo/conteúdo HTML. */
-export function escapeHtml(value) {
-  return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
 }
 
 /** `<option>`s de uma lista `[valor, rótulo]`, com o atual selecionado. */

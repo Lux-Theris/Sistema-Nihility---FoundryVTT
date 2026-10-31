@@ -18,7 +18,6 @@ import {
   isSkillPointsEnabled,
   isAttributePoolEnabled,
   isEnergyPoolEnabled,
-  isAreaEffectsEnabled,
   getVisibleAttributes,
   sceneActorCandidates,
   debugLog,
@@ -27,7 +26,6 @@ import {
   getAttributeLabel,
   getScaleConfig,
   isScaleEnabled,
-  isStructureMechanic,
   actorDisplayName,
   isInventoryEnabled
 } from "../core/config.js";
@@ -43,12 +41,12 @@ import { pickTargetActor } from "../helpers/target-picker.js";
 import { rollOptionsFromEvent } from "../apps/roll-options-dialog.js";
 import { traitContext, changeTrait, pickActorTraits } from "../helpers/traits-ui.js";
 import { describeShieldPools } from "../combat/shield-pools.js";
-import { getStructure, pickStructurePlacement } from "../structures/structures.js";
-import { useSkillEffect } from "../skills/skill-effects.js";
+import { useSkillFlow } from "../skills/skill-use-flow.js";
+import { reportError } from "../helpers/report.js";
+import { escapeHtml } from "../helpers/html.js";
 import { useWeaponAttack } from "../combat/damage-roll.js";
 import { tickPeriodicEffect } from "../skills/effects-apply.js";
 import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
-import { areaEffectsSupported, pickAreaTargets, pickZonePlacement } from "../combat/area-effects.js";
 import { openSkillEditorDialog } from "../apps/skill-editor-dialog.js";
 import { editPortraitFrameAction, CLEAR_PORTRAIT_FRAME } from "../helpers/portrait-frame.js";
 import { pickImageFile } from "../helpers/foundry-compat.js";
@@ -109,7 +107,7 @@ async function promptDialog({ title, content, confirmLabel = "Confirmar", onConf
 
 /** Janelinha de "Nova Habilidade": só Nome e Tier — o resto se edita na ficha da Skill. */
 async function promptNewSkill(tierChoices) {
-  const esc = foundry.utils.escapeHTML;
+  const esc = escapeHtml;
   const options = tierChoices.map(t => `<option value="${t}" ${t === "normal" ? "selected" : ""}>${esc(MEU_SISTEMA.SKILL_TIER_LABELS[t] ?? t)}</option>`).join("");
   return foundry.applications.api.DialogV2.wait({
     window: { title: "Nova Habilidade" },
@@ -722,8 +720,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
     const skills = this.actor.items.filter(i => i.type === "skill");
     const options = [
-      `<option value="actor:">${this.actor.name} (Personagem)</option>`,
-      ...skills.map(s => `<option value="skill:${s.id}">${s.name} — nível ${s.system.level}</option>`)
+      `<option value="actor:">${escapeHtml(this.actor.name)} (Personagem)</option>`,
+      ...skills.map(s => `<option value="skill:${s.id}">${escapeHtml(s.name)} — nível ${s.system.level}</option>`)
     ].join("");
 
     const data = await promptDialog({
@@ -764,7 +762,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     try {
       await toggleMovementDash(this.actor);
     } catch (err) {
-      console.error(`${SYSTEM_ID} | Falha ao alternar o Correr.`, err);
+      reportError("Falha ao alternar o Correr.", err);
     }
   }
 
@@ -775,7 +773,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     try {
       await rollInitiativeForActor(this.actor, options);
     } catch (err) {
-      console.error(`${SYSTEM_ID} | Falha ao rolar iniciativa.`, err);
+      reportError("Falha ao rolar iniciativa.", err);
     }
   }
 
@@ -918,7 +916,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
     const confirmed = await DialogV2.confirm({
       window: { title: "Zerar Pontos de Atributo" },
-      content: `<p>Zerar os <strong>${refunded}</strong> pontos de atributo alocados por <strong>${this.actor.name}</strong>? Todos voltam pro Pool livre pra serem distribuídos de novo. Nível, Títulos, Habilidades e Itens não mudam.</p>`
+      content: `<p>Zerar os <strong>${refunded}</strong> pontos de atributo alocados por <strong>${escapeHtml(this.actor.name)}</strong>? Todos voltam pro Pool livre pra serem distribuídos de novo. Nível, Títulos, Habilidades e Itens não mudam.</p>`
     });
     if (!confirmed) return;
 
@@ -946,7 +944,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     try {
       await breakSkillPoints(this.actor, tier);
     } catch (err) {
-      console.error(`${SYSTEM_ID} | Falha ao quebrar Pontos de Habilidade.`, err);
+      reportError("Falha ao quebrar Pontos de Habilidade.", err);
     }
   }
 
@@ -956,7 +954,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     try {
       await mergeSkillPoints(this.actor, tier);
     } catch (err) {
-      console.error(`${SYSTEM_ID} | Falha ao fundir Pontos de Habilidade.`, err);
+      reportError("Falha ao fundir Pontos de Habilidade.", err);
     }
   }
 
@@ -979,7 +977,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       await requestSkillCreation(this.actor, data);
       ui.notifications.info("Pedido enviado ao Mestre para aprovação.");
     } catch (err) {
-      console.error(`${SYSTEM_ID} | Falha ao pedir criação de skill.`, err);
+      reportError("Falha ao pedir criação de skill.", err);
     }
   }
 
@@ -1019,13 +1017,13 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       const received = await convertActorCurrency(this.actor, data.fromId, data.toId, data.amount);
       ui.notifications.info(`Convertido. Recebido: ${received} (resto, se houver, caiu pra moeda de baixo).`);
     } catch (err) {
-      console.error(`${SYSTEM_ID} | Falha ao converter moeda.`, err);
+      reportError("Falha ao converter moeda.", err);
     }
   }
 
   async _promptCurrencyConversion() {
     const currencies = getActiveCurrencies();
-    const opts = currencies.map(c => `<option value="${c.id}">${c.label}</option>`).join("");
+    const opts = currencies.map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.label)}</option>`).join("");
     return promptDialog({
       title: "Converter Moeda",
       confirmLabel: "Converter",
@@ -1058,17 +1056,17 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       await transferCurrency(this.actor, toActor, data.currencyId, data.amount);
       ui.notifications.info(`Enviado ${data.amount} para ${toActor.name}.`);
     } catch (err) {
-      console.error(`${SYSTEM_ID} | Falha ao enviar moeda.`, err);
+      reportError("Falha ao enviar moeda.", err);
     }
   }
 
   async _promptCurrencyTransfer() {
     const currencies = getActiveCurrencies();
-    const currencyOpts = currencies.map(c => `<option value="${c.id}">${c.label}</option>`).join("");
+    const currencyOpts = currencies.map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.label)}</option>`).join("");
     // Só Personagens na mesma cena — Nave/Veículo não tem conceito de moeda própria, e listar
     // o mundo inteiro (em vez de só quem está na cena) deixava mandar dinheiro pra qualquer um.
     const recipients = sceneActorCandidates({ types: ["character"], exclude: this.actor });
-    const recipientOpts = recipients.map(a => `<option value="${a.uuid}">${actorDisplayName(a)}</option>`).join("");
+    const recipientOpts = recipients.map(a => `<option value="${a.uuid}">${escapeHtml(actorDisplayName(a))}</option>`).join("");
 
     if (!recipients.length) {
       ui.notifications.warn("Nenhum outro Personagem na cena atual pra receber a transferência.");
@@ -1169,7 +1167,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     try {
       await evolveSkill(this.actor, itemId, data);
     } catch (err) {
-      console.error(`${SYSTEM_ID} | Falha ao Evoluir habilidade.`, err);
+      reportError("Falha ao Evoluir habilidade.", err);
     }
   }
 
@@ -1187,97 +1185,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
    * mesmo caminho. `event` só serve para o Shift (modificadores de rolagem): a macro passa `{shiftKey}`.
    */
   async useSkillItem(itemId, event = null) {
-    const skill = this.actor.items.get(itemId);
-    if (!skill) return;
-    // Caído/Inconsciente: avisa antes de pedir Sub-Skill ou alvo. Desligar uma Ativa continua
-    // possível (ela já foi desligada ao cair, mas uma ligada à mão depois pode ser desligada).
-    const usingMech = skill.system.subSkills?.length ? null : skill.system;
-    if (!(usingMech?.hasUpkeep && usingMech.active) && blockIfIncapacitated(this.actor, "usar Habilidades")) return;
-
-    const subSkills = skill.system.subSkills ?? [];
-    let subSkillIndex = null;
-    let mech = skill.system;
-
-    if (subSkills.length) {
-      subSkillIndex = await this._promptSubSkillChoice(skill, subSkills);
-      if (subSkillIndex === null) return; // cancelou o picker
-      mech = subSkills[subSkillIndex];
-    }
-
-    // Habilidade Ativa já ligada: este clique só DESATIVA — nunca re-pede alvo nem re-executa
-    // a mecânica, mesmo se ela for "damage"/"temporary" (ver useSkillEffect em skill-effects.js).
-    const isDeactivating = mech.hasUpkeep && mech.active;
-
-    // Estrutura: posiciona (ou desenha) no mapa e o Mestre ergue — ver structures.js. Sem mapa,
-    // a Skill só posta o cartão.
-    if (!isDeactivating && isStructureMechanic(mech)) {
-      try {
-        let structurePlacement = null;
-        if (canvas?.ready && canvas.scene) {
-          const structure = getStructure(mech.structureId);
-          if (!structure) {
-            ui.notifications.warn(`${skill.name} não tem uma Estrutura escolhida.`);
-            return;
-          }
-          structurePlacement = await pickStructurePlacement(structure);
-          if (!structurePlacement) return;
-        }
-        await useSkillEffect(this.actor, itemId, { structurePlacement, subSkillIndex });
-      } catch (err) {
-        console.error(`${SYSTEM_ID} | Falha ao erguer Estrutura.`, err);
-      }
-      return;
-    }
-    const usesMechanic = !isDeactivating && (mech.effectType === "temporary" || mech.effectType === "damage");
-
-    // Shift+clique: modificadores de rolagem — só faz sentido quando há dano a rolar.
-    let rollOptions = null;
-    if (usesMechanic && mech.effectType === "damage") {
-      const asked = await rollOptionsFromEvent(event, `Dano — ${skill.name}`);
-      if (asked.cancelled) return;
-      rollOptions = asked.options;
-    }
-
-    if (!usesMechanic) {
-      try {
-        await useSkillEffect(this.actor, itemId, { subSkillIndex });
-      } catch (err) {
-        console.error(`${SYSTEM_ID} | Falha ao usar habilidade.`, err);
-      }
-      return;
-    }
-
-    try {
-      if (mech.targetType === "zone" && isAreaEffectsEnabled() && areaEffectsSupported()) {
-        // Zona: posiciona a área (fica na cena) — quem cair dentro dela sofre no início do turno.
-        const zonePlacement = await pickZonePlacement({ system: mech });
-        if (!zonePlacement) return;
-        await useSkillEffect(this.actor, itemId, { zonePlacement, subSkillIndex, rollOptions });
-      } else if (mech.targetType === "emission" && isAreaEffectsEnabled()) {
-        // Sem alvo manual — o usuário posiciona a forma no canvas e a Skill afeta quem
-        // estiver dentro dela, sem etapa de revisão (decisão explícita: aplica direto).
-        // Com o bloco de Emissão desligado na campanha, a Skill não quebra: cai no fluxo de
-        // alvo único abaixo (a mecânica dela continua valendo, só a seleção por área some).
-        if (!areaEffectsSupported()) {
-          ui.notifications.warn("Skills de Emissão precisam de acesso ao canvas da cena ativa.");
-          return;
-        }
-        const targetActors = await pickAreaTargets({ system: mech });
-        await useSkillEffect(this.actor, itemId, { targetActors, subSkillIndex, rollOptions });
-      } else if (mech.targetType === "self") {
-        // "Si mesmo": sem diálogo de alvo — a Skill age sobre quem a usa.
-        await useSkillEffect(this.actor, itemId, { targetActor: this.actor, subSkillIndex, rollOptions });
-      } else {
-        // Todo dano pode ser reduzido (Defesa Mágica, e/ou Resistência Geral/Elemental do
-        // alvo — inclusive dano puramente físico, se o alvo tiver Resistência Física) — então
-        // "damage" sempre pede alvo, igual "temporary" (buff/debuff) já pedia.
-        const targetActor = await this._promptSkillTarget();
-        if (!targetActor) return;
-        await useSkillEffect(this.actor, itemId, { targetActor, subSkillIndex, rollOptions });
-      }
-    } catch (err) {
-      console.error(`${SYSTEM_ID} | Falha ao usar habilidade.`, err);
-    }
+    await useSkillFlow(this.actor, itemId, { event, pickTarget: () => this._promptSkillTarget() });
   }
 
   /**
@@ -1331,32 +1239,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       if (!targetActor) return;
       await useWeaponAttack(this.actor, weapon, targetActor, options);
     } catch (err) {
-      console.error(`${SYSTEM_ID} | Falha ao atacar com arma.`, err);
+      reportError("Falha ao atacar com arma.", err);
     }
-  }
-
-  /**
-   * Skill Fundida: deixa escolher QUAL componente disparar (cada um com seu próprio efeito) —
-   * igual as Skills Únicas do Tensura, várias sub-habilidades nomeadas dentro de uma só Skill
-   * "guarda-chuva". Devolve o índice escolhido em `subSkills`, ou `null` se cancelado.
-   */
-  async _promptSubSkillChoice(skill, subSkills) {
-    const options = subSkills
-      .map((sub, i) => `<option value="${i}">${sub.name} — ${sub.effectType === "damage" ? "Dano" : sub.effectType === "temporary" ? "Efeito Temporário" : "Descritiva"}</option>`)
-      .join("");
-
-    const index = await promptDialog({
-      title: `Usar ${skill.name}`,
-      confirmLabel: "Usar",
-      content: `
-        <form>
-          <div class="form-group"><label>Qual componente disparar?</label><select name="subSkillIndex">${options}</select></div>
-        </form>`,
-      onConfirm: form => Number(form.querySelector("[name=subSkillIndex]").value)
-    });
-    // Cancelar resolve como `false` (ver comentário no botão "cancel" de promptDialog) —
-    // precisa de checagem explícita porque índice 0 (primeira sub-skill) é um valor válido.
-    return index === undefined || index === null || index === false ? null : index;
   }
 
   /**
@@ -1392,7 +1276,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         await fuseSkills(this.actor, ids, { tier });
       }
     } catch (err) {
-      console.error(`${SYSTEM_ID} | Falha ao fundir habilidades.`, err);
+      reportError("Falha ao fundir habilidades.", err);
     }
   }
 

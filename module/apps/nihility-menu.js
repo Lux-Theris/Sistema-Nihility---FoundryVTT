@@ -31,6 +31,7 @@ import {
 import { ensureSystemCompendiums, registerItemInCompendium } from "../core/compendium.js";
 import { saveTextToFile, readFileAsText } from "../helpers/foundry-compat.js";
 import { readTransferBundle, buildTransferBundle, diffTransfer, transferGroup } from "../core/config-transfer.js";
+import { reportError } from "../helpers/report.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 
@@ -341,8 +342,7 @@ async function importData() {
       for (const key of keys) await game.settings.set(SYSTEM_ID, key, incoming[key]);
       ui.notifications.info(`${keys.length} configuração(ões) importada(s). Recarregue o mundo (F5) para tudo acompanhar.`);
     } catch (err) {
-      console.error(`${SYSTEM_ID} | Falha ao importar configurações.`, err);
-      ui.notifications.error(`Falha ao importar: ${err.message}`);
+      reportError("Falha ao importar as configurações.", err);
     }
   });
   input.click();

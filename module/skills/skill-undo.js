@@ -16,6 +16,7 @@ import { damageCardHits, undoDamageCard } from "../combat/damage-apply.js";
 import { structuresOnScene, removeStructureInstance } from "../structures/structures.js";
 import { zonesOnScene } from "../combat/area-effects.js";
 import { beginSkillUse, endSkillUse, currentSkillUseId } from "./skill-use-context.js";
+import { reportError } from "../helpers/report.js";
 import {
   UNDO_VITAL_PATHS,
   UNDO_ITEM_PATHS,
@@ -124,7 +125,7 @@ export async function recordSkillUse(sourceActor, skillId, options, run) {
     actors = uniqueActors([sourceActor, options.targetActor, ...(options.targetActors ?? [])]);
     before = actors.map(snapshotActor);
   } catch (err) {
-    console.error("Nihility | Desfazer uso: não consegui fotografar antes do uso", err);
+    reportError("Desfazer uso: não consegui fotografar antes do uso — este uso não terá o botão Desfazer.", err, { gmOnly: true });
     return run();
   }
 
@@ -173,7 +174,7 @@ export async function recordSkillUse(sourceActor, skillId, options, run) {
     }
     await card?.setFlag(SYSTEM_ID, "skillUse", record);
   } catch (err) {
-    console.error("Nihility | Desfazer uso: não consegui registrar o uso", err);
+    reportError("Desfazer uso: não consegui registrar o uso — ele não terá o botão Desfazer.", err, { gmOnly: true });
   }
   return result;
 }
@@ -275,15 +276,17 @@ async function confirmSkillUndo(message) {
 async function revertActor(entry) {
   const actor = await fromUuid(entry.uuid);
   if (!actor) return;
-  const options = { nihilityUndo: true };
+  // Um objeto NOVO por gravação: o Foundry escreve no objeto de operação (parentUuid, updates…)
+  // e, reaproveitado, o actor.update do fim era tratado como gravação embutida e recusado.
+  const options = () => ({ nihilityUndo: true });
 
   // Active Effects: os criados saem, os mudados voltam como eram, os apagados voltam.
   const created = (entry.effects?.created ?? []).map(e => e.id).filter(id => actor.effects.has(id));
-  if (created.length) await actor.deleteEmbeddedDocuments("ActiveEffect", created, options);
+  if (created.length) await actor.deleteEmbeddedDocuments("ActiveEffect", created, options());
   const changed = (entry.effects?.changed ?? []).filter(e => actor.effects.has(e._id));
-  if (changed.length) await actor.updateEmbeddedDocuments("ActiveEffect", changed, { ...options, recursive: false });
+  if (changed.length) await actor.updateEmbeddedDocuments("ActiveEffect", changed, { ...options(), recursive: false });
   const deleted = (entry.effects?.deleted ?? []).filter(e => !actor.effects.has(e._id));
-  if (deleted.length) await actor.createEmbeddedDocuments("ActiveEffect", deleted, { ...options, keepId: true, nihilityConfigured: true });
+  if (deleted.length) await actor.createEmbeddedDocuments("ActiveEffect", deleted, { ...options(), keepId: true, nihilityConfigured: true });
 
   // Itens: Skill que ligou desliga, XP de uso sai, Vida de parte/Módulo volta.
   const itemUpdates = [];
@@ -305,7 +308,7 @@ async function revertActor(entry) {
     }
     itemUpdates.push(update);
   }
-  if (itemUpdates.length) await actor.updateEmbeddedDocuments("Item", itemUpdates, options);
+  if (itemUpdates.length) await actor.updateEmbeddedDocuments("Item", itemUpdates, options());
 
   // Vitais (pela diferença) e pools de Escudo.
   const update = revertFields(vitalFields(actor, entry.kind), entry.vitals);
@@ -321,7 +324,7 @@ async function revertActor(entry) {
     if (before === null) update[`flags.${SYSTEM_ID}.-=${key}`] = null;
     else update[`flags.${SYSTEM_ID}.${key}`] = before;
   }
-  if (Object.keys(update).length) await actor.update(update, options);
+  if (Object.keys(update).length) await actor.update(update, options());
 }
 
 async function performSkillUndo(message, record) {
@@ -330,7 +333,13 @@ async function performSkillUndo(message, record) {
     // 1) Dano já aplicado volta (o Desfazer do próprio card de dano).
     for (const m of tagged) await undoDamageCard(m);
     // 2) Cada Ator envolvido volta.
-    for (const entry of record.actors ?? []) await revertActor(entry);
+    for (const entry of record.actors ?? []) {
+      try {
+        await revertActor(entry);
+      } catch (err) {
+        reportError(`Desfazer uso: ${entry.name} não pôde ser revertido por inteiro.`, err);
+      }
+    }
     // 3) Estrutura/Zona que este uso ergueu somem do mapa.
     for (const scene of game.scenes) {
       for (const instance of structuresOnScene(scene)) {
@@ -341,8 +350,7 @@ async function performSkillUndo(message, record) {
       }
     }
   } catch (err) {
-    console.error("Nihility | Desfazer uso", err);
-    ui.notifications.error("Desfazer uso: parte não pôde ser revertida (veja o console).");
+    reportError("Desfazer uso: parte não pôde ser revertida.", err);
   }
   // 4) Todos os cards deste uso ficam riscados.
   for (const m of new Set([message, ...tagged])) {

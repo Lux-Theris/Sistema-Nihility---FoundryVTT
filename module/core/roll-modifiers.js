@@ -4,7 +4,7 @@
  *
  * O sistema não sabe o que é "rolagem de ataque" nem "crítico" — é RPG de mesa, quem julga é o
  * Mestre. Por isso não há regra automática: o jogador ou o Mestre abre o diálogo e escreve o que
- * a cena pediu. Tudo aqui é puro (sem Foundry) e testado em test/rules.test.mjs; o diálogo mora
+ * a cena pediu. Tudo aqui é puro (sem Foundry) e testado em test/; o diálogo mora
  * em apps/roll-options-dialog.js.
  *
  * Duas formas de aplicar, conforme o que o card de chat mostra:

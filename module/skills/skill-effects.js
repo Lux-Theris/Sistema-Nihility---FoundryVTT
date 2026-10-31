@@ -23,6 +23,7 @@ import { isShipLike } from "../starship/ship-damage.js";
 import { activeStatePath, investRatioPath, energyValuePath, currentEnergyValue, warnInsufficientEnergy } from "./skill-state.js";
 import { removeUpkeepLinkedEffects } from "./upkeep.js";
 import { recordSkillUse } from "./skill-undo.js";
+import { escapeHtml } from "../helpers/html.js";
 
 /**
  * Ponto de entrada único de "Usar Habilidade".
@@ -35,7 +36,7 @@ import { recordSkillUse } from "./skill-undo.js";
  *    (`system.subSkills[i]`, que carrega seu próprio effectType/damageFormula/effects/
  *    targetType/etc.) em vez da mecânica própria da Skill — igual as Skills Únicas do
  *    Tensura, que têm várias sub-habilidades nomeadas dentro de uma só Skill "guarda-chuva".
- *    `actor-sheet.js` já resolve qual índice antes de chamar isto (ver `_promptSubSkillChoice`).
+ *    `skills/skill-use-flow.js` já resolve qual índice antes de chamar isto (ver `promptSubSkillChoice`).
  *
  * Custo de Energia (`mech.cost`) é cobrado UMA VEZ aqui, sempre — inclusive em Skills
  * "Descritiva" (effectType "none"), que agora também são "usáveis" (postam um anúncio simples
@@ -71,7 +72,7 @@ async function runSkillEffect(sourceActor, skillId, options = {}) {
     await removeUpkeepLinkedEffects(skill, options.subSkillIndex ?? null);
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
-      content: `<p><strong>${sourceActor.name}</strong> desativou <strong>${label}</strong>.</p>`
+      content: `<p><strong>${escapeHtml(sourceActor.name)}</strong> desativou <strong>${escapeHtml(label)}</strong>.</p>`
     });
     return true;
   }
@@ -173,7 +174,7 @@ async function runSkillEffect(sourceActor, skillId, options = {}) {
     // Zona: nada é aplicado agora — o efeito só cai em quem estiver DENTRO dela no início do
     // próprio turno (ver `tickZonesForCombatant`). Aqui só nasce a área na cena.
     if (!options.zonePlacement) return null;
-    await createZone(options.zonePlacement, {
+    const created = await createZone(options.zonePlacement, {
       sourceActor,
       skillId,
       subSkillIndex: options.subSkillIndex ?? null,
@@ -181,9 +182,11 @@ async function runSkillEffect(sourceActor, skillId, options = {}) {
       rounds: mech.zoneRounds,
       untilDeactivated: mech.hasUpkeep
     });
+    // Sem Mestre ou recusada: o aviso já saiu em createZone; não anuncia uma Zona que não existe.
+    if (!created) return false;
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
-      content: `<p><strong>${sourceActor.name}</strong> criou a zona <strong>${label}</strong> (${mech.hasUpkeep ? "até desativar" : `${mech.zoneRounds} rodada(s)`}) — afeta quem permanecer nela no início do próprio turno.</p>`
+      content: `<p><strong>${escapeHtml(sourceActor.name)}</strong> criou a zona <strong>${escapeHtml(label)}</strong> (${mech.hasUpkeep ? "até desativar" : `${mech.zoneRounds} rodada(s)`}) — afeta quem permanecer nela no início do próprio turno.</p>`
     });
     // XP por uso: o fixo ao criar; o que ela fizer em cada turno conta depois (tickZonesForCombatant).
     await grantSkillUseXp(skill, [{ flat: true }]);
@@ -206,11 +209,11 @@ async function runSkillEffect(sourceActor, skillId, options = {}) {
   }
 
   const upkeepNote = mech.hasUpkeep
-    ? ` (ativada — drena ${effectiveSkillCost(mech.upkeepCost, mech.level)} de ${getEnergyLabelForActor(sourceActor)} por rodada)`
+    ? ` (ativada — drena ${effectiveSkillCost(mech.upkeepCost, mech.level)} de ${escapeHtml(getEnergyLabelForActor(sourceActor))} por rodada)`
     : "";
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
-    content: `<p><strong>${sourceActor.name}</strong> usou <strong>${label}</strong>${upkeepNote}.</p>`
+    content: `<p><strong>${escapeHtml(sourceActor.name)}</strong> usou <strong>${escapeHtml(label)}</strong>${upkeepNote}.</p>`
   });
   return true;
 }
@@ -252,7 +255,7 @@ export async function applySkillEffects(sourceActor, skill, mech, label, targetA
 
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
-    content: `<p><strong>${sourceActor.name}</strong> usou <strong>${label}</strong> em <strong>${targetActor.name}</strong>${focus ? ` (focando ${foundry.utils.escapeHTML(focus.name)})` : ""}: ${summary.join(", ")}.</p>`
+    content: `<p><strong>${escapeHtml(sourceActor.name)}</strong> usou <strong>${escapeHtml(label)}</strong> em <strong>${escapeHtml(targetActor.name)}</strong>${focus ? ` (focando ${escapeHtml(focus.name)})` : ""}: ${summary.map(escapeHtml).join(", ")}.</p>`
   });
 
   return true;
@@ -282,13 +285,13 @@ export async function applySkillEffectsArea(sourceActor, skill, mech, label, tar
   for (const targetActor of targetActors) {
     const summary = await applyEffectsToActor(mech, label, skill, targetActor, subSkillIndex);
     xp.push(...(summary.xp ?? []));
-    rows.push(`<li><strong>${targetActor.name}</strong>: ${summary.join(", ")}</li>`);
+    rows.push(`<li><strong>${escapeHtml(targetActor.name)}</strong>: ${summary.map(escapeHtml).join(", ")}</li>`);
   }
   await grantSkillUseXp(skill, xp);
 
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
-    content: `<p><strong>${sourceActor.name}</strong> usou <strong>${label}</strong> (Emissão) em ${targetActors.length} alvo(s):</p><ul>${rows.join("")}</ul>`
+    content: `<p><strong>${escapeHtml(sourceActor.name)}</strong> usou <strong>${escapeHtml(label)}</strong> (Emissão) em ${targetActors.length} alvo(s):</p><ul>${rows.join("")}</ul>`
   });
 
   return true;

@@ -29,7 +29,7 @@ const fields = foundry.data.fields;
  * Regen de 100 passa a regenerar 5.
  *
  * Fica FORA da classe de propósito: não usa `this`, e como função pura dá pra testar a regra
- * sem precisar de um Actor do Foundry montado (ver test/rules.test.mjs).
+ * sem precisar de um Actor do Foundry montado (ver test/).
  *
  * `hp.max` zerado devolve 1 (integridade plena) em vez de dividir por zero — sem máximo não há
  * como medir dano, e zerar o desempenho de um Módulo mal configurado seria pior que ignorar.

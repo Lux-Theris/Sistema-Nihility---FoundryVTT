@@ -19,6 +19,7 @@
 import { currentSkillUseId } from "../skills/skill-use-context.js";
 import { SYSTEM_ID } from "../core/config.js";
 import { runAsGm } from "../helpers/gm-relay.js";
+import { relayFailureMessage } from "../helpers/gm-relay-rules.js";
 import { foundryGeneration } from "../helpers/foundry-compat.js";
 import { areaFromSkill, areaContains, areaPolygon, normalizeArea, tokenDocCenter, areaFromTemplateData } from "./area-geometry.js";
 
@@ -182,10 +183,14 @@ export async function pickZonePlacement(skill) {
  * Cria a Zona na cena (ao contrário da Emissão, que some ao confirmar), marcada com um flag que
  * diz quem a lançou, qual Skill, quantas rodadas restam e a área exata. A criação vai pelo
  * Mestre (`runAsGm`): jogador nem sempre pode escrever na Scene.
+ *
+ * @returns {Promise<boolean>} a Zona foi (ou pode ter sido) criada. Sem Mestre conectado ou com
+ *   recusa, avisa quem usou e devolve false — o card "criou a zona" e a XP não saem. Timeout conta
+ *   como criada (o Mestre pode só ter demorado), igual às Estruturas.
  */
 export async function createZone(placement, { sourceActor, skillId, subSkillIndex, label, rounds, untilDeactivated = false }) {
-  if (!canvas?.scene || !placement?.area) return;
-  await runAsGm("createZone", {
+  if (!canvas?.scene || !placement?.area) return false;
+  const outcome = await runAsGm("createZone", {
     sceneId: canvas.scene.id,
     area: placement.area,
     color: placement.color,
@@ -200,7 +205,13 @@ export async function createZone(placement, { sourceActor, skillId, subSkillInde
       // Desfazer uso (skill-undo.js): o Mestre acha esta Zona pelo id do uso.
       useId: currentSkillUseId()
     }
-  });
+  }, { reply: true });
+  const failure = relayFailureMessage(outcome, `criar a Zona ${label ?? ""}`.trim());
+  if (failure) {
+    ui.notifications.warn(failure);
+    return outcome.reason === "timeout";
+  }
+  return true;
 }
 
 /** Apaga as Zonas que uma Skill Ativa mantinha (ao desativá-la). Vai pelo Mestre. */

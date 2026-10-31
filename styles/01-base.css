@@ -1,0 +1,519 @@
+/* ==========================================================================
+   Nihility RPG System — tema Sci-Fi Arcano / Fantasia Isekai
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Signika:wght@400;600;700&family=JetBrains+Mono:wght@400;500;600&family=Rajdhani:wght@500;600;700&family=Sora:wght@400;500;600&display=swap');
+
+:root {
+  --nihility-bg-dark: #10121a;
+  --nihility-bg-panel: #181b26;
+  --nihility-bg-panel-alt: #1f2333;
+  --nihility-border: #3a4166;
+  --nihility-border-soft: rgba(58, 65, 102, 0.4);
+  --nihility-accent: #6ee7ff;
+  --nihility-accent-2: #c084fc;
+  --nihility-gold: #e8c170;
+  --nihility-text: #e6e9f5;
+  --nihility-text-dim: #9aa1c2;
+  --nihility-text-faint: #6b7294;
+  --nihility-hp: #ef5350;
+  --nihility-energy: #6ee7ff;
+  --nihility-danger: #ff5c5c;
+  --nihility-ok: #6ee7a0;
+  --nihility-warn: #ffcf5c;
+  --nihility-font: "Signika", "Segoe UI", sans-serif;
+  --nihility-font-data: "JetBrains Mono", ui-monospace, "Courier New", monospace;
+  /* Só o PAD usa esses dois — identidade própria de "dispositivo", separada do resto das fichas. */
+  --pad-font-display: "Rajdhani", "Segoe UI", sans-serif;
+  --pad-font-body: "Sora", "Segoe UI", sans-serif;
+}
+
+/* .window-content precisa ser flex column pra .nihility-sheet esticar até a altura da janela;
+   sem isso, .sheet-body não tem uma altura real pra estourar e nunca fica com barra de rolagem
+   (mesma causa do corte sem scroll já corrigido nos editores de Settings). */
+.sheet.item .window-content,
+.sheet.actor .window-content {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  /* clip, não hidden: hidden ainda pode ser rolado por script, e o foco num campo escondido (o
+     checkbox de um interruptor) rolava a JANELA inteira — cabeçalho e abas sumiam em cima e sobrava
+     um vão vazio embaixo. Quem rola é só o .sheet-body. */
+  overflow: clip;
+  /* Obrigatório junto com o clip: com clip a janela deixa de ser contêiner de rolagem e o mínimo
+     automático de um item flex passa a ser a altura do conteúdo — ela crescia junto com a ficha e o
+     .sheet-body nunca ganhava barra de rolagem (1.67.1). */
+  min-height: 0;
+}
+.nihility-sheet {
+  font-family: var(--nihility-font);
+  color: var(--nihility-text);
+  background: linear-gradient(160deg, var(--nihility-bg-dark), var(--nihility-bg-panel));
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.nihility-sheet input,
+.nihility-sheet select,
+.nihility-sheet textarea {
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+.nihility-sheet input:focus,
+.nihility-sheet select:focus,
+.nihility-sheet textarea:focus {
+  outline: none;
+  border-color: var(--nihility-accent);
+  box-shadow: 0 0 4px var(--nihility-accent);
+}
+
+.nihility-sheet .sheet-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px;
+  background: linear-gradient(120deg, rgba(192, 132, 252, 0.08), transparent 60%), var(--nihility-bg-panel);
+  border-bottom: 1px solid var(--nihility-border);
+}
+
+.nihility-sheet .profile-img {
+  width: 84px;
+  height: 84px;
+  flex-shrink: 0;
+  /* Retrato alto/largo demais era espremido pra caber no quadrado; cover recorta em vez de deformar,
+     e o foco no alto do enquadramento preserva o rosto em retratos de corpo inteiro. */
+  object-fit: cover;
+  object-position: center 15%;
+  border: 2px solid var(--nihility-accent-2);
+  border-radius: 10px;
+  box-shadow: 0 0 0 4px rgba(192, 132, 252, 0.08), 0 10px 20px -6px rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+.nihility-sheet .profile-img:hover { filter: brightness(1.15); }
+
+/* Retrato de Ator com enquadramento ajustável (zoom/posição — ver helpers/portrait-frame.js).
+   O quadro recorta; a imagem dentro é deslocada/ampliada por transform inline. */
+.nihility-sheet .profile-frame {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 2px solid var(--nihility-accent-2);
+  border-radius: 10px;
+  box-shadow: 0 0 0 4px rgba(192, 132, 252, 0.08), 0 10px 20px -6px rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+}
+.nihility-sheet .profile-frame-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: 0;
+  transition: filter 0.15s ease;
+}
+.nihility-sheet .profile-frame:hover .profile-frame-img { filter: brightness(1.15); }
+/* Botão de ajuste: só aparece ao passar o mouse; o núcleo dá altura fixa a todo <button>. */
+.nihility-sheet .profile-frame-adjust {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+  padding: 0;
+  line-height: 1;
+  font-size: 0.7rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(10, 10, 18, 0.8);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.nihility-sheet .profile-frame:hover .profile-frame-adjust { opacity: 1; }
+
+/* Editor de enquadramento (janela própria — cor explícita, nunca herdada do núcleo). */
+.nihility-portrait-editor { display: flex; flex-direction: column; align-items: center; gap: 10px; color: #e6e6f0; }
+.nihility-portrait-editor .pe-stage {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 2px solid var(--nihility-accent-2, #c084fc);
+  background: #0b0b14;
+  cursor: grab;
+  touch-action: none;
+}
+.nihility-portrait-editor .pe-stage.dragging { cursor: grabbing; }
+.nihility-portrait-editor .pe-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+  pointer-events: none;
+}
+.nihility-portrait-editor .pe-zoom { display: flex; align-items: center; gap: 10px; width: 100%; color: #e6e6f0; }
+.nihility-portrait-editor .pe-zoom input { flex: 1; }
+.nihility-portrait-editor .pe-hint { margin: 0; font-size: 0.78rem; color: #a8a8c0; text-align: center; }
+
+.nihility-sheet .header-fields {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.nihility-sheet .header-fields > input[name="name"] {
+  font-size: 1.35rem;
+  font-weight: 700;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  padding: 0;
+}
+.nihility-sheet .header-fields > input[name="name"]:focus {
+  border-bottom-color: var(--nihility-border);
+  box-shadow: none;
+}
+
+.nihility-sheet .header-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.nihility-sheet .header-row label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  color: var(--nihility-text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.nihility-sheet .header-row select,
+.nihility-sheet .header-row > label > input {
+  font-size: 0.85rem;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.nihility-sheet .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--nihility-border);
+  background: var(--nihility-bg-panel-alt);
+  font-size: 0.76rem;
+  color: var(--nihility-text-dim);
+}
+.nihility-sheet .chip-inline.chip-violet,
+.nihility-sheet .chip.violet {
+  border-color: var(--nihility-accent-2);
+  color: var(--nihility-accent-2);
+}
+
+.nihility-sheet .resources {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 220px;
+}
+.nihility-sheet .vital-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.nihility-sheet .vital-label {
+  width: 70px;
+  flex-shrink: 0;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--nihility-text-faint);
+  text-align: right;
+}
+.nihility-sheet .vital-track {
+  flex: 1;
+  height: 9px;
+  border-radius: 5px;
+  background: var(--nihility-bg-dark);
+  border: 1px solid var(--nihility-border-soft);
+  overflow: hidden;
+  position: relative;
+}
+.nihility-sheet .vital-fill {
+  display: block;
+  height: 100%;
+  border-radius: 5px 0 0 5px;
+  transition: width 0.2s ease;
+}
+.nihility-sheet .vital-fill.hp { background: linear-gradient(90deg, #b3352f, var(--nihility-hp)); }
+.nihility-sheet .vital-fill.energy { background: linear-gradient(90deg, #2f8fa3, var(--nihility-energy)); }
+.nihility-sheet .vital-fill.xp { background: linear-gradient(90deg, #8a733f, var(--nihility-gold)); }
+.nihility-sheet .vital-value {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--nihility-font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
+  color: var(--nihility-text-dim);
+  flex-shrink: 0;
+}
+.nihility-sheet .vital-value input {
+  width: 46px;
+  padding: 1px 4px;
+  text-align: right;
+}
+.nihility-sheet .vital-value input:first-child { color: var(--nihility-text); }
+
+.nihility-sheet .sheet-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--nihility-border);
+}
+
+.nihility-sheet .sheet-tabs .item {
+  padding: 4px 10px;
+  border-radius: 4px 4px 0 0;
+  color: var(--nihility-text-dim);
+}
+
+.nihility-sheet .sheet-tabs .item.active {
+  color: var(--nihility-accent);
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border);
+  border-bottom: none;
+}
+
+.nihility-sheet .sheet-body {
+  padding: 10px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.nihility-sheet fieldset.skill-tier-group {
+  border: 1px solid var(--nihility-border);
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.nihility-sheet fieldset.skill-tier-group legend {
+  padding: 0 6px;
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  border-radius: 999px;
+}
+.nihility-sheet fieldset.skill-tier-group.tier-extra legend { color: var(--nihility-accent); }
+.nihility-sheet fieldset.skill-tier-group.tier-normal legend { color: var(--nihility-text-dim); }
+.nihility-sheet fieldset.skill-tier-group.tier-racial legend { color: var(--nihility-gold); }
+.nihility-sheet fieldset.skill-tier-group.tier-unique legend { color: var(--nihility-accent-2); }
+.nihility-sheet fieldset.skill-tier-group.tier-ultimate legend { color: var(--nihility-hp); }
+
+/* Layout denso da aba "Ficha": rail à esquerda (Atributos/Títulos), coluna à direita */
+.nihility-sheet .ficha-grid {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 18px;
+  align-items: start;
+}
+.nihility-sheet .rail,
+.nihility-sheet .col-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.nihility-sheet .block {
+  background: var(--nihility-bg-panel-alt);
+  border: 1px solid var(--nihility-border-soft);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.nihility-sheet .block-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 10px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--nihility-text-faint);
+}
+.nihility-sheet .row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+/* Mesmo motivo da grade de Módulos: a ficha do Foundry é redimensionada pelo usuário e não
+   acompanha a janela, então quem manda é a largura do corpo da ficha (container), não a da tela.
+   Com @media, uma ficha estreitada num monitor grande continuava com o rail de 300px espremendo
+   a coluna da direita. */
+.nihility-sheet .sheet-body {
+  container-type: inline-size;
+  container-name: sheetbody;
+}
+@container sheetbody (max-width: 720px) {
+  .nihility-sheet .ficha-grid { grid-template-columns: 1fr; }
+}
+
+/* Títulos: linha em formato de chip, sempre "ativa" (não existe seleção) */
+.nihility-sheet .title-list .item-row {
+  border: 1px solid var(--nihility-accent-2);
+  border-radius: 7px;
+  background: rgba(192, 132, 252, 0.05);
+  margin-bottom: 6px;
+  padding: 6px 8px;
+}
+
+.nihility-sheet .item-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.nihility-sheet .item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 4px;
+  border-bottom: 1px solid rgba(58, 65, 102, 0.4);
+}
+
+.nihility-sheet .item-row:hover {
+  background: rgba(110, 231, 255, 0.06);
+}
+
+.nihility-sheet .item-row .item-name {
+  flex: 1;
+}
+
+/* A Skill numa frase, embaixo do nome (L2). Cor explícita: o core pinta texto escuro. */
+.nihility-sheet .item-row .skill-summary {
+  display: block;
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--nihility-text-dim);
+}
+.nihility-sheet .item-row .skill-summary:empty {
+  display: none;
+}
+.nihility-sheet .item-row[data-hotbar-drag] {
+  cursor: grab;
+}
+
+.nihility-sheet .item-row img {
+  border-radius: 3px;
+  border: 1px solid var(--nihility-border);
+}
+
+.nihility-sheet .item-row a {
+  color: var(--nihility-text-dim);
+}
+.nihility-sheet .item-row a:hover {
+  color: var(--nihility-accent);
+}
+
+.nihility-sheet .item-create,
+.nihility-sheet .skill-fuse-button,
+.nihility-sheet .power-grid-tick {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--nihility-accent-2);
+  border-radius: 4px;
+  color: var(--nihility-accent-2);
+  background: rgba(192, 132, 252, 0.08);
+  cursor: pointer;
+}
+
+.nihility-sheet .item-create:hover,
+.nihility-sheet .skill-fuse-button:hover,
+.nihility-sheet .power-grid-tick:hover {
+  background: rgba(192, 132, 252, 0.2);
+}
+
+/* Anatomia / Partes do Corpo */
+.nihility-sheet .body-part.intact { border-left: 3px solid var(--nihility-ok); }
+.nihility-sheet .body-part.damaged { border-left: 3px solid var(--nihility-warn); }
+.nihility-sheet .body-part.destroyed {
+  border-left: 3px solid var(--nihility-danger);
+  opacity: 0.6;
+  text-decoration: line-through;
+}
+
+/* Economia */
+.nihility-sheet .currency-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.nihility-sheet .currency-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.nihility-sheet .currency-row label {
+  min-width: 90px;
+  color: var(--nihility-gold);
+}
+
+/* Grid de Energia (Naves) */
+.nihility-sheet .power-grid-summary {
+  border: 1px solid var(--nihility-border);
+  border-radius: 6px;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.nihility-sheet .power-grid-summary.overloaded {
+  border-color: var(--nihility-danger);
+  box-shadow: 0 0 10px rgba(255, 92, 92, 0.5);
+}
+.nihility-sheet .power-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.nihility-sheet .overload-alert {
+  grid-column: span 2;
+  color: var(--nihility-danger);
+  font-weight: bold;
+  text-align: center;
+  animation: nihility-pulse 1.2s infinite;
+}
+
+.nihility-sheet .module-online { border-left: 3px solid var(--nihility-ok); }
+.nihility-sheet .module-offline { border-left: 3px solid var(--nihility-text-dim); opacity: 0.7; }
+.nihility-sheet .module-damaged { border-left: 3px solid var(--nihility-danger); }
+
+@keyframes nihility-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+

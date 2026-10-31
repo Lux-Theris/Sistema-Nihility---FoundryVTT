@@ -17,6 +17,7 @@ import { runAgentTask } from "../ai/agent-runner.js";
 import { createAgentTools } from "../ai/agent-tools.js";
 import { recordBatchOperation, undoBatchOperation, listRecentBatchOperations } from "../world/world-backup.js";
 import { getDragEventData } from "../helpers/foundry-compat.js";
+import { reportError } from "../helpers/report.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 
@@ -241,7 +242,7 @@ export class AIAssistantApp extends HandlebarsApplicationMixin(ApplicationV2) {
         }
       }
     } catch (err) {
-      console.error(`${SYSTEM_ID} | Assistente de IA falhou.`, err);
+      reportError("O Assistente de IA falhou.", err);
     } finally {
       this.busy = false;
       this.statusText = "";
@@ -337,7 +338,7 @@ export class AIAssistantApp extends HandlebarsApplicationMixin(ApplicationV2) {
       this.agentProposals = proposals.map(p => ({ ...p, include: true }));
       debugLog(`${SYSTEM_ID} | AIAssistantApp (agente): ${this.agentProposals.length} proposta(s).`, this.agentProposals);
     } catch (err) {
-      console.error(`${SYSTEM_ID} | Assistente de IA (agente) falhou.`, err);
+      reportError("O Assistente de IA (agente) falhou.", err);
     } finally {
       this.busy = false;
       this.statusText = "";
@@ -419,8 +420,7 @@ export class AIAssistantApp extends HandlebarsApplicationMixin(ApplicationV2) {
       ui.notifications.info(`${applied.length} documento(s) criado(s)/editado(s).`);
       debugLog(`${SYSTEM_ID} | AIAssistantApp: ${applied.length} proposta(s) aplicada(s).`, applied);
     } catch (err) {
-      console.error(`${SYSTEM_ID} | Falha ao aplicar propostas do Assistente de IA.`, err);
-      ui.notifications.error("Falha ao aplicar as propostas selecionadas.");
+      reportError("Falha ao aplicar as propostas selecionadas.", err);
     } finally {
       this.busy = false;
       this.statusText = "";
@@ -445,8 +445,7 @@ export class AIAssistantApp extends HandlebarsApplicationMixin(ApplicationV2) {
       this.recentOperations = await listRecentBatchOperations(5);
       this.render();
     } catch (err) {
-      console.error(`${SYSTEM_ID} | Falha ao desfazer operação.`, err);
-      ui.notifications.error(`Falha ao desfazer: ${err.message}`);
+      reportError("Falha ao desfazer a operação.", err);
     }
   }
 }

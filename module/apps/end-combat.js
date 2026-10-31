@@ -4,6 +4,7 @@ import { badgeFor } from "../combat/effect-badges.js";
 import { countsAsNpc, isDead } from "../combat/incapacitation.js";
 import { applyShortRest } from "../combat/regeneration.js";
 import { suggestCombatXp, splitXp, endCombatEffectChoice } from "../combat/end-combat-rules.js";
+import { reportError } from "../helpers/report.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -140,7 +141,7 @@ export function summarizeCombat(combat) {
 
     const rows = [];
     for (const effect of actor.effects) {
-      const badge = badgeFor(effect);
+      const badge = badgeFor(effect, { combat });
       const choice = endCombatEffectChoice(badge);
       if (!choice.listed) continue;
       rows.push({ id: effect.id, name: effect.name, label: effectLabel(effect, badge), tone: badge.tone, checked: choice.checked, danger: badge.tone === "danger" });
@@ -173,7 +174,7 @@ export function registerEndCombat() {
       const summary = summarizeCombat(combat);
       if (summary) new EndCombatApp(summary).render({ force: true });
     } catch (err) {
-      console.error(`${SYSTEM_ID} | Falha ao abrir o Fim do combate.`, err);
+      reportError("Falha ao abrir o Fim do combate.", err, { gmOnly: true });
     }
   });
 }

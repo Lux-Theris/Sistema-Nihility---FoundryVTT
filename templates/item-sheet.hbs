@@ -87,12 +87,17 @@
           {{#if system.hasUpkeep}}
           <label class="fld"><span class="fld-label">{{energyLabel}} por Rodada</span><input class="num" type="number" name="system.upkeepCost" value="{{system.upkeepCost}}" min="0"/></label>
           {{/if}}
-          <div class="fld span-all">
-            <label class="toggle"><input type="checkbox" name="system.variableMana" {{#if system.variableMana}}checked{{/if}}/><span class="toggle-track"></span><span>Aceita variar a {{energyLabel}}</span><span class="help" title="Ao usar, escolhe quanta {{energyLabel}} investir. Menos que o Custo enfraquece na mesma proporção; mais fortalece sem teto, mas cada {{energyLabel}} a mais rende menos que a anterior (curva e mínimo em Regras da Mesa). Numa Habilidade Ativa, o custo por rodada acompanha o investimento.">?</span></label>
-          </div>
-          <label class="fld"><span class="fld-label">Mágica <span class="help" title="Para a Antimagia. Automático: é mágica quando custa {{energyLabel}} (ou tem Dano Mágico). Magia que atravessa um campo antimagia (ou é usada sob um Selo) paga {{energyLabel}} extra ou é anulada.">?</span></span>
-            <select name="system.magicTag">{{#each magicTagOptions as |opt|}}<option value="{{opt.id}}" {{#if (eq opt.id ../system.magicTag)}}selected{{/if}}>{{opt.label}}</option>{{/each}}</select></label>
         </div>
+        <details class="adv" data-adv-key="cost" {{#if advCost.open}}open{{/if}}>
+          {{> nihility.advSummary fold=advCost}}
+          <div class="adv-body g2">
+            <div class="fld span-all">
+              <label class="toggle"><input type="checkbox" name="system.variableMana" {{#if system.variableMana}}checked{{/if}}/><span class="toggle-track"></span><span>Aceita variar a {{energyLabel}}</span><span class="help" title="Ao usar, escolhe quanta {{energyLabel}} investir. Menos que o Custo enfraquece na mesma proporção; mais fortalece sem teto, mas cada {{energyLabel}} a mais rende menos que a anterior (curva e mínimo em Regras da Mesa). Numa Habilidade Ativa, o custo por rodada acompanha o investimento.">?</span></label>
+            </div>
+            <label class="fld"><span class="fld-label">Mágica <span class="help" title="Para a Antimagia. Automático: é mágica quando custa {{energyLabel}} (ou tem Dano Mágico). Magia que atravessa um campo antimagia (ou é usada sob um Selo) paga {{energyLabel}} extra ou é anulada.">?</span></span>
+              <select name="system.magicTag">{{#each magicTagOptions as |opt|}}<option value="{{opt.id}}" {{#if (eq opt.id ../system.magicTag)}}selected{{/if}}>{{opt.label}}</option>{{/each}}</select></label>
+          </div>
+        </details>
       </div>
 
       <div class="sec">
@@ -107,8 +112,13 @@
               {{/if}}
             </span>
           </div>
-          <label class="fld"><span class="fld-label">Gatilho Emocional</span><input type="text" name="system.emotionTrigger" value="{{system.emotionTrigger}}"/></label>
         </div>
+        <details class="adv" data-adv-key="presentation" {{#if advPresentation.open}}open{{/if}}>
+          {{> nihility.advSummary fold=advPresentation}}
+          <div class="adv-body">
+            <label class="fld"><span class="fld-label">Gatilho Emocional</span><input type="text" name="system.emotionTrigger" value="{{system.emotionTrigger}}"/></label>
+          </div>
+        </details>
       </div>
     </div>
 
@@ -185,16 +195,21 @@
             </select>
           </label>
           <label class="toggle span-all"><input type="checkbox" name="system.isMagicDamage" {{#if system.isMagicDamage}}checked{{/if}}/><span class="toggle-track"></span><span>Dano Mágico</span><span class="help" title="Só esta opção decide se a Defesa Mágica reduz o dano. Os elementos são independentes dela.">?</span></label>
-          <label class="toggle span-all"><input type="checkbox" name="system.isAbsoluteDamage" {{#if system.isAbsoluteDamage}}checked{{/if}}/><span class="toggle-track"></span><span>Dano Absoluto</span><span class="help" title="Não pode ser resistido (Defesa Mágica, Resistências, Imunidade, Escudo pessoal). Contra Nave, a Evasão ainda vale e o resto vai direto na Integridade Estrutural.">?</span></label>
-          {{#if scaleEnabled}}
-          <label class="fld"><span class="fld-label">Escala do golpe</span>
-            <select name="system.damageScale">
-              {{#each damageScaleOptions as |opt|}}<option value="{{opt.id}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
-            </select>
-          </label>
-          {{/if}}
           <div class="fld span-all"><span class="fld-label">Elemento(s)</span>{{> nihility.elementChips field=skillElementField path="system.damageElements" editable=editable}}</div>
         </div>
+        <details class="adv" data-adv-key="damage" {{#if advDamage.open}}open{{/if}}>
+          {{> nihility.advSummary fold=advDamage}}
+          <div class="adv-body g2">
+            <label class="toggle span-all"><input type="checkbox" name="system.isAbsoluteDamage" {{#if system.isAbsoluteDamage}}checked{{/if}}/><span class="toggle-track"></span><span>Dano Absoluto</span><span class="help" title="Não pode ser resistido (Defesa Mágica, Resistências, Imunidade, Escudo pessoal). Contra Nave, a Evasão ainda vale e o resto vai direto na Integridade Estrutural.">?</span></label>
+            {{#if scaleEnabled}}
+            <label class="fld"><span class="fld-label">Escala do golpe</span>
+              <select name="system.damageScale">
+                {{#each damageScaleOptions as |opt|}}<option value="{{opt.id}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+              </select>
+            </label>
+            {{/if}}
+          </div>
+        </details>
       </div>
       {{/if}}
 

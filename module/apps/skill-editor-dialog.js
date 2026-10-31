@@ -20,12 +20,18 @@ import {
 import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../combat/resistance.js";
 import { pickerFieldHtml, readPickerField, wireElementPickerField } from "./checklist-picker.js";
 import { openLightConfigDialog, describeLight } from "../combat/lights.js";
+import { advancedFold } from "../helpers/advanced-fold.js";
 
 const { DialogV2 } = foundry.applications.api;
 
 /** Escapa texto pra uso seguro dentro de atributos/conteúdo HTML (nome/descrição vêm de texto livre do GM). */
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+}
+
+/** A linha "Avançado ▸" (K1) de um <details class="adv">, a partir de advancedFold. */
+function advSummaryHtml(fold) {
+  return `<summary class="adv-summary"><span class="adv-toggle">Avançado</span><span class="adv-labels">${escapeHtml(fold.labels)}</span><span class="sp"></span>${fold.used ? `<span class="adv-used">em uso: ${escapeHtml(fold.used)}</span>` : ""}</summary>`;
 }
 
 /** true = alvo aceita "Periódico" (veneno/cura contínua) — só faz sentido pra HP/Energia. */
@@ -87,9 +93,14 @@ function buildEffectRowHtml(entry) {
         <input type="checkbox" class="se-effect-periodic" ${entry.periodic ? "checked" : ""}/> Periódico
       </label>
       <select class="se-effect-tick-unit" style="display:${periodicVisible && entry.periodic ? "inline-block" : "none"};">${tickUnitOptions}</select>
+      <select class="se-effect-modifier-type" style="display:${modifierTypeVisible ? "inline-block" : "none"};" title="Fixo soma direto no resultado; Multiplicador lê Quantidade como percentual (20 = ×1.20)">${modifierTypeOptions}</select>
+    </div>
+    <details class="adv se-effect-adv">
+    <summary class="adv-summary"></summary>
+    <div class="adv-body">
+    <div class="effect-row-adv-selects">
       <select class="se-effect-curse-unpaid" title="Maldição: quando a vítima não tem Mana para pagar (só para esta Skill)" style="display:${getActiveStatusConditions().find(c => c.id === entry.conditionId)?.curse?.enabled ? "inline-block" : "none"};">${[["", "Como na maldição"], ["hp", "Paga com Vida"], ["sleep", "Dorme"], ["worsen", "Piora"], ["continue", "Continua igual"]].map(([v, l]) => `<option value="${v}" ${v === (entry.curseOnUnpaid ?? "") ? "selected" : ""}>Sem Mana: ${l}</option>`).join("")}</select>
       <select class="se-effect-heal-kind" title="Se o tick for cura (valor positivo): o que ela faz nas Partes do Corpo" style="display:${periodicVisible && entry.periodic && entry.target === "hp" ? "inline-block" : "none"};">${healKindOptions}</select>
-      <select class="se-effect-modifier-type" style="display:${modifierTypeVisible ? "inline-block" : "none"};" title="Fixo soma direto no resultado; Multiplicador lê Quantidade como percentual (20 = ×1.20)">${modifierTypeOptions}</select>
     </div>
     <div class="effect-row-periodic-extra" style="display:${(periodicVisible && entry.periodic) || entry.target === "shield" ? "flex" : "none"};">
       <span class="hint-inline se-elements-label" style="display:inline;">${entry.target === "shield" ? "Elemento do escudo (vazio = neutro):" : "Elemento do tick (ignorado se o tick for cura):"}</span>
@@ -103,6 +114,8 @@ function buildEffectRowHtml(entry) {
       <span class="hint-inline" style="display:inline;" title="Acende no Token de quem recebe o Escudo; é apagada quando o Escudo chega a 0 ou a Skill Ativa é desligada.">Luz do escudo: <span class="se-light-text">${escapeHtml(describeLight(entry.light))}</span></span>
       <button type="button" class="se-light-edit">Configurar luz…</button>
     </div>
+    </div>
+    </details>
   `;
 }
 
@@ -302,6 +315,16 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     : "";
 
   const energyLabel = getCharacterEnergyLabel();
+  // "Avançado ▸" (K1): abre sozinho quando algum campo de dentro tem valor.
+  const advTop = advancedFold([
+    { label: `Variar a ${energyLabel}`, used: Boolean(data.variableMana) },
+    { label: "Mágica", used: Boolean(data.magicTag) && data.magicTag !== "auto" },
+    { label: "Animação", used: Boolean(data.animationPath) }
+  ]);
+  const advDamage = advancedFold([
+    { label: "Dano Absoluto", used: Boolean(data.isAbsoluteDamage) },
+    isScaleEnabled() ? { label: "Escala do golpe", used: Boolean(data.damageScale) } : null
+  ]);
   const content = `
     <div class="skill-editor-form">
       <div class="form-group"><label>Nome</label><input type="text" name="name" value="${escapeHtml(data.name)}"/></div>
@@ -315,6 +338,13 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
         <input type="checkbox" name="hasUpkeep" ${data.hasUpkeep ? "checked" : ""}/>
         Habilidade Ativa
       </label>
+      <div class="form-group se-upkeep-field" style="display:${data.hasUpkeep ? "flex" : "none"};">
+        <label>Custo de ${energyLabel} por Rodada</label>
+        <input type="number" name="upkeepCost" value="${data.upkeepCost}" min="0"/>
+      </div>
+      <details class="adv" ${advTop.open ? "open" : ""}>
+      ${advSummaryHtml(advTop)}
+      <div class="adv-body">
       <label class="checkbox-line" title="Ao usar, escolhe quanta ${energyLabel} investir: menos enfraquece na mesma proporção; mais fortalece sem teto, rendendo cada vez menos por ${energyLabel}.">
         <input type="checkbox" name="variableMana" ${data.variableMana ? "checked" : ""}/>
         Aceita variar a ${energyLabel}
@@ -323,14 +353,12 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
         <label>Mágica</label>
         <select name="magicTag">${Object.entries(MAGIC_TAG_LABELS).map(([id, label]) => `<option value="${id}" ${data.magicTag === id ? "selected" : ""}>${id === "auto" ? `Automático (custa ${energyLabel})` : label}</option>`).join("")}</select>
       </div>
-      <div class="form-group se-upkeep-field" style="display:${data.hasUpkeep ? "flex" : "none"};">
-        <label>Custo de ${energyLabel} por Rodada</label>
-        <input type="number" name="upkeepCost" value="${data.upkeepCost}" min="0"/>
-      </div>
       <div class="form-group">
         <label>Animação</label>
         <input type="text" name="animationPath" value="${escapeHtml(data.animationPath)}" placeholder="modules/jb2a_patreon/Library/.../explosion.webm"/>
       </div>
+      </div>
+      </details>
       <div class="form-group">
         <label>Descrição</label>
         <prose-mirror name="description" value="${escapeHtml(data.description)}"></prose-mirror>
@@ -371,9 +399,14 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
           <span class="hint-inline">Multiplica o dano por (Atributo.Total)² ÷ divisor. Sem escala, a fórmula vale como escrita.</span>
         </div>
         <label class="checkbox-line"><input type="checkbox" name="isMagicDamage" ${data.isMagicDamage ? "checked" : ""}/> Dano Mágico</label>
+        <div class="form-group"><label>Elemento(s)</label>${pickerFieldHtml(data.damageElements, "se-damage-elements")}</div>
+        <details class="adv" ${advDamage.open ? "open" : ""}>
+        ${advSummaryHtml(advDamage)}
+        <div class="adv-body">
         <label class="checkbox-line" title="Não pode ser resistido (Defesa Mágica, Resistências, Imunidade, Escudo pessoal). Contra Nave, a Evasão ainda vale e o resto vai direto na Integridade Estrutural."><input type="checkbox" name="isAbsoluteDamage" ${data.isAbsoluteDamage ? "checked" : ""}/> Dano Absoluto</label>
         ${scaleField}
-        <div class="form-group"><label>Elemento(s)</label>${pickerFieldHtml(data.damageElements, "se-damage-elements")}</div>
+        </div>
+        </details>
       </div>
 
       <div class="mechanic-panel se-temp-panel">
@@ -636,7 +669,45 @@ function setupSkillEditorInteractivity(root, data) {
       li.querySelector(".se-effect-curse-unpaid").style.display = isCurse ? "inline-block" : "none";
     });
 
-    wireElementPickerField(li.querySelector(".se-effect-elements"));
+    // "Avançado ▸" da linha (K1): lista o que esta linha tem de raro e diz o que está em uso.
+    // Abre sozinho só na criação (quando já há valor); depois, quem manda é quem clica.
+    const advDetails = li.querySelector(".se-effect-adv");
+    let advInitialized = false;
+    function refreshAdv() {
+      const target = targetSelect.value;
+      const periodicOn = targetAcceptsPeriodic(target) && periodicCheckbox.checked;
+      const isShield = target === "shield";
+      const elements = readPickerField(li.querySelector(".se-effect-elements")).length > 0;
+      const curseSelect = li.querySelector(".se-effect-curse-unpaid");
+      const healSelect = li.querySelector(".se-effect-heal-kind");
+      let light = null;
+      try {
+        light = JSON.parse(lightRow.dataset.light || "null");
+      } catch (err) {
+        light = null;
+      }
+      const shieldRegen = Number(li.querySelector(".se-effect-shield-regen")?.value) || 0;
+      const shieldCap = Number(li.querySelector(".se-effect-shield-cap")?.value) || 0;
+      const fold = advancedFold([
+        periodicOn ? { label: "Elemento do tick", used: elements } : null,
+        periodicOn && target === "hp" ? { label: "Tipo de cura", used: healSelect.value !== "cura" } : null,
+        isShield ? { label: "Elemento do escudo", used: elements } : null,
+        isShield ? { label: "Escudo mantido", used: Boolean(shieldRegen || shieldCap) } : null,
+        isShield ? { label: "Luz", used: Boolean(light?.enabled) } : null,
+        curseSelect.style.display !== "none" ? { label: "Sem Mana para pagar", used: Boolean(curseSelect.value) } : null
+      ]);
+      advDetails.style.display = fold.show ? "" : "none";
+      advDetails.querySelector("summary").outerHTML = advSummaryHtml(fold);
+      if (!advInitialized) {
+        advDetails.open = fold.open;
+        advInitialized = true;
+      }
+    }
+    li.addEventListener("change", () => refreshAdv());
+    li.querySelector(".se-light-edit").addEventListener("click", () => setTimeout(refreshAdv, 0));
+
+    wireElementPickerField(li.querySelector(".se-effect-elements"), { onChange: () => refreshAdv() });
+    refreshAdv();
 
     effectList.appendChild(li);
   }

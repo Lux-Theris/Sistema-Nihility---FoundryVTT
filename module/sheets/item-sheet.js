@@ -1,3 +1,4 @@
+import { advancedFold } from "../helpers/advanced-fold.js";
 import { getAntimagicReach,
   SYSTEM_ID,
   MEU_SISTEMA,
@@ -364,6 +365,13 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
    */
   #openConditionRows = new Set();
 
+  /**
+   * "Avançado ▸" aberto/fechado à mão nesta janela (K1; estado de tela, nada é salvo). Chave da
+   * seção ("cost", "presentation", "damage", "eff-<índice>") → aberto? Sem escolha, abre sozinho
+   * quando algum campo de dentro tem valor (advancedFold).
+   */
+  #advOpen = new Map();
+
   constructor(options = {}) {
     super(options);
     // ApplicationV2 não herda o mixin de abas do AppV1 — mesmo padrão manual já usado em
@@ -525,6 +533,18 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       context.skillResistanceName = computeResistanceName(resistanceTarget, sys.level);
     }
 
+    // "Avançado ▸" das seções (K1): os campos raros, cada um dizendo se está em uso.
+    const adv = (key, fields) => advancedFold(fields, this.#advOpen.get(key));
+    context.advCost = adv("cost", [
+      { label: `Variar a ${context.energyLabel}`, used: Boolean(sys.variableMana) },
+      { label: "Mágica (Antimagia)", used: Boolean(sys.magicTag) && sys.magicTag !== "auto" }
+    ]);
+    context.advPresentation = adv("presentation", [{ label: "Gatilho Emocional", used: Boolean(sys.emotionTrigger) }]);
+    context.advDamage = adv("damage", [
+      { label: "Dano Absoluto", used: Boolean(sys.isAbsoluteDamage) },
+      context.scaleEnabled ? { label: "Escala do golpe", used: Boolean(sys.damageScale) } : null
+    ]);
+
     context.skillEffects = this.#effectCards(context);
     context.subSkillRows = (sys.subSkills ?? []).map((sub, index) => ({
       index,
@@ -582,7 +602,26 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       if (onShip) targetGroups = [...targetGroups.filter(g => g.label === "Nave"), ...targetGroups.filter(g => g.label !== "Nave")];
 
       const showCondition = context.conditionsEnabled && Boolean(entry.conditionId || entry.icon || this.#openConditionRows.has(index));
+      const isCurse = Boolean(condition?.curse?.enabled);
+      const isHeal = periodic && entry.target === "hp" && Number(entry.amount) > 0;
+      const isShield = entry.target === "shield";
+      const hasElements = Boolean(entry.damageElements?.length);
+      // "Avançado ▸" do card (K1): Periódico fica à vista (muda o que a Duração quer dizer);
+      // vai para dentro só o que poucos Efeitos usam.
+      const advFold = advancedFold(
+        [
+          periodic ? { label: "Elemento do tick", used: hasElements } : null,
+          isHeal ? { label: "Tipo de cura", used: Boolean(entry.healKind) && entry.healKind !== "cura" } : null,
+          isShield ? { label: "Elemento do escudo", used: hasElements } : null,
+          isShield && sys.hasUpkeep ? { label: "Escudo mantido", used: Boolean(Number(entry.shieldRegen) || Number(entry.shieldCap)) } : null,
+          isShield ? { label: "Luz", used: Boolean(entry.light?.enabled) } : null,
+          isCurse && showCondition ? { label: "Sem Mana para pagar", used: Boolean(entry.curseOnUnpaid) } : null
+        ],
+        this.#advOpen.get(`eff-${index}`)
+      );
       return {
+        adv: advFold,
+        advKey: `eff-${index}`,
         index,
         amount,
         durationRounds: entry.durationRounds,
@@ -607,7 +646,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         shieldCap: entry.shieldCap ?? 0,
         lightSummary: describeLight(entry.light),
         lightOn: Boolean(entry.light?.enabled),
-        hasExtras: showCondition || acceptsPeriodic || isShipTarget || entry.target === "shield",
+        hasExtras: showCondition || acceptsPeriodic || isShipTarget,
         conditionOptions: [{ value: "", label: "— sem Condição —", selected: !entry.conditionId }].concat(
           conditions.map(c => ({ value: c.id, label: c.label, selected: c.id === entry.conditionId }))
         ),
@@ -615,10 +654,10 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
           value: u, label: MEU_SISTEMA.PERIODIC_TICK_UNIT_LABELS[u], selected: u === entry.tickUnit
         })),
         // Maldição: o que fazer sem Mana, só para esta Skill ("" = o da maldição).
-        isCurse: Boolean(condition?.curse?.enabled),
+        isCurse,
         curseUnpaidOptions: [["", "Como na maldição"], ["hp", "Paga com Vida"], ["sleep", "Dorme"], ["worsen", "Piora"], ["continue", "Continua igual"]].map(([value, label]) => ({ value, label, selected: value === (entry.curseOnUnpaid ?? "") })),
         // Periódico de Vida positivo = cura: Cura / Regeneração / Reparo nas Partes do Corpo.
-        isHeal: periodic && entry.target === "hp" && Number(entry.amount) > 0,
+        isHeal,
         healKindOptions: MEU_SISTEMA.HEAL_KINDS.map(k => ({
           value: k, label: MEU_SISTEMA.HEAL_KIND_LABELS[k], hint: MEU_SISTEMA.HEAL_KIND_HINTS[k], selected: k === (entry.healKind || "cura")
         })),
@@ -875,6 +914,14 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
    */
   _onRender(context, options) {
     super._onRender(context, options);
+    // "Avançado ▸" (K1): lembra o que o usuário abriu/fechou até a janela fechar. O clique no
+    // <summary> ainda não mudou o `open` aqui — o novo estado é o inverso do atual.
+    this.element.querySelectorAll("details.adv[data-adv-key] > summary").forEach(summary => {
+      summary.addEventListener("click", () => {
+        const details = summary.parentElement;
+        this.#advOpen.set(details.dataset.advKey, !details.open);
+      });
+    });
     if (!this.isEditable) return;
 
     this.element.querySelectorAll(".item-equip-toggle").forEach(checkbox => {
@@ -992,6 +1039,8 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const effects = this.#cloneEffects();
     effects.splice(index, 1);
     this.#openConditionRows.clear();
+    // Os índices dos cards andaram: o aberto/fechado à mão deles não vale mais.
+    for (const key of [...this.#advOpen.keys()]) if (key.startsWith("eff-")) this.#advOpen.delete(key);
     await this.item.update({ [this.#effectsPath()]: effects });
   }
 

@@ -2930,3 +2930,20 @@ test("Desfazer uso: o registro guarda pares (o flag não expande \"system.xp\")"
   assert.deepEqual(rows.map(r => r.tag), ["+20", "−6 XP"]);
   assert.equal(actorEntryHasChanges({ vitals: [], effects: {}, items: [], flags: [] }), false);
 });
+
+/* ------------------------------------------------------------------ "Avançado ▸" dobrado (K1) */
+import { advancedFold } from "../module/helpers/advanced-fold.js";
+
+test("Avançado: lista os nomes, diz o que está em uso e abre sozinho", () => {
+  const closed = advancedFold([{ label: "Dano Absoluto", used: false }, { label: "Escala", used: false }]);
+  assert.deepEqual(closed, { show: true, labels: "Dano Absoluto · Escala", used: "", open: false });
+  const used = advancedFold([{ label: "Dano Absoluto", used: true }, null, { label: "Escala" }]);
+  assert.equal(used.labels, "Dano Absoluto · Escala");
+  assert.equal(used.used, "Dano Absoluto");
+  assert.equal(used.open, true);
+  // Fechado à mão: continua fechado e o "em uso" continua na linha.
+  assert.equal(advancedFold([{ label: "Luz", used: true }], false).open, false);
+  assert.equal(advancedFold([{ label: "Luz", used: false }], true).open, true);
+  // Nada a esconder: a linha some.
+  assert.equal(advancedFold([null, undefined]).show, false);
+});

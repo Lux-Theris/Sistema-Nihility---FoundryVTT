@@ -5946,3 +5946,46 @@ button.prio-chip { cursor: pointer; }
 .nihility-undo-dialog .tone-xp { color: #6ee7ff; }
 .nihility-undo-dialog .tone-off { color: #fda4af; }
 .nihility-undo-dialog .undo-empty, .nihility-undo-dialog .undo-foot { margin: 0; font-size: 12px; color: var(--nihility-text-muted, #6b7294); }
+
+/* ---------- "Avançado ▸" dobrado nos editores de Skill (K1; mockup "Avançado nos Editores de Skill") ---------- */
+details.adv { border-top: 1px dashed var(--nihility-border-soft, rgba(58, 65, 102, 0.7)); }
+details.adv > summary.adv-summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--nihility-text-dim, #9aa1c2);
+  user-select: none;
+}
+details.adv > summary.adv-summary::-webkit-details-marker { display: none; }
+details.adv > summary .adv-toggle { color: #6ee7ff; font-weight: 600; white-space: nowrap; }
+details.adv > summary .adv-toggle::after { content: " ▸"; }
+details.adv[open] > summary .adv-toggle::after { content: " ▾"; }
+details.adv > summary .adv-labels { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+details.adv > summary .sp { flex: 1 1 auto; }
+details.adv > summary .adv-used {
+  flex: 0 0 auto;
+  font: 500 10.5px "JetBrains Mono", Consolas, monospace;
+  color: #e8c170;
+  border: 1px solid rgba(232, 193, 112, 0.4);
+  border-radius: 999px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+details.adv > .adv-body { padding: 10px; display: grid; gap: 10px; background: rgba(16, 18, 26, 0.45); border-top: 1px solid rgba(58, 65, 102, 0.35); color: var(--nihility-text, #e6e9f5); }
+details.adv > .adv-body.g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+details.adv > .adv-body.g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+details.adv > .adv-body > .span-all { grid-column: 1 / -1; }
+/* Dentro de um card de Efeito: sem moldura extra, o card já tem a dele. */
+.effect-card details.adv-card { border-top-color: rgba(58, 65, 102, 0.7); margin: 0 -10px -9px; }
+.effect-card details.adv-card > summary.adv-summary { padding: 6px 10px; }
+/* Editor rápido (janela): a linha fica no fluxo do formulário. */
+.skill-editor-form details.adv { margin: 4px 0; }
+.skill-editor-form details.adv > .adv-body { display: flex; flex-direction: column; gap: 8px; }
+.skill-editor-form .effect-row-adv-selects { display: flex; gap: 6px; flex-wrap: wrap; }
+@media (max-width: 520px) {
+  details.adv > .adv-body.g2, details.adv > .adv-body.g3 { grid-template-columns: minmax(0, 1fr); }
+}

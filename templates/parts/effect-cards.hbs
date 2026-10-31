@@ -52,16 +52,6 @@
                 </select>
               </label>
               <label class="fld"><span class="fld-label">Ícone</span><input type="text" class="skill-effect-input" data-effect-field="icon" value="{{eff.icon}}" placeholder="herdado da Condição"/></label>
-              {{#if eff.isCurse}}
-              <div class="fld-row span-all">
-                <span class="fld-label">Sem Mana para pagar <span class="help" title="Maldição: o custo sai sempre da Mana da vítima. Quando não dá, faz isto — só para esta Skill. O nível da maldição é o desta Skill.">?</span></span>
-                <div class="seg compact" role="radiogroup" aria-label="Sem Mana para pagar">
-                  {{#each eff.curseUnpaidOptions as |opt|}}
-                  <label class="seg-opt {{#if opt.selected}}on{{/if}}"><input type="radio" class="skill-effect-input" data-effect-field="curseOnUnpaid" value="{{opt.value}}" {{#if opt.selected}}checked{{/if}}/>{{opt.label}}</label>
-                  {{/each}}
-                </div>
-              </div>
-              {{/if}}
               {{/if}}
               {{#if eff.acceptsPeriodic}}
               <label class="toggle"><input type="checkbox" class="skill-effect-input" data-effect-field="periodic" {{#if eff.periodic}}checked{{/if}}/><span class="toggle-track"></span><span>Periódico</span></label>
@@ -69,30 +59,7 @@
               <select class="skill-effect-input" data-effect-field="tickUnit" aria-label="Unidade de tick">
                 {{#each eff.tickUnitOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
               </select>
-              <div class="fld span-all"><span class="fld-label">Elemento do tick <span class="help" title="Ignorado se o tick for cura.">?</span></span>{{> nihility.elementChips field=eff.elementField path=eff.elementPath editable=../editable}}</div>
-              {{#if eff.isHeal}}
-              <div class="fld-row span-all">
-                <span class="fld-label">Tipo <span class="help" title="Nas Partes do Corpo (com Ferimentos por parte ligado). Cura: fecha feridas — Vida e partes feridas ou inutilizadas. Regeneração: também refaz partes perdidas (e, numa Skill Única ou Ultimate, conserta próteses); Fogo/Ácido/Maldição podem bloquear. Reparo: conserta próteses.">?</span></span>
-                <div class="seg compact" role="radiogroup" aria-label="Tipo de cura">
-                  {{#each eff.healKindOptions as |opt|}}
-                  <label class="seg-opt {{#if opt.selected}}on{{/if}}" title="{{opt.hint}}"><input type="radio" class="skill-effect-input" data-effect-field="healKind" value="{{opt.value}}" {{#if opt.selected}}checked{{/if}}/>{{opt.label}}</label>
-                  {{/each}}
-                </div>
-              </div>
               {{/if}}
-              {{/if}}
-              {{/if}}
-              {{#if eff.isShieldTarget}}
-              <div class="fld span-all"><span class="fld-label">Elemento do escudo <span class="help" title="Escudo de Água, de Fogo…: o golpe usa a vantagem do elemento dele contra o do Escudo (tabela em Tipos de Dano). Vazio = neutro.">?</span></span>{{> nihility.elementChips field=eff.elementField path=eff.elementPath editable=../editable}}</div>
-              {{#if ../hasUpkeep}}
-              <label class="fld"><span class="fld-label">Regeneração por rodada <span class="help" title="Escudo mantido: no início de cada turno de quem mantém a Skill, soma isto ao Escudo do alvo (até o Teto). Ao desligar a Skill, as camadas somem.">?</span></span><input class="num skill-effect-input" type="number" data-effect-field="shieldRegen" value="{{eff.shieldRegen}}" min="0"/></label>
-              <label class="fld"><span class="fld-label">Teto <span class="help" title="Total de Escudo que esta Skill mantém. 0 = sem teto. Escudo de outra fonte acima dele fica, só não regenera mais.">?</span></span><input class="num skill-effect-input" type="number" data-effect-field="shieldCap" value="{{eff.shieldCap}}" min="0"/></label>
-              {{/if}}
-              <div class="fld-row span-all light-row">
-                <span class="fld-label">Luz do escudo <span class="help" title="Acende no Token de quem recebe o Escudo. É apagada quando o Escudo chega a 0 ou quando esta Skill Ativa é desligada.">?</span></span>
-                <span class="light-summary {{#if eff.lightOn}}on{{/if}}"><i class="fas fa-lightbulb"></i> {{eff.lightSummary}}</span>
-                {{#if ../editable}}<button type="button" class="btn" data-action="editEffectLight">Configurar luz…</button>{{/if}}
-              </div>
               {{/if}}
               {{#if eff.isShipTarget}}
               <div class="fld-row span-all">
@@ -105,6 +72,49 @@
               </div>
               {{/if}}
             </div>
+            {{/if}}
+            {{#if eff.adv.show}}
+            {{!-- "Avançado ▸" do card (K1): só o que poucos Efeitos usam; abre sozinho se tem valor. --}}
+            <details class="adv adv-card" data-adv-key="{{eff.advKey}}" {{#if eff.adv.open}}open{{/if}}>
+              {{> nihility.advSummary fold=eff.adv}}
+              <div class="adv-body effect-card-extra">
+                {{#if eff.periodic}}
+                <div class="fld span-all"><span class="fld-label">Elemento do tick <span class="help" title="Ignorado se o tick for cura.">?</span></span>{{> nihility.elementChips field=eff.elementField path=eff.elementPath editable=../editable}}</div>
+                {{/if}}
+                {{#if eff.isHeal}}
+                <div class="fld-row span-all">
+                  <span class="fld-label">Tipo de cura <span class="help" title="Nas Partes do Corpo (com Ferimentos por parte ligado). Cura: fecha feridas — Vida e partes feridas ou inutilizadas. Regeneração: também refaz partes perdidas (e, numa Skill Única ou Ultimate, conserta próteses); Fogo/Ácido/Maldição podem bloquear. Reparo: conserta próteses.">?</span></span>
+                  <div class="seg compact" role="radiogroup" aria-label="Tipo de cura">
+                    {{#each eff.healKindOptions as |opt|}}
+                    <label class="seg-opt {{#if opt.selected}}on{{/if}}" title="{{opt.hint}}"><input type="radio" class="skill-effect-input" data-effect-field="healKind" value="{{opt.value}}" {{#if opt.selected}}checked{{/if}}/>{{opt.label}}</label>
+                    {{/each}}
+                  </div>
+                </div>
+                {{/if}}
+                {{#if eff.isShieldTarget}}
+                <div class="fld span-all"><span class="fld-label">Elemento do escudo <span class="help" title="Escudo de Água, de Fogo…: o golpe usa a vantagem do elemento dele contra o do Escudo (tabela em Tipos de Dano). Vazio = neutro.">?</span></span>{{> nihility.elementChips field=eff.elementField path=eff.elementPath editable=../editable}}</div>
+                {{#if ../hasUpkeep}}
+                <label class="fld"><span class="fld-label">Regeneração por rodada <span class="help" title="Escudo mantido: no início de cada turno de quem mantém a Skill, soma isto ao Escudo do alvo (até o Teto). Ao desligar a Skill, as camadas somem.">?</span></span><input class="num skill-effect-input" type="number" data-effect-field="shieldRegen" value="{{eff.shieldRegen}}" min="0"/></label>
+                <label class="fld"><span class="fld-label">Teto <span class="help" title="Total de Escudo que esta Skill mantém. 0 = sem teto. Escudo de outra fonte acima dele fica, só não regenera mais.">?</span></span><input class="num skill-effect-input" type="number" data-effect-field="shieldCap" value="{{eff.shieldCap}}" min="0"/></label>
+                {{/if}}
+                <div class="fld-row span-all light-row">
+                  <span class="fld-label">Luz do escudo <span class="help" title="Acende no Token de quem recebe o Escudo. É apagada quando o Escudo chega a 0 ou quando esta Skill Ativa é desligada.">?</span></span>
+                  <span class="light-summary {{#if eff.lightOn}}on{{/if}}"><i class="fas fa-lightbulb"></i> {{eff.lightSummary}}</span>
+                  {{#if ../editable}}<button type="button" class="btn" data-action="editEffectLight">Configurar luz…</button>{{/if}}
+                </div>
+                {{/if}}
+                {{#if eff.isCurse}}{{#if eff.showCondition}}
+                <div class="fld-row span-all">
+                  <span class="fld-label">Sem Mana para pagar <span class="help" title="Maldição: o custo sai sempre da Mana da vítima. Quando não dá, faz isto — só para esta Skill. O nível da maldição é o desta Skill.">?</span></span>
+                  <div class="seg compact" role="radiogroup" aria-label="Sem Mana para pagar">
+                    {{#each eff.curseUnpaidOptions as |opt|}}
+                    <label class="seg-opt {{#if opt.selected}}on{{/if}}"><input type="radio" class="skill-effect-input" data-effect-field="curseOnUnpaid" value="{{opt.value}}" {{#if opt.selected}}checked{{/if}}/>{{opt.label}}</label>
+                    {{/each}}
+                  </div>
+                </div>
+                {{/if}}{{/if}}
+              </div>
+            </details>
             {{/if}}
           </div>
           {{/each}}

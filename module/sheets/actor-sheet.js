@@ -3,6 +3,7 @@ import { changeActorSpecies, originContext, openSpeciesSync, changeActorHeritage
 import { anatomyContext, installImplant, uninstallImplant, currentDraggedImplant, setBodyPartLost } from "../species/anatomy.js";
 import { implantFits } from "../species/anatomy-rules.js";
 import { isSpeciesLocked } from "../species/species-rules.js";
+import { NPC_TIERS, NPC_TIER_LABELS } from "../npc/npc-generator-rules.js";
 import {
   SYSTEM_ID,
   MEU_SISTEMA,
@@ -11,6 +12,7 @@ import {
   getSpeciesForCreation,
   isEconomyEnabled,
   isTitlesEnabled,
+  isFeatureEnabled,
   isAnatomyEnabled,
   isPadEnabled,
   isPadMessagingEnabled,
@@ -399,6 +401,11 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.attributePoolEnabled = isAttributePoolEnabled();
     context.energyPoolEnabled = isEnergyPoolEnabled();
     context.isGM = game.user.isGM;
+    // Nível de NPC (M6): select só do Mestre, só em NPC, só com o bloco ligado.
+    context.npcTierOptions =
+      game.user.isGM && !this.actor.system.isPlayerCharacter && isFeatureEnabled("npcTiers")
+        ? NPC_TIERS.map(id => ({ id, label: NPC_TIER_LABELS[id], selected: (this.actor.system.npcTier || "normal") === id }))
+        : null;
     // Mestre sempre vê o botão (ferramenta de Mestre, independente de o NPC possuir o Item
     // físico); jogador só vê se o próprio Ator tiver ao menos um Item marcado como PAD.
     context.showPadButton = isPadEnabled() && (game.user.isGM || hasPadDevice(actor));

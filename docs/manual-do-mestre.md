@@ -42,6 +42,10 @@ Este manual é para quem conduz a mesa. Ele cobre como configurar o mundo, o que
 
 ## Guia de condução - Preparar e mestrar Nihility
 
+**Nihility é um sistema modular de RPG**, com regras e ferramentas que cada mesa combina para sua proposta de campanha. Fantasia, histórias contemporâneas, ficção científica e misturas entre gêneros são possibilidades, não uma definição fechada do sistema. Escolha primeiro o mundo e a experiência desejada; depois selecione os módulos que ajudam a sustentá-los.
+
+![Uma investigação contemporânea também pode ser o centro da campanha: o gênero orienta quais ferramentas a mesa utiliza](img/investigacao-contemporanea.png)
+
 O seu trabalho é apresentar situações que mereçam escolhas e dar consequências compreensíveis a essas escolhas. O Foundry acompanha cálculos e estado; a condução continua sendo uma conversa com os jogadores. Este capítulo oferece **orientações de mesa**, não novas regras automáticas.
 
 ### Sessão zero: escolha a campanha antes dos interruptores
@@ -212,7 +216,7 @@ As abas de Mestre aparecem com cadeado para os jogadores. Cada linha de Configur
 
 ## 3. Módulos do Sistema e presets de campanha
 
-O mesmo sistema roda fantasia medieval, sci-fi e campanhas mistas. Cada bloco liga e desliga por mundo.
+O sistema é modular: cada bloco liga e desliga por mundo, permitindo adaptar suas ferramentas a diferentes propostas, como fantasia, histórias contemporâneas, ficção científica ou campanhas que combinem gêneros. Os presets abaixo são pontos de partida disponíveis na interface, não os limites do que Nihility pode representar.
 
 > **Regra de ouro: desligar um bloco nunca apaga nada.** O bloco some da interface e o sistema para de aceitar conteúdo novo daquele tipo. Atores, Itens e Compêndios que já existem continuam intactos e abríveis. Religar devolve o mundo exatamente como estava — inclusive trocando de preset no meio da campanha.
 
@@ -631,6 +635,8 @@ O sistema usa a sequência **Extra, Normal, Racial, Único e Ultimate** para lim
 
 ### A natureza de cada tier
 
+![Um poder pessoal ganha forma a partir da vontade de seu portador; a imagem ilustra uma possibilidade, não um modelo obrigatório de Skill Única](img/poder-unico.png)
+
 - **Extra:** concede memória muscular ou conhecimento de habilidades que seres humanos conseguem desenvolver na nossa realidade. Isso não dispensa treino para fixar o conhecimento no cérebro e no corpo e desenvolver a Skill. Uma arte marcial de um mestre humano continua sendo Extra; o tier não significa, por si só, pouca competência.
 - **Normal:** poder sobrenatural. Pode começar diretamente assim, como Telecinese ou Bola de Fogo, ou nascer da evolução de uma Extra que ganha um efeito sobrenatural. Ganhar níveis na Extra e mudar sua natureza para Normal são processos diferentes; não existe uma passagem automática por atingir certo nível.
 - **Racial:** poder que uma Espécie consegue usar. Sua identidade está no vínculo com a Espécie. No sistema, não se compra com Pontos de Habilidade.
@@ -639,11 +645,15 @@ O sistema usa a sequência **Extra, Normal, Racial, Único e Ultimate** para lim
 
 ### Nível de uma Extra: conhecimento não é domínio completo
 
+![A prática orientada ajuda a fixar a memória muscular e desenvolver uma Skill Extra](img/treino-memoria.png)
+
 Uma pessoa com **Karatê Extra nível 1** já estaria acima de um faixa branca do nosso mundo, exclusivamente pela memória muscular concedida pela Skill. Isso não a torna mestre: ela precisa treinar, fixar o conhecimento no cérebro e no corpo e desenvolver a habilidade.
 
 Explique essa diferença ao conceder uma Extra. O personagem recebe uma base para executar ou compreender aquilo, e seu domínio continua se desenvolvendo. Não atribua automaticamente uma faixa de Karatê a cada nível: não há uma tabela oficial dessa correspondência. Essa explicação também não cria uma quantidade obrigatória de horas de treino nem um ganho automático de XP fora das regras de progressão da mesa.
 
 ### Única e Ultimate em conflito
+
+![O fluxo do tempo é um exemplo de aspecto da realidade que uma Ultimate poderia controlar; compatibilidade depende dos poderes envolvidos](img/poder-ultimate.png)
 
 É muito difícil uma Skill Única afetar uma Ultimate; uma Ultimate afeta uma Única com muito mais facilidade. **A compatibilidade dos poderes pesa nessa interação.** Antes de resolver o conflito, estabeleça o que cada poder controla, o efeito que está tentando produzir e como esses dois efeitos se relacionam. Essa avaliação deve respeitar tanto a diferença de patamar quanto as características das Skills envolvidas.
 
@@ -763,6 +773,8 @@ O sistema mantém Compêndios de mundo para Habilidades, Partes do Corpo, Títul
 ---
 
 ## 9. Combate
+
+![A proteção de aliados transforma a cena: uma barreira intercepta o golpe enquanto o grupo organiza sua retirada](img/barreira-protecao.png)
 
 ### Iniciativa
 
@@ -1078,6 +1090,8 @@ Locomoção: sem nenhuma parte que ande, o personagem se arrasta o **mínimo** (
 ---
 
 ## 11. Naves e Veículos
+
+![Uma emergência espacial distribui decisões entre os postos de tripulação](img/tripulacao-espacial.png)
 
 Crie pelo Diretório de Atores (tipo **Nave Espacial** ou **Veículo Terrestre**) ou pela IA. O bloco Naves e Veículos precisa estar ligado para **criar**.
 

@@ -17,6 +17,7 @@ import {
   getActiveCurrencies,
   getActiveSpeciesPresets,
   getActiveHeritages,
+  getActiveNpcArchetypes,
   getActiveBodyFunctions,
   getScaleConfig,
   getStructures,
@@ -79,6 +80,11 @@ const SYSTEM_MACROS = [
       'if (!actor) ui.notifications.warn("Selecione o token de um Personagem primeiro.");',
       "else actor.sheet.render(true);"
     ].join("\n")
+  },
+  {
+    name: "Nihility — Gerar NPC",
+    img: "icons/svg/mystery-man.svg",
+    command: "game.nihility.generateNpc();"
   },
   {
     name: "Nihility — Pedir Reparo de Nave",
@@ -387,6 +393,7 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const context = await super._prepareContext(options);
     const isGM = game.user.isGM;
     context.isGM = isGM;
+    context.npcGeneratorEnabled = isGM && isFeatureEnabled("npcGenerator");
 
     // Jogador nunca cai numa aba GM-only, mesmo se essa era a última aba aberta (troca de usuário/re-render).
     if (!isGM && GM_ONLY_TABS.includes(this.activeTab)) this.activeTab = "fichas";
@@ -458,6 +465,7 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
           { action: "attribute-config", icon: "fas fa-chart-simple", title: "Atributos", desc: "Renomear ou esconder os Atributos de Combate.", state: `${getVisibleAttributes().length} visíveis` },
           { action: "anatomy-config", icon: "fas fa-dna", title: "Espécies", desc: "Corpo, Skills Raciais, Passivos, Linhagens e Evolução de cada Espécie.", state: count(Object.keys(getActiveSpeciesPresets()).length, "espécie", "espécies") },
           { action: "body-functions-config", icon: "fas fa-person-walking", title: "Funções de Parte", desc: "O que acontece ao perder uma parte: Cego, Sem mão, Deslocamento proporcional, Voador…", state: count(getActiveBodyFunctions().length, "função", "funções"), feature: "bodyPartInjury" },
+          { action: "npc-archetypes-config", icon: "fas fa-users-gear", title: "Arquétipos de NPC", desc: "Os tipos do Gerador de NPC: atributos que favorecem, Skills e equipamento sorteados.", state: count(getActiveNpcArchetypes().length, "arquétipo", "arquétipos"), feature: "npcGenerator" },
           { action: "heritages-config", icon: "fas fa-droplet", title: "Heranças", desc: "O que pode acontecer com qualquer Espécie: Vampirizado, Meio-Dragão, Convertido em Ciborgue…", state: count(getActiveHeritages().length, "herança", "heranças") },
           { action: "traits-config", icon: "fas fa-tags", title: "Traços", desc: "Dracônico, Voador, Orgânico… usados por Elementos e bônus condicionais.", state: count(getActiveTraits().length, "traço", "traços") },
           { action: "economy-config", icon: "fas fa-coins", title: "Moedas", desc: "Moedas, valores e conversão.", state: count(getActiveCurrencies().length, "moeda", "moedas"), feature: "economy" },
@@ -655,6 +663,16 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
 
     switch (action) {
+      case "npc-generator": {
+        const { openNpcGenerator } = await import("./npc-generator.js");
+        openNpcGenerator();
+        break;
+      }
+      case "npc-archetypes-config": {
+        const { NpcArchetypesConfigApp } = await import("./npc-archetypes-config.js");
+        new NpcArchetypesConfigApp().render(true);
+        break;
+      }
       case "open-ai-assistant": {
         const { AIAssistantApp } = await import("./ai-assistant.js");
         new AIAssistantApp().render(true);

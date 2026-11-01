@@ -488,6 +488,14 @@ export function registerSystemSettings() {
     default: ""
   });
 
+  // Arquétipos do Gerador de NPC (vazio = os de fábrica, MEU_SISTEMA.DEFAULT_NPC_ARCHETYPES).
+  game.settings.register(SYSTEM_ID, S.npcArchetypesData, {
+    scope: "world",
+    config: false,
+    type: String,
+    default: ""
+  });
+
   game.settings.register(SYSTEM_ID, S.bodyFunctionsData, {
     scope: "world",
     config: false,

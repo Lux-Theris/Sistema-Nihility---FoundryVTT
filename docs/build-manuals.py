@@ -72,10 +72,10 @@ class Cover(Image):
         c.saveState();ax,ay=c.absolutePosition(0,0);c.translate(-ax,-ay);c.drawImage(self.filename,x,y,width=W,height=H,mask='auto',preserveAspectRatio=False)
         c.setFillColor(colors.HexColor('#171527'));c.setFillAlpha(.83);c.rect(x,y+H-175,W,175,fill=1,stroke=0)
         c.rect(x,y,W,92,fill=1,stroke=0);c.setFillAlpha(1)
-        c.setFillColor(colors.HexColor('#d9bd7a'));c.setFont('Body',10);c.drawString(M,H-60,'FANTASIA  /  ISEKAI  /  SCI-FI ARCANO')
+        c.setFillColor(colors.HexColor('#d9bd7a'));c.setFont('Body',10);c.drawString(M,H-60,'SISTEMA MODULAR DE RPG')
         c.setFillColor(colors.white);c.setFont('Display',43);c.drawString(M,H-111,'NIHILITY')
         c.setFont('Body',20);c.drawString(M,H-146,self.label)
-        c.setFont('Body',10);c.drawString(M,48,'EDIÇÃO ILUSTRADA  •  OUTUBRO 2026')
+        c.setFont('Body',10);c.drawString(M,48,'EDIÇÃO ILUSTRADA  •  NOVEMBRO 2026')
         c.setFont('Body',8);c.drawString(M,30,'Sistema de Lux  |  Foundry VTT 13+  |  Regras 1.78.0');c.restoreState()
 
 def content(src):
@@ -95,10 +95,14 @@ def content(src):
         if im:
             cap,path=im.groups();p=ROOT/'docs'/path
             if p.suffix in ('.svg','.png'):p=CACHE/(p.stem+'.jpg')
+            if not p.exists(): raise FileNotFoundError(f'Imagem do manual não encontrada: {path}')
             if p.exists():
                 iw,ih=PILImage.open(p).size;scale=min(CW/iw,355/ih)
                 suffix=' • diagrama esquemático' if path.endswith('.svg') else ' • arte de ambientação'
-                flow.append(KeepTogether([Image(str(p),width=iw*scale,height=ih*scale),Spacer(1,5),Paragraph(fmt(cap)+suffix,styles['SmallN'])]))
+                group=[Image(str(p),width=iw*scale,height=ih*scale),Spacer(1,5),Paragraph(fmt(cap)+suffix,styles['SmallN'])]
+                if flow and isinstance(flow[-1],Paragraph) and flow[-1].style.name in ('H1N','H2N','H3N'):
+                    group.insert(0,flow.pop())
+                flow.append(KeepTogether(group))
             i+=1;continue
         h=re.match(r'^(#{1,4})\s+(.+)',l)
         if h:
@@ -148,8 +152,9 @@ def build(kind,label):
     p=ROOT/'docs'/f'manual-do-{kind}.md';dest=OUT/f'Nihility-Manual-do-{kind.title()}.pdf'
     doc=Book(str(dest),pagesize=(W,H),rightMargin=M,leftMargin=M,topMargin=40,bottomMargin=34,title='Nihility - '+label,author='Lux',allowSplitting=True)
     doc.book_label=label
-    cover=CACHE/f'capa-{kind}.jpg'
-    story=[Cover(cover,label),PageBreak(),Paragraph('Entre mundos',styles['H1N']),Paragraph('Um manual para aprender, imaginar e consultar durante a sessão.',styles['Text']),Paragraph('Nihility RPG System • Sistema de Lux<br/>Edição ilustrada • 31 de outubro de 2026<br/>Referência de regras: 1.78.0 • Foundry VTT 13 e 14',styles['Text']),Paragraph('Como ler este livro',styles['H2N']),Paragraph('Comece pelo guia de entrada. Depois consulte os capítulos conforme a sua campanha. Os valores descritos como padrão são os de fábrica; o Mestre pode alterá-los. Anatomia, Naves, PAD e outros subsistemas dependem das opções da mesa.',styles['Text']),Paragraph('Exemplos narrativos e sugestões de condução ensinam possibilidades de uso. Eles não acrescentam regras obrigatórias. As imagens de interface são esquemas didáticos, não capturas de uma sessão em funcionamento.',styles['Text']),Paragraph('Artes de capa e de ambientação geradas com IA para esta edição. Diagramas vetoriais do projeto. Referências editoriais: D&D Player’s Handbook (2024), Dungeon Master’s Guide (2024) e Tormenta20, sem reprodução de textos ou artes dessas obras.',styles['SmallN']),PageBreak(),Paragraph('Sumário',styles['H1N'])]
+    cover=CACHE/f'capa-{kind}-modular.jpg'
+    story=[Cover(cover,label),PageBreak(),Paragraph('Entre mundos',styles['H1N']),Paragraph('Nihility - Sistema modular de RPG',styles['Text']),Paragraph('Nihility RPG System • Sistema de Lux<br/>Edição ilustrada • 1 de novembro de 2026<br/>Referência de regras: 1.78.0 • Foundry VTT 13 e 14',styles['Text']),Paragraph('Como ler este livro',styles['H2N']),Paragraph('Comece pelo guia de entrada. Depois consulte os capítulos conforme a sua campanha. Os valores descritos como padrão são os de fábrica; o Mestre pode alterá-los. Anatomia, Naves, PAD e outros subsistemas dependem das opções da mesa.',styles['Text']),Paragraph('Exemplos narrativos e sugestões de condução ensinam possibilidades de uso. Eles não acrescentam regras obrigatórias. As imagens de interface são esquemas didáticos, não capturas de uma sessão em funcionamento.',styles['Text']),Paragraph('Artes de capa e de ambientação geradas com IA para esta edição. Diagramas vetoriais do projeto. Referências editoriais: D&D Player’s Handbook (2024), Dungeon Master’s Guide (2024) e Tormenta20, sem reprodução de textos ou artes dessas obras.',styles['SmallN']),PageBreak(),Paragraph('Sumário',styles['H1N'])]
+    story.insert(5,Paragraph('Nihility é um sistema modular de RPG que permite combinar regras e ferramentas para diferentes propostas de campanha. De aventuras de fantasia a histórias contemporâneas e jornadas de ficção científica, cada mesa escolhe os elementos que fazem sentido para seu mundo.',styles['Text']))
     toc=TableOfContents();toc.levelStyles=[styles['TOCN']];story.append(toc)
     source=p.read_text(encoding='utf-8')
     ANCHORS.clear();ANCHORS.update(slug(plain(x)) for x in re.findall(r'^#{1,4}\s+(.+)$',source,re.M))

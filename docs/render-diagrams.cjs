@@ -14,7 +14,7 @@ fs.mkdirSync(dest, { recursive: true });
   for (const f of fs.readdirSync(path.join(__dirname, 'img')).filter(f => f.endsWith('.svg'))) {
     await sharp(path.join(__dirname, 'img', f), { density: 160 }).resize({width:1600,withoutEnlargement:true}).flatten({background:'#ffffff'}).jpeg({quality:91,mozjpeg:true}).toFile(path.join(dest, f.replace('.svg', '.jpg')));
   }
-  for (const f of ['capa-jogador.png','capa-mestre.png','farol-entre-mundos.png']) {
+  for (const f of fs.readdirSync(path.join(__dirname,'img')).filter(f=>f.endsWith('.png'))) {
     await sharp(path.join(__dirname,'img',f)).resize({width:1400,withoutEnlargement:true}).jpeg({quality:88,mozjpeg:true}).toFile(path.join(dest,f.replace('.png','.jpg')));
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

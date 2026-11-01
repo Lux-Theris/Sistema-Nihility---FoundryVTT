@@ -1,0 +1,104 @@
+<div class="ng-root">
+  <div class="ng-left">
+    <section class="ng-sec">
+      <header>Arquétipo <span class="ng-q" title="Os do sistema e os que você criou em Configurações Gerais › Personagem › Arquétipos de NPC.">?</span></header>
+      <div class="ng-sb">
+        <input type="text" class="ng-search" placeholder="Buscar arquétipo…" aria-label="Buscar arquétipo">
+        {{#each groups}}
+        <div class="ng-group">
+          <p class="ng-grp">{{label}}</p>
+          <div class="ng-tiles">
+            {{#each tiles}}
+            <button type="button" class="ng-tile {{#if active}}active{{/if}}" data-action="pickArchetype" data-id="{{id}}" data-label="{{label}}">
+              <img src="{{img}}" alt="">
+              <span>{{label}}</span>
+              {{#if mine}}<span class="ng-mine">do Mestre</span>{{/if}}
+            </button>
+            {{/each}}
+          </div>
+        </div>
+        {{/each}}
+      </div>
+    </section>
+
+    <section class="ng-sec">
+      <header>Quem</header>
+      <div class="ng-sb ng-g2">
+        <label class="ng-f"><span>Nível</span><input type="number" min="1" data-field="level" value="{{opts.level}}"></label>
+        <label class="ng-f"><span>Quantos</span><input type="number" min="1" max="30" data-field="count" value="{{opts.count}}"></label>
+        <label class="ng-f ng-span"><span>Espécie</span>
+          <select data-field="species">
+            {{#each speciesOptions}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}
+          </select>
+        </label>
+        <label class="ng-check ng-span"><input type="checkbox" data-field="vary" {{#if opts.vary}}checked{{/if}}> Variar o nível (±1)</label>
+      </div>
+    </section>
+
+    {{#if tiersEnabled}}
+    <section class="ng-sec">
+      <header>Nível de NPC <span class="ng-q" title="Lacaio: Vida 1. Elite e Chefe: Vida multiplicada e Skills a mais. Fica na ficha e dá para trocar depois.">?</span></header>
+      <div class="ng-sb">
+        <div class="ng-seg">
+          {{#each tiers}}<button type="button" class="{{#if active}}active{{/if}}" data-action="pickTier" data-tier="{{id}}">{{label}}</button>{{/each}}
+        </div>
+      </div>
+    </section>
+    {{/if}}
+
+    <section class="ng-sec">
+      <header>Ao criar</header>
+      <div class="ng-sb">
+        <div class="ng-f"><span>Nomes</span>
+          <div class="ng-seg">
+            <button type="button" class="{{#if namesRandom}}active{{/if}}" data-action="pickNames" data-names="random">Sorteados</button>
+            <button type="button" class="{{#unless namesRandom}}active{{/unless}}" data-action="pickNames" data-names="numbered">{{numberedLabel}}</button>
+          </div>
+        </div>
+        <label class="ng-f"><span>Pasta</span><input type="text" data-field="folder" value="{{opts.folder}}" placeholder="(nenhuma)"></label>
+        <label class="ng-check {{#unless canPlace}}disabled{{/unless}}" {{#unless canPlace}}title="Abra uma cena no mapa para colocar os Tokens."{{/unless}}>
+          <input type="checkbox" data-field="place" {{#if opts.place}}checked{{/if}} {{#unless canPlace}}disabled{{/unless}}> Pôr os Tokens no mapa (onde eu clicar)
+        </label>
+      </div>
+    </section>
+  </div>
+
+  <div class="ng-right">
+    {{#if summary}}<div class="ng-strip">{{summary}}</div>{{/if}}
+    <div class="ng-cards">
+      {{#each cards}}
+      <article class="ng-card">
+        <div class="ng-ch">
+          <img class="ng-pt" src="{{img}}" alt="">
+          <div class="ng-cn">
+            <input type="text" value="{{name}}" data-draft-name="{{index}}" aria-label="Nome do NPC">
+            <span class="ng-cm">{{meta}}</span>
+          </div>
+        </div>
+        <div class="ng-vit"><span class="hp">Vida <b>{{hp}}</b></span><span class="mp">Mana <b>{{mp}}</b></span>{{#if described}}<span class="ng-ok" title="Aparência e personalidade escritas pela IA">✓ descrito</span>{{/if}}</div>
+        <div class="ng-attrs">
+          {{#each attrs}}
+          <div class="ng-ar {{#if favored}}hi{{/if}}"><span>{{label}}</span><span class="ng-bar"><i style="width: {{width}};"></i></span><span class="ng-num">{{value}}</span></div>
+          {{/each}}
+        </div>
+        <p class="ng-lbl">Skills</p>
+        <div class="ng-lst">{{#each skills}}<span class="ng-sk">{{this}}</span>{{else}}<span class="ng-none">nenhuma</span>{{/each}}</div>
+        <p class="ng-lbl">Equipamento</p>
+        <div class="ng-lst">{{#each items}}<span class="ng-it">{{this}}</span>{{else}}<span class="ng-none">nada</span>{{/each}}</div>
+        <div class="ng-cf">
+          <button type="button" data-action="reroll" data-index="{{index}}"><i class="fa-solid fa-dice"></i> Sortear de novo</button>
+          <button type="button" data-action="removeDraft" data-index="{{index}}" aria-label="Tirar este NPC" title="Tirar este NPC">×</button>
+        </div>
+      </article>
+      {{else}}
+      <p class="ng-empty">Nenhum NPC na prévia. Escolha um arquétipo ou aumente "Quantos".</p>
+      {{/each}}
+    </div>
+    <footer class="ng-foot">
+      <span class="ng-hint">{{favoredHint}}</span>
+      <button type="button" data-action="describeAI" {{#if busy}}disabled{{/if}} title="{{#if aiAvailable}}Escreve aparência e personalidade de cada um. Opcional: a ficha já sai completa sem isto.{{else}}Precisa da chave de IA configurada neste navegador.{{/if}}">Detalhar com IA <span class="ng-opt">(opcional)</span></button>
+      <button type="button" data-action="rerollAll" {{#if busy}}disabled{{/if}}><i class="fa-solid fa-dice"></i> Sortear todos</button>
+      <button type="button" class="ng-pri" data-action="create" {{#unless canCreate}}disabled{{/unless}}>{{createLabel}}</button>
+    </footer>
+  </div>
+</div>

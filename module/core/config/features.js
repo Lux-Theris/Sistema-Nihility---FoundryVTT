@@ -234,3 +234,14 @@ export function isEnergyPoolEnabled() {
     return true;
   }
 }
+
+/** Níveis de NPC (M6): multiplicadores de Vida e Skills a mais do gerador (Módulos do Sistema). */
+export function getNpcTierConfig() {
+  return {
+    enabled: isFeatureEnabled("npcTiers"),
+    eliteHp: getFeatureOption("npcTiers", "npcEliteHp"),
+    bossHp: getFeatureOption("npcTiers", "npcBossHp"),
+    eliteSkills: getFeatureOption("npcTiers", "npcEliteSkills"),
+    bossSkills: getFeatureOption("npcTiers", "npcBossSkills")
+  };
+}

@@ -1,0 +1,38 @@
+{
+  "tool": "ImageGen integrada",
+  "date": "2026-11-01",
+  "jobs": [
+    {
+      "name": "capa-jogador-modular",
+      "prompt": "Original premium tabletop roleplaying game cover illustration, portrait 2:3. No text, no letters, no logos. Nihility is a modular RPG for many genres, not a fixed setting. A contemporary female explorer in a practical dark jacket, a medieval armored traveler and a futuristic suited explorer stand at a great branching threshold, seen from behind. Three coherent architectural vistas open beyond them: an ancient forest citadel, a rain lit contemporary city street, and an orbital space habitat. The worlds remain distinct, connected by a subtle elegant violet and antique gold motif, not all turned into cyber fantasy. Detailed refined painterly book illustration, navy shadows, warm ivory and muted violet highlights, human scale wonder, uncluttered silhouettes. Leave the upper quarter dark and quiet for separately typeset title. Full illustration not a book mockup."
+    },
+    {
+      "name": "capa-mestre-modular",
+      "prompt": "Original premium tabletop RPG Game Master's book cover art, portrait 2:3, no text or logos. A thoughtful contemporary game master in a simple dark shirt seen in three quarter rear view at an antique circular planning table, arranging three luminous miniature worlds: a medieval fortified town, a present day city block, and a distant planetary spaceport. The surrounding arches frame different skies rather than one fixed setting. Elegant branching violet threads connect the miniatures like alternative adventures, antique gold details and deep navy shadows. Detailed refined painterly illustration, believable hands, sophisticated editorial composition, atmosphere of imagination and choice. Keep top quarter dark uncluttered for typeset title. Not a product photo or mockup."
+    },
+    {
+      "name": "treino-memoria",
+      "prompt": "Original landscape 3:2 interior illustration for a modular tabletop RPG manual. No text, lettering, logos, diagrams or magical effects. A young adult beginner in a white karate gi practicing a basic straight punch in an ordinary contemporary dojo while an older instructor carefully guides posture from a respectful distance. Show concentration, repetition, grounded body mechanics and realistic human anatomy, not an expert acrobatic move. Wood floor, simple training equipment, morning window light. Sophisticated painterly editorial illustration, natural warm ivory and navy colors, subtle violet in shadows and restrained antique gold lighting. This illustrates a skill granting muscle memory while practice is still needed. No supernatural aura or glowing fist."
+    },
+    {
+      "name": "investigacao-contemporanea",
+      "prompt": "Original landscape 3:2 painterly interior art for a modular RPG book, no text, letters or logos. Two contemporary investigators in ordinary raincoats in a realistic present day city alley at dusk. One crouches to notice a small physical clue near a drain with a flashlight, the other quietly watches a doorway from concealment. Grounded investigation, awareness and discretion, no magic, no futuristic gadgets, no guns aimed at people. Rain reflections, violet blue shadows and warm antique gold street lighting, tasteful realistic editorial painting, clear silhouettes, believable hands and anatomy, readable composition."
+    },
+    {
+      "name": "barreira-protecao",
+      "prompt": "Original landscape 3:2 fantasy roleplaying game interior illustration, no text or logos. A medieval mage protects an ally behind a curved translucent violet energy barrier while a fiery projectile shatters against its outer surface, visible light fragments and sparks. The two adventurers are clearly behind the barrier, attacker off frame, clean readable spatial relationship. The ally helps an injured companion retreat across stone ruins. Heroic protection and teamwork, not gore. Detailed refined painterly book art, antique gold firelight, navy shadows, muted violet, warm ivory, believable anatomy. Depict a specific illustrative scene, no UI, no rule numbers."
+    },
+    {
+      "name": "tripulacao-espacial",
+      "prompt": "Original landscape 3:2 interior illustration for a science fiction tabletop RPG manual. No text, no lettering, no logos. Three diverse adult crew members in a spacecraft cockpit coordinate an emergency: a pilot at the forward controls, an engineer operating an energy distribution console with abstract unlabeled shapes, a navigator observing a planet through the window. The ship exterior is glimpsed beyond a side viewport with a translucent shield illuminated by debris impacts. Pure space exploration aesthetic rather than medieval fantasy, functional suits, practical machinery. Sophisticated painterly editorial art, navy and muted violet shadows, warm ivory instrument lighting and restrained antique gold highlights. Clear composition, believable hands, no recognizable franchise designs."
+    },
+    {
+      "name": "poder-unico",
+      "prompt": "Original landscape 3:2 interior illustration for the Unique skill chapter of Nihility, a modular tabletop RPG. No text, lettering or logos. An adult contemporary traveler in a worn jacket uses an individually distinctive supernatural protective power: warm gold and violet threads emerge from personal keepsakes tied to their wrist and weave several separate sheltering arcs around companions. The character's focused expression conveys an intense personal wish to protect others. A storm swept ordinary urban rooftop, no medieval costume, no space armor. Refined painterly book art, human emotions, subtle restrained effects, readable composition and believable anatomy. This is one illustrative personalized power, not a universal design for every Unique skill."
+    },
+    {
+      "name": "poder-ultimate",
+      "prompt": "Original landscape 3:2 interior illustration for a tabletop RPG section about ultimate powers controlling aspects of reality. No text, lettering or logos. A solitary adult mortal figure standing in a vast quiet plaza holds one open hand, controlling the flow of time around them: a broken fountain's water is suspended in distinct droplets, falling stone fragments hang still and a subtle translucent arc of repeated sun positions spans the distant sky. Elegant awe and conceptual clarity, no exploding energy attack, no religious iconography or divine crown. Refined detailed painterly editorial illustration, antique gold light, deep navy and muted violet shadows, warm ivory stone, believable anatomy. This is an example of one possible reality aspect, not a claim that every ultimate controls time."
+    }
+  ]
+}

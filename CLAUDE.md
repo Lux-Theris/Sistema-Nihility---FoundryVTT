@@ -23,7 +23,7 @@ node --test "test/*.test.mjs"                               # unit tests of the 
 
 **Check syntax in module mode, never with a bare `node --check file.js`.** There is no `package.json` declaring `"type": "module"`, so the bare form parses the file with Node's CommonJS/auto-detect path and lets ES-module-only early errors through. The one that shipped in 1.37: `item-sheet.js` imported `getActiveDamageElements` **twice in the same import list** — a SyntaxError for a module, invisible to the bare check — and because `nihility-rpg-system.js` imports the sheet, the whole module graph failed to evaluate: no `init`, no sheets registered, and the only symptom in Foundry was an empty "Ficha Padrão" list ("as fichas sumiram"). To check everything at once: `for f in $(find module -name '*.js'); do node --input-type=module --check < "$f" || echo "$f"; done`.
 
-The suite is split by subject into `test/*.test.mjs` (dice-progression, combat-damage, combat-effects, skills, species-anatomy, ships, economy, environment, movement-area, world-config, ai, plus gm-relay, anchored-targets, skill-use-flow, html); each file starts with `import "./setup.mjs";` — **put a new test in the file of its subject, or a new file**, there is no single `rules.test.mjs` any more (split in 1.78). It covers only what is callable without Foundry — dice pool and initiative formula, resistance curve, XP curve and Resistance-XP gain, the Skill level cycle (`skillLevelBonuses`/`effectiveSkillCost`), damage scaling, module presets and structural damage, currency conversion, AI batch prompts, fusion snapshot, Skill-area geometry, floating-number deltas, the Skill sentence, XP por uso, consumables/charges/magazine/ammo swap — with `test/setup.mjs` stubbing the handful of Foundry globals the import path touches (`Math.clamp`, `foundry.utils.*`, `foundry.data.fields`/`abstract.TypeDataModel`, `ui.notifications`). Note `game.settings.get` is stubbed to **throw**, on purpose: that is the real boot-order path every config reader has to survive, so the suite exercises each reader's default-fallback branch. A test that needs a *configured* value has to pass it in as an argument — which is a good reason to keep new rule functions taking their tuning as parameters. Every pure rule function currently has coverage; keep it that way when you add one. **The bar for adding a test there is that the function needs no Actor/Item/canvas** — if a test would need to fake a Document, extract the pure part instead of growing the stub. Everything involving documents, sheets or canvas is still manual load-testing inside a running world.
+The suite is split by subject into `test/*.test.mjs` (dice-progression, combat-damage, combat-effects, skills, species-anatomy, ships, economy, environment, movement-area, world-config, ai, npc-generator, plus gm-relay, anchored-targets, skill-use-flow, html); each file starts with `import "./setup.mjs";` — **put a new test in the file of its subject, or a new file**, there is no single `rules.test.mjs` any more (split in 1.78). It covers only what is callable without Foundry — dice pool and initiative formula, resistance curve, XP curve and Resistance-XP gain, the Skill level cycle (`skillLevelBonuses`/`effectiveSkillCost`), damage scaling, module presets and structural damage, currency conversion, AI batch prompts, fusion snapshot, Skill-area geometry, floating-number deltas, the Skill sentence, XP por uso, consumables/charges/magazine/ammo swap — with `test/setup.mjs` stubbing the handful of Foundry globals the import path touches (`Math.clamp`, `foundry.utils.*`, `foundry.data.fields`/`abstract.TypeDataModel`, `ui.notifications`). Note `game.settings.get` is stubbed to **throw**, on purpose: that is the real boot-order path every config reader has to survive, so the suite exercises each reader's default-fallback branch. A test that needs a *configured* value has to pass it in as an argument — which is a good reason to keep new rule functions taking their tuning as parameters. Every pure rule function currently has coverage; keep it that way when you add one. **The bar for adding a test there is that the function needs no Actor/Item/canvas** — if a test would need to fake a Document, extract the pure part instead of growing the stub. Everything involving documents, sheets or canvas is still manual load-testing inside a running world.
 
 **Version bump convention (always follow this):** `system.json`'s `"version"` is bumped **in the same commit as the change itself**, never as a separate follow-up commit. Every meaningful feature/fix commit carries its own bump. Foundry's update-check compares this field against the manifest URL, so without a bump, worlds never see new content as available — and keeping the bump inside the commit that earned it means a version always points at exactly one set of changes.
 
@@ -46,6 +46,7 @@ Code is grouped by subject, not by layer (reorganized in 1.53.1; file names did 
 | `economy/` | `currency.js`, `inventory.js`, `consumables.js` + `consumable-rules.js` (pure: consumíveis, cargas, carregador, munição) |
 | `ai/` | `ai-generation.js`, `ai-helper.js`, providers, agent runner/tools |
 | `world/` | `world-validator.js` (pure), `world-backup.js` |
+| `npc/` | `npc-generator-rules.js` (pure: point split, draws, names, NPC tier Vida), `npc-generator.js` (drafts, creating sheets, placing Tokens, the tier hook) |
 | `environment/` | `environment-rules.js` (pure), `environment.js` (scene/Region hazards, mana density, FXMaster), `radiation-rules.js` (pure) + `radiation.js` (radiation sources, irradiation, Passar tempo) |
 | `data/`, `sheets/`, `apps/`, `helpers/`, `pad/` | Character/Item DataModels, Character/Item sheets, standalone apps, cross-cutting helpers (`foundry-compat`, `gm-relay`, `target-picker`…), the PAD |
 
@@ -378,6 +379,40 @@ Live updates come from `updateActor` + `createChatMessage` hooks registered in `
 **Mechanics in AI-generated content** (`module/ai/ai-mechanics.js`): the model is told the full Skill mechanics shape plus the ids that exist in *this* world (`mechanicsGuide(currentAICatalogs())` — elements, Conditions, attributes, effect targets), and whatever comes back goes through `sanitizeSkillMechanics` / `sanitizeWeapon` / `sanitizeItemBonuses` (pure, tested): unknown ids are dropped, numbers clamped, an invalid dice formula (`foundryFormulaCheck` → `Roll.validate`) turns the Skill descriptive instead of breaking it at use time, a "temporary" Skill with no valid effect becomes "none", ship targets are refused. Used by the standalone Skill generator, NPC/mount Skills, Item generation (weapon + while-equipped bonuses) and the Agent's `propose_skill` (`mechanics` object; `get_system_rules` returns the guide). Before this, every AI Skill came out "Descritiva". Fusion (Única/Ultimate) still gets its mechanics from the consumed Skills' Sub-Skills.
 
 Dependency direction is a DAG, not a cycle: `ai-generation.js` depends on `compendium.js`/`skill-snapshot.js`/`voice-of-the-world.js`; `skill-economy.js` depends on those three *plus* `ai-generation.js` (for the "auto" mode of `fuseSkills`, which asks AI to write a Skill Única/Ultimate); `ai-helper.js` sits on top of everything. If you ever need something from `skill-economy.js` inside `ai-generation.js`, that's a sign the shared piece belongs in a new low-level module (like `skill-snapshot.js`) instead, not a reason to import `skill-economy.js` there directly.
+
+### Gerador de NPC e Níveis de NPC (1.80.0)
+
+The owner approved the Design artifact "Gerador de NPC" with all three boards; build to it. The work is behind `FEATURES.npcGenerator` and `FEATURES.npcTiers`, both on by default.
+
+**Catalog.** `npcArchetypesData`:
+- The defaults are `MEU_SISTEMA.DEFAULT_NPC_ARCHETYPES` in `core/config/defaults/npc.js`: 14 archetypes in the groups Comum, Fantasia and Sci-Fi, plus `NPC_NAME_TABLES`.
+- Read the catalog through `getActiveNpcArchetypes()`, which is cached and normalized through `normalizeArchetype`.
+- Fields of an entry: `{id, label, group, img, description, species[], pointsPercent, weights{attr: 0–3}, luck, skillsMin/Max, skillLevel "follow"|"one", skills[], items[]}`.
+- Skills use the loose Racial-Skill format (`key`, `always`).
+- Items are Item Geral data with a `chance`.
+- Sci-Fi element ids are dropped at creation in a world that lacks them (`keepKnownIds`).
+
+**The rule.** An NPC gets the **same attribute points as a PC of its level**, times the archetype's %. `distributePoints` splits them by weight (Pouco 1 … Muito 4) with a luck spread, so an NPC never leaves the power curve.
+
+**Generator.** The window is `apps/npc-generator.js`, opened from the "Gerar NPC…" button in the menu's Fichas tab, `game.nihility.generateNpc()`, or the "Nihility — Gerar NPC" macro.
+- It holds drafts only; nothing is created until "Criar".
+- `createNpcs` creates the Actor **without** `prototypeToken`, because `preCreateActor` adds the Vida/Mana bars only when the creation data has none. It then applies the Species through `changeActorSpecies(…, {interactive: false})`, creates the Skills (`archetypeSkillItem`, level from `skillLevelFor`) and the items, and fills Vida/Mana.
+- "Pôr no mapa" waits for one canvas click (`pickCanvasPoint`) and lays the Tokens out in a grid.
+- "Detalhar com IA" (`describeNpcWithAI`) writes only biography and personality.
+- Don't name an ApplicationV2 field `state`: it is a read-only getter there, which is why the app uses `opts`.
+
+**Editor.** `apps/npc-archetypes-config.js` follows the Species editor model: a working copy, "Salvar", a padrão/editado/do Mestre tag (`archetypeStatus`), "Voltar ao padrão" and "Trazer do padrão…".
+- A Skill or Item Geral dropped from a Compendium or a sheet is stored as a copy.
+- Skills are edited in `openSkillEditorDialog`.
+
+**Níveis de NPC (M6).** These are the `system.npcTier` values (`minion`/`normal`/`elite`/`boss`) on `CharacterDataModel`. They apply only when `isPlayerCharacter` is false and the block is on:
+- In `deriveVitalStats`, Lacaio sets Vida máx to 1, and Elite/Chefe multiply it by the `npcTiers` options (`npcEliteHp`/`npcBossHp`).
+- The value before the tier stays in `hp.hpMaxBeforeTier`, and "De onde vem" shows the row.
+- When the tier changes, `registerNpcTierHooks` (`preUpdateActor`) keeps the same **fraction** of current Vida (`rescaleHpValue`).
+- The GM-only select sits next to the "PJ" box.
+- Elite/Chefe draw extra Skills in the generator (`npcEliteSkills`/`npcBossSkills`).
+- Turning the block off counts everyone as Normal; the saved tier stays.
+- Left out on purpose: "each X of damage drops another minion", and extra points for Elite/Chefe.
 
 ### Skills e armas na hotbar, e a Skill numa frase
 

@@ -39,7 +39,9 @@ Este manual explica, do começo ao fim, como a sua ficha funciona, como rolar, c
 
 ![Uma jornada entre ruínas arcanas e tecnologia esquecida](img/farol-entre-mundos.png)
 
-Você pode ser um explorador de ruínas, uma criatura que acabou de despertar ou um viajante entre estrelas. Nihility oferece ferramentas para campanhas de fantasia, isekai e ficção científica arcana. O mundo e as possibilidades concretas pertencem à sua mesa: combine com o Mestre o tom da aventura e quais subsistemas serão usados.
+**Nihility é um sistema modular de RPG** que permite combinar regras e ferramentas para diferentes propostas de campanha. De aventuras de fantasia a histórias contemporâneas e jornadas de ficção científica, cada mesa escolhe os elementos que fazem sentido para seu mundo.
+
+Você pode interpretar um explorador de ruínas, um investigador numa cidade atual, alguém que acabou de despertar em outro mundo ou um viajante entre estrelas. Esses são exemplos de possibilidades, não gêneros obrigatórios do sistema. Combine com o Mestre o tom da aventura e quais subsistemas serão usados.
 
 ### O ritmo do jogo
 
@@ -214,6 +216,8 @@ A aba **Biografia** tem três campos de **Personalidade** (Traços, Desejos, Est
 
 ## 3. Atributos e rolagens
 
+![Percepção e Furtividade numa investigação contemporânea: notar indícios e agir sem chamar atenção](img/investigacao-contemporanea.png)
+
 ### Os oito Atributos
 
 **Atributos** são características gerais do personagem, expressas em números: sua força física, sua atenção, seu domínio da magia e assim por diante. Eles ajudam a representar como você enfrenta uma situação. Uma **Habilidade** ou **Skill**, por sua vez, é um recurso específico que o personagem possui, como um poder, uma técnica ou uma resistência.
@@ -349,6 +353,8 @@ O sistema não tem regra de acerto crítico automática: se a cena pediu "dano d
 
 ## 4. Vida, Mana e Escudo
 
+![Uma barreira sobrenatural protege a retirada dos aliados; seu funcionamento depende da Skill e das opções da mesa](img/barreira-protecao.png)
+
 ### Vida máxima e Mana máxima
 
 Com os ajustes de fábrica:
@@ -412,6 +418,8 @@ O tier também não é a mesma coisa que a **mecânica ao usar**. Uma Habilidade
 
 #### Extra - Memória muscular, conhecimento e capacidades humanas
 
+![Treinar Karatê para fixar a técnica no corpo: memória muscular não equivale a domínio completo](img/treino-memoria.png)
+
 Skills Extras representam habilidades ou conhecimentos que seres humanos conseguem desenvolver na nossa realidade. A Skill concede a **memória muscular ou o conhecimento** sobre aquilo. Memória muscular é a familiaridade do corpo com a execução de uma técnica: saber como realizar os movimentos. Uma arte marcial como o Karatê é um exemplo.
 
 Receber essa memória ou esse conhecimento não significa ter domínio completo. Ainda é preciso **treinar**, fixar o conhecimento no cérebro e no corpo e desenvolver a Skill.
@@ -440,6 +448,8 @@ Um sopro dracônico é um exemplo de poder ligado a uma Espécie. A definição 
 
 #### Único - Um poder que expressa a pessoa
 
+![Uma vontade de proteger se expressa em um poder pessoal; esta cena é um exemplo de identidade visual para uma Skill Única](img/poder-unico.png)
+
 Skills Únicas são **bem mais fortes que Skills Normais** e são feitas exclusivamente para a pessoa que as possui. Nascem da sua **personalidade, emoções e vontade**. Não basta escolher um nome raro: o poder deve expressar quem aquela pessoa é e o que deseja.
 
 Uma Única pode ter efeitos variados e, às vezes, mais de um efeito. Para imaginar a sua, pense no que o personagem mais valoriza, teme, deseja ou se recusa a abandonar. Essas respostas ajudam a construir o poder com o Mestre; elas não determinam uma fórmula obrigatória.
@@ -447,6 +457,8 @@ Uma Única pode ter efeitos variados e, às vezes, mais de um efeito. Para imagi
 O tier aparece como **Único** na ficha. Ao falar de uma habilidade, usamos também **Skill Única**.
 
 #### Ultimate - Controle sobre aspectos da realidade
+
+![Controlar o tempo é um exemplo possível de aspecto da realidade; cada Ultimate tem sua própria identidade](img/poder-ultimate.png)
 
 Skills Ultimate são o **ápice do sobrenatural**: permitem que alguém controle aspectos da própria realidade. Sua identidade não se resume a causar mais dano; o poder se relaciona ao aspecto da realidade que seu portador consegue controlar.
 
@@ -625,8 +637,6 @@ Existem três tipos: **Extra**, **Normal** e **Único**. Você começa com **3 N
 
 1. **Pedir uma Skill nova** — **+ Pedir Criação com Pontos**. Escolha o **Tier** (mostra quantos pontos você tem de cada), o **Nome**, o **Efeito** (descrição) e o **Custo** em Mana. Um card é enviado no chat, visível só para você e para o Mestre. O Mestre clica **Aprovar** (o ponto é descontado e a Skill aparece na sua ficha no nível 1, com aviso da Voz do Mundo) ou **Rejeitar** (nenhum ponto é gasto). Depois de aprovada, o Mestre normalmente ajusta a mecânica da Skill com você.
 2. **Subir o nível de uma Skill** — veja [Nível de uma Skill](#nível-de-uma-skill).
-
-Racial e Ultimate não têm Pontos: vêm da Espécie e de Fusões.
 
 ---
 
@@ -960,6 +970,8 @@ Além do chat, cada anúncio aparece como um **card dourado no topo da sua tela*
 ---
 
 ## 13. Naves e Veículos (para quem tripula)
+
+![Piloto, engenheiro e navegador coordenam a resposta a uma emergência durante uma campanha espacial](img/tripulacao-espacial.png)
 
 Esta seção só vale se a sua mesa usa Naves e Veículos.
 

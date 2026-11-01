@@ -35,6 +35,9 @@
           <span class="nm-type-filter" data-type="ship">Naves</span>
           <span class="nm-type-filter" data-type="vehicle">Veículos</span>
         </div>
+        {{#if npcGeneratorEnabled}}
+        <button type="button" class="nm-npc-generator" data-action="runAction" data-menu-action="npc-generator" title="Gerar NPCs a partir de um arquétipo (Ladrão, Engenheiro, Civil…)."><i class="fas fa-users"></i> Gerar NPC…</button>
+        {{/if}}
       </div>
 
       <div class="nm-actor-grid">

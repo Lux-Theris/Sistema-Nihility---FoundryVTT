@@ -409,6 +409,26 @@ export async function generateActorFromAI(prompt, options = {}) {
   return created;
 }
 
+/**
+ * "Detalhar com IA" do Gerador de NPC: só aparência e personalidade de um rascunho que já tem
+ * tudo (atributos, Skills, equipamento). Nada de mecânica passa pela IA aqui.
+ * @param {{name:string, level:number, speciesLabel:string}} draft
+ * @param {{label:string, description:string}} archetype
+ * @returns {Promise<{biography: string, personality: string}>}
+ */
+export async function describeNpcWithAI(draft, archetype) {
+  const system =
+    "Você escreve NPCs para um RPG de mesa em português do Brasil. Responda SEMPRE com um único objeto JSON estrito, " +
+    'sem markdown: {"biography": string (HTML curto: 2 ou 3 frases sobre aparência e de onde veio), "personality": string (uma frase com o jeito dele)}. ' +
+    "Não invente poderes, números nem itens.";
+  const user = `${draft.name}, ${draft.speciesLabel || "humano"}, ${archetype.label} de nível ${draft.level}. ${archetype.description ?? ""}`;
+  const parsed = await generateJSON(system, user);
+  return {
+    biography: foundry.utils.cleanHTML?.(String(parsed?.biography ?? "")) ?? foundry.utils.escapeHTML(String(parsed?.biography ?? "")),
+    personality: String(parsed?.personality ?? "").slice(0, 500)
+  };
+}
+
 /* -------------------------------------------- */
 /*  Geração de Naves/Veículos via IA             */
 /* -------------------------------------------- */

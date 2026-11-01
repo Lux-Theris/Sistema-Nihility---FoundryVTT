@@ -1,0 +1,129 @@
+<div class="na-root">
+  <div class="na-main">
+    <aside class="na-list">
+      <input type="text" class="na-search" placeholder="Buscar…" aria-label="Buscar arquétipo">
+      {{#each groups}}
+      <p class="na-grp">{{label}}</p>
+      {{#each items}}
+      <button type="button" class="na-li {{#if active}}active{{/if}}" data-action="select" data-id="{{id}}" data-label="{{label}}">
+        <span>{{label}}</span><span class="na-tag {{status}}">{{statusLabel}}</span>
+      </button>
+      {{/each}}
+      {{/each}}
+      <div class="na-list-actions">
+        <button type="button" data-action="add">+ Novo arquétipo</button>
+        <button type="button" data-action="importDefaults" title="Traz os arquétipos do padrão que ainda não estão aqui, sem mexer nos que você mudou.">Trazer do padrão…</button>
+      </div>
+    </aside>
+
+    {{#if sel}}
+    <div class="na-body">
+      <div class="na-col">
+        <section class="na-sec">
+          <header>Geral
+            <span class="na-sp"></span>
+            {{#if sel.isEdited}}<button type="button" class="na-mini" data-action="resetDefault">Voltar ao padrão</button>{{/if}}
+            <button type="button" class="na-mini" data-action="duplicate">Duplicar</button>
+            <button type="button" class="na-mini danger" data-action="remove">Remover</button>
+          </header>
+          <div class="na-sb na-g2">
+            <label class="na-f"><span>Nome</span><input type="text" data-path="label" data-render="1" value="{{sel.label}}"></label>
+            <label class="na-f"><span>Grupo</span>
+              <select data-path="group" data-render="1">{{#each sel.groupOptions}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select>
+            </label>
+            <label class="na-f"><span>Chave {{#if sel.idLocked}}<span class="na-q" title="A chave é estrutura: as fichas geradas guardam qual arquétipo as fez.">?</span>{{/if}}</span>
+              <input type="text" data-path="__id" value="{{sel.id}}" {{#if sel.idLocked}}readonly{{/if}}>
+            </label>
+            <div class="na-f"><span>Ícone</span>
+              <button type="button" class="na-img" data-action="pickImage" title="Trocar ícone"><img src="{{sel.img}}" alt=""><span>Trocar…</span></button>
+            </div>
+            <div class="na-f na-span"><span>Espécies possíveis <span class="na-q" title="Vazio = qualquer Espécie disponível na criação.">?</span></span>
+              <div class="element-field na-species" data-selected="{{sel.speciesJson}}"></div>
+            </div>
+            <label class="na-f"><span>Pontos de atributo <span class="na-q" title="% dos pontos de um PJ do mesmo nível. O Civil vem com 50%.">?</span></span>
+              <span class="na-row"><input type="number" min="0" data-path="pointsPercent" data-kind="int" value="{{sel.pointsPercent}}" class="na-num"><span class="na-dim">% de um PJ</span></span>
+            </label>
+            <label class="na-f na-span"><span>Descrição</span><textarea data-path="description" rows="2">{{sel.description}}</textarea></label>
+          </div>
+        </section>
+
+        <section class="na-sec">
+          <header>Atributos que favorece <span class="na-q" title='{{weightHint}}'>?</span></header>
+          <div class="na-sb">
+            {{#each sel.weights}}
+            <div class="na-ar"><span>{{label}}</span>
+              <div class="na-seg">
+                {{#each levels}}<button type="button" class="{{#if active}}active {{#if strong}}gold{{/if}}{{/if}}" data-action="setWeight" data-attr="{{../key}}" data-level="{{level}}">{{label}}</button>{{/each}}
+              </div>
+            </div>
+            {{/each}}
+            <div class="na-ar"><span>Sorte na divisão <span class="na-q" title="O quanto dois NPCs do mesmo arquétipo diferem entre si.">?</span></span>
+              <div class="na-seg">
+                {{#each sel.luck}}<button type="button" class="{{#if active}}active{{/if}}" data-action="setValue" data-path="luck" data-value="{{id}}">{{label}}</button>{{/each}}
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="na-col">
+        <section class="na-sec">
+          <header>Skills
+            <span class="na-sp"></span>
+            <span class="na-count">sorteia de
+              <input type="number" min="0" data-path="skillsMin" data-kind="int" value="{{sel.skillsMin}}" class="na-num sm"> a
+              <input type="number" min="0" data-path="skillsMax" data-kind="int" value="{{sel.skillsMax}}" class="na-num sm">
+            </span>
+          </header>
+          <div class="na-rows">
+            {{#each sel.skills}}
+            <div class="na-rowline">
+              <div class="na-rt"><div class="na-rn">{{name}}<span class="na-tier">{{tier}}</span></div><div class="na-rs">{{summary}}</div></div>
+              <label class="na-always" title="Todo NPC deste arquétipo tem esta Skill"><input type="checkbox" data-path="skills.{{index}}.always" {{#if always}}checked{{/if}}> sempre</label>
+              <button type="button" class="na-mini" data-action="editSkill" data-index="{{index}}">Editar</button>
+              <button type="button" class="na-mini" data-action="removeRow" data-list="skills" data-index="{{index}}" aria-label="Tirar Skill">×</button>
+            </div>
+            {{else}}
+            <p class="na-empty">Sem Skills (como o Civil).</p>
+            {{/each}}
+          </div>
+          <div class="na-foot">
+            <button type="button" class="na-mini" data-action="addSkill">+ Nova Skill</button>
+            <span class="na-sp"></span>
+            <span class="na-dim">Nível das Skills</span>
+            <div class="na-seg">
+              <button type="button" class="{{#if sel.skillLevelOne}}active{{/if}}" data-action="setValue" data-path="skillLevel" data-value="one">Sempre 1</button>
+              <button type="button" class="{{#unless sel.skillLevelOne}}active{{/unless}}" data-action="setValue" data-path="skillLevel" data-value="follow" title="Nível do NPC ÷ 3, arredondado para cima">Acompanha o NPC</button>
+            </div>
+          </div>
+          <div class="na-drop" data-drop="skills">Arraste uma Skill do Compêndio ou de uma ficha para cá (vira uma cópia do arquétipo)</div>
+        </section>
+
+        <section class="na-sec">
+          <header>Equipamento</header>
+          <div class="na-rows">
+            {{#each sel.items}}
+            <div class="na-rowline items">
+              <div class="na-rt"><div class="na-rn">{{name}}</div><div class="na-rs">{{summary}}</div></div>
+              <label class="na-row"><input type="number" min="0" max="100" data-path="items.{{index}}.chance" data-kind="int" value="{{chance}}" class="na-num sm" aria-label="Chance"><span class="na-dim">% de chance</span></label>
+              <button type="button" class="na-mini" data-action="removeRow" data-list="items" data-index="{{index}}" aria-label="Tirar item">×</button>
+            </div>
+            {{else}}
+            <p class="na-empty">Sem equipamento.</p>
+            {{/each}}
+          </div>
+          <div class="na-drop" data-drop="items">Arraste um Item do Compêndio ou de uma ficha</div>
+        </section>
+      </div>
+    </div>
+    {{else}}
+    <div class="na-body"><p class="na-empty">Nenhum arquétipo. Use "+ Novo arquétipo" ou "Trazer do padrão…".</p></div>
+    {{/if}}
+  </div>
+  <footer class="na-bottom">
+    {{#if dirty}}<span class="na-dirty">Mudanças não salvas</span>{{/if}}
+    <span class="na-sp"></span>
+    <button type="button" data-action="cancel">Descartar</button>
+    <button type="button" class="na-pri" data-action="save">Salvar</button>
+  </footer>
+</div>

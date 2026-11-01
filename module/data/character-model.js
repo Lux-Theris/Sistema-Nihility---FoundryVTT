@@ -26,6 +26,8 @@ import { bodyFunctionState, injuredMovement, legacyFunctionsFor, resolvePartVita
 import { originAttributeRows, originStatRows, originMovement, originScale } from "../species/species-rules.js";
 import { sumConditionalModifiers } from "../combat/conditional-modifiers.js";
 import { sourceSuppressed, suppressionLevel } from "../core/suppression.js";
+import { npcTierHp, NPC_TIERS } from "../npc/npc-generator-rules.js";
+import { getNpcTierConfig } from "../core/config.js";
 
 const fields = foundry.data.fields;
 
@@ -536,6 +538,17 @@ function deriveVitalStats(dataModel) {
   const baseHpMax = Math.max(formula.floor, Math.round(product(formula.hp) * formula.multiplier));
 
   hp.max = Math.max(1, baseHpMax + sumPermanentStatModifier(actor, "hp") + (hp.buffDelta || 0));
+  // Nível de NPC (M6): Lacaio = 1, Elite/Chefe multiplicam. Só em NPC e com o bloco ligado; o
+  // valor de antes fica em `hpMaxBeforeTier` (para a troca de nível e o "De onde vem").
+  hp.hpMaxBeforeTier = hp.max;
+  dataModel.npcTierApplied = "";
+  if (!dataModel.isPlayerCharacter && dataModel.npcTier && dataModel.npcTier !== "normal") {
+    const tiers = getNpcTierConfig();
+    if (tiers.enabled) {
+      hp.max = npcTierHp(hp.max, dataModel.npcTier, { elite: tiers.eliteHp, boss: tiers.bossHp });
+      dataModel.npcTierApplied = dataModel.npcTier;
+    }
+  }
   hp.value = Math.clamp(hp.value, 0, hp.max);
 
   if (!formula.energyEnabled) {
@@ -555,7 +568,11 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
       ...baseActorSchema(),
-      isPlayerCharacter: new fields.BooleanField({ required: true, initial: true })
+      isPlayerCharacter: new fields.BooleanField({ required: true, initial: true }),
+      /** Nível de NPC (M6): só vale com `isPlayerCharacter` false e o bloco "Níveis de NPC" ligado. */
+      npcTier: new fields.StringField({ required: false, initial: "normal", choices: NPC_TIERS }),
+      /** Arquétipo do Gerador de NPC que fez esta ficha (só informação). */
+      npcArchetype: new fields.StringField({ required: false, initial: "", blank: true })
     };
   }
 

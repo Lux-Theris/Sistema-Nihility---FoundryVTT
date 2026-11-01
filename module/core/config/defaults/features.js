@@ -199,6 +199,24 @@ export const FEATURES = {
       combatXpPercent: { label: "XP sugerida por derrotado (% do nível dele)", hint: "Com 25% e a fórmula padrão (100 × nível), um NPC de nível 4 vale 100 XP. Só sugestão: o Mestre edita.", type: "number", default: 25, min: 0 }
     }
   },
+  npcGenerator: {
+    setting: "npcGeneratorEnabled",
+    name: "Gerador de NPC",
+    hint: "Botão \"Gerar NPC…\" (Menu › Fichas, só o Mestre): escolhe um arquétipo (Ladrão, Engenheiro, Civil…), nível e quantidade e gera fichas com os pontos de um PJ daquele nível, Skills e equipamento sorteados da lista do arquétipo. Os arquétipos ficam em Configurações Gerais › Personagem.",
+    default: true
+  },
+  npcTiers: {
+    setting: "npcTiersEnabled",
+    name: "Níveis de NPC (Lacaio, Elite, Chefe)",
+    hint: "Campo só do Mestre na ficha de NPC. Lacaio: Vida 1 (cai com qualquer dano que passe pelas defesas). Elite e Chefe: a Vida máxima multiplica. Normal: como sempre. Desligado, todos contam como Normal e o nível salvo fica guardado.",
+    default: true,
+    options: {
+      npcEliteHp: { label: "Vida do Elite (×)", hint: "Multiplica a Vida máxima da fórmula.", type: "number", default: 2, min: 1 },
+      npcBossHp: { label: "Vida do Chefe (×)", hint: "Multiplica a Vida máxima da fórmula.", type: "number", default: 4, min: 1 },
+      npcEliteSkills: { label: "Skills a mais no Elite (gerador)", hint: "Sorteadas a mais da lista do arquétipo.", type: "number", default: 1, min: 0 },
+      npcBossSkills: { label: "Skills a mais no Chefe (gerador)", hint: "Sorteadas a mais da lista do arquétipo.", type: "number", default: 2, min: 0 }
+    }
+  },
   skillUndo: {
     setting: "skillUndoEnabled",
     name: "Desfazer uso de Skill",

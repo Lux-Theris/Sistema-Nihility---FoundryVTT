@@ -8,7 +8,8 @@
  * Só lê. As contas vêm de stat-explain.js (puro) sobre as mesmas listas que a preparação da ficha
  * soma (titleBonusSources/itemAttributeSources/statModifierSources em character-model.js).
  */
-import { SYSTEM_ID, MEU_SISTEMA, getAttributeLabel, getVitalFormula, getEnergyLabelForActor, isMovementEnabled, describeMovement } from "../core/config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getAttributeLabel, getVitalFormula, getEnergyLabelForActor, isMovementEnabled, describeMovement, getNpcTierConfig } from "../core/config.js";
+import { NPC_TIER_LABELS } from "../npc/npc-generator-rules.js";
 import { readEffectChanges, effectModes } from "../helpers/foundry-compat.js";
 import { titleBonusSources, itemAttributeSources, statModifierSources, originBonusSources } from "../data/character-model.js";
 import { conditionalModifierSources, buildModifierContext } from "../combat/conditional-context.js";
@@ -246,12 +247,18 @@ export class StatBreakdownApp extends HandlebarsApplicationMixin(ApplicationV2) 
         result: { label: "Soma", value: signed(ex.temporaryTotal) }
       });
     }
+    // Nível de NPC (M6): Lacaio = 1, Elite/Chefe multiplicam o que veio acima.
+    const tier = stat === "hp" ? actor.system.npcTierApplied : "";
+    const tierMax = tier ? vital.max : ex.max;
+    const tierRows = tier
+      ? [{ label: `Nível de NPC: ${NPC_TIER_LABELS[tier]}${tier === "minion" ? " (Vida 1)" : ` ×${tier === "elite" ? getNpcTierConfig().eliteHp : getNpcTierConfig().bossHp}`}`, value: String(vital.max) }]
+      : [];
     sections.push({
       title: "Máximo",
-      rows: ex.minApplied ? [{ label: `Abaixo de ${ex.min}: fica em ${ex.min}`, value: String(ex.min) }] : [],
-      result: { label: this.#statLabel(), value: ex.max }
+      rows: [...(ex.minApplied ? [{ label: `Abaixo de ${ex.min}: fica em ${ex.min}`, value: String(ex.min) }] : []), ...tierRows],
+      result: { label: this.#statLabel(), value: tierMax }
     });
-    if (ex.max !== vital.max) {
+    if (tierMax !== vital.max || (tier && ex.max !== vital.hpMaxBeforeTier)) {
       sections.push({ title: "Atenção", notes: [`A ficha mostra ${vital.max}; a diferença vem de algo que esta janela não reconhece (outro módulo mexendo no valor).`] });
     }
     // Regeneração por rodada (início do turno, em combate) — de onde vem cada %.

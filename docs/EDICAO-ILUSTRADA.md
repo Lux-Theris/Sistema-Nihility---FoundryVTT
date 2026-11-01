@@ -1,5 +1,7 @@
 # Edição ilustrada dos manuais
 
+Apresentação atualizada em 01/11/2026: **Nihility - Sistema modular de RPG**. Os gêneros aparecem como possibilidades de campanha. Os nomes dos presets da interface foram preservados para que as instruções continuem correspondendo ao Foundry.
+
 Referência: Nihility RPG System 1.78.0, 31/10/2026. Os manuais Markdown e `img/` são as fontes; os PDFs ficam em `output/pdf/`. A edição acrescenta criação guiada, exemplos, orientações de condução e uma aventura introdutória. Não altera as regras implementadas.
 
 Revisão de texto: explicações dos oito Atributos, distinção entre Atributo e Skill e entre tier e nível, e definição dos cinco tiers conforme esclarecimento do autor. Extra concede memória muscular ou conhecimento de capacidades humanas reais, com treino necessário para consolidar e desenvolver o domínio; o exemplo de Karatê nível 1 fica acima de um faixa branca do nosso mundo, sem equivaler a um mestre. Normal introduz o sobrenatural; Racial identifica um poder da Espécie; Único expressa personalidade, emoções e vontade; Ultimate controla aspectos da realidade. A hierarquia entre Única e Ultimate é explicada sem criar percentuais ou imunidades automáticas.
@@ -16,7 +18,19 @@ O script converte os SVGs e otimiza as artes em JPEGs intermediários em `tmp/pd
 
 ## Artes e créditos
 
-Sistema de Lux. Diagramas SVG preexistentes do projeto. As imagens de interface são esquemas explicativos e não capturas de um mundo em execução. As três artes raster desta edição foram geradas com a ferramenta integrada ImageGen, sem usar a alternativa CLI/API e sem imagens de referência de terceiros.
+Sistema de Lux. Diagramas SVG preexistentes do projeto. As imagens de interface são esquemas explicativos e não capturas de um mundo em execução. As artes raster foram geradas com a ferramenta integrada ImageGen, sem usar a alternativa CLI/API e sem imagens de referência de terceiros.
+
+A ampliação visual inclui oito artes novas, com prompts completos em `artes-modulares.json`:
+
+- `img/capa-jogador-modular.png` e `img/capa-mestre-modular.png`: novas capas que apresentam diferentes possibilidades de mundo.
+- `img/treino-memoria.png`: prática de Karatê, memória muscular e aprendizado.
+- `img/investigacao-contemporanea.png`: Percepção e Furtividade em um cenário contemporâneo.
+- `img/barreira-protecao.png`: proteção dos aliados numa cena de fantasia.
+- `img/tripulacao-espacial.png`: postos e decisões compartilhadas numa emergência espacial.
+- `img/poder-unico.png`: exemplo de um poder que expressa a vontade pessoal de proteger.
+- `img/poder-ultimate.png`: controle do tempo como exemplo de um possível aspecto da realidade.
+
+As legendas diferenciam exemplos visuais de regras. As antigas capas abaixo permanecem como histórico de arte, mas os PDFs atuais usam as capas modulares.
 
 - `img/capa-jogador.png`: companhia de aventureiros diante de uma cidadela, portal e nave distante.
 - `img/capa-mestre.png`: observador moldando um mundo arcano numa mesa astronômica.

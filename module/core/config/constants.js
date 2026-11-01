@@ -9,6 +9,7 @@ import { PHYSICAL_SUBTYPES, DEFAULT_DAMAGE_ELEMENTS, SCIFI_DAMAGE_ELEMENTS, DEFA
 import { DEFAULT_SHIP_SIZES, DEFAULT_VEHICLE_SIZES, MODULE_ROLES, DEFAULT_MODULE_CATEGORIES, SCIFI_MODULE_CATEGORIES, DEFAULT_SHIP_CLASSES, DEFAULT_VEHICLE_CLASSES, DEFAULT_CREW_ROLES, MODULE_SIZE_PRESETS } from "./defaults/vessels.js";
 import { FEATURES, CAMPAIGN_PRESETS } from "./defaults/features.js";
 import { DEFAULT_CURRENCIES, DEFAULT_SCALES } from "./defaults/misc.js";
+import { DEFAULT_NPC_ARCHETYPES, NPC_NAME_TABLES, NPC_ARCHETYPE_GROUP_LABELS } from "./defaults/npc.js";
 export { PHYSICAL_SUBTYPES, RADIATION_ELEMENT } from "./defaults/elements.js";
 
 export const SYSTEM_ID = "nihility-rpg-system";
@@ -30,6 +31,7 @@ export const MEU_SISTEMA = {
     starshipEnergyLabel: "starshipEnergyLabel",
     speciesPresetsData: "speciesPresetsData",
     heritagesData: "heritagesData",
+    npcArchetypesData: "npcArchetypesData",
     bodyFunctionsData: "bodyFunctionsData",
     attributePointsStarting: "attributePointsStarting",
     attributePointsPerLevel: "attributePointsPerLevel",
@@ -635,6 +637,10 @@ export const MEU_SISTEMA = {
   DEFAULT_CURRENCIES,
 
   DEFAULT_HERITAGES,
+  // Gerador de NPC (defaults/npc.js).
+  DEFAULT_NPC_ARCHETYPES,
+  NPC_NAME_TABLES,
+  NPC_ARCHETYPE_GROUP_LABELS,
 
   SPECIES_GROUP_LABELS: {
     fantasia: "Fantasia",

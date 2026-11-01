@@ -63,6 +63,13 @@
           <input type="checkbox" name="system.isPlayerCharacter" {{#if system.isPlayerCharacter}}checked{{/if}}/> PJ
         </label>
         {{/if}}
+        {{#if npcTierOptions}}
+        <label class="npc-tier-select" title="Nível de NPC (só o Mestre vê). Lacaio: Vida 1. Elite e Chefe: a Vida máxima multiplica (Módulos do Sistema › Níveis de NPC).">NPC
+          <select name="system.npcTier">
+            {{#each npcTierOptions}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}
+          </select>
+        </label>
+        {{/if}}
 
         {{#if titlesEnabled}}
         <span class="chip violet">{{titles.length}} Título(s) sempre ativo(s)</span>

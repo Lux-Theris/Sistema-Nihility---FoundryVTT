@@ -8,6 +8,7 @@ import { MEU_SISTEMA, SYSTEM_ID } from "./constants.js";
 import { getFeatureOption } from "./features.js";
 import { normalizeLightConfig } from "./rules.js";
 import { createRawCache, memoByObject } from "./cache.js";
+import { normalizeArchetype } from "../../npc/npc-generator-rules.js";
 
 const rawCache = createRawCache();
 
@@ -248,6 +249,31 @@ export function getActiveHeritages() {
     }
     return MEU_SISTEMA.DEFAULT_HERITAGES;
   });
+}
+
+/**
+ * Arquétipos do Gerador de NPC (setting > padrão, MEU_SISTEMA.DEFAULT_NPC_ARCHETYPES), cada um
+ * normalizado (pesos de todos os atributos, chaves das Skills/itens). Não altere o que volta.
+ * @returns {object[]}
+ */
+export function getActiveNpcArchetypes() {
+  return cachedCatalog("npcArchetypesData", raw => {
+    let list = null;
+    try {
+      if (raw) {
+        const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+        if (Array.isArray(parsed)) list = parsed.filter(a => a?.id || a?.label);
+      }
+    } catch (err) {
+      /* setting inválida — cai no padrão */
+    }
+    return defaultNpcArchetypes(list ?? MEU_SISTEMA.DEFAULT_NPC_ARCHETYPES);
+  });
+}
+
+/** Lista de arquétipos (de fábrica, se nada vier) normalizada. */
+export function defaultNpcArchetypes(list = MEU_SISTEMA.DEFAULT_NPC_ARCHETYPES) {
+  return list.map(a => normalizeArchetype(a, MEU_SISTEMA.COMBAT_ATTRIBUTES));
 }
 
 /**

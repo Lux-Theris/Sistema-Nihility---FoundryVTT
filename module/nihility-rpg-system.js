@@ -58,6 +58,7 @@ import { registerEffectBadges, registerSystemEffectIcons, migrateSystemEffectIco
 import { registerVoiceBanner } from "./core/voice-banner.js";
 import { registerEndCombat } from "./apps/end-combat.js";
 import { registerSkillUndo, renderSkillUndo } from "./skills/skill-undo.js";
+import { registerNpcTierHooks } from "./npc/npc-generator.js";
 import { registerHotbarMacros, useItemFromHotbar } from "./core/hotbar.js";
 import { registerIncapacitation, tickIncapacitation, isDead } from "./combat/incapacitation.js";
 import { tickContagion } from "./combat/contagion.js";
@@ -107,7 +108,9 @@ Hooks.once("init", () => {
     // Overhaul de Naves, Fase 7 — rode via macro na hotbar pra pedir reparo de Módulo/Nave.
     requestShipRepair: () => requestShipRepair(),
     // Macro criada ao arrastar uma Skill/arma da ficha para a hotbar (ver core/hotbar.js).
-    useItem: uuid => useItemFromHotbar(uuid)
+    useItem: uuid => useItemFromHotbar(uuid),
+    // Gerador de NPC por arquétipo (só o Mestre).
+    generateNpc: async () => (await import("./apps/npc-generator.js")).openNpcGenerator()
   };
 
   registerSystemSettings();
@@ -180,6 +183,7 @@ Hooks.once("init", () => {
   registerVoiceBanner();
   registerEndCombat();
   registerSkillUndo();
+  registerNpcTierHooks();
   registerHotbarMacros();
   registerIncapacitation();
   registerEnvironment();

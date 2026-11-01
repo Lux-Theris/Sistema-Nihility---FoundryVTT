@@ -118,6 +118,18 @@
     <div class="nm-pane {{#unless (eq activeTab "tools")}}hidden{{/unless}}">
       <div class="nm-content-head"><h2>Ferramentas de Administração</h2></div>
       <div class="nm-card-grid">
+        <div class="nm-feature-card">
+          <div class="nm-icon-badge gold"><i class="fas fa-scroll"></i></div>
+          <h4>Regras desta mesa</h4>
+          <p>Gera (ou atualiza) um Diário com as regras ligadas neste mundo e os números da mesa, para os jogadores lerem. A página "Notas da mesa" é sua e nunca é reescrita.</p>
+          <button class="nm-card-button" data-action="runAction" data-menu-action="table-rules">Gerar / Atualizar</button>
+        </div>
+        <div class="nm-feature-card">
+          <div class="nm-icon-badge gold"><i class="fas fa-table-list"></i></div>
+          <h4>Painel do combate</h4>
+          <p>Todos do combate numa tabela: Vida, Escudo, Mana, Condições, Skills Ativas e Deslocamento, atualizando sozinho.</p>
+          <button class="nm-card-button" data-action="runAction" data-menu-action="combat-panel">Abrir</button>
+        </div>
         {{#if encounterSimEnabled}}
         <div class="nm-feature-card">
           <div class="nm-icon-badge gold"><i class="fas fa-scale-unbalanced"></i></div>

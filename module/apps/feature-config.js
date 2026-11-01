@@ -20,7 +20,7 @@ export class FeatureConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
     tag: "form",
     window: { title: "Configurar Módulos do Sistema" },
     classes: [SYSTEM_ID, "nihility-config-app", "nihility-feature-config"],
-    position: { width: 620, height: "auto" },
+    position: { width: 680, height: 760 },
     actions: {
       applyPreset: FeatureConfigApp.#onApplyPreset,
       save: FeatureConfigApp.#onSave
@@ -41,6 +41,10 @@ export class FeatureConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
       key,
       name: feature.name,
       hint: feature.hint,
+      // K4: uma frase por bloco; o hint longo e as opções ficam no "mais ▸".
+      short: feature.short || feature.hint,
+      heavy: Boolean(feature.heavy),
+      group: feature.group ?? MEU_SISTEMA.FEATURES[feature.parent]?.group ?? "gm",
       parent: feature.parent ?? null,
       enabled: isFeatureEnabled(key),
       // O estado CRU da setting, sem herdar o pai: uma sub-feature ligada sob um pai desligado
@@ -58,15 +62,22 @@ export class FeatureConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
       }))
     }));
 
-    context.features = entries.filter(e => !e.parent).map(parent => ({
-      ...parent,
-      children: entries.filter(e => e.parent === parent.key)
-    }));
+    // Grupos por assunto (Personagem, Combate, Mundo, Ferramentas do Mestre), com a contagem ligada.
+    // Sub-blocos ficam recuados logo abaixo do pai.
+    context.groups = MEU_SISTEMA.FEATURE_GROUPS.map(group => {
+      const parents = entries.filter(e => !e.parent && e.group === group.id);
+      const features = parents.map(parent => ({ ...parent, children: entries.filter(e => e.parent === parent.key) }));
+      const all = features.flatMap(f => [f, ...f.children]);
+      return { ...group, features, on: all.filter(f => f.checked).length, total: all.length };
+    }).filter(g => g.features.length);
+    context.onCount = entries.filter(e => e.checked).length;
+    context.total = entries.length;
 
     context.presets = Object.entries(MEU_SISTEMA.CAMPAIGN_PRESETS).map(([key, preset]) => ({
       key,
       label: preset.label,
-      hint: preset.hint
+      hint: preset.hint,
+      light: Boolean(preset.light)
     }));
 
     debugLog(`${SYSTEM_ID} | FeatureConfigApp._prepareContext`);

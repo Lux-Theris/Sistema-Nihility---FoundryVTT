@@ -289,3 +289,75 @@
 .nihility-encounter-add .es-add { display: flex; flex-direction: column; gap: 8px; color: var(--nihility-text); }
 .nihility-encounter-add .es-add label { display: flex; flex-direction: column; gap: 4px; color: var(--nihility-text-dim); font-size: 12px; }
 .nihility-sim-btn { height: auto; min-height: 0; line-height: normal; width: auto; padding: 3px 8px; margin: 4px; font-size: 12px; border: 1px solid var(--nihility-gold); border-radius: 4px; color: var(--nihility-gold); background: rgba(232, 193, 112, 0.06); }
+
+/* ------------------------------------------------ Módulos do Sistema enxuto (K4) e "Deixar leve" (K2) */
+.nihility-feature-config .fc-count { color: var(--nihility-text); font-weight: 600; }
+.nihility-feature-config .fc-presets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.nihility-feature-config .fc-preset { height: auto; min-height: 0; line-height: normal; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 7px 10px; text-align: left; border: 1px solid var(--nihility-border); border-radius: 6px; background: var(--nihility-bg-panel); color: var(--nihility-text); cursor: pointer; }
+.nihility-feature-config .fc-preset b { font-size: 12.5px; }
+.nihility-feature-config .fc-preset small { font-size: 10.5px; line-height: 1.35; color: var(--nihility-text-faint); font-weight: 400; }
+.nihility-feature-config .fc-preset:hover { border-color: var(--nihility-accent); }
+.nihility-feature-config .fc-preset.light { border-color: rgba(110, 231, 160, 0.55); background: rgba(110, 231, 160, 0.06); }
+.nihility-feature-config .fc-preset.light b { color: var(--nihility-ok); }
+.nihility-feature-config .fc-group { margin: 12px 0 4px; font: 600 10.5px var(--nihility-font-data); letter-spacing: 0.08em; text-transform: uppercase; color: var(--nihility-text-faint); }
+.nihility-feature-config .fc-group span { text-transform: none; letter-spacing: 0; font-family: var(--nihility-font); color: var(--nihility-text-dim); }
+.nihility-feature-config .fc-line { display: flex; align-items: flex-start; gap: 8px; color: var(--nihility-text); }
+.nihility-feature-config .fc-line input[type="checkbox"] { margin-top: 3px; flex: 0 0 auto; }
+.nihility-feature-config .fc-short { font-size: 12px; line-height: 1.35; color: var(--nihility-text-dim); }
+.nihility-feature-config .fc-heavy { margin-left: 6px; font: 600 9.5px var(--nihility-font-data); padding: 0 6px; border-radius: 999px; border: 1px solid rgba(255, 207, 92, 0.5); color: var(--nihility-warn); vertical-align: middle; }
+.nihility-feature-config .fc-more { margin: 2px 0 0 26px; }
+.nihility-feature-config .fc-more > summary { cursor: pointer; font-size: 11px; color: var(--nihility-accent); width: max-content; list-style: none; }
+.nihility-feature-config .fc-more > summary::-webkit-details-marker { display: none; }
+.nihility-feature-config .fc-more > summary::after { content: " ▸"; }
+.nihility-feature-config .fc-more[open] > summary::after { content: " ▾"; }
+.nihility-feature-config .fc-more > .feature-hint { margin: 4px 0 0; }
+.nihility-feature-config .fc-more .feature-options { margin-left: 0; }
+.nihility-feature-config .fc-child { color: var(--nihility-text); }
+.nihility-feature-config .fc-child.is-off { opacity: 0.55; }
+.nihility-feature-config .fc-child.is-inherited-off { opacity: 0.4; }
+
+/* ------------------------------------------------ Ficha do jogador enxuta (K3) */
+.nihility-sheet .block.is-empty-gm { border-style: dashed; opacity: 0.8; }
+.nihility-sheet .trim-tag { margin-left: 8px; font: 500 10px var(--nihility-font-data); text-transform: none; letter-spacing: 0; color: var(--nihility-text-faint); border: 1px dashed var(--nihility-border); border-radius: 999px; padding: 0 7px; }
+.nihility-sheet .sheet-tabs .item.is-empty-gm { opacity: 0.6; font-style: italic; }
+.nihility-sheet .trim-foot { margin: 6px 2px; font-size: 12px; color: var(--nihility-text-faint); }
+.nihility-sheet .trim-foot a { color: var(--nihility-accent); cursor: pointer; }
+
+/* ------------------------------------------------ Painel do combate (H10) e Regras desta mesa (L6) */
+.nihility-combat-panel .window-content { padding: 0; background: var(--nihility-bg-dark); color: var(--nihility-text); }
+.nihility-combat-panel button { height: auto; min-height: 0; line-height: normal; width: auto; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--nihility-border); background: var(--nihility-bg-panel-alt); color: var(--nihility-text); font-size: 11.5px; }
+.nihility-combat-panel .cp-body { height: 100%; overflow: auto; padding: 10px 12px; }
+.nihility-combat-panel .cp-head { margin: 0 0 8px; font-size: 13px; color: var(--nihility-text-dim); }
+.nihility-combat-panel .cp-head b { color: var(--nihility-gold); }
+.nihility-combat-panel .cp-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 0; background: transparent; border: none; }
+.nihility-combat-panel .cp-table th { font: 500 10px var(--nihility-font-data); letter-spacing: 0.06em; text-transform: uppercase; color: var(--nihility-text-faint); text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--nihility-border); background: transparent; }
+.nihility-combat-panel .cp-table td { padding: 6px 8px; border-bottom: 1px solid var(--nihility-border-soft); vertical-align: middle; color: var(--nihility-text); }
+.nihility-combat-panel .cp-table tr { cursor: pointer; }
+.nihility-combat-panel .cp-table tr:nth-child(even) { background: transparent; }
+.nihility-combat-panel .cp-table tr.turn td { background: rgba(232, 193, 112, 0.08); }
+.nihility-combat-panel .cp-table tr.turn td:first-child { box-shadow: inset 3px 0 0 var(--nihility-gold); }
+.nihility-combat-panel .cp-table tr.down td, .nihility-combat-panel .cp-table tr.defeated td { opacity: 0.7; }
+.nihility-combat-panel .cp-who { display: flex; align-items: center; gap: 7px; }
+.nihility-combat-panel .cp-pt { width: 26px; height: 26px; border-radius: 5px; border: 2px solid var(--nihility-accent); object-fit: cover; }
+.nihility-combat-panel .cp-pt.foe { border-color: #ff8a80; }
+.nihility-combat-panel .cp-name { color: var(--nihility-text); border-bottom: 1px dashed var(--nihility-text-faint); cursor: pointer; }
+.nihility-combat-panel .cp-hidden { color: var(--nihility-text-faint); }
+.nihility-combat-panel .cp-dim { color: var(--nihility-text-faint); font-size: 11.5px; }
+.nihility-combat-panel .cp-dead { font: 600 10px var(--nihility-font-data); color: var(--nihility-danger); }
+.nihility-combat-panel .cp-n { font-family: var(--nihility-font-data); font-size: 12px; }
+.nihility-combat-panel .cp-bar { display: inline-block; vertical-align: middle; width: 90px; height: 7px; border-radius: 4px; background: #262b3f; overflow: hidden; margin-right: 6px; }
+.nihility-combat-panel .cp-bar i { display: block; height: 100%; background: var(--nihility-hp); }
+.nihility-combat-panel .cp-bar.mp i { background: #c084fc; }
+.nihility-combat-panel .cp-fall { font: 600 10.5px var(--nihility-font-data); color: var(--nihility-danger); border: 1px solid rgba(255, 92, 92, 0.55); border-radius: 999px; padding: 0 6px; }
+.nihility-combat-panel .cp-effects { white-space: nowrap; }
+.nihility-combat-panel .cp-ic { position: relative; display: inline-block; width: 20px; height: 20px; margin-right: 5px; }
+.nihility-combat-panel .cp-ic img { width: 20px; height: 20px; border: none; border-radius: 3px; background: #262b3f; }
+.nihility-combat-panel .cp-ic b { position: absolute; right: -5px; bottom: -4px; font: 700 8.5px var(--nihility-font-data); border-radius: 999px; padding: 0 3px; background: var(--nihility-warn); color: #10121a; }
+.nihility-combat-panel .cp-ic b.anchor { background: var(--nihility-accent); }
+.nihility-combat-panel .cp-ic b.danger { background: var(--nihility-danger); color: #fff; }
+.nihility-combat-panel .cp-ic b.radiation { background: #c6ff00; }
+.nihility-combat-panel .cp-act { font-size: 11.5px; }
+.nihility-combat-panel .cp-act em { font-style: normal; color: #c084fc; }
+.nihility-combat-panel .cp-note { margin: 8px 0 0; font-size: 11.5px; color: var(--nihility-text-faint); }
+.nihility-combat-panel .cp-empty { color: var(--nihility-text-faint); font-style: italic; padding: 20px; text-align: center; }
+.tr-num { font-family: var(--nihility-font-data); }

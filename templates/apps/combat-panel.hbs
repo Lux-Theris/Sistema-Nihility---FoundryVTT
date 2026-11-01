@@ -1,0 +1,36 @@
+<div class="cp-root">
+  <div class="cp-body">
+    {{#if hasCombat}}
+    <p class="cp-head">Rodada {{round}}{{#if turnName}} · vez de <b>{{turnName}}</b>{{/if}}</p>
+    <table class="cp-table">
+      <thead><tr><th>Init.</th><th>Quem</th><th>Vida</th><th>Escudo</th><th>Mana</th><th>Condições</th><th>Skills Ativas</th><th>Desloc.</th><th></th></tr></thead>
+      <tbody>
+        {{#each rows as |r|}}
+        <tr class="{{#if r.isTurn}}turn{{/if}} {{#if r.defeated}}defeated{{/if}} {{#if r.fallen}}down{{/if}}" data-action="focusToken" data-token-id="{{r.tokenId}}" data-scene-id="{{r.sceneId}}">
+          <td class="cp-n">{{r.initiative}}</td>
+          <td>
+            <span class="cp-who">
+              <img src="{{r.img}}" class="cp-pt {{#if r.friendly}}ally{{else}}foe{{/if}}" alt="">
+              <a class="cp-name" data-action="openSheet" data-actor-uuid="{{r.actorUuid}}" title="Abrir a ficha">{{r.name}}</a>
+              {{#if r.hidden}}<i class="fa-solid fa-eye-slash cp-hidden" title="Token escondido"></i>{{/if}}
+              {{#if r.tier}}<span class="cp-dim">{{r.tier}}</span>{{/if}}
+              {{#if r.defeated}}<span class="cp-dead">derrotado</span>{{/if}}
+            </span>
+          </td>
+          <td><span class="cp-bar"><i style="width: {{r.hpPercent}}%;"></i></span><span class="cp-n">{{r.hpText}}</span>{{#if r.fallen}} <span class="cp-fall">{{r.fallen}}</span>{{/if}}</td>
+          <td class="cp-n">{{#if r.shield}}{{r.shield}}{{else}}—{{/if}}</td>
+          <td>{{#if r.energyText}}<span class="cp-bar mp"><i style="width: {{r.energyPercent}}%;"></i></span><span class="cp-n">{{r.energyText}}</span>{{else}}<span class="cp-dim">—</span>{{/if}}</td>
+          <td class="cp-effects">{{#each r.effects as |e|}}<span class="cp-ic" title="{{e.name}}"><img src="{{e.img}}" alt="">{{#if e.badge}}<b class="{{e.tone}}">{{e.badge}}</b>{{/if}}</span>{{else}}<span class="cp-dim">—</span>{{/each}}</td>
+          <td class="cp-act">{{#each r.actives as |a|}}<div>{{a.label}} <em>−{{a.cost}}/rod.</em></div>{{else}}<span class="cp-dim">—</span>{{/each}}</td>
+          <td class="cp-n">{{#if r.movement}}{{r.movement}}{{else}}—{{/if}}</td>
+          <td><button type="button" data-action="openEffects" data-actor-uuid="{{r.actorUuid}}">Efeitos</button></td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    <p class="cp-note">Nome: abre a ficha · linha: centraliza o Token no mapa · atualiza sozinho.</p>
+    {{else}}
+    <p class="cp-empty">Nenhum combate com combatentes à mostra no rastreador.</p>
+    {{/if}}
+  </div>
+</div>

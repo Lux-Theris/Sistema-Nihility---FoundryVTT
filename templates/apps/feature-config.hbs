@@ -1,67 +1,94 @@
 <div class="config-editor-body">
   <p class="hint">
-    Ligue ou desligue cada bloco do sistema conforme a campanha deste mundo.
-    <strong>Desligar nunca apaga nada</strong> — o bloco só some da interface e para de aceitar
-    conteúdo novo; Atores, Itens e Compêndios que já existem continuam intactos, e religar
-    devolve tudo como estava.
+    Ligue ou desligue cada bloco conforme a campanha deste mundo. <strong>Desligar nunca apaga nada</strong>:
+    o bloco só some da interface; religar devolve tudo como estava. <span class="fc-count">{{onCount}} de {{total}} ligados</span>
   </p>
 
   <div class="feature-presets">
-    <p class="block-title">Presets de Campanha</p>
-    <div class="feature-preset-row">
+    <p class="block-title">Começar de</p>
+    <div class="fc-presets">
       {{#each presets as |preset|}}
-      <button type="button" class="feature-preset-btn" data-action="applyPreset" data-preset="{{preset.key}}" title="{{preset.hint}}">
-        {{preset.label}}
+      <button type="button" class="fc-preset {{#if preset.light}}light{{/if}}" data-action="applyPreset" data-preset="{{preset.key}}">
+        <b>{{preset.label}}</b><small>{{preset.hint}}</small>
       </button>
       {{/each}}
     </div>
   </div>
 
+  {{#each groups as |group|}}
+  <p class="fc-group">{{group.label}} <span>· {{group.on}} de {{group.total}}</span></p>
   <div class="feature-list">
-    {{#each features as |feature|}}
+    {{#each group.features as |feature|}}
     <div class="feature-row {{#unless feature.checked}}is-off{{/unless}}">
-      <label class="feature-main">
-        <input type="checkbox" data-feature="{{feature.key}}" {{#if feature.checked}}checked{{/if}}/>
+      <div class="fc-line">
+        <input type="checkbox" data-feature="{{feature.key}}" {{#if feature.checked}}checked{{/if}} aria-label="{{feature.name}}"/>
         <span class="feature-text">
-          <span class="feature-name">{{feature.name}}</span>
-          <span class="feature-hint">{{feature.hint}}</span>
+          <span class="feature-name">{{feature.name}}{{#if feature.heavy}}<span class="fc-heavy" title="O &quot;Deixar leve&quot; desliga este bloco">pesado</span>{{/if}}</span>
+          <span class="fc-short">{{feature.short}}</span>
         </span>
-      </label>
-
-      {{#if feature.options.length}}
-      <div class="feature-options">
-        {{#each feature.options as |option|}}
-        <label class="feature-option" title="{{option.hint}}">
-          <span class="feature-option-text">
-            <span class="feature-option-name">{{option.label}}</span>
-            <span class="feature-hint">{{option.hint}}</span>
-          </span>
-          {{#if option.isBoolean}}
-          <input type="checkbox" data-option="{{option.key}}" {{#if option.value}}checked{{/if}}/>
-          {{else}}
-          <input type="number" data-option="{{option.key}}" value="{{option.value}}" min="{{option.min}}" step="any"/>
-          {{/if}}
-        </label>
-        {{/each}}
       </div>
-      {{/if}}
+      <details class="fc-more">
+        <summary>mais</summary>
+        <p class="feature-hint">{{feature.hint}}</p>
+        {{#if feature.options.length}}
+        <div class="feature-options">
+          {{#each feature.options as |option|}}
+          <label class="feature-option" title="{{option.hint}}">
+            <span class="feature-option-text">
+              <span class="feature-option-name">{{option.label}}</span>
+              <span class="feature-hint">{{option.hint}}</span>
+            </span>
+            {{#if option.isBoolean}}
+            <input type="checkbox" data-option="{{option.key}}" {{#if option.value}}checked{{/if}}/>
+            {{else}}
+            <input type="number" data-option="{{option.key}}" value="{{option.value}}" min="{{option.min}}" step="any"/>
+            {{/if}}
+          </label>
+          {{/each}}
+        </div>
+        {{/if}}
+      </details>
 
       {{#if feature.children.length}}
       <div class="feature-children">
         {{#each feature.children as |child|}}
-        <label class="feature-main child {{#unless ../feature.checked}}is-inherited-off{{/unless}}">
-          <input type="checkbox" data-feature="{{child.key}}" {{#if child.checked}}checked{{/if}}/>
-          <span class="feature-text">
-            <span class="feature-name">{{child.name}}</span>
-            <span class="feature-hint">{{child.hint}}</span>
-          </span>
-        </label>
+        <div class="fc-child {{#unless feature.checked}}is-inherited-off{{/unless}} {{#unless child.checked}}is-off{{/unless}}">
+          <div class="fc-line">
+            <input type="checkbox" data-feature="{{child.key}}" {{#if child.checked}}checked{{/if}} aria-label="{{child.name}}"/>
+            <span class="feature-text">
+              <span class="feature-name">{{child.name}}{{#if child.heavy}}<span class="fc-heavy" title="O &quot;Deixar leve&quot; desliga este bloco">pesado</span>{{/if}}</span>
+              <span class="fc-short">{{child.short}}</span>
+            </span>
+          </div>
+          <details class="fc-more">
+            <summary>mais</summary>
+            <p class="feature-hint">{{child.hint}}</p>
+            {{#if child.options.length}}
+            <div class="feature-options">
+              {{#each child.options as |option|}}
+              <label class="feature-option" title="{{option.hint}}">
+                <span class="feature-option-text">
+                  <span class="feature-option-name">{{option.label}}</span>
+                  <span class="feature-hint">{{option.hint}}</span>
+                </span>
+                {{#if option.isBoolean}}
+                <input type="checkbox" data-option="{{option.key}}" {{#if option.value}}checked{{/if}}/>
+                {{else}}
+                <input type="number" data-option="{{option.key}}" value="{{option.value}}" min="{{option.min}}" step="any"/>
+                {{/if}}
+              </label>
+              {{/each}}
+            </div>
+            {{/if}}
+          </details>
+        </div>
         {{/each}}
       </div>
       {{/if}}
     </div>
     {{/each}}
   </div>
+  {{/each}}
 
   <footer class="sheet-footer">
     <button type="button" data-action="save"><i class="fas fa-save"></i> Salvar</button>

@@ -71,9 +71,9 @@
         </label>
         {{/if}}
 
-        {{#if titlesEnabled}}
+        {{#if titlesEnabled}}{{#unless trim.titles.hide}}
         <span class="chip violet">{{titles.length}} Título(s) sempre ativo(s)</span>
-        {{/if}}
+        {{/unless}}{{/if}}
 
         {{#if showPadButton}}
         <button type="button" class="pad-open-button {{#if padUnread}}has-unread{{/if}}" data-action="openPad" title="Abrir PAD{{#if padUnread}} — {{padUnread}} mensagem(ns) não lida(s){{/if}}">
@@ -164,7 +164,7 @@
   <nav class="sheet-tabs tabs">
     <a class="item {{#if (eq activeTab "ficha")}}active{{/if}}" data-action="selectTab" data-tab="ficha">Ficha</a>
     {{#if inventoryEnabled}}<a class="item {{#if (eq activeTab "inventory")}}active{{/if}}" data-action="selectTab" data-tab="inventory">Inventário</a>{{/if}}
-    {{#if anatomyEnabled}}<a class="item {{#if (eq activeTab "anatomy")}}active{{/if}}" data-action="selectTab" data-tab="anatomy">Anatomia</a>{{/if}}
+    {{#if anatomyEnabled}}{{#unless trim.anatomy.hide}}<a class="item {{#if (eq activeTab "anatomy")}}active{{/if}} {{#if trim.anatomy.gmEmpty}}is-empty-gm{{/if}}" data-action="selectTab" data-tab="anatomy" {{#if trim.anatomy.gmEmpty}}title="Sem partes do corpo: o jogador não vê esta aba"{{/if}}>Anatomia</a>{{/unless}}{{/if}}
     <a class="item {{#if (eq activeTab "origin")}}active{{/if}}" data-action="selectTab" data-tab="origin">Origem</a>
     <a class="item {{#if (eq activeTab "biography")}}active{{/if}}" data-action="selectTab" data-tab="biography">Biografia</a>
   </nav>
@@ -245,9 +245,9 @@
             {{/if}}{{/if}}
           </div>
 
-          {{#if titlesEnabled}}
-          <div class="block">
-            <p class="block-title">Títulos <span class="hint-inline" style="margin:0">sempre ativos</span></p>
+          {{#if titlesEnabled}}{{#unless trim.titles.hide}}
+          <div class="block {{#if trim.titles.gmEmpty}}is-empty-gm{{/if}}">
+            <p class="block-title">Títulos <span class="hint-inline" style="margin:0">sempre ativos</span>{{#if trim.titles.gmEmpty}}<span class="trim-tag">nenhum · o jogador não vê</span>{{/if}}</p>
             <ol class="item-list title-list">
               {{#each titles as |title|}}
               <li class="item-row" data-item-id="{{title.id}}">
@@ -261,7 +261,7 @@
             </ol>
             {{#if isGM}}<a class="item-create" data-action="createItem" data-type="title">+ Novo Título</a>{{/if}}
           </div>
-          {{/if}}
+          {{/unless}}{{/if}}
         </div>
 
         <!-- Coluna direita: Pontos de Habilidade, Habilidades, Itens, Economia -->
@@ -286,9 +286,9 @@
           </div>
           {{/if}}
 
-          {{#if skillPointsEnabled}}
-          <div class="block">
-            <p class="block-title">Pontos de Habilidade</p>
+          {{#if skillPointsEnabled}}{{#unless trim.skillPoints.hide}}
+          <div class="block {{#if trim.skillPoints.gmEmpty}}is-empty-gm{{/if}}">
+            <p class="block-title">Pontos de Habilidade{{#if trim.skillPoints.gmEmpty}}<span class="trim-tag">todos em 0 · o jogador não vê</span>{{/if}}</p>
             <div class="sp-ledger">
               {{#each config.SKILL_POINT_TIERS as |tier|}}
               <div class="sp-item" data-tier="{{tier}}">
@@ -308,7 +308,7 @@
               {{/each}}
             </div>
           </div>
-          {{/if}}
+          {{/unless}}{{/if}}
 
           <div class="block">
             <div class="row-between">
@@ -316,7 +316,7 @@
               {{#if skillFusionEnabled}}{{#if isGM}}<button type="button" class="skill-fuse-button" data-action="fuseSkills">⚡ Fundir Selecionadas</button>{{/if}}{{/if}}
             </div>
 
-            {{#each visibleTiers as |tier|}}
+            {{#each skillTierList as |tier|}}
             <fieldset class="skill-tier-group tier-{{tier}}">
               <legend>{{lookup ../tierLabels tier}}</legend>
               <ol class="item-list">
@@ -347,14 +347,17 @@
                 {{/each}}
               </ol>
             </fieldset>
+            {{else}}
+            <p class="hint-inline">Nenhuma Habilidade ainda.</p>
             {{/each}}
 
             {{#if isGM}}<a class="item-create" data-action="createItem" data-type="skill">+ Nova Habilidade (direto)</a>{{/if}}
             {{#if skillPointsEnabled}}<button type="button" class="skill-request-button" data-action="requestSkillCreation">+ Pedir Criação com Pontos</button>{{/if}}
           </div>
 
-          <div class="block">
-            <p class="block-title">{{#if inventoryEnabled}}Equipados <a class="hint-inline" data-action="selectTab" data-tab="inventory">(abrir o Inventário)</a>{{else}}Itens Gerais{{/if}}</p>
+          {{#unless trim.gear.hide}}
+          <div class="block {{#if trim.gear.gmEmpty}}is-empty-gm{{/if}}">
+            <p class="block-title">{{#if inventoryEnabled}}Equipados <a class="hint-inline" data-action="selectTab" data-tab="inventory">(abrir o Inventário)</a>{{else}}Itens Gerais{{/if}}{{#if trim.gear.gmEmpty}}<span class="trim-tag">nada · o jogador não vê</span>{{/if}}</p>
             <ol class="item-list">
               {{#each fichaGear as |item|}}
               <li class="item-row" data-item-id="{{item.id}}">
@@ -383,10 +386,11 @@
             </ol>
             {{#if isGM}}<a class="item-create" data-action="createItem" data-type="item">+ Novo Item</a>{{/if}}
           </div>
+          {{/unless}}
 
-          {{#if economyEnabled}}
-          <div class="block">
-            <p class="block-title">Economia</p>
+          {{#if economyEnabled}}{{#unless trim.economy.hide}}
+          <div class="block {{#if trim.economy.gmEmpty}}is-empty-gm{{/if}}">
+            <p class="block-title">Economia{{#if trim.economy.gmEmpty}}<span class="trim-tag">sem moedas · o jogador não vê</span>{{/if}}</p>
             <ol class="currency-list">
               {{#each currencies as |currency|}}
               <li class="currency-row">
@@ -402,8 +406,13 @@
             <button type="button" class="currency-send" data-action="sendCurrency">📤 Enviar Dinheiro</button>
             {{#unless isGM}}<p class="hint-inline">Valores só editáveis pelo Mestre — use Converter/Enviar.</p>{{/unless}}
           </div>
-          {{/if}}
+          {{/unless}}{{/if}}
 
+          {{#if trim.hiddenCount}}
+          <p class="trim-foot">{{trim.hiddenCount}} bloco(s) vazio(s) escondido(s) · <a data-action="toggleShowEmpty">mostrar</a></p>
+          {{else if trim.showAll}}{{#if trim.emptyCount}}
+          <p class="trim-foot"><a data-action="toggleShowEmpty">esconder os blocos vazios</a></p>
+          {{/if}}{{/if}}
         </div>
       </div>
     </div>

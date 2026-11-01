@@ -354,3 +354,65 @@ export const CAMPAIGN_PRESETS = {
     }
   }
 };
+
+/**
+ * Módulos do Sistema enxuto (backlog K4; canvas "Ferramentas da Mesa", prancha 1): o grupo de cada
+ * bloco, uma frase curta (o `hint` longo fica no "mais ▸") e a marca `heavy` — os blocos que o
+ * "Deixar leve" (K2) desliga. Sub-bloco herda o grupo do pai. Mesclado em FEATURES logo abaixo.
+ */
+export const FEATURE_GROUPS = [
+  { id: "character", label: "Personagem" },
+  { id: "combat", label: "Combate" },
+  { id: "world", label: "Mundo" },
+  { id: "gm", label: "Ferramentas do Mestre" }
+];
+
+const FEATURE_LAYOUT = {
+  titles: ["character", "Títulos dão bônus permanentes e aparecem na ficha."],
+  anatomy: ["character", "Partes do corpo com Vida própria, próteses e implantes."],
+  bodyPartInjury: ["character", "Perder uma parte tira a Função dela (segurar, andar, ver…).", true],
+  skillPoints: ["character", "Pontos para comprar e subir Skills, pedidos ao Mestre."],
+  attributePool: ["character", "Pontos de atributo por nível, distribuídos pelo jogador."],
+  skillFusion: ["character", "Juntar Skills numa só, mais forte (Única/Ultimate)."],
+  speciesEvolution: ["character", "A Espécie pode evoluir para outra (estilo Tensura)."],
+  inventory: ["character", "Espaços, contêineres e quanto cada um carrega."],
+  encumbrance: ["character", "Carregar demais reduz o Deslocamento.", true],
+  skillUseXp: ["character", "A Skill ganha XP pelo que faz quando é usada."],
+  statusConditions: ["combat", "Condições como Veneno e Lentidão, também pelo HUD do Token."],
+  resistances: ["combat", "Skills e Títulos que reduzem dano de um tipo, até a Imunidade."],
+  areaEffects: ["combat", "Skills em área: círculo, cone ou linha no mapa, e Zonas."],
+  structures: ["combat", "Skills que erguem paredes e barreiras no mapa."],
+  movement: ["combat", "Limita quantos metros o Token anda no turno.", true],
+  incapacitation: ["combat", "PJ em 0 cai e tem rodadas até a morte; NPC morre direto."],
+  scale: ["combat", "Pessoa contra Nave: o dano cresce ou diminui pela Escala.", true],
+  naturalRegen: ["combat", "Mana (e Vida, se configurado) volta um pouco a cada turno.", true],
+  skillUndo: ["combat", "O Mestre desfaz o último uso de uma Skill até o turno acabar."],
+  endOfCombat: ["combat", "Ao encerrar: tira efeitos que congelariam, dá XP e descanso."],
+  economy: ["world", "Moedas, conversão e transferência entre personagens."],
+  environment: ["world", "Perigos da cena ou de uma área, e a densidade de mana."],
+  radiation: ["world", "Lugares irradiam; ficar ali acumula e machuca.", true],
+  vessels: ["world", "Naves e Veículos com Módulos, Grid de Energia e tripulação."],
+  shipManeuver: ["world", "Naves se movem por casas e esquivam pela Rotação.", true],
+  pad: ["world", "O \"celular\" do personagem: Nave, Biblioteca e Mensagens."],
+  padShip: ["world", "Tela da Nave no PAD."],
+  padLibrary: ["world", "Favoritos pessoais e da Nave no PAD."],
+  padMessaging: ["world", "Conversas e grupos pelo PAD."],
+  aiAssistant: ["gm", "Criar e editar fichas, Skills e Itens com IA."],
+  npcGenerator: ["gm", "Fichas de NPC prontas a partir de um arquétipo."],
+  npcTiers: ["gm", "Lacaio, Elite e Chefe na ficha de NPC."],
+  skillAssist: ["gm", "Avisos e custo sugerido no editor de Skill."],
+  encounterSim: ["gm", "Diz se a luta está fácil, justa ou mortal antes de começar."]
+};
+
+for (const [key, [group, short, heavy]] of Object.entries(FEATURE_LAYOUT)) {
+  if (!FEATURES[key]) continue;
+  Object.assign(FEATURES[key], { group, short, heavy: Boolean(heavy) });
+}
+
+// "Deixar leve" (K2): vale por cima de qualquer gênero e só desliga os blocos marcados pesado.
+CAMPAIGN_PRESETS.leve = {
+  label: "Deixar leve",
+  light: true,
+  hint: "Qualquer gênero: desliga só os blocos marcados \"pesado\". Os outros ficam como estão.",
+  features: Object.fromEntries(Object.entries(FEATURES).filter(([, f]) => f.heavy).map(([key]) => [key, false]))
+};

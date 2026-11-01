@@ -671,6 +671,16 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
         openNpcGenerator();
         break;
       }
+      case "table-rules": {
+        const { generateTableRulesJournal } = await import("../core/table-rules-journal.js");
+        await generateTableRulesJournal();
+        break;
+      }
+      case "combat-panel": {
+        const { openCombatPanel } = await import("./combat-panel.js");
+        openCombatPanel();
+        break;
+      }
       case "encounter-sim": {
         const { openEncounterSim } = await import("./encounter-sim.js");
         openEncounterSim();

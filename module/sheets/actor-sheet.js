@@ -5,6 +5,7 @@ import { implantFits } from "../species/anatomy-rules.js";
 import { isSpeciesLocked } from "../species/species-rules.js";
 import { NPC_TIERS, NPC_TIER_LABELS } from "../npc/npc-generator-rules.js";
 import { templateGroups, templateFillSentence, skillFromTemplate } from "../skills/skill-assist.js";
+import { sheetTrim, allZero, shownSkillTiers } from "./sheet-trim-rules.js";
 import {
   SYSTEM_ID,
   MEU_SISTEMA,
@@ -175,6 +176,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     form: { submitOnChange: true, closeOnSubmit: false },
     actions: {
       selectTab: NihilityActorSheet.#onSelectTab,
+      toggleShowEmpty: NihilityActorSheet.#onToggleShowEmpty,
       createItem: NihilityActorSheet.#onItemCreate,
       editItem: NihilityActorSheet.#onItemEdit,
       deleteItem: NihilityActorSheet.#onItemDelete,
@@ -584,8 +586,48 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     );
     if (context.inventoryEnabled) context.inventory = inventoryContext(actor, { filter: this.inventoryFilter, sort: this.inventorySort });
 
+    // K3: o jogador vê só os blocos que têm alguma coisa; o Mestre vê tudo, marcado.
+    context.trim = sheetTrim({
+      isGM: game.user.isGM,
+      showAll: this.#showEmptyBlocks(),
+      empty: {
+        titles: Boolean(context.titlesEnabled) && !context.titles.length,
+        skillPoints: Boolean(context.skillPointsEnabled) && allZero(actor.system.skillPoints),
+        gear: !context.fichaGear.length,
+        economy: Boolean(context.economyEnabled) && allZero(actor.system.currencies),
+        anatomy: Boolean(context.anatomyEnabled) && !actor.items.some(i => i.type === "body_part")
+      }
+    });
+    context.skillTierList = shownSkillTiers(
+      context.visibleTiers,
+      Object.fromEntries(Object.entries(context.skillsByTier).map(([tier, list]) => [tier, list.length])),
+      { isGM: game.user.isGM, showAll: context.trim.showAll }
+    );
+    if (context.trim.anatomy.hide && this.activeTab === "anatomy") context.activeTab = this.activeTab = "ficha";
+
     debugLog(`${SYSTEM_ID} | NihilityActorSheet._prepareContext:`, actor.name);
     return context;
+  }
+
+  /** "mostrar" os blocos vazios nesta ficha, neste navegador (K3). */
+  #showEmptyBlocks() {
+    try {
+      return localStorage.getItem(`${SYSTEM_ID}.showEmpty.${this.actor.uuid}`) === "1";
+    } catch (err) {
+      return false;
+    }
+  }
+
+  static #onToggleShowEmpty(event) {
+    event.preventDefault();
+    try {
+      const key = `${SYSTEM_ID}.showEmpty.${this.actor.uuid}`;
+      if (localStorage.getItem(key) === "1") localStorage.removeItem(key);
+      else localStorage.setItem(key, "1");
+    } catch (err) {
+      /* armazenamento bloqueado: fica como está */
+    }
+    this.render();
   }
 
   /**

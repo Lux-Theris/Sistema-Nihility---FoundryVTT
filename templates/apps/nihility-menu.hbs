@@ -118,6 +118,14 @@
     <div class="nm-pane {{#unless (eq activeTab "tools")}}hidden{{/unless}}">
       <div class="nm-content-head"><h2>Ferramentas de Administração</h2></div>
       <div class="nm-card-grid">
+        {{#if encounterSimEnabled}}
+        <div class="nm-feature-card">
+          <div class="nm-icon-badge gold"><i class="fas fa-scale-unbalanced"></i></div>
+          <h4>Simulador de encontro</h4>
+          <p>Grupo contra oponentes: quantos golpes cada um aguenta e se a luta está fácil, justa, perigosa ou mortal. Não rola nada.</p>
+          <button class="nm-card-button" data-action="runAction" data-menu-action="encounter-sim">Abrir</button>
+        </div>
+        {{/if}}
         <div class="nm-feature-card">
           <div class="nm-icon-badge gold"><i class="fas fa-stethoscope"></i></div>
           <h4>Validar Mundo</h4>

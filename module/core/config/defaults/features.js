@@ -205,6 +205,12 @@ export const FEATURES = {
     hint: "Na ficha e no editor rápido de Skill: avisos do que não faz nada (Periódico em Força, área de tamanho 0, Escudo mantido sem ser Ativa…) e um Custo sugerido ao lado do Custo, calculado pelo que a Skill faz. Só sugere e avisa: nunca impede de salvar nem muda o Custo. Os Modelos de Skill da \"+ Nova Habilidade\" funcionam sempre.",
     default: true
   },
+  encounterSim: {
+    setting: "encounterSimEnabled",
+    name: "Simulador de encontro",
+    hint: "Ferramenta do Mestre: grupo contra oponentes, quantos golpes médios cada um aguenta do outro (com Escala, Defesa Mágica, Resistências, Escudo, elementos e Nível de NPC) e se a luta está fácil, justa, perigosa ou mortal. Abre pelo Menu › Ferramentas, pelo botão Simular do rastreador de combate e pelo Gerador de NPC. Não rola nada nem muda ficha nenhuma.",
+    default: true
+  },
   npcGenerator: {
     setting: "npcGeneratorEnabled",
     name: "Gerador de NPC",

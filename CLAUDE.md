@@ -23,7 +23,7 @@ node --test "test/*.test.mjs"                               # unit tests of the 
 
 **Check syntax in module mode, never with a bare `node --check file.js`.** There is no `package.json` declaring `"type": "module"`, so the bare form parses the file with Node's CommonJS/auto-detect path and lets ES-module-only early errors through. The one that shipped in 1.37: `item-sheet.js` imported `getActiveDamageElements` **twice in the same import list** — a SyntaxError for a module, invisible to the bare check — and because `nihility-rpg-system.js` imports the sheet, the whole module graph failed to evaluate: no `init`, no sheets registered, and the only symptom in Foundry was an empty "Ficha Padrão" list ("as fichas sumiram"). To check everything at once: `for f in $(find module -name '*.js'); do node --input-type=module --check < "$f" || echo "$f"; done`.
 
-The suite is split by subject into `test/*.test.mjs` (dice-progression, combat-damage, combat-effects, skills, species-anatomy, ships, economy, environment, movement-area, world-config, ai, npc-generator, skill-assist, plus gm-relay, anchored-targets, skill-use-flow, html); each file starts with `import "./setup.mjs";` — **put a new test in the file of its subject, or a new file**, there is no single `rules.test.mjs` any more (split in 1.78). It covers only what is callable without Foundry — dice pool and initiative formula, resistance curve, XP curve and Resistance-XP gain, the Skill level cycle (`skillLevelBonuses`/`effectiveSkillCost`), damage scaling, module presets and structural damage, currency conversion, AI batch prompts, fusion snapshot, Skill-area geometry, floating-number deltas, the Skill sentence, XP por uso, consumables/charges/magazine/ammo swap — with `test/setup.mjs` stubbing the handful of Foundry globals the import path touches (`Math.clamp`, `foundry.utils.*`, `foundry.data.fields`/`abstract.TypeDataModel`, `ui.notifications`). Note `game.settings.get` is stubbed to **throw**, on purpose: that is the real boot-order path every config reader has to survive, so the suite exercises each reader's default-fallback branch. A test that needs a *configured* value has to pass it in as an argument — which is a good reason to keep new rule functions taking their tuning as parameters. Every pure rule function currently has coverage; keep it that way when you add one. **The bar for adding a test there is that the function needs no Actor/Item/canvas** — if a test would need to fake a Document, extract the pure part instead of growing the stub. Everything involving documents, sheets or canvas is still manual load-testing inside a running world.
+The suite is split by subject into `test/*.test.mjs` (dice-progression, combat-damage, combat-effects, skills, species-anatomy, ships, economy, environment, movement-area, world-config, ai, npc-generator, skill-assist, encounter, plus gm-relay, anchored-targets, skill-use-flow, html); each file starts with `import "./setup.mjs";` — **put a new test in the file of its subject, or a new file**, there is no single `rules.test.mjs` any more (split in 1.78). It covers only what is callable without Foundry — dice pool and initiative formula, resistance curve, XP curve and Resistance-XP gain, the Skill level cycle (`skillLevelBonuses`/`effectiveSkillCost`), damage scaling, module presets and structural damage, currency conversion, AI batch prompts, fusion snapshot, Skill-area geometry, floating-number deltas, the Skill sentence, XP por uso, consumables/charges/magazine/ammo swap — with `test/setup.mjs` stubbing the handful of Foundry globals the import path touches (`Math.clamp`, `foundry.utils.*`, `foundry.data.fields`/`abstract.TypeDataModel`, `ui.notifications`). Note `game.settings.get` is stubbed to **throw**, on purpose: that is the real boot-order path every config reader has to survive, so the suite exercises each reader's default-fallback branch. A test that needs a *configured* value has to pass it in as an argument — which is a good reason to keep new rule functions taking their tuning as parameters. Every pure rule function currently has coverage; keep it that way when you add one. **The bar for adding a test there is that the function needs no Actor/Item/canvas** — if a test would need to fake a Document, extract the pure part instead of growing the stub. Everything involving documents, sheets or canvas is still manual load-testing inside a running world.
 
 **Version bump convention (always follow this):** `system.json`'s `"version"` is bumped **in the same commit as the change itself**, never as a separate follow-up commit. Every meaningful feature/fix commit carries its own bump. Foundry's update-check compares this field against the manifest URL, so without a bump, worlds never see new content as available — and keeping the bump inside the commit that earned it means a version always points at exactly one set of changes.
 
@@ -38,7 +38,7 @@ Code is grouped by subject, not by layer (reorganized in 1.53.1; file names did 
 | Folder | What lives there |
 |---|---|
 | `core/` | `config.js` (entry point that re-exports `core/config/*`: settings, FEATURES, catalogs and their readers — see below), `config/` (the split of config.js, with `config/defaults/` for factory data), `config-transfer.js`, `compendium.js`, `dice.js`, `roll-modifiers.js`, `voice-of-the-world.js`, `vfx.js`, `hotbar.js` (Skills/weapons/consumables on the hotbar) |
-| `combat/` | initiative (`combat.js`), `movement.js`, damage (`damage-rules.js` pure, `damage-roll.js` rolling + target reductions, `damage-apply.js` chat card), `resistance.js`, `antimagic.js`, Conditions (`conditions.js`, `conditional-*.js`), `effect-anchors.js`, `shield-pools.js`, `area-effects.js` + `area-geometry.js` (pure), `lights.js`, `stat-explain.js`, `floating-numbers.js` + `vital-deltas.js` (pure) |
+| `combat/` | initiative (`combat.js`), `movement.js`, damage (`damage-rules.js` pure, `damage-roll.js` rolling + target reductions, `damage-apply.js` chat card), `resistance.js`, `antimagic.js`, Conditions (`conditions.js`, `conditional-*.js`), `effect-anchors.js`, `shield-pools.js`, `area-effects.js` + `area-geometry.js` (pure), `lights.js`, `stat-explain.js`, `floating-numbers.js` + `vital-deltas.js` (pure), `encounter-sim.js` + `encounter-rules.js` (pure; Simulador de encontro) |
 | `skills/` | `skill-effects.js` ("Usar Habilidade": `useSkillEffect` + applying effects to one target / an area), `effect-targets.js` (where each effect target lands per Actor type), `skill-state.js` (active/invest paths, energy source), `effects-apply.js` (Active Effects, Conditions, periodic ticks), `upkeep.js` (Active Skills: anchors release, drain, Mana em 0), `sustained-shields.js`, `zones.js`, `skill-economy.js`, `skill-snapshot.js`, `skill-xp.js` + `skill-xp-rules.js` (pure; XP por uso), `skill-summary.js` (pure) + `skill-summary-ui.js` (a Skill numa frase), `skill-undo.js` + `skill-undo-rules.js` (pure) + `skill-use-context.js` (Desfazer uso), `skill-assist.js` + `skill-lint-rules.js`/`skill-cost-rules.js`/`skill-template-rules.js` (pure; editor de Skill assistido) |
 | `species/` | `species-rules.js` (pure), `species.js` (apply/preview) |
 | `structures/` | `structures.js`, `structure-geometry.js` (pure), `structure-render.js`, `structure-contact.js` |
@@ -461,6 +461,47 @@ The warnings and the suggested cost sit behind `FEATURES.skillAssist`, on by def
     - In the quick editor, **only for a new Skill** (`offerTemplates` = no `name` in `initialData`). Picking one clicks a hidden "template" dialog button, which closes the dialog and reopens it filled (`openSkillEditorDialog` loops through `__template`).
     - "Salvar como modelo" (GM) on the Skill sheet uses `templateFromSkill`.
   - The list editor is `apps/skill-templates-config.js`, found in Configurações Gerais › Personagem.
+
+### Simulador de encontro (1.82.0)
+
+The owner approved the Design artifact "Simulador de Encontro" with all three boards; build to it. It sits behind `FEATURES.encounterSim`, on by default. It is a GM tool only: it rolls nothing and changes no sheet.
+
+**Average hits: `combat/encounter-sim.js`.** It computes each attack's average hit against each target type through **the same path as real damage**, so the simulator and the table agree. Change the damage path and this follows by itself.
+- `averageRoll` of the formula;
+- × `damageScalingMultiplier`;
+- × the level's Power (Skills);
+- × `damageScaleFor`;
+- × `situationalDamageFactor`;
+- then `applyDamageReductions(…, {attacker, triggerConditions: false})`, which has no side effects with that flag. Its `traceRows` are the breakdown on board 2.
+
+**Attacks: `attackOptions`.** It lists damage Skills and Sub-Skills, and equipped weapons (with loaded ammo).
+- `buildSides` picks the attack with the highest damage per round against the other side, unless the user chose one with ▾.
+- An area attack hits `DEFAULT_AREA_TARGETS` (3), editable per unit.
+- `uses` = max Mana ÷ effective cost. A `fallback` free attack takes over when Mana runs out.
+
+**Rounds and verdict: `combat/encounter-rules.js`** (pure, tested).
+- `roundsToDefeat` simulates one side hitting with no reply: one attack each per round, focus on whoever falls fastest, area hitting up to N alive.
+- `roundsToDropEach` is the worst case: everyone on one PC.
+- `evaluateEncounter` gives the verdict:
+  - **easy:** win < first PC drop;
+  - **fair:** win ≤ drop + 1;
+  - **dangerous:** a PC drops first but the group wins;
+  - **deadly:** the group is wiped first.
+- `suggestAdjustment` tries one NPC tier step and ±1 count per opponent type, and returns the first change that reaches "fair".
+- Unit HP is `unitHp`: `hpMaxBeforeTier` with the NPC tier applied, plus the current Escudo.
+
+**Window: `apps/encounter-sim.js`.**
+- It opens with the players' PCs. Actors can be dragged in from the Directory, and "+ Selecionados no mapa" / "+ Ficha / arquétipo" add more. An archetype NPC is a **temporary unsaved Actor** (`temporaryActorFromDraft`).
+- Clicking a number shows the breakdown.
+- Ships and vehicles are left out for now (`canSimulate`).
+
+**Entry points:**
+- Menu › Ferramentas card;
+- the GM-only "Simular" button on the combat tracker (`registerEncounterSimTracker`, `renderCombatTracker`). It reads `ui.combat.viewed` **at click time**: the tracker may switch combats after rendering.
+- the NPC generator's "Testar contra o grupo" (drafts as temporary opponents);
+- `game.nihility.simulateEncounter()`.
+
+**Combat sides (`openEncounterSimFromCombat`):** the player-owned or FRIENDLY-disposition actors go on one side, and the rest, grouped by base actor with a count, on the other.
 
 ### Skills e armas na hotbar, e a Skill numa frase
 

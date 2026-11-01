@@ -1,0 +1,101 @@
+<div class="es-root">
+  <div class="es-body">
+    <div class="es-sides">
+      <section class="es-sec" data-drop-side="allies">
+        <header class="ally">Grupo · {{allies.length}}<span class="es-sp"></span><button type="button" data-action="addSelected" title="Acrescenta os Tokens de Personagem selecionados no mapa. Também dá para arrastar fichas do Diretório para cá.">+ Selecionados no mapa</button></header>
+        {{#each allies as |u|}}
+        <div class="es-unit">
+          <img class="es-pt ally" src="{{u.img}}" alt="">
+          <div class="es-um">
+            <div class="es-un">{{u.name}}</div>
+            <div class="es-ut">Nv {{u.level}} · Vida {{u.hpText}} ·
+              {{#if u.attackOptions.length}}
+              <select data-attack-for="{{u.key}}" aria-label="Ataque de {{u.name}}">{{#each u.attackOptions as |o|}}<option value="{{o.id}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>{{/each}}</select>
+              {{#if u.isArea}}<label class="es-area">alvos <input type="number" min="1" max="20" value="{{u.areaTargets}}" data-area-for="{{u.key}}" data-area-option="{{u.chosenId}}"></label>{{/if}}
+              {{else}}<em>sem ataque de dano</em>{{/if}}
+            </div>
+          </div>
+          <button type="button" data-action="remove" data-key="{{u.key}}" aria-label="Tirar {{u.name}}">×</button>
+        </div>
+        {{else}}
+        <p class="es-empty">Arraste fichas de PJ para cá, ou use "+ Selecionados no mapa".</p>
+        {{/each}}
+      </section>
+
+      <section class="es-sec" data-drop-side="foes">
+        <header class="foe">Oponentes · {{foes.length}}<span class="es-sp"></span><button type="button" data-action="addFoe">+ Ficha / arquétipo</button></header>
+        {{#each foes as |u|}}
+        <div class="es-unit">
+          <img class="es-pt foe" src="{{u.img}}" alt="">
+          <div class="es-um">
+            <div class="es-un">{{u.name}}
+              {{#if u.tierOptions}}<select class="es-tier" data-tier-for="{{u.key}}" aria-label="Nível de NPC">{{#each u.tierOptions as |t|}}<option value="{{t.id}}" {{#if t.selected}}selected{{/if}}>{{t.label}}</option>{{/each}}</select>{{/if}}
+            </div>
+            <div class="es-ut">Nv {{u.level}} · Vida {{u.hpText}}{{#if (gt u.count 1)}} cada{{/if}} ·
+              {{#if u.attackOptions.length}}
+              <select data-attack-for="{{u.key}}" aria-label="Ataque de {{u.name}}">{{#each u.attackOptions as |o|}}<option value="{{o.id}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>{{/each}}</select>
+              {{#if u.isArea}}<label class="es-area">alvos <input type="number" min="1" max="20" value="{{u.areaTargets}}" data-area-for="{{u.key}}" data-area-option="{{u.chosenId}}"></label>{{/if}}
+              {{else}}<em>sem ataque de dano</em>{{/if}}
+            </div>
+          </div>
+          <span class="es-qty"><button type="button" data-action="count" data-key="{{u.key}}" data-step="-1" aria-label="Menos um">−</button><span>{{u.count}}</span><button type="button" data-action="count" data-key="{{u.key}}" data-step="1" aria-label="Mais um">+</button></span>
+          <button type="button" data-action="remove" data-key="{{u.key}}" aria-label="Tirar {{u.name}}">×</button>
+        </div>
+        {{else}}
+        <p class="es-empty">Arraste fichas de NPC para cá, ou use "+ Ficha / arquétipo".</p>
+        {{/each}}
+      </section>
+    </div>
+
+    {{#if ready}}
+    <div class="es-verdict {{verdict.id}}">
+      <span class="es-vt">{{verdict.label}}</span>
+      <span class="es-vs">{{verdict.text}}{{#if verdict.suggestion}} <em>{{verdict.suggestion}}</em>{{/if}}</span>
+      <span class="es-scale">{{#each verdict.scale as |s|}}<span class="{{s.id}} {{#if s.on}}on{{/if}}">{{s.label}}</span>{{/each}}</span>
+    </div>
+
+    <section class="es-sec">
+      <header>Quantos golpes cada um aguenta<span class="es-sp"></span><span class="es-hint">clique num número para ver a conta</span></header>
+      <table class="es-table">
+        <thead><tr><th>Quem</th><th>Vida (+ Escudo)</th><th>Aguenta</th><th>Cai em, se todos focarem</th><th>Mana</th></tr></thead>
+        <tbody>
+          <tr class="es-grp ally"><td colspan="5">Grupo</td></tr>
+          {{#each rowsAllies as |r|}}
+          <tr>
+            <td>{{r.name}} <em>{{r.note}}</em></td>
+            <td class="es-n">{{r.hpText}}</td>
+            <td class="{{#if r.danger}}es-danger{{/if}}">{{#each r.cells as |c|}}<a class="es-cell {{#if c.danger}}es-danger{{/if}}" data-action="detail" data-attacker="{{c.attacker}}" data-target="{{c.target}}">{{c.text}}</a>{{#unless @last}} · {{/unless}}{{/each}}{{#if r.danger}} ⚠{{/if}}</td>
+            <td class="{{#if r.dropDanger}}es-danger{{/if}}">{{r.drop}}</td>
+            <td><em>{{r.mana}}</em></td>
+          </tr>
+          {{/each}}
+          <tr class="es-grp foe"><td colspan="5">Oponentes</td></tr>
+          {{#each rowsFoes as |r|}}
+          <tr>
+            <td>{{r.name}} <em>{{r.note}}</em></td>
+            <td class="es-n">{{r.hpText}}</td>
+            <td>{{#each r.cells as |c|}}<a class="es-cell" data-action="detail" data-attacker="{{c.attacker}}" data-target="{{c.target}}">{{c.text}}</a>{{#unless @last}} · {{/unless}}{{/each}}</td>
+            <td>{{r.drop}}</td>
+            <td><em>{{r.mana}}</em></td>
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
+    </section>
+
+    {{#if detail}}
+    <section class="es-sec es-detail">
+      <header>{{detail.title}}<span class="es-sp"></span><button type="button" data-action="closeDetail" aria-label="Fechar a conta">×</button></header>
+      {{#each detail.rows as |r|}}<div class="es-pr {{r.kind}}"><span>{{r.label}}</span><b>{{r.value}}</b></div>{{/each}}
+      <div class="es-pr"><span>{{detail.hpText}}</span><b></b></div>
+      <div class="es-pr res"><span>Aguenta</span><b>{{detail.hits}}</b></div>
+      <p class="es-foot">{{detail.foot}}</p>
+    </section>
+    {{/if}}
+    {{else}}
+    <p class="es-empty big">Ponha pelo menos um de cada lado.</p>
+    {{/if}}
+
+    <p class="es-note">É uma estimativa pela média: cada um faz um ataque por rodada; não rola dado, não joga a luta e não conta cura no meio, Condições, tática nem posição no mapa. Nave e Veículo ficam de fora por enquanto. Os jogadores não veem nada.</p>
+  </div>
+</div>

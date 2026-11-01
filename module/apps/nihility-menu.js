@@ -395,6 +395,7 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const isGM = game.user.isGM;
     context.isGM = isGM;
     context.npcGeneratorEnabled = isGM && isFeatureEnabled("npcGenerator");
+    context.encounterSimEnabled = isGM && isFeatureEnabled("encounterSim");
 
     // Jogador nunca cai numa aba GM-only, mesmo se essa era a última aba aberta (troca de usuário/re-render).
     if (!isGM && GM_ONLY_TABS.includes(this.activeTab)) this.activeTab = "fichas";
@@ -668,6 +669,11 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
       case "npc-generator": {
         const { openNpcGenerator } = await import("./npc-generator.js");
         openNpcGenerator();
+        break;
+      }
+      case "encounter-sim": {
+        const { openEncounterSim } = await import("./encounter-sim.js");
+        openEncounterSim();
         break;
       }
       case "skill-templates-config": {

@@ -59,6 +59,7 @@ import { registerVoiceBanner } from "./core/voice-banner.js";
 import { registerEndCombat } from "./apps/end-combat.js";
 import { registerSkillUndo, renderSkillUndo } from "./skills/skill-undo.js";
 import { registerNpcTierHooks } from "./npc/npc-generator.js";
+import { registerEncounterSimTracker } from "./apps/encounter-sim.js";
 import { registerHotbarMacros, useItemFromHotbar } from "./core/hotbar.js";
 import { registerIncapacitation, tickIncapacitation, isDead } from "./combat/incapacitation.js";
 import { tickContagion } from "./combat/contagion.js";
@@ -110,7 +111,9 @@ Hooks.once("init", () => {
     // Macro criada ao arrastar uma Skill/arma da ficha para a hotbar (ver core/hotbar.js).
     useItem: uuid => useItemFromHotbar(uuid),
     // Gerador de NPC por arquétipo (só o Mestre).
-    generateNpc: async () => (await import("./apps/npc-generator.js")).openNpcGenerator()
+    generateNpc: async () => (await import("./apps/npc-generator.js")).openNpcGenerator(),
+    // Simulador de encontro (só o Mestre).
+    simulateEncounter: async () => (await import("./apps/encounter-sim.js")).openEncounterSim()
   };
 
   registerSystemSettings();
@@ -184,6 +187,7 @@ Hooks.once("init", () => {
   registerEndCombat();
   registerSkillUndo();
   registerNpcTierHooks();
+  registerEncounterSimTracker();
   registerHotbarMacros();
   registerIncapacitation();
   registerEnvironment();

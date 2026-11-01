@@ -36,6 +36,7 @@ export class NpcGeneratorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       rerollAll: NpcGeneratorApp.#onRerollAll,
       removeDraft: NpcGeneratorApp.#onRemoveDraft,
       describeAI: NpcGeneratorApp.#onDescribeAI,
+      testEncounter: NpcGeneratorApp.#onTestEncounter,
       create: NpcGeneratorApp.#onCreate
     }
   };
@@ -133,6 +134,7 @@ export class NpcGeneratorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
     context.createLabel = `Criar ${this.drafts.length} ficha${this.drafts.length === 1 ? "" : "s"}`;
     context.canCreate = this.drafts.length > 0 && !this.busy;
+    context.simEnabled = isFeatureEnabled("encounterSim");
     return context;
   }
 
@@ -223,6 +225,13 @@ export class NpcGeneratorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       this.busy = false;
       this.render();
     }
+  }
+
+  /** "Testar contra o grupo": os NPCs da prévia entram no Simulador como oponentes, sem criar ficha. */
+  static async #onTestEncounter() {
+    if (!this.drafts.length) return;
+    const { openEncounterSimFromDrafts } = await import("./encounter-sim.js");
+    await openEncounterSimFromDrafts(this.drafts);
   }
 
   static async #onCreate() {

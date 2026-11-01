@@ -98,6 +98,7 @@
       <span class="ng-hint">{{favoredHint}}</span>
       <button type="button" data-action="describeAI" {{#if busy}}disabled{{/if}} title="{{#if aiAvailable}}Escreve aparência e personalidade de cada um. Opcional: a ficha já sai completa sem isto.{{else}}Precisa da chave de IA configurada neste navegador.{{/if}}">Detalhar com IA <span class="ng-opt">(opcional)</span></button>
       <button type="button" data-action="rerollAll" {{#if busy}}disabled{{/if}}><i class="fa-solid fa-dice"></i> Sortear todos</button>
+      {{#if simEnabled}}<button type="button" data-action="testEncounter" {{#unless canCreate}}disabled{{/unless}} title="Abre o Simulador de encontro com estes NPCs contra o grupo, sem criar as fichas.">Testar contra o grupo</button>{{/if}}
       <button type="button" class="ng-pri" data-action="create" {{#unless canCreate}}disabled{{/unless}}>{{createLabel}}</button>
     </footer>
   </div>

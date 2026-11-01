@@ -85,10 +85,10 @@ export async function requestShipRepair(shipArg = null) {
   if (!crew.length) {
     crew = sceneActorCandidates({ types: ["character"], permission: "OWNER" }).map(actor => ({ actor, role: "" }));
     if (!crew.length) {
-      ui.notifications.warn(`${ship.name} não tem tripulação (arraste Personagens para a aba Tripulação) e você não controla nenhum Personagem na cena.`);
+      ui.notifications.warn(`${foundry.utils.escapeHTML(ship.name)} não tem tripulação (arraste Personagens para a aba Tripulação) e você não controla nenhum Personagem na cena.`);
       return;
     }
-    ui.notifications.info(`${ship.name} não tem tripulação: listando os seus Personagens na cena.`);
+    ui.notifications.info(`${foundry.utils.escapeHTML(ship.name)} não tem tripulação: listando os seus Personagens na cena.`);
   }
   const engineers = crew.filter(c => isEngineerRole(c.role));
   const others = crew.filter(c => !isEngineerRole(c.role));

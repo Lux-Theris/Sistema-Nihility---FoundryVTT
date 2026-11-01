@@ -20,10 +20,13 @@ import { promptManaInvestment } from "../apps/mana-invest-dialog.js";
 import { rollSkillDamage, rollSkillDamageArea } from "../combat/damage-roll.js";
 import { applyEffectsToActor } from "./effects-apply.js";
 import { isShipLike } from "../starship/ship-damage.js";
-import { activeStatePath, investRatioPath, energyValuePath, currentEnergyValue, warnInsufficientEnergy } from "./skill-state.js";
+import { skillStateUpdate, energyValuePath, currentEnergyValue, warnInsufficientEnergy } from "./skill-state.js";
 import { removeUpkeepLinkedEffects } from "./upkeep.js";
 import { recordSkillUse } from "./skill-undo.js";
 import { escapeHtml } from "../helpers/html.js";
+import { runAsGm } from "../helpers/gm-relay.js";
+import { RELAY_REASONS, refuse, relayFailureMessage } from "../helpers/gm-relay-rules.js";
+import { applyEffectChoices, normalizeEffectRequest, splitByWriteAccess } from "./effect-relay-rules.js";
 
 /**
  * Ponto de entrada único de "Usar Habilidade".
@@ -68,7 +71,7 @@ async function runSkillEffect(sourceActor, skillId, options = {}) {
   }
 
   if (mech.hasUpkeep && mech.active) {
-    await skill.update({ [activeStatePath(options.subSkillIndex)]: false });
+    await skill.update(skillStateUpdate(skill, options.subSkillIndex, { active: false }));
     await removeUpkeepLinkedEffects(skill, options.subSkillIndex ?? null);
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
@@ -140,7 +143,7 @@ async function runSkillEffect(sourceActor, skillId, options = {}) {
   }
   if (mech.hasUpkeep) {
     // A razão investida fica guardada: o Custo por rodada é cobrado vezes ela enquanto ligada.
-    await skill.update({ [activeStatePath(options.subSkillIndex)]: true, [investRatioPath(options.subSkillIndex)]: investRatio });
+    await skill.update(skillStateUpdate(skill, options.subSkillIndex, { active: true, investRatio: investRatio }));
   }
   // Daqui pra frente a Skill carrega a força do investimento (dano, Efeitos, Vida de Estrutura).
   const investPower = manaInvestmentPower(investRatio, investConfig.exponent) * manaDensity;
@@ -234,6 +237,57 @@ function isHealEntry(entry) {
   return entry?.target === "hp" && Boolean(entry.periodic) && Number(entry.amount) > 0;
 }
 
+/** Condição cujo bloqueio de cura fica preso numa parte (Ferida Amaldiçoada). */
+function blocksPartEntry(entry, conditions = getActiveStatusConditions()) {
+  return conditions.find(c => c.id === entry?.conditionId)?.healBlock?.scope === "part";
+}
+
+/** A mecânica como objeto simples (o `system` de uma Skill é um DataModel). */
+function plainMech(mech) {
+  return typeof mech?.toObject === "function" ? mech.toObject() : { ...mech };
+}
+
+/** Põe na mecânica as escolhas feitas ao usar (parte focada da cura, parte do bloqueio). */
+function withEffectChoices(mech, choices) {
+  if (!choices?.focusPartId && !choices?.healBlockPartId) return mech;
+  const conditions = getActiveStatusConditions();
+  return { ...plainMech(mech), effects: applyEffectChoices(mech.effects, choices, { isHeal: isHealEntry, blocksPart: e => blocksPartEntry(e, conditions) }) };
+}
+
+/**
+ * Aplica os Efeitos em cada alvo e devolve `[{actor, summary, applied}]` na ordem dos alvos.
+ *
+ * O Foundry só deixa um cliente gravar nos Atores de que é dono. Um jogador que põe Lentidão num
+ * NPC, ou um buff no personagem de outro jogador, recebia "Falha ao usar a Habilidade" — às vezes
+ * com metade aplicada. Os alvos que este cliente não grava vão num só pedido ao Mestre
+ * (`applySkillEffects` no relay), que refaz a mecânica a partir da Skill do lado dele e aplica.
+ * O mesmo modelo de dnd5e/Midi-QOL: quem tem a permissão grava.
+ */
+async function applyEffectsToTargets(skill, mech, label, targets, subSkillIndex, choices = {}) {
+  const { local, remote } = splitByWriteAccess(targets, target => target.isOwner);
+  const results = new Map();
+  for (const target of local) results.set(target, { summary: await applyEffectsToActor(mech, label, skill, target, subSkillIndex), applied: true });
+
+  if (remote.length) {
+    const outcome = await runAsGm(
+      "applySkillEffects",
+      { sourceUuid: skill.uuid, subSkillIndex, targetUuids: remote.map(t => t.uuid), investPower: mech.investPower ?? 1, ...choices },
+      { reply: true, timeout: 15000 }
+    );
+    const failure = relayFailureMessage(outcome, `aplicar ${label} em ${remote.map(t => t.name).join(", ")}`);
+    if (failure) ui.notifications?.warn(failure);
+    const byUuid = new Map((Array.isArray(outcome.value?.results) ? outcome.value.results : []).map(r => [r?.uuid, r]));
+    const waiting = outcome.reason === RELAY_REASONS.timeout;
+    for (const target of remote) {
+      const got = byUuid.get(target.uuid);
+      const summary = got ? (Array.isArray(got.summary) ? got.summary.map(String) : []) : [waiting ? "pedido enviado ao Mestre (sem resposta)" : "não aplicado"];
+      summary.xp = got && Array.isArray(got.xp) ? got.xp : [];
+      results.set(target, { summary, applied: Boolean(got) || waiting });
+    }
+  }
+  return targets.map(actor => ({ actor, ...results.get(actor) }));
+}
+
 export async function applySkillEffects(sourceActor, skill, mech, label, targetActor, subSkillIndex = null) {
   if (!(mech.effects ?? []).length) {
     ui.notifications?.warn("Essa skill não tem nenhum Efeito configurado.");
@@ -243,14 +297,17 @@ export async function applySkillEffects(sourceActor, skill, mech, label, targetA
   // Cura com Ferimentos por parte: quem usa pode focar numa parte (ela enche primeiro).
   const { promptHealFocus, promptTargetBodyPart } = await import("../species/anatomy.js");
   const focus = await promptHealFocus(targetActor, mech);
-  let effective = focus ? { ...mech, effects: mech.effects.map(e => (isHealEntry(e) ? { ...e, focusPartId: focus.id } : e)) } : mech;
+  const choices = {};
+  if (focus) choices.focusPartId = focus.id;
   // Condição "Impede cura" presa na parte atingida (Ferida Amaldiçoada): quem usa escolhe a parte.
-  const conditions = getActiveStatusConditions();
-  if (effective.effects.some(e => conditions.find(c => c.id === e.conditionId)?.healBlock?.scope === "part")) {
+  if ((mech.effects ?? []).some(e => blocksPartEntry(e))) {
     const part = await promptTargetBodyPart(targetActor);
-    if (part) effective = { ...effective, effects: effective.effects.map(e => (conditions.find(c => c.id === e.conditionId)?.healBlock?.scope === "part" ? { ...e, healBlockPartId: part.id } : e)) };
+    if (part) choices.healBlockPartId = part.id;
   }
-  const summary = await applyEffectsToActor(effective, label, skill, targetActor, subSkillIndex);
+  const effective = withEffectChoices(mech, choices);
+  const [{ summary, applied }] = await applyEffectsToTargets(skill, effective, label, [targetActor], subSkillIndex, choices);
+  // Sem Mestre para aplicar num alvo alheio: o aviso já saiu, e não se anuncia o que não aconteceu.
+  if (!applied) return false;
   await grantSkillUseXp(skill, summary.xp);
 
   await ChatMessage.create({
@@ -259,6 +316,50 @@ export async function applySkillEffects(sourceActor, skill, mech, label, targetA
   });
 
   return true;
+}
+
+/**
+ * Lado do Mestre do pedido `applySkillEffects` (ver `applyEffectsToTargets`). O pedido não é
+ * confiável: a mecânica é refeita da Skill (ou do consumível) que está na ficha, quem pede tem de
+ * ser dono dela, e do cliente só vêm os alvos, a força do investimento de Mana (limitada) e as
+ * partes escolhidas. Devolve o resumo de cada alvo, para quem pediu postar o card e somar a XP.
+ * @param {object} payload
+ * @param {User} user - quem pediu (vem do servidor)
+ */
+export async function applySkillEffectsAsGm(payload, user) {
+  const request = normalizeEffectRequest(payload);
+  if (!request) return refuse(RELAY_REASONS.invalid);
+  const origin = await fromUuid(request.sourceUuid);
+  if (origin?.documentName !== "Item" || !origin.parent) return refuse(RELAY_REASONS.invalid);
+  if (!user?.isGM && !origin.testUserPermission(user, "OWNER")) return refuse(RELAY_REASONS.permission);
+
+  let mech;
+  let label = origin.name;
+  if (origin.type === "skill") {
+    mech = origin.system;
+    if (request.subSkillIndex != null) {
+      const sub = (origin.system.subSkills ?? [])[request.subSkillIndex];
+      if (!sub) return refuse(RELAY_REASONS.invalid);
+      mech = sub;
+      label = `${origin.name} — ${sub.name}`;
+    }
+  } else if (origin.system?.consumable?.enabled) {
+    const { consumableMech } = await import("../economy/consumables.js");
+    mech = consumableMech(origin);
+  } else {
+    return refuse(RELAY_REASONS.invalid);
+  }
+  if (mech.effectType !== "temporary") return refuse("isso não aplica Efeitos");
+
+  mech = withEffectChoices({ ...plainMech(mech), investPower: request.investPower }, request);
+  const results = [];
+  for (const uuid of request.targetUuids) {
+    const target = await fromUuid(uuid);
+    if (target?.documentName !== "Actor") continue;
+    const summary = await applyEffectsToActor(mech, label, origin, target, request.subSkillIndex);
+    results.push({ uuid, summary: summary.map(String), xp: summary.xp ?? [] });
+  }
+  return { ok: true, value: { results } };
 }
 
 /**
@@ -280,10 +381,12 @@ export async function applySkillEffectsArea(sourceActor, skill, mech, label, tar
     return null;
   }
 
+  const results = await applyEffectsToTargets(skill, mech, label, targetActors, subSkillIndex);
+  // Ninguém recebeu nada (todos alheios e sem Mestre): o aviso já saiu.
+  if (!results.some(r => r.applied)) return false;
   const rows = [];
   const xp = [];
-  for (const targetActor of targetActors) {
-    const summary = await applyEffectsToActor(mech, label, skill, targetActor, subSkillIndex);
+  for (const { actor: targetActor, summary } of results) {
     xp.push(...(summary.xp ?? []));
     rows.push(`<li><strong>${escapeHtml(targetActor.name)}</strong>: ${summary.map(escapeHtml).join(", ")}</li>`);
   }

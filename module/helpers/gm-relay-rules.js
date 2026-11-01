@@ -27,15 +27,19 @@ const REASON_TEXT = {
 /**
  * O que um handler devolveu → `{ok, reason}`. Nada (`undefined`/`null`) ou `true` = deu certo
  * (os handlers antigos não devolvem nada); `false` = recusado sem motivo; `{ok, reason}` passa.
+ * Um sucesso pode levar `value` (`{ok: true, value}`): a referência do que o Mestre criou (ex.: o
+ * id da Estrutura, para quem pediu postar o card) — referência, não prova; o documento é a verdade.
  * @param {unknown} result
- * @returns {{ok: boolean, reason: string}}
+ * @returns {{ok: boolean, reason: string, value?: unknown}}
  */
 export function normalizeRelayOutcome(result) {
   if (result === undefined || result === null || result === true) return { ok: true, reason: "" };
   if (result === false) return { ok: false, reason: RELAY_REASONS.refused };
   if (typeof result === "object" && "ok" in result) {
     const ok = Boolean(result.ok);
-    return { ok, reason: ok ? "" : String(result.reason || RELAY_REASONS.refused) };
+    const outcome = { ok, reason: ok ? "" : String(result.reason || RELAY_REASONS.refused) };
+    if (ok && result.value !== undefined) outcome.value = result.value;
+    return outcome;
   }
   // Handler que devolve um valor qualquer (ex.: a força do Raio Trator) conta como sucesso.
   return { ok: true, reason: "" };

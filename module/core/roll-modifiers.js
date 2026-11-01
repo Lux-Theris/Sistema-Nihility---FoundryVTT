@@ -45,6 +45,9 @@ export function isNeutralRollOptions(options) {
  * menor). `2d20+5` com Vantagem vira `{2d20+5, 2d20+5}kh`.
  */
 export function applyAdvantageToFormula(formula, advantage) {
+  // Sem dado nenhum (dano fixo, "7"), não há o que rolar duas vezes — e o Foundry SOMA os termos
+  // numéricos de `{7, 7}kh` em vez de ficar com o maior (dava 14).
+  if (!/\d*d(\d+|%|f)/i.test(String(formula ?? "").replace(/@[\w.]+/g, ""))) return formula;
   if (advantage === "advantage") return `{${formula}, ${formula}}kh`;
   if (advantage === "disadvantage") return `{${formula}, ${formula}}kl`;
   return formula;

@@ -250,6 +250,15 @@ export async function requestStructure({ sourceActor, skillId, subSkillIndex = n
     // tirar a XP de quem usou; recusa ou falta de Mestre não ergueram nada.
     return outcome.reason === "timeout";
   }
+  // O card nasce aqui (e não no Mestre): é uma mensagem de quem usou, então o Desfazer uso guarda
+  // o registro nela. Os botões do Mestre leem só o flag `structureCard`.
+  if (outcome.value?.instanceId) {
+    await ChatMessage.create({
+      speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
+      content: `<p><strong>${escapeHtml(sourceActor.name)}</strong> usou <strong>${escapeHtml(label)}</strong> e ergueu <strong>${escapeHtml(structure.label)}</strong>.</p>`,
+      flags: { [SYSTEM_ID]: { structureCard: { sceneId: outcome.value.sceneId, instanceId: outcome.value.instanceId } } }
+    });
+  }
   return true;
 }
 
@@ -324,11 +333,8 @@ export async function createStructureAsGm(payload) {
   };
   await scene.setFlag(SYSTEM_ID, `${FLAG}.${id}`, instance);
 
-  await ChatMessage.create({
-    speaker: ChatMessage.getSpeaker({ actor: source }),
-    content: `<p><strong>${escapeHtml(source.name)}</strong> usou <strong>${escapeHtml(payload.label)}</strong> e ergueu <strong>${escapeHtml(structure.label)}</strong>.</p>`,
-    flags: { [SYSTEM_ID]: { structureCard: { sceneId: scene.id, instanceId: id } } }
-  });
+  // O card sai do cliente de quem pediu (requestStructure), com esta referência.
+  return { ok: true, value: { sceneId: scene.id, instanceId: id } };
 }
 
 /**

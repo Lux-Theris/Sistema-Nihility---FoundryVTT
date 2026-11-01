@@ -17,7 +17,10 @@ export function measureFraction(measure, flatPercent = 10) {
   if (!measure) return 0;
   if (measure.flat) return Math.max(0, Number(flatPercent) || 0) / 100;
   const value = Math.abs(Number(measure.value) || 0);
-  const base = Math.max(1, Number(measure.base) || 0);
+  // Sem base (Nave sem Módulos tem Vida máxima 0): não há o que medir. Antes a base virava 1 e
+  // qualquer dano enchia a XP de uma vez.
+  const base = Number(measure.base) || 0;
+  if (base <= 0) return 0;
   return Math.min(1, value / base);
 }
 

@@ -11,7 +11,7 @@ import { removeZonesFor } from "../combat/area-effects.js";
 import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
 import { removeStructuresFor, antimagicLevelAt } from "../structures/structures.js";
 import { isShipLike } from "../starship/ship-damage.js";
-import { activeStatePath, energyValuePath, currentEnergyValue } from "./skill-state.js";
+import { skillStateUpdate, energyValuePath, currentEnergyValue } from "./skill-state.js";
 import { regenerateSustainedShields, dropSustainedShields } from "./sustained-shields.js";
 
 /** "Agora" para o prazo finito dos efeitos ancorados (ver finiteRemaining em effect-anchors.js). */
@@ -196,7 +196,7 @@ export async function shutdownActiveSkills(actor, { reason = null } = {}) {
   if (!sources.length) return [];
 
   for (const source of sources) {
-    await source.skill.update({ [activeStatePath(source.subSkillIndex)]: false });
+    await source.skill.update(skillStateUpdate(source.skill, source.subSkillIndex, { active: false }));
   }
 
   if (actorInStartedCombat(actor)) {
@@ -263,7 +263,7 @@ export function collectActiveUpkeepSources(actor) {
 
 /** Desliga uma Skill/Sub-Skill Ativa e solta tudo que ela estava segurando (buffs, Veneno ancorado...). */
 async function deactivateUpkeepSource(source) {
-  await source.skill.update({ [activeStatePath(source.subSkillIndex)]: false });
+  await source.skill.update(skillStateUpdate(source.skill, source.subSkillIndex, { active: false }));
   await removeUpkeepLinkedEffects(source.skill, source.subSkillIndex);
 }
 

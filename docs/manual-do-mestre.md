@@ -2,11 +2,14 @@
 
 Este manual é para quem conduz a mesa. Ele cobre como configurar o mundo, o que cada regra faz por baixo, as ferramentas que só o Mestre tem e como resolver as situações de jogo. O uso das fichas pelo lado do jogador (botões, rolagens, Skills, PAD) está no **[Manual do Jogador](manual-do-jogador.md)** — este manual não repete aquela explicação passo a passo, mas aprofunda as regras e acrescenta tudo o que é exclusivo do Mestre.
 
-> **Filosofia do sistema, em uma frase:** o sistema **calcula os números**; o Mestre **julga a cena**. Não há Classe de Dificuldade embutida, Condições não bloqueiam ações sozinhas, e o dano em personagens só sai da Vida quando você clica. Sempre que o sistema pode automatizar uma conta chata, ele automatiza; sempre que a decisão é narrativa, ela fica com você.
+> **Filosofia do sistema, em uma frase:** o sistema **calcula os números**; o Mestre **julga a cena**. Não há Classe de Dificuldade embutida, Condições comuns dependem da arbitragem; Caído, Inconsciente, Morto e condições marcadas como incapacitantes bloqueiam ações, e o dano em personagens só sai da Vida quando você clica. Sempre que o sistema pode automatizar uma conta chata, ele automatiza; sempre que a decisão é narrativa, ela fica com você.
 
 ---
 
 ## Sumário
+
+- [Guia de condução - Preparar e mestrar Nihility](#guia-de-condução---preparar-e-mestrar-nihility)
+- [Aventura de entrada - O farol entre mundos](#aventura-de-entrada---o-farol-entre-mundos)
 
 **Parte I — Preparar o mundo**
 
@@ -32,6 +35,121 @@ Este manual é para quem conduz a mesa. Ele cobre como configurar o mundo, o que
 14. [Ferramentas de Admin](#14-ferramentas-de-admin)
 15. [Solução de problemas e boas práticas](#15-solução-de-problemas-e-boas-práticas)
 16. [Referência rápida de números](#16-referência-rápida-de-números)
+
+
+---
+
+
+## Guia de condução - Preparar e mestrar Nihility
+
+O seu trabalho é apresentar situações que mereçam escolhas e dar consequências compreensíveis a essas escolhas. O Foundry acompanha cálculos e estado; a condução continua sendo uma conversa com os jogadores. Este capítulo oferece **orientações de mesa**, não novas regras automáticas.
+
+### Sessão zero: escolha a campanha antes dos interruptores
+
+Combine a proposta, o tom, os limites de conteúdo e o que os personagens farão juntos. Depois configure os subsistemas que sustentam essa proposta. Anatomia e Escala mudam bastante o tipo de decisão que aparece em jogo; explique isso antes de alguém construir seu personagem.
+
+| Campanha desejada | Ponto de partida sugerido |
+|---|---|
+| Exploração de fantasia | Preset Fantasia; reveja ferimentos, descanso e uso de Estruturas |
+| Jornada entre estrelas | Preset Sci-Fi; ensine energia, postos de tripulação e dano em camadas |
+| Fantasia com tecnologia arcana | Preset Misto; apresente os subsistemas em etapas |
+
+Os presets também podem substituir catálogos. Exporte suas configurações antes de experimentar em um mundo personalizado. Uma sugestão deste capítulo nunca deve substituir silenciosamente as escolhas já feitas para uma campanha.
+
+### Resolva intenções, depois escolha a ferramenta
+
+Antes de pedir dados, esclareça três coisas: o que o personagem quer obter, como tenta conseguir e o que está em risco. Quando uma ação for segura e possível, você pode simplesmente descrever seu sucesso. Quando for impossível nas condições atuais, explique o impedimento e permita outra abordagem.
+
+Se houver incerteza interessante, escolha o Atributo que representa aquela tentativa e explique o que um resultado favorável ou desfavorável significará. O sistema não fornece uma tabela universal de dificuldades ou uma regra geral de sucesso crítico. Se sua mesa usar critérios próprios, registre e aplique com consistência.
+
+> **Exemplo de arbitragem**
+> Um jogador quer desligar uma sentinela pelo console. Você informa que o acesso exige alcançar a plataforma e manter contato com o terminal enquanto a segurança reinicia. O grupo pode negociar, distrair a sentinela ou atravessar sob fogo. O teste usado e suas consequências são decisões para essa situação, não uma nova regra universal de invasão de sistemas.
+
+Uma falha pode custar tempo, revelar a posição do grupo, gastar um recurso ou mudar a situação. Escolha consequências coerentes com o risco anunciado. Evite transformar toda falha em uma parede que apenas exige repetir o mesmo teste.
+
+### Preparação em uma página
+
+1. **Situação:** o que está acontecendo agora e por que os personagens se importariam?
+2. **Objetivo:** o que pode ser conquistado além de derrotar todos os inimigos?
+3. **Lugares:** três pontos interessantes, com distância, cobertura ou acesso diferente.
+4. **Pessoas:** quem quer alguma coisa, o que oferece e o que teme perder?
+5. **Pressão:** o que muda se o grupo demorar ou fizer barulho?
+6. **Regras envolvidas:** quais Skills, Condições e subsistemas realmente aparecerão?
+7. **Consequências:** o que muda no mundo em caso de sucesso, recuo ou acordo?
+
+### Desafios e equilíbrio sem falsa precisão
+
+Nihility tem Vida e escalas de dano com crescimento quadrático, habilidades personalizadas e catálogos editáveis. O nível sozinho não garante que dois combatentes sejam equivalentes. Avalie dano final, reservas, resistência, sustentação e posição.
+
+Como estimativa de preparação, divida a Vida do alvo pelo dano médio **que realmente chega à Vida** em uma ação típica. Isso estima quantos golpes semelhantes ele suporta, mas não considera cura, falhas de acerto, ações em área, foco de vários atacantes ou controle. Escudos e Estruturas devem ser avaliados como camadas adicionais.
+
+Por exemplo: um alvo com 300 de Vida que perde 60 por golpe dura aproximadamente cinco golpes semelhantes, se nada mais mudar. Se ele recuperar 50 entre dois golpes, a situação será outra. Se dois personagens o atacarem antes de sua vez, a pressão também muda. Use essa estimativa para ensaiar a cena, não como um índice oficial de desafio.
+
+Antes de usar um inimigo novo, confira:
+
+- **Pode ser afetado?** Imunidades combinadas com bloqueios podem eliminar todas as opções do grupo.
+- **Pode ser percebido e alcançado?** Distância, voo e barreiras também são defesas.
+- **O custo se sustenta?** Mana e manutenção limitam tanto PCs quanto adversários.
+- **Há saída?** Recuar, negociar ou cumprir outro objetivo torna a cena mais flexível.
+- **O perigo foi comunicado?** Uma ameaça extrema deve ter sinais que os jogadores possam interpretar.
+
+### Criar uma Habilidade que todos entendam
+
+Comece escrevendo uma frase com efeito, alvo, custo e duração. Só depois preencha os campos. Uma descrição dramática não substitui a definição de mecânica: um poder que promete curar precisa usar um alvo de cura, não apenas um aumento temporário de Vida máxima.
+
+Valide separadamente o uso único e o estado mantido. Confira nível, Escala por Atributo, elementos, marca Mágica, duração, manutenção, alvo e interações com Antimagia. Tier não deve ser tratado como um orçamento universal de equilíbrio que o sistema não fornece.
+
+Faça um ensaio com um aliado, um inimigo resistente e um alvo sem Token. Para área, confira o desenho e quem está dentro. Para uma Habilidade Ativa, teste ligar, pagar manutenção e desligar. Para Escudos, verifique teto e regeneração. A IA pode acelerar a preparação, mas o Mestre precisa revisar a mecânica gerada.
+
+## Aventura de entrada - O farol entre mundos
+
+![O farol entre mundos e sua ponte danificada](img/farol-entre-mundos.png)
+
+**Material original de exemplo.** Uma estrutura curta de aventura para apresentar o jogo, sem definir um cenário oficial ou conceder recompensas obrigatórias. Ajuste os adversários às fichas reais da mesa.
+
+### Premissa
+
+Um farol antigo voltou a emitir um sinal violeta. Caravanas perderam o caminho e uma pesquisadora pede ao grupo que alcance o núcleo antes de uma nova descarga. Em fantasia, o núcleo é um cristal ritual; em sci-fi, uma estação de navegação; numa campanha mista, tecnologia que responde a magia.
+
+### Cena 1: o pedido
+
+A pesquisadora oferece acesso às suas descobertas e uma recompensa a combinar. Ela quer preservar o núcleo; um vigia local prefere destruí-lo. Os jogadores podem descobrir essas posições conversando, antes de decidir quem ajudar. Apresente um fato útil sem exigir uma rolagem: o sinal pulsa em intervalos previsíveis.
+
+### Cena 2: a travessia
+
+Uma ponte danificada separa o grupo da entrada. Há um caminho inferior mais demorado e um mecanismo que pode estender uma plataforma. Peça aos jogadores que escolham a abordagem e exponha o risco antes dos testes. Ensine rolagens de Atributo, leitura da ficha e resolução de consequências. Não é necessário ativar dano ambiental para representar o vento ou a instabilidade.
+
+### Cena 3: a sentinela
+
+Uma guardiã impede a entrada. Ela reage ao sinal e busca manter estranhos longe do núcleo, mas pode ser distraída ou convencida de que o grupo veio reparar o farol. Se houver combate, comece com poucas fichas e habilidades simples. Crie as estatísticas depois de avaliar as fichas dos jogadores; não há um bloco universal de inimigo equilibrado para qualquer grupo.
+
+Use esta cena para apresentar iniciativa, seleção de alvo, dano confirmado no chat e recursos. Se desejar ensinar Resistência, inclua uma só e descreva indícios perceptíveis da proteção. Evite combinar a primeira demonstração com imunidade, regeneração, Anatomia e Antimagia ao mesmo tempo.
+
+### Cena 4: o núcleo
+
+O grupo pode estabilizar o núcleo, desligá-lo ou levá-lo. A pesquisadora e o vigia discordam das consequências. Faça a escolha alterar algo concreto: a região ganha uma rota segura, perde um ponto de orientação ou passa a atrair viajantes de outros lugares.
+
+Uma contagem de pulsos pode dar urgência, se você anunciar como ela funciona. Ela é uma ferramenta narrativa desta aventura; não constitui uma regra nova de rodada, de ação ou de manutenção.
+
+### Encerramento e recompensas
+
+Revise os efeitos ainda ativos, ofereça a possibilidade de descanso quando a ficção permitir e conceda a recompensa combinada. Se houve combate, a ferramenta de encerramento pode sugerir XP; revise os valores. XP de uso de Skill e XP do personagem são progressões diferentes, e nenhuma delas substitui o clique do Mestre para subir de nível.
+
+Pergunte quais escolhas foram interessantes e qual parte da ficha gerou dúvida. Use a resposta para decidir qual subsistema apresentar na sessão seguinte. Uma nave pode chegar na próxima aventura; ela não precisa fazer parte da primeira explicação.
+
+### Ficha de preparação reutilizável
+
+| Campo | Anote antes da sessão |
+|---|---|
+| Objetivo e motivação | O que está em jogo para os personagens? |
+| Três lugares | Acesso, distância, cobertura e algo para interagir |
+| Dois interesses em conflito | O que cada pessoa quer e aceita negociar |
+| Uma ameaça | O que ela pode fazer e como pode ser enfrentada |
+| Sinais de perigo | O que os jogadores percebem antes de se comprometer |
+| Consequências | Sucesso, acordo, recuo e demora |
+| Regras preparadas | Skills, Condições e opções realmente utilizadas |
+| Recompensas | Valores definidos para esta campanha |
+
 
 ---
 
@@ -422,6 +540,14 @@ Capitão, Piloto, Engenheiro, Tático, Ciências, Médico (padrão). O posto diz
 
 Personagens de jogadores, NPCs, monstros e montarias são **todos** do tipo **Personagem**. Todos têm acesso ao mesmo sistema de Atributos, Skills, Fusão etc.
 
+### Apresentar os Atributos a quem está começando
+
+Um Atributo representa uma capacidade geral; uma Skill representa uma habilidade específica. Antes de pedir uma rolagem, explique qual capacidade está sendo usada e por quê. O capítulo **Atributos e rolagens** do Manual do Jogador explica os oito Atributos com exemplos de situações e os efeitos que cada um tem na ficha.
+
+Ajude o jogador a distinguir capacidades próximas: **Força** é potência física; **Defesa**, robustez; **Destreza**, coordenação e agilidade; **Precisão**, direcionar a ação ao ponto desejado. **Furtividade** trata de passar despercebido e **Percepção**, de notar sinais. **Magia** representa conduzir poderes mágicos e **Defesa Mágica**, suportar sua agressão.
+
+Esses exemplos ajudam a escolher uma rolagem para a cena; não criam novos efeitos automáticos. Defesa não é uma redução universal de dano físico, e Precisão não é rolada automaticamente antes de todo ataque. Quando uma tentativa envolver mais de uma capacidade, explique qual aspecto está em risco e escolha a rolagem que o representa.
+
 - **Token padrão**: um Personagem novo nasce com barras de Vida e Mana no token. Nave/Veículo nascem com Escudo/Casco e com o token **vinculado** ao Ator (uma nave é única no mundo).
 - **Tokens não vinculados** de uma mesma ficha (Drone 1, Drone 2) são criaturas **independentes**: cada uma tem Vida, Condições, iniciativa e alvo próprios.
 - **NPC ou PJ?** A caixa **PJ** no cabeçalho da ficha (só você vê) marca o Ator como personagem de jogador. Ela decide listas ("Personagens" do alvo, contatos do PAD), a XP do Fim do combate e a regra de Vida 0: **conta como NPC quem não está marcado PJ ou não tem jogador dono** — esse morre direto em 0 (se a opção estiver ligada) em vez de ficar Caído. Atores gerados pela IA nascem como NPC.
@@ -497,6 +623,38 @@ Cada anúncio também aparece como um **card dourado no topo da tela** de quem r
 
 ## 8. Habilidades: criar, aprovar, fundir, evoluir
 
+### Explicar tier, nível e efeito
+
+**Tier** é a categoria da Skill; **nível** é seu aperfeiçoamento dentro dessa categoria; **mecânica** define o que acontece ao usá-la. Ensine essas três ideias separadamente: uma Skill Normal de nível 10 continua sendo Normal, e seu tier não diz sozinho quanto dano causa ou quantos alvos atinge.
+
+O sistema usa a sequência **Extra, Normal, Racial, Único e Ultimate** para limitar quais fontes cada tier pode consumir numa fusão. Essa sequência não substitui a definição narrativa de cada categoria nem constitui uma tabela universal de dano. **Racial**, em especial, identifica um poder que a Espécie consegue usar.
+
+### A natureza de cada tier
+
+- **Extra:** concede memória muscular ou conhecimento de habilidades que seres humanos conseguem desenvolver na nossa realidade. Isso não dispensa treino para fixar o conhecimento no cérebro e no corpo e desenvolver a Skill. Uma arte marcial de um mestre humano continua sendo Extra; o tier não significa, por si só, pouca competência.
+- **Normal:** poder sobrenatural. Pode começar diretamente assim, como Telecinese ou Bola de Fogo, ou nascer da evolução de uma Extra que ganha um efeito sobrenatural. Ganhar níveis na Extra e mudar sua natureza para Normal são processos diferentes; não existe uma passagem automática por atingir certo nível.
+- **Racial:** poder que uma Espécie consegue usar. Sua identidade está no vínculo com a Espécie. No sistema, não se compra com Pontos de Habilidade.
+- **Único:** poder bem mais forte que os Normais e feito exclusivamente para uma pessoa, com base em sua personalidade, emoções e vontade. Pode combinar efeitos variados. Construa sua identidade com o jogador antes de escolher os campos mecânicos.
+- **Ultimate:** ápice do sobrenatural, permitindo controlar aspectos da realidade. Cada deus possui pelo menos uma que simboliza o que faz. Mortais também podem alcançar esse patamar, com muito mais dificuldade. Na implementação atual, sua obtenção passa pela fusão e não pela compra com Pontos de Habilidade.
+
+### Nível de uma Extra: conhecimento não é domínio completo
+
+Uma pessoa com **Karatê Extra nível 1** já estaria acima de um faixa branca do nosso mundo, exclusivamente pela memória muscular concedida pela Skill. Isso não a torna mestre: ela precisa treinar, fixar o conhecimento no cérebro e no corpo e desenvolver a habilidade.
+
+Explique essa diferença ao conceder uma Extra. O personagem recebe uma base para executar ou compreender aquilo, e seu domínio continua se desenvolvendo. Não atribua automaticamente uma faixa de Karatê a cada nível: não há uma tabela oficial dessa correspondência. Essa explicação também não cria uma quantidade obrigatória de horas de treino nem um ganho automático de XP fora das regras de progressão da mesa.
+
+### Única e Ultimate em conflito
+
+É muito difícil uma Skill Única afetar uma Ultimate; uma Ultimate afeta uma Única com muito mais facilidade. **A compatibilidade dos poderes pesa nessa interação.** Antes de resolver o conflito, estabeleça o que cada poder controla, o efeito que está tentando produzir e como esses dois efeitos se relacionam. Essa avaliação deve respeitar tanto a diferença de patamar quanto as características das Skills envolvidas.
+
+Essa orientação expressa a natureza dos tiers. O sistema não oferece uma porcentagem universal de oposição entre eles, nem uma imunidade automática de Ultimate a toda Única. Se o conflito precisar de uma decisão narrativa, explique aos jogadores o fundamento dela; não apresente um multiplicador inventado como regra oficial.
+
+### Traduzir o conceito em mecânica
+
+O conceito sobrenatural de uma Skill e sua configuração no Foundry são coisas relacionadas, mas distintas. O tier sozinho não preenche todos os efeitos nem configura automaticamente custo, marca Mágica, alvos ou interação com Antimagia. Confira esses campos para que o funcionamento corresponda ao poder combinado.
+
+Para as definições e exemplos voltados a quem está começando, consulte **Tiers**, no capítulo 5 do Manual do Jogador.
+
 ### Criar direto
 
 **+ Nova Habilidade (direto)** na ficha pede só **Nome** e **Tier**, cria a Skill e abre a **ficha da Skill** (o editor mais completo). Ela é registrada no Compêndio de Habilidades quando você fecha essa ficha pela primeira vez — assim o Compêndio guarda a Skill preenchida, não um rascunho. Skills Raciais, Sub-Skills, Evolução, Habilidades Concedidas e o pedido com Pontos usam o **editor rápido** (uma janela), porque ainda não existe Item para abrir.
@@ -538,13 +696,14 @@ Os cards de Efeito de um **Consumível** usam o mesmo Avançado.
 | Grupo | Alvos | Vale em |
 |---|---|---|
 | Atributos | os 8 Atributos | Personagem (só rolagem, nunca Vida/Mana máx.) |
-| Vitais | HP, Mana, Escudo, Deslocamento (%) | Personagem |
+| Vitais | HP/Mana máximos, Curar Vida (na hora), Restaurar Mana (na hora), Escudo, Deslocamento (%) | Personagem |
 | Arma | Dano das Armas equipadas, Elemento das Armas (substitui), Armas causam dano Mágico, Armas causam Dano Absoluto | Personagem e Nave |
 | Nave | Dano de Arma, Penetração de Arma, Capacidade do Escudo (%), Regeneração do Escudo (%), Geração de Energia (%), Propulsão (%) | Nave/Veículo |
 
 Regras dos Efeitos:
 
 - Quantidade negativa = debuff.
+- **Curar Vida (na hora)** e **Restaurar Mana (na hora)** recuperam o valor atual. **HP/Mana sem Periódico** modificam o máximo temporariamente; não equivalem a cura. Quantidades podem usar pontos ou **% do máximo** nos alvos compatíveis.
 - **Escudo** soma direto e ignora Duração.
 - **Periódico** (só HP/Mana): a Duração vira número de ticks. "Por rodada de combate" tica sozinho no início do turno do alvo; "Manual" espera o clique na ampulheta da ficha (cura de longo prazo, "uma vez por descanso").
 - Numa **Habilidade Ativa**, os Efeitos duram até desligar. Religar não estende nada do que já está rodando.
@@ -706,7 +865,7 @@ A paleta do HUD do token (clique direito no token) mostra as Condições do cat�
 - ou, desmarcado: **Alvo**, **Valor** (negativo = dano/debuff), **Duração** (0 = indefinida) e **Periódico**;
 - deixando Alvo e Valor em branco, a Condição fica **só como ícone** — o caso mais comum na mesa ("ele está cego").
 
-Uma Condição marcada à mão se comporta igual à que vem de Skill: reaplicar renova. **Nenhuma Condição bloqueia ações sozinha**: você decide o que "atordoado" impede.
+Uma Condição marcada à mão se comporta igual à que vem de Skill: reaplicar renova. Condições comuns dependem da sua arbitragem para definir o que impedem. **Caído, Inconsciente, Morto e Condições marcadas como incapacitantes** bloqueiam ações e movimento automaticamente, conforme a regra de incapacitação.
 
 Ticks de dano são reduzidos por Resistência Geral e do elemento do tick, mas **não** por Defesa Mágica — é uma decisão de balanceamento ("veneno mágico" ignora Defesa Mágica de propósito). Cura nunca é reduzida.
 
@@ -901,10 +1060,10 @@ Locomoção: sem nenhuma parte que ande, o personagem se arrasta o **mínimo** (
 |---|---|---|---|---|
 | Ferida | Vida entre 0 e o máximo | ✓ | ✓ | |
 | Inutilizada | Vida 0 | ✓ | ✓ | |
-| Perdida | sobra ≥ X% da Vida da parte (opção do bloco, padrão 50), efeito **Decepar** do elemento, ou o Mestre marca (ícone de osso na aba Anatomia) | | ✓ | |
+| Perdida | sobra ≥ X% da Vida da parte (opção do bloco, padrão 50), efeito **Decepar** do elemento, ou o Mestre marca (ícone de osso na aba Anatomia) | A partir do nível 10, no padrão | ✓ | |
 | Prótese | Item instalado | | só Skill Única/Ultimate | ✓ |
 
-**Cura × Regeneração × Reparo.** Um Efeito Periódico de Vida positivo tem **Tipo**: Cura (padrão), Regeneração ou Reparo. A Vida sobe igual nos três; cada parte sobe a mesma fração conforme o tipo. Na Condição do catálogo, a cura por rodada também tem o tipo (a "Regeneração" de fábrica é Regeneração). As Skills Raciais de fábrica que regeneram (Regeneração Amorfa, Carne Instável) são do tipo Regeneração.
+**Cura × Regeneração × Reparo.** Um Efeito de cura tem **Tipo**: Cura (padrão), Regeneração ou Reparo. Cada tipo determina quais partes podem ser recuperadas e quais limites se aplicam. A Vida efetivamente recuperada é repartida entre as partes elegíveis, conforme explicado a seguir. Na Condição do catálogo, a cura por rodada também tem o tipo (a "Regeneração" de fábrica é Regeneração). As Skills Raciais de fábrica que regeneram (Regeneração Amorfa, Carne Instável) são do tipo Regeneração.
 
 **Cura nas partes.** A Vida que uma cura **de fato** devolve é repartida entre as partes que ela conserta: com um membro só ferido, vai tudo para ele; com o corpo todo ferido, cada parte recebe um pouco (proporcional ao que falta). Uma Skill de cura de alvo único pergunta **"Focar a cura numa parte?"**: a escolhida enche primeiro. Uma parte a 0% que aquela cura **não conserta** segura o % dela na Vida (braço perdido de 20%: a Cura para em 80%; a Regeneração não para, e usa essa diferença para refazer o braço). Uma **Cura de nível 10 ou mais** (Regras da Mesa) também refaz parte perdida.
 
@@ -1168,8 +1327,8 @@ game.nihility.ai.announceVoiceOfTheWorld(actor, { kind: "info", title: "...", bo
 | Pool de dados | (1 + ⌊Bônus ÷ 10⌋)d20 + (Bônus mod 10) |
 | Vida máx. | Força × Defesa × 10, mínimo 50 |
 | Mana máx. | Magia × Defesa Mágica × 10, mínimo 50 |
-| Pontos de Atributo | 35 + 5 por nível |
-| Pontos de Habilidade Normais | 3 + 2 por nível |
+| Pontos de Atributo | 35 + 5 × (nível - 1) |
+| Pontos de Habilidade Normais | 3 iniciais + 2 por nível acima do 1, antes dos gastos |
 | Conversão de Pontos de Habilidade | 3 : 1 |
 | XP por nível | 100 × nível |
 | Ciclo de nível de Skill | 2 × Poder (+10%) · 2 × Desconto (−20%), piso 10% |

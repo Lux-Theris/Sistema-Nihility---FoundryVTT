@@ -173,6 +173,16 @@ const HANDLERS = {
     await registerItemInCompendium({ name: source.name, img: source.img, type: source.type, system: source.system ?? {} });
   },
 
+  /**
+   * Aplica os Efeitos de uma Skill (ou consumível) em Atores que quem usou não possui — Lentidão
+   * num NPC, buff no personagem de outro jogador. A mecânica é refeita da Skill do lado do Mestre
+   * e quem pede tem de ser dono dela; ver applySkillEffectsAsGm em skill-effects.js.
+   */
+  async applySkillEffects(payload, user) {
+    const { applySkillEffectsAsGm } = await import("../skills/skill-effects.js");
+    return applySkillEffectsAsGm(payload, user);
+  },
+
   /** Ergue uma Estrutura (Paredes + Desenho). Validação e catálogo ficam em structures.js. */
   async createStructure(payload, user) {
     if (!(await mayActFor(user, payload?.sourceActorUuid))) return refuse(RELAY_REASONS.permission);
@@ -340,7 +350,7 @@ export function registerGmRelay() {
     if (message?.relayReply) {
       if (message.replyTo !== game.user?.id) return;
       if (!game.users.get(senderId)?.isGM) return;
-      pendingReplies.resolve(message.requestId, { ok: message.ok, reason: message.reason });
+      pendingReplies.resolve(message.requestId, { ok: message.ok, reason: message.reason, ...(message.value !== undefined ? { value: message.value } : {}) });
       return;
     }
 
@@ -355,7 +365,7 @@ export function registerGmRelay() {
     const outcome = await executeHandler(action, payload, user);
     // `replyTo` sai do remetente que o SERVIDOR informou, nunca do payload.
     if (typeof requestId === "string" && requestId) {
-      game.socket.emit(CHANNEL, { relayReply: true, replyTo: user.id, requestId, ok: outcome.ok, reason: outcome.reason });
+      game.socket.emit(CHANNEL, { relayReply: true, replyTo: user.id, requestId, ok: outcome.ok, reason: outcome.reason, ...(outcome.value !== undefined ? { value: outcome.value } : {}) });
     }
   });
 }

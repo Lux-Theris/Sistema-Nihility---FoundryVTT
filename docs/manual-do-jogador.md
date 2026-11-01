@@ -11,6 +11,9 @@ Este manual explica, do começo ao fim, como a sua ficha funciona, como rolar, c
 
 ## Sumário
 
+- [Guia de entrada - Sua primeira sessão](#guia-de-entrada---sua-primeira-sessão)
+- [Exemplo de jogo - Um golpe e suas consequências](#exemplo-de-jogo---um-golpe-e-suas-consequências)
+
 1. [Primeiros passos](#1-primeiros-passos)
 2. [A ficha do personagem](#2-a-ficha-do-personagem)
 3. [Atributos e rolagens](#3-atributos-e-rolagens)
@@ -27,6 +30,107 @@ Este manual explica, do começo ao fim, como a sua ficha funciona, como rolar, c
 14. [PAD — o celular do personagem](#14-pad--o-celular-do-personagem)
 15. [Perguntas frequentes](#15-perguntas-frequentes)
 16. [Glossário](#16-glossário)
+
+
+---
+
+
+## Guia de entrada - Sua primeira sessão
+
+![Uma jornada entre ruínas arcanas e tecnologia esquecida](img/farol-entre-mundos.png)
+
+Você pode ser um explorador de ruínas, uma criatura que acabou de despertar ou um viajante entre estrelas. Nihility oferece ferramentas para campanhas de fantasia, isekai e ficção científica arcana. O mundo e as possibilidades concretas pertencem à sua mesa: combine com o Mestre o tom da aventura e quais subsistemas serão usados.
+
+### O ritmo do jogo
+
+O Mestre descreve uma situação. Você diz o que seu personagem pretende fazer e como tenta fazer isso. Quando houver incerteza relevante, o Mestre pode pedir uma rolagem. O grupo interpreta o resultado, a situação muda e a conversa continua.
+
+Não é preciso começar procurando um botão. Diga primeiro a sua intenção: distrair o guarda, atravessar o abismo, descobrir quem sabotou o reator. A ficha entra quando a ação pede uma regra.
+
+> **Exemplo de conversa**
+> Mestre: A passarela está partida e o console ainda pisca do outro lado.
+> Lia: Quero usar os cabos pendurados para atravessar sem cair.
+> Mestre: Os cabos parecem firmes, mas há vapor cobrindo o caminho. Vamos resolver a travessia com uma rolagem de Destreza.
+> Lia: Antes de rolar, amarro uma corda ao corrimão para o resto do grupo.
+> Mestre: Certo. Isso também muda o que pode acontecer se você escorregar.
+
+O exemplo ilustra uma decisão de cena. Ele não cria uma dificuldade fixa, uma regra de corda nem uma ação extra automática. Nihility não define uma Classe de Dificuldade universal embutida.
+
+### O que combinar antes de começar
+
+- **Proposta:** quem são os personagens e por que vão continuar juntos?
+- **Tom:** aventura heroica, sobrevivência, exploração, política ou uma mistura?
+- **Limites:** quais temas ficam fora da história e como pedir uma pausa?
+- **Opções da mesa:** haverá Anatomia, ferimentos, Naves, PAD e Escala?
+- **Criação:** quais Espécies, equipamentos e habilidades estão disponíveis?
+
+### Um personagem completo, passo a passo
+
+Lia será uma exploradora humana que recupera artefatos de antigas ruínas. É um exemplo de criação com valores padrão, sem Títulos, Heranças ou bônus adicionais.
+
+1. **Conceito:** curiosa, cautelosa e determinada a encontrar uma expedição desaparecida. O objetivo dá ao Mestre algo para colocar na aventura.
+2. **Origem:** escolhe Humano entre as Espécies disponíveis. Revê as concessões da origem antes de confirmar pontos.
+3. **Atributos:** distribui os 35 pontos iniciais conforme a tabela abaixo.
+4. **Habilidades:** tem 3 Pontos de Habilidade Normais. Conversa com o Mestre e faz os pedidos pelo fluxo de aprovação; esses pontos não significam que toda habilidade imaginada está automaticamente autorizada.
+5. **Equipamento:** recebe os itens combinados com o Mestre, conferindo arma, munição e consumíveis. Este exemplo não concede dinheiro ou equipamento inicial gratuito.
+6. **Revisão:** confirma os pontos, verifica Vida e Mana e testa uma rolagem com o grupo.
+
+| Atributo | Pontos | Rolagem sem outros bônus |
+|---|---|---|
+| Força | 6 | 1d20+2 |
+| Defesa | 5 | 1d20+1 |
+| Magia | 3 | 1d20+1 |
+| Defesa Mágica | 3 | 1d20+1 |
+| Destreza | 6 | 1d20+2 |
+| Furtividade | 3 | 1d20+1 |
+| Percepção | 5 | 1d20+1 |
+| Precisão | 4 | 1d20+1 |
+
+A soma é 35. Com as fórmulas padrão, Lia tem **300 de Vida** (6 × 5 × 10) e **90 de Mana** (3 × 3 × 10). A distribuição ilustra o processo; não é uma construção obrigatória ou uma garantia de equilíbrio para todas as campanhas.
+
+### Qual capítulo ler agora?
+
+| Preciso... | Leia |
+|---|---|
+| Encontrar os campos da ficha | Capítulos 1 e 2 |
+| Entender dados e recursos | Capítulos 3 e 4 |
+| Criar e usar Habilidades | Capítulos 5 e 6 |
+| Participar de um combate | Capítulo 7 |
+| Usar equipamento e acompanhar evolução | Capítulos 8 a 12 |
+| Tripular uma nave ou usar o PAD | Capítulos 13 e 14, se a mesa usar |
+| Resolver uma dúvida rápida | Perguntas frequentes e glossário |
+
+## Exemplo de jogo - Um golpe e suas consequências
+
+Lia e seus aliados encontram uma sentinela protegendo uma passagem. O Mestre explica a ameaça; Lia declara que quer deter a criatura para permitir a fuga dos companheiros. O grupo resolve o acerto conforme a cena antes de confirmar o dano.
+
+### Da intenção ao dano aplicado
+
+Neste exemplo, uma habilidade causa **100 de dano mágico de Fogo**, já depois de todas as escalas da atacante. Não há Estrutura, Penetração, vantagem elemental ou bônus contra Traços. A sentinela tem Defesa Mágica Total 10, Resistência Geral 20%, Resistência a Fogo 50% e 12 de Escudo pessoal.
+
+| Etapa | Conta | Resultado |
+|---|---|---|
+| Dano antes das defesas | Valor do exemplo | 100 |
+| Defesa Mágica | 10 × 2% = 20%; passa 80% | 80 |
+| Resistência Geral | Passa 80% | 64 |
+| Resistência a Fogo | Passa 50% | 32 |
+| Escudo pessoal | Absorve 12 | 20 chegam à Vida |
+
+O jogador vê o resultado final destinado ao alvo, sem uma exposição pública de suas defesas. O Mestre pode consultar o rastro e confirma o acerto pelo botão **Aplicar**. Se houver uma Condição disparada pelo elemento, ela entra nessa confirmação. Para naves, a aplicação usa outra lógica e é automática; consulte o capítulo próprio.
+
+> **As reduções são sucessivas.** Resistência Geral de 20% e Resistência a Fogo de 50% não viram 70%. Sobre 100 de dano sem outras defesas, deixam passar 100 × 0,8 × 0,5 = 40.
+
+### Se o golpe tiver dois elementos
+
+Um golpe de 100 com Fogo e Gelo é dividido em duas partes de 50. Se o alvo for imune a Fogo e não tiver qualquer outra defesa ou afinidade relevante, só a metade de Fogo zera. A metade de Gelo continua: **50 de dano**. A imunidade a um elemento não torna o alvo imune ao golpe inteiro.
+
+### Antes de passar a vez
+
+- Confira a Mana gasta e quais Habilidades Ativas continuam ligadas.
+- Observe duração, Condições e eventuais efeitos que começam no seu turno.
+- Avise quando uma escolha tiver sido feita por engano; o Mestre dispõe de ferramentas de desfazer com limites próprios.
+- Descreva como sua ação mudou a cena. A matemática resolve o efeito; a conversa mantém a aventura em movimento.
+
 
 ---
 
@@ -112,6 +216,60 @@ A aba **Biografia** tem três campos de **Personalidade** (Traços, Desejos, Est
 
 ### Os oito Atributos
 
+**Atributos** são características gerais do personagem, expressas em números: sua força física, sua atenção, seu domínio da magia e assim por diante. Eles ajudam a representar como você enfrenta uma situação. Uma **Habilidade** ou **Skill**, por sua vez, é um recurso específico que o personagem possui, como um poder, uma técnica ou uma resistência.
+
+Um personagem pode ter muita Força e pouca Precisão: conseguir mover algo pesado não significa conseguir acertar um alvo pequeno. Também pode ter muita Magia e pouca Defesa Mágica: produzir efeitos mágicos e suportar magia são capacidades diferentes.
+
+#### Força - Potência física
+
+Representa a força muscular e a capacidade de fazer esforço com o corpo. Empurrar uma porta emperrada, erguer um objeto pesado ou segurar uma corda são exemplos de situações em que o Mestre pode pedir Força.
+
+Na ficha, Força participa do cálculo da **Vida máxima**, junto com Defesa. Pode também ser escolhida como Atributo de Escala de um golpe. Ter Força alta, por si só, não acrescenta dano automaticamente a todas as armas ou Habilidades: isso depende de como o golpe foi configurado.
+
+#### Defesa - Robustez física
+
+Representa a capacidade do corpo de suportar esforço e agressões físicas. Ajuda a descrever um personagem resistente, que aguenta situações difíceis. Sustentar o corpo contra uma pressão ou suportar um esforço prolongado são exemplos de situações que o Mestre pode resolver com Defesa.
+
+Na ficha, Defesa participa da **Vida máxima**, junto com Força. Ela não é uma Classe de Armadura nem uma redução automática de todo dano físico: essas funções não fazem parte da regra padrão deste atributo.
+
+#### Magia - Poder e domínio mágico
+
+Representa a capacidade de canalizar e manipular magia, conforme a forma que ela assume na campanha. Um mago, um usuário de Ki e alguém que controla energia arcana podem dar significados diferentes a essa capacidade. Conduzir energia por um artefato é um exemplo de situação que o Mestre pode resolver com Magia.
+
+Na ficha, Magia participa da **Mana máxima**, junto com Defesa Mágica. Uma Habilidade de dano só escala com Magia quando esse atributo foi escolhido no campo **Atributo de Escala**; nem toda magia recebe esse multiplicador automaticamente.
+
+#### Defesa Mágica - Resistência à agressão mágica
+
+Representa a capacidade de suportar o impacto de poderes mágicos. Enquanto Magia descreve sua capacidade de produzir e conduzir esses poderes, Defesa Mágica descreve sua proteção diante deles. Resistir à pressão de uma força arcana é um exemplo de situação que o Mestre pode associar ao atributo.
+
+Na ficha, participa da **Mana máxima** e reduz o dano marcado como **Mágico**: no padrão, 2% por ponto do Total, até 60%. Um golpe de Fogo não é necessariamente mágico; a marca do golpe é que determina se essa redução se aplica.
+
+#### Destreza - Agilidade e coordenação
+
+Representa a coordenação do corpo e a habilidade de executar movimentos com controle. Manter o equilíbrio, atravessar uma passagem instável ou manipular um mecanismo delicado são exemplos de situações que o Mestre pode resolver com Destreza.
+
+Na ficha, é o atributo padrão da **Iniciativa**, que ajuda a definir a ordem dos turnos. Também participa do **Deslocamento por rodada**, quando a mesa usa essa opção, e dos testes de reparo de naves. Destreza enfatiza o movimento e a execução; Precisão enfatiza acertar exatamente onde se pretende.
+
+#### Furtividade - Discrição
+
+Representa a capacidade de agir sem chamar atenção. Esconder-se, atravessar um corredor sem fazer barulho ou aproximar-se sem ser percebido são exemplos de situações que o Mestre pode resolver com Furtividade.
+
+O resultado ajuda o Mestre a resolver a tentativa dentro da cena. Furtividade alta não torna o personagem invisível nem substitui a necessidade de haver uma maneira plausível de passar despercebido.
+
+#### Percepção - Atenção aos arredores
+
+Representa a capacidade de notar sinais e detalhes pelos sentidos disponíveis ao personagem. Ouvir passos, perceber uma presença escondida ou encontrar uma marca estranha numa parede são exemplos de situações que o Mestre pode resolver com Percepção.
+
+Ela costuma ser o contraponto da Furtividade: um personagem tenta passar despercebido e outro tenta notá-lo. Perceber um indício não significa entender automaticamente sua causa; o que ele revela depende da situação apresentada pelo Mestre.
+
+#### Precisão - Pontaria e exatidão
+
+Representa a capacidade de direcionar uma ação para o ponto desejado. Acertar um alvo distante, atingir um objeto pequeno ou executar um golpe num lugar específico são exemplos de situações que o Mestre pode resolver com Precisão.
+
+Precisão descreve **onde você consegue acertar**, enquanto Força descreve o esforço físico e Destreza descreve a coordenação do movimento. O sistema não rola Precisão automaticamente antes de todo ataque: o Mestre decide quando o acerto exige uma rolagem e o que seu resultado significa.
+
+#### Referência rápida dos efeitos na ficha
+
 | Atributo | Para que serve no sistema |
 |---|---|
 | **Força** | Multiplica a sua **Vida máxima** (junto com Defesa). |
@@ -133,7 +291,7 @@ Qualquer Atributo pode ser rolado quando a cena pedir; quem decide o que a rolag
 
 Cada Atributo tem três camadas, e é importante entender a diferença:
 
-1. **Total** = seus pontos + bônus de Títulos. É a base **permanente**. Só ele entra na fórmula de Vida e Mana máximas.
+1. **Total** = seus pontos + bônus de Títulos + bônus de Espécie, Linhagem e Heranças. É a base **permanente**. Só ele entra na fórmula de Vida e Mana máximas.
 2. **Total Efetivo** = Total + buffs e debuffs temporários de Skills + bônus condicionais contínuos. É o que vale para **rolar**.
 3. **Bônus** = Total Efetivo ÷ 3, arredondado para baixo. Ele decide o **pool de d20**:
    - a cada 10 de Bônus você ganha **+1d20** (todos os dados são somados);
@@ -202,7 +360,7 @@ Depois disso somam-se, sem limite, os modificadores permanentes de Títulos, Ski
 
 Exemplo: Força 8 e Defesa 6 → 8 × 6 × 10 = **480** de Vida.
 
-Repare que só o **Total** (pontos + Títulos) entra aqui. Um buff de +10 de Força de uma Skill melhora a sua rolagem, mas **não** aumenta a sua Vida máxima.
+Repare que só o **Total** (pontos + Títulos + bônus de origem) entra aqui. Um buff de +10 de Força de uma Skill melhora a sua rolagem, mas **não** aumenta a sua Vida máxima.
 
 > O Mestre pode trocar quais Atributos entram em cada fórmula, o multiplicador e o piso. Numa campanha sem magia ele pode até desligar a Mana: a barra some e as Skills passam a não custar nada.
 
@@ -246,9 +404,73 @@ Se a mesa usa esta regra (vem ligada), chegar a **0 de Vida** não é o fim na h
 
 ### Tiers
 
+**Skill** é a palavra inglesa usada na ficha para **Habilidade**. **Tier** significa sua categoria ou patamar: Extra, Normal, Racial, Único ou Ultimate. Esse nome ajuda a identificar a categoria da Habilidade e como ela pode ser obtida.
+
+**Tier e nível são coisas diferentes.** O tier é a categoria; o nível acompanha o aperfeiçoamento daquela Skill, com as regras de Poder, Custo ou Resistência descritas adiante. Uma Skill Normal de nível 10 continua sendo Normal: subir de nível não a transforma automaticamente em Único ou Ultimate.
+
+O tier também não é a mesma coisa que a **mecânica ao usar**. Uma Habilidade pode causar Dano, aplicar Efeitos, erguer uma Estrutura ou ser Descritiva. Para saber o que ela realmente faz, leia seus efeitos, custos e condições de uso, além do tier.
+
+#### Extra - Memória muscular, conhecimento e capacidades humanas
+
+Skills Extras representam habilidades ou conhecimentos que seres humanos conseguem desenvolver na nossa realidade. A Skill concede a **memória muscular ou o conhecimento** sobre aquilo. Memória muscular é a familiaridade do corpo com a execução de uma técnica: saber como realizar os movimentos. Uma arte marcial como o Karatê é um exemplo.
+
+Receber essa memória ou esse conhecimento não significa ter domínio completo. Ainda é preciso **treinar**, fixar o conhecimento no cérebro e no corpo e desenvolver a Skill.
+
+> **Exemplo: Karatê Extra nível 1**
+> A pessoa já estaria acima de um faixa branca do nosso mundo, exclusivamente por ter recebido a memória muscular da arte. Ela ainda precisa praticar para consolidar esse conhecimento e desenvolver sua execução. O nível 1 não a transforma automaticamente em mestre.
+
+**Extra não significa sem importância ou sem domínio.** Um mestre de uma arte marcial do nosso mundo teria uma Skill Extra daquela arte. O nome do tier descreve a natureza da habilidade; seu nível representa seu desenvolvimento. Dominar uma técnica humana de maneira excepcional não a torna sobrenatural por si só.
+
+#### Normal - A entrada no sobrenatural
+
+Skills Normais têm efeitos que ultrapassam o que uma pessoa consegue realizar na nossa realidade. **Sobrenatural** significa justamente isso: algo que vai além das capacidades humanas reais, como mover um objeto com a mente ou produzir uma bola de fogo.
+
+Uma Skill Normal pode ter **dois começos**:
+
+- **Evoluir de uma Extra:** uma técnica que antes era humana ganha um efeito sobrenatural. Por exemplo, uma técnica de Karatê poderia evoluir e passar a projetar uma onda de energia. O efeito é ilustrativo e precisa ser definido com o Mestre.
+- **Surgir diretamente como sobrenatural:** Telecinese, que move coisas com a mente, ou Bola de Fogo podem começar como Skills Normais, sem uma Extra anterior.
+
+Ganhar níveis numa Extra e **evoluí-la para Normal** são acontecimentos diferentes. No primeiro, a capacidade se desenvolve; no segundo, ela passa a ter uma natureza sobrenatural. A passagem de tier não acontece automaticamente ao alcançar determinado nível.
+
+#### Racial - Um poder da Espécie
+
+Uma Skill Racial é um poder que aquela **Espécie consegue usar**. O termo Racial é o nome da categoria na ficha; aqui ele se refere à Espécie do personagem.
+
+Um sopro dracônico é um exemplo de poder ligado a uma Espécie. A definição concreta depende do catálogo da campanha. O que identifica a Skill como Racial é seu vínculo com a Espécie, e não simplesmente ser uma técnica aprendida ou um poder personalizado para um indivíduo. No sistema, Skills Raciais vêm da origem e não são compradas com Pontos de Habilidade.
+
+#### Único - Um poder que expressa a pessoa
+
+Skills Únicas são **bem mais fortes que Skills Normais** e são feitas exclusivamente para a pessoa que as possui. Nascem da sua **personalidade, emoções e vontade**. Não basta escolher um nome raro: o poder deve expressar quem aquela pessoa é e o que deseja.
+
+Uma Única pode ter efeitos variados e, às vezes, mais de um efeito. Para imaginar a sua, pense no que o personagem mais valoriza, teme, deseja ou se recusa a abandonar. Essas respostas ajudam a construir o poder com o Mestre; elas não determinam uma fórmula obrigatória.
+
+O tier aparece como **Único** na ficha. Ao falar de uma habilidade, usamos também **Skill Única**.
+
+#### Ultimate - Controle sobre aspectos da realidade
+
+Skills Ultimate são o **ápice do sobrenatural**: permitem que alguém controle aspectos da própria realidade. Sua identidade não se resume a causar mais dano; o poder se relaciona ao aspecto da realidade que seu portador consegue controlar.
+
+**Deuses possuem pelo menos uma Ultimate**, que simboliza o que fazem. Mortais também podem conseguir uma, mas isso é muito mais difícil. Portanto, possuir uma Ultimate não significa obrigatoriamente ser um deus.
+
+Essa diferença de patamar importa quando poderes entram em conflito: é muito difícil uma **Única afetar uma Ultimate**, enquanto uma **Ultimate afeta uma Única com muito mais facilidade**. A compatibilidade entre os poderes envolvidos pesa nessa interação: é preciso olhar o que cada um controla e como seus efeitos se relacionam. Isso não constitui uma porcentagem universal de sucesso nem torna toda Ultimate automaticamente imune a toda Única.
+
+Na implementação atual, a obtenção de Ultimate passa pela **Fusão**, não pela compra com Pontos de Habilidade. Essa é a forma de obtenção no sistema; o conceito do tier é o controle sobre aspectos da realidade.
+
+#### Referência rápida dos tiers
+
+| Tier | O que representa |
+|---|---|
+| **Extra** | Concede memória muscular ou conhecimento de uma capacidade humana real. O domínio se desenvolve com treino e níveis. |
+| **Normal** | Poder sobrenatural; pode nascer diretamente assim ou de uma Extra que ganha um efeito sobrenatural. |
+| **Racial** | Poder que a Espécie consegue usar. |
+| **Único** | Poder exclusivo de uma pessoa, baseado em sua personalidade, emoções e vontade; pode ter vários efeitos. |
+| **Ultimate** | Ápice do sobrenatural: controle sobre aspectos da realidade. Deuses possuem ao menos uma; mortais também podem alcançar. |
+
+#### Como obter na ficha
+
 | Tier | De onde vem |
 |---|---|
-| **Extra** | Pedida com Ponto Extra, criada pelo Mestre, ou concedida por item. A mais simples. |
+| **Extra** | Pedida com Ponto Extra, criada pelo Mestre, ou concedida por item. |
 | **Normal** | Pedida com Ponto Normal (você ganha esses pontos por nível). |
 | **Racial** | Vem da sua Espécie. Nunca é comprada. |
 | **Único** | Pedida com Ponto Único, ou resultado de Fusão/Evolução feita pelo Mestre. |
@@ -316,7 +538,8 @@ A ficha da Skill (✎) tem as abas **Geral**, **Mecânica**, **Passivos**, **Sub
   - **Elemento(s)** — Fogo, Gelo, Físico, Phaser… O dano é dividido entre eles.
 - **Efeito Temporário** — uma lista de **Efeitos**, cada um com Alvo, Quantidade e Duração:
   - um Atributo (buff se positivo, debuff se negativo);
-  - **HP** ou **Mana**, uma vez ou **Periódico** (a cada tick, ex.: Veneno −10 por rodada por 3 rodadas; Regeneração +5);
+  - **Curar Vida (na hora)** e **Restaurar Mana (na hora)** recuperam os valores atuais; a quantidade pode ser fixa ou um percentual do máximo;
+  - **HP** ou **Mana**, sem Periódico, alteram temporariamente o máximo, e não curam; com **Periódico**, aplicam ticks (ex.: Veneno −10 por rodada por 3 rodadas; Regeneração +5);
   - **Escudo** (soma direto, sem duração);
   - **Deslocamento (%)**;
   - aprimoramento das suas **armas equipadas** (mais dano, trocar o elemento, tornar o dano Mágico ou Absoluto);
@@ -517,9 +740,9 @@ O botão **✦ Efeitos** (no topo da ficha, ao lado de Iniciativa; na Nave, ao l
 Condições são estados com nome e ícone no Token: **Cegueira, Veneno, Queimadura, Lentidão, Atordoamento, Silêncio, Paralisia, Medo, Sangramento, Regeneração** (padrão).
 
 - Algumas têm efeito numérico automático: Queimadura e Veneno tiram Vida a cada rodada, proporcional ao dano do golpe que as causou; Lentidão corta 50% do Deslocamento; Regeneração cura 5% da Vida máxima por rodada.
-- Outras (Cegueira, Atordoamento, Medo…) são **só o marcador**: o sistema **não impede nenhuma ação** sozinho. O Mestre decide, na mesa, o que "estar cego" significa na cena.
+- Outras (Cegueira, Atordoamento, Medo…) podem ser **só o marcador**: o Mestre decide o que "estar cego" significa na cena. A exceção são **Caído, Inconsciente, Morto** e Condições configuradas como incapacitantes, que bloqueiam ações automaticamente.
 - Ticks por rodada acontecem sozinhos no **início do seu turno**. Ticks **manuais** (cura de longo prazo fora de combate) esperam um clique na ampulheta do chip na sua ficha.
-- Dano por tick é reduzido pelas suas Resistências, mas **não** pela Defesa Mágica. Cura nunca é reduzida.
+- Dano por tick é reduzido pelas suas Resistências, mas **não** pela Defesa Mágica. Ticks de cura não sofrem Resistência; bloqueios de cura e limites de Anatomia ainda podem impedir a recuperação.
 - **Reaplicar a mesma Condição renova, não acumula**: a duração passa a ser a maior entre a que restava e a nova, e o valor fica o mais forte.
 - **Contágio**: algumas Condições (a "Praga" de fábrica, fungos, nanitos…) **passam de um para outro**. No início do turno de quem a carrega, cada personagem perto (no raio dela) rola a chance de pegar. Certos Traços deixam imune, e a sua Resistência ao elemento da Condição diminui a chance. O chat mostra quem pegou e quem resistiu. Só acontece em combate.
 
@@ -886,7 +1109,7 @@ O alvo tem defesas (Resistência, Defesa Mágica, Escudo, uma Estrutura no camin
 O item foi desequipado ou removido. Equipe de novo.
 
 **Meu buff não aumentou a minha Vida.**
-Buffs temporários de Atributo só mudam a rolagem. A Vida máxima usa só pontos e Títulos.
+Buffs temporários de Atributo só mudam a rolagem. A fórmula de Vida máxima usa os Totais permanentes: pontos, Títulos e bônus de origem. Modificadores diretos de Vida máxima são outra parcela.
 
 **Não vejo o botão PAD.**
 Seu personagem precisa carregar um Item marcado como Dispositivo PAD, e a mesa precisa usar o PAD.
@@ -900,12 +1123,12 @@ A ficha é sua e os campos são editáveis, mas combine com o Mestre: ele é que
 
 | Termo | Significado |
 |---|---|
-| **Total** | Pontos + Títulos de um Atributo. Base de Vida/Mana. |
+| **Total** | Pontos + Títulos + bônus de origem de um Atributo. Base de Vida/Mana. |
 | **Total Efetivo** | Total + buffs temporários. Base da rolagem. |
 | **Bônus** | Total Efetivo ÷ 3. Define quantos d20 você rola. |
 | **Pool** | O conjunto de dados de uma rolagem (ex.: 2d20+3). |
 | **Bônus de item** | Soma fixa por fora do pool, vinda de itens e passivos. |
-| **Tier** | Nível de raridade de uma Skill: Extra, Normal, Racial, Único, Ultimate. |
+| **Tier** | Categoria de uma Skill: Extra, Normal, Racial, Único ou Ultimate. É diferente do nível de aperfeiçoamento. |
 | **Habilidade Ativa** | Skill liga/desliga, com Custo por Rodada. |
 | **Sub-Skill** | Componente utilizável dentro de uma Skill fundida. |
 | **Emissão / Zona** | Skills de área: instantânea / que fica na cena. |

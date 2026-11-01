@@ -356,7 +356,7 @@ async function performSkillUndo(message, record) {
   for (const m of new Set([message, ...tagged])) {
     await m.update({ [`flags.${SYSTEM_ID}.skillUndone`]: true, ...(recordOf(m) ? { [`flags.${SYSTEM_ID}.skillUse.undone`]: true } : {}) });
   }
-  ui.notifications.info(`Uso de ${record.label} desfeito.`);
+  ui.notifications.info(`Uso de ${foundry.utils.escapeHTML(record.label)} desfeito.`);
 }
 
 /* ------------------------------------------------------------------ Registro */

@@ -432,7 +432,7 @@ export async function approveSkillCreationRequest(message) {
   const skillData = {
     name: req.name,
     type: "skill",
-    system: { tier: req.tier, level: 1, cost: Number(req.cost) || 0, description: req.description || "" }
+    system: { tier: req.tier, level: 1, cost: Number(req.cost) || 0, description: safeRequestDescription(req.description) || "" }
   };
   await ensureSystemCompendiums();
   const [created] = await actor.createEmbeddedDocuments("Item", [skillData]);

@@ -11,7 +11,7 @@ import { SYSTEM_ID, getActiveStatusConditions, getAntimagicReach } from "../core
 import { dispelledEffects, skillIsMagic } from "../core/magic-rules.js";
 import { removeShieldPool, shieldPoolsOf } from "../combat/shield-pools.js";
 import { collectActiveUpkeepSources, removeUpkeepLinkedEffects } from "./upkeep.js";
-import { activeStatePath } from "./skill-state.js";
+import { skillStateUpdate } from "./skill-state.js";
 import { SUPPRESSION_FLAG, suppressionLevel } from "../core/suppression.js";
 
 export { SUPPRESSION_FLAG, suppressionLevel };
@@ -74,7 +74,7 @@ export async function applyAntimagic(target, { level = 0, rounds = 0 } = {}) {
       const sys = source.subSkillIndex != null ? source.skill.system.subSkills?.[source.subSkillIndex] : source.skill.system;
       const { magic, level: lvl } = skillMagicLevel({ ...sys, tier: source.skill.system.tier });
       if (!magic || lvl > reach) continue;
-      await source.skill.update({ [activeStatePath(source.subSkillIndex)]: false });
+      await source.skill.update(skillStateUpdate(source.skill, source.subSkillIndex, { active: false }));
       await removeUpkeepLinkedEffects(source.skill, source.subSkillIndex);
       off.push(source.label);
       xp.push({ flat: true });

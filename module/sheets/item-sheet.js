@@ -408,6 +408,9 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const item = this.item;
     const sys = item.system;
     context.system = sys;
+    // Quem não é dono vê a descrição como HTML pronto ({{{ }}}): passa pela limpeza do Foundry, que
+    // tira script e atributos de evento (onerror…) — a descrição pode ter vindo de outro jogador.
+    context.descriptionHTML = foundry.utils.cleanHTML?.(String(sys.description ?? "")) ?? foundry.utils.escapeHTML(String(sys.description ?? ""));
     context.config = MEU_SISTEMA;
     context.itemType = item.type;
     context.inventoryEnabled = isInventoryEnabled();

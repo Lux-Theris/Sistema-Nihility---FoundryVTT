@@ -276,7 +276,7 @@ test("XP por uso: dano, cura e Escudo pela fração da Vida; cada alvo conta no 
   assert.equal(skillUseXp([{ value: 50, base: 100 }, { value: 30, base: 60 }], cfg), 100, "área soma os alvos");
   assert.equal(skillUseXp([{ value: -40, base: 200 }], cfg), 20, "debuff/dano negativo conta pelo tamanho");
   assert.equal(skillUseXp([{ flat: true }, { flat: true }], cfg), 20, "Condição/Estrutura/Zona: o fixo de 10% cada");
-  assert.equal(skillUseXp([{ value: 10, base: 0 }], cfg), 100, "base 0 não divide por zero (vira 1)");
+  assert.equal(skillUseXp([{ value: 10, base: 0 }], cfg), 0, "base 0 (Nave sem Módulos): nada a medir — não enche a XP");
   assert.equal(skillUseXp([{ value: 100, base: 100 }, { value: 100, base: 100 }], { ...cfg, cap: 100 }), 100, "o relay limita o pedido a uma unidade");
   assert.equal(skillUseXp([], cfg), 0);
   assert.equal(measureFraction({ flat: true }, 25), 0.25);
@@ -290,4 +290,11 @@ test("XP por uso: buff/debuff pela fração do valor atual; Condição soma o fi
   assert.deepEqual(effectEntryMeasures({ amount: 2 }, { attributeTotal: 4, hasCondition: true }), [{ flat: true }, { value: 2, base: 4 }]);
   assert.deepEqual(effectEntryMeasures({ amount: 5 }, {}), [{ flat: true }], "alvo sem número (elemento de arma, corpo) conta o fixo");
   assert.deepEqual(effectEntryMeasures({ amount: 0 }, {}), [], "nada aplicado, nada medido");
+});
+
+test("Vantagem: fórmula sem dado fica como está", () => {
+  assert.equal(applyAdvantageToFormula("7", "advantage"), "7");
+  assert.equal(applyAdvantageToFormula("@nivel * 2", "disadvantage"), "@nivel * 2");
+  assert.equal(applyAdvantageToFormula("2d6+3", "advantage"), "{2d6+3, 2d6+3}kh");
+  assert.equal(applyAdvantageToFormula("1d20", "disadvantage"), "{1d20, 1d20}kl");
 });

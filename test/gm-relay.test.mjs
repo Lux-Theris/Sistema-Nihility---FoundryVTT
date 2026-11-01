@@ -65,3 +65,9 @@ test("escapeHtml: nomes com HTML viram texto", () => {
   assert.equal(escapeHtml(null), "");
   assert.equal(escapeHtml(42), "42");
 });
+
+test("Relay: sucesso pode levar a referência do que o Mestre criou", () => {
+  assert.deepEqual(normalizeRelayOutcome({ ok: true, value: { sceneId: "s", instanceId: "i" } }), { ok: true, reason: "", value: { sceneId: "s", instanceId: "i" } });
+  // Recusa nunca leva valor.
+  assert.deepEqual(normalizeRelayOutcome({ ok: false, reason: "x", value: 1 }), { ok: false, reason: "x" });
+});

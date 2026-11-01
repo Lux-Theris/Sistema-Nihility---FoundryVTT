@@ -600,3 +600,10 @@ test("Espécie: marca antiga (hash de antes da 1.78) continua reconhecida", () =
   assert.equal(skillHashMatches("", skill), false, "sem marca não bate");
   assert.equal(skillHashMatches(undefined, skill), false);
 });
+
+test("Espécie: a Skill Racial é uma cópia funda do catálogo (não muda o cache)", () => {
+  const catalogSkill = { key: "furia", name: "Fúria", effectType: "temporary", effects: [{ target: "strength", amount: 2 }] };
+  const sys = racialSkillSystem(catalogSkill);
+  sys.effects[0].amountMode = "flat";
+  assert.equal(catalogSkill.effects[0].amountMode, undefined);
+});

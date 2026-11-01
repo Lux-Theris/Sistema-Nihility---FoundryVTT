@@ -106,6 +106,9 @@ const MODE_BY_CHANGE_TYPE = Object.fromEntries(Object.entries(CHANGE_TYPE_BY_MOD
 
 /** Os modos numéricos (os do Foundry, ou os mesmos valores se a constante sumir numa versão futura). */
 export function effectModes() {
+  // V14: a constante virou um Proxy que registra aviso de depreciação a CADA leitura (as mudanças
+  // agora têm `type` em texto). Os números são os mesmos, então a V14 nem toca nela.
+  if (foundryGeneration() >= 14) return EFFECT_MODES_FALLBACK;
   return globalThis.CONST?.ACTIVE_EFFECT_MODES ?? EFFECT_MODES_FALLBACK;
 }
 

@@ -25,12 +25,13 @@ function enabledForMe() {
   }
 }
 
-/** HTML do corpo → texto puro (nunca injetado como HTML no cartão). */
-function plainText(html) {
-  // DOMParser monta um documento inerte: um `<img onerror=…>` no texto não carrega nem executa
-  // (um <div> criado no documento da página carregaria a imagem mesmo sem entrar na tela).
-  const doc = new DOMParser().parseFromString(String(html ?? ""), "text/html");
-  return (doc.body?.textContent ?? "").replace(/\s+/g, " ").trim();
+/**
+ * O corpo da Voz do Mundo já é TEXTO puro (o card do chat o mostra com `{{body}}`, escapado), e o
+ * cartão o põe com `textContent` — nunca vira HTML. Interpretá-lo como HTML (como era) apagava o
+ * que estivesse entre `<…>`: o nome `<b>Ana</b>` virava "Ana" e `<img …>` sumia inteiro.
+ */
+function plainText(text) {
+  return String(text ?? "").replace(/\s+/g, " ").trim();
 }
 
 function stack() {

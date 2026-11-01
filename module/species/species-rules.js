@@ -333,7 +333,11 @@ export function speciesDiff(current = {}, template = {}, { mode = "change", remo
  * completa (editada no editor de Skill); aqui só se garantem tier, saneamento e os campos que o
  * DataModel espera. Nível/XP vêm do histórico quando a Skill volta.
  */
-export function racialSkillSystem(s = {}, restored = null) {
+export function racialSkillSystem(source = {}, restored = null) {
+  // Cópia FUNDA: `source` é o objeto do catálogo em cache (getActiveSpeciesPresets). O Foundry
+  // completa os efeitos com os padrões do schema NO PRÓPRIO objeto ao criar o Item, o que mudava
+  // o hash do catálogo e fazia fichas em dia aparecerem como "Espécie mudou".
+  const s = structuredClone(source ?? {});
   const effectType = isStructureMechanic(s) ? "structure" : MEU_SISTEMA.SKILL_EFFECT_TYPES.includes(s.effectType) ? s.effectType : "none";
   const { key, unlockLevel, name, ...rest } = s;
   return {

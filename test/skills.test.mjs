@@ -233,3 +233,62 @@ test("Avançado: lista os nomes, diz o que está em uso e abre sozinho", () => {
   // Nada a esconder: a linha some.
   assert.equal(advancedFold([null, undefined]).show, false);
 });
+
+import { skillStateUpdate } from "../module/skills/skill-state.js";
+test("Sub-Skill: ligar regrava a lista inteira (a V14 trocava o array por um com só aquele campo)", () => {
+  const skill = { _source: { system: { subSkills: [{ name: "A", active: false }, { name: "B", active: false }] } } };
+  const update = skillStateUpdate(skill, 1, { active: true, investRatio: 2 });
+  assert.deepEqual(update, { "system.subSkills": [{ name: "A", active: false }, { name: "B", active: true, investRatio: 2 }] });
+  // Não mexe no original.
+  assert.equal(skill._source.system.subSkills[1].active, false);
+  assert.deepEqual(skillStateUpdate(skill, null, { active: true }), { "system.active": true });
+  assert.deepEqual(skillStateUpdate(skill, 5, { active: true }), {});
+});
+
+test("XP por uso: alvo sem Vida máxima (Nave sem Módulos) não enche a XP", async () => {
+  const { measureFraction } = await import("../module/skills/skill-xp-rules.js");
+  assert.equal(measureFraction({ value: 50, base: 0 }), 0);
+  assert.equal(measureFraction({ value: 50, base: 100 }), 0.5);
+});
+
+test("Efeito em alvo alheio: o pedido ao Mestre é limpo e limitado", async () => {
+  const { normalizeEffectRequest, MAX_RELAYED_TARGETS } = await import("../module/skills/effect-relay-rules.js");
+  assert.equal(normalizeEffectRequest({}), null);
+  assert.equal(normalizeEffectRequest({ sourceUuid: "Actor.a.Item.b", targetUuids: [] }), null);
+  const many = Array.from({ length: 80 }, (_, i) => `Actor.t${i}`);
+  const clean = normalizeEffectRequest({
+    sourceUuid: "Actor.a.Item.b",
+    targetUuids: ["Actor.x", "Actor.x", 5, "", ...many],
+    subSkillIndex: -1,
+    investPower: 1e9,
+    focusPartId: { evil: true },
+    healBlockPartId: "parte1",
+    mech: { effects: [{ amount: 99999 }] }
+  });
+  assert.equal(clean.targetUuids.length, MAX_RELAYED_TARGETS);
+  assert.equal(clean.targetUuids[0], "Actor.x");
+  assert.equal(clean.subSkillIndex, null);
+  assert.equal(clean.investPower, 1000);
+  assert.equal(clean.focusPartId, "");
+  assert.equal(clean.healBlockPartId, "parte1");
+  // A mecânica nunca vem do cliente.
+  assert.equal("mech" in clean, false);
+  assert.equal(normalizeEffectRequest({ sourceUuid: "s", targetUuids: ["t"], subSkillIndex: 2, investPower: "abc" }).investPower, 1);
+  assert.equal(normalizeEffectRequest({ sourceUuid: "s", targetUuids: ["t"], subSkillIndex: 2 }).subSkillIndex, 2);
+});
+
+test("Efeito em alvo alheio: escolhas da hora de usar e separação por permissão", async () => {
+  const { applyEffectChoices, splitByWriteAccess } = await import("../module/skills/effect-relay-rules.js");
+  const effects = [{ target: "heal", amount: 10 }, { target: "strength", amount: 2, conditionId: "ferida" }, { target: "speed", amount: 1 }];
+  const tests = { isHeal: e => e.target === "heal", blocksPart: e => e.conditionId === "ferida" };
+  const out = applyEffectChoices(effects, { focusPartId: "braco", healBlockPartId: "perna" }, tests);
+  assert.equal(out[0].focusPartId, "braco");
+  assert.equal(out[1].healBlockPartId, "perna");
+  assert.equal(out[2], effects[2]);
+  assert.equal("focusPartId" in effects[0], false);
+  assert.deepEqual(applyEffectChoices(effects, {}, tests), effects);
+
+  const { local, remote } = splitByWriteAccess([{ n: "eu", own: true }, { n: "npc", own: false }, { n: "aliado", own: true }], t => t.own);
+  assert.deepEqual(local.map(t => t.n), ["eu", "aliado"]);
+  assert.deepEqual(remote.map(t => t.n), ["npc"]);
+});

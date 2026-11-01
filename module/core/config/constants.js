@@ -10,6 +10,7 @@ import { DEFAULT_SHIP_SIZES, DEFAULT_VEHICLE_SIZES, MODULE_ROLES, DEFAULT_MODULE
 import { FEATURES, CAMPAIGN_PRESETS } from "./defaults/features.js";
 import { DEFAULT_CURRENCIES, DEFAULT_SCALES } from "./defaults/misc.js";
 import { DEFAULT_NPC_ARCHETYPES, NPC_NAME_TABLES, NPC_ARCHETYPE_GROUP_LABELS } from "./defaults/npc.js";
+import { DEFAULT_SKILL_TEMPLATES, SKILL_TEMPLATE_GROUP_LABELS } from "./defaults/skill-templates.js";
 export { PHYSICAL_SUBTYPES, RADIATION_ELEMENT } from "./defaults/elements.js";
 
 export const SYSTEM_ID = "nihility-rpg-system";
@@ -32,6 +33,8 @@ export const MEU_SISTEMA = {
     speciesPresetsData: "speciesPresetsData",
     heritagesData: "heritagesData",
     npcArchetypesData: "npcArchetypesData",
+    skillTemplatesData: "skillTemplatesData",
+    skillCostManaPerPoint: "skillCostManaPerPoint",
     bodyFunctionsData: "bodyFunctionsData",
     attributePointsStarting: "attributePointsStarting",
     attributePointsPerLevel: "attributePointsPerLevel",
@@ -641,6 +644,9 @@ export const MEU_SISTEMA = {
   DEFAULT_NPC_ARCHETYPES,
   NPC_NAME_TABLES,
   NPC_ARCHETYPE_GROUP_LABELS,
+  // Modelos de Skill (defaults/skill-templates.js).
+  DEFAULT_SKILL_TEMPLATES,
+  SKILL_TEMPLATE_GROUP_LABELS,
 
   SPECIES_GROUP_LABELS: {
     fantasia: "Fantasia",

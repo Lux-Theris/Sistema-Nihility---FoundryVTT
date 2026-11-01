@@ -199,6 +199,12 @@ export const FEATURES = {
       combatXpPercent: { label: "XP sugerida por derrotado (% do nível dele)", hint: "Com 25% e a fórmula padrão (100 × nível), um NPC de nível 4 vale 100 XP. Só sugestão: o Mestre edita.", type: "number", default: 25, min: 0 }
     }
   },
+  skillAssist: {
+    setting: "skillAssistEnabled",
+    name: "Editor de Skill assistido",
+    hint: "Na ficha e no editor rápido de Skill: avisos do que não faz nada (Periódico em Força, área de tamanho 0, Escudo mantido sem ser Ativa…) e um Custo sugerido ao lado do Custo, calculado pelo que a Skill faz. Só sugere e avisa: nunca impede de salvar nem muda o Custo. Os Modelos de Skill da \"+ Nova Habilidade\" funcionam sempre.",
+    default: true
+  },
   npcGenerator: {
     setting: "npcGeneratorEnabled",
     name: "Gerador de NPC",

@@ -1,0 +1,11 @@
+{{!-- Avisos do editor de Skill (L8). Hash: warnings ([{level, text, effect}]). Nunca impedem de salvar. --}}
+{{#if warnings.length}}
+<div class="sa-box">
+  <div class="sa-box-head"><i class="fas fa-triangle-exclamation"></i> {{warnings.length}} aviso(s) nesta aba<span class="sa-sp"></span><span class="sa-note">dá para salvar assim mesmo</span></div>
+  <ul>
+    {{#each warnings as |w|}}
+    <li class="sa-warn {{w.level}}"><span class="sa-sev">{{#if (eq w.level "hard")}}!{{else}}?{{/if}}</span><span>{{w.text}}</span>{{#if (ne w.effect null)}}<a class="sa-go" data-action="scrollToEffect" data-index="{{w.effect}}">ver ↓</a>{{/if}}</li>
+    {{/each}}
+  </ul>
+</div>
+{{/if}}

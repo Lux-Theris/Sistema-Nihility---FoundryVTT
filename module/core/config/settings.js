@@ -488,6 +488,24 @@ export function registerSystemSettings() {
     default: ""
   });
 
+  // Modelos de Skill (vazio = os de fábrica, MEU_SISTEMA.DEFAULT_SKILL_TEMPLATES).
+  game.settings.register(SYSTEM_ID, S.skillTemplatesData, {
+    scope: "world",
+    config: false,
+    type: String,
+    default: ""
+  });
+
+  // Custo sugerido (L9): quanto de Mana/Energia vale cada "ponto de poder" da Skill.
+  game.settings.register(SYSTEM_ID, S.skillCostManaPerPoint, {
+    name: "Custo sugerido de Skill — por ponto de poder",
+    hint: "Multiplica a conta do custo sugerido ao lado do Custo das Skills (dano médio, área, efeitos). Mais alto = Skills sugeridas mais caras. Padrão 0,9 (a Bola de Fogo padrão sai 25). Só sugere: nunca muda o Custo de nenhuma Skill.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 0.9
+  });
+
   // Arquétipos do Gerador de NPC (vazio = os de fábrica, MEU_SISTEMA.DEFAULT_NPC_ARCHETYPES).
   game.settings.register(SYSTEM_ID, S.npcArchetypesData, {
     scope: "world",

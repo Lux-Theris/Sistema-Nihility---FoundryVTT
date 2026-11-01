@@ -22,6 +22,7 @@ import { pickerFieldHtml, readPickerField, wireElementPickerField } from "./chec
 import { openLightConfigDialog, describeLight } from "../combat/lights.js";
 import { advancedFold } from "../helpers/advanced-fold.js";
 import { escapeHtml } from "../helpers/html.js";
+import { skillAssist, warningsBoxHtml, costChipHtml, templateGroups, templateFillSentence, skillFromTemplate } from "../skills/skill-assist.js";
 
 const { DialogV2 } = foundry.applications.api;
 
@@ -161,7 +162,9 @@ export function mechanicSummaryFor(mech) {
  * @returns {Promise<object|null>} os dados editados, ou null se cancelado
  */
 export async function openSkillEditorDialog(initialData = {}, options = {}) {
-  const { lockTier = null, tierChoices = null, levelReadonly = false } = options;
+  const { lockTier = null, tierChoices = null, levelReadonly = false, actor = null } = options;
+  // Modelos (L7): só numa Skill NOVA — editando uma que existe, trocar de modelo apagaria o que ela tem.
+  const offerTemplates = options.offerTemplates ?? !initialData.name;
   const data = {
     name: initialData.name ?? "",
     tier: initialData.tier ?? lockTier ?? MEU_SISTEMA.SKILL_TIERS[0],
@@ -321,14 +324,22 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     { label: "Dano Absoluto", used: Boolean(data.isAbsoluteDamage) },
     isScaleEnabled() ? { label: "Escala do golpe", used: Boolean(data.damageScale) } : null
   ]);
+  const groups = offerTemplates ? templateGroups() : [];
+  const templateField = groups.length
+    ? `<div class="form-group se-template"><label>Começar de um modelo</label><select name="templatePick">
+        <option value="">Em branco</option>
+        ${groups.map(g => `<optgroup label="${escapeHtml(g.label)}">${g.templates.map(t => `<option value="${escapeHtml(t.id)}" ${t.id === options.templateChosen ? "selected" : ""}>${escapeHtml(t.label)}</option>`).join("")}</optgroup>`).join("")}
+      </select>${options.templateChosen ? `<span class="hint-inline">Veio preenchido: ${escapeHtml(templateFillSentence(options.templateChosen))}. Ajuste nome e números.</span>` : ""}</div>`
+    : "";
   const content = `
     <div class="skill-editor-form">
+      ${templateField}
       <div class="form-group"><label>Nome</label><input type="text" name="name" value="${escapeHtml(data.name)}"/></div>
       ${tierField}
       ${evolvedField}
       <div class="row-2">
         <div class="form-group"><label>Nível</label><input type="number" name="level" value="${data.level}" min="1" ${levelReadonly ? "readonly" : ""}/></div>
-        <div class="form-group"><label>Custo de ${energyLabel}</label><input type="number" name="cost" value="${data.cost}" min="0"/></div>
+        <div class="form-group"><label>Custo de ${energyLabel}</label><span class="sa-costrow"><input type="number" name="cost" value="${data.cost}" min="0"/><span class="se-sug" data-sug="cost"></span></span></div>
       </div>
       <label class="checkbox-line">
         <input type="checkbox" name="hasUpkeep" ${data.hasUpkeep ? "checked" : ""}/>
@@ -336,7 +347,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
       </label>
       <div class="form-group se-upkeep-field" style="display:${data.hasUpkeep ? "flex" : "none"};">
         <label>Custo de ${energyLabel} por Rodada</label>
-        <input type="number" name="upkeepCost" value="${data.upkeepCost}" min="0"/>
+        <span class="sa-costrow"><input type="number" name="upkeepCost" value="${data.upkeepCost}" min="0"/><span class="se-sug" data-sug="upkeepCost"></span></span>
       </div>
       <details class="adv" ${advTop.open ? "open" : ""}>
       ${advSummaryHtml(advTop)}
@@ -422,11 +433,12 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
           MESMA Condição em quem já a tem RENOVA a duração (não soma) e fica com o valor mais forte.
         </p>
       </div>
+      <div class="se-assist"></div>
     </div>`;
 
-  return DialogV2.wait({
+  const result = await DialogV2.wait({
     window: {
-      title: initialData.name ? `Editar Skill: ${initialData.name}` : "Nova Skill",
+      title: initialData.name && !options.templateChosen ? `Editar Skill: ${initialData.name}` : "Nova Skill",
       resizable: true
     },
     classes: ["nihility-skill-editor-dialog"],
@@ -437,13 +449,22 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     // faz o form realmente rolar dentro do limite, deixando os botões sempre visíveis embaixo.
     position: { width: 520, height: Math.min(700, window.innerHeight - 40) },
     content,
-    render: (event, dialog) => setupSkillEditorInteractivity(dialog.element, data),
+    render: (event, dialog) => setupSkillEditorInteractivity(dialog.element, data, { lockTier, actor }),
     buttons: [
       {
         action: "save",
         label: "Salvar",
         default: true,
         callback: (event, button, dialog) => readSkillEditorForm(dialog.element, lockTier)
+      },
+      // Escondido: escolher um modelo fecha esta janela e reabre já preenchida (ver abaixo).
+      {
+        action: "template",
+        label: "Modelo",
+        callback: (event, button, dialog) => ({
+          __template: dialog.element.querySelector('[name="templatePick"]')?.value ?? "",
+          name: dialog.element.querySelector('[name="name"]')?.value.trim() ?? ""
+        })
       },
       // DialogV2.wait faz `result ?? button.action`: se o callback devolve null/undefined,
       // ele substitui pela STRING "cancel" (o `action`), não por um valor falsy de verdade —
@@ -453,10 +474,16 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     ],
     rejectClose: false
   });
+  if (result && typeof result === "object" && "__template" in result) {
+    const tier = lockTier ?? data.tier;
+    const filled = result.__template ? skillFromTemplate(result.__template, { name: result.name, tier }) : { name: result.name, tier };
+    return openSkillEditorDialog(filled ?? {}, { ...options, offerTemplates: true, templateChosen: result.__template || null });
+  }
+  return result;
 }
 
 /** Liga a interatividade do modal: mostrar/esconder painéis, linhas de Efeito, Sub-Skills expansíveis e o resumo de Resistência. */
-function setupSkillEditorInteractivity(root, data) {
+function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = null } = {}) {
   // Nenhuma tentativa via CSS de cascata (classe no DialogV2.wait, flex em .window-content)
   // sobreviveu tanto na janela embutida quanto numa Pop Out (Foundry renderiza o mesmo App numa
   // janela de navegador separada, "/detached/index.html" — contexto de ancestrais diferente,
@@ -722,6 +749,46 @@ function setupSkillEditorInteractivity(root, data) {
     addEffectRow();
   });
   data.effects.forEach(addEffectRow);
+
+  // Modelo (L7): escolher fecha e reabre já preenchido, pelo botão escondido "template".
+  root.querySelector('[name="templatePick"]')?.addEventListener("change", () => {
+    root.querySelector('button[data-action="template"]')?.click();
+  });
+
+  // Avisos (L8) e custo sugerido (L9), recalculados a cada mudança. Nunca bloqueiam o Salvar.
+  const assistBox = root.querySelector(".se-assist");
+  let timer = null;
+  const refreshAssist = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      let mech;
+      try {
+        mech = readSkillEditorForm(root, lockTier);
+      } catch (err) {
+        return;
+      }
+      const assist = skillAssist(mech, { actor });
+      if (!assist.enabled) return;
+      if (assistBox) assistBox.innerHTML = warningsBoxHtml(assist.warnings);
+      const costSlot = root.querySelector('[data-sug="cost"]');
+      if (costSlot) costSlot.innerHTML = costChipHtml(assist.cost, "cost");
+      const upkeepSlot = root.querySelector('[data-sug="upkeepCost"]');
+      if (upkeepSlot) upkeepSlot.innerHTML = assist.upkeep && assist.cost ? costChipHtml({ ...assist.cost, suggested: assist.upkeep.suggested, close: assist.upkeep.close, rows: [], holder: null }, "upkeepCost") : "";
+    }, 150);
+  };
+  root.addEventListener("change", refreshAssist);
+  root.addEventListener("input", refreshAssist);
+  root.addEventListener("click", event => {
+    const use = event.target.closest?.("[data-sa-use]");
+    if (use) {
+      event.preventDefault();
+      const input = root.querySelector(`[name="${use.dataset.saUse}"]`);
+      if (input) input.value = use.dataset.value;
+    }
+    // Linha de Efeito adicionada/apagada, "usar"…: recalcula depois do clique.
+    if (event.target.closest?.(".se-add-effect, .se-effect-delete, [data-sa-use]")) refreshAssist();
+  });
+  refreshAssist();
 }
 
 /**

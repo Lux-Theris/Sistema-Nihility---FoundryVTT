@@ -18,6 +18,7 @@ import {
   getActiveSpeciesPresets,
   getActiveHeritages,
   getActiveNpcArchetypes,
+  getActiveSkillTemplates,
   getActiveBodyFunctions,
   getScaleConfig,
   getStructures,
@@ -465,6 +466,7 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
           { action: "attribute-config", icon: "fas fa-chart-simple", title: "Atributos", desc: "Renomear ou esconder os Atributos de Combate.", state: `${getVisibleAttributes().length} visíveis` },
           { action: "anatomy-config", icon: "fas fa-dna", title: "Espécies", desc: "Corpo, Skills Raciais, Passivos, Linhagens e Evolução de cada Espécie.", state: count(Object.keys(getActiveSpeciesPresets()).length, "espécie", "espécies") },
           { action: "body-functions-config", icon: "fas fa-person-walking", title: "Funções de Parte", desc: "O que acontece ao perder uma parte: Cego, Sem mão, Deslocamento proporcional, Voador…", state: count(getActiveBodyFunctions().length, "função", "funções"), feature: "bodyPartInjury" },
+          { action: "skill-templates-config", icon: "fas fa-clone", title: "Modelos de Skill", desc: "De onde a \"+ Nova Habilidade\" começa: Golpe, Área de dano, Cura, Escudo… e os que você salvar.", state: count(getActiveSkillTemplates().length, "modelo", "modelos") },
           { action: "npc-archetypes-config", icon: "fas fa-users-gear", title: "Arquétipos de NPC", desc: "Os tipos do Gerador de NPC: atributos que favorecem, Skills e equipamento sorteados.", state: count(getActiveNpcArchetypes().length, "arquétipo", "arquétipos"), feature: "npcGenerator" },
           { action: "heritages-config", icon: "fas fa-droplet", title: "Heranças", desc: "O que pode acontecer com qualquer Espécie: Vampirizado, Meio-Dragão, Convertido em Ciborgue…", state: count(getActiveHeritages().length, "herança", "heranças") },
           { action: "traits-config", icon: "fas fa-tags", title: "Traços", desc: "Dracônico, Voador, Orgânico… usados por Elementos e bônus condicionais.", state: count(getActiveTraits().length, "traço", "traços") },
@@ -666,6 +668,11 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
       case "npc-generator": {
         const { openNpcGenerator } = await import("./npc-generator.js");
         openNpcGenerator();
+        break;
+      }
+      case "skill-templates-config": {
+        const { SkillTemplatesConfigApp } = await import("./skill-templates-config.js");
+        new SkillTemplatesConfigApp().render(true);
         break;
       }
       case "npc-archetypes-config": {

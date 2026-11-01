@@ -21,7 +21,7 @@
   <nav class="sheet-tabs tabs item-tabs">
     {{#each tabs as |tab|}}
     <a class="item {{#if (eq tab.id ../activeTab)}}active{{/if}}" data-action="selectTab" data-tab="{{tab.id}}">
-      {{#if tab.led}}<span class="tab-led {{#if tab.ledOn}}on{{/if}}"></span>{{/if}}{{tab.label}}{{#if tab.count}}<span class="tab-count">{{tab.count}}</span>{{/if}}
+      {{#if tab.led}}<span class="tab-led {{#if tab.ledOn}}on{{/if}}"></span>{{/if}}{{tab.label}}{{#if tab.count}}<span class="tab-count">{{tab.count}}</span>{{/if}}{{#if tab.warn}}<span class="tab-warn" title="{{tab.warn}} aviso(s) nesta aba">{{tab.warn}}</span>{{/if}}
     </a>
     {{/each}}
   </nav>
@@ -47,6 +47,10 @@
       {{/if}}
       {{#if system.evolvedFrom}}
       <div class="strip gold"><i class="fas fa-level-up-alt"></i><span>Evoluiu de: {{system.evolvedFrom}}</span></div>
+      {{/if}}
+      {{> nihility.skillWarnings warnings=assistGeneral}}
+      {{#if canSaveTemplate}}
+      <div class="sa-template-row"><button type="button" class="sa-template-btn" data-action="saveAsTemplate" title="Põe uma cópia desta Skill nos Modelos de Skill, para começar outras a partir dela."><i class="fas fa-clone"></i> Salvar como modelo</button></div>
       {{/if}}
 
       <div class="sec">
@@ -79,13 +83,13 @@
       <div class="sec">
         <div class="sec-head">Custo e ativação</div>
         <div class="sec-body g3">
-          <label class="fld"><span class="fld-label">Custo de {{energyLabel}}</span><input class="num" type="number" name="system.cost" value="{{system.cost}}" min="0"/></label>
+          <div class="fld"><span class="fld-label">Custo de {{energyLabel}}</span><span class="sa-costrow"><input class="num" type="number" name="system.cost" value="{{system.cost}}" min="0" aria-label="Custo de {{energyLabel}}"/>{{{costChipHtml}}}</span></div>
           <div class="fld">
             <span class="fld-label">Habilidade Ativa <span class="help" title="Liga/desliga. O Custo é pago ao ligar e o Custo por Rodada drena enquanto ela estiver ligada.">?</span></span>
             <label class="toggle"><input type="checkbox" name="system.hasUpkeep" {{#if system.hasUpkeep}}checked{{/if}}/><span class="toggle-track"></span><span>{{#if system.hasUpkeep}}Sim{{else}}Não{{/if}}</span></label>
           </div>
           {{#if system.hasUpkeep}}
-          <label class="fld"><span class="fld-label">{{energyLabel}} por Rodada</span><input class="num" type="number" name="system.upkeepCost" value="{{system.upkeepCost}}" min="0"/></label>
+          <div class="fld"><span class="fld-label">{{energyLabel}} por Rodada</span><span class="sa-costrow"><input class="num" type="number" name="system.upkeepCost" value="{{system.upkeepCost}}" min="0" aria-label="{{energyLabel}} por Rodada"/>{{{upkeepChipHtml}}}</span></div>
           {{/if}}
         </div>
         <details class="adv" data-adv-key="cost" {{#if advCost.open}}open{{/if}}>
@@ -124,6 +128,7 @@
 
     {{!-- Mecânica --}}
     <div class="tab {{#unless (eq activeTab "mechanic")}}hidden{{/unless}}">
+      {{> nihility.skillWarnings warnings=assistMechanic}}
       <div class="fld">
         <span class="fld-label">Mecânica ao Usar</span>
         <div class="seg" role="radiogroup" aria-label="Mecânica ao Usar">

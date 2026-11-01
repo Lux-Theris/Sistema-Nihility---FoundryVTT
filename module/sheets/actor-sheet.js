@@ -4,6 +4,7 @@ import { anatomyContext, installImplant, uninstallImplant, currentDraggedImplant
 import { implantFits } from "../species/anatomy-rules.js";
 import { isSpeciesLocked } from "../species/species-rules.js";
 import { NPC_TIERS, NPC_TIER_LABELS } from "../npc/npc-generator-rules.js";
+import { templateGroups, templateFillSentence, skillFromTemplate } from "../skills/skill-assist.js";
 import {
   SYSTEM_ID,
   MEU_SISTEMA,
@@ -107,18 +108,43 @@ async function promptDialog({ title, content, confirmLabel = "Confirmar", onConf
  * Migrado pra ApplicationV2 (ActorSheetV2) — ver plano de migração.
  */
 
-/** Janelinha de "Nova Habilidade": só Nome e Tier — o resto se edita na ficha da Skill. */
+/**
+ * Janelinha de "Nova Habilidade": Nome, Tier e o Modelo de onde começar (L7; canvas "Editor de
+ * Skill Assistido", prancha 2) — "Em branco" é o jeito de antes. O resto se edita na ficha.
+ */
 async function promptNewSkill(tierChoices) {
   const esc = escapeHtml;
   const options = tierChoices.map(t => `<option value="${t}" ${t === "normal" ? "selected" : ""}>${esc(MEU_SISTEMA.SKILL_TIER_LABELS[t] ?? t)}</option>`).join("");
+  const tile = (id, label, hint, extra = "") =>
+    `<label class="sa-tile ${extra}"><input type="radio" name="template" value="${esc(id)}" ${id ? "" : "checked"}/><span class="sa-tile-name">${esc(label)}</span><small>${esc(hint)}</small></label>`;
+  const groups = templateGroups();
+  const tiles = groups
+    .map((g, i) => `<p class="sa-tile-group">${esc(g.label)}</p><div class="sa-tiles">${i === 0 ? tile("", "Em branco", "Tudo vazio, como antes", "blank") : ""}${g.templates.map(t => tile(t.id, t.label, t.hint)).join("")}</div>`)
+    .join("");
   return foundry.applications.api.DialogV2.wait({
     window: { title: "Nova Habilidade" },
-    classes: ["nihility-skill-editor-dialog"],
+    classes: ["nihility-skill-editor-dialog", "nihility-new-skill"],
+    position: { width: 640 },
     content: `<div class="skill-editor-form">
-      <div class="form-group"><label>Nome</label><input type="text" name="name" placeholder="Bola de Fogo" autofocus/></div>
-      <div class="form-group"><label>Tier</label><select name="tier">${options}</select></div>
-      <p class="hint-inline">A ficha da Habilidade abre em seguida: Mecânica, alvo, efeitos e passivos ficam lá.</p>
+      <div class="sa-new-row">
+        <div class="form-group"><label>Nome</label><input type="text" name="name" placeholder="Bola de Fogo" autofocus/></div>
+        <div class="form-group"><label>Tier</label><select name="tier">${options}</select></div>
+      </div>
+      ${groups.length ? `<div class="form-group"><label>Começar de</label>${tiles}</div>` : ""}
+      <p class="sa-fill hint-inline">A ficha da Habilidade abre em seguida: Mecânica, alvo, efeitos e passivos ficam lá.</p>
     </div>`,
+    render: (event, dialog) => {
+      const fill = dialog.element.querySelector(".sa-fill");
+      const update = () => {
+        const id = dialog.element.querySelector("[name=template]:checked")?.value ?? "";
+        dialog.element.querySelectorAll(".sa-tile").forEach(t => t.classList.toggle("on", t.querySelector("input").checked));
+        fill.textContent = id
+          ? `Vem preenchido: ${templateFillSentence(id)}. Você troca nome, elemento e números na ficha que abre em seguida.`
+          : "A ficha da Habilidade abre em seguida: Mecânica, alvo, efeitos e passivos ficam lá.";
+      };
+      dialog.element.querySelectorAll("[name=template]").forEach(r => r.addEventListener("change", update));
+      update();
+    },
     buttons: [
       {
         action: "create",
@@ -126,7 +152,11 @@ async function promptNewSkill(tierChoices) {
         default: true,
         callback: (event, button, dialog) => {
           const name = dialog.element.querySelector("[name=name]").value.trim();
-          return { name: name || "Nova Habilidade", tier: dialog.element.querySelector("[name=tier]").value };
+          return {
+            name,
+            tier: dialog.element.querySelector("[name=tier]").value,
+            template: dialog.element.querySelector("[name=template]:checked")?.value ?? ""
+          };
         }
       },
       { action: "cancel", label: "Cancelar" }
@@ -1118,8 +1148,11 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       const tierChoices = MEU_SISTEMA.SKILL_TIERS.filter(t => t !== "racial" && (t !== "ultimate" || ultimateVisible));
       const picked = await promptNewSkill(tierChoices);
       if (!picked) return;
+      // Modelo escolhido: a Skill já nasce montada (o nome digitado e o Tier valem por cima).
+      const fromTemplate = picked.template ? skillFromTemplate(picked.template, { name: picked.name, tier: picked.tier }) : null;
+      const { name: templateName, ...templateSystem } = fromTemplate ?? {};
       const [created] = await this.actor.createEmbeddedDocuments("Item", [
-        { name: picked.name, type: "skill", system: { tier: picked.tier, level: 1 } }
+        { name: picked.name || templateName || "Nova Habilidade", type: "skill", system: fromTemplate ? { ...templateSystem, tier: picked.tier, level: 1 } : { tier: picked.tier, level: 1 } }
       ]);
       const sheet = created.sheet;
       const hookId = Hooks.on("closeApplicationV2", async app => {

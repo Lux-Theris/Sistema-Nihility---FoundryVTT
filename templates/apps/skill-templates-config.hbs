@@ -1,0 +1,33 @@
+<div class="st-root">
+  <p class="st-intro">Os modelos que a "+ Nova Habilidade" e o editor rápido oferecem. Para criar um a partir de uma Skill pronta, use "Salvar como modelo" na ficha dela.</p>
+  <div class="st-list">
+    {{#each rows as |r|}}
+    <div class="st-row">
+      <div class="st-main">
+        <div class="st-name">{{r.label}} <span class="st-tag {{r.status}}">{{r.statusLabel}}</span></div>
+        <div class="st-sum">{{r.summary}}</div>
+        <div class="st-fields">
+          <label>Grupo <select data-field="group" data-index="{{r.index}}">{{#each r.groups as |g|}}<option value="{{g.id}}" {{#if g.selected}}selected{{/if}}>{{g.label}}</option>{{/each}}</select></label>
+          <label class="st-hint">Frase do bloco <input type="text" data-field="hint" data-index="{{r.index}}" value="{{r.hint}}" placeholder="(a Skill numa frase)"></label>
+        </div>
+      </div>
+      <div class="st-actions">
+        <button type="button" data-action="move" data-index="{{r.index}}" data-dir="-1" {{#if r.first}}disabled{{/if}} aria-label="Subir">↑</button>
+        <button type="button" data-action="move" data-index="{{r.index}}" data-dir="1" {{#if r.last}}disabled{{/if}} aria-label="Descer">↓</button>
+        <button type="button" data-action="edit" data-index="{{r.index}}">Editar</button>
+        <button type="button" data-action="remove" data-index="{{r.index}}" aria-label="Tirar modelo">×</button>
+      </div>
+    </div>
+    {{else}}
+    <p class="st-empty">Nenhum modelo. "+ Novo modelo" ou "Trazer do padrão…".</p>
+    {{/each}}
+  </div>
+  <footer class="st-foot">
+    <button type="button" data-action="add">+ Novo modelo</button>
+    <button type="button" data-action="importDefaults">Trazer do padrão…</button>
+    <span class="st-sp"></span>
+    <span class="st-dirty {{#unless dirty}}hidden{{/unless}}">Mudanças não salvas</span>
+    <button type="button" data-action="cancel">Descartar</button>
+    <button type="button" class="st-pri" data-action="save">Salvar</button>
+  </footer>
+</div>

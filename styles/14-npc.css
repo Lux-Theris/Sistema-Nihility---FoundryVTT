@@ -1,4 +1,4 @@
-/* Gerador de NPC e editor de Arquétipos (canvas "Gerador de NPC", pranchas 1 e 2). */
+/* Gerador de NPC e editor de Arquétipos (canvas "Gerador de NPC"); Editor de Skill assistido (canvas "Editor de Skill Assistido"). */
 
 .nihility-npc-generator .window-content,
 .nihility-npc-archetypes .window-content { padding: 0; background: var(--nihility-bg-dark); color: var(--nihility-text); }
@@ -130,3 +130,89 @@
 /* Ficha: Nível de NPC no cabeçalho (só o Mestre). */
 .nihility-sheet .npc-tier-select { display: inline-flex; align-items: center; gap: 4px; font-size: 0.78rem; color: var(--nihility-gold); }
 .nihility-sheet .npc-tier-select select { height: 22px; padding: 0 4px; font-size: 0.78rem; border-color: var(--nihility-gold); color: var(--nihility-gold); background: var(--nihility-bg-panel-alt); }
+
+/* ------------------------------------------------ Editor de Skill assistido (L7–L9) */
+/* Avisos (L8): quadro no topo da aba, número na aba, linha no card. */
+.sa-box { border: 1px solid rgba(255, 159, 67, 0.45); border-radius: 8px; background: rgba(255, 159, 67, 0.06); margin-bottom: 10px; color: var(--nihility-text); }
+.sa-box-head { display: flex; align-items: center; gap: 8px; padding: 6px 10px; font-size: 12.5px; font-weight: 600; color: #ffb870; border-bottom: 1px solid rgba(255, 159, 67, 0.25); }
+.sa-box .sa-sp { flex-grow: 1; }
+.sa-box .sa-note { font-weight: 400; font-size: 11.5px; color: var(--nihility-text-dim); }
+.sa-box ul { list-style: none; margin: 0; padding: 0; }
+.sa-warn { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 8px; align-items: start; padding: 6px 10px; font-size: 12.5px; line-height: 1.4; color: var(--nihility-text); border-top: 1px solid rgba(255, 159, 67, 0.15); }
+.sa-warn:first-child { border-top: none; }
+.sa-sev { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 16px; height: 16px; border-radius: 50%; font: 700 10px var(--nihility-font-data); color: #10121a; background: #ff9f43; margin-top: 1px; }
+.sa-warn.soft .sa-sev, .sa-card-line.soft .sa-sev { background: var(--nihility-warn); }
+.sa-go { font-size: 11.5px; color: var(--nihility-accent); white-space: nowrap; cursor: pointer; }
+.item-sheet .tab-warn { display: inline-flex; align-items: center; justify-content: center; min-width: 15px; height: 15px; margin-left: 5px; padding: 0 4px; border-radius: 999px; background: #ff9f43; color: #10121a; font: 700 10px var(--nihility-font-data); }
+.item-sheet .effect-card.sa-card-warn { border-color: #ff9f43; }
+.item-sheet .effect-card.sa-card-warn.soft { border-color: var(--nihility-warn); }
+.sa-card-line { display: flex; align-items: flex-start; gap: 6px; padding-top: 6px; margin-top: 4px; border-top: 1px dashed rgba(255, 159, 67, 0.5); font-size: 12px; line-height: 1.4; color: #ffb870; }
+.sa-card-line.soft { border-top-color: rgba(255, 207, 92, 0.45); color: var(--nihility-warn); }
+.item-sheet .effect-card.sa-flash { animation: sa-flash 1.2s ease-out; }
+@keyframes sa-flash { 0% { box-shadow: 0 0 0 3px rgba(255, 159, 67, 0.8); } 100% { box-shadow: 0 0 0 0 rgba(255, 159, 67, 0); } }
+
+/* Custo sugerido (L9): selo ao lado do Custo, conta escondida no <details>. */
+.sa-costrow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; position: relative; }
+.sa-costrow input[type="number"] { width: 72px; flex: 0 0 auto; }
+.sa-cost { position: relative; }
+.sa-cost > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 999px; border: 1px solid; font: 500 11.5px var(--nihility-font-data); white-space: nowrap; }
+.sa-cost > summary::-webkit-details-marker { display: none; }
+.sa-cost.ok > summary { color: var(--nihility-ok); border-color: rgba(110, 231, 160, 0.5); background: rgba(110, 231, 160, 0.06); }
+.sa-cost.far > summary { color: var(--nihility-warn); border-color: rgba(255, 207, 92, 0.55); background: rgba(255, 207, 92, 0.06); }
+.sa-pop { position: absolute; z-index: 50; top: calc(100% + 6px); left: 0; width: 330px; border: 1px solid var(--nihility-border); border-radius: 8px; background: #141722; box-shadow: 0 16px 32px -12px rgba(0, 0, 0, 0.8); color: var(--nihility-text-dim); }
+.sa-pr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; padding: 5px 10px; font-size: 12px; border-top: 1px solid var(--nihility-border-soft); color: var(--nihility-text-dim); }
+.sa-pr:first-child { border-top: none; }
+.sa-pr b { color: var(--nihility-text); font: 600 12px var(--nihility-font-data); }
+.sa-pr.total { background: rgba(110, 231, 255, 0.06); color: var(--nihility-text); font-weight: 600; }
+.sa-pr.total b { color: var(--nihility-accent); }
+.sa-pr.holder { background: rgba(192, 132, 252, 0.07); color: var(--nihility-text); }
+.sa-pr.holder b { color: #c084fc; }
+.sa-foot { margin: 0; padding: 6px 10px; font-size: 11px; line-height: 1.4; color: var(--nihility-text-faint); border-top: 1px solid var(--nihility-border); }
+.sa-use { font-size: 11.5px; color: var(--nihility-accent); cursor: pointer; }
+.sa-template-row { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+.item-sheet .sa-template-btn { height: auto; min-height: 0; line-height: normal; width: auto; padding: 4px 10px; font-size: 12px; border: 1px solid var(--nihility-gold); border-radius: 4px; color: var(--nihility-gold); background: rgba(232, 193, 112, 0.06); }
+
+/* Editor rápido: o botão escondido que reabre a janela com o modelo. */
+.nihility-skill-editor-dialog button[data-action="template"] { display: none; }
+.nihility-skill-editor-dialog .se-assist .sa-box { margin: 10px 0 0; }
+
+/* "+ Nova Habilidade" com Modelos (L7). */
+.nihility-new-skill .sa-new-row { display: grid; grid-template-columns: minmax(0, 1fr) 170px; gap: 10px; }
+.nihility-new-skill .sa-tile-group { margin: 6px 0 2px; font: 600 10px var(--nihility-font-data); letter-spacing: 0.08em; text-transform: uppercase; color: var(--nihility-text-faint); }
+.nihility-new-skill .sa-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.nihility-new-skill .sa-tile { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 7px 9px; min-height: 50px; box-sizing: border-box; border: 1px solid var(--nihility-border); border-radius: 6px; background: var(--nihility-bg-panel); color: var(--nihility-text); cursor: pointer; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.nihility-new-skill .sa-tile input { position: absolute; opacity: 0; pointer-events: none; }
+.nihility-new-skill .sa-tile-name { font-size: 12.5px; color: var(--nihility-text); }
+.nihility-new-skill .sa-tile small { font-size: 10.5px; line-height: 1.3; color: var(--nihility-text-faint); }
+.nihility-new-skill .sa-tile.blank { border-style: dashed; }
+.nihility-new-skill .sa-tile.on { border-color: var(--nihility-gold); background: rgba(232, 193, 112, 0.08); }
+.nihility-new-skill .sa-tile.on .sa-tile-name { color: var(--nihility-gold); }
+.nihility-new-skill .sa-fill { margin-top: 8px; padding: 7px 10px; border-radius: 6px; background: rgba(110, 231, 255, 0.07); border: 1px solid rgba(110, 231, 255, 0.25); color: var(--nihility-text-dim); }
+
+/* Lista de Modelos de Skill. */
+.nihility-skill-templates .window-content { padding: 0; background: var(--nihility-bg-dark); color: var(--nihility-text); }
+.nihility-skill-templates button { height: auto; min-height: 0; line-height: normal; width: auto; padding: 4px 10px; border-radius: 4px; border: 1px solid var(--nihility-border); background: var(--nihility-bg-panel-alt); color: var(--nihility-text); font-size: 12px; }
+.nihility-skill-templates label, .nihility-skill-templates span, .nihility-skill-templates p { color: inherit; }
+.nihility-skill-templates .hidden { display: none !important; }
+.nihility-skill-templates .st-root { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.nihility-skill-templates .st-intro { margin: 0; padding: 10px 12px; font-size: 12.5px; color: var(--nihility-text-dim); border-bottom: 1px solid var(--nihility-border); }
+.nihility-skill-templates .st-list { flex: 1 1 auto; overflow-y: auto; padding: 6px 12px; }
+.nihility-skill-templates .st-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 9px 0; border-top: 1px solid var(--nihility-border-soft); }
+.nihility-skill-templates .st-row:first-child { border-top: none; }
+.nihility-skill-templates .st-name { font-size: 13.5px; color: var(--nihility-text); }
+.nihility-skill-templates .st-sum { font-size: 11.5px; color: var(--nihility-text-dim); margin-top: 2px; }
+.nihility-skill-templates .st-fields { display: flex; gap: 10px; margin-top: 6px; font-size: 11.5px; color: var(--nihility-text-dim); flex-wrap: wrap; }
+.nihility-skill-templates .st-fields label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.nihility-skill-templates .st-hint { flex: 1 1 220px; }
+.nihility-skill-templates .st-fields input, .nihility-skill-templates .st-fields select { height: 26px; background: var(--nihility-bg-panel-alt); border: 1px solid var(--nihility-border); color: var(--nihility-text); border-radius: 4px; }
+.nihility-skill-templates .st-hint input { flex: 1 1 auto; }
+.nihility-skill-templates .st-tag { font: 500 9.5px var(--nihility-font-data); padding: 1px 6px; border-radius: 999px; border: 1px solid var(--nihility-border); color: var(--nihility-text-faint); margin-left: 6px; }
+.nihility-skill-templates .st-tag.edited { color: var(--nihility-accent); border-color: rgba(110, 231, 255, 0.4); }
+.nihility-skill-templates .st-tag.custom { color: #c084fc; border-color: rgba(192, 132, 252, 0.5); }
+.nihility-skill-templates .st-actions { display: flex; gap: 4px; }
+.nihility-skill-templates .st-actions button:disabled { opacity: 0.4; }
+.nihility-skill-templates .st-foot { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--nihility-border); }
+.nihility-skill-templates .st-sp { flex-grow: 1; }
+.nihility-skill-templates .st-dirty { font-size: 12px; color: var(--nihility-warn); }
+.nihility-skill-templates button.st-pri { border-color: var(--nihility-accent); color: var(--nihility-accent); background: rgba(110, 231, 255, 0.08); }
+.nihility-skill-templates .st-empty { color: var(--nihility-text-faint); font-style: italic; }

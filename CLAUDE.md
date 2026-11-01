@@ -23,7 +23,7 @@ node --test "test/*.test.mjs"                               # unit tests of the 
 
 **Check syntax in module mode, never with a bare `node --check file.js`.** There is no `package.json` declaring `"type": "module"`, so the bare form parses the file with Node's CommonJS/auto-detect path and lets ES-module-only early errors through. The one that shipped in 1.37: `item-sheet.js` imported `getActiveDamageElements` **twice in the same import list** — a SyntaxError for a module, invisible to the bare check — and because `nihility-rpg-system.js` imports the sheet, the whole module graph failed to evaluate: no `init`, no sheets registered, and the only symptom in Foundry was an empty "Ficha Padrão" list ("as fichas sumiram"). To check everything at once: `for f in $(find module -name '*.js'); do node --input-type=module --check < "$f" || echo "$f"; done`.
 
-The suite is split by subject into `test/*.test.mjs` (dice-progression, combat-damage, combat-effects, skills, species-anatomy, ships, economy, environment, movement-area, world-config, ai, npc-generator, plus gm-relay, anchored-targets, skill-use-flow, html); each file starts with `import "./setup.mjs";` — **put a new test in the file of its subject, or a new file**, there is no single `rules.test.mjs` any more (split in 1.78). It covers only what is callable without Foundry — dice pool and initiative formula, resistance curve, XP curve and Resistance-XP gain, the Skill level cycle (`skillLevelBonuses`/`effectiveSkillCost`), damage scaling, module presets and structural damage, currency conversion, AI batch prompts, fusion snapshot, Skill-area geometry, floating-number deltas, the Skill sentence, XP por uso, consumables/charges/magazine/ammo swap — with `test/setup.mjs` stubbing the handful of Foundry globals the import path touches (`Math.clamp`, `foundry.utils.*`, `foundry.data.fields`/`abstract.TypeDataModel`, `ui.notifications`). Note `game.settings.get` is stubbed to **throw**, on purpose: that is the real boot-order path every config reader has to survive, so the suite exercises each reader's default-fallback branch. A test that needs a *configured* value has to pass it in as an argument — which is a good reason to keep new rule functions taking their tuning as parameters. Every pure rule function currently has coverage; keep it that way when you add one. **The bar for adding a test there is that the function needs no Actor/Item/canvas** — if a test would need to fake a Document, extract the pure part instead of growing the stub. Everything involving documents, sheets or canvas is still manual load-testing inside a running world.
+The suite is split by subject into `test/*.test.mjs` (dice-progression, combat-damage, combat-effects, skills, species-anatomy, ships, economy, environment, movement-area, world-config, ai, npc-generator, skill-assist, plus gm-relay, anchored-targets, skill-use-flow, html); each file starts with `import "./setup.mjs";` — **put a new test in the file of its subject, or a new file**, there is no single `rules.test.mjs` any more (split in 1.78). It covers only what is callable without Foundry — dice pool and initiative formula, resistance curve, XP curve and Resistance-XP gain, the Skill level cycle (`skillLevelBonuses`/`effectiveSkillCost`), damage scaling, module presets and structural damage, currency conversion, AI batch prompts, fusion snapshot, Skill-area geometry, floating-number deltas, the Skill sentence, XP por uso, consumables/charges/magazine/ammo swap — with `test/setup.mjs` stubbing the handful of Foundry globals the import path touches (`Math.clamp`, `foundry.utils.*`, `foundry.data.fields`/`abstract.TypeDataModel`, `ui.notifications`). Note `game.settings.get` is stubbed to **throw**, on purpose: that is the real boot-order path every config reader has to survive, so the suite exercises each reader's default-fallback branch. A test that needs a *configured* value has to pass it in as an argument — which is a good reason to keep new rule functions taking their tuning as parameters. Every pure rule function currently has coverage; keep it that way when you add one. **The bar for adding a test there is that the function needs no Actor/Item/canvas** — if a test would need to fake a Document, extract the pure part instead of growing the stub. Everything involving documents, sheets or canvas is still manual load-testing inside a running world.
 
 **Version bump convention (always follow this):** `system.json`'s `"version"` is bumped **in the same commit as the change itself**, never as a separate follow-up commit. Every meaningful feature/fix commit carries its own bump. Foundry's update-check compares this field against the manifest URL, so without a bump, worlds never see new content as available — and keeping the bump inside the commit that earned it means a version always points at exactly one set of changes.
 
@@ -39,7 +39,7 @@ Code is grouped by subject, not by layer (reorganized in 1.53.1; file names did 
 |---|---|
 | `core/` | `config.js` (entry point that re-exports `core/config/*`: settings, FEATURES, catalogs and their readers — see below), `config/` (the split of config.js, with `config/defaults/` for factory data), `config-transfer.js`, `compendium.js`, `dice.js`, `roll-modifiers.js`, `voice-of-the-world.js`, `vfx.js`, `hotbar.js` (Skills/weapons/consumables on the hotbar) |
 | `combat/` | initiative (`combat.js`), `movement.js`, damage (`damage-rules.js` pure, `damage-roll.js` rolling + target reductions, `damage-apply.js` chat card), `resistance.js`, `antimagic.js`, Conditions (`conditions.js`, `conditional-*.js`), `effect-anchors.js`, `shield-pools.js`, `area-effects.js` + `area-geometry.js` (pure), `lights.js`, `stat-explain.js`, `floating-numbers.js` + `vital-deltas.js` (pure) |
-| `skills/` | `skill-effects.js` ("Usar Habilidade": `useSkillEffect` + applying effects to one target / an area), `effect-targets.js` (where each effect target lands per Actor type), `skill-state.js` (active/invest paths, energy source), `effects-apply.js` (Active Effects, Conditions, periodic ticks), `upkeep.js` (Active Skills: anchors release, drain, Mana em 0), `sustained-shields.js`, `zones.js`, `skill-economy.js`, `skill-snapshot.js`, `skill-xp.js` + `skill-xp-rules.js` (pure; XP por uso), `skill-summary.js` (pure) + `skill-summary-ui.js` (a Skill numa frase), `skill-undo.js` + `skill-undo-rules.js` (pure) + `skill-use-context.js` (Desfazer uso) |
+| `skills/` | `skill-effects.js` ("Usar Habilidade": `useSkillEffect` + applying effects to one target / an area), `effect-targets.js` (where each effect target lands per Actor type), `skill-state.js` (active/invest paths, energy source), `effects-apply.js` (Active Effects, Conditions, periodic ticks), `upkeep.js` (Active Skills: anchors release, drain, Mana em 0), `sustained-shields.js`, `zones.js`, `skill-economy.js`, `skill-snapshot.js`, `skill-xp.js` + `skill-xp-rules.js` (pure; XP por uso), `skill-summary.js` (pure) + `skill-summary-ui.js` (a Skill numa frase), `skill-undo.js` + `skill-undo-rules.js` (pure) + `skill-use-context.js` (Desfazer uso), `skill-assist.js` + `skill-lint-rules.js`/`skill-cost-rules.js`/`skill-template-rules.js` (pure; editor de Skill assistido) |
 | `species/` | `species-rules.js` (pure), `species.js` (apply/preview) |
 | `structures/` | `structures.js`, `structure-geometry.js` (pure), `structure-render.js`, `structure-contact.js` |
 | `starship/` | `starship-model.js`, `starship-sheet.js`, `starship-power.js`, `starship-repair.js`, `ship-damage.js` (cascade, ship weapons, ammo, instant ship effects), `crew-ownership.js` |
@@ -413,6 +413,54 @@ The owner approved the Design artifact "Gerador de NPC" with all three boards; b
 - Elite/Chefe draw extra Skills in the generator (`npcEliteSkills`/`npcBossSkills`).
 - Turning the block off counts everyone as Normal; the saved tier stays.
 - Left out on purpose: "each X of damage drops another minion", and extra points for Elite/Chefe.
+
+### Editor de Skill assistido: avisos, custo sugerido e Modelos (1.81.0)
+
+The owner approved the Design artifact "Editor de Skill Assistido" with all three boards. Board 3 got one extra line on approval: the holder's Mana. Build to the artifact.
+
+The warnings and the suggested cost sit behind `FEATURES.skillAssist`, on by default. Templates are always available.
+
+- **Warnings (L8): `lintSkill(mech, ctx)` in `skills/skill-lint-rules.js`** (pure, tested). It is the Validar Mundo for **one** Skill, run while editing.
+  - It returns `{code, level: "hard"|"soft", tab: "general"|"mechanic", effect: index|null, text}` and **never blocks saving**.
+  - "hard" means it does nothing or does not apply:
+    - Periódico on a target that is not Vida/Mana/Casco/Integridade;
+    - Escudo mantido on a Skill that is not Active;
+    - a Custo por rodada on a Skill that is not Active;
+    - an area or Zona of size 0;
+    - Mecânica Dano without a formula, or with an invalid one (`Roll.validate`);
+    - Mecânica Efeito without any Efeito;
+    - an Efeito with value 0 and no Condition;
+    - a Condition, element or Structure that no longer exists in the catalog;
+    - a cost above the holder's max Mana;
+    - a ship target on a "Si mesmo" Skill of a Personagem, or the reverse.
+  - That last check covers only "Si mesmo": a crew member may legitimately aim a ship-target Skill **at the ship**.
+  - "soft" means "confira": no duration outside an Active Skill (lasts forever), an Active Skill with no upkeep, or Dano Absoluto together with Dano Mágico.
+  - Where they show:
+    - on the Skill sheet, through the `nihility.skillWarnings` partial, at the top of the Geral and Mecânica tabs, with "ver ↓" (`scrollToEffect`);
+    - as a count on the tab (`tab.warn`);
+    - as a line under the effect card (`eff.warnings`, `warnLevel`);
+    - in the quick editor, as a box (`warningsBoxHtml`) recomputed on every change through `readSkillEditorForm`.
+- **Suggested cost (L9): `suggestSkillCost(mech, ctx)` in `skills/skill-cost-rules.js`** (pure, tested).
+  - It adds up "power points" and converts them through `skillCostManaPerPoint`, a world setting in Regras da Mesa (default 0.9). The points come from:
+    - average damage (`averageRoll`) × scaling 1.25 × Dano Absoluto 1.5;
+    - effects: value × duration, heal/Escudo by value, a periodic tick × its ticks, a flat amount per Condition;
+    - area, by shape and size (`areaFactor`), and Zona, by its rounds;
+    - a Structure, by its HP.
+  - Percent-valued targets (movement, ship %) count at 1/10.
+  - It is the **level-1** cost.
+  - It is calibrated so the default Bola de Fogo comes out at exactly 25, and the test requires at least 80% of the archetype Skills to land within 50%.
+  - An Active Skill also gets an upkeep suggestion (cost × 0.25).
+  - The chip (`costChipHtml`) is green within 30% (`costCloseEnough`) and amber otherwise, with "usar" next to it. The breakdown sits in a `<details>`.
+  - The holder's Mana **never changes the suggestion**, which would make the same power cost different amounts. It only adds a line (`holderLine`: % of max Mana and how many uses).
+- **Templates (L7).**
+  - Catalog: `skillTemplatesData`, with defaults in `MEU_SISTEMA.DEFAULT_SKILL_TEMPLATES` (`core/config/defaults/skill-templates.js`). There are 12 templates, grouped Dano/Ajuda/Controle, plus the fixed "Em branco".
+  - Read it through `getActiveSkillTemplates()`. Each entry is `{id, label, hint, group, skill}`.
+  - `templateSkillData` (pure) fills a new Skill: the typed name and the Tier override the template's, and element, Condition or Structure ids the world lacks are dropped (a missing Structure becomes the first one in the catalog).
+  - Where templates are offered:
+    - In "+ Nova Habilidade" on the character sheet, as radio tiles with a "Vem preenchido" sentence.
+    - In the quick editor, **only for a new Skill** (`offerTemplates` = no `name` in `initialData`). Picking one clicks a hidden "template" dialog button, which closes the dialog and reopens it filled (`openSkillEditorDialog` loops through `__template`).
+    - "Salvar como modelo" (GM) on the Skill sheet uses `templateFromSkill`.
+  - The list editor is `apps/skill-templates-config.js`, found in Configurações Gerais › Personagem.
 
 ### Skills e armas na hotbar, e a Skill numa frase
 

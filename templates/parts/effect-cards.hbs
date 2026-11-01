@@ -9,7 +9,7 @@
           <div class="col-head effect-cols"><span>Alvo</span><span>Qtd.</span><span>Duração</span><span></span></div>
           {{/if}}
           {{#each effects as |eff|}}
-          <div class="effect-card" data-index="{{eff.index}}">
+          <div class="effect-card {{#if eff.warnings}}sa-card-warn {{eff.warnLevel}}{{/if}}" data-index="{{eff.index}}">
             <div class="effect-card-head">
               <span class="group-tag {{eff.groupClass}}">{{eff.groupLabel}}</span>
               <span class="effect-sum">{{eff.summary}}{{#if eff.summaryExtra}} <em>· {{eff.summaryExtra}}</em>{{/if}}</span>
@@ -116,6 +116,7 @@
               </div>
             </details>
             {{/if}}
+            {{#each eff.warnings as |w|}}<div class="sa-card-line {{w.level}}"><span class="sa-sev">{{#if (eq w.level "hard")}}!{{else}}?{{/if}}</span><span>{{w.text}}</span></div>{{/each}}
           </div>
           {{/each}}
           {{#if editable}}<a class="link-add" data-action="addSkillEffect">+ Efeito</a>{{/if}}

@@ -9,6 +9,7 @@ import { getFeatureOption } from "./features.js";
 import { normalizeLightConfig } from "./rules.js";
 import { createRawCache, memoByObject } from "./cache.js";
 import { normalizeArchetype } from "../../npc/npc-generator-rules.js";
+import { normalizeSkillTemplate } from "../../skills/skill-template-rules.js";
 
 const rawCache = createRawCache();
 
@@ -269,6 +270,37 @@ export function getActiveNpcArchetypes() {
     }
     return defaultNpcArchetypes(list ?? MEU_SISTEMA.DEFAULT_NPC_ARCHETYPES);
   });
+}
+
+/** Modelos de Skill (setting > padrão, MEU_SISTEMA.DEFAULT_SKILL_TEMPLATES), normalizados. Não altere o que volta. */
+export function getActiveSkillTemplates() {
+  return cachedCatalog("skillTemplatesData", raw => {
+    let list = null;
+    try {
+      if (raw) {
+        const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+        if (Array.isArray(parsed)) list = parsed;
+      }
+    } catch (err) {
+      /* setting inválida — cai no padrão */
+    }
+    return defaultSkillTemplates(list ?? MEU_SISTEMA.DEFAULT_SKILL_TEMPLATES);
+  });
+}
+
+/** Modelos (de fábrica, se nada vier) normalizados. */
+export function defaultSkillTemplates(list = MEU_SISTEMA.DEFAULT_SKILL_TEMPLATES) {
+  return list.map(normalizeSkillTemplate);
+}
+
+/** "Mana por ponto" do custo sugerido (Regras da Mesa). */
+export function getSkillCostManaPerPoint() {
+  try {
+    const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.skillCostManaPerPoint));
+    return Number.isFinite(value) && value > 0 ? value : 0.9;
+  } catch (err) {
+    return 0.9;
+  }
 }
 
 /** Lista de arquétipos (de fábrica, se nada vier) normalizada. */

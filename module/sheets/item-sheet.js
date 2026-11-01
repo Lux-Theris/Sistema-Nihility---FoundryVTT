@@ -38,7 +38,10 @@ import { getAntimagicReach,
   getActiveSpeciesPresets,
   getActiveHeritages,
   getActiveBodyFunctions,
+  getActiveSkillTemplates,
+  isFeatureEnabled,
 } from "../core/config.js";
+import { skillAssist, costChipHtml } from "../skills/skill-assist.js";
 import {
   WHEN_KINDS,
   WHEN_LABELS,
@@ -351,7 +354,9 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       clearGrantedSkill: NihilityItemSheet.#onClearGrantedSkill,
       addGrantedSubSkill: NihilityItemSheet.#onAddGrantedSubSkill,
       editGrantedSubSkill: NihilityItemSheet.#onEditGrantedSubSkill,
-      deleteGrantedSubSkill: NihilityItemSheet.#onDeleteGrantedSubSkill
+      deleteGrantedSubSkill: NihilityItemSheet.#onDeleteGrantedSubSkill,
+      scrollToEffect: NihilityItemSheet.#onScrollToEffect,
+      saveAsTemplate: NihilityItemSheet.#onSaveAsTemplate
     }
   };
 
@@ -387,6 +392,29 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
    */
   get title() {
     return this.item.name;
+  }
+
+  /** "ver ↓" de um aviso: leva ao card do Efeito e pisca. */
+  static #onScrollToEffect(event, target) {
+    event.preventDefault();
+    const card = this.element.querySelector(`.effect-card[data-index="${target.dataset.index}"]`);
+    if (!card) return;
+    card.scrollIntoView({ behavior: "smooth", block: "center" });
+    card.classList.remove("sa-flash");
+    void card.offsetWidth;
+    card.classList.add("sa-flash");
+  }
+
+  /** "Salvar como modelo" (L7, só o Mestre): uma cópia desta Skill vai para os Modelos de Skill. */
+  static async #onSaveAsTemplate(event) {
+    event.preventDefault();
+    if (!game.user.isGM) return;
+    const { templateFromSkill } = await import("../skills/skill-template-rules.js");
+    const current = getActiveSkillTemplates().map(t => foundry.utils.deepClone(t));
+    const entry = templateFromSkill(this.item.name, this.item.toObject().system, current.map(t => t.id));
+    current.push(entry);
+    await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.skillTemplatesData, JSON.stringify(current, null, 2));
+    ui.notifications.info(`"${this.item.name}" virou um Modelo de Skill (Configurações Gerais › Personagem › Modelos de Skill).`);
   }
 
   static #onSelectTab(event, target) {
@@ -459,6 +487,8 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
     context.headerChips = headerChipsFor(item);
     context.tabs = tabsFor(item);
+    // Avisos (L8): um número na aba que tem o problema.
+    if (context.assist) for (const tab of context.tabs) tab.warn = context.assist.byTab[tab.id] ?? 0;
     // Aba guardada que não existe neste tipo (ou primeira abertura): cai na primeira, que é
     // sempre a dos campos — nunca a Descrição.
     if (!context.tabs.some(tab => tab.id === this.activeTab)) this.activeTab = context.tabs[0].id;
@@ -549,6 +579,21 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     ]);
 
     context.skillEffects = this.#effectCards(context);
+
+    // Editor de Skill assistido (L8 avisos + L9 custo sugerido; canvas "Editor de Skill Assistido").
+    const assist = skillAssist(sys, { actor: owner?.documentName === "Actor" ? owner : null });
+    if (assist.enabled) {
+      context.assist = assist;
+      context.assistGeneral = assist.warnings.filter(w => w.tab === "general");
+      context.assistMechanic = assist.warnings.filter(w => w.tab === "mechanic");
+      context.costChipHtml = costChipHtml(assist.cost, "system.cost");
+      context.upkeepChipHtml = costChipHtml(assist.upkeep && assist.cost ? { ...assist.cost, suggested: assist.upkeep.suggested, close: assist.upkeep.close, rows: [], holder: null } : null, "system.upkeepCost");
+      for (const card of context.skillEffects) {
+        card.warnings = assist.byEffect[card.index] ?? null;
+        card.warnLevel = card.warnings?.some(w => w.level === "hard") ? "hard" : "soft";
+      }
+    }
+    context.canSaveTemplate = game.user.isGM;
     context.subSkillRows = (sys.subSkills ?? []).map((sub, index) => ({
       index,
       name: sub.name,
@@ -938,6 +983,16 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       });
     });
     if (!this.isEditable) return;
+    // "usar" do custo sugerido (L9): copia o número para o campo e salva como uma edição comum.
+    this.element.querySelectorAll("[data-sa-use]").forEach(link =>
+      link.addEventListener("click", event => {
+        event.preventDefault();
+        const input = this.element.querySelector(`[name="${link.dataset.saUse}"]`);
+        if (!input) return;
+        input.value = link.dataset.value;
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      })
+    );
 
     this.element.querySelectorAll(".item-equip-toggle").forEach(checkbox => {
       checkbox.addEventListener("change", this._onEquipToggle.bind(this));

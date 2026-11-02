@@ -13,6 +13,7 @@
 import { SYSTEM_ID, MEU_SISTEMA } from "./config.js";
 
 const DURATION_MS = 6000;
+const ACTION_DURATION_MS = 30000;
 const MAX_QUEUE = 6;
 const queue = [];
 let showing = false;
@@ -57,7 +58,7 @@ function showNext() {
   card.setAttribute("aria-label", `Voz do Mundo: ${next.title}`);
   const label = card.appendChild(document.createElement("div"));
   label.className = "nvc-label";
-  label.textContent = "Voz do Mundo";
+  label.textContent = next.label || "Voz do Mundo";
   if (next.title) {
     const title = card.appendChild(document.createElement("div"));
     title.className = "nvc-title";
@@ -68,9 +69,41 @@ function showNext() {
     body.className = "nvc-body";
     body.textContent = next.body;
   }
+  // Aviso com botões (ex.: "Kael está pronto" para o Mestre): fica mais tempo e só fecha pelo
+  // botão (ou pelo ×), para um clique no texto não perder a escolha.
+  const actions = Array.isArray(next.actions) ? next.actions : [];
+  const duration = actions.length ? ACTION_DURATION_MS : DURATION_MS;
+  if (actions.length) {
+    card.classList.add("has-actions");
+    const row = card.appendChild(document.createElement("div"));
+    row.className = "nvc-actions";
+    for (const action of actions) {
+      const button = row.appendChild(document.createElement("button"));
+      button.type = "button";
+      button.textContent = action.label;
+      if (action.primary) button.classList.add("primary");
+      button.addEventListener("click", event => {
+        event.stopPropagation();
+        close();
+        try {
+          action.onClick?.();
+        } catch (err) {
+          console.error(err);
+        }
+      });
+    }
+    const x = card.appendChild(document.createElement("a"));
+    x.className = "nvc-close";
+    x.textContent = "×";
+    x.title = "Fechar";
+    x.addEventListener("click", event => {
+      event.stopPropagation();
+      close();
+    });
+  }
   const bar = card.appendChild(document.createElement("div"));
   bar.className = "nvc-bar";
-  bar.appendChild(document.createElement("div")).style.animationDuration = `${DURATION_MS}ms`;
+  bar.appendChild(document.createElement("div")).style.animationDuration = `${duration}ms`;
 
   let closed = false;
   const close = () => {
@@ -82,16 +115,19 @@ function showNext() {
       showNext();
     }, 250);
   };
-  card.addEventListener("click", close);
-  setTimeout(close, DURATION_MS);
+  if (!actions.length) card.addEventListener("click", close);
+  setTimeout(close, duration);
   stack().appendChild(card);
 }
 
-/** Põe um anúncio na fila (também usado por outros avisos que queiram o mesmo cartão). */
-export function showVoiceBanner({ title = "", body = "" } = {}) {
+/**
+ * Põe um anúncio na fila (também usado por outros avisos que queiram o mesmo cartão).
+ * `label` troca o "Voz do Mundo" do topo; `actions` ([{label, primary, onClick}]) põe botões.
+ */
+export function showVoiceBanner({ title = "", body = "", label = "", actions = null } = {}) {
   if (!enabledForMe() || (!title && !body)) return;
   if (queue.length >= MAX_QUEUE) queue.shift();
-  queue.push({ title: String(title), body: plainText(body) });
+  queue.push({ title: String(title), body: plainText(body), label: String(label || ""), actions });
   if (!showing) showNext();
 }
 

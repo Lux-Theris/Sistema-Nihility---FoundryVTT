@@ -40,6 +40,42 @@
         {{/if}}
       </div>
 
+      {{#if creation}}
+      <div class="nm-creation">
+        {{#if creation.isGM}}
+        <div class="nm-creation-row">
+          <button type="button" class="nm-create-character" data-action="createCharacter"><i class="fas fa-user-plus"></i> Criar personagem para</button>
+          <select class="nm-create-for" aria-label="Dono da ficha">
+            {{#each creation.players as |u|}}<option value="{{u.id}}">{{u.name}}</option>{{/each}}
+            <option value="">Ninguém (NPC)</option>
+          </select>
+          <span class="hint-inline">A ficha nasce em branco, em modo criação.</span>
+        </div>
+        {{#if creation.rows.length}}
+        <p class="nm-section-title">Em criação</p>
+        <ul class="nm-creation-list">
+          {{#each creation.rows as |r|}}
+          <li class="nm-creation-item" data-actor-id="{{r.id}}">
+            <a class="nm-creation-open" data-action="openActor"><span class="nm-creation-pic" style="background-image:url('{{r.img}}')"></span><span>{{r.name}} <em>· {{r.owner}}</em></span></a>
+            <span class="nm-creation-status {{r.status.kind}}">{{r.status.label}}</span>
+            {{#if r.waiting}}<button type="button" data-action="creationAdjust">Pedir ajuste…</button><button type="button" class="go" data-action="creationRelease">Liberar…</button>{{/if}}
+          </li>
+          {{/each}}
+        </ul>
+        {{/if}}
+        {{else}}
+        {{#if creation.continueName}}
+        <button type="button" class="nm-create-character" data-action="createCharacter"><i class="fas fa-user-pen"></i> Continuar {{creation.continueName}}</button>
+        {{else if creation.gmOnline}}
+        <button type="button" class="nm-create-character" data-action="createCharacter"><i class="fas fa-user-plus"></i> Criar personagem</button>
+        <span class="hint-inline">Abre uma ficha em branco, em modo criação, que já é sua.</span>
+        {{else}}
+        <button type="button" class="nm-create-character" disabled><i class="fas fa-user-plus"></i> Criar personagem · precisa do Mestre conectado</button>
+        {{/if}}
+        {{/if}}
+      </div>
+      {{/if}}
+
       <div class="nm-actor-grid">
         {{#each actors as |a|}}
         <div class="nm-actor-card" data-action="openActor" data-actor-id="{{a.id}}" data-type="{{a.typeClass}}" data-name="{{a.nameLower}}">

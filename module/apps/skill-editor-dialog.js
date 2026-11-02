@@ -22,6 +22,7 @@ import { pickerFieldHtml, readPickerField, wireElementPickerField } from "./chec
 import { openLightConfigDialog, describeLight } from "../combat/lights.js";
 import { advancedFold } from "../helpers/advanced-fold.js";
 import { escapeHtml } from "../helpers/html.js";
+import { getCompendiumForItemType } from "../core/compendium.js";
 import { skillAssist, warningsBoxHtml, costChipHtml, templateGroups, templateFillSentence, skillFromTemplate } from "../skills/skill-assist.js";
 
 const { DialogV2 } = foundry.applications.api;
@@ -162,7 +163,7 @@ export function mechanicSummaryFor(mech) {
  * @returns {Promise<object|null>} os dados editados, ou null se cancelado
  */
 export async function openSkillEditorDialog(initialData = {}, options = {}) {
-  const { lockTier = null, tierChoices = null, levelReadonly = false, actor = null } = options;
+  const { lockTier = null, tierChoices = null, levelReadonly = false, actor = null, request = false, tierLabels = {} } = options;
   // Modelos (L7): só numa Skill NOVA — editando uma que existe, trocar de modelo apagaria o que ela tem.
   const offerTemplates = options.offerTemplates ?? !initialData.name;
   const data = {
@@ -205,7 +206,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     ? `<div class="skill-editor-tier-lock"><i class="fas fa-lock"></i> Tier travado: ${MEU_SISTEMA.SKILL_TIER_LABELS[lockTier] ?? lockTier}</div>`
     : `<div class="form-group"><label>Tier</label><select name="tier">
         ${(tierChoices ?? MEU_SISTEMA.SKILL_TIERS.filter(t => t !== "racial"))
-          .map(t => `<option value="${t}" ${t === data.tier ? "selected" : ""}>${MEU_SISTEMA.SKILL_TIER_LABELS[t]}</option>`)
+          .map(t => `<option value="${t}" ${t === data.tier ? "selected" : ""}>${escapeHtml(tierLabels[t] ?? MEU_SISTEMA.SKILL_TIER_LABELS[t])}</option>`)
           .join("")}
       </select></div>`;
 
@@ -325,7 +326,20 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     isScaleEnabled() ? { label: "Escala do golpe", used: Boolean(data.damageScale) } : null
   ]);
   const groups = offerTemplates ? templateGroups() : [];
-  const templateField = groups.length
+  // Pedido de Skill (J10, prancha 3 B): "Começar de" em ladrilhos, com "Do Compêndio…" e "Só
+  // descrever" (o "Em branco" de sempre — sem mecânica, só o texto). Escolher reabre preenchido.
+  const tile = (id, label) => `<button type="button" class="sa-tile se-tpl-tile ${id === (options.templateChosen ?? "") ? "on" : ""}" data-template="${escapeHtml(id)}">${escapeHtml(label)}</button>`;
+  const allTemplates = groups.flatMap(g => g.templates);
+  const chosenText = options.templateChosen === "__compendium" ? `uma cópia de "${options.compendiumName ?? ""}"` : options.templateChosen ? templateFillSentence(options.templateChosen) : "";
+  const requestTemplateField = request && offerTemplates
+    ? `<div class="form-group se-template se-template-tiles"><label>Começar de</label>
+        <select name="templatePick" hidden><option value=""></option><option value="__compendium"></option>${allTemplates.map(t => `<option value="${escapeHtml(t.id)}"></option>`).join("")}</select>
+        <div class="se-tpl-grid">${allTemplates.map(t => tile(t.id, t.label)).join("")}${tile("__compendium", "Do Compêndio…")}${tile("", "Só descrever")}</div>
+        ${chosenText ? `<span class="hint-inline">Veio preenchido: ${escapeHtml(chosenText)}. Ajuste nome e números.</span>` : ""}</div>`
+    : "";
+  const templateField = request
+    ? requestTemplateField
+    : groups.length
     ? `<div class="form-group se-template"><label>Começar de um modelo</label><select name="templatePick">
         <option value="">Em branco</option>
         ${groups.map(g => `<optgroup label="${escapeHtml(g.label)}">${g.templates.map(t => `<option value="${escapeHtml(t.id)}" ${t.id === options.templateChosen ? "selected" : ""}>${escapeHtml(t.label)}</option>`).join("")}</optgroup>`).join("")}
@@ -338,7 +352,9 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
       ${tierField}
       ${evolvedField}
       <div class="row-2">
-        <div class="form-group"><label>Nível</label><input type="number" name="level" value="${data.level}" min="1" ${levelReadonly ? "readonly" : ""}/></div>
+        ${request
+          ? `<input type="hidden" name="level" value="1"/>`
+          : `<div class="form-group"><label>Nível</label><input type="number" name="level" value="${data.level}" min="1" ${levelReadonly ? "readonly" : ""}/></div>`}
         <div class="form-group"><label>Custo de ${energyLabel}</label><span class="sa-costrow"><input type="number" name="cost" value="${data.cost}" min="0"/><span class="se-sug" data-sug="cost"></span></span></div>
       </div>
       <label class="checkbox-line">
@@ -438,7 +454,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
 
   const result = await DialogV2.wait({
     window: {
-      title: initialData.name && !options.templateChosen ? `Editar Skill: ${initialData.name}` : "Nova Skill",
+      title: options.title ?? (initialData.name && !options.templateChosen ? `Editar Skill: ${initialData.name}` : "Nova Skill"),
       resizable: true
     },
     classes: ["nihility-skill-editor-dialog"],
@@ -453,7 +469,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     buttons: [
       {
         action: "save",
-        label: "Salvar",
+        label: options.saveLabel ?? "Salvar",
         default: true,
         callback: (event, button, dialog) => readSkillEditorForm(dialog.element, lockTier)
       },
@@ -463,7 +479,8 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
         label: "Modelo",
         callback: (event, button, dialog) => ({
           __template: dialog.element.querySelector('[name="templatePick"]')?.value ?? "",
-          name: dialog.element.querySelector('[name="name"]')?.value.trim() ?? ""
+          name: dialog.element.querySelector('[name="name"]')?.value.trim() ?? "",
+          tier: dialog.element.querySelector('[name="tier"]')?.value ?? ""
         })
       },
       // DialogV2.wait faz `result ?? button.action`: se o callback devolve null/undefined,
@@ -475,11 +492,59 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     rejectClose: false
   });
   if (result && typeof result === "object" && "__template" in result) {
-    const tier = lockTier ?? data.tier;
+    const tier = lockTier ?? (result.tier || data.tier);
+    if (result.__template === "__compendium") {
+      const picked = await pickCompendiumSkill(tierChoices ?? MEU_SISTEMA.SKILL_TIERS);
+      if (!picked) return openSkillEditorDialog({ name: result.name, tier }, { ...options, offerTemplates: true, templateChosen: null });
+      const copy = { ...foundry.utils.deepClone(picked.system), name: result.name || picked.name, tier, level: 1 };
+      for (const key of ["subSkills", "fusionSources", "evolvedFrom", "isItemGranted", "xp", "active"]) delete copy[key];
+      return openSkillEditorDialog(copy, { ...options, offerTemplates: true, templateChosen: "__compendium", compendiumName: picked.name });
+    }
     const filled = result.__template ? skillFromTemplate(result.__template, { name: result.name, tier }) : { name: result.name, tier };
     return openSkillEditorDialog(filled ?? {}, { ...options, offerTemplates: true, templateChosen: result.__template || null });
   }
   return result;
+}
+
+/**
+ * "Do Compêndio…" (pedido de Skill): escolhe uma Skill do Compêndio de Skills do mundo, dos Tiers
+ * permitidos, para começar de uma cópia. Lista com busca; nada é criado aqui.
+ * @returns {Promise<Item|null>}
+ */
+async function pickCompendiumSkill(tiers) {
+  const pack = getCompendiumForItemType("skill");
+  if (!pack || !pack.visible) {
+    ui.notifications?.warn("O Compêndio de Skills não está liberado para você.");
+    return null;
+  }
+  const index = await pack.getIndex({ fields: ["system.tier"] });
+  const entries = [...index].filter(e => tiers.includes(e.system?.tier)).sort((a, b) => a.name.localeCompare(b.name));
+  if (!entries.length) {
+    ui.notifications?.info("Nenhuma Skill desses Tiers no Compêndio ainda.");
+    return null;
+  }
+  const options = entries.map(e => `<option value="${escapeHtml(e._id)}">${escapeHtml(e.name)} · ${escapeHtml(MEU_SISTEMA.SKILL_TIER_LABELS[e.system?.tier] ?? "")}</option>`).join("");
+  const id = await DialogV2.wait({
+    window: { title: "Começar de uma Skill do Compêndio" },
+    content: `<div class="nihility-creation-dialog se-compendium-pick">
+      <input type="search" name="filter" placeholder="Buscar…" aria-label="Buscar Skill"/>
+      <select name="pick" size="12">${options}</select>
+      <p class="hint-inline">Vem uma cópia: você ajusta o que quiser antes de enviar.</p></div>`,
+    render: (event, dialog) => {
+      const select = dialog.element.querySelector("[name=pick]");
+      select.selectedIndex = 0;
+      dialog.element.querySelector("[name=filter]").addEventListener("input", ev => {
+        const term = ev.target.value.trim().toLowerCase();
+        for (const opt of select.options) opt.hidden = Boolean(term) && !opt.textContent.toLowerCase().includes(term);
+      });
+    },
+    buttons: [
+      { action: "use", label: "Usar esta", default: true, callback: (event, button, dialog) => dialog.element.querySelector("[name=pick]").value || false },
+      { action: "cancel", label: "Cancelar", callback: () => false }
+    ],
+    rejectClose: false
+  });
+  return typeof id === "string" && id ? pack.getDocument(id) : null;
 }
 
 /** Liga a interatividade do modal: mostrar/esconder painéis, linhas de Efeito, Sub-Skills expansíveis e o resumo de Resistência. */
@@ -753,6 +818,14 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
   // Modelo (L7): escolher fecha e reabre já preenchido, pelo botão escondido "template".
   root.querySelector('[name="templatePick"]')?.addEventListener("change", () => {
     root.querySelector('button[data-action="template"]')?.click();
+  });
+  root.querySelectorAll(".se-tpl-tile").forEach(tileButton => {
+    tileButton.addEventListener("click", event => {
+      event.preventDefault();
+      const select = root.querySelector('[name="templatePick"]');
+      if (select) select.value = tileButton.dataset.template;
+      root.querySelector('button[data-action="template"]')?.click();
+    });
   });
 
   // Avisos (L8) e custo sugerido (L9), recalculados a cada mudança. Nunca bloqueiam o Salvar.

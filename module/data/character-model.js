@@ -205,6 +205,21 @@ function baseActorSchema() {
 
     biography: new fields.HTMLField({ required: false, initial: "" }),
 
+    /** "Quem você quer jogar?" numa frase (modo criação, prancha 1 B). Fica no topo da Biografia. */
+    concept: new fields.StringField({ required: false, initial: "", blank: true }),
+
+    /**
+     * Ficha em modo criação (J10, creation/creation.js): `active` mostra a faixa "Criando" e guarda
+     * o "Confirmar" dos pontos para a liberação; `status` editing → ready (o jogador disse "pronto")
+     * → adjust (o Mestre pediu ajuste, recado em `gmNote`). Só o Mestre liga, desliga e pede ajuste.
+     */
+    creation: new fields.SchemaField({
+      active: new fields.BooleanField({ required: false, initial: false }),
+      status: new fields.StringField({ required: false, initial: "editing", choices: ["editing", "ready", "adjust"] }),
+      gmNote: new fields.StringField({ required: false, initial: "", blank: true }),
+      readyAt: new fields.NumberField({ required: false, initial: null, nullable: true })
+    }),
+
     /** Usado como insumo para a geração de Unique/Ultimate Skills via IA. */
     personality: new fields.SchemaField({
       traits: new fields.StringField({ required: false, initial: "" }),

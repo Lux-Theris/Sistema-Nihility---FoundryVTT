@@ -42,26 +42,30 @@
   <text x="46" y="288" class="mu">do XP da Skill estar cheio.</text>
   <rect x="480" y="210" width="450" height="100" rx="10" fill="#171a26" stroke="#3a4060"/>
   <text x="496" y="234" class="bd">Pedir uma Skill nova</text>
-  <text x="496" y="256" class="mu">“+ Pedir Criação com Pontos” na ficha: escolha o tier, o nome,</text>
-  <text x="496" y="272" class="mu">o efeito e o custo. O Mestre aprova ou recusa — o ponto só sai</text>
-  <text x="496" y="288" class="mu">da sua ficha se ele aprovar.</text>
+  <text x="496" y="256" class="mu">“+ Pedir Skill ao Mestre” na ficha: monte a Skill no editor</text>
+  <text x="496" y="272" class="mu">(Modelo, cópia do Compêndio ou só o texto). O ponto só sai</text>
+  <text x="496" y="288" class="mu">da sua ficha quando o Mestre aprova.</text>
 
   <text x="30" y="346" class="lb">O PEDIDO, PASSO A PASSO</text>
   <rect x="30" y="358" width="200" height="86" rx="10" fill="#232738" stroke="#4a5380"/>
-  <text x="46" y="382" class="bd">1. Você pede</text>
-  <text x="46" y="402" class="mu">tier, nome, efeito, custo</text>
-  <text x="46" y="418" class="mu">(precisa ter o Ponto)</text>
+  <text x="46" y="382" class="bd">1. Você monta o pedido</text>
+  <text x="46" y="402" class="mu">a Skill inteira, no editor</text>
+  <text x="46" y="418" class="mu">(o pedido reserva o Ponto)</text>
   <path d="M234 400 H262" class="ar"/>
   <rect x="266" y="358" width="220" height="86" rx="10" fill="#232738" stroke="#4a5380"/>
   <text x="282" y="382" class="bd">2. Card no chat</text>
-  <text x="282" y="402" class="mu">sussurrado só para você</text>
-  <text x="282" y="418" class="mu">e para o Mestre</text>
-  <path d="M490 380 H518" class="ok"/>
-  <path d="M490 420 H518" class="ar"/>
-  <rect x="522" y="358" width="408" height="40" rx="8" fill="#1f3a2e" stroke="#5fd08f"/>
-  <text x="538" y="383" class="bd">Aprovar:</text>
-  <text x="606" y="383" class="tx">−1 Ponto, Skill criada (nível 1), Voz do Mundo avisa</text>
-  <rect x="522" y="404" width="408" height="40" rx="8" fill="#2b1a1c" stroke="#e5534b"/>
-  <text x="538" y="429" class="bd">Rejeitar:</text>
-  <text x="608" y="429" class="tx">nenhum Ponto é gasto; o card mostra a recusa</text>
+  <text x="282" y="402" class="mu">só você e o Mestre; frase,</text>
+  <text x="282" y="418" class="mu">custo sugerido e avisos</text>
+  <path d="M490 371 H518" class="ok"/>
+  <path d="M490 401 H518" class="ar"/>
+  <path d="M490 431 H518" class="ar"/>
+  <rect x="522" y="358" width="408" height="26" rx="7" fill="#1f3a2e" stroke="#5fd08f"/>
+  <text x="538" y="376" class="bd">Aprovar / Ajustar:</text>
+  <text x="668" y="376" class="tx">−1 Ponto; a Skill nasce pronta</text>
+  <rect x="522" y="388" width="408" height="26" rx="7" fill="#14303b" stroke="#6ee7ff"/>
+  <text x="538" y="406" class="bd">Pedir mudança:</text>
+  <text x="654" y="406" class="tx">volta com um recado para editar</text>
+  <rect x="522" y="418" width="408" height="26" rx="7" fill="#2b1a1c" stroke="#e5534b"/>
+  <text x="538" y="436" class="bd">Rejeitar:</text>
+  <text x="608" y="436" class="tx">acaba; nenhum Ponto é gasto</text>
 </svg>

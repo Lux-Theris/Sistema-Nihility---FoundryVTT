@@ -60,6 +60,8 @@ Combine a proposta, o tom, os limites de conteúdo e o que os personagens farão
 
 Os presets também podem substituir catálogos. Exporte suas configurações antes de experimentar em um mundo personalizado. Uma sugestão deste capítulo nunca deve substituir silenciosamente as escolhas já feitas para uma campanha.
 
+Para a criação dos personagens, peça que cada jogador clique **Criar personagem** no Menu › Fichas: a ficha nasce em [modo criação](#ficha-em-modo-criação) e você acompanha cada uma ao vivo, libera quando estiver pronta ou pede ajuste. Se a mesa quiser menos regras para aprender, **Deixar leve** em Módulos do Sistema desliga de uma vez os blocos que pedem mais estudo dos jogadores, e **Regras desta mesa** (Ferramentas de Admin) gera um diário que todos podem ler com o que este mundo usa de fato.
+
 ### Resolva intenções, depois escolha a ferramenta
 
 Antes de pedir dados, esclareça três coisas: o que o personagem quer obter, como tenta conseguir e o que está em risco. Quando uma ação for segura e possível, você pode simplesmente descrever seu sucesso. Quando for impossível nas condições atuais, explique o impedimento e permita outra abordagem.
@@ -194,7 +196,7 @@ Abre pelo botão **Nihility RPG System** no Diretório de Atores ou pela macro (
 
 | # | Aba | Quem usa | Conteúdo |
 |---|---|---|---|
-| 1 | **Fichas** | Todos | Navegador de Atores com busca e filtros. O jogador só vê o que possui ou pode observar. |
+| 1 | **Fichas** | Todos | Navegador de Atores com busca e filtros. O jogador só vê o que possui ou pode observar. Em cima, **Criar personagem** (para o jogador) ou **Criar personagem para [jogador]** e a lista **Em criação** (para você), e o **Gerar NPC…**. Veja [Ficha em modo criação](#ficha-em-modo-criação). |
 | 2 | **Configurações Gerais** | Mestre | Lista pesquisável de tudo que a campanha configura, em seções. |
 | 3 | **Criar com IA** | Mestre | Atalhos para o Assistente de IA, já na tarefa certa. Some se a IA estiver desligada. |
 | 4 | **Ferramentas de Admin** | Mestre | Backup/desfazer, sincronização, macros, conteúdo de exemplo, exportar/importar. |
@@ -208,7 +210,7 @@ As abas de Mestre aparecem com cadeado para os jogadores. Cada linha de Configur
 | Seção | Linhas |
 |---|---|
 | **Campanha** | Módulos do Sistema, Regras da Mesa |
-| **Personagem** | Atributos, Espécies, Traços, Moedas, Compêndio de Títulos, Compêndio de Itens |
+| **Personagem** | Atributos, Espécies, Traços, Moedas, Modelos de Skill, Arquétipos de NPC, Compêndio de Títulos, Compêndio de Itens |
 | **Combate e Dano** | Tipos de Dano, Condições, Escalas, Estruturas, Ambiente da Cena |
 | **Naves** | Categorias de Módulo, Classes de Nave, Classes de Veículo, Postos de Tripulação |
 
@@ -256,8 +258,17 @@ Mudar um interruptor pede recarga do mundo. Os campos numéricos dentro de um bl
 | ↳ **Radiação** | ligado | Ninguém é irradiado; o ☢ some do HUD do Token. Campos: **Sobe por rodada** 20% do nível do lugar, **Cai por rodada fora** 10% da irradiação, **Dano por nível** 1. |
 | **Fim do combate** | ligado | Encerrar o combate não abre a janela. Campo: **XP sugerida por derrotado** 25% do nível dele. |
 | **Desfazer uso de Skill** | ligado | Some o **Desfazer uso** dos cards de Skill. |
+| **Gerador de NPC** | ligado | Some o **Gerar NPC…** do Menu › Fichas e a linha Arquétipos de NPC. Ver [6](#gerador-de-npc). |
+| **Níveis de NPC (Lacaio, Elite, Chefe)** | ligado | Todos contam como Normal; o nível salvo fica guardado. Campos: **Vida do Elite** ×2, **Vida do Chefe** ×4, **Skills a mais** que o gerador sorteia (Elite 1, Chefe 2). Ver [6](#níveis-de-npc). |
+| **Editor de Skill assistido** | ligado | Somem os avisos e o custo sugerido. Os Modelos de Skill continuam. Ver [8](#avisos-e-custo-sugerido). |
+| **Simulador de encontro** | ligado | Somem o card do Menu, o botão **Simular** do rastreador e o "Testar contra o grupo" do gerador. Ver [9](#simulador-de-encontro). |
+| **Ficha em modo criação** | ligado | Some o **Criar personagem** do Menu e a faixa da ficha; fichas que estavam em criação voltam a ser fichas normais (o estado fica guardado). O pedido de Skill com mecânica continua. Ver [6](#ficha-em-modo-criação). |
 
 Deslocamento, Escala e Movimento de naves vêm desligados porque mudam o comportamento dos tokens em combate: um mundo que só atualizou o sistema não deve ganhar uma regra nova sem você decidir.
+
+**A janela em grupos.** Módulos do Sistema separa os blocos em **Personagem**, **Combate**, **Mundo** e **Ferramentas do Mestre**. Cada bloco mostra uma frase curta; a explicação longa e os campos numéricos ficam atrás de **mais ▸**. Os blocos que pedem mais estudo dos jogadores levam a etiqueta **pesado**: Regeneração natural, Ferimentos por parte, Deslocamento, Radiação, Peso limita o Deslocamento, Escala e Movimento de naves.
+
+**Deixar leve.** O botão ao lado dos presets desliga exatamente os blocos marcados **pesado** e não mexe em mais nada. Não é um quarto gênero: vale por cima de qualquer preset, e cada bloco volta pelo interruptor dele.
 
 ### Presets de campanha
 
@@ -574,6 +585,66 @@ Esses exemplos ajudam a escolher uma rolagem para a cena; não criam novos efeit
 | **+ Novo Título**, **+ Novo Item** | blocos | Só o Mestre cria. |
 | **+ Traço** e **Escala** | abaixo do cabeçalho | Traços e degrau de Escala da criatura. |
 | Moedas editáveis | Economia | Os jogadores só convertem e enviam. |
+| **Nível de NPC** | cabeçalho, ao lado de **PJ** | Lacaio, Normal, Elite ou Chefe (só em NPC). Ver [Níveis de NPC](#níveis-de-npc). |
+| **Pôr em modo criação** / **Liberar personagem…** / **Pedir ajuste…** | menu de três pontos da janela | Ver [Ficha em modo criação](#ficha-em-modo-criação). |
+| Blocos vazios | ficha inteira | O jogador não vê bloco vazio (Títulos, Pontos de Habilidade, Itens, Economia, Anatomia, faixa de tier sem Skill); você vê todos, com a etiqueta **vazio**. Nada é apagado. |
+
+### Ficha em modo criação
+
+Bloco **Ficha em modo criação** (ligado). O jogador cria o personagem na própria ficha, e você acompanha e libera. Não há regra nova: é a ficha de sempre, com uma faixa no topo e os pontos guardados até a liberação.
+
+**Como uma ficha entra em modo criação:**
+
+- **O jogador clica Criar personagem** no Menu › Fichas. Como o Foundry não deixa jogador criar Ator, o pedido vem para o seu cliente, que cria sozinho uma ficha em branco ("Novo personagem") com o jogador como dono, Token vinculado e amigável, e ela vira o personagem dele no Foundry se ele ainda não tinha um. Precisa de um Mestre conectado. Uma por jogador: com uma em criação, o botão dele vira **Continuar**.
+- **Você clica Criar personagem para [jogador]** no Menu › Fichas. **Ninguém (NPC)** cria uma ficha sem dono, marcada como NPC.
+- **Menu de três pontos da ficha → Pôr em modo criação**, em qualquer ficha que já existe (para refazer um personagem na sessão zero, por exemplo). Nada é apagado: a faixa volta, o "Confirmar" dos pontos passa a esperar a liberação e a Espécie volta a ser escolha do jogador.
+
+**O que muda na ficha durante a criação:**
+
+- A faixa **Criando**: Conceito · Origem · Pontos N/M · Skills N/M · **Pronto para jogar**. Cada item leva ao lugar dele e fica marcado quando está pronto.
+- O campo **Conceito** (uma frase) fica sob o nome; depois da criação ele mora no topo da Biografia.
+- A aba **Origem** vira a grade de Espécies liberadas para criação, com o que cada uma traz. **Ficar com…** usa a troca de Espécie de sempre.
+- A aba **Anatomia** fica escondida.
+- Os pontos de atributo ficam pendentes: o jogador não vê **Confirmar** e não consegue confirmar nem sair do modo por outro caminho.
+
+**Pronto para jogar.** Pede só nome e Espécie; o que falta de pontos ou Skills aparece em amarelo, sem travar. Quando o jogador clica, aparece um aviso **na sua tela** ("Kael está pronto", com a Espécie, a Vida e a Mana que ele vai ter e os pedidos de Skill abertos) com três botões, e fica um card no chat com os mesmos botões para quem perdeu o aviso:
+
+| Botão | O que faz |
+|---|---|
+| **Abrir ficha** | Abre a ficha para você conferir. Ela continua editável pelo jogador. |
+| **Pedir ajuste…** | Você escreve o recado. A faixa do jogador vira **Ajuste pedido** com o recado, e um aviso aparece na tela dele. Ele ajusta e clica **Pronto de novo**. |
+| **Liberar…** | Mostra o que vai acontecer e os pedidos de Skill abertos, cada um com **Aprovar junto** (marcado). Ao liberar: os pontos pendentes viram pontos de verdade, a Espécie trava, a ficha sai do modo criação, Vida e Mana enchem, os pedidos marcados são aprovados e a Voz do Mundo avisa o jogador. Os pedidos desmarcados continuam como pedido normal. |
+
+A lista **Em criação** do Menu › Fichas mostra cada ficha em criação com o dono e o estado (**criando · 2 de 4**, **aguardando você**, **ajuste pedido**); as que estão aguardando têm **Pedir ajuste…** e **Liberar…** ali mesmo. O menu de três pontos da ficha também tem os dois.
+
+Fica de fora de propósito: equipamento (você entrega na mesa, arrastando do Compêndio), Heranças, implantes e Títulos (você dá depois), subir de nível e gerar o personagem com IA para o jogador.
+
+### Gerador de NPC
+
+Bloco **Gerador de NPC** (ligado). **Gerar NPC…** no Menu › Fichas (ou `game.nihility.generateNpc()`, ou a macro "Nihility — Gerar NPC") abre uma janela que só monta **rascunhos**: nada é criado até você clicar **Criar N fichas**.
+
+1. Escolha o **Arquétipo** (Ladrão, Engenheiro, Civil, Guarda…), o **Nível**, **Quantos**, o **Nível de NPC** e, se quiser, a **Espécie** (vazio = sorteada da lista do arquétipo) e **Variar o nível (±1)**.
+2. Cada rascunho mostra Vida, Mana, Skills e equipamento sorteados. **Sortear de novo** refaz um; **Sortear todos** refaz todos; **×** tira um. Os nomes podem ser **Sorteados** ou numerados.
+3. **Detalhar com IA** (opcional, precisa da chave de IA neste navegador) escreve só aparência e personalidade; a ficha sai completa sem isso.
+4. **Testar contra o grupo** abre o [Simulador de encontro](#simulador-de-encontro) com esses rascunhos, sem criar nada.
+5. **Criar N fichas**, com **Pasta** opcional. Com **Pôr os Tokens no mapa** marcado, o próximo clique no mapa coloca os Tokens em grade.
+
+**A regra dos pontos.** Um NPC ganha os **mesmos Pontos de Atributo de um PJ do nível dele**, vezes o % do arquétipo, repartidos pelos pesos do arquétipo (Pouco … Muito) com um pouco de sorte. Assim ele nunca sai da curva de poder do jogo. Skills e itens vêm das listas do arquétipo; elementos de Sci-Fi que o mundo não tem são descartados.
+
+**Arquétipos** ficam em Configurações Gerais › Personagem › **Arquétipos de NPC**, num editor igual ao de Espécies: cópia de trabalho, **Salvar**, etiqueta padrão/editado/do Mestre, **Voltar ao padrão** e **Trazer do padrão…**. Arraste uma Skill ou um Item Geral para a lista do arquétipo (fica uma cópia); as Skills se editam no editor rápido.
+
+### Níveis de NPC
+
+Bloco **Níveis de NPC** (ligado). O seletor **NPC** ao lado de **PJ**, só seu e só em ficha de NPC:
+
+| Nível | Efeito |
+|---|---|
+| **Lacaio** | Vida máxima 1: cai com qualquer dano que passe pelas defesas. |
+| **Normal** | Como sempre. |
+| **Elite** | Vida máxima × 2 (opção do bloco). O gerador sorteia 1 Skill a mais. |
+| **Chefe** | Vida máxima × 4. O gerador sorteia 2 Skills a mais. |
+
+Trocar o nível mantém a mesma **fração** da Vida atual (um Elite com metade da Vida vira um Chefe com metade da Vida). O "De onde vem" da Vida mostra a linha do nível. Desligar o bloco faz todos contarem como Normal, sem apagar o nível salvo. Ficou de fora de propósito: "cada X de dano derruba mais um lacaio" e pontos a mais para Elite e Chefe.
 
 ---
 
@@ -667,7 +738,18 @@ Para as definições e exemplos voltados a quem está começando, consulte **Tie
 
 ### Criar direto
 
-**+ Nova Habilidade (direto)** na ficha pede só **Nome** e **Tier**, cria a Skill e abre a **ficha da Skill** (o editor mais completo). Ela é registrada no Compêndio de Habilidades quando você fecha essa ficha pela primeira vez — assim o Compêndio guarda a Skill preenchida, não um rascunho. Skills Raciais, Sub-Skills, Evolução, Habilidades Concedidas e o pedido com Pontos usam o **editor rápido** (uma janela), porque ainda não existe Item para abrir.
+**+ Nova Habilidade (direto)** na ficha pede **Nome**, **Tier** e de onde **começar**: **Em branco** ou um **Modelo** (Golpe, Ataque mágico, Área de dano, Veneno, Cura, Cura ao longo do tempo, Buff de atributo, Escudo, Aura, Debuff com Condição, Barreira, Zona). Um modelo vem preenchido ("Vem preenchido: 4d6 de Fogo mágico · círculo de 4 m · 25 Mana"); o nome e o Tier que você digitou valem por cima, e o elemento, a Condição ou a Estrutura que o mundo não tem é descartado. Depois a Skill é criada e abre a **ficha da Skill** (o editor mais completo). Ela é registrada no Compêndio de Habilidades quando você fecha essa ficha pela primeira vez — assim o Compêndio guarda a Skill preenchida, não um rascunho. Skills Raciais, Sub-Skills, Evolução, Habilidades Concedidas e o pedido de Skill do jogador usam o **editor rápido** (uma janela), porque ainda não existe Item para abrir; numa Skill nova, ele também oferece os Modelos.
+
+**Modelos de Skill.** A lista fica em Configurações Gerais › Personagem › **Modelos de Skill**, agrupada em Dano, Ajuda e Controle. **Salvar como modelo** na ficha de qualquer Skill acrescenta a sua.
+
+### Avisos e custo sugerido
+
+Bloco **Editor de Skill assistido** (ligado). Na ficha da Skill e no editor rápido:
+
+- **Avisos**, no topo das abas Geral e Mecânica (com **ver ↓** até o Efeito), como contador na aba e embaixo do card de Efeito. **Vermelho** é o que não faz nada ou não se aplica: Periódico num alvo que não é Vida/Mana/Casco/Integridade, Escudo mantido ou Custo por rodada numa Skill que não é Ativa, área ou Zona de tamanho 0, Dano sem fórmula ou com fórmula inválida, Mecânica Efeito Temporário sem nenhum Efeito, Efeito de valor 0 sem Condição, Condição/elemento/Estrutura que não existe mais no catálogo, custo acima da Mana máxima do dono, alvo de Nave numa Skill "Si mesmo" de Personagem (ou o contrário). **Amarelo** é "confira": sem duração fora de uma Skill Ativa (dura para sempre), Ativa sem custo por rodada, Dano Absoluto junto com Dano Mágico. Nenhum aviso impede salvar.
+- **Custo sugerido**, ao lado do Custo: soma "pontos de poder" (dano médio × Escala 1,25 × Absoluto 1,5; Efeitos por valor × duração; cura e Escudo pelo valor; tick × ticks; um tanto por Condição; área pela forma e tamanho; Zona pelas rodadas; Estrutura pela Vida) e converte por **Mana por ponto** (Regras da Mesa, padrão 0,9). É o custo do **nível 1**. Verde até 30% de diferença, amarelo além; **usar** troca, e o selo abre a conta. Numa Ativa, sugere também o custo por rodada (25% do custo). A Mana do dono **nunca** muda a sugestão (o mesmo poder custaria diferente em fichas diferentes); só aparece uma linha com o % da Mana dele e quantos usos dá.
+
+A calibragem: a Bola de Fogo de fábrica dá exatamente 25, e a grande maioria das Skills dos arquétipos fica a até 50% da sugestão.
 
 ### Avançado ▸
 
@@ -729,12 +811,18 @@ Regras dos Efeitos:
 
 ### Aprovar pedidos
 
-Quando um jogador usa **+ Pedir Criação com Pontos**, chega um card sussurrado com Tier, Nome, Efeito e Custo, e os botões **Aprovar** / **Rejeitar**.
+O jogador monta o pedido no **editor rápido de Skill**, o mesmo que você usa, começando de um Modelo, de uma cópia de Skill do Compêndio (**Do Compêndio…**) ou de **Só descrever** (só o texto, como era antes). Ele vê o custo sugerido e os avisos enquanto monta; o Nível é sempre 1 e só aparecem os Tiers em que ele tem ponto livre. Um pedido aberto **reserva** o ponto: dois pedidos nunca disputam o mesmo ponto. Isso vale com o modo criação ligado ou desligado.
 
-- **Aprovar**: desconta 1 Ponto do tier, cria a Skill (nível 1, Custo pedido, descrição = Efeito) e anuncia. Se o jogador já não tiver o Ponto, o card fica como "insuficiente".
-- **Rejeitar**: nada é gasto.
+Chega um card sussurrado (você e o dono) com a **frase da Skill** ("4d6 de Fogo mágico · círculo de 4 m · 25 Mana"), o **custo pedido contra o sugerido**, quantos **avisos** ela tem e a descrição. Clicar no nome abre a Skill completa, só para ler. Os botões:
 
-A Skill aprovada nasce **Descritiva**. Depois, abra a ficha dela e dê a mecânica combinada.
+| Botão | O que faz |
+|---|---|
+| **Aprovar** | Desconta 1 Ponto do tier e cria a Skill pronta para usar, com a mecânica pedida (nível 1, desligada), na ficha e no Compêndio. A Voz do Mundo anuncia. Se o jogador já não tiver o ponto, o card fica "insuficiente". |
+| **Ajustar e aprovar…** | Abre o pedido no mesmo editor, com o Tier travado. Você mexe e o botão **Aprovar** do editor cria a sua versão. |
+| **Pedir mudança…** | Devolve o pedido com um recado. O jogador vê na lista de Habilidades (linha **ajustar** com o recado) e num aviso na tela, edita e reenvia; o card volta a **aguardando**. |
+| **Rejeitar** | Encerra. Nada é gasto. |
+
+Na ficha do jogador, cada pedido aberto aparece tracejado na faixa do tier, com **aguardando** ou **ajustar** e **editar**. Pedidos feitos antes da 1.84 (só texto e custo) ainda são aprovados e nascem Descritivos, como antes.
 
 ### Fusão
 
@@ -979,6 +1067,31 @@ Bloco **Fim do combate** (ligado). Ao encerrar um combate pelo botão do própri
 - **Descanso curto para todos os PJs** (desmarcado).
 
 **Concluir** aplica o que está marcado; **Pular** fecha sem mudar nada.
+
+### Simulador de encontro
+
+Bloco **Simulador de encontro** (ligado). Uma ferramenta só sua: não rola nada e não mexe em ficha nenhuma. Diz, antes de a luta começar, quantos golpes médios cada um aguenta do outro e se o encontro está **fácil**, **justo**, **perigoso** ou **mortal**.
+
+**Onde abre:** Menu › Ferramentas de Admin › **Simulador de encontro**; o botão **Simular** do rastreador de combate (monta os lados pelo combate que o rastreador está mostrando: quem é de jogador ou Amistoso de um lado, o resto agrupado por ficha do outro); **Testar contra o grupo** no Gerador de NPC; ou `game.nihility.simulateEncounter()`.
+
+**Os lados.** Abre com os PJs dos jogadores no **Grupo**. Arraste fichas do Diretório, use **+ Selecionados no mapa** ou **+ Ficha / arquétipo** (um arquétipo vira um NPC temporário, que não é salvo). Naves e Veículos ficam de fora por enquanto.
+
+**A conta.** Para cada ataque contra cada alvo, o golpe médio passa pelo **mesmo caminho do dano de verdade**: média da fórmula, Escala por Atributo, Poder do nível, Escala de tamanho, bônus condicionais, Defesa Mágica, Resistências, elementos e Escudo. A Vida conta o Nível de NPC e o Escudo atual. Cada um usa o ataque que mais tira por rodada do outro lado (▾ troca); uma Skill de área atinge 3 alvos (editável); quando a Mana acaba, entra um ataque sem custo. Clicar num número mostra a conta inteira.
+
+**O veredito** compara quando o grupo vence (cada um ataca uma vez por rodada, todos focando quem cai mais rápido) com quando o primeiro PJ cai (no pior caso, todos os oponentes num PJ só):
+
+| Veredito | Quando |
+|---|---|
+| **Fácil** | O grupo vence antes de qualquer PJ cair. |
+| **Justo** | Vence até uma rodada depois de um PJ cair. |
+| **Perigoso** | Um PJ cai antes, mas o grupo vence. |
+| **Mortal** | O grupo cai antes. |
+
+Fora de "justo", a janela sugere **um** ajuste que leva a "justo": um degrau de Nível de NPC ou um oponente a mais ou a menos.
+
+### Painel do combate
+
+**Painel** no rastreador de combate (só você), Menu › Ferramentas de Admin › **Painel do combate** ou `game.nihility.combatPanel()`. Uma linha por combatente do combate que o rastreador mostra: Vida, Escudo e Mana (Nave: Integridade Estrutural, Escudo e Bateria), ícones de Condição com o mesmo número de rodadas dos ícones do Token, Skills Ativas, deslocamento gasto/total e o contador da Vida 0. Clicar abre a ficha, centraliza o Token ou abre a janela de Efeitos. Só lê: nunca grava nada. Atualiza sozinho enquanto o combate anda.
 
 ### Contágio
 
@@ -1273,6 +1386,10 @@ Um pedido misto em texto livre ("crie 3 skills elementais e 2 personagens de apo
 
 | Ferramenta | O que faz |
 |---|---|
+| **Regras desta mesa** | Cria (ou atualiza) **um** diário que todos podem ler, escrito para o jogador a partir das configurações deste mundo: o que a campanha liga, fórmulas de Vida e Mana, XP, ciclo de níveis de Skill, iniciativa, deslocamento, Vida 0, o que cada Condição e elemento faz e o nome da energia. Só atualiza quando você clica de novo. A página **Notas da mesa** é sua e nunca é tocada; as outras são refeitas a cada clique. |
+| **Painel do combate** | Ver [Painel do combate](#painel-do-combate). |
+| **Simulador de encontro** | Ver [Simulador de encontro](#simulador-de-encontro). |
+| **Validar Mundo** | Lista referências que apontam para fora dos catálogos (Condição, elemento, Estrutura, Traço, Espécie… que não existem mais), nas fichas, nos Tokens não vinculados e, se quiser, nos Compêndios. Só lista: tudo já cai num padrão seguro, a ferramenta só mostra onde. |
 | **Backup/Restauração** | Abre o Assistente no modo Agente, onde fica a lista de operações de IA com Desfazer. |
 | **Sincronização** | Recria os Compêndios do sistema que estiverem faltando. |
 | **Macros do Sistema** | Cria as macros **Menu Principal** e **Pedido de Reparo** na barra (a de Reparo já nasce executável por jogadores). Não duplica. |
@@ -1288,6 +1405,11 @@ Use Exportar antes de aplicar um preset com conteúdo e para levar a configuraç
 game.nihility.openAssistant();          // abre o Menu Principal
 game.nihility.requestShipRepair();      // pedido de reparo (jogadores)
 game.nihility.useItem("Actor.abc.Item.def"); // o que a hotbar chama: usa a Skill/arma/consumível como o botão da ficha
+game.nihility.createCharacter();        // jogador: pede a ficha em modo criação ao Mestre (ou abre a que já está em criação)
+game.nihility.generateNpc();            // abre o Gerador de NPC
+game.nihility.simulateEncounter();      // abre o Simulador de encontro
+game.nihility.combatPanel();            // abre o Painel do combate
+game.nihility.tableRules();             // cria/atualiza o diário Regras desta mesa
 game.nihility.ai.generateActorFromAI("um mercador anão desconfiado...", { isMount: false });
 game.nihility.ai.generateVesselFromAI("uma corveta de reconhecimento rápida...", "starship");
 game.nihility.ai.generateSkillFromAI("uma cura baseada em luz estelar...");
@@ -1301,7 +1423,7 @@ game.nihility.ai.announceVoiceOfTheWorld(actor, { kind: "info", title: "...", bo
 
 ## 15. Solução de problemas e boas práticas
 
-**Mantenha um Mestre conectado durante o jogo.** Várias ações escrevem em fichas de outras pessoas "em nome do Mestre": XP de Resistência e XP de uso quando um jogador ataca um NPC, erguer Estruturas e Zonas, ligar a luz de Escudo no Token de outro, registrar o deslocamento, ativar Correr, prender com Raio Trator. Sem Mestre conectado, as escritas de bastidor (XP) são **descartadas em silêncio**; nas que o jogador espera ver (Estrutura, Zona, luz, Correr, Raio Trator) ele recebe **"Nenhum Mestre conectado"**. O início de turno também só roda com um Mestre conectado.
+**Mantenha um Mestre conectado durante o jogo.** Várias ações escrevem em fichas de outras pessoas "em nome do Mestre": XP de Resistência e XP de uso quando um jogador ataca um NPC, erguer Estruturas e Zonas, ligar a luz de Escudo no Token de outro, registrar o deslocamento, ativar Correr, prender com Raio Trator. Sem Mestre conectado, as escritas de bastidor (XP) são **descartadas em silêncio**; nas que o jogador espera ver (Estrutura, Zona, luz, Correr, Raio Trator) ele recebe **"Nenhum Mestre conectado"**. O início de turno também só roda com um Mestre conectado, e o **Criar personagem** do jogador só funciona com você conectado (é o seu cliente que cria a ficha).
 
 **Dois Mestres conectados.** Só um executa (início de turno, migrações, escritas em nome do Mestre, aviso de XP): o de papel mais alto, e entre iguais o mais antigo — a mesma escolha do Foundry. Nada duplica.
 
@@ -1362,3 +1484,7 @@ game.nihility.ai.announceVoiceOfTheWorld(actor, { kind: "info", title: "...", bo
 | Descanso Curto | 25% da Vida, 50% da energia |
 | Densidade de mana | 1 (0 = magia não funciona; multiplica a força, não o Custo) |
 | Radiação | sobe 20% do nível do lugar/rodada, cai 10%/rodada; dano = irradiação × 1 |
+| Nível de NPC | Lacaio Vida 1 · Elite ×2 · Chefe ×4 |
+| Pontos de um NPC gerado | os de um PJ do mesmo nível × % do arquétipo |
+| Custo sugerido | pontos de poder × 0,9 Mana; verde até 30% de diferença; por rodada = 25% do custo |
+| Simulador: área | atinge 3 alvos |

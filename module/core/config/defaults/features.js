@@ -205,6 +205,12 @@ export const FEATURES = {
     hint: "Na ficha e no editor rápido de Skill: avisos do que não faz nada (Periódico em Força, área de tamanho 0, Escudo mantido sem ser Ativa…) e um Custo sugerido ao lado do Custo, calculado pelo que a Skill faz. Só sugere e avisa: nunca impede de salvar nem muda o Custo. Os Modelos de Skill da \"+ Nova Habilidade\" funcionam sempre.",
     default: true
   },
+  creationMode: {
+    setting: "creationModeEnabled",
+    name: "Ficha em modo criação",
+    hint: "O jogador cria o personagem na própria ficha: \"+ Criar personagem\" no Menu › Fichas (o Mestre conectado cria a ficha em branco), uma faixa \"Criando\" diz o que falta (Conceito, Origem, Pontos, Skills) e \"Pronto para jogar\" avisa o Mestre na tela, que libera (confirma os pontos, trava a Espécie, aprova os pedidos de Skill) ou pede ajuste. O Mestre põe qualquer ficha nesse modo pelo menu ⋮ dela. O pedido de Skill com mecânica vale com o bloco desligado também.",
+    default: true
+  },
   encounterSim: {
     setting: "encounterSimEnabled",
     name: "Simulador de encontro",
@@ -401,7 +407,8 @@ const FEATURE_LAYOUT = {
   npcGenerator: ["gm", "Fichas de NPC prontas a partir de um arquétipo."],
   npcTiers: ["gm", "Lacaio, Elite e Chefe na ficha de NPC."],
   skillAssist: ["gm", "Avisos e custo sugerido no editor de Skill."],
-  encounterSim: ["gm", "Diz se a luta está fácil, justa ou mortal antes de começar."]
+  encounterSim: ["gm", "Diz se a luta está fácil, justa ou mortal antes de começar."],
+  creationMode: ["character", "O jogador cria o personagem na ficha; você libera quando estiver pronto."]
 };
 
 for (const [key, [group, short, heavy]] of Object.entries(FEATURE_LAYOUT)) {

@@ -63,7 +63,7 @@ def page(c,d):
     c.saveState(); c.setStrokeColor(GOLD); c.setLineWidth(.5); c.line(M,H-24,W-M,H-24)
     c.setFont('Body',7); c.setFillColor(PURPLE)
     c.drawString(M,H-18,'NIHILITY  /  '+d.book_label.upper())
-    c.drawString(M,18,'Edição ilustrada • Regras 1.78.0');c.drawRightString(W-M,18,str(d.page));c.restoreState()
+    c.drawString(M,18,'Edição ilustrada • Regras 1.84.0');c.drawRightString(W-M,18,str(d.page));c.restoreState()
 
 class Cover(Image):
     def __init__(self,path,label): super().__init__(str(path),width=CW,height=H-90);self.label=label
@@ -76,7 +76,7 @@ class Cover(Image):
         c.setFillColor(colors.white);c.setFont('Display',43);c.drawString(M,H-111,'NIHILITY')
         c.setFont('Body',20);c.drawString(M,H-146,self.label)
         c.setFont('Body',10);c.drawString(M,48,'EDIÇÃO ILUSTRADA  •  NOVEMBRO 2026')
-        c.setFont('Body',8);c.drawString(M,30,'Sistema de Lux  |  Foundry VTT 13+  |  Regras 1.78.0');c.restoreState()
+        c.setFont('Body',8);c.drawString(M,30,'Sistema de Lux  |  Foundry VTT 13+  |  Regras 1.84.0');c.restoreState()
 
 def content(src):
     lines=src.splitlines(); flow=[];i=0;started=False; keys={}; part=''
@@ -153,7 +153,7 @@ def build(kind,label):
     doc=Book(str(dest),pagesize=(W,H),rightMargin=M,leftMargin=M,topMargin=40,bottomMargin=34,title='Nihility - '+label,author='Lux',allowSplitting=True)
     doc.book_label=label
     cover=CACHE/f'capa-{kind}-modular.jpg'
-    story=[Cover(cover,label),PageBreak(),Paragraph('Entre mundos',styles['H1N']),Paragraph('Nihility - Sistema modular de RPG',styles['Text']),Paragraph('Nihility RPG System • Sistema de Lux<br/>Edição ilustrada • 1 de novembro de 2026<br/>Referência de regras: 1.78.0 • Foundry VTT 13 e 14',styles['Text']),Paragraph('Como ler este livro',styles['H2N']),Paragraph('Comece pelo guia de entrada. Depois consulte os capítulos conforme a sua campanha. Os valores descritos como padrão são os de fábrica; o Mestre pode alterá-los. Anatomia, Naves, PAD e outros subsistemas dependem das opções da mesa.',styles['Text']),Paragraph('Exemplos narrativos e sugestões de condução ensinam possibilidades de uso. Eles não acrescentam regras obrigatórias. As imagens de interface são esquemas didáticos, não capturas de uma sessão em funcionamento.',styles['Text']),Paragraph('Artes de capa e de ambientação geradas com IA para esta edição. Diagramas vetoriais do projeto. Referências editoriais: D&D Player’s Handbook (2024), Dungeon Master’s Guide (2024) e Tormenta20, sem reprodução de textos ou artes dessas obras.',styles['SmallN']),PageBreak(),Paragraph('Sumário',styles['H1N'])]
+    story=[Cover(cover,label),PageBreak(),Paragraph('Entre mundos',styles['H1N']),Paragraph('Nihility - Sistema modular de RPG',styles['Text']),Paragraph('Nihility RPG System • Sistema de Lux<br/>Edição ilustrada • 1 de novembro de 2026<br/>Referência de regras: 1.84.0 • Foundry VTT 13 e 14',styles['Text']),Paragraph('Como ler este livro',styles['H2N']),Paragraph('Comece pelo guia de entrada. Depois consulte os capítulos conforme a sua campanha. Os valores descritos como padrão são os de fábrica; o Mestre pode alterá-los. Anatomia, Naves, PAD e outros subsistemas dependem das opções da mesa.',styles['Text']),Paragraph('Exemplos narrativos e sugestões de condução ensinam possibilidades de uso. Eles não acrescentam regras obrigatórias. As imagens de interface são esquemas didáticos, não capturas de uma sessão em funcionamento.',styles['Text']),Paragraph('Artes de capa e de ambientação geradas com IA para esta edição. Diagramas vetoriais do projeto. Referências editoriais: D&D Player’s Handbook (2024), Dungeon Master’s Guide (2024) e Tormenta20, sem reprodução de textos ou artes dessas obras.',styles['SmallN']),PageBreak(),Paragraph('Sumário',styles['H1N'])]
     story.insert(5,Paragraph('Nihility é um sistema modular de RPG que permite combinar regras e ferramentas para diferentes propostas de campanha. De aventuras de fantasia a histórias contemporâneas e jornadas de ficção científica, cada mesa escolhe os elementos que fazem sentido para seu mundo.',styles['Text']))
     toc=TableOfContents();toc.levelStyles=[styles['TOCN']];story.append(toc)
     source=p.read_text(encoding='utf-8')

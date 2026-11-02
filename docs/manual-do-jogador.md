@@ -68,14 +68,14 @@ O exemplo ilustra uma decisão de cena. Ele não cria uma dificuldade fixa, uma 
 
 ### Um personagem completo, passo a passo
 
-Lia será uma exploradora humana que recupera artefatos de antigas ruínas. É um exemplo de criação com valores padrão, sem Títulos, Heranças ou bônus adicionais.
+Lia será uma exploradora humana que recupera artefatos de antigas ruínas. É um exemplo de criação com valores padrão, sem Títulos, Heranças ou bônus adicionais. Ela cria a ficha pelo **modo criação** (veja [Criando o personagem](#criando-o-personagem-ficha-em-modo-criação)): uma faixa no topo da ficha mostra cada passo abaixo e marca quando ele fica pronto.
 
-1. **Conceito:** curiosa, cautelosa e determinada a encontrar uma expedição desaparecida. O objetivo dá ao Mestre algo para colocar na aventura.
-2. **Origem:** escolhe Humano entre as Espécies disponíveis. Revê as concessões da origem antes de confirmar pontos.
-3. **Atributos:** distribui os 35 pontos iniciais conforme a tabela abaixo.
-4. **Habilidades:** tem 3 Pontos de Habilidade Normais. Conversa com o Mestre e faz os pedidos pelo fluxo de aprovação; esses pontos não significam que toda habilidade imaginada está automaticamente autorizada.
-5. **Equipamento:** recebe os itens combinados com o Mestre, conferindo arma, munição e consumíveis. Este exemplo não concede dinheiro ou equipamento inicial gratuito.
-6. **Revisão:** confirma os pontos, verifica Vida e Mana e testa uma rolagem com o grupo.
+1. **Conceito:** curiosa, cautelosa e determinada a encontrar uma expedição desaparecida. Ela escreve isso numa frase no campo **Conceito**. O objetivo dá ao Mestre algo para colocar na aventura.
+2. **Origem:** na aba Origem, clica em Humano na grade de Espécies, confere o que ele traz e clica **Ficar com Humano**.
+3. **Atributos:** distribui os 35 pontos iniciais conforme a tabela abaixo. O painel **Ao confirmar** mostra a Vida e a Mana que ela vai ter.
+4. **Habilidades:** tem 3 Pontos de Habilidade Normais. Conversa com o Mestre e monta cada pedido no editor de Skill (veja [Pontos de Habilidade](#6-pontos-de-habilidade)); esses pontos não significam que toda habilidade imaginada está automaticamente autorizada.
+5. **Pronto para jogar:** clica no botão da faixa. O Mestre confere e libera o personagem (ou pede um ajuste). A liberação confirma os pontos e aprova os pedidos que ele marcar.
+6. **Equipamento:** recebe os itens combinados com o Mestre, conferindo arma, munição e consumíveis. Este exemplo não concede dinheiro ou equipamento inicial gratuito.
 
 | Atributo | Pontos | Rolagem sem outros bônus |
 |---|---|---|
@@ -145,13 +145,35 @@ Há dois caminhos:
 - **Diretório de Atores** (a aba de Atores na barra lateral do Foundry): clique no nome do seu personagem.
 - **Menu do sistema**: no topo do Diretório de Atores há o botão **Nihility RPG System**. Ele abre o Menu Principal, e a aba **Fichas** lista todos os Atores que você possui ou pode observar, com busca por nome e filtros (**Todos**, **Personagens**, **NPCs**, **Naves**, **Veículos**). As outras abas do menu aparecem com cadeado: são do Mestre.
 
+### Criando o personagem (ficha em modo criação)
+
+Você cria o personagem **na própria ficha**, a mesma que vai usar a campanha inteira. Não há assistente em janela à parte.
+
+1. No Menu › **Fichas**, clique **Criar personagem**. O Foundry não deixa jogador criar ficha, então o pedido vai para o Mestre conectado, que cria uma ficha em branco já sua, sem precisar clicar em nada. Sem Mestre conectado, o botão fica apagado ("precisa do Mestre conectado"). Enquanto você tiver uma ficha em criação, o botão vira **Continuar** com o nome dela.
+2. A ficha abre em **modo criação**: embaixo do cabeçalho aparece a faixa **Criando**, com o que falta. Cada item leva ao lugar certo quando clicado e fica marcado quando está pronto:
+   - **Conceito**: uma frase sobre quem você quer jogar, no campo logo abaixo do nome. Não é regra e não trava nada; depois fica no topo da Biografia.
+   - **Origem**: a Espécie (e a Linhagem, quando ela pede uma). Veja abaixo.
+   - **Pontos**: quantos Pontos de Atributo você já distribuiu.
+   - **Skills**: quantos Pontos de Habilidade já viraram Skill ou pedido.
+3. Na aba **Origem**, a ficha mostra a **grade de Espécies** liberadas para criação, com busca e grupos. Clique numa para ver, ao lado, o que ela traz: Traços, o que o corpo tem de diferente, Skills Raciais (as que só chegam mais tarde aparecem apagadas, com o nível) e Resistências. Se ela tiver Linhagens, escolha uma embaixo. **Ficar com…** aplica.
+4. Distribua os pontos na aba Ficha (veja [Alocando Pontos de Atributo](#alocando-pontos-de-atributo)). Em criação, o botão **Confirmar** não aparece: os pontos ficam pendentes até o Mestre liberar o personagem, e é a liberação que confirma tudo. Assim você pode mudar de ideia, e o Mestre pode pedir ajuste.
+5. Peça as suas Skills (veja [Pontos de Habilidade](#6-pontos-de-habilidade)).
+6. Clique **Pronto para jogar** na faixa. Basta ter nome e Espécie; ponto sobrando ou Skill não pedida só aparecem em amarelo, sem travar. O Mestre recebe um aviso na tela.
+   - A faixa vira **Aguardando o Mestre**. Você ainda pode mexer: ele vê a versão mais nova. **Voltar a editar** desfaz o "pronto".
+   - Se o Mestre pedir um ajuste, a faixa vira **Ajuste pedido** com o recado dele, e um aviso aparece na sua tela. Ajuste e clique **Pronto de novo**.
+   - Quando o Mestre libera, a faixa some, os pontos passam a valer, a Espécie trava e a Vida e a Mana enchem. A Voz do Mundo avisa: "Kael está pronto para jogar".
+
+Em criação, a aba **Anatomia** fica escondida; ela volta quando o personagem é liberado. O Mestre também pode pôr uma ficha que já existe em modo criação (para refazer um personagem na sessão zero, por exemplo); nada é apagado.
+
+Se a sua mesa desligou o modo criação, a ficha funciona como descrito no resto deste capítulo: Espécie no cabeçalho e **Confirmar** nos pontos.
+
 ### Escolhendo a Espécie (e a Linhagem)
 
-Um personagem novo começa com a Espécie em branco (**—**). Escolha no seletor do cabeçalho. Se a Espécie tiver **Linhagens** (Dragoide do Fogo/Gelo/Raio, Elfo Alto/da Floresta/Sombrio…), aparece um segundo seletor ao lado; o asterisco indica que escolher uma é obrigatório.
+Em modo criação, a Espécie se escolhe pela grade da aba Origem (veja acima). Fora dele, um personagem novo começa com a Espécie em branco (**—**): escolha no seletor do cabeçalho. Se a Espécie tiver **Linhagens** (Dragoide do Fogo/Gelo/Raio, Elfo Alto/da Floresta/Sombrio…), aparece um segundo seletor ao lado; o asterisco indica que escolher uma é obrigatório.
 
 Na criação, a escolha vale na hora: o sistema cria as **Partes do Corpo** (cada uma com Vida própria, se a mesa usa Anatomia), as **Skills Raciais** e aplica os **Traços** e os bônus da Espécie. Se a ficha já tiver algo da Espécie anterior, abre uma **prévia** mostrando o que entra, muda e sai antes de gravar — **Cancelar não muda nada**.
 
-**Você pode trocar até confirmar seus primeiros Pontos de Atributo.** No primeiro "Confirmar" a origem trava, e daí em diante só o Mestre troca (pela aba **Origem**). Algumas Espécies (montarias, formas evoluídas) só aparecem para o Mestre.
+**Você pode trocar até confirmar seus primeiros Pontos de Atributo** (em modo criação, até o Mestre liberar o personagem). No primeiro "Confirmar" a origem trava, e daí em diante só o Mestre troca (pela aba **Origem**). Algumas Espécies (montarias, formas evoluídas) só aparecem para o Mestre.
 
 Espécies que vêm prontas:
 
@@ -201,16 +223,20 @@ No nível 1 você tem **35 Pontos de Atributo** (padrão) para distribuir entre 
 | 11 | **Pool de Pontos de Atributo** | Quantos pontos ainda estão livres. |
 | 12 | **− / +** | Alocar pontos (ficam pendentes até confirmar). |
 | 13 | **Fórmula de dados** e botão **d20** | O pool que o Atributo rola hoje. O botão rola no chat. |
-| 14 | **Resetar / Confirmar** | Descarta ou grava os pontos pendentes. |
+| 14 | **Resetar / Confirmar** | Descarta ou grava os pontos pendentes. Em modo criação, o Confirmar espera a liberação do Mestre. |
 | 15 | **Pontos de Habilidade** | Extra, Normal e Único, com **▼** (quebrar) e **▲** (juntar). |
-| 16 | **Habilidades** | Suas Skills agrupadas por tier, com **Usar** ou **Desativar** e, embaixo do nome, a [Skill numa frase](#a-lista-de-habilidades-na-ficha). ✎ abre a ficha da Skill. Dá para arrastar a linha para a [hotbar](#skills-e-armas-na-hotbar). |
-| 17 | **+ Pedir Criação com Pontos** | Pede uma Skill nova ao Mestre gastando 1 Ponto de Habilidade. |
+| 16 | **Habilidades** | Suas Skills agrupadas por tier, com **Usar** ou **Desativar** e, embaixo do nome, a [Skill numa frase](#a-lista-de-habilidades-na-ficha). ✎ abre a ficha da Skill. Dá para arrastar a linha para a [hotbar](#skills-e-armas-na-hotbar). Pedidos ainda não aprovados aparecem tracejados, com **aguardando** ou **ajustar**. |
+| 17 | **+ Pedir Skill ao Mestre** | Monta o pedido de uma Skill nova, que gasta 1 Ponto de Habilidade quando o Mestre aprova. O botão diz quantos pontos ainda estão livres. |
 | 18 | **Itens Gerais** | Inventário. Armas equipadas ganham o botão **Atacar** (e **⟳ Recarregar**, se tiverem carregador); consumíveis ganham **Usar**. |
 | 19 | **Economia** | Moedas, peso total, **Converter** e **Enviar Dinheiro**. |
 
 A linha do **Escudo** só aparece enquanto você tem Escudo acima de 0.
 
-A aba **Biografia** tem três campos de **Personalidade** (Traços, Desejos, Estado Emocional) e o texto livre da biografia. A Personalidade serve de inspiração para o Mestre ao criar Skills Únicas e Ultimate para você — vale a pena preencher.
+**Blocos vazios ficam escondidos.** Títulos, Pontos de Habilidade, Itens, Economia, a aba Anatomia e as faixas de tier sem nenhuma Skill não aparecem enquanto estão vazios. O pé da ficha diz quantos foram escondidos, com **mostrar** para ver tudo (a escolha fica lembrada neste navegador). Nada é apagado; o bloco volta sozinho quando ganha alguma coisa.
+
+A aba **Biografia** tem o **Conceito** (a frase de quem é o personagem), três campos de **Personalidade** (Traços, Desejos, Estado Emocional) e o texto livre da biografia. A Personalidade serve de inspiração para o Mestre ao criar Skills Únicas e Ultimate para você — vale a pena preencher.
+
+**As regras da sua mesa.** Se o Mestre gerou o diário **Regras desta mesa**, ele está na aba de Diários do Foundry: o que esta campanha liga, as fórmulas de Vida e Mana, a XP, o ciclo de níveis de Skill, a iniciativa, o deslocamento, a Vida 0 e o que cada Condição e elemento faz. É escrito a partir das configurações do mundo, então vale mais que os números "padrão" deste manual quando os dois discordarem.
 
 ---
 
@@ -318,10 +344,16 @@ O pool é: **35 pontos no nível 1 + 5 por nível acima do 1** (padrão), mais p
 
 1. Clique **+** no Atributo desejado. O ponto fica **pendente** (destacado em dourado) e a ficha mostra a fórmula nova ao lado da atual: `1d20+2 → 1d20+3`.
 2. **−** desfaz um ponto pendente.
-3. Quando estiver satisfeito, clique **Confirmar**. Só então os pontos passam a valer (rolagem, Vida, Mana).
+3. Quando estiver satisfeito, clique **Confirmar**. Só então os pontos passam a valer (rolagem, Vida, Mana). Em modo criação não há Confirmar: quem confirma é a liberação do Mestre.
 4. **Resetar** descarta todos os pendentes e volta ao último estado confirmado.
 
 O **+** trava quando não há mais pontos livres.
+
+Três ajudas na mesma lista:
+
+- **Para que serve:** embaixo do nome de cada Atributo há uma frase com o que ele alimenta neste mundo, por exemplo "dano corpo a corpo · Vida" ou "iniciativa · deslocamento". Ela segue as fórmulas que o Mestre configurou.
+- **Começar de um jeito:** enquanto nenhum ponto foi confirmado, os botões **Lutador**, **Conjurador**, **Ágil** e **Equilibrado** preenchem os pendentes com uma distribuição pronta. Não são classes: dá para mexer em tudo depois, ou clicar outro.
+- **Ao confirmar:** com pontos pendentes, um painel mostra a Vida e a Mana de agora (riscadas) e as que você vai ter com esses pontos, com a conta ("Força 6 × Defesa 5 × 10"), mais a iniciativa e o deslocamento. É só uma prévia: nada muda antes de confirmar.
 
 > **Pontos confirmados não voltam sozinhos.** Se você errou a distribuição, peça ao Mestre: ele tem o botão **Zerar pontos (Mestre)**, que devolve todos os pontos ao pool para você redistribuir do zero (nível, Títulos, Skills e Itens não mudam).
 
@@ -559,6 +591,10 @@ A ficha da Skill (✎) tem as abas **Geral**, **Mecânica**, **Passivos**, **Sub
   Cada Efeito pode ter uma **Condição** (Cegueira, Veneno…), que põe o ícone no Token.
 - **Estrutura** — ergue uma parede, bloco ou barreira no mapa (veja [Estruturas](#estruturas)).
 
+**Avisos e custo sugerido.** Se a mesa usa o editor de Skill assistido (vem ligado), a ficha da Skill e o editor de pedido avisam o que não vai funcionar como parece: Periódico num alvo que não é Vida ou Mana, Custo por rodada numa Skill que não é Ativa, área de tamanho 0, fórmula de dano inválida, um Efeito sem valor e sem Condição, um custo maior que a sua Mana máxima… Os avisos em vermelho são o que não faz nada; os amarelos são "confira". Nenhum aviso impede de salvar.
+
+Ao lado do Custo aparece um **sugerido N**, calculado pelo que a Skill faz (dano médio, área, duração, Condições). Verde quer dizer que o seu Custo está a até 30% da sugestão; **usar** troca pelo sugerido, e clicar no selo mostra a conta. É uma sugestão para conversar com o Mestre, não uma regra: a sua Mana máxima não muda o número, só aparece embaixo ("50% da sua Mana · usa 2×").
+
 ### Custo e Habilidades Ativas
 
 - **Custo** é pago uma vez, ao usar.
@@ -635,8 +671,31 @@ Existem três tipos: **Extra**, **Normal** e **Único**. Você começa com **3 N
 
 ### Gastar
 
-1. **Pedir uma Skill nova** — **+ Pedir Criação com Pontos**. Escolha o **Tier** (mostra quantos pontos você tem de cada), o **Nome**, o **Efeito** (descrição) e o **Custo** em Mana. Um card é enviado no chat, visível só para você e para o Mestre. O Mestre clica **Aprovar** (o ponto é descontado e a Skill aparece na sua ficha no nível 1, com aviso da Voz do Mundo) ou **Rejeitar** (nenhum ponto é gasto). Depois de aprovada, o Mestre normalmente ajusta a mecânica da Skill com você.
+1. **Pedir uma Skill nova** — veja abaixo.
 2. **Subir o nível de uma Skill** — veja [Nível de uma Skill](#nível-de-uma-skill).
+
+### Pedir uma Skill ao Mestre
+
+Você monta a Skill inteira, e a aprovação a cria pronta para usar.
+
+1. Clique **+ Pedir Skill ao Mestre**. O botão diz quantos pontos ainda estão livres: um pedido aberto já reserva o ponto dele, então dois pedidos nunca disputam o mesmo ponto.
+2. Abre o editor de Skill, o mesmo que o Mestre usa. Em **Começar de**, escolha:
+   - um **Modelo** (Golpe, Área de dano, Cura, Escudo, Zona…), que vem preenchido;
+   - **Do Compêndio…**, para começar de uma cópia de uma Skill que já existe no mundo;
+   - **Só descrever**, para mandar só o texto e deixar a mecânica com o Mestre (como era antes).
+3. Ajuste o nome, o **Tier** (só os que têm ponto livre aparecem), a mecânica e o Custo. O [custo sugerido e os avisos](#mecânicas-de-uma-skill) ajudam a não pedir algo quebrado. O Nível é sempre 1.
+4. **Enviar pedido**. Um card vai para o chat, visível só para você e para o Mestre, e a Skill aparece na sua lista de Habilidades **tracejada**, com **aguardando**. O ponto ainda não saiu.
+
+O Mestre responde pelo card:
+
+| Botão do Mestre | O que acontece com você |
+|---|---|
+| **Aprovar** | O ponto é descontado e a Skill nasce na ficha, no nível 1, com a mecânica que você pediu. A Voz do Mundo avisa. |
+| **Ajustar e aprovar…** | O Mestre muda o que achar preciso (custo, área, nome…) e aprova a versão dele. |
+| **Pedir mudança…** | O pedido volta com um recado. A linha da sua lista vira **ajustar** com o recado, e um aviso aparece na tela. Clique **editar** na linha (ou **Editar pedido** no card), mude e envie de novo. |
+| **Rejeitar** | O pedido acaba e nenhum ponto é gasto. |
+
+Enquanto o pedido está aberto, **editar** na linha da lista reabre o editor e manda a versão nova para o mesmo card. Clicar no nome da Skill no card abre a Skill completa, só para ler.
 
 ---
 
@@ -1129,6 +1188,18 @@ Seu personagem precisa carregar um Item marcado como Dispositivo PAD, e a mesa p
 **Posso editar a mecânica das minhas Skills?**
 A ficha é sua e os campos são editáveis, mas combine com o Mestre: ele é quem aprova o que cada Skill faz. O nível só o Mestre muda (ou você, gastando Ponto).
 
+**O botão Criar personagem está apagado.**
+Ele precisa de um Mestre conectado, porque é o Mestre quem cria a ficha no Foundry. Se ele estiver aparecendo como "Continuar", você já tem uma ficha em criação: termine aquela primeiro.
+
+**Distribuí os pontos e não acho o Confirmar.**
+A ficha está em modo criação: os pontos ficam pendentes até o Mestre liberar o personagem, e a liberação confirma tudo. Clique **Pronto para jogar** na faixa.
+
+**Pedi uma Skill e o ponto não saiu.**
+Certo: o ponto só sai quando o Mestre aprova. Enquanto isso, o pedido aberto reserva o ponto, e por isso o botão de pedir mostra um ponto livre a menos.
+
+**Parte da minha ficha sumiu.**
+Blocos vazios ficam escondidos (Títulos, Itens, Economia…). Clique **mostrar** no pé da ficha. Em modo criação, a aba Anatomia também fica escondida até o Mestre liberar o personagem.
+
 ---
 
 ## 16. Glossário
@@ -1164,3 +1235,6 @@ A ficha é sua e os campos são editáveis, mas combine com o Mestre: ele é que
 | **Throttle** | Potência de um Módulo de nave, em %. |
 | **Capacitor** | Reserva de energia da Nave, que paga as Skills dela. |
 | **PAD** | O celular do personagem. |
+| **Modo criação** | Estado de uma ficha nova: faixa "Criando" no topo e pontos guardados até o Mestre liberar. |
+| **Pedido de Skill** | Skill montada por você e enviada ao Mestre; só vira Skill (e só gasta o ponto) quando ele aprova. |
+| **Custo sugerido** | Custo calculado pelo que a Skill faz, mostrado ao lado do Custo como referência. |

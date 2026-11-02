@@ -1,0 +1,18 @@
+<div class="nihility-creation-ready status-{{status}}">
+  <header class="votw-header">
+    <i class="fas fa-user-check"></i>
+    <span class="votw-label">Criação de personagem</span>
+  </header>
+  <h4 class="ncr-title">{{name}} {{#if (eq status "released")}}foi liberado{{else}}está pronto{{/if}}</h4>
+  {{#if summary}}<p class="ncr-summary">{{summary}}</p>{{/if}}
+  {{#if open}}
+  <div class="ncr-actions">
+    <button type="button" data-ncr="open"><i class="fas fa-id-card"></i> Abrir ficha</button>
+    <button type="button" data-ncr="adjust"><i class="fas fa-comment"></i> Pedir ajuste…</button>
+    <button type="button" class="ncr-go" data-ncr="release"><i class="fas fa-check"></i> Liberar…</button>
+  </div>
+  {{/if}}
+  {{#if (eq status "adjust")}}<p class="ncr-status">Ajuste pedido{{#if gmNote}}: "{{gmNote}}"{{/if}}</p>{{/if}}
+  {{#if (eq status "editing")}}<p class="ncr-status">O jogador voltou a editar.</p>{{/if}}
+  {{#if (eq status "released")}}<p class="ncr-status ok">✅ Liberado para jogar.</p>{{/if}}
+</div>

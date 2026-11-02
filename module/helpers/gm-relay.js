@@ -183,6 +183,16 @@ const HANDLERS = {
     return applySkillEffectsAsGm(payload, user);
   },
 
+  /**
+   * Ficha em modo criação (J10): o jogador não cria Atores (padrão do Foundry), então o Mestre cria
+   * a ficha em branco que já é dele. Quem pede é `user` (dito pelo servidor); o payload não tem
+   * nada. Uma em criação por jogador: pedir de novo devolve a que já existe.
+   */
+  async createCharacter(payload, user) {
+    const { createCharacterAsGm } = await import("../creation/creation.js");
+    return createCharacterAsGm(payload, user);
+  },
+
   /** Ergue uma Estrutura (Paredes + Desenho). Validação e catálogo ficam em structures.js. */
   async createStructure(payload, user) {
     if (!(await mayActFor(user, payload?.sourceActorUuid))) return refuse(RELAY_REASONS.permission);

@@ -376,7 +376,10 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
     actions: {
       selectTab: NihilityMenuApp.#onSelectTab,
       runAction: NihilityMenuApp.#onRunAction,
-      openActor: NihilityMenuApp.#onOpenActor
+      openActor: NihilityMenuApp.#onOpenActor,
+      createCharacter: NihilityMenuApp.#onCreateCharacter,
+      creationRelease: NihilityMenuApp.#onCreationRelease,
+      creationAdjust: NihilityMenuApp.#onCreationAdjust
     }
   };
 
@@ -427,6 +430,8 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
 
     context.actors = this._getVisibleActors();
+    // Ficha em modo criação (J10, prancha 5): o botão do jogador e a lista "Em criação" do Mestre.
+    context.creation = await this._creationContext();
     if (isGM) {
       context.settingsSections = this._settingsSections();
       context.disabledFeatures = Object.entries(MEU_SISTEMA.FEATURES)
@@ -586,6 +591,51 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if (actor.type === "starship") return `Casco ${actor.system.hull?.value ?? 0}/${actor.system.hull?.max ?? 0}`;
     if (actor.type === "vehicle") return `Integridade ${actor.system.hull?.value ?? 0}/${actor.system.hull?.max ?? 0}`;
     return "";
+  }
+
+  /** "+ Criar personagem" (jogador: pede ao Mestre; Mestre: para um jogador ou para ninguém). */
+  async _creationContext() {
+    const { isCreationEnabled, creationSheetOf, creationListForGm } = await import("../creation/creation.js");
+    if (!isCreationEnabled()) return null;
+    if (game.user.isGM) {
+      return {
+        isGM: true,
+        players: game.users.filter(u => !u.isGM).map(u => ({ id: u.id, name: u.name })),
+        rows: await creationListForGm()
+      };
+    }
+    const mine = creationSheetOf(game.user);
+    return { isGM: false, continueName: mine?.name ?? "", gmOnline: game.users.some(u => u.isGM && u.active) };
+  }
+
+  static async #onCreateCharacter(event) {
+    event.preventDefault();
+    const { requestNewCharacter, createCharacterFor } = await import("../creation/creation.js");
+    if (game.user.isGM) {
+      const userId = this.element.querySelector(".nm-create-for")?.value ?? "";
+      await createCharacterFor(userId);
+    } else {
+      await requestNewCharacter();
+    }
+    this.render();
+  }
+
+  static async #onCreationRelease(event, target) {
+    event.preventDefault();
+    if (!game.user.isGM) return;
+    const actor = game.actors.get(target.closest("[data-actor-id]")?.dataset.actorId);
+    const { releaseCharacter } = await import("../creation/creation.js");
+    if (actor) await releaseCharacter(actor);
+    this.render();
+  }
+
+  static async #onCreationAdjust(event, target) {
+    event.preventDefault();
+    if (!game.user.isGM) return;
+    const actor = game.actors.get(target.closest("[data-actor-id]")?.dataset.actorId);
+    const { requestAdjustment } = await import("../creation/creation.js");
+    if (actor) await requestAdjustment(actor);
+    this.render();
   }
 
   /** @override — busca/filtro de tipo em Fichas são só DOM (sem re-render): a lista já está toda renderizada. */

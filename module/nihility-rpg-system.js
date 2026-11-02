@@ -27,7 +27,7 @@ import {
 } from "./data/item-models.js";
 import { AIHelper } from "./ai/ai-helper.js";
 import { ensureSystemCompendiums, registerCompendiumCreateDefaults } from "./core/compendium.js";
-import { approveSkillCreationRequest, rejectSkillCreationRequest, removeGrantedSkill } from "./skills/skill-economy.js";
+import { renderSkillRequestControls, removeGrantedSkill } from "./skills/skill-economy.js";
 import { announceLevelUp, announceVoiceOfTheWorld } from "./core/voice-of-the-world.js";
 import { NihilityActorSheet } from "./sheets/actor-sheet.js";
 import { NihilityStarshipSheet, NihilityVehicleSheet } from "./starship/starship-sheet.js";
@@ -61,6 +61,7 @@ import { registerSkillUndo, renderSkillUndo } from "./skills/skill-undo.js";
 import { registerNpcTierHooks } from "./npc/npc-generator.js";
 import { registerEncounterSimTracker } from "./apps/encounter-sim.js";
 import { registerCombatPanelTracker } from "./apps/combat-panel.js";
+import { registerCreationHooks, renderCreationReadyControls } from "./creation/creation.js";
 import { registerHotbarMacros, useItemFromHotbar } from "./core/hotbar.js";
 import { registerIncapacitation, tickIncapacitation, isDead } from "./combat/incapacitation.js";
 import { tickContagion } from "./combat/contagion.js";
@@ -117,7 +118,9 @@ Hooks.once("init", () => {
     simulateEncounter: async () => (await import("./apps/encounter-sim.js")).openEncounterSim(),
     // Ferramentas da mesa (L6, H10).
     tableRules: async () => (await import("./core/table-rules-journal.js")).generateTableRulesJournal(),
-    combatPanel: async () => (await import("./apps/combat-panel.js")).openCombatPanel()
+    combatPanel: async () => (await import("./apps/combat-panel.js")).openCombatPanel(),
+    // Ficha em modo criação (J10): jogador pede ao Mestre; Mestre cria direto.
+    createCharacter: async () => (await import("./creation/creation.js")).requestNewCharacter()
   };
 
   registerSystemSettings();
@@ -193,6 +196,8 @@ Hooks.once("init", () => {
   registerNpcTierHooks();
   registerEncounterSimTracker();
   registerCombatPanelTracker();
+  // Ficha em modo criação (J10): trava de quem escreve, re-render nos pedidos, aviso "está pronto".
+  registerCreationHooks();
   registerHotbarMacros();
   registerIncapacitation();
   registerEnvironment();
@@ -845,8 +850,10 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
   // Cartão de Estrutura (Vida, dano, derrubar) — ver structures.js.
   renderStructureControls(message, html);
 
-  on(".skill-request-approve", () => approveSkillCreationRequest(message));
-  on(".skill-request-reject", () => rejectSkillCreationRequest(message));
+  // Pedido de Skill (Aprovar / Ajustar e aprovar / Pedir mudança / Rejeitar; Editar para quem pediu).
+  renderSkillRequestControls(message, html);
+  // Card "está pronto" da ficha em modo criação (Abrir ficha / Pedir ajuste / Liberar, só o Mestre).
+  renderCreationReadyControls(message, html);
 
   // Pedido de Reparo de Nave/Veículo (Overhaul de Naves, Fase 7) — o modificador do Mestre é
   // lido do próprio input no momento do clique, não guardado nas flags da mensagem.

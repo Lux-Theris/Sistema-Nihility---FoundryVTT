@@ -11,6 +11,7 @@ import { requestAISpecialSkill } from "../ai/ai-generation.js";
 import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
 import { renderSystemTemplate } from "../helpers/foundry-compat.js";
 import { escapeHtml } from "../helpers/html.js";
+import { requestSkillSystem, isOpenRequest } from "../creation/creation-rules.js";
 
 /* -------------------------------------------- */
 /*  Habilidades concedidas por Item/Módulo       */
@@ -335,28 +336,95 @@ export async function mergeSkillPoints(actor, tier) {
   });
 }
 
+/* -------------------------------------------- */
+/*  Pedido de Skill com mecânica (J10, prancha 3) */
+/* -------------------------------------------- */
+
+const REQUEST_TEMPLATE = `systems/${SYSTEM_ID}/templates/chat/skill-request.hbs`;
+
+/** Mecânica de um pedido. Pedido de antes da 1.84 só tinha texto e custo: vira Descritiva. */
+function requestMechanics(req) {
+  return req?.mechanics ?? { description: req?.description ?? "", cost: Number(req?.cost) || 0 };
+}
+
+/** O pedido é deste Ator? Pelo uuid (Token não vinculado); pedidos antigos só têm o id. */
+function requestIsFor(req, actor) {
+  return req?.actorUuid ? req.actorUuid === actor.uuid : req?.actorId === actor.id;
+}
+
 /**
- * Jogador pede pra criar uma nova Skill gastando 1 Ponto de Habilidade do tier
- * escolhido (Extra/Normal/Único — Racial vem da Espécie, Ultimate só por fusão).
- * NÃO cria a skill direto: manda um pedido pro Mestre aprovar via chat privado.
- * O ponto só é descontado quando o Mestre aprova.
+ * Pedidos de Skill ainda abertos (aguardando o Mestre ou devolvidos para ajuste) deste Ator, do
+ * mais novo para o mais velho. Vêm do chat: o pedido É a mensagem.
  * @param {Actor} actor
- * @param {{tier:"extra"|"normal"|"unique", name:string, description?:string, cost?:number}} data
+ * @returns {ChatMessage[]}
+ */
+export function openSkillRequests(actor) {
+  if (!actor || !game.messages) return [];
+  return game.messages.contents
+    .filter(message => {
+      const req = message.flags?.[SYSTEM_ID]?.skillRequest;
+      return req && isOpenRequest(req.status) && requestIsFor(req, actor);
+    })
+    .reverse();
+}
+
+/** Pontos livres de um Tier: os da ficha menos os já reservados por pedidos abertos. */
+export function freeSkillPoints(actor, tier, { exceptMessageId = null } = {}) {
+  const reserved = openSkillRequests(actor).filter(m => m.id !== exceptMessageId && m.flags[SYSTEM_ID].skillRequest.tier === tier).length;
+  return Math.max(0, (actor.system.skillPoints?.[tier] ?? 0) - reserved);
+}
+
+/**
+ * O editor de Skill de sempre, no modo pedido (prancha 3 B): começa de um Modelo, de uma Skill do
+ * Compêndio ou de "Só descrever"; Nível sempre 1; só os Tiers com ponto livre.
+ * @param {Actor} actor
+ * @param {{name?:string, tier?:string, mechanics?:object}|null} [current] - pedido sendo editado
+ * @returns {Promise<object|null>} os dados do editor (com `tier`), ou null se cancelou
+ */
+export async function openSkillRequestEditor(actor, current = null, { messageId = null } = {}) {
+  const tiers = MEU_SISTEMA.SKILL_POINT_TIERS.filter(t => t === current?.tier || freeSkillPoints(actor, t, { exceptMessageId: messageId }) > 0);
+  if (!tiers.length) {
+    ui.notifications?.warn("Sem Pontos de Habilidade livres para pedir uma Skill (os pedidos abertos já reservam os seus).");
+    return null;
+  }
+  const { openSkillEditorDialog } = await import("../apps/skill-editor-dialog.js");
+  const tierLabels = Object.fromEntries(
+    tiers.map(t => [t, `${MEU_SISTEMA.SKILL_TIER_LABELS[t]} (${freeSkillPoints(actor, t, { exceptMessageId: messageId })} ponto(s) livre(s))`])
+  );
+  const initial = current ? { ...requestMechanics(current), name: current.name, tier: current.tier, level: 1 } : { tier: tiers.includes("normal") ? "normal" : tiers[0], level: 1 };
+  const result = await openSkillEditorDialog(initial, {
+    actor,
+    tierChoices: tiers,
+    tierLabels,
+    levelReadonly: true,
+    request: true,
+    offerTemplates: !current,
+    title: current ? `Editar pedido: ${current.name}` : "Pedir Skill ao Mestre",
+    saveLabel: "Enviar pedido"
+  });
+  return result && typeof result === "object" ? result : null;
+}
+
+/**
+ * Jogador pede uma Skill nova gastando 1 Ponto de Habilidade do Tier (Extra/Normal/Único — Racial
+ * vem da Espécie, Ultimate só por fusão). Não cria nada: manda o pedido, com a mecânica montada no
+ * editor, para o Mestre aprovar no chat. O ponto só sai na aprovação, mas o pedido aberto já o
+ * reserva (dois pedidos não disputam o mesmo ponto).
+ * @param {Actor} actor
+ * @param {object} data - o que o editor devolveu: `tier`, `name` e a mecânica
  */
 export async function requestSkillCreation(actor, data) {
-  const { tier, name, description = "", cost = 0 } = data;
+  const { tier, name } = data ?? {};
   if (!MEU_SISTEMA.SKILL_POINT_TIERS.includes(tier)) {
     throw new Error("Tier inválido para criação via Pontos de Habilidade.");
   }
   if (!name?.trim()) throw new Error("Dê um nome para a habilidade.");
-
-  const available = actor.system.skillPoints[tier] ?? 0;
-  if (available < 1) {
-    ui.notifications?.warn(`Sem Pontos ${MEU_SISTEMA.SKILL_TIER_LABELS[tier]} suficientes.`);
+  if (freeSkillPoints(actor, tier) < 1) {
+    ui.notifications?.warn(`Sem Pontos ${MEU_SISTEMA.SKILL_TIER_LABELS[tier]} livres.`);
     throw new Error("Pontos de Habilidade insuficientes.");
   }
-
-  return createSkillRequestMessage(actor, { tier, name: name.trim(), description, cost, status: "pending" });
+  const mechanics = requestSkillSystem({ ...data, description: safeRequestDescription(data.description) }, tier);
+  return createSkillRequestMessage(actor, { tier, name: name.trim(), mechanics, status: "pending" });
 }
 
 /**
@@ -368,14 +436,34 @@ function safeRequestDescription(description) {
   return foundry.utils.cleanHTML?.(String(description)) ?? escapeHtml(description);
 }
 
-async function createSkillRequestMessage(actor, req) {
-  const content = await renderSystemTemplate(`systems/${SYSTEM_ID}/templates/chat/skill-request.hbs`, {
-    actorName: actor.name,
+/** O que o card mostra (prancha 3 C): a frase da Skill, custo pedido × sugerido e os avisos. */
+async function requestCardContent(actor, req) {
+  const { skillAssist, skillSentence } = await import("./skill-assist.js");
+  const mech = requestMechanics(req);
+  const assist = actor ? skillAssist(mech, { actor }) : { enabled: false, warnings: [] };
+  const hard = (assist.warnings ?? []).filter(w => w.level === "hard").length;
+  const owner = actor ? game.users.find(u => !u.isGM && actor.testUserPermission(u, "OWNER")) : null;
+  return renderSystemTemplate(REQUEST_TEMPLATE, {
+    actorName: actor?.name ?? "?",
+    ownerName: owner?.name ?? "",
     tierLabel: MEU_SISTEMA.SKILL_TIER_LABELS[req.tier],
-    ...req,
-    description: safeRequestDescription(req.description)
+    name: req.name,
+    status: req.status,
+    open: isOpenRequest(req.status),
+    sentence: skillSentence(mech),
+    description: safeRequestDescription(mech.description),
+    cost: Number(mech.cost) || 0,
+    assistEnabled: assist.enabled,
+    suggested: assist.cost?.suggested ?? null,
+    costClose: Boolean(assist.cost?.close),
+    warnings: (assist.warnings ?? []).length,
+    hardWarnings: hard,
+    gmNote: req.gmNote ?? ""
   });
+}
 
+async function createSkillRequestMessage(actor, req) {
+  const content = await requestCardContent(actor, req);
   const gmIds = game.users.filter(u => u.isGM).map(u => u.id);
   const ownerIds = game.users.filter(u => !u.isGM && actor.testUserPermission(u, "OWNER")).map(u => u.id);
   const whisper = Array.from(new Set([...gmIds, ...ownerIds]));
@@ -394,48 +482,45 @@ function requestActor(req) {
   return (req?.actorUuid ? fromUuidSync(req.actorUuid) : null) ?? game.actors.get(req?.actorId) ?? null;
 }
 
-async function updateSkillRequestMessage(message, status) {
-  const req = { ...message.flags[SYSTEM_ID].skillRequest, status };
-  const content = await renderSystemTemplate(`systems/${SYSTEM_ID}/templates/chat/skill-request.hbs`, {
-    actorName: requestActor(req)?.name ?? "?",
-    tierLabel: MEU_SISTEMA.SKILL_TIER_LABELS[req.tier],
-    ...req,
-    description: safeRequestDescription(req.description)
-  });
-  await message.update({ content, [`flags.${SYSTEM_ID}.skillRequest.status`]: status });
+/** Regrava o card com o pedido mudado (`patch` mescla no pedido salvo). */
+async function updateSkillRequestMessage(message, status, patch = {}) {
+  const req = { ...message.flags[SYSTEM_ID].skillRequest, ...patch, status };
+  const content = await requestCardContent(requestActor(req), req);
+  await message.update({ content, [`flags.${SYSTEM_ID}.skillRequest`]: req });
 }
 
 /**
- * Chamado pelo listener de clique no chat quando o Mestre aprova um pedido de
- * criação de Skill: desconta o ponto, cria a Skill na ficha e no Compêndio.
+ * Mestre aprova: desconta o ponto e cria a Skill pronta para usar, com a mecânica do pedido (ou a
+ * que o Mestre ajustou, em `override`), na ficha e no Compêndio.
  * @param {ChatMessage} message
+ * @param {{override?: object, silent?: boolean}} [options] - `override`: dados do editor do Mestre
+ * @returns {Promise<Item|null>}
  */
-export async function approveSkillCreationRequest(message) {
+export async function approveSkillCreationRequest(message, { override = null } = {}) {
   if (!game.user.isGM) {
     ui.notifications?.warn("Só o Mestre pode aprovar pedidos de Skill.");
-    return;
+    return null;
   }
   const req = message.flags?.[SYSTEM_ID]?.skillRequest;
-  if (!req || req.status !== "pending") return;
+  if (!req || !isOpenRequest(req.status)) return null;
 
   const actor = requestActor(req);
-  if (!actor) return;
+  if (!actor) return null;
 
   const available = actor.system.skillPoints[req.tier] ?? 0;
   if (available < 1) {
     ui.notifications?.warn(`${actor.name} não tem mais Pontos ${MEU_SISTEMA.SKILL_TIER_LABELS[req.tier]} suficientes.`);
-    return updateSkillRequestMessage(message, "insufficient");
+    await updateSkillRequestMessage(message, "insufficient");
+    return null;
   }
 
   await actor.update({ [`system.skillPoints.${req.tier}`]: available - 1 });
 
-  const skillData = {
-    name: req.name,
-    type: "skill",
-    system: { tier: req.tier, level: 1, cost: Number(req.cost) || 0, description: safeRequestDescription(req.description) || "" }
-  };
+  const name = override?.name?.trim() || req.name;
+  const system = requestSkillSystem(override ?? requestMechanics(req), req.tier);
+  system.description = safeRequestDescription(system.description) || "";
   await ensureSystemCompendiums();
-  const [created] = await actor.createEmbeddedDocuments("Item", [skillData]);
+  const [created] = await actor.createEmbeddedDocuments("Item", [{ name, type: "skill", system }]);
   await registerItemInCompendium(created.toObject());
 
   await announceVoiceOfTheWorld(actor, {
@@ -444,20 +529,124 @@ export async function approveSkillCreationRequest(message) {
     body: `O Mestre aprovou "${created.name}" (custou 1 Ponto ${MEU_SISTEMA.SKILL_TIER_LABELS[req.tier]}).`
   });
 
-  await updateSkillRequestMessage(message, "approved");
+  await updateSkillRequestMessage(message, "approved", override ? { name, mechanics: requestSkillSystem(override, req.tier) } : {});
+  return created;
 }
 
-/**
- * Chamado pelo listener de clique no chat quando o Mestre rejeita um pedido
- * de criação de Skill. Nenhum ponto é gasto (só era descontado na aprovação).
- * @param {ChatMessage} message
- */
+/** "Ajustar e aprovar…": o Mestre abre o pedido no mesmo editor, mexe e aprova o que salvou. */
+export async function adjustAndApproveSkillRequest(message) {
+  if (!game.user.isGM) return null;
+  const req = message.flags?.[SYSTEM_ID]?.skillRequest;
+  if (!req || !isOpenRequest(req.status)) return null;
+  const actor = requestActor(req);
+  const { openSkillEditorDialog } = await import("../apps/skill-editor-dialog.js");
+  const edited = await openSkillEditorDialog(
+    { ...requestMechanics(req), name: req.name, tier: req.tier, level: 1 },
+    { actor, lockTier: req.tier, levelReadonly: true, request: true, offerTemplates: false, title: `Ajustar e aprovar: ${req.name}`, saveLabel: "Aprovar" }
+  );
+  if (!edited || typeof edited !== "object") return null;
+  return approveSkillCreationRequest(message, { override: edited });
+}
+
+/** "Pedir mudança…": devolve o pedido com um recado; o jogador vê na ficha e na tela. */
+export async function requestSkillChanges(message) {
+  if (!game.user.isGM) return;
+  const req = message.flags?.[SYSTEM_ID]?.skillRequest;
+  if (!req || !isOpenRequest(req.status)) return;
+  const note = await foundry.applications.api.DialogV2.wait({
+    window: { title: `Pedir mudança: ${req.name}` },
+    content: `<div class="nihility-creation-dialog"><p>O que deve mudar em <b>${escapeHtml(req.name)}</b>?</p><textarea name="note" rows="3">${escapeHtml(req.gmNote ?? "")}</textarea></div>`,
+    buttons: [
+      { action: "send", label: "Enviar", default: true, callback: (event, button, dialog) => dialog.element.querySelector("[name=note]").value.trim() },
+      { action: "cancel", label: "Cancelar", callback: () => false }
+    ],
+    rejectClose: false
+  });
+  if (typeof note !== "string" || !note) return;
+  await updateSkillRequestMessage(message, "changes", { gmNote: note });
+  const actor = requestActor(req);
+  if (actor) {
+    await announceVoiceOfTheWorld(actor, {
+      kind: "skill-request-changes",
+      title: `Ajustar o pedido: ${req.name}`,
+      body: `O Mestre pediu: "${note}". Edite o pedido na lista de Habilidades.`
+    });
+  }
+}
+
+/** Mestre rejeita: nenhum ponto é gasto (só sairia na aprovação). */
 export async function rejectSkillCreationRequest(message) {
   if (!game.user.isGM) {
     ui.notifications?.warn("Só o Mestre pode rejeitar pedidos de Skill.");
     return;
   }
   const req = message.flags?.[SYSTEM_ID]?.skillRequest;
-  if (!req || req.status !== "pending") return;
+  if (!req || !isOpenRequest(req.status)) return;
   await updateSkillRequestMessage(message, "rejected");
+}
+
+/**
+ * Jogador edita o próprio pedido (a linha tracejada na ficha, prancha 3 A): o mesmo editor, e o
+ * pedido volta a "aguardando". Quem pode: quem mandou a mensagem (o Foundry só deixa o autor
+ * regravar a própria mensagem) ou o Mestre.
+ */
+export async function editSkillRequest(message) {
+  const req = message?.flags?.[SYSTEM_ID]?.skillRequest;
+  if (!req || !isOpenRequest(req.status)) return;
+  if (!message.isOwner) {
+    ui.notifications?.warn("Só quem fez o pedido (ou o Mestre) pode editá-lo.");
+    return;
+  }
+  const actor = requestActor(req);
+  if (!actor) return;
+  const edited = await openSkillRequestEditor(actor, req, { messageId: message.id });
+  if (!edited) return;
+  const tier = MEU_SISTEMA.SKILL_POINT_TIERS.includes(edited.tier) ? edited.tier : req.tier;
+  if (tier !== req.tier && freeSkillPoints(actor, tier, { exceptMessageId: message.id }) < 1) {
+    ui.notifications?.warn(`Sem Pontos ${MEU_SISTEMA.SKILL_TIER_LABELS[tier]} livres.`);
+    return;
+  }
+  const mechanics = requestSkillSystem({ ...edited, description: safeRequestDescription(edited.description) }, tier);
+  await updateSkillRequestMessage(message, "pending", { name: edited.name?.trim() || req.name, tier, mechanics, gmNote: "" });
+  ui.notifications?.info("Pedido atualizado: o Mestre vê a versão nova no chat.");
+}
+
+/** Clicar no nome no card: a Skill completa, só para ler (uma ficha de Item que não grava nada). */
+export async function viewSkillRequest(message) {
+  const req = message?.flags?.[SYSTEM_ID]?.skillRequest;
+  if (!req) return;
+  const item = new Item.implementation({
+    _id: foundry.utils.randomID(),
+    name: req.name,
+    type: "skill",
+    system: requestSkillSystem(requestMechanics(req), req.tier)
+  });
+  // Ninguém tem permissão acima de Dono: a ficha abre travada e nunca tenta gravar o Item temporário.
+  const SheetClass = item.sheet?.constructor;
+  if (SheetClass) new SheetClass({ document: item, editPermission: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER + 1 }).render(true);
+}
+
+/**
+ * Botões do card de pedido (chamado em `renderChatMessageHTML`). Os do Mestre somem para o
+ * jogador; "Editar pedido" só aparece para quem fez o pedido enquanto ele está aberto.
+ */
+export function renderSkillRequestControls(message, html) {
+  const req = message.flags?.[SYSTEM_ID]?.skillRequest;
+  if (!req) return;
+  if (!game.user.isGM) html.querySelectorAll(".sr-gm-actions").forEach(el => el.remove());
+  if (game.user.isGM || !message.isOwner) html.querySelectorAll(".sr-owner-actions").forEach(el => el.remove());
+  const handlers = {
+    approve: () => approveSkillCreationRequest(message),
+    adjust: () => adjustAndApproveSkillRequest(message),
+    changes: () => requestSkillChanges(message),
+    reject: () => rejectSkillCreationRequest(message),
+    edit: () => editSkillRequest(message),
+    view: () => viewSkillRequest(message)
+  };
+  html.querySelectorAll("[data-sr]").forEach(el => {
+    el.addEventListener("click", event => {
+      event.preventDefault();
+      handlers[el.dataset.sr]?.();
+    });
+  });
 }

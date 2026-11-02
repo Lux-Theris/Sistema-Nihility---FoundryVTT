@@ -445,7 +445,9 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.currencies = getActiveCurrencies();
     context.item = item;
     context.owner = item.isOwner;
-    context.isGM = game.user.isGM;
+    // Ficha travada (Compêndio trancado, ou a Skill de um pedido aberta só para ler): os botões
+    // de Mestre que gravam ("+ Nível", "Salvar como modelo"…) somem junto com os campos.
+    context.isGM = game.user.isGM && this.isEditable;
     context.resistancesEnabled = isResistancesEnabled();
     context.conditionsEnabled = isStatusConditionsEnabled();
     context.sequencerActive = sequencerAvailable();

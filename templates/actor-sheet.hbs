@@ -25,9 +25,18 @@
     </div>
     <div class="header-fields">
       <input name="name" type="text" value="{{actor.name}}" placeholder="Nome"/>
+      {{#if creation}}
+      <label class="creation-concept"><span>Conceito · uma frase</span>
+        <input type="text" class="creation-concept-input" name="system.concept" value="{{system.concept}}" placeholder="Quem você quer jogar? Ex.: Dragoide exilado que quer reconquistar a ilha do pai"/>
+      </label>
+      {{/if}}
 
       <div class="header-row">
-        {{#if origin.canChooseHere}}
+        {{#if creation}}
+        <a class="origin-pill" data-action="selectTab" data-tab="origin" title="Escolher na aba Origem">
+          <span>{{#if system.species}}{{origin.speciesLabel}}{{#if origin.lineageLabel}} · {{origin.lineageLabel}}{{/if}}{{else}}Sem Espécie: escolha na aba Origem{{/if}}</span>
+        </a>
+        {{else if origin.canChooseHere}}
         <label>Espécie
           <select class="species-select" {{#if speciesLocked}}disabled title="Definida: só o Mestre troca"{{/if}}>
             <option value="" {{#unless system.species}}selected{{/unless}}>—</option>
@@ -161,10 +170,30 @@
     </div>
   </header>
 
+  {{#if creation}}
+  <nav class="creation-strip status-{{creation.status}}" aria-label="O que falta na criação">
+    {{#if creation.ready}}
+    <span class="cs-title">Aguardando o Mestre</span>
+    <span class="cs-text">Você ainda pode mexer; ele vê a versão mais nova.</span>
+    {{#if creation.canAct}}<button type="button" class="cs-ghost" data-action="creationBack">Voltar a editar</button>{{/if}}
+    {{else if creation.adjust}}
+    <span class="cs-title">Ajuste pedido</span>
+    <span class="cs-text">"{{creation.gmNote}}"</span>
+    {{#if creation.canAct}}<button type="button" class="cs-go" data-action="creationReady" {{#unless creation.canReady}}disabled{{/unless}}>Pronto de novo</button>{{/if}}
+    {{else}}
+    <span class="cs-title">Criando</span>
+    {{#each creation.steps as |step|}}
+    <button type="button" class="cs-item {{#if step.done}}ok{{/if}} {{#if step.current}}now{{/if}} {{#if step.warn}}warn{{/if}}" data-action="creationGo" data-step="{{step.id}}"><i>{{#if step.done}}✓{{else if step.warn}}!{{else}}{{step.number}}{{/if}}</i>{{step.label}}</button>
+    {{/each}}
+    {{#if creation.canAct}}<button type="button" class="cs-go" data-action="creationReady" {{#unless creation.canReady}}disabled title="Falta o nome ou a Espécie"{{/unless}}>Pronto para jogar</button>{{/if}}
+    {{/if}}
+  </nav>
+  {{/if}}
+
   <nav class="sheet-tabs tabs">
     <a class="item {{#if (eq activeTab "ficha")}}active{{/if}}" data-action="selectTab" data-tab="ficha">Ficha</a>
     {{#if inventoryEnabled}}<a class="item {{#if (eq activeTab "inventory")}}active{{/if}}" data-action="selectTab" data-tab="inventory">Inventário</a>{{/if}}
-    {{#if anatomyEnabled}}{{#unless trim.anatomy.hide}}<a class="item {{#if (eq activeTab "anatomy")}}active{{/if}} {{#if trim.anatomy.gmEmpty}}is-empty-gm{{/if}}" data-action="selectTab" data-tab="anatomy" {{#if trim.anatomy.gmEmpty}}title="Sem partes do corpo: o jogador não vê esta aba"{{/if}}>Anatomia</a>{{/unless}}{{/if}}
+    {{#if anatomyEnabled}}{{#unless trim.anatomy.hide}}{{#unless creation}}<a class="item {{#if (eq activeTab "anatomy")}}active{{/if}} {{#if trim.anatomy.gmEmpty}}is-empty-gm{{/if}}" data-action="selectTab" data-tab="anatomy" {{#if trim.anatomy.gmEmpty}}title="Sem partes do corpo: o jogador não vê esta aba"{{/if}}>Anatomia</a>{{/unless}}{{/unless}}{{/if}}
     <a class="item {{#if (eq activeTab "origin")}}active{{/if}}" data-action="selectTab" data-tab="origin">Origem</a>
     <a class="item {{#if (eq activeTab "biography")}}active{{/if}}" data-action="selectTab" data-tab="biography">Biografia</a>
   </nav>
@@ -176,7 +205,7 @@
 
         <!-- Rail esquerda: Atributos + Títulos -->
         <div class="rail">
-          <div class="block">
+          <div class="block attr-block">
             <p class="block-title">Atributos</p>
             <p class="hint-inline">
               A cada +10 de Bônus a rolagem ganha +1d20 (todos somados). Arma/equipamento nunca
@@ -195,11 +224,19 @@
             {{/if}}
             {{/if}}
 
+            {{#if quickSpreads}}
+            <div class="attr-quick">
+              <span class="hint-inline">Começar de um jeito:</span>
+              {{#each quickSpreads as |q|}}<button type="button" class="btn-mini" data-action="quickSpread" data-spread="{{q.id}}" title="Preenche os pontos pendentes com uma distribuição pronta. Não é classe: dá para mudar depois.">{{q.label}}</button>{{/each}}
+            </div>
+            {{/if}}
+
             {{#each attributeLabels as |attr|}}
             <div class="attr-row-v2 {{#if attr.data.pendingPoints}}is-pending{{/if}}" data-attribute="{{attr.key}}">
               <div class="attr-row-top">
                 <div class="attr-name">
                   <span class="label">{{attr.label}}</span>
+                  {{#if attr.purpose}}<span class="attr-purpose">{{attr.purpose}}</span>{{/if}}
                   <span class="pts">{{attr.data.points}} pts{{#if attr.data.pendingPoints}}<span class="pending-add"> +{{attr.data.pendingPoints}}</span>{{/if}}</span>
                 </div>
                 {{#if ../attributePoolEnabled}}
@@ -234,12 +271,33 @@
             <button type="button" class="btn-mini reset gm-attr-reset" data-action="gmResetAllAttributePoints" title="Devolve TODOS os pontos alocados (confirmados e pendentes) ao Pool livre, pro jogador redistribuir">↺ Zerar pontos (Mestre)</button>
             {{/if}}{{/if}}
 
+            {{#if vitalPreview}}
+            <div class="attr-preview" aria-label="Ao confirmar">
+              <p class="ap-title">Ao confirmar</p>
+              {{#with vitalPreview.hp as |v|}}
+              <div class="ap-row"><span class="ap-label">{{v.label}}</span><span class="ap-num">{{#if v.changed}}<s>{{v.now}}</s>{{/if}}<b>{{v.next}}</b></span></div>
+              <p class="ap-formula">{{v.formula}}</p>
+              {{/with}}
+              {{#with vitalPreview.energy as |v|}}
+              <div class="ap-row energy"><span class="ap-label">{{v.label}}</span><span class="ap-num">{{#if v.changed}}<s>{{v.now}}</s>{{/if}}<b>{{v.next}}</b></span></div>
+              <p class="ap-formula">{{v.formula}}</p>
+              {{/with}}
+              <p class="ap-line">Iniciativa: <b>{{vitalPreview.initiative}}</b></p>
+              {{#if vitalPreview.movement}}<p class="ap-line">Deslocamento: <b>{{vitalPreview.movement}}</b></p>{{/if}}
+              <p class="ap-hint">O riscado é o valor de agora; o grande é o que fica com estes pontos.</p>
+            </div>
+            {{/if}}
+
             {{#if attributePoolEnabled}}{{#if attributePointsPending}}
             <div class="attr-action-bar visible">
               <span class="summary"><strong>{{attributePointsPending}}</strong> pts pendentes</span>
               <span class="buttons">
                 <button type="button" class="btn-mini reset" data-action="resetAttributePoints">Resetar</button>
+                {{#if creation}}
+                <span class="hint-inline attr-wait" title="No modo criação os pontos ficam pendentes até o Mestre liberar o personagem; a liberação confirma tudo.">confirma quando o Mestre liberar</span>
+                {{else}}
                 <button type="button" class="btn-mini confirm" data-action="confirmAttributePoints">Confirmar</button>
+                {{/if}}
               </span>
             </div>
             {{/if}}{{/if}}
@@ -310,7 +368,7 @@
           </div>
           {{/unless}}{{/if}}
 
-          <div class="block">
+          <div class="block skills-block">
             <div class="row-between">
               <p class="block-title" style="margin:0">Habilidades</p>
               {{#if skillFusionEnabled}}{{#if isGM}}<button type="button" class="skill-fuse-button" data-action="fuseSkills">⚡ Fundir Selecionadas</button>{{/if}}{{/if}}
@@ -345,6 +403,13 @@
                   <a class="item-delete" data-action="deleteItem" title="Excluir"><i class="fas fa-trash"></i></a>
                 </li>
                 {{/each}}
+                {{#each (lookup ../requestsByTier tier) as |req|}}
+                <li class="item-row skill-request-row {{#if req.changes}}is-changes{{/if}}" data-message-id="{{req.messageId}}">
+                  <span class="item-name">{{req.name}}<span class="skill-summary">{{#if req.changes}}"{{req.gmNote}}" — Mestre{{else}}{{req.sentence}}{{/if}}</span></span>
+                  <span class="sr-tag">{{#if req.changes}}ajustar{{else}}aguardando{{/if}}</span>
+                  {{#if req.canEdit}}<a class="sr-edit" data-action="editSkillRequest" title="Editar o pedido">editar</a>{{/if}}
+                </li>
+                {{/each}}
               </ol>
             </fieldset>
             {{else}}
@@ -352,7 +417,8 @@
             {{/each}}
 
             {{#if isGM}}<a class="item-create" data-action="createItem" data-type="skill">+ Nova Habilidade (direto)</a>{{/if}}
-            {{#if skillPointsEnabled}}<button type="button" class="skill-request-button" data-action="requestSkillCreation">+ Pedir Criação com Pontos</button>{{/if}}
+            {{#if skillPointsEnabled}}<button type="button" class="skill-request-button" data-action="requestSkillCreation" {{#unless freeSkillPoints}}disabled title="Sem Pontos de Habilidade livres (os pedidos abertos já reservam os seus)"{{/unless}}>+ Pedir Skill ao Mestre · {{freeSkillPoints}} ponto(s) livre(s)</button>
+            <p class="hint-inline">Um pedido aparece na lista como "aguardando" e só gasta o ponto quando o Mestre aprova.</p>{{/if}}
           </div>
 
           {{#unless trim.gear.hide}}
@@ -498,6 +564,55 @@
     {{/if}}
 
     <div class="tab origin-tab {{#unless (eq activeTab "origin")}}hidden{{/unless}}">
+      {{#if creation}}
+      {{#with creation.picker as |pk|}}
+      <div class="creation-origin">
+        <div class="co-main">
+          <div class="co-head">
+            <span class="co-title">Que tipo de ser você é?</span>
+            <input type="search" class="co-search" placeholder="Buscar…" aria-label="Buscar Espécie"/>
+          </div>
+          {{#if pk.groups.length}}
+          <div class="co-groups"><a class="co-group on" data-group="">Todas</a>{{#each pk.groups as |g|}}<a class="co-group" data-group="{{g.id}}">{{g.label}}</a>{{/each}}</div>
+          {{/if}}
+          <div class="co-grid">
+            {{#each pk.cards as |c|}}
+            <button type="button" class="co-card {{#if c.selected}}sel{{/if}}" data-action="originPick" data-species="{{c.key}}" data-group="{{c.group}}" data-name="{{c.nameLower}}">
+              <b>{{c.label}}</b>{{#if c.blurb}}<span>{{c.blurb}}</span>{{/if}}{{#if c.lineages}}<em>{{c.lineages}} Linhagem(ns)</em>{{/if}}{{#if c.applied}}<em class="co-applied">a sua</em>{{/if}}
+            </button>
+            {{else}}
+            <p class="hint-inline">Nenhuma Espécie liberada para criação neste mundo.</p>
+            {{/each}}
+          </div>
+          {{#if pk.lineages.length}}
+          <p class="co-sub">Linhagem</p>
+          <div class="co-lineages">
+            {{#each pk.lineages as |l|}}
+            <button type="button" class="co-lin {{#if l.selected}}sel{{/if}}" data-action="originPickLineage" data-lineage="{{l.id}}"><b>{{l.label}}</b>{{#if l.blurb}}<span>{{l.blurb}}</span>{{/if}}</button>
+            {{/each}}
+          </div>
+          {{/if}}
+        </div>
+        <aside class="co-detail">
+          {{#if pk.selectedLabel}}
+          <p class="co-sub">{{pk.selectedLabel}} traz</p>
+          {{#each pk.lines as |line|}}<div class="co-line {{#if line.later}}later{{/if}}">{{line.label}} <em>{{line.value}}</em></div>{{/each}}
+          <span class="co-sp"></span>
+          {{#if pk.appliedHere}}
+          <p class="co-done">✓ É a sua Espécie.</p>
+          {{else if pk.needsLineage}}
+          <p class="hint-inline">Escolha uma Linhagem.</p>
+          {{else}}
+          <button type="button" class="co-apply" data-action="originApply">Ficar com {{pk.selectedLabel}}</button>
+          {{/if}}
+          <p class="hint-inline">Dá para trocar até o Mestre liberar o personagem.</p>
+          {{else}}
+          <p class="hint-inline">Clique numa Espécie para ver o que ela traz.</p>
+          {{/if}}
+        </aside>
+      </div>
+      {{/with}}
+      {{else}}
       {{#if origin.outdated}}
       <div class="origin-warn"><span>{{origin.speciesLabel}} foi editada no catálogo desde que esta ficha foi aplicada.</span><button type="button" data-action="originSync">Ver e sincronizar…</button></div>
       {{/if}}
@@ -555,9 +670,15 @@
       {{#if origin.isGM}}{{#if origin.locked}}
       <div class="origin-foot"><button type="button" data-action="originUnlock">Destravar escolha do jogador</button></div>
       {{/if}}{{/if}}
+      {{/if}}
     </div>
 
     <div class="tab {{#unless (eq activeTab "biography")}}hidden{{/unless}}">
+      {{#unless creation}}
+      <label class="bio-concept">Conceito <span class="hint-inline" style="margin:0">(uma frase: quem é este personagem)</span>
+        <input type="text" name="system.concept" value="{{system.concept}}" placeholder="Ex.: Dragoide exilado que quer reconquistar a ilha do pai"/>
+      </label>
+      {{/unless}}
       <h3>Personalidade <span class="hint-inline" style="margin:0">(insumo para Skills Únicas/Ultimate)</span></h3>
       <label>Traços
         <input type="text" name="system.personality.traits" value="{{system.personality.traits}}"/>

@@ -35,7 +35,23 @@ import {
 } from "../core/config.js";
 import { hasPadDevice } from "../pad/pad-crew.js";
 import { getTotalUnread } from "../pad/pad-messaging.js";
-import { fuseSkills, evolveSkill, breakSkillPoints, mergeSkillPoints, requestSkillCreation } from "../skills/skill-economy.js";
+import { fuseSkills, evolveSkill, breakSkillPoints, mergeSkillPoints, requestSkillCreation, openSkillRequests, openSkillRequestEditor, editSkillRequest, freeSkillPoints } from "../skills/skill-economy.js";
+import {
+  inCreation,
+  isCreationEnabled,
+  creationProgress,
+  vitalPreviewFor,
+  attributePurposeContext,
+  attributePurpose,
+  originPicker,
+  applyQuickSpread,
+  markReady,
+  backToEditing,
+  enterCreation,
+  releaseCharacter,
+  requestAdjustment,
+  QUICK_SPREADS
+} from "../creation/creation.js";
 import { registerItemInCompendium } from "../core/compendium.js";
 import { convertActorCurrency, transferCurrency } from "../economy/currency.js";
 import { rollAttribute, buildAttributeRollFormula } from "../core/dice.js";
@@ -225,7 +241,18 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       uninstallImplant: NihilityActorSheet.#onUninstallImplant,
       toggleBodyPartLost: NihilityActorSheet.#onToggleBodyPartLost,
       heritageRemove: NihilityActorSheet.#onHeritageRemove,
-      splitStack: NihilityActorSheet.#onSplitStack
+      splitStack: NihilityActorSheet.#onSplitStack,
+      editSkillRequest: NihilityActorSheet.#onEditSkillRequest,
+      creationGo: NihilityActorSheet.#onCreationGo,
+      creationReady: NihilityActorSheet.#onCreationReady,
+      creationBack: NihilityActorSheet.#onCreationBack,
+      creationEnter: NihilityActorSheet.#onCreationEnter,
+      creationRelease: NihilityActorSheet.#onCreationRelease,
+      creationAdjust: NihilityActorSheet.#onCreationAdjust,
+      originPick: NihilityActorSheet.#onOriginPick,
+      originPickLineage: NihilityActorSheet.#onOriginPickLineage,
+      originApply: NihilityActorSheet.#onOriginApply,
+      quickSpread: NihilityActorSheet.#onQuickSpread
     }
   };
 
@@ -241,6 +268,23 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     // Estado de tela da aba Inventário (não é salvo).
     this.inventoryFilter = "all";
     this.inventorySort = "name";
+    // Cartão marcado na grade de Espécies do modo criação (só tela; aplica em "Ficar com…").
+    this.originPick = {};
+  }
+
+  /**
+   * @override Menu ⋮ do cabeçalho, só do Mestre: "Pôr em modo criação" ou, já em criação,
+   * "Liberar…" e "Pedir ajuste…" (J10, prancha 5 C). Montado na hora em que o menu abre.
+   */
+  _getHeaderControls() {
+    const controls = super._getHeaderControls();
+    const gmCharacter = () => game.user.isGM && this.actor.type === "character" && isCreationEnabled();
+    controls.push(
+      { icon: "fas fa-user-pen", label: "Pôr em modo criação", action: "creationEnter", visible: () => gmCharacter() && !inCreation(this.actor) },
+      { icon: "fas fa-user-check", label: "Liberar personagem…", action: "creationRelease", visible: () => gmCharacter() && inCreation(this.actor) },
+      { icon: "fas fa-comment", label: "Pedir ajuste…", action: "creationAdjust", visible: () => gmCharacter() && inCreation(this.actor) }
+    );
+    return controls;
   }
 
   /** @override Item Geral solto na ficha: empilha, move entre fichas, guarda em contêiner (inventory.js). */
@@ -462,6 +506,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.origin = originContext(actor);
     // Só os atributos que a campanha exibe (ver getActiveAttributes em config.js). Um atributo
     // oculto continua valendo por baixo — só não aparece nem é rolável.
+    const purposeCtx = attributePurposeContext();
     context.attributeLabels = getVisibleAttributes().map(({ key, label }) => {
       const data = actor.system.attributes.combat[key];
       const hasPending = (data.pendingPoints ?? 0) > 0;
@@ -469,6 +514,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         key,
         label,
         data,
+        // Para que serve, numa frase (prancha 2 C): fica para sempre, não só na criação.
+        purpose: attributePurpose(key, purposeCtx),
         formula: buildAttributeRollFormula(data.bonus),
         previewFormula: hasPending ? buildAttributeRollFormula(data.previewBonus) : null,
         // Só a linha de Destreza carrega o deslocamento (ver deriveMovement em character-model.js).
@@ -479,6 +526,15 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       (sum, key) => sum + (actor.system.attributes.combat[key].pendingPoints ?? 0),
       0
     );
+    // Modo criação (J10): faixa "Criando", grade de Espécies na Origem, "Confirmar" guardado.
+    context.creation = inCreation(actor) ? await this.#creationContext() : null;
+    // "Ao confirmar" (prancha 2 B): Vida/Mana/iniciativa com os pendentes, dentro e fora da criação.
+    context.vitalPreview = context.attributePoolEnabled && (context.creation || context.attributePointsPending) ? vitalPreviewFor(actor) : null;
+    // "Começar de um jeito" (prancha 2 D): só enquanto nenhum ponto foi confirmado.
+    context.quickSpreads =
+      context.attributePoolEnabled && actor.isOwner && MEU_SISTEMA.COMBAT_ATTRIBUTES.every(k => !(actor.system.attributes.combat[k]?.points > 0))
+        ? Object.entries(QUICK_SPREADS).map(([id, s]) => ({ id, label: s.label }))
+        : null;
     context.attributePoolPercent = percentOf(
       actor.system.attributePointsPool.spent,
       actor.system.attributePointsPool.total
@@ -563,6 +619,21 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       context.skillsByTier[tier] = skills.filter(s => s.system.tier === tier);
     }
     context.tierLabels = MEU_SISTEMA.SKILL_TIER_LABELS;
+    // Pedidos de Skill abertos (prancha 3 A): linha tracejada na faixa do Tier, com o recado do Mestre.
+    const { skillSentence } = await import("../skills/skill-assist.js");
+    context.requestsByTier = {};
+    for (const message of openSkillRequests(actor)) {
+      const req = message.flags[SYSTEM_ID].skillRequest;
+      (context.requestsByTier[req.tier] ??= []).push({
+        messageId: message.id,
+        name: req.name,
+        sentence: req.mechanics ? skillSentence(req.mechanics) : "",
+        changes: req.status === "changes",
+        gmNote: req.gmNote ?? "",
+        canEdit: message.isOwner
+      });
+    }
+    context.freeSkillPoints = MEU_SISTEMA.SKILL_POINT_TIERS.reduce((sum, t) => sum + freeSkillPoints(actor, t), 0);
     // A Skill numa frase, na linha da ficha (o que faz · onde · custo · manutenção).
     context.skillSummaries = skillSummariesFor(actor);
     context.fusableTiers = FUSABLE_TARGET_TIERS.filter(t => t !== "ultimate" || ultimateVisible);
@@ -600,13 +671,31 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     });
     context.skillTierList = shownSkillTiers(
       context.visibleTiers,
-      Object.fromEntries(Object.entries(context.skillsByTier).map(([tier, list]) => [tier, list.length])),
+      Object.fromEntries(Object.entries(context.skillsByTier).map(([tier, list]) => [tier, list.length + (context.requestsByTier[tier]?.length ?? 0)])),
       { isGM: game.user.isGM, showAll: context.trim.showAll }
     );
     if (context.trim.anatomy.hide && this.activeTab === "anatomy") context.activeTab = this.activeTab = "ficha";
+    // Em criação a Anatomia some (prancha 1 D); volta quando o personagem é liberado.
+    if (context.creation && this.activeTab === "anatomy") context.activeTab = this.activeTab = "ficha";
 
     debugLog(`${SYSTEM_ID} | NihilityActorSheet._prepareContext:`, actor.name);
     return context;
+  }
+
+  /** O que a faixa e a aba Origem mostram em modo criação. */
+  async #creationContext() {
+    const actor = this.actor;
+    const progress = await creationProgress(actor);
+    const creation = actor.system.creation;
+    return {
+      ...progress,
+      status: creation.status,
+      gmNote: creation.gmNote,
+      ready: creation.status === "ready",
+      adjust: creation.status === "adjust",
+      canAct: actor.isOwner,
+      picker: originPicker(actor, this.originPick)
+    };
   }
 
   /** "mostrar" os blocos vazios nesta ficha, neste navegador (K3). */
@@ -616,6 +705,85 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     } catch (err) {
       return false;
     }
+  }
+
+  /** Linha tracejada de um pedido de Skill: "editar" abre o mesmo editor do pedido. */
+  static async #onEditSkillRequest(event, target) {
+    event.preventDefault();
+    const message = game.messages.get(target.closest("[data-message-id]")?.dataset.messageId);
+    if (message) await editSkillRequest(message);
+  }
+
+  /** Item da faixa "Criando": leva ao lugar onde aquilo se resolve. */
+  static async #onCreationGo(event, target) {
+    event.preventDefault();
+    const step = target.dataset.step;
+    // O conceito fica no cabeçalho durante a criação: só põe o cursor nele.
+    if (step === "concept") {
+      this.element.querySelector(".creation-concept-input")?.focus();
+      return;
+    }
+    this.activeTab = step === "origin" ? "origin" : "ficha";
+    await this.render();
+    const anchor = step === "points" ? ".attr-block" : step === "skills" ? ".skills-block" : null;
+    if (anchor) this.element.querySelector(anchor)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  static async #onCreationReady(event) {
+    event.preventDefault();
+    await markReady(this.actor);
+  }
+
+  static async #onCreationBack(event) {
+    event.preventDefault();
+    await backToEditing(this.actor);
+  }
+
+  static async #onCreationEnter(event) {
+    event?.preventDefault?.();
+    await enterCreation(this.actor);
+  }
+
+  static async #onCreationRelease(event) {
+    event?.preventDefault?.();
+    await releaseCharacter(this.actor);
+  }
+
+  static async #onCreationAdjust(event) {
+    event?.preventDefault?.();
+    await requestAdjustment(this.actor);
+  }
+
+  /** Grade de Espécies: marca o cartão (ainda não aplica). */
+  static #onOriginPick(event, target) {
+    event.preventDefault();
+    const species = target.dataset.species;
+    this.originPick = { species, lineage: species === this.actor.system.species ? this.actor.system.lineage : "" };
+    this.render();
+  }
+
+  static #onOriginPickLineage(event, target) {
+    event.preventDefault();
+    this.originPick = { species: this.originPick.species ?? this.actor.system.species, lineage: target.dataset.lineage };
+    this.render();
+  }
+
+  /** "Ficar com…": aplica pela troca de Espécie de sempre (prévia quando já há algo dado). */
+  static async #onOriginApply(event) {
+    event.preventDefault();
+    const picker = originPicker(this.actor, this.originPick);
+    if (!picker.canApply) return;
+    if (!game.user.isGM && isSpeciesLocked(this.actor.system)) {
+      ui.notifications.warn("A Espécie já está definida: só o Mestre pode trocar agora.");
+      return;
+    }
+    const applied = await changeActorSpecies(this.actor, { species: picker.speciesId, lineage: picker.lineageId }, { reason: "change" });
+    if (applied) this.originPick = {};
+  }
+
+  static async #onQuickSpread(event, target) {
+    event.preventDefault();
+    await applyQuickSpread(this.actor, target.dataset.spread);
   }
 
   static #onToggleShowEmpty(event) {
@@ -668,6 +836,28 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     });
   }
 
+  /** Grade de Espécies do modo criação: busca e grupo só escondem cartões (sem redesenhar). */
+  _onRenderOriginGrid() {
+    const root = this.element.querySelector(".creation-origin");
+    if (!root) return;
+    let group = "";
+    const apply = () => {
+      const term = root.querySelector(".co-search")?.value.trim().toLowerCase() ?? "";
+      root.querySelectorAll(".co-card").forEach(card => {
+        card.hidden = (Boolean(group) && card.dataset.group !== group) || (Boolean(term) && !card.dataset.name.includes(term));
+      });
+    };
+    root.querySelector(".co-search")?.addEventListener("input", apply);
+    root.querySelectorAll(".co-group").forEach(chip =>
+      chip.addEventListener("click", event => {
+        event.preventDefault();
+        group = chip.dataset.group;
+        root.querySelectorAll(".co-group").forEach(c => c.classList.toggle("on", c === chip));
+        apply();
+      })
+    );
+  }
+
   _onRender(context, options) {
     super._onRender(context, options);
     this._onRenderInventory();
@@ -675,6 +865,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     if (!this.isEditable) return;
 
     this.element.querySelector(".species-select")?.addEventListener("change", this._onSpeciesChange.bind(this));
+    this._onRenderOriginGrid();
     this.element.querySelector(".lineage-select")?.addEventListener("change", this._onLineageChange.bind(this));
     // Arrastando um implante: verde onde cabe, vermelho onde não cabe (o motivo aparece na linha).
     this.element.querySelectorAll("[data-part-id]").forEach(row => {
@@ -1060,28 +1251,13 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     }
   }
 
+  /**
+   * O pedido é montado no editor de Skill de sempre (J10, prancha 3 B): Modelo, Compêndio ou
+   * "Só descrever", custo sugerido e avisos. Antes era só Tier, nome, texto e custo, e a Skill
+   * aprovada nascia sem mecânica.
+   */
   async _promptSkillRequest() {
-    const options = MEU_SISTEMA.SKILL_POINT_TIERS.map(
-      t => `<option value="${t}">${MEU_SISTEMA.SKILL_TIER_LABELS[t]} (${this.actor.system.skillPoints[t] ?? 0} disponíveis)</option>`
-    ).join("");
-
-    return promptDialog({
-      title: "Pedir Criação de Skill (gasta 1 Ponto de Habilidade)",
-      confirmLabel: "Enviar Pedido",
-      content: `
-        <form>
-          <div class="form-group"><label>Tier</label><select name="tier">${options}</select></div>
-          <div class="form-group"><label>Nome</label><input type="text" name="name"/></div>
-          <div class="form-group"><label>Efeito</label><textarea name="description" rows="4"></textarea></div>
-          <div class="form-group"><label>Custo de ${getCharacterEnergyLabel()} (pra usar)</label><input type="number" name="cost" value="0"/></div>
-        </form>`,
-      onConfirm: form => ({
-        tier: form.querySelector("[name=tier]").value,
-        name: form.querySelector("[name=name]").value,
-        description: form.querySelector("[name=description]").value,
-        cost: Number(form.querySelector("[name=cost]").value) || 0
-      })
-    });
+    return openSkillRequestEditor(this.actor);
   }
 
   /* -------------------------------------------- */

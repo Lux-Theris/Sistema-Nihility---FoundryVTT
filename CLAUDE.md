@@ -12,7 +12,15 @@ Everything user-facing is in **pt-BR**, hardcoded in the templates and JS. The `
 
 ## Commands
 
-There is no build step and no bundler. Two local verifications exist — run both before considering a change done:
+There is no build step and no bundler. **Run `node scripts/check.mjs` before considering a change done** (backlog H19, ~6 s, no dependencies, exit code 1 on any failure). It does everything below in one go:
+- the module-mode syntax check of every `module/**/*.js`;
+- the test suite;
+- `system.json` checks: it is valid JSON, the version is `x.y.z`, and every listed esmodule/style/language file exists;
+- no CSS file in `styles/` is left out of `system.json`;
+- every `templates/…hbs` cited in the code exists;
+- no mojibake ("Ã§", "Ã£": UTF-8 written as Latin-1 by a script).
+
+`--no-tests` skips the suite. The two underlying commands, for a single file:
 
 ```bash
 node --input-type=module --check < module/path/to/file.js   # syntax of a single file, AS AN ES MODULE

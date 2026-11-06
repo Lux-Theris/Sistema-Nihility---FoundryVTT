@@ -52,8 +52,8 @@ export function gatherTableRules() {
     skills: {
       powerPerLevel: setting("skillPowerPerLevel", 10),
       discountPerLevel: setting("skillDiscountPerLevel", 20),
-      cyclePower: setting("skillCyclePower", 4),
-      cycleDiscount: setting("skillCycleDiscount", 1),
+      cyclePower: setting("skillCyclePower", 2),
+      cycleDiscount: setting("skillCycleDiscount", 2),
       costFloor: setting("skillCostFloorPercent", 10)
     },
     initiative: getAttributeLabel(setting("initiativeAttribute", "dexterity")),

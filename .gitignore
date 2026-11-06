@@ -9,3 +9,7 @@ Thumbs.db
 
 # Anotações e planos de trabalho locais
 temp/
+
+# Cache do gerador de PDF e pacotes grandes (o GitHub recusa arquivos acima de 100 MB)
+tmp/
+output/*.zip

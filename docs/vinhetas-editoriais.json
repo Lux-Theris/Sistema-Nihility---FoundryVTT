@@ -1,0 +1,259 @@
+{
+  "date": "2026-11-05",
+  "assets": {
+    "neris": {
+      "path": "img/vinhetas/neris-retrato.png",
+      "caption": "Neris consulta suas anotações.",
+      "character": "Neris"
+    },
+    "cora": {
+      "path": "img/vinhetas/cora-retrato.png",
+      "caption": "Cora observa antes de concluir.",
+      "character": "Dra. Cora Nunes"
+    },
+    "icaro": {
+      "path": "img/vinhetas/icaro-retrato.png",
+      "caption": "Ícaro confere a próxima etapa da rota.",
+      "character": "Ícaro Vale"
+    },
+    "lia": {
+      "path": "img/vinhetas/lia-retrato.png",
+      "caption": "Lia registra o que encontrou.",
+      "character": "Lia"
+    },
+    "doran": {
+      "path": "img/vinhetas/doran-retrato.png",
+      "caption": "Doran prepara o material do grupo.",
+      "character": "Doran"
+    },
+    "caderno": {
+      "path": "img/vinhetas/caderno.png",
+      "caption": "O caderno de campo de Lia.",
+      "character": "lia"
+    },
+    "bussola": {
+      "path": "img/vinhetas/bussola.png",
+      "caption": "Uma direção para começar a busca.",
+      "character": "lia"
+    },
+    "corda": {
+      "path": "img/vinhetas/corda.png",
+      "caption": "Preparação para uma travessia.",
+      "character": "lia"
+    },
+    "mapa": {
+      "path": "img/vinhetas/mapa.png",
+      "caption": "Uma rota ainda pode mudar.",
+      "character": "lia"
+    },
+    "grimorio": {
+      "path": "img/vinhetas/grimorio.png",
+      "caption": "As páginas anotadas de Neris.",
+      "character": "neris"
+    },
+    "escrita": {
+      "path": "img/vinhetas/escrita.png",
+      "caption": "Instrumentos de escrita de Neris.",
+      "character": "neris"
+    },
+    "cajado": {
+      "path": "img/vinhetas/cajado.png",
+      "caption": "Um apoio para a caminhada.",
+      "character": "neris"
+    },
+    "foco": {
+      "path": "img/vinhetas/foco.png",
+      "caption": "Um objeto pessoal de Neris.",
+      "character": "neris"
+    },
+    "microscopio": {
+      "path": "img/vinhetas/microscopio.png",
+      "caption": "Observar de perto, comparar e registrar.",
+      "character": "cora"
+    },
+    "amostras": {
+      "path": "img/vinhetas/amostras.png",
+      "caption": "Material recolhido por Cora.",
+      "character": "cora"
+    },
+    "paquimetro": {
+      "path": "img/vinhetas/paquimetro.png",
+      "caption": "Medir ajuda a comparar.",
+      "character": "cora"
+    },
+    "ferramentas": {
+      "path": "img/vinhetas/ferramentas.png",
+      "caption": "O estojo de trabalho de Cora.",
+      "character": "cora"
+    },
+    "capacete": {
+      "path": "img/vinhetas/capacete.png",
+      "caption": "O capacete usado de Ícaro.",
+      "character": "icaro"
+    },
+    "scanner": {
+      "path": "img/vinhetas/scanner.png",
+      "caption": "Instrumento de exploração de Ícaro.",
+      "character": "icaro"
+    },
+    "luvas": {
+      "path": "img/vinhetas/luvas.png",
+      "caption": "Parte do traje de exploração.",
+      "character": "icaro"
+    },
+    "sinalizador": {
+      "path": "img/vinhetas/sinalizador.png",
+      "caption": "Uma referência para a volta.",
+      "character": "icaro"
+    },
+    "martelo": {
+      "path": "img/vinhetas/martelo.png",
+      "caption": "O martelo de cabo trocado de Doran.",
+      "character": "doran"
+    },
+    "panela": {
+      "path": "img/vinhetas/panela.png",
+      "caption": "Preparar a próxima refeição.",
+      "character": "doran"
+    },
+    "cantil": {
+      "path": "img/vinhetas/cantil.png",
+      "caption": "Suprimentos para o caminho.",
+      "character": "doran"
+    },
+    "bota": {
+      "path": "img/vinhetas/bota.png",
+      "caption": "Uma bota reparada mais uma vez.",
+      "character": "doran"
+    },
+    "astrolabio": {
+      "path": "img/vinhetas/astrolabio.png",
+      "caption": "Um astrolábio arcano.",
+      "character": "Neris"
+    },
+    "cristal": {
+      "path": "img/vinhetas/cristal.png",
+      "caption": "Um cristal protegido para a viagem.",
+      "character": "Neris"
+    },
+    "lanterna-arcana": {
+      "path": "img/vinhetas/lanterna-arcana.png",
+      "caption": "Uma lanterna de cristal.",
+      "character": "Neris"
+    },
+    "selo": {
+      "path": "img/vinhetas/selo.png",
+      "caption": "Papel, cera e uma marca pessoal.",
+      "character": "Neris"
+    },
+    "drone": {
+      "path": "img/vinhetas/drone.png",
+      "caption": "Um drone de reconhecimento.",
+      "character": "Ícaro"
+    },
+    "nave": {
+      "path": "img/vinhetas/nave.png",
+      "caption": "Uma nave para uma pequena tripulação.",
+      "character": "Ícaro"
+    },
+    "neris-acao": {
+      "path": "img/vinhetas/neris-acao.png",
+      "caption": "Neris experimenta um efeito discreto.",
+      "character": "Neris"
+    },
+    "cora-acao": {
+      "path": "img/vinhetas/cora-acao.png",
+      "caption": "Cora examina o material recolhido.",
+      "character": "Cora"
+    },
+    "icaro-acao": {
+      "path": "img/vinhetas/icaro-acao.png",
+      "caption": "Ícaro confere os instrumentos.",
+      "character": "Ícaro"
+    },
+    "lia-acao": {
+      "path": "img/vinhetas/lia-acao.png",
+      "caption": "Lia prepara a corda para a travessia.",
+      "character": "Lia"
+    },
+    "doran-acao": {
+      "path": "img/vinhetas/doran-acao.png",
+      "caption": "Doran cuida de um reparo.",
+      "character": "Doran"
+    }
+  },
+  "groups": {
+    "viagem": [
+      "lia",
+      "caderno",
+      "doran",
+      "mapa",
+      "bussola",
+      "corda",
+      "cantil",
+      "bota"
+    ],
+    "investigacao": [
+      "cora-acao",
+      "paquimetro",
+      "lia",
+      "bussola",
+      "microscopio",
+      "caderno",
+      "amostras"
+    ],
+    "magia": [
+      "neris",
+      "astrolabio",
+      "neris-acao",
+      "grimorio",
+      "cristal",
+      "escrita",
+      "lanterna-arcana",
+      "selo",
+      "foco",
+      "cajado"
+    ],
+    "recursos": [
+      "doran-acao",
+      "panela",
+      "cantil",
+      "martelo",
+      "luvas",
+      "cora",
+      "ferramentas",
+      "bota"
+    ],
+    "espaco": [
+      "icaro",
+      "nave",
+      "icaro-acao",
+      "capacete",
+      "scanner",
+      "drone",
+      "sinalizador",
+      "luvas",
+      "cora-acao"
+    ],
+    "acao": [
+      "lia-acao",
+      "corda",
+      "doran",
+      "bota",
+      "icaro-acao",
+      "capacete",
+      "cantil",
+      "doran-acao",
+      "martelo"
+    ],
+    "ferramentas": [
+      "cora",
+      "ferramentas",
+      "paquimetro",
+      "icaro",
+      "scanner",
+      "caderno",
+      "escrita"
+    ]
+  }
+}

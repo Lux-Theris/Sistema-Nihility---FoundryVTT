@@ -1,0 +1,41 @@
+{
+  "date": "2026-11-02",
+  "tool": "ImageGen integrada",
+  "reference": "Livro do Jogador D&D 2024 fornecido pelo usuário; referência de linguagem pictórica, sem usar imagens do livro como entrada nem reproduzi-las.",
+  "referenceUrl": "https://drive.google.com/file/d/14VxOFuxnMzFKH_Qn95ShrywYA8bfpV5R/view",
+  "jobs": [
+    {
+      "name": "capa-jogador-pintura",
+      "prompt": "Original narrative painted cover for Nihility, a modular tabletop RPG. Portrait 2:3. The visual language is a richly colored contemporary tabletop RPG rulebook illustration: expressive drawing, believable anatomy and equipment, visible economical painted brushwork, strong silhouettes and large readable value shapes. Not a photo, not pen-and-ink, not a 3D render. Scene: three different travelers cooperate to cross a damaged stone causeway at an abandoned coastal signal station. Foreground older woman in a practical modern raincoat anchors a rope around a stout post; middle distance short stocky medieval traveler reaches to help a tired young futuristic explorer climb the last step. Their actions and grips must make physical sense. Sea wind, mossy stone, one simple antenna suggest multiple possible campaign genres. No portals, no divided worlds, no hovering cities. Storm has just passed, overcast natural light with one restrained warm break on the horizon; earthy reds and greens, gray blue sea, no purple-gold lighting. Composition rises diagonally from foreground hands and rope toward the station, not a centered hero glamour pose. Leave upper fifth as simple muted cloud shapes for separately typeset title and bottom tenth quiet for credits. No text, logos, runes, particles, ornate decoration, bloom, glossy skin or excessive microdetail. Individual ordinary faces, distinct clothing, a specific story, coherent perspective."
+    },
+    {
+      "name": "capa-mestre-pintura",
+      "prompt": "Original narrative painted Game Master's cover for Nihility, a modular tabletop RPG. Portrait 2:3. Richly colored tabletop rulebook art, expressive confident brushwork, painterly volume and strong readable silhouettes, not a photograph, not pen drawing, not glossy digital CGI. Scene: a weathered innkeeper in rolled shirtsleeves unrolls a practical hand-drawn route map across a table for three arriving travelers: a medieval scout in a red-brown cloak, a modern investigator with a battered canvas satchel, and a futuristic navigator carrying a plain compact instrument case. No readable writing on map. An open window shows a small coastal harbor with working boats and an old radio tower, one coherent place not a collage. The innkeeper points at a river crossing while the travelers discuss the route; believable hands and room perspective. View from just above table height, asymmetric conversational composition, lived-in wooden furniture, ceramic cups, only a few meaningful props. Muted teal, sienna, ivory and deep brown, soft daylight, no purple-gold glow, halos, holograms, portals or huge miniature worlds. Keep upper fifth simple darker ceiling for separate title typography and bottom tenth quiet for credits. No text, lettering, logos, particles, decorative border or hyperdetail."
+    },
+    {
+      "name": "poder-unico-pintura",
+      "prompt": "Landscape 3:2 original narrative painted illustration for a modern fantasy tabletop RPG rulebook, expressive faces and deliberate brushwork with volumes like a traditional acrylic painting. Not ink drawing, not photograph, not CGI. A tired contemporary woman with short windblown hair and a patched navy jacket stands on a rooftop landing, pressing an old family pendant against her chest. With her other hand she sustains ONE simple translucent pale blue protective arc over two ordinary adult companions she is helping shelter behind a parapet. Her determination to protect these specific people is the story. Give all three distinctive non-glamorous faces and practical mismatched clothes. Readable hands and personal relationship, limited worn brick background and sky, no spectacular web, no golden ribbons, giant storm, luminous particles or glowing eyes. Natural cool daylight with warm skin, restrained red in one scarf, grounded color relationships, no purple-gold filter. Large quiet brush shapes at the edges blend into off-white page space. No text or logos."
+    },
+    {
+      "name": "poder-ultimate-pintura",
+      "prompt": "Landscape 3:2 original painted illustration for a tabletop RPG rulebook about control over aspects of reality. Colored narrative fantasy painting with expressive brushwork, clear form and restrained stylization, not pen drawing, not a photo or CGI. A mortal in a plain slate-blue long coat stands off center in a small old public courtyard, one palm extended toward a broken fountain. The water stream is paused into five separate suspended droplets and one rectangular masonry fragment hangs just above the paving. A pigeon stands calmly beside the basin. The effect is extraordinary because the normal scene is specific and quiet. One ordinary person, no divine crown, no grand palace, no gigantic sun arc, no floating city, no energy explosion. Ochre plaster, pale blue reflected water and muted green plants; soft overcast daylight, large readable shapes, believable fountain plumbing and anatomy. Composition guides the eye from hand to suspended water, with loose soft painted edges opening to ivory paper. No text, symbols, logos, halos or purple-gold glow."
+    },
+    {
+      "name": "farol-aquarela",
+      "prompt": "Landscape 3:2 original watercolor and gouache illustration for a tabletop RPG introductory adventure. A modest structurally believable stone lighthouse on a coastal headland, with a narrow damaged timber footbridge across a small gully. Two small travelers inspect a missing plank from the near bank. An old ceramic insulator and a single cable hint at lost technology without fixing the genre. Gray-blue sea, ochre grass and moss, airy cloud sky; translucent watercolor washes, a few opaque gouache accents and selective pencil construction, not photorealism or cinematic digital painting. A clear practical obstacle invites play. Let some edges dissolve naturally into untouched ivory paper. No floating island, purple beacon, huge castle, magical portal, sunset spectacle, glowing particles, text, logos or decoration."
+    }
+  ],
+  "selectedInteriors": [
+    "treino-memoria-editorial",
+    "investigacao-observacional",
+    "barreira-pintura",
+    "tripulacao-pintura",
+    "poder-unico-pintura",
+    "poder-ultimate-pintura",
+    "farol-aquarela"
+  ],
+  "selectedCovers": [
+    "capa-jogador-pintura",
+    "capa-mestre-pintura"
+  ]
+}

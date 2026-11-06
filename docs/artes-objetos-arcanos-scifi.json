@@ -1,0 +1,42 @@
+{
+  "date": "2026-11-05",
+  "tool": "ImageGen integrada",
+  "jobs": [
+    {
+      "name": "astrolabio",
+      "owner": "neris",
+      "subject": "An arcane brass astrolabe with two clearly connected movable rings around a small matte deep-blue stone, a practical handle and a short leather carrying loop. A few restrained geometric engraved marks, coherent hinges, no floating rings, bright nucleus, soul imagery, gold filigree overload or readable writing.",
+      "prompt": "Original editorial spot illustration for Nihility, a modular tabletop RPG book. Traditional opaque watercolor and matte acrylic painting, confident economical brushwork, clear silhouette and a few selected details, natural materials and restrained local colors, readable at small print size. Isolated complete subject with generous transparent margin, genuinely transparent background, no ground rectangle, no landscape, no cast shadow, no text, border, labels, logo, particles, neon, glossy CGI or decorative filler. Compact landscape or square format. Item or vehicle vignette only. An arcane brass astrolabe with two clearly connected movable rings around a small matte deep-blue stone, a practical handle and a short leather carrying loop. A few restrained geometric engraved marks, coherent hinges, no floating rings, bright nucleus, soul imagery, gold filigree overload or readable writing. Entire silhouette visible, truly transparent background."
+    },
+    {
+      "name": "cristal",
+      "owner": "neris",
+      "subject": "A single blue-gray faceted crystal secured in a simple copper protective holder, beside its worn padded pouch. Restrained natural translucent mineral color, two small metal clasps, no magical bloom, particles or ornamental base.",
+      "prompt": "Original editorial spot illustration for Nihility, a modular tabletop RPG book. Traditional opaque watercolor and matte acrylic painting, confident economical brushwork, clear silhouette and a few selected details, natural materials and restrained local colors, readable at small print size. Isolated complete subject with generous transparent margin, genuinely transparent background, no ground rectangle, no landscape, no cast shadow, no text, border, labels, logo, particles, neon, glossy CGI or decorative filler. Compact landscape or square format. Item or vehicle vignette only. A single blue-gray faceted crystal secured in a simple copper protective holder, beside its worn padded pouch. Restrained natural translucent mineral color, two small metal clasps, no magical bloom, particles or ornamental base. Entire silhouette visible, truly transparent background."
+    },
+    {
+      "name": "lanterna-arcana",
+      "owner": "neris",
+      "subject": "A portable arcane lantern: practical brass and dark wood frame around clear glass panes, a small suspended blue crystal inside gives a faint contained pale blue light. Complete carry handle and stable base. No fire, smoke, rays, sparks or floating glyphs.",
+      "prompt": "Original editorial spot illustration for Nihility, a modular tabletop RPG book. Traditional opaque watercolor and matte acrylic painting, confident economical brushwork, clear silhouette and a few selected details, natural materials and restrained local colors, readable at small print size. Isolated complete subject with generous transparent margin, genuinely transparent background, no ground rectangle, no landscape, no cast shadow, no text, border, labels, logo, particles, neon, glossy CGI or decorative filler. Compact landscape or square format. Item or vehicle vignette only. A portable arcane lantern: practical brass and dark wood frame around clear glass panes, a small suspended blue crystal inside gives a faint contained pale blue light. Complete carry handle and stable base. No fire, smoke, rays, sparks or floating glyphs. Entire silhouette visible, truly transparent background."
+    },
+    {
+      "name": "selo",
+      "owner": "neris",
+      "subject": "A compact rolled cream parchment with a single dark teal wax seal and a simple brass seal stamp beside it. The seal bears one plain abstract geometric mark, no readable writing or decorative rune field.",
+      "prompt": "Original editorial spot illustration for Nihility, a modular tabletop RPG book. Traditional opaque watercolor and matte acrylic painting, confident economical brushwork, clear silhouette and a few selected details, natural materials and restrained local colors, readable at small print size. Isolated complete subject with generous transparent margin, genuinely transparent background, no ground rectangle, no landscape, no cast shadow, no text, border, labels, logo, particles, neon, glossy CGI or decorative filler. Compact landscape or square format. Item or vehicle vignette only. A compact rolled cream parchment with a single dark teal wax seal and a simple brass seal stamp beside it. The seal bears one plain abstract geometric mark, no readable writing or decorative rune field. Entire silhouette visible, truly transparent background."
+    },
+    {
+      "name": "drone",
+      "owner": "icaro",
+      "subject": "A compact scifi survey drone with a pale-gray and rust-orange body, two small guarded ducted rotors and one downward-facing optical sensor. Believable serviceable machine, no weapons, lights, hologram or text. Three-quarter view.",
+      "prompt": "Original editorial spot illustration for Nihility, a modular tabletop RPG book. Traditional opaque watercolor and matte acrylic painting, confident economical brushwork, clear silhouette and a few selected details, natural materials and restrained local colors, readable at small print size. Isolated complete subject with generous transparent margin, genuinely transparent background, no ground rectangle, no landscape, no cast shadow, no text, border, labels, logo, particles, neon, glossy CGI or decorative filler. Compact landscape or square format. Item or vehicle vignette only. A compact scifi survey drone with a pale-gray and rust-orange body, two small guarded ducted rotors and one downward-facing optical sensor. Believable serviceable machine, no weapons, lights, hologram or text. Three-quarter view. Entire silhouette visible, truly transparent background."
+    },
+    {
+      "name": "nave",
+      "owner": "icaro",
+      "subject": "A compact original science-fiction exploration spaceship, isolated in three-quarter view from slightly above. Recognizable pale-gray hull with a few rust-orange stripes and repaired service panels matching a field explorer's practical gear. Single small cockpit at front, two short sturdy lateral engine pods, a rear cargo section with one access door, three deployed landing legs. A useful modest vessel for a small crew, coherent scale, no oversized gun turrets, excessive greebles, impossible wing geometry, recognizable franchise styling, light trails, smoke or surrounding landscape.",
+      "prompt": "Original editorial spot illustration for Nihility, a modular tabletop RPG book. Traditional opaque watercolor and matte acrylic painting, confident economical brushwork, clear silhouette and a few selected details, natural materials and restrained local colors, readable at small print size. Isolated complete subject with generous transparent margin, genuinely transparent background, no ground rectangle, no landscape, no cast shadow, no text, border, labels, logo, particles, neon, glossy CGI or decorative filler. Compact landscape or square format. Item or vehicle vignette only. A compact original science-fiction exploration spaceship, isolated in three-quarter view from slightly above. Recognizable pale-gray hull with a few rust-orange stripes and repaired service panels matching a field explorer's practical gear. Single small cockpit at front, two short sturdy lateral engine pods, a rear cargo section with one access door, three deployed landing legs. A useful modest vessel for a small crew, coherent scale, no oversized gun turrets, excessive greebles, impossible wing geometry, recognizable franchise styling, light trails, smoke or surrounding landscape. Entire silhouette visible, truly transparent background."
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "date": "2026-11-05",
+  "approved": true,
+  "tool": "ImageGen integrada",
+  "style": "Original editorial spot illustration for Nihility, a modular tabletop RPG book. Traditional opaque watercolor and matte acrylic painting, confident economical brushwork, clear silhouette and a few selected details, natural materials and restrained local colors, readable at small print size. Isolated complete subject with generous transparent margin, genuinely transparent background, no ground rectangle, no landscape, no cast shadow, no text, border, labels, logo, particles, neon, glossy CGI or decorative filler.",
+  "characters": [
+    {
+      "name": "neris",
+      "label": "Neris",
+      "description": "An adult female elf mage with warm brown skin, a long thoughtful face, pointed ears and black hair in a short braid with a few silver hairs at the temples. She wears a practical deep teal-blue fitted travel coat with close sleeves, brown leather boots, a small writing-instrument case on her belt, and a worn dark-blue clothbound grimoire with loose inserted pages and fabric bookmarks. Calm patient but self-assured expression. Standing three-quarter full-body pose, one hand rests on the closed book carried at her hip. Believable hands, no spell effects, no staff or wizard hat."
+    },
+    {
+      "name": "cora",
+      "label": "Dra. Cora Nunes",
+      "description": "A human woman scientist around fifty, short in stature, light olive skin, distinct lined expressive face, gray hair cut at chin length, practical bare hands with small work marks. Olive-green field jacket with several functional mismatched pockets, rust-brown trousers and sturdy plain boots. She holds a small worn instrument case closed against her side and looks attentively toward the viewer with a friendly questioning expression. Standing three-quarter full-body pose. No lab coat, goggles, glowing vials or decorative steampunk ornaments."
+    },
+    {
+      "name": "icaro",
+      "label": "Ícaro Vale",
+      "description": "A human male space explorer in his mid thirties, dark brown skin, very short black hair, discreet scar across one eyebrow. Slim athletic ordinary physique. He wears a used light-gray pressure exploration suit with rust-orange stripes, visible replacement panels and small repairs, a practical compact backpack. His helmet is clipped to the pack at his side, leaving his face clear. Standing three-quarter full-body pose, quietly checking a wrist fastening. Slight dry-humored smile, believable hands and suit joints. No huge weapons, ornamental power armor, holographic display or glowing eyes."
+    },
+    {
+      "name": "lia",
+      "label": "Lia",
+      "description": "A human woman explorer in her mid twenties, medium brown skin, unruly curly brown hair tied back loosely with escaping curls, lively inquisitive face. Worn muted red travel coat, cream work shirt, dark brown trousers, patched leather boots and a small canvas satchel containing short pencils and found objects. She carries a battered field notebook open in one hand with a short pencil resting across the pages, no legible writing. Standing three-quarter full-body pose leaning forward slightly as she notices something. Believable fingers, no glamour pose or magical effects."
+    },
+    {
+      "name": "doran",
+      "label": "Doran",
+      "description": "A middle-aged male dwarf craftsman, genuinely short and broad with believable dwarf body proportions, strong shoulders, weathered fair skin, gray hair and a short gray beard tied into two small braids. Wears practical wool clothing in muted ochre and charcoal, a leather apron folded over his waist, repeatedly repaired work boots and a tool belt with a small hammer whose wooden handle has been replaced. Standing three-quarter full-body pose calmly inspecting the hammer, friendly observant eyes and sturdy natural hands. No oversized weapon, crown, ornate armor or caricature proportions."
+    }
+  ]
+}

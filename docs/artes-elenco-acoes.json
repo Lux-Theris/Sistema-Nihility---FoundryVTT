@@ -1,0 +1,31 @@
+{
+  "date": "2026-11-05",
+  "tool": "ImageGen integrada",
+  "jobs": [
+    {
+      "name": "neris-acao",
+      "owner": "neris",
+      "prompt": "Original editorial spot illustration for Nihility, a modular tabletop RPG book. Traditional opaque watercolor and matte acrylic painting, confident economical brushwork, clear silhouette and a few selected details, natural materials and restrained local colors, readable at small print size. Isolated complete subject with generous transparent margin, genuinely transparent background, no ground rectangle, no landscape, no cast shadow, no text, border, labels, logo, particles, neon, glossy CGI or decorative filler. Image 1 is the identity and clothing reference. Preserve the same recognizable face, age, hairstyle, clothing palette, belongings and body proportions. Generate a new isolated character spot illustration of Neris using a modest telekinetic effect: she stands in three-quarter profile concentrating on ONE small smooth stone hovering a hand's width above her open palm, with only a faint cool-blue edge of light at the stone. The closed grimoire remains held in the other arm. No runes, floating rings, energy blast, particles or dazzling aura. Full subject visible, transparent background."
+    },
+    {
+      "name": "cora-acao",
+      "owner": "cora",
+      "prompt": "Original editorial spot illustration for Nihility, a modular tabletop RPG book. Traditional opaque watercolor and matte acrylic painting, confident economical brushwork, clear silhouette and a few selected details, natural materials and restrained local colors, readable at small print size. Isolated complete subject with generous transparent margin, genuinely transparent background, no ground rectangle, no landscape, no cast shadow, no text, border, labels, logo, particles, neon, glossy CGI or decorative filler. Image 1 is the identity and clothing reference. Preserve the same recognizable face, age, hairstyle, clothing palette, belongings and body proportions. Generate a new isolated character spot illustration of Cora kneeling beside a single plain low wooden crate and carefully examining one small mineral sample with a hand lens. Her worn instrument case is open at her feet. Warm attentive face, coherent hand holding sample and other hand holding lens, no clutter or scenery. Full subject visible, transparent background."
+    },
+    {
+      "name": "icaro-acao",
+      "owner": "icaro",
+      "prompt": "Original editorial spot illustration for Nihility, a modular tabletop RPG book. Traditional opaque watercolor and matte acrylic painting, confident economical brushwork, clear silhouette and a few selected details, natural materials and restrained local colors, readable at small print size. Isolated complete subject with generous transparent margin, genuinely transparent background, no ground rectangle, no landscape, no cast shadow, no text, border, labels, logo, particles, neon, glossy CGI or decorative filler. Image 1 is the identity and clothing reference. Preserve the same recognizable face, age, hairstyle, clothing palette, belongings and body proportions. Generate a new isolated character spot illustration of Ícaro crouching with one knee down, checking a small rugged gray field scanner while resting his other hand on his removed pressure helmet beside him. Clear face, practical attentive posture and coherent suit joints, no hologram, floating UI or weapons. Full subject visible, transparent background."
+    },
+    {
+      "name": "lia-acao",
+      "owner": "lia",
+      "prompt": "Original editorial spot illustration for Nihility, a modular tabletop RPG book. Traditional opaque watercolor and matte acrylic painting, confident economical brushwork, clear silhouette and a few selected details, natural materials and restrained local colors, readable at small print size. Isolated complete subject with generous transparent margin, genuinely transparent background, no ground rectangle, no landscape, no cast shadow, no text, border, labels, logo, particles, neon, glossy CGI or decorative filler. Image 1 is the identity and clothing reference. Preserve the same recognizable face, age, hairstyle, clothing palette, belongings and body proportions. Generate a new isolated character spot illustration of Lia securing a plain climbing rope around one small stout wooden post: she kneels on one knee, head turned toward her companions out of frame, both hands visibly managing a simple loop. Distinctive red coat and curls, coherent finger placement and clear rope path. No landscape or complicated tangled knots. Full subject visible, transparent background."
+    },
+    {
+      "name": "doran-acao",
+      "owner": "doran",
+      "prompt": "Original editorial spot illustration for Nihility, a modular tabletop RPG book. Traditional opaque watercolor and matte acrylic painting, confident economical brushwork, clear silhouette and a few selected details, natural materials and restrained local colors, readable at small print size. Isolated complete subject with generous transparent margin, genuinely transparent background, no ground rectangle, no landscape, no cast shadow, no text, border, labels, logo, particles, neon, glossy CGI or decorative filler. Image 1 is the identity and clothing reference. Preserve the same recognizable face, age, hairstyle, clothing palette, belongings and body proportions. Generate a new isolated character spot illustration of Doran sitting on a low plain wooden stool, inspecting the repaired sole of one work boot in his lap. One hand supports the boot, the other holds a short blunt leatherworking awl away from his body. Friendly concentration, small tool pouch near his foot, coherent dwarf proportions and hands. No forge or fire. Full subject visible, transparent background."
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "tool": "ImageGen integrada",
+  "date": "2026-11-02",
+  "commonStyle": "Art direction for an original tabletop RPG manual: pen and ink editorial illustration with clear irregular contour lines, selective crosshatching, broad flat shapes and uncoated ivory paper visible. Three inks only: charcoal black, desaturated slate blue, small accents of muted brick red. Confident economical drawing, mildly stylized believable people, ordinary specific clothing and practical objects, readable negative space. Asymmetric composition chosen for the scene. No imitation of a named artist. No lettering, no logos. No glossy digital painting, no photorealism, no 3D render, no cinematic lighting, no purple or gold glow, no bloom, no floating particles, no ornate decorative border. Texture must follow the drawn forms rather than being an overlay hiding errors. Anatomy, object function, perspective and visual storytelling must remain coherent.",
+  "editorialCandidates": [
+    {
+      "name": "capa-jogador-editorial",
+      "prompt": "Portrait 2:3 cover artwork. Leave the upper 30 percent and bottom 12 percent mostly blank ivory paper for separately typeset title and credits. In the middle, three small travelers walk left to right across a simple uneven road, side view: a short stocky medieval traveler with a plain shield and rolled blanket; an older contemporary woman in a raincoat holding a closed notebook; a tall future explorer with a practical pressure helmet tucked under one arm. Distinct bodies, not perfect fashion models. A few footprints and one wind bent roadside plant. No vista collage, no portals, no arches, no magical effects. Convey different possible campaigns through the people, without a fixed setting. The main silhouette is low and horizontal, like a restrained illustrated book jacket."
+    },
+    {
+      "name": "capa-mestre-editorial",
+      "prompt": "Portrait 2:3 cover artwork. Leave upper 30 percent and bottom 12 percent mostly blank ivory paper for separate typography. Middle area is an oblique overhead view of a small ordinary game table: one paper map with a river and simple buildings but NO writing, three mismatched wooden tokens, a blunt pencil, an eraser, a chipped mug, and a person's one hand moving a token. The map is a usable coherent place, not a magical miniature world. Carefully composed quiet still life, no glowing holograms, no city panoramas, no arches or planets, no dice with invented faces. Suggest the craft of preparing and conducting a game."
+    },
+    {
+      "name": "treino-memoria-editorial",
+      "prompt": "Landscape 3:2 manual illustration. A novice adult woman wearing an ordinary white karate gi and white belt practices a basic punch, full body in side view. Her older instructor, shorter and stockier, points at her rear heel from a respectful distance. Two people, clearly separated limbs and plausible planted feet. A worn wooden dojo floor, a simple training pad resting against a wall, otherwise generous empty paper. Show concentration and learning, no combat spectacle. The basic technique is imperfect but recognizable: this is someone who still needs training, not a martial arts master."
+    },
+    {
+      "name": "investigacao-contemporanea-editorial",
+      "prompt": "Landscape 3:2 manual illustration, ordinary contemporary setting. A middle aged woman in a creased practical raincoat crouches beside a drain to examine one small scrap of fabric snagged on its edge, with a compact flashlight aimed at the clue. A colleague remains partly concealed behind the doorway of a closed repair shop, watching the street. A few brick lines, a drain and a plain door establish the place. No rainy neon city panorama, no dramatic detective pose, no guns, no magic. Specific quiet investigation with readable hand positions, clue, flashlight beam and hiding place."
+    },
+    {
+      "name": "barreira-protecao-editorial",
+      "prompt": "Landscape 3:2 fantasy manual illustration. A traveler in a plain patched tunic raises one hand to maintain a simple transparent curved magical barrier, shown as two restrained blue contour lines and a small interruption where ONE incoming stone hits. Behind the barrier, a second traveler supports an injured companion and retreats through a broken wall opening. Exactly three people, clear spatial relationship and believable grips. Barrier protects the retreat, no fireball, no exploding particles, no glowing runes. Minimal ruined stone setting, action readable in silhouette."
+    },
+    {
+      "name": "tripulacao-espacial-editorial",
+      "prompt": "Landscape 3:2 science fiction manual illustration. A practical cramped spacecraft cockpit during a repair: foreground engineer kneels beside an open service panel, holding an insulated tool; seated pilot looks ahead with both hands on a simple control yoke; a third crew member points to one warning lamp on the panel. Exactly three people, clear readable hands and positions. Functional worn equipment, simple conduit routing, only a few unlabeled analog indicators, a small window containing a tiny planet. No holograms, no luminous UI walls, no glowing starfield spectacle, no arbitrary cables that go nowhere."
+    },
+    {
+      "name": "poder-unico-editorial",
+      "prompt": "Landscape 3:2 conceptual manual illustration. On an ordinary rooftop with only a chimney and low parapet, a tired adult woman in a patched jacket clasps a small worn family keepsake at her chest. Her other open hand projects a single simple sheltering blue arc over two companions sheltering close together. Her expression and posture convey a stubborn personal determination to protect them. Exactly three figures, varied ordinary faces, clear separate arms. No giant gold web, no elaborate vortex, no glamour pose, no battle in background. The personal keepsake, gesture and protective relationship are the point of the image."
+    },
+    {
+      "name": "poder-ultimate-editorial",
+      "prompt": "Landscape 3:2 conceptual manual illustration. An ordinary mortal in a plain long coat stands off center beside a broken public fountain, holding one palm up. Time is paused locally: five distinct water droplets hang above the basin and one fallen stone block hangs a few inches above the ground. A pigeon on the basin calmly watches. Static versus suspended objects make control over time legible. Very spare plaza, no grand palace, no solar arc, no floating city, no godlike crown, no glowing aura. One figure with believable hand and a clear understated visual idea."
+    },
+    {
+      "name": "farol-entre-mundos-editorial",
+      "prompt": "Landscape 3:2 introductory adventure illustration. A modest old stone lighthouse on a rugged coastal cliff, a small damaged footbridge leading toward its door. One patched cable and a simple external ceramic insulator hint that the lighthouse could be technical or magical without fixing the genre. Two tiny travelers stop to inspect the missing bridge plank. Low horizon and large quiet unprinted sky. Lighthouse proportions must be structurally believable. No floating island, no purple beam, no majestic sunset, no nebula, no impossibly huge architecture. The adventure hook is an actual obstacle the players can investigate."
+    }
+  ],
+  "variedCandidates": [
+    {
+      "name": "investigacao-observacional",
+      "prompt": "Landscape 3:2 image for a contemporary investigation scene in a modular tabletop RPG manual. Construct a fictional documentary-style photograph, not an illustration or drawing. Ordinary overcast morning outside a closed neighborhood bicycle repair shop, weathered blue door and concrete sidewalk. A middle aged woman with short curly hair in a creased brown raincoat crouches next to a drain to inspect a small torn piece of blue cloth snagged on it, pointing with a gloved index finger; her colleague remains partially out of view inside the doorway, watching the street. Both are ordinary people with distinct unidealized faces. Natural diffuse light, moderate contrast, neutral unsaturated colors, plausible modest camera viewpoint, tactile materials. The clue and action must be clear, no flashlight needed in daylight. No noir neon, rain reflections, glamorous detective pose, dramatic lighting, cinematic color grading, blurry dream details, smoothing, text, lettering, logos or watermarks. Anatomically correct hands and coherent objects."
+    },
+    {
+      "name": "barreira-pintura",
+      "prompt": "Landscape 3:2 original interior art for a tabletop RPG manual. Restrained traditional acrylic painting look, visible broad deliberate brushwork and matte pigments, not ink hatching or line art, not a digital cinematic render. In a plain ruined courtyard, a traveler in a patched ochre tunic braces one hand against a simple translucent pale blue curved barrier. ONE stone strikes it at a small white impact mark; behind the barrier a second traveler supports an injured companion while retreating toward a gap in the wall. Exactly three people with plausible hands, grips and separate limbs. Focus on protection and the practical retreat. Limited earthy ochre, gray stone, muted blue and a small rust-red accent. Flat daylight, asymmetric arrangement, ordinary worn clothing, spare background. No glowing runes, violet-gold haze, explosive particles, epic vistas, perfect glossy faces, text, logos or watermark."
+    },
+    {
+      "name": "tripulacao-pintura",
+      "prompt": "Landscape 3:2 original grounded science fiction interior art for a tabletop RPG manual. A restrained matte gouache and airbrush model-painting aesthetic with broad physical forms, minimal contours, not pen drawing or comic line art, no glossy CGI. A cramped functional spacecraft cockpit: seated pilot in a worn gray flight jacket with both hands clearly on a simple yoke, kneeling engineer inspecting one open service panel with an insulated tester, third crew member consulting a compact paper checklist with blank lines and no readable text. Exactly three distinct ordinary adults, practical equipment with coherent function. Only a handful of unlabeled analog instruments, one warning lamp, a tiny distant planet in a small window. Neutral diffuse cabin illumination, muted slate blue, warm gray, small vermilion accent. No giant holograms, glowing screens everywhere, impossible cables, gold and violet lighting, intricate decorative machinery, text, logos or watermark. Readable composition and correct anatomy."
+    },
+    {
+      "name": "farol-observacional",
+      "prompt": "Landscape 3:2 fictional place photograph for an introductory tabletop RPG adventure. A modest old stone lighthouse on a rocky coastal headland in ordinary gray overcast daylight. A damaged narrow wooden footbridge across a small gully leads to its door; one missing plank is clearly visible. Two tiny practical travelers inspect the gap from the near side. A single weathered cable and ceramic insulator on the lighthouse suggest old technology without making it futuristic. Realistic structural proportions, spare quiet sea and sky, tactile stone and wood, natural colors and modest lens perspective, documentary travel photography aesthetic. No drawing or brush strokes, no fairytale castle, floating island, impossible cliff city, purple light beam, aurora, sunset spectacle, glow, excessive sharpness, HDR, cinematic grading, text, logos or watermark. This is a fictional setting, not an identifiable real landmark."
+    }
+  ],
+  "selection": {
+    "covers": [
+      "capa-jogador-editorial",
+      "capa-mestre-editorial"
+    ],
+    "interiors": [
+      "treino-memoria-editorial",
+      "investigacao-observacional",
+      "barreira-pintura",
+      "tripulacao-pintura",
+      "poder-unico-editorial",
+      "poder-ultimate-editorial",
+      "farol-observacional"
+    ]
+  }
+}

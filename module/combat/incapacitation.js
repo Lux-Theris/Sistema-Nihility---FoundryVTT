@@ -246,7 +246,7 @@ export function registerIncapacitation() {
   Hooks.on("createActiveEffect", async effect => {
     if (!isDesignatedGm() || !isIncapacitationEnabled()) return;
     const actor = effect.parent;
-    if (!(actor instanceof Actor) || actor.type !== "character") return;
+    if (actor?.documentName !== "Actor" || actor.type !== "character") return;
     const ids = catalogIds();
     if (![...(effect.statuses ?? [])].some(s => ids.has(s) || s === defeatedId())) return;
     const { shutdownActiveSkills } = await import("../skills/upkeep.js");

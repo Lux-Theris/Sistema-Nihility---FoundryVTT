@@ -195,9 +195,18 @@ export async function shutdownActiveSkills(actor, { reason = null } = {}) {
   const sources = collectActiveUpkeepSources(actor);
   if (!sources.length) return [];
 
-  for (const source of sources) {
-    await source.skill.update(skillStateUpdate(source.skill, source.subSkillIndex, { active: false }));
+  const updates = new Map();
+  for (const { skill, subSkillIndex } of sources) {
+    const update = updates.get(skill.id) ?? { _id: skill.id };
+    if (subSkillIndex == null) {
+      update["system.active"] = false;
+    } else {
+      update["system.subSkills"] ??= skillStateUpdate(skill, subSkillIndex, { active: false })["system.subSkills"];
+      update["system.subSkills"][subSkillIndex].active = false;
+    }
+    updates.set(skill.id, update);
   }
+  await actor.updateEmbeddedDocuments("Item", [...updates.values()]);
 
   if (actorInStartedCombat(actor)) {
     const pending = foundry.utils.deepClone(actor.getFlag(SYSTEM_ID, PENDING_UPKEEP_FLAG) ?? []);

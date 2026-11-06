@@ -77,6 +77,9 @@ function renderCard(values) {
       <input type="text" data-field="icon" value="${escapeHtml(values.icon ?? "icons/svg/aura.svg")}" placeholder="Ícone"/>
       <a class="card-config-pick" data-action="pickIcon" data-field="icon" title="Escolher ícone"><i class="fas fa-image"></i></a>
     </div>
+    <label class="cond-fld cond-explanation"><span class="cond-label">Na mesa (o que ela impede) <span class="help" title="Uma frase para o jogador, no Glossário e no diário Regras desta mesa. Útil quando a Condição não tem efeito automático (Cegueira, Medo…) e a mesa decide o que ela impede.">?</span></span>
+      <input type="text" data-field="explanation" value="${escapeHtml(values.explanation ?? "")}" placeholder="Ex.: Não enxerga: o Mestre decide o que ele não consegue fazer."/>
+    </label>
 
     <section class="cond-sec">
       <div class="cond-sec-title">Efeito padrão <span class="help" title="Usado quando um Elemento aplica a Condição, quando uma Skill a usa com valor 0, quando o Mestre a marca no Token e no Contágio. Sem efeito, a Condição é só o ícone e a mesa julga.">?</span></div>
@@ -210,6 +213,8 @@ function readCard(card) {
   const id = get("id").trim();
   if (!id) return null;
   const row = { id, label: get("label").trim() || id, icon: get("icon").trim() || "icons/svg/aura.svg" };
+  // Sempre gravado (mesmo vazio): vazio de propósito não volta a ser o texto de fábrica.
+  row.explanation = get("explanation").trim();
   const antimagicLevel = Math.max(0, Math.round(Number(get("antimagicLevel")) || 0));
   if (antimagicLevel) row.antimagicLevel = antimagicLevel;
   const elements = readPickerField(card.querySelector(".condition-elements"));

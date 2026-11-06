@@ -43,6 +43,8 @@ export const MEU_SISTEMA = {
     damageElementsData: "damageElementsData",
     statusConditionsData: "statusConditionsData",
     traitsData: "traitsData",
+    // Glossário do mundo (1.85.0): termos da mesa e termos de fábrica reescritos pelo Mestre.
+    glossaryData: "glossaryData",
     scalesData: "scalesData",
     moduleCategoriesData: "moduleCategoriesData",
     shipClassesData: "shipClassesData",

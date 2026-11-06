@@ -542,6 +542,15 @@ export function registerSystemSettings() {
     default: JSON.stringify(MEU_SISTEMA.DEFAULT_TRAITS, null, 2)
   });
 
+  // Glossário (1.85.0): termos da mesa e explicações de fábrica reescritas. Termina em "Data",
+  // então o Exportar/Importar Configurações já o leva no grupo Catálogos.
+  game.settings.register(SYSTEM_ID, S.glossaryData, {
+    scope: "world",
+    config: false,
+    type: String,
+    default: ""
+  });
+
   game.settings.register(SYSTEM_ID, S.scalesData, {
     scope: "world",
     config: false,

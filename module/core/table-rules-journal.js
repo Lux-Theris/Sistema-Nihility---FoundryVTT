@@ -64,7 +64,7 @@ export function gatherTableRules() {
       ? { deathRounds: getFeatureOption("incapacitation", "deathRounds"), wakeRounds: getFeatureOption("incapacitation", "wakeRounds"), npcDies: getFeatureOption("incapacitation", "npcDiesAtZero") }
       : null,
     features,
-    conditions: getActiveStatusConditions().map(c => ({ label: c.label, sentence: conditionSentence(c, { attributeLabel: getAttributeLabel, energyLabel: getCharacterEnergyLabel() }) })),
+    conditions: getActiveStatusConditions().map(c => ({ label: c.label, sentence: conditionSentence(c, { attributeLabel: getAttributeLabel, energyLabel: getCharacterEnergyLabel() }), explanation: c.explanation ?? "" })),
     elements: elements.map(e => ({ label: e.label, parent: e.parent ? byId[e.parent] ?? "" : "" })),
     // Só os blocos de cima (um sub-bloco desligado com o pai desligado não repete).
     disabled: Object.entries(MEU_SISTEMA.FEATURES)

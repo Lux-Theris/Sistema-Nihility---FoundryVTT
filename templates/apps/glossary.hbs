@@ -1,0 +1,104 @@
+<div class="gl-root">
+  <div class="gl-top">
+    <div class="gl-search-row">
+      <label class="gl-sr" for="gl-search-input">Buscar no glossário</label>
+      <input id="gl-search-input" class="gl-search" type="search" value="{{query}}" placeholder="Buscar um termo ou uma palavra da explicação…" autocomplete="off"/>
+      {{#if gmView}}<button type="button" class="gl-btn gl-pri" data-action="addTerm"><i class="fas fa-plus"></i> Termo da mesa</button>{{/if}}
+    </div>
+    {{#if isGM}}
+    <div class="gl-filters">
+      {{#each filters as |f|}}
+      <button type="button" class="gl-chip {{#if f.active}}on{{/if}} {{#if f.warn}}warn{{/if}}" data-action="setFilter" data-filter="{{f.id}}">{{f.label}}{{#if f.count}} · {{f.count}}{{/if}}</button>
+      {{/each}}
+      <span class="gl-sp"></span>
+      <button type="button" class="gl-chip {{#if asPlayer}}on{{/if}}" data-action="togglePlayerView" title="Mostra a janela como um jogador a vê (sem os verbetes só do Mestre).">{{#if asPlayer}}Voltar à visão do Mestre{{else}}Ver como jogador{{/if}}</button>
+    </div>
+    {{/if}}
+  </div>
+
+  <div class="gl-body">
+    <nav class="gl-list" aria-label="Termos">
+      {{#if searching}}
+      <p class="gl-count">{{results.length}} resultado(s)</p>
+      {{#each results as |r|}}
+      <button type="button" class="gl-res {{#if r.active}}on{{/if}}" data-action="openTerm" data-key="{{r.key}}">
+        <span class="gl-res-term">{{#if r.missing}}<span class="gl-dot" aria-label="falta explicar"></span>{{/if}}{{r.term}} <span class="gl-tag">· {{r.group}}</span>{{#if r.gmOnly}} <span class="gl-eye">só Mestre</span>{{/if}}</span>
+        <small>{{{r.snippetHtml}}}</small>
+      </button>
+      {{/each}}
+      {{else}}
+      {{#each groups as |g|}}
+      <p class="gl-grp">{{g.label}}</p>
+      {{#each g.items as |t|}}
+      <button type="button" class="gl-term {{#if t.active}}on{{/if}}" data-action="openTerm" data-key="{{t.key}}">{{#if t.missing}}<span class="gl-dot" aria-label="falta explicar"></span>{{/if}}<span>{{t.term}}</span>{{#if t.gmOnly}}<span class="gl-eye">só Mestre</span>{{/if}}</button>
+      {{/each}}
+      {{/each}}
+      {{/if}}
+      {{#if noResults}}<p class="gl-empty">{{#if searching}}Nada com "{{query}}".{{else}}Nada neste filtro.{{/if}}</p>{{/if}}
+    </nav>
+
+    <article class="gl-entry">
+      {{#if adding}}
+      <div class="gl-new">
+        <h2 class="gl-title">Novo termo da mesa</h2>
+        <label class="gl-fl"><span>Termo</span><input type="text" name="term" placeholder="Ex.: Éter"/></label>
+        <label class="gl-fl"><span>Assunto</span><input type="text" name="group" placeholder="Termos da mesa"/></label>
+        <label class="gl-fl"><span>Explicação</span><textarea name="text" rows="4" placeholder="Ex.: O mar entre os mundos, por onde as naves saltam."></textarea></label>
+        <label class="gl-chk"><input type="checkbox" name="gmOnly"/> Só o Mestre vê</label>
+        <div class="gl-actions"><button type="button" class="gl-btn" data-action="cancelEdit">Cancelar</button><button type="button" class="gl-btn gl-pri" data-action="saveNew">Criar</button></div>
+      </div>
+      {{else if entry}}
+      <div class="gl-head">
+        <button type="button" class="gl-btn" data-action="back" {{#unless canBack}}disabled{{/unless}} aria-label="Voltar ao verbete anterior">← Voltar</button>
+        <span class="gl-sp"></span>
+        {{#if gmView}}{{#if entry.rewritten}}<span class="gl-badge">reescrito pelo Mestre</span>{{/if}}{{/if}}
+        {{#if entry.gmOnly}}<span class="gl-badge eye">só o Mestre vê</span>{{/if}}
+        <span class="gl-badge">{{entry.kindLabel}}</span>
+      </div>
+      <h2 class="gl-title">{{entry.term}}</h2>
+
+      {{#if editing}}
+      <div class="gl-edit">
+        {{#if entry.autoHtml}}<div class="gl-box"><span class="gl-cap">O sistema faz</span><p>{{{entry.autoHtml}}}</p></div>{{/if}}
+        {{#if entry.isCustom}}
+        <label class="gl-fl"><span>Termo</span><input type="text" name="term" value="{{entry.term}}"/></label>
+        <label class="gl-fl"><span>Assunto</span><input type="text" name="group" value="{{entry.group}}"/></label>
+        {{/if}}
+        <label class="gl-fl"><span>{{#if entry.isCatalog}}{{entry.explanationLabel}} (o que dizer ao jogador){{else}}Explicação{{/if}}</span>
+          <textarea name="text" rows="5">{{entry.rawText}}</textarea>
+        </label>
+        {{#if entry.canGmOnly}}<label class="gl-chk"><input type="checkbox" name="gmOnly" {{#if entry.gmOnly}}checked{{/if}}/> Só o Mestre vê este verbete</label>{{/if}}
+        <div class="gl-actions">
+          {{#if entry.isCustom}}<button type="button" class="gl-btn danger" data-action="deleteTerm">Apagar</button>{{/if}}
+          {{#if entry.rewritten}}<button type="button" class="gl-btn" data-action="resetTerm">Voltar ao padrão</button>{{/if}}
+          <span class="gl-sp"></span>
+          <button type="button" class="gl-btn" data-action="cancelEdit">Cancelar</button>
+          <button type="button" class="gl-btn gl-pri" data-action="saveEdit">Salvar</button>
+        </div>
+        {{#if entry.isCatalog}}<p class="gl-note">Fica salvo no próprio catálogo: vai junto com o item, inclusive no Exportar Configurações.</p>{{/if}}
+      </div>
+      {{else}}
+      {{#if entry.isCatalog}}
+      {{#if entry.autoHtml}}<div class="gl-box"><span class="gl-cap">O sistema faz</span><p>{{{entry.autoHtml}}}</p></div>{{/if}}
+      {{#if entry.textHtml}}<div class="gl-box"><span class="gl-cap">{{entry.explanationLabel}}</span><p>{{{entry.textHtml}}}</p></div>{{/if}}
+      {{#if entry.missing}}<p class="gl-note warn">Ainda sem explicação: o jogador vê só o que o sistema faz.</p>{{/if}}
+      {{else}}
+      <p class="gl-text">{{{entry.textHtml}}}</p>
+      {{/if}}
+      {{#if entry.see.length}}
+      <div class="gl-see"><span class="gl-cap">Veja também</span>{{#each entry.see as |v|}}<button type="button" class="gl-chip" data-action="openTerm" data-key="{{v.key}}">{{v.term}}</button>{{/each}}</div>
+      {{/if}}
+      {{#if entry.canEdit}}
+      <div class="gl-actions">
+        {{#if entry.editInline}}<button type="button" class="gl-btn" data-action="edit"><i class="fas fa-pen"></i> {{#if entry.isSystem}}Reescrever{{else}}Editar{{/if}}</button>{{/if}}
+        {{#if entry.editInCatalog}}<button type="button" class="gl-btn" data-action="openCatalog"><i class="fas fa-pen"></i> Editar a descrição no catálogo</button>{{/if}}
+        {{#if entry.rewritten}}<button type="button" class="gl-btn" data-action="resetTerm">Voltar ao padrão</button>{{/if}}
+      </div>
+      {{/if}}
+      {{/if}}
+      {{else}}
+      <p class="gl-empty">Escolha um termo na lista.</p>
+      {{/if}}
+    </article>
+  </div>
+</div>

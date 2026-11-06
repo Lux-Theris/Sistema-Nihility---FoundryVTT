@@ -1309,6 +1309,15 @@ A aba **Biografia** tem o **Conceito** (a frase de quem é o personagem), três 
 
 **As regras da sua mesa.** Se o Mestre gerou o diário **Regras desta mesa**, ele está na aba de Diários do Foundry: o que esta campanha liga, as fórmulas de Vida e Mana, a XP, o ciclo de níveis de Skill, a iniciativa, o deslocamento, a Vida 0 e o que cada Condição e elemento faz. É escrito a partir das configurações do mundo, então vale mais que os números "padrão" deste manual quando os dois discordarem.
 
+**Glossário.** Não sabe o que é Penetração, Tick ou Dano Absoluto? O botão **Glossário**, no Menu › Fichas (ou o link "Abrir o Glossário" no diário Regras desta mesa), abre uma janela com todos os termos do sistema e os do seu mundo:
+- **Busca:** filtra enquanto você digita, pelo nome e pelas palavras da explicação. Não liga para acento, maiúscula nem plural ("cego" acha Cegueira).
+- **Links:** toda menção a outro termo dentro de um verbete é link para ele. **← Voltar** refaz o caminho, e "Veja também" sugere os vizinhos.
+- **Nomes deste mundo:** Condições, Elementos, Espécies, Traços e Atributos aparecem com o nome que o Mestre deu. Se a energia da sua mesa se chama "Fluxo Quântico", o glossário diz Fluxo Quântico.
+- **Explicação da mesa:** cada Condição pode ter uma frase **"Na mesa"** do Mestre, dizendo o que ela impede.
+- **Termos do cenário:** o Mestre também pode pôr no glossário palavras do cenário (lugares, facções).
+
+O glossário só explica as regras: nunca mostra a ficha de ninguém.
+
 ---
 
 ## Apêndice B. Dúvidas durante a sessão
@@ -1407,3 +1416,4 @@ Blocos vazios ficam escondidos (Títulos, Itens, Economia…). Clique **mostrar*
 | **Modo criação** | Estado de uma ficha nova: faixa "Criando" no topo e pontos guardados até o Mestre liberar. |
 | **Pedido de Skill** | Skill montada por você e enviada ao Mestre; só vira Skill (e só gasta o ponto) quando ele aprova. |
 | **Custo sugerido** | Custo calculado pelo que a Skill faz, mostrado ao lado do Custo como referência. |
+| **Glossário** | A janela com todos os termos, com busca e links (Menu › Fichas › Glossário). Esta tabela é o resumo; a janela tem os termos do seu mundo. |

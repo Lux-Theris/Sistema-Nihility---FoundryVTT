@@ -178,7 +178,10 @@ export function getActiveStatusConditions() {
     try {
       if (raw) {
         const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-        if (Array.isArray(parsed) && parsed.length) return parsed;
+        if (Array.isArray(parsed) && parsed.length) {
+          const defaults = Object.fromEntries(MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS.map(c => [c.id, c]));
+          return parsed.map(c => (c && c.explanation === undefined && defaults[c.id]?.explanation ? { ...c, explanation: defaults[c.id].explanation } : c));
+        }
       }
     } catch (err) {
       console.warn(`${SYSTEM_ID} | JSON de condições de status inválido, usando padrão.`, err);

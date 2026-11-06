@@ -72,19 +72,19 @@ export const SCIFI_DAMAGE_ELEMENTS = [
  * core do Foundry (`icons/svg/*`), sem depender de asset externo.
  */
 export const DEFAULT_STATUS_CONDITIONS = [
-  { id: "blindness", label: "Cegueira", icon: "icons/svg/blind.svg" },
+  { id: "blindness", label: "Cegueira", icon: "icons/svg/blind.svg", explanation: "Não enxerga: o Mestre decide o que ele não consegue fazer (mirar de longe, ler, achar alguém)." },
   // Selo antimagia: toda magia de quem tem o selo paga Mana extra (ver antimagicSurcharge).
-  { id: "antimagic-seal", label: "Selo Antimagia", icon: "icons/svg/padlock.svg", antimagicLevel: 1 },
+  { id: "antimagic-seal", label: "Selo Antimagia", icon: "icons/svg/padlock.svg", antimagicLevel: 1, explanation: "Toda magia dele custa mais; num selo forte, ela nem sai." },
   { id: "poison", label: "Veneno", icon: "icons/svg/poison.svg",
     effect: { kind: "tick", tickTarget: "hp", tickSign: "damage", valueMode: "hitPercent", value: 5, durationRounds: 3, tickUnit: "combatRound" } },
   { id: "burn", label: "Queimadura", icon: "icons/svg/fire.svg",
     effect: { kind: "tick", tickTarget: "hp", tickSign: "damage", valueMode: "hitPercent", value: 10, durationRounds: 2, tickUnit: "combatRound" } },
   { id: "slow", label: "Lentidão", icon: "icons/svg/frozen.svg",
     effect: { kind: "modifier", modTarget: "movement", modMode: "percent", value: -50, durationRounds: 2 } },
-  { id: "stun", label: "Atordoamento", icon: "icons/svg/daze.svg" },
-  { id: "silence", label: "Silêncio", icon: "icons/svg/silenced.svg" },
-  { id: "paralysis", label: "Paralisia", icon: "icons/svg/paralysis.svg" },
-  { id: "fear", label: "Medo", icon: "icons/svg/terror.svg" },
+  { id: "stun", label: "Atordoamento", icon: "icons/svg/daze.svg", explanation: "Zonzo: costuma perder a próxima ação, a critério do Mestre." },
+  { id: "silence", label: "Silêncio", icon: "icons/svg/silenced.svg", explanation: "Não consegue falar: o que pede voz (palavras de poder, gritar um aviso) não sai, a critério do Mestre." },
+  { id: "paralysis", label: "Paralisia", icon: "icons/svg/paralysis.svg", explanation: "Não se mexe. O Mestre decide se ainda dá para fazer algo que não pede movimento." },
+  { id: "fear", label: "Medo", icon: "icons/svg/terror.svg", explanation: "Não consegue se aproximar de quem causou o medo, a critério do Mestre." },
   { id: "bleeding", label: "Sangramento", icon: "icons/svg/blood.svg",
     effect: { kind: "tick", tickTarget: "hp", tickSign: "damage", valueMode: "hitPercent", value: 5, durationRounds: 3, tickUnit: "combatRound" } },
   { id: "regeneration", label: "Regeneração", icon: "icons/svg/regen.svg",
@@ -104,9 +104,9 @@ export const DEFAULT_STATUS_CONDITIONS = [
       { kind: "tick", tickSign: "damage", tickTarget: "hp", valueMode: "maxPercent", value: 2 }
     ] } },
   // Usadas pelas Funções de Parte (Ferimentos por parte): só o marcador, o Mestre arbitra.
-  { id: "deafness", label: "Surdo", icon: "icons/svg/deaf.svg" },
-  { id: "maimed", label: "Sem mão", icon: "icons/svg/bones.svg" },
-  { id: "unbalanced", label: "Desequilibrado", icon: "icons/svg/falling.svg" },
+  { id: "deafness", label: "Surdo", icon: "icons/svg/deaf.svg", explanation: "Não ouve: o Mestre decide o que isso impede (ouvir um aviso, perceber alguém chegando)." },
+  { id: "maimed", label: "Sem mão", icon: "icons/svg/bones.svg", explanation: "Perdeu a mão: não segura nem usa o que pede as duas mãos." },
+  { id: "unbalanced", label: "Desequilibrado", icon: "icons/svg/falling.svg", explanation: "Perdeu o equilíbrio (cauda, perna): o Mestre decide o que fica mais difícil." },
   // Vida 0 (combat/incapacitation.js): "incapacita" = não age nem se move, Skills Ativas desligam;
   // o que é do corpo (regeneração, cura) continua. Caído entra sozinho em 0; Inconsciente vem de
   // sair do 0 (por N rodadas) ou de um desmaio marcado à mão.
@@ -114,6 +114,6 @@ export const DEFAULT_STATUS_CONDITIONS = [
   { id: "plague", label: "Praga", icon: "icons/svg/biohazard.svg",
     effect: { kind: "tick", tickTarget: "hp", tickSign: "damage", valueMode: "maxPercent", value: 3, durationRounds: 5, tickUnit: "combatRound" },
     spread: { chance: 25, radius: 2, immuneTraits: ["mechanical"] } },
-  { id: "fallen", label: "Caído", icon: "icons/svg/skull.svg", incapacitates: true },
-  { id: "unconscious", label: "Inconsciente", icon: "icons/svg/unconscious.svg", incapacitates: true }
+  { id: "fallen", label: "Caído", icon: "icons/svg/skull.svg", incapacitates: true, explanation: "Vida 0: o contador de morte corre até alguém estabilizar ou curar." },
+  { id: "unconscious", label: "Inconsciente", icon: "icons/svg/unconscious.svg", incapacitates: true, explanation: "Desacordado por algumas rodadas depois de sair do 0 de Vida." }
 ];

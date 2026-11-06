@@ -1410,6 +1410,8 @@ Catálogo de fábrica (fantasia): Físico, Fogo (25% Queimadura), Gelo (25% Lent
 
 Cada Condição: id, nome, ícone e um **efeito padrão** opcional.
 
+**Na mesa** é uma frase para o jogador dizendo o que a Condição impede, útil quando ela não tem efeito automático (Cegueira, Medo, Atordoamento…) e quem decide é a mesa. Ela aparece no [Glossário](#glossário) e na página Condições do diário Regras desta mesa. As Condições de fábrica sem efeito automático já vêm com uma. Apagar o texto de propósito não o traz de volta.
+
 Cada Condição pode ter **Elemento** (quem a carrega passa a ser daquele elemento, para a tabela de vantagens) e **Antimagia (nível)**: quem a carrega paga energia extra em toda magia (ver [Antimagia](#antimagia)). O catálogo padrão traz o **Selo Antimagia** (nível 1).
 
 | Tipo de efeito | Campos |
@@ -1579,6 +1581,30 @@ Um pedido misto em texto livre ("crie 3 skills elementais e 2 personagens de apo
 
 Use Exportar antes de aplicar um preset com conteúdo e para levar a configuração de uma campanha para outro mundo.
 
+#### Glossário
+
+Uma janela com todos os termos do sistema e do seu mundo, com busca e links entre os verbetes. Os jogadores a abrem pelo botão **Glossário** no Menu › Fichas, ou pelo link "Abrir o Glossário" na primeira página do diário Regras desta mesa. Você também a abre por Configurações Gerais › Personagem › **Glossário** e pela macro `game.nihility.glossary()`.
+
+**De onde vêm os verbetes:**
+- Os termos do sistema (Custo, Penetração, Habilidade Ativa…). Os de um bloco desligado não aparecem.
+- Os seus catálogos: Atributos, Condições, Elementos, Espécies, Heranças e Traços.
+- Os seus termos da mesa.
+
+**Nomes trocados.** Tudo é lido na hora de abrir a janela, sem "Atualizar". Cada verbete é guardado por uma chave fixa e mostra o nome atual: renomear a energia para "Fluxo Quântico" muda o título, a lista e os links de todos os verbetes que a citam. Os links acham o nome atual no texto (plural incluído). Um texto seu que diga "Mana" num mundo em que a energia virou Fluxo Quântico não vira link.
+
+**O que só você vê na janela:**
+- **Filtros:** Tudo, **Falta explicar** (o que você criou nos catálogos e ainda não tem texto), Reescritos pelo Mestre, Da mesa e Só o Mestre.
+- **Editar:** a explicação de uma Condição (o "Na mesa"), de um Elemento ou de um Traço. Fica salva no próprio catálogo e anda junto com o item.
+- **Espécies e Heranças:** usam a descrição do editor delas. O botão "Editar a descrição no catálogo" abre o editor já nela.
+- **Reescrever:** a explicação de um termo de fábrica com as palavras do seu cenário. **Voltar ao padrão** desfaz.
+- **+ Termo da mesa:** termo, assunto e explicação, para lugares, facções e regras da casa. Entram na busca e viram link como os do sistema. Se um termo seu tiver o mesmo nome de um termo do sistema, o seu ganha o link.
+- **Só o Mestre vê:** esconde um verbete dos jogadores.
+- **Ver como jogador:** mostra a janela como eles a veem.
+
+**O que o jogador não vê:** os verbetes marcados como seus. As Espécies fora da criação e as Heranças só aparecem para ele quando um personagem dele as tem.
+
+Os termos da mesa e as explicações reescritas vão no Exportar/Importar Configurações (grupo Catálogos). Skills, Itens, Títulos e NPCs ficam fora do glossário: são conteúdo de jogo, não vocabulário.
+
 #### Macros e API
 
 ```js
@@ -1590,6 +1616,7 @@ game.nihility.generateNpc();            // abre o Gerador de NPC
 game.nihility.simulateEncounter();      // abre o Simulador de encontro
 game.nihility.combatPanel();            // abre o Painel do combate
 game.nihility.tableRules();             // cria/atualiza o diário Regras desta mesa
+game.nihility.glossary("penetration"); // abre o Glossário (opcional: já num verbete)
 game.nihility.ai.generateActorFromAI("um mercador anão desconfiado...", { isMount: false });
 game.nihility.ai.generateVesselFromAI("uma corveta de reconhecimento rápida...", "starship");
 game.nihility.ai.generateSkillFromAI("uma cura baseada em luz estelar...");

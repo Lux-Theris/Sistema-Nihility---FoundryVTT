@@ -72,7 +72,10 @@ test("Regras desta mesa: páginas só com o que vale, texto escapado", () => {
     movement: null,
     incapacitation: { deathRounds: 3, wakeRounds: 3, npcDies: true },
     features: { statusConditions: true, skillPoints: true, resistances: true, areaEffects: false, skillUseXp: false, skillFusion: false },
-    conditions: [{ label: "Veneno <b>", sentence: "perde Vida no início do turno" }],
+    conditions: [
+      { label: "Veneno <b>", sentence: "perde Vida no início do turno" },
+      { label: "Medo", sentence: "o Mestre decide o que ela impede", explanation: "Não chega <perto>." }
+    ],
     elements: [{ label: "Físico", parent: "" }, { label: "Cortante", parent: "Físico" }],
     disabled: ["Naves e Veículos", "PAD"]
   };
@@ -82,6 +85,8 @@ test("Regras desta mesa: páginas só com o que vale, texto escapado", () => {
   assert.match(all, /Força × Defesa × 10/);
   assert.match(all, /3 rodadas/);
   assert.match(all, /Veneno &lt;b&gt;/);
+  assert.match(all, /<i>Na mesa:<\/i> Não chega &lt;perto&gt;\./, "o \"Na mesa\" da Condição, escapado");
+  assert.match(pages[0].html, /class="nihility-open-glossary"/, "a primeira página abre o Glossário");
   assert.match(all, /Naves e Veículos · PAD/);
   assert.doesNotMatch(all, /Deslocamento por rodada/);
   // Campanha sem Mana nem Condições.

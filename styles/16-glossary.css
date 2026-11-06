@@ -1,0 +1,87 @@
+/* ==========================================================================
+   Glossário do mundo (1.85.0)
+   Design aprovado: artefato "Glossário do Mundo", pranchas 1–4.
+   ========================================================================== */
+
+.nihility-glossary .window-content { padding: 0; }
+.nihility-glossary .gl-root { display: flex; flex-direction: column; height: 100%; color: var(--nihility-text); font-family: var(--nihility-font); background: linear-gradient(160deg, var(--nihility-bg-dark), var(--nihility-bg-panel)); }
+.nihility-glossary .gl-top { padding: 10px 12px; border-bottom: 1px solid #2c3250; display: flex; flex-direction: column; gap: 8px; }
+.nihility-glossary .gl-search-row { display: flex; gap: 8px; align-items: center; }
+.nihility-glossary .gl-sr { position: absolute; left: -9999px; }
+.nihility-glossary .gl-search { flex: 1 1 auto; height: 34px; box-sizing: border-box; border-radius: 6px; border: 1px solid var(--nihility-border); background: #0f121b; color: var(--nihility-text); padding: 0 12px; font: 14px var(--nihility-font); }
+.nihility-glossary .gl-search:focus { border-color: var(--nihility-accent); outline: none; }
+.nihility-glossary .gl-filters { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.nihility-glossary .gl-sp { flex: 1 1 auto; }
+
+.nihility-glossary .gl-btn,
+.nihility-glossary .gl-chip {
+  width: auto; flex: 0 0 auto; height: auto; min-height: 30px; line-height: normal; cursor: pointer;
+  font: 600 13px var(--nihility-font); border-radius: 6px; padding: 5px 11px;
+  border: 1px solid var(--nihility-border); background: #1a1e2d; color: #c7cce6;
+}
+.nihility-glossary .gl-btn[disabled] { opacity: 0.4; cursor: default; }
+.nihility-glossary .gl-btn.gl-pri { background: var(--nihility-gold); border-color: var(--nihility-gold); color: #14120c; }
+.nihility-glossary .gl-btn.danger { border-color: #8a3a3a; color: #ffb4b4; }
+.nihility-glossary .gl-chip { border-radius: 999px; font-weight: 500; background: #151826; }
+.nihility-glossary .gl-chip.on { border-color: var(--nihility-accent); background: #14303b; color: #e6f9ff; }
+.nihility-glossary .gl-chip.warn { border-color: #6b5a2e; color: #e8d4a2; background: #1b1810; }
+.nihility-glossary .gl-chip.warn.on { border-color: var(--nihility-gold); }
+
+.nihility-glossary .gl-body { display: flex; flex: 1 1 auto; min-height: 0; }
+.nihility-glossary .gl-list { width: 250px; flex-shrink: 0; overflow-y: auto; border-right: 1px solid #2c3250; padding: 4px 8px 12px; }
+.nihility-glossary .gl-grp { margin: 10px 4px 3px; font: 600 10.5px var(--nihility-font-data); letter-spacing: 0.08em; text-transform: uppercase; color: #8a91b4; }
+.nihility-glossary .gl-count { margin: 6px 4px; font: 600 10.5px var(--nihility-font-data); letter-spacing: 0.08em; text-transform: uppercase; color: #8a91b4; }
+.nihility-glossary .gl-term,
+.nihility-glossary .gl-res {
+  display: flex; align-items: center; justify-content: flex-start; gap: 6px; width: 100%; height: auto; min-height: 28px; line-height: normal;
+  text-align: left; border: none; background: transparent; color: #c7cce6; font: 14px var(--nihility-font);
+  padding: 4px 8px; border-radius: 5px; cursor: pointer;
+}
+.nihility-glossary .gl-res { flex-direction: column; align-items: flex-start; gap: 2px; padding: 6px 8px; }
+.nihility-glossary .gl-term:hover,
+.nihility-glossary .gl-res:hover { background: #1a1e2d; }
+.nihility-glossary .gl-term.on,
+.nihility-glossary .gl-res.on { background: #14303b; color: #e6f9ff; }
+.nihility-glossary .gl-res small { font-size: 12px; color: #8a91b4; line-height: 1.35; }
+.nihility-glossary .gl-res mark { background: rgba(232, 193, 112, 0.25); color: #f5d899; border-radius: 2px; padding: 0 1px; }
+.nihility-glossary .gl-tag { font: 600 10px var(--nihility-font-data); letter-spacing: 0.06em; text-transform: uppercase; color: #8a91b4; }
+.nihility-glossary .gl-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--nihility-gold); flex-shrink: 0; display: inline-block; margin-right: 4px; }
+.nihility-glossary .gl-eye { margin-left: auto; font: 600 10px var(--nihility-font-data); color: #c7a6ff; border: 1px solid #5b4a8a; border-radius: 999px; padding: 1px 6px; }
+.nihility-glossary .gl-empty { margin: 12px 6px; font-size: 13px; color: #7d84a8; }
+
+.nihility-glossary .gl-entry { flex: 1 1 auto; min-width: 0; overflow-y: auto; padding: 14px 20px 20px; display: flex; flex-direction: column; gap: 12px; }
+.nihility-glossary .gl-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.nihility-glossary .gl-badge { font: 600 10.5px var(--nihility-font-data); padding: 2px 8px; border-radius: 999px; border: 1px solid #3d6b86; color: var(--nihility-accent); white-space: nowrap; }
+.nihility-glossary .gl-badge.eye { border-color: #5b4a8a; color: #c7a6ff; }
+.nihility-glossary .gl-title { margin: 0; border: none; font: 700 28px/1.1 "Rajdhani", var(--nihility-font); color: var(--nihility-gold); }
+.nihility-glossary .gl-text,
+.nihility-glossary .gl-box p { margin: 0; font-size: 15.5px; line-height: 1.6; color: #dfe3f3; }
+.nihility-glossary .gl-box { display: flex; flex-direction: column; gap: 4px; border: 1px solid #2f3555; border-radius: 8px; background: rgba(31, 35, 51, 0.55); padding: 10px 12px; }
+.nihility-glossary .gl-cap { font: 600 10.5px var(--nihility-font-data); letter-spacing: 0.08em; text-transform: uppercase; color: #8a91b4; }
+.nihility-glossary .gl-link {
+  display: inline; width: auto; height: auto; min-height: 0; line-height: inherit; padding: 0; margin: 0; border: none; background: none;
+  font: inherit; color: var(--nihility-accent); text-decoration: underline; text-decoration-color: rgba(110, 231, 255, 0.45); text-underline-offset: 3px; cursor: pointer;
+}
+.nihility-glossary .gl-link:hover { color: #bff4ff; }
+.nihility-glossary .gl-see { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.nihility-glossary .gl-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.nihility-glossary .gl-note { margin: 0; font-size: 12.5px; color: #8a91b4; line-height: 1.45; }
+.nihility-glossary .gl-note.warn { color: #e8d4a2; }
+.nihility-glossary .gl-edit,
+.nihility-glossary .gl-new { display: flex; flex-direction: column; gap: 10px; }
+.nihility-glossary .gl-fl { display: flex; flex-direction: column; gap: 4px; color: var(--nihility-text); }
+.nihility-glossary .gl-fl > span { font: 600 10.5px var(--nihility-font-data); letter-spacing: 0.06em; text-transform: uppercase; color: #9aa1c2; }
+.nihility-glossary .gl-fl input,
+.nihility-glossary .gl-fl textarea { box-sizing: border-box; width: 100%; border-radius: 6px; border: 1px solid var(--nihility-border); background: #0f121b; color: var(--nihility-text); padding: 7px 10px; font: 14.5px/1.5 var(--nihility-font); }
+.nihility-glossary .gl-fl textarea { border-color: var(--nihility-gold); resize: vertical; }
+.nihility-glossary .gl-chk { display: flex; gap: 8px; align-items: center; font-size: 14px; color: #dfe3f3; }
+
+/* Botão do Menu › Fichas e campo "Na mesa" do editor de Condições */
+.nihility-menu-app .nm-glossary { width: auto; flex: 0 0 auto; height: auto; min-height: 32px; line-height: normal; padding: 5px 12px; border-radius: 6px; border: 1px solid var(--nihility-gold); background: #1d1910; color: var(--nihility-gold); font: 600 13px var(--nihility-font); }
+.cond-explanation { margin: 6px 0 2px; }
+.cond-explanation input { width: 100%; }
+
+@media (max-width: 640px) {
+  .nihility-glossary .gl-body { flex-direction: column; }
+  .nihility-glossary .gl-list { width: auto; max-height: 40%; border-right: none; border-bottom: 1px solid #2c3250; }
+}

@@ -367,6 +367,17 @@ function environmentState() {
   return parts.join(" · ");
 }
 
+/** Quantos termos da mesa o glossário tem (linha "Glossário" de Configurações Gerais). */
+function glossaryCustomCount() {
+  try {
+    const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.glossaryData);
+    const data = raw ? JSON.parse(raw) : {};
+    return Array.isArray(data?.custom) ? data.custom.length : 0;
+  } catch (err) {
+    return 0;
+  }
+}
+
 export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static DEFAULT_OPTIONS = {
     id: "nihility-menu",
@@ -377,6 +388,7 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
       selectTab: NihilityMenuApp.#onSelectTab,
       runAction: NihilityMenuApp.#onRunAction,
       openActor: NihilityMenuApp.#onOpenActor,
+      openGlossary: NihilityMenuApp.#onOpenGlossary,
       createCharacter: NihilityMenuApp.#onCreateCharacter,
       creationRelease: NihilityMenuApp.#onCreationRelease,
       creationAdjust: NihilityMenuApp.#onCreationAdjust
@@ -472,6 +484,7 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
           { action: "attribute-config", icon: "fas fa-chart-simple", title: "Atributos", desc: "Renomear ou esconder os Atributos de Combate.", state: `${getVisibleAttributes().length} visíveis` },
           { action: "anatomy-config", icon: "fas fa-dna", title: "Espécies", desc: "Corpo, Skills Raciais, Passivos, Linhagens e Evolução de cada Espécie.", state: count(Object.keys(getActiveSpeciesPresets()).length, "espécie", "espécies") },
           { action: "body-functions-config", icon: "fas fa-person-walking", title: "Funções de Parte", desc: "O que acontece ao perder uma parte: Cego, Sem mão, Deslocamento proporcional, Voador…", state: count(getActiveBodyFunctions().length, "função", "funções"), feature: "bodyPartInjury" },
+          { action: "glossary", icon: "fas fa-book-open", title: "Glossário", desc: "Explicar itens dos catálogos, criar termos da mesa, reescrever termos de fábrica e esconder do jogador. Abre a janela do Glossário.", state: count(glossaryCustomCount(), "termo da mesa", "termos da mesa") },
           { action: "skill-templates-config", icon: "fas fa-clone", title: "Modelos de Skill", desc: "De onde a \"+ Nova Habilidade\" começa: Golpe, Área de dano, Cura, Escudo… e os que você salvar.", state: count(getActiveSkillTemplates().length, "modelo", "modelos") },
           { action: "npc-archetypes-config", icon: "fas fa-users-gear", title: "Arquétipos de NPC", desc: "Os tipos do Gerador de NPC: atributos que favorecem, Skills e equipamento sorteados.", state: count(getActiveNpcArchetypes().length, "arquétipo", "arquétipos"), feature: "npcGenerator" },
           { action: "heritages-config", icon: "fas fa-droplet", title: "Heranças", desc: "O que pode acontecer com qualquer Espécie: Vampirizado, Meio-Dragão, Convertido em Ciborgue…", state: count(getActiveHeritages().length, "herança", "heranças") },
@@ -591,6 +604,13 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if (actor.type === "starship") return `Casco ${actor.system.hull?.value ?? 0}/${actor.system.hull?.max ?? 0}`;
     if (actor.type === "vehicle") return `Integridade ${actor.system.hull?.value ?? 0}/${actor.system.hull?.max ?? 0}`;
     return "";
+  }
+
+  /** Glossário (1.85.0): para todos, ao lado da busca de fichas. */
+  static async #onOpenGlossary(event) {
+    event.preventDefault();
+    const { openGlossary } = await import("../glossary/glossary.js");
+    openGlossary();
   }
 
   /** "+ Criar personagem" (jogador: pede ao Mestre; Mestre: para um jogador ou para ninguém). */
@@ -734,6 +754,11 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
       case "encounter-sim": {
         const { openEncounterSim } = await import("./encounter-sim.js");
         openEncounterSim();
+        break;
+      }
+      case "glossary": {
+        const { openGlossary } = await import("../glossary/glossary.js");
+        openGlossary();
         break;
       }
       case "skill-templates-config": {

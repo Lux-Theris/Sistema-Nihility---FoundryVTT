@@ -62,6 +62,7 @@ import { registerNpcTierHooks } from "./npc/npc-generator.js";
 import { registerEncounterSimTracker } from "./apps/encounter-sim.js";
 import { registerCombatPanelTracker } from "./apps/combat-panel.js";
 import { registerCreationHooks, renderCreationReadyControls } from "./creation/creation.js";
+import { registerGlossaryLinks } from "./glossary/glossary.js";
 import { registerHotbarMacros, useItemFromHotbar } from "./core/hotbar.js";
 import { registerIncapacitation, tickIncapacitation, isDead } from "./combat/incapacitation.js";
 import { tickContagion } from "./combat/contagion.js";
@@ -119,6 +120,8 @@ Hooks.once("init", () => {
     // Ferramentas da mesa (L6, H10).
     tableRules: async () => (await import("./core/table-rules-journal.js")).generateTableRulesJournal(),
     combatPanel: async () => (await import("./apps/combat-panel.js")).openCombatPanel(),
+    // Glossário do mundo (1.85.0), opcionalmente já num verbete: game.nihility.glossary("penetration").
+    glossary: async key => (await import("./glossary/glossary.js")).openGlossary(key),
     // Ficha em modo criação (J10): jogador pede ao Mestre; Mestre cria direto.
     createCharacter: async () => (await import("./creation/creation.js")).requestNewCharacter()
   };
@@ -198,6 +201,8 @@ Hooks.once("init", () => {
   registerCombatPanelTracker();
   // Ficha em modo criação (J10): trava de quem escreve, re-render nos pedidos, aviso "está pronto".
   registerCreationHooks();
+  // Link "Abrir o Glossário" do diário Regras desta mesa (o diário não roda script).
+  registerGlossaryLinks();
   registerHotbarMacros();
   registerIncapacitation();
   registerEnvironment();

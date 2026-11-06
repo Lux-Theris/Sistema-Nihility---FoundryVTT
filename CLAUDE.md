@@ -18,7 +18,7 @@ There is no build step and no bundler. **Run `node scripts/check.mjs` before con
 - `system.json` checks: it is valid JSON, the version is `x.y.z`, and every listed esmodule/style/language file exists;
 - no CSS file in `styles/` is left out of `system.json`;
 - every `templates/…hbs` cited in the code exists;
-- no mojibake ("Ã§", "Ã£": UTF-8 written as Latin-1 by a script).
+- no mojibake (ç, ã… turned into two garbled characters when a script writes UTF-8 as Latin-1).
 
 `--no-tests` skips the suite. The two underlying commands, for a single file:
 
@@ -31,7 +31,7 @@ node --test "test/*.test.mjs"                               # unit tests of the 
 
 **Check syntax in module mode, never with a bare `node --check file.js`.** There is no `package.json` declaring `"type": "module"`, so the bare form parses the file with Node's CommonJS/auto-detect path and lets ES-module-only early errors through. The one that shipped in 1.37: `item-sheet.js` imported `getActiveDamageElements` **twice in the same import list** — a SyntaxError for a module, invisible to the bare check — and because `nihility-rpg-system.js` imports the sheet, the whole module graph failed to evaluate: no `init`, no sheets registered, and the only symptom in Foundry was an empty "Ficha Padrão" list ("as fichas sumiram"). To check everything at once: `for f in $(find module -name '*.js'); do node --input-type=module --check < "$f" || echo "$f"; done`.
 
-The suite is split by subject into `test/*.test.mjs` (dice-progression, combat-damage, combat-effects, skills, species-anatomy, ships, economy, environment, movement-area, world-config, ai, npc-generator, skill-assist, encounter, table-tools, creation, plus gm-relay, anchored-targets, skill-use-flow, html); each file starts with `import "./setup.mjs";` — **put a new test in the file of its subject, or a new file**, there is no single `rules.test.mjs` any more (split in 1.78). It covers only what is callable without Foundry — dice pool and initiative formula, resistance curve, XP curve and Resistance-XP gain, the Skill level cycle (`skillLevelBonuses`/`effectiveSkillCost`), damage scaling, module presets and structural damage, currency conversion, AI batch prompts, fusion snapshot, Skill-area geometry, floating-number deltas, the Skill sentence, XP por uso, consumables/charges/magazine/ammo swap — with `test/setup.mjs` stubbing the handful of Foundry globals the import path touches (`Math.clamp`, `foundry.utils.*`, `foundry.data.fields`/`abstract.TypeDataModel`, `ui.notifications`). Note `game.settings.get` is stubbed to **throw**, on purpose: that is the real boot-order path every config reader has to survive, so the suite exercises each reader's default-fallback branch. A test that needs a *configured* value has to pass it in as an argument — which is a good reason to keep new rule functions taking their tuning as parameters. Every pure rule function currently has coverage; keep it that way when you add one. **The bar for adding a test there is that the function needs no Actor/Item/canvas** — if a test would need to fake a Document, extract the pure part instead of growing the stub. Everything involving documents, sheets or canvas is still manual load-testing inside a running world.
+The suite is split by subject into `test/*.test.mjs` (dice-progression, combat-damage, combat-effects, skills, species-anatomy, ships, economy, environment, movement-area, world-config, ai, npc-generator, skill-assist, encounter, table-tools, creation, glossary, plus gm-relay, anchored-targets, skill-use-flow, html); each file starts with `import "./setup.mjs";` — **put a new test in the file of its subject, or a new file**, there is no single `rules.test.mjs` any more (split in 1.78). It covers only what is callable without Foundry — dice pool and initiative formula, resistance curve, XP curve and Resistance-XP gain, the Skill level cycle (`skillLevelBonuses`/`effectiveSkillCost`), damage scaling, module presets and structural damage, currency conversion, AI batch prompts, fusion snapshot, Skill-area geometry, floating-number deltas, the Skill sentence, XP por uso, consumables/charges/magazine/ammo swap — with `test/setup.mjs` stubbing the handful of Foundry globals the import path touches (`Math.clamp`, `foundry.utils.*`, `foundry.data.fields`/`abstract.TypeDataModel`, `ui.notifications`). Note `game.settings.get` is stubbed to **throw**, on purpose: that is the real boot-order path every config reader has to survive, so the suite exercises each reader's default-fallback branch. A test that needs a *configured* value has to pass it in as an argument — which is a good reason to keep new rule functions taking their tuning as parameters. Every pure rule function currently has coverage; keep it that way when you add one. **The bar for adding a test there is that the function needs no Actor/Item/canvas** — if a test would need to fake a Document, extract the pure part instead of growing the stub. Everything involving documents, sheets or canvas is still manual load-testing inside a running world.
 
 **Version bump convention (always follow this):** `system.json`'s `"version"` is bumped **in the same commit as the change itself**, never as a separate follow-up commit. Every meaningful feature/fix commit carries its own bump. Foundry's update-check compares this field against the manifest URL, so without a bump, worlds never see new content as available — and keeping the bump inside the commit that earned it means a version always points at exactly one set of changes.
 
@@ -55,6 +55,7 @@ Code is grouped by subject, not by layer (reorganized in 1.53.1; file names did 
 | `ai/` | `ai-generation.js`, `ai-helper.js`, providers, agent runner/tools |
 | `world/` | `world-validator.js` (pure), `world-backup.js` |
 | `npc/` | `npc-generator-rules.js` (pure: point split, draws, names, NPC tier Vida), `npc-generator.js` (drafts, creating sheets, placing Tokens, the tier hook) |
+| `glossary/` | `glossary-rules.js` (pure: entries with fixed keys and current names, auto links, search, catalog sentences), `glossary.js` (reads the world, saves GM edits, opens the window) |
 | `creation/` | `creation-rules.js` (pure: the "Criando" strip, skill slots, quick spreads, "Ao confirmar" preview, attribute purpose, species card, `requestSkillSystem`), `creation.js` (Ficha em modo criação: ready/adjust/release, the GM banner and card, `createCharacter` relay, hooks) |
 | `environment/` | `environment-rules.js` (pure), `environment.js` (scene/Region hazards, mana density, FXMaster), `radiation-rules.js` (pure) + `radiation.js` (radiation sources, irradiation, Passar tempo) |
 | `data/`, `sheets/`, `apps/`, `helpers/`, `pad/` | Character/Item DataModels, Character/Item sheets, standalone apps, cross-cutting helpers (`foundry-compat`, `gm-relay`, `target-picker`…), the PAD |
@@ -564,6 +565,37 @@ The owner approved the Design artifact "Ficha em Modo Criação" (version 2, boa
   - Clicking the name opens the Skill read-only: a temporary Item, with its sheet built with `editPermission: OWNER + 1`.
   - Item sheets hide GM writing buttons when not editable (`context.isGM = game.user.isGM && this.isEditable`).
   - Sheets re-render on chat message create/update/delete with a request flag.
+
+### Glossário do mundo (1.85.0)
+
+The owner approved the Design artifact "Glossário do Mundo" (boards 1–4); build to it. It is a read-only window for players and GM, always on (no feature toggle: it is just a button).
+
+- **Pure part: `glossary/glossary-rules.js`** (tested in `test/glossary.test.mjs`).
+  - `SYSTEM_TERMS` is `[key, group, term, text, feature, see]`. `{E}` is filled with the energy label and `{attr:key}` with the attribute's current label.
+  - `buildGlossary(world, {isGM})` builds every visible entry. It covers system terms (hidden when their feature is off), attributes (purpose line), Conditions, Elements, Species, Heritages, Traits and the GM's own terms.
+  - Each entry keeps a **fixed key** (`energy`, `attr:magic`, `condition:burn`, `custom:eter`…) and shows the **current** name. That is how renames are handled: nothing is stored by name, and the window recomputes on every open.
+  - `linkSegments(text, entries, selfKey)` turns mentions of other terms into links. It links the first mention only; the plural counts on every word of a compound name ("Habilidades Ativas" → "Habilidade Ativa"); the longest name wins; it never links mid-word; a capitalised name only matches a capitalised mention ("uma magia" is not the attribute Magia); a GM term beats a system term of the same name. Matching is by the current name, so a free text saying "Mana" in a world whose energy is renamed does not link.
+  - `searchGlossary` ignores accents, case and plural, and also drops the last vowel, so "cego" finds "Cegueira". Name matches come first, then body matches with a snippet.
+  - `glossaryCounts` / `filterGlossary` back the GM filters. `elementSentence` / `traitSentence` / `originSentence` build "O sistema faz".
+- **Foundry part: `glossary/glossary.js`.**
+  - `gatherGlossaryWorld({asPlayerPreview})` reads the catalogs.
+  - **Where each text lives** (board 4 B):
+    - A catalog item's explanation lives **in the catalog**, as `explanation` on Conditions (shown as "Na mesa"; field also in the Condition card editor), Elements and Traits.
+    - Species and Heritages use their own `description`; "Editar a descrição no catálogo" opens their editor on that entry.
+    - GM terms and rewritten system texts live in the world setting `glossaryData` (`{custom, overrides: {key: {text, gmOnly}}}`). It ends in `Data`, so Exportar/Importar Configurações carries it in Catálogos.
+  - **"Falta explicar"** flags only catalog items the GM created (id not in the factory lists) without text. Factory items show only "O sistema faz".
+  - **Player visibility:** `gmOnly` (any entry). A Species with `availableAtCreation: false` and every Heritage show only when one of the player's characters has it. "Ver como jogador" uses all players' characters.
+  - Factory Conditions without an automatic effect ship with an `explanation`, and `getActiveStatusConditions` fills it into saved catalogs only when the field is absent. An explanation the GM cleared on purpose stays cleared.
+- **Window: `apps/glossary.js`** (`GlossaryApp`, id `nihility-glossary`, single instance, `GlossaryApp.open(key)`).
+  - Search re-renders with a debounce and keeps the caret. Links are `gl-link` buttons (`openTerm`). There are Voltar and "Veja também".
+  - The GM gets filters, "+ Termo da mesa", Editar/Reescrever, "Voltar ao padrão", Apagar (custom) and "Ver como jogador".
+  - It re-renders on any system `updateSetting`.
+- **Entry points:**
+  - "Glossário" in Menu › Fichas, for everyone;
+  - Configurações Gerais › Personagem › Glossário;
+  - `game.nihility.glossary(key)`;
+  - the `<a class="nihility-open-glossary">` on the first page of Regras desta mesa, caught by a document click listener (`registerGlossaryLinks`) because journal pages run no script.
+- The Regras desta mesa Conditions page now also shows "Na mesa".
 
 ### Skills e armas na hotbar, e a Skill numa frase
 

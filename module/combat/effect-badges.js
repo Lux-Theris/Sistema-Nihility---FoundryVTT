@@ -15,7 +15,7 @@
  */
 import { SYSTEM_ID, MEU_SISTEMA } from "../core/config.js";
 import { effectAnchors, finiteRemaining } from "./effect-anchors.js";
-import { effectBadge, BADGE_COLORS } from "./effect-badge-rules.js";
+import { effectBadge, BADGE_COLORS, roundsLeftFromStart } from "./effect-badge-rules.js";
 
 function enabledForMe() {
   try {
@@ -40,8 +40,18 @@ function foundryRounds(effect, combat = null) {
   // conta sai do início gravado no efeito (V14 `start`, V13 `duration.startRound`).
   if (combat) {
     const start = effect._source?.start ?? null;
-    if (start?.combat === combat.id && d.units === "rounds" && Number.isFinite(Number(d.value))) return Math.max(0, Number(start.round) + Number(d.value) - combat.round);
-    if (d.combat === combat.id && Number.isFinite(Number(d.rounds)) && Number.isFinite(Number(d.startRound))) return Math.max(0, Number(d.startRound) + Number(d.rounds) - combat.round);
+    // No combate apagado, `combat.turn` já vem null; o turno de quando acabou fica no `_source`.
+    const now = {
+      round: combat._source?.round ?? combat.round,
+      turn: combat._source?.turn ?? combat.turn ?? 0,
+      turns: combat.turns?.length || combat.combatants?.size || 0
+    };
+    if (start?.combat === combat.id && d.units === "rounds" && Number.isFinite(Number(d.value))) {
+      return roundsLeftFromStart({ startRound: start.round, startTurn: start.turn, value: d.value, ...now });
+    }
+    if (d.combat === combat.id && Number.isFinite(Number(d.rounds)) && Number.isFinite(Number(d.startRound))) {
+      return roundsLeftFromStart({ startRound: d.startRound, startTurn: d.startTurn, value: d.rounds, ...now });
+    }
   }
   return Number.isFinite(d.remaining) ? d.remaining : null;
 }

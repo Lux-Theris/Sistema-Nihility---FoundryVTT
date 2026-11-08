@@ -46,6 +46,7 @@ export async function advanceZones(scene, { combat, combatant, roundChanged }) {
  * aplicação, senão reaplicar todo turno empilharia cópias do mesmo efeito. GM-only.
  */
 export async function tickZonesForCombatant(combatant) {
+  if (!combatant) return;
   const scene = combatantScene(combatant);
   const tokenDoc = combatant.token;
   const targetActor = combatant.actor;

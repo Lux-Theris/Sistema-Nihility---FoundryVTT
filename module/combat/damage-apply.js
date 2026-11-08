@@ -20,7 +20,7 @@
  * intacto. Dano Absoluto (flag `absolute` do card) pula o Escudo.
  */
 import { SYSTEM_ID } from "../core/config.js";
-import { absorbLayer, consumeShieldPools, hitAffinityFactor } from "./damage-rules.js";
+import { absorbLayer, consumeShieldPools, hitAffinityFactor, shieldBlockCredits } from "./damage-rules.js";
 import { getElementAffinityMatrix, getAffinityConfig } from "../core/config.js";
 import { damageBodyPart, restoreBodyPart } from "../species/anatomy.js";
 
@@ -332,6 +332,7 @@ async function applyHit(state, factor) {
     update[POOLS_PATH] = pools;
   }
   await actor.update(update);
+  if (toShield) await creditShieldBlocks(actor, previousPools, pools);
 
   // Ferimentos por parte: o que chegou na Vida também cai numa parte (a mirada ou uma sorteada).
   const bodyPart = toHp > 0 && !state.noBodyPart ? await damageBodyPart(actor, toHp, { partId: state.bodyPartId || null, sever: state.sever }) : null;
@@ -347,6 +348,24 @@ async function applyHit(state, factor) {
   // Guarda os valores ANTERIORES, não o aplicado: desfazer restaura o estado exato, sem depender
   // de nada mais ter mexido no HP/Escudo nesse meio-tempo.
   return { amount, toShield, toHp, previousValue: previousHp, previousShield, previousPools, createdEffectIds, bodyPart };
+}
+
+/**
+ * XP do Escudo mantido: cada camada que segurou parte do golpe credita a Skill que a deu, se essa
+ * Skill (ou Sub-Skill) é Ativa. Escudo lançado uma vez já ganhou o fixo ao surgir. Desfazer o
+ * golpe não tira a XP (igual à XP de Resistência).
+ */
+async function creditShieldBlocks(actor, before, after) {
+  const credits = shieldBlockCredits(before, after);
+  if (!credits.length) return;
+  const { grantSkillUseXp, vitalBase } = await import("../skills/skill-xp.js");
+  for (const credit of credits) {
+    const holder = await fromUuid(credit.holderUuid);
+    const skill = holder?.items?.get(credit.skillId);
+    const mech = credit.subSkillIndex != null ? skill?.system.subSkills?.[credit.subSkillIndex] : skill?.system;
+    if (!mech?.hasUpkeep) continue;
+    await grantSkillUseXp(skill, [{ value: credit.blocked, base: vitalBase(actor), block: true }]);
+  }
 }
 
 /** Desfaz o golpe de um alvo, restaurando os valores guardados em `state.applied`. */

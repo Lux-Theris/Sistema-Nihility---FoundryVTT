@@ -14,6 +14,22 @@ export const BADGE_COLORS = {
   danger: 0xff5c5c
 };
 
+/**
+ * Rodadas que faltam a uma duração do Foundry contada do início gravado no efeito (`start`), para
+ * um combate que acabou de ser apagado (o Foundry já não conta por ele). Conta o turno também:
+ * um efeito de 2 rodadas posto no turno 3 da rodada 1 vence no começo do turno 3 da rodada 3, e
+ * no turno 2 da rodada 3 ainda tem um pedaço de rodada. Sem o turno, a conta dava 0, o Fim do
+ * combate não listava o efeito e ele ficava ativo para sempre fora de combate.
+ * @returns {number|null} rodadas (pode ser fração; 0 = venceu)
+ */
+export function roundsLeftFromStart({ startRound, startTurn = 0, value, round, turn = 0, turns = 0 } = {}) {
+  const base = Number(startRound) + Number(value) - Number(round);
+  if (!Number.isFinite(base)) return null;
+  const perRound = Math.max(1, Number(turns) || 1);
+  const turnPart = ((Number(startTurn) || 0) - (Number(turn) || 0)) / perRound;
+  return Math.max(0, base + turnPart);
+}
+
 function positiveInt(value) {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? Math.ceil(n) : null;

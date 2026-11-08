@@ -528,6 +528,27 @@ export function hardenedChance(chancePercent, hardeningPercent = 0) {
  * @param {{penetration?: number, multiplier?: number, drain?: number}} [options]
  * @returns {{pools: object[], loose: number, toShield: number, toHp: number}}
  */
+/**
+ * Quanto cada camada de Escudo (pool) perdeu num golpe, agrupado pela Skill que a deu — para a
+ * XP do Escudo mantido. Compara as camadas antes e depois (pelo `id`); a parte "avulsa" (sem
+ * Skill) não conta.
+ * @returns {Array<{holderUuid:string, skillId:string, subSkillIndex:number|null, blocked:number}>}
+ */
+export function shieldBlockCredits(before = [], after = []) {
+  const left = new Map((after ?? []).map(p => [p.id, Number(p.value) || 0]));
+  const credits = new Map();
+  for (const pool of before ?? []) {
+    if (!pool?.holderUuid || !pool.skillId) continue;
+    const blocked = Math.max(0, (Number(pool.value) || 0) - (left.get(pool.id) ?? 0));
+    if (!blocked) continue;
+    const key = `${pool.holderUuid}|${pool.skillId}|${pool.subSkillIndex ?? ""}`;
+    const credit = credits.get(key) ?? { holderUuid: pool.holderUuid, skillId: pool.skillId, subSkillIndex: pool.subSkillIndex ?? null, blocked: 0 };
+    credit.blocked += blocked;
+    credits.set(key, credit);
+  }
+  return [...credits.values()];
+}
+
 export function consumeShieldPools(pools, loose, amount, { penetration = 0, multiplier = 1, drain = 0, layerMultiplier = null } = {}) {
   const layers = [...(pools ?? [])]
     .map(pool => ({ ...pool, value: Math.max(0, Math.round(Number(pool.value) || 0)) }))

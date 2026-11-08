@@ -17,6 +17,7 @@ import {
   rollChance,
   sustainedShieldGain,
   consumeShieldPools,
+  shieldBlockCredits,
   reconcileShieldPools,
   affinityMultiplier,
   cycleAffinityLevel,
@@ -446,4 +447,19 @@ test("Vantagem entre elementos: nível de ataque × defesa lido da tabela, Neutr
   assert.equal(affinityLevel(matrix, "light", "ice"), 0);
   assert.equal(affinityLevel(matrix, "void", "ice"), 0, "elemento de ataque sem linha = Neutro");
   assert.equal(affinityLevel(null, "fire", "ice"), 0, "sem tabela não quebra");
+});
+
+test("XP do Escudo mantido: quanto cada camada segurou, por Skill", () => {
+  const before = [
+    { id: "a", holderUuid: "Actor.x", skillId: "s1", subSkillIndex: null, value: 30 },
+    { id: "b", holderUuid: "Actor.y", skillId: "s2", subSkillIndex: 1, value: 20 },
+    { id: "c", holderUuid: "Actor.x", skillId: "s1", subSkillIndex: null, value: 10 }
+  ];
+  const after = [{ id: "a", value: 0 }, { id: "b", value: 15 }];
+  assert.deepEqual(shieldBlockCredits(before, after), [
+    { holderUuid: "Actor.x", skillId: "s1", subSkillIndex: null, blocked: 40 },
+    { holderUuid: "Actor.y", skillId: "s2", subSkillIndex: 1, blocked: 5 }
+  ], "camada que sumiu conta inteira; duas camadas da mesma Skill somam");
+  assert.deepEqual(shieldBlockCredits([{ id: "z", value: 9 }], []), [], "sem Skill (avulso de outro jeito): nada");
+  assert.deepEqual(shieldBlockCredits(before, before), [], "nada segurado");
 });

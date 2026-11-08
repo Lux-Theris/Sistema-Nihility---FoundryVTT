@@ -255,11 +255,13 @@ export const FEATURES = {
   skillUseXp: {
     setting: "skillUseXpEnabled",
     name: "XP por uso de Skill",
-    hint: "A Skill ganha XP pelo que fez: dano, cura e Escudo pela fração da Vida máxima do alvo; buff/debuff pela fração do valor que mudou; Condição, Estrutura e Zona um valor fixo (Estrutura também pelo dano que segurou). Para no teto do nível — subir continua sendo clique do Mestre.",
+    hint: "A Skill ganha XP pelo que fez: dano e cura pela fração da Vida máxima do alvo; Escudo e Barreira lançados uma vez, um valor fixo, e mantidos, uma parte do dano que seguram; buff/debuff pela fração do valor que mudou, até um teto por alvo; Condição, Estrutura e Zona um valor fixo (Estrutura também pelo dano que segurou). Para no teto do nível — subir continua sendo clique do Mestre.",
     default: true,
     options: {
       skillXpFactor: { label: "XP de um efeito do tamanho de uma Vida", hint: "Um golpe que leva a Vida máxima inteira do alvo vale isto (cada alvo conta no máximo uma vez).", type: "number", default: 100, min: 0 },
-      skillXpFlatPercent: { label: "% fixo (Condição, Estrutura, Zona)", hint: "Porcentagem do valor acima dada por Condição aplicada, Estrutura erguida ou Zona criada.", type: "number", default: 10, min: 0 }
+      skillXpFlatPercent: { label: "% fixo (Condição, Estrutura, Zona)", hint: "Porcentagem do valor acima dada por Condição aplicada, Estrutura erguida ou Zona criada.", type: "number", default: 10, min: 0 },
+      skillXpBuffCapPercent: { label: "Teto de buff/debuff (%)", hint: "Um buff ou debuff rende no máximo esta porcentagem do valor acima por alvo, por maior que seja o aumento (um +3 em quem tem 0 ou 3 bate no teto).", type: "number", default: 25, min: 0 },
+      skillXpBlockPercent: { label: "Escudo/Barreira mantidos: % do que seguram", hint: "Escudo de Skill Ativa e Barreira mantida (Skill Ativa ou Barreira de Mana) ganham esta porcentagem da XP do dano que seguraram (dano ÷ Vida de quem protegeram). Lançados uma vez, ganham só o fixo ao surgir.", type: "number", default: 50, min: 0 }
     }
   },
   inventory: {

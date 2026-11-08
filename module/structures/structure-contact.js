@@ -4,7 +4,8 @@
  */
 import { SYSTEM_ID } from "../core/config.js";
 import { damageApplyFlags, withDamageTrace } from "../combat/damage-apply.js";
-import { applyDamageReductions, triggeredLabel } from "../combat/damage-roll.js";
+import { applyDamageReductions, triggeredLabel, personalTraceTail } from "../combat/damage-roll.js";
+import { grantSkillUseXp, vitalBase } from "../skills/skill-xp.js";
 import { isShipLike } from "../starship/ship-damage.js";
 
 /**
@@ -42,4 +43,8 @@ export async function applyStructureContactAsGm(tokenDocument, instance, info) {
       [{ name: tokenDocument.name, rows: [{ label: "Rolagem (contato)", value: String(roll.total) }, ...personalTraceTail(reduction, target)] }]
     )
   });
+  // XP por uso: o dano de contato conta para a Skill que ergueu a Estrutura, como o tick de uma Zona.
+  if (caster && instance.skillId && reduction.finalDamage > 0) {
+    await grantSkillUseXp(`${instance.sourceActorUuid}.Item.${instance.skillId}`, [{ value: reduction.finalDamage, base: vitalBase(target) }]);
+  }
 }

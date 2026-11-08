@@ -518,8 +518,35 @@ function guardCreationWrites(actor, changes, options, userId) {
   }
 }
 
+/**
+ * O nome do Token acompanha o da ficha quando os dois eram iguais. A ficha em criação nasce
+ * "Novo personagem" e o jogador a renomeia depois; sem isto, o Token entrava no mapa com o nome
+ * antigo. Um Token que o Mestre batizou diferente fica como está.
+ */
+function followRenameInPrototype(actor, changes, options) {
+  if (actor.isToken || typeof changes.name !== "string" || changes.name === actor.name) return;
+  options.nihilityOldName = actor.name;
+  if (actor.prototypeToken?.name === actor.name && foundry.utils.getProperty(changes, "prototypeToken.name") === undefined) {
+    foundry.utils.setProperty(changes, "prototypeToken.name", changes.name);
+  }
+}
+
+/** Tokens vinculados já no mapa: quem renomeou atualiza os que pode editar. */
+async function followRenameOnScenes(actor, changes, options, userId) {
+  const oldName = options.nihilityOldName;
+  if (!oldName || userId !== game.user.id || typeof changes.name !== "string") return;
+  for (const scene of game.scenes) {
+    const updates = scene.tokens
+      .filter(t => t.actorLink && t.actorId === actor.id && t.name === oldName && t.isOwner)
+      .map(t => ({ _id: t.id, name: changes.name }));
+    if (updates.length) await scene.updateEmbeddedDocuments("Token", updates);
+  }
+}
+
 export function registerCreationHooks() {
   Hooks.on("preUpdateActor", guardCreationWrites);
+  Hooks.on("preUpdateActor", followRenameInPrototype);
+  Hooks.on("updateActor", followRenameOnScenes);
   Hooks.on("createChatMessage", onRequestMessage);
   Hooks.on("updateChatMessage", onRequestMessage);
   Hooks.on("deleteChatMessage", onRequestMessage);

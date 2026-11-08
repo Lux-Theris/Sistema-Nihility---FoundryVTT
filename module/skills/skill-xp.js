@@ -15,7 +15,9 @@ import { skillUseXp, effectEntryMeasures } from "./skill-xp-rules.js";
 export function skillXpConfig() {
   return {
     factor: Number(getFeatureOption("skillUseXp", "skillXpFactor")) || 0,
-    flatPercent: Number(getFeatureOption("skillUseXp", "skillXpFlatPercent")) || 0
+    flatPercent: Number(getFeatureOption("skillUseXp", "skillXpFlatPercent")) || 0,
+    buffCapPercent: Number(getFeatureOption("skillUseXp", "skillXpBuffCapPercent")) || 0,
+    blockPercent: Number(getFeatureOption("skillUseXp", "skillXpBlockPercent")) || 0
   };
 }
 

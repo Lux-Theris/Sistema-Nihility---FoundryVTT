@@ -48,7 +48,7 @@ import { pickTargetActor } from "../helpers/target-picker.js";
 import { rollOptionsFromEvent } from "../apps/roll-options-dialog.js";
 import { traitContext, changeTrait, pickActorTraits } from "../helpers/traits-ui.js";
 import { editPortraitFrameAction, CLEAR_PORTRAIT_FRAME } from "../helpers/portrait-frame.js";
-import { pickImageFile, getDragEventData } from "../helpers/foundry-compat.js";
+import { pickImageFile, getDragEventData, deleteKeyUpdate } from "../helpers/foundry-compat.js";
 
 import { handleItemDrop, splitStack, cargoContext } from "../economy/inventory.js";
 import { EffectsListApp } from "../apps/effects-list.js";
@@ -310,7 +310,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (module.system.powerGroup !== groupId) await module.update({ "system.powerGroup": groupId });
     const moved = this.actor.getFlag(SYSTEM_ID, POWER_FOCUS_MOVED_FLAG);
     if (moved && module.id in moved) {
-      await this.actor.update({ [`flags.${SYSTEM_ID}.${POWER_FOCUS_MOVED_FLAG}.-=${module.id}`]: null });
+      await this.actor.update(deleteKeyUpdate(`flags.${SYSTEM_ID}.${POWER_FOCUS_MOVED_FLAG}.${module.id}`));
     }
   }
 

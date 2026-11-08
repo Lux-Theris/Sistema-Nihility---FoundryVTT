@@ -283,13 +283,33 @@ test("XP por uso: dano, cura e Escudo pela fração da Vida; cada alvo conta no 
 });
 
 test("XP por uso: buff/debuff pela fração do valor atual; Condição soma o fixo", () => {
-  assert.deepEqual(effectEntryMeasures({ amount: 3 }, { attributeTotal: 10 }), [{ value: 3, base: 10 }], "Força +3 em quem tem 10 = 30%");
-  assert.deepEqual(effectEntryMeasures({ amount: -20 }, { vitalMax: 200 }), [{ value: -20, base: 200 }]);
-  assert.deepEqual(effectEntryMeasures({ amount: -50 }, { percent: true }), [{ value: -50, base: 100 }], "Lentidão −50% Deslocamento");
+  assert.deepEqual(effectEntryMeasures({ amount: 3 }, { attributeTotal: 10 }), [{ value: 3, base: 10, buff: true }], "Força +3 em quem tem 10 = 30%");
+  assert.deepEqual(effectEntryMeasures({ amount: -20, target: "hp" }, { vitalMax: 200 }), [{ value: -20, base: 200, buff: true }], "Vida máxima −20: debuff");
+  assert.deepEqual(effectEntryMeasures({ amount: 30, target: "shield" }, { vitalMax: 200 }), [{ value: 30, base: 200 }], "Escudo é proteção, sem teto de buff");
+  assert.deepEqual(effectEntryMeasures({ amount: -50 }, { percent: true }), [{ value: -50, base: 100, buff: true }], "Lentidão −50% Deslocamento");
   assert.deepEqual(effectEntryMeasures({ amount: 0 }, { hasCondition: true }), [{ flat: true }], "Condição pura: só o fixo");
-  assert.deepEqual(effectEntryMeasures({ amount: 2 }, { attributeTotal: 4, hasCondition: true }), [{ flat: true }, { value: 2, base: 4 }]);
+  assert.deepEqual(effectEntryMeasures({ amount: 2 }, { attributeTotal: 4, hasCondition: true }), [{ flat: true }, { value: 2, base: 4, buff: true }]);
   assert.deepEqual(effectEntryMeasures({ amount: 5 }, {}), [{ flat: true }], "alvo sem número (elemento de arma, corpo) conta o fixo");
   assert.deepEqual(effectEntryMeasures({ amount: 0 }, {}), [], "nada aplicado, nada medido");
+});
+
+test("XP por uso: buff/debuff tem teto por alvo (25% de uma Vida no padrão)", () => {
+  const cfg = { factor: 100, flatPercent: 10, buffCapPercent: 25 };
+  assert.equal(skillUseXp([{ value: 3, base: 3, buff: true }], cfg), 25, "+3 em quem tem 3 batia 100; agora o teto");
+  assert.equal(skillUseXp([{ value: 3, base: 1, buff: true }], cfg), 25, "+3 em quem tem 0 (conta como 1): teto");
+  assert.equal(skillUseXp([{ value: 3, base: 30, buff: true }], cfg), 10, "abaixo do teto vale a fração");
+  assert.equal(skillUseXp([{ value: 3, base: 3, buff: true }, { value: 3, base: 3, buff: true }], cfg), 50, "teto é por alvo: dois aliados somam");
+  assert.equal(skillUseXp([{ value: 3, base: 3, buff: true }, { flat: true }], cfg), 35, "a Condição continua somando o fixo");
+  assert.equal(skillUseXp([{ value: 100, base: 100 }], cfg), 100, "dano/cura não têm o teto de buff");
+  assert.equal(skillUseXp([{ value: 3, base: 3, buff: true }], { factor: 100 }), 100, "sem teto configurado: como antes");
+});
+
+test("XP por uso: Escudo/Barreira mantidos ganham uma parte do que seguram", () => {
+  const cfg = { factor: 100, flatPercent: 10, blockPercent: 50 };
+  assert.equal(skillUseXp([{ value: 60, base: 240, block: true }], cfg), 13, "segurou 1/4 da Vida: metade de 25");
+  assert.equal(skillUseXp([{ value: 500, base: 240, block: true }], cfg), 50, "golpe maior que a Vida: no máximo metade da unidade");
+  assert.equal(skillUseXp([{ flat: true }], cfg), 10, "lançado uma vez: o fixo");
+  assert.equal(skillUseXp([{ value: 60, base: 240, block: true }], { factor: 100 }), 25, "sem a opção: a fração inteira");
 });
 
 test("Vantagem: fórmula sem dado fica como está", () => {

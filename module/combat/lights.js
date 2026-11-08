@@ -16,6 +16,7 @@ import { SYSTEM_ID, normalizeLightConfig } from "../core/config.js";
 import { runAsGm, isDesignatedGm } from "../helpers/gm-relay.js";
 import { refuse, relayFailureMessage } from "../helpers/gm-relay-rules.js";
 import { escapeHtml } from "../helpers/html.js";
+import { deleteKeyUpdate } from "../helpers/foundry-compat.js";
 
 
 const SHIELD_FLAG = "shieldLight";
@@ -294,7 +295,7 @@ function readLightState(token) {
 /** Grava a pilha e mostra a luz do topo; pilha vazia apaga a luz de Escudo (volta a de antes). */
 async function writeLightState(token, previous, stack) {
   if (!stack.length) {
-    await token.update({ light: previous ?? {}, [`flags.${SYSTEM_ID}.-=${SHIELD_FLAG}`]: null });
+    await token.update({ light: previous ?? {}, ...deleteKeyUpdate(`flags.${SYSTEM_ID}.${SHIELD_FLAG}`) });
     return;
   }
   await token.update({ light: stack.at(-1).light, [`flags.${SYSTEM_ID}.${SHIELD_FLAG}`]: { previous, stack } });

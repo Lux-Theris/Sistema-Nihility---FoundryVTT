@@ -36,6 +36,7 @@ import { runAsGm, isDesignatedGm } from "../helpers/gm-relay.js";
 import { refuse, relayFailureMessage } from "../helpers/gm-relay-rules.js";
 import { escapeHtml } from "../helpers/html.js";
 import { reportError } from "../helpers/report.js";
+import { deleteKeyUpdate, wallSenseTypes } from "../helpers/foundry-compat.js";
 import {
   structureSegments,
   capPolyline,
@@ -285,7 +286,7 @@ export async function createStructureAsGm(payload) {
   const segments = structureSegments(structure.shape, points, metersToPx(scene, structure.size));
   if (!segments.length) return refuse("a forma desenhada ficou sem tamanho");
 
-  const S = CONST.WALL_SENSE_TYPES;
+  const S = wallSenseTypes();
   const M = CONST.WALL_MOVEMENT_TYPES;
   const id = foundry.utils.randomID();
   const walls = await scene.createEmbeddedDocuments(
@@ -444,9 +445,12 @@ export async function hitStructure(block, amount, elementIds = [], protectedActo
   const { absorbed, passed } = splitStructureHit(amount * factor, block.capacity);
   if (absorbed > 0) {
     await runAsGm("damageStructure", { sceneId: block.scene.id, instanceId: block.instance.id, amount: absorbed, attackerUuid: block.attackerUuid });
-    // XP por uso da Skill que ergueu: o dano segurado sobre a Vida de quem ela protegeu.
+    // XP por uso da Skill que ergueu: só a Barreira MANTIDA (Skill Ativa ou Barreira de Mana, que
+    // o conjurador paga a cada golpe) ganha pelo que segura — uma parte do dano sobre a Vida de
+    // quem ela protegeu. A erguida uma vez ganhou o fixo ao subir.
     const skillUuid = structureSkillUuid(block.instance);
-    if (skillUuid && protectedActor) await grantSkillUseXp(skillUuid, [{ value: absorbed, base: vitalBase(protectedActor) }]);
+    const maintained = block.instance.untilDeactivated || block.instance.manaBarrier;
+    if (skillUuid && protectedActor && maintained) await grantSkillUseXp(skillUuid, [{ value: absorbed, base: vitalBase(protectedActor), block: true }]);
   }
   return { absorbed, passed: factor > 0 ? Math.round(passed / factor) : passed, label: block.instance.label, point: block.point };
 }
@@ -559,7 +563,8 @@ async function enforceAntimagicOnStructures(scene) {
       await caster.update({ "system.attributes.energy.value": energy.value - cost });
       await ChatMessage.create({
         speaker: ChatMessage.getSpeaker({ actor: caster }),
-        whisper: ChatMessage.getWhisperRecipients("GM").map(u => u.id).concat(caster.isOwner ? [] : []),
+        // Mestre e quem joga com o conjurador (é a Mana dele que está indo embora).
+        whisper: [...new Set([...ChatMessage.getWhisperRecipients("GM"), ...game.users.filter(u => !u.isGM && caster.testUserPermission(u, "OWNER"))].map(u => u.id))],
         content: `<p><strong>${escapeHtml(instance.label)}</strong> resiste à antimagia (nível ${level}): −${cost} ${escapeHtml(getEnergyLabelForActor(caster))} de ${escapeHtml(caster.name)}.</p>`
       });
     } else {
@@ -625,11 +630,11 @@ export async function removeStructureInstance(scene, instanceId, reason = "dismi
   // antigas são limpas no mesmo passo, pro flag não crescer pra sempre.
   const now = Date.now();
   const update = {
-    [`flags.${SYSTEM_ID}.${FLAG}.-=${instanceId}`]: null,
+    ...deleteKeyUpdate(`flags.${SYSTEM_ID}.${FLAG}.${instanceId}`),
     [`flags.${SYSTEM_ID}.${FALLS_FLAG}.${instanceId}`]: { reason, label: instance.label, time: now }
   };
   for (const [id, fall] of Object.entries(scene.getFlag(SYSTEM_ID, FALLS_FLAG) ?? {})) {
-    if (!fall || now - (fall.time ?? 0) > FALL_MEMORY_MS) update[`flags.${SYSTEM_ID}.${FALLS_FLAG}.-=${id}`] = null;
+    if (!fall || now - (fall.time ?? 0) > FALL_MEMORY_MS) Object.assign(update, deleteKeyUpdate(`flags.${SYSTEM_ID}.${FALLS_FLAG}.${id}`));
   }
   await scene.update(update);
   refreshStructureCards(scene.id, instanceId);

@@ -186,3 +186,24 @@ export function combatScenes(combat) {
   }
   return [...scenes.values()];
 }
+
+/* -------------------------------------------- */
+/*  Apagar uma chave e tipos de parede           */
+/* -------------------------------------------- */
+
+/**
+ * Pedaço de `update()` que APAGA a chave no fim de `path` (ex.: "flags.sistema.estruturas.ID").
+ * A V14 trocou a forma antiga `"…-=ID": null` por um operador (`ForcedDeletion`) e avisa a cada
+ * uso da antiga (sai na V16); a V13 só conhece a antiga. Use com spread: `{...deleteKeyUpdate(p)}`.
+ */
+export function deleteKeyUpdate(path) {
+  const Deletion = foundry.data?.operators?.ForcedDeletion;
+  if (Deletion) return { [path]: new Deletion() };
+  const cut = path.lastIndexOf(".");
+  return { [`${path.slice(0, cut + 1)}-=${path.slice(cut + 1)}`]: null };
+}
+
+/** Tipos de bloqueio de visão/luz/som de uma parede. V14: `EDGE_SENSE_TYPES` (o nome antigo avisa). */
+export function wallSenseTypes() {
+  return CONST.EDGE_SENSE_TYPES ?? CONST.WALL_SENSE_TYPES;
+}

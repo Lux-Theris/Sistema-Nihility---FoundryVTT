@@ -199,7 +199,8 @@ Hooks.once("init", () => {
   registerNpcTierHooks();
   registerEncounterSimTracker();
   registerCombatPanelTracker();
-  // Ficha em modo criação (J10): trava de quem escreve, re-render nos pedidos, aviso "está pronto".
+  // Ficha em modo criação (J10): trava de quem escreve, re-render nos pedidos, aviso "está pronto",
+  // e o nome do Token acompanhando o da ficha.
   registerCreationHooks();
   // Link "Abrir o Glossário" do diário Regras desta mesa (o diário não roda script).
   registerGlossaryLinks();
@@ -761,7 +762,10 @@ Hooks.on("updateCombat", async (combat, changed, options) => {
   if (processed != null && position <= Number(processed)) return;
   await combat.setFlag(SYSTEM_ID, "turnProcessed", position);
 
-  const actor = combat.combatant?.actor;
+  // O combatente deste turno, guardado já: o resto é assíncrono, e ler `combat.combatant` depois
+  // de um await pegava o PRÓXIMO (Mestre avançando rápido) ou null (combate encerrado no meio).
+  const combatant = combat.combatant;
+  const actor = combatant?.actor;
   if (!actor) return;
 
   try {
@@ -778,11 +782,11 @@ Hooks.on("updateCombat", async (combat, changed, options) => {
 
   try {
     // Contágio (contagion.js): Condições com "espalha" passam para quem está no raio.
-    if (!dead) await tickContagion(combat.combatant);
+    if (!dead) await tickContagion(combatant);
     // Ambiente (environment.js): confere os perigos da cena/área antes dos ticks da rodada.
-    if (combat.combatant.token) await syncTokenEnvironment(combat.combatant.token);
+    if (combatant.token) await syncTokenEnvironment(combatant.token);
     // Radiação (radiation.js): acumula/cai e causa o dano da rodada. Morto não.
-    if (!dead && combat.combatant.token) await tickRadiation(combat.combatant.token);
+    if (!dead && combatant.token) await tickRadiation(combatant.token);
   } catch (err) {
     reportError("Falha no Contágio/Ambiente no início do turno.", err, { gmOnly: true });
   }
@@ -792,10 +796,10 @@ Hooks.on("updateCombat", async (combat, changed, options) => {
     // Zonas contam pelo turno de quem lançou (ver advanceZones); Estruturas, pela rodada.
     const roundChanged = changed.round !== undefined;
     for (const scene of combatScenes(combat)) {
-      await advanceZones(scene, { combat, combatant: combat.combatant, roundChanged });
+      await advanceZones(scene, { combat, combatant, roundChanged });
       if (roundChanged) await advanceStructures(scene);
     }
-    if (!dead) await tickZonesForCombatant(combat.combatant);
+    if (!dead) await tickZonesForCombatant(combatant);
   } catch (err) {
     reportError("Falha ao processar Zonas no início do turno.", err, { gmOnly: true });
   }

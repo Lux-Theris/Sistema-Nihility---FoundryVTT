@@ -113,7 +113,7 @@ const HANDLERS = {
     const { isFeatureEnabled } = await import("../core/config.js");
     if (!isFeatureEnabled("skillUseXp")) return;
     const config = skillXpConfig();
-    const clean = measures.slice(0, 10).map(m => (m?.flat ? { flat: true } : { value: Number(m?.value) || 0, base: Number(m?.base) || 0 }));
+    const clean = measures.slice(0, 10).map(m => (m?.flat ? { flat: true } : { value: Number(m?.value) || 0, base: Number(m?.base) || 0, buff: Boolean(m?.buff), block: Boolean(m?.block) }));
     const gain = skillUseXp(clean, { ...config, cap: config.factor });
     if (!gain) return;
     const current = Number(skill.system.xp) || 0;

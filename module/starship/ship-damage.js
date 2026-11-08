@@ -252,7 +252,7 @@ export async function fireStarshipWeapon(sourceActor, weaponModule, targetActor 
   const boostedTotal = applyRollModifiers(bonusTotal, options);
 
   let flavor = `${escapeHtml(weaponModule.name)}${ammoItem ? ` (${escapeHtml(ammoItem.name)})` : ""} — Dano`;
-  if (Math.floor(bonusTotal) !== roll.total) flavor += ` — throttle/bônus (${roll.total} → ${Math.floor(bonusTotal)})`;
+  if (Math.round(bonusTotal) !== roll.total) flavor += ` — throttle/bônus (${roll.total} → ${Math.round(bonusTotal)})`;
   flavor += modifiersFlavor(options, bonusTotal, boostedTotal);
 
   const shipBonuses = sourceActor.system.combatBonuses ?? {};

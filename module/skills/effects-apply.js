@@ -255,7 +255,10 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
           subSkillIndex
         });
       }
-      if (change) xp.push({ value: change, base: vitalBase(targetActor) });
+      // XP: Escudo lançado uma vez rende o fixo ao surgir; o de Skill Ativa rende pelo que segurar
+      // (no Aplicar do dano, ver creditShieldBlocks em damage-apply.js). Negativo (tirar Escudo) é debuff.
+      if (change > 0 && !mech.hasUpkeep) xp.push({ flat: true });
+      else if (change < 0) xp.push({ value: change, base: vitalBase(targetActor), buff: true });
       summary.push(sustained ? `Escudo +${change} (mantido${entry.shieldRegen ? `, +${entry.shieldRegen}/rodada` : ""}${entry.shieldCap ? `, teto ${entry.shieldCap}` : ""})` : `Escudo ${sign}${entry.amount}`);
       continue;
     }

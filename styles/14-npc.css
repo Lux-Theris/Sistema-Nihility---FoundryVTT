@@ -344,7 +344,8 @@
 .nihility-combat-panel .cp-hidden { color: var(--nihility-text-faint); }
 .nihility-combat-panel .cp-dim { color: var(--nihility-text-faint); font-size: 11.5px; }
 .nihility-combat-panel .cp-dead { font: 600 10px var(--nihility-font-data); color: var(--nihility-danger); }
-.nihility-combat-panel .cp-n { font-family: var(--nihility-font-data); font-size: 12px; }
+.nihility-combat-panel .cp-n { font-family: var(--nihility-font-data); font-size: 12px; white-space: nowrap; }
+.nihility-combat-panel .cp-table td:has(> .cp-bar) { white-space: nowrap; }
 .nihility-combat-panel .cp-bar { display: inline-block; vertical-align: middle; width: 90px; height: 7px; border-radius: 4px; background: #262b3f; overflow: hidden; margin-right: 6px; }
 .nihility-combat-panel .cp-bar i { display: block; height: 100%; background: var(--nihility-hp); }
 .nihility-combat-panel .cp-bar.mp i { background: #c084fc; }

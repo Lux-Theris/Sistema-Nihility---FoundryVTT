@@ -43,7 +43,7 @@ import { escapeHtml } from "../helpers/html.js";
  */
 export function attackTraceRows({ rolled, boosted, scale = 1, situational = 1, beforeStructure = null, arriving, nulled = false }) {
   const rows = [{ label: "Rolagem", value: String(rolled) }];
-  if (Math.floor(boosted) !== rolled) rows.push({ label: "Com escala por atributo, nível, bônus de arma e Shift", value: String(Math.floor(boosted)) });
+  if (Math.round(boosted) !== rolled) rows.push({ label: "Com escala por atributo, nível, bônus de arma e Shift", value: String(Math.round(boosted)) });
   if (scale !== 1) rows.push({ label: "Escala de tamanho", value: `×${formatScale(scale)}` });
   if (situational !== 1) rows.push({ label: "Quando → Então de quem ataca", value: `×${Math.round(situational * 100) / 100}` });
   if (nulled) {
@@ -56,7 +56,7 @@ export function attackTraceRows({ rolled, boosted, scale = 1, situational = 1, b
 }
 
 /** Fim do rastro contra Personagem: as defesas por parte, o final e a nota do Escudo pessoal. */
-function personalTraceTail(reduction, targetActor) {
+export function personalTraceTail(reduction, targetActor) {
   const rows = [...(reduction.traceRows ?? []), { label: "Final", value: String(reduction.finalDamage), kind: "total" }];
   if ((targetActor.system?.attributes?.shield?.value ?? 0) > 0) rows.push({ label: "O Escudo pessoal absorve primeiro, ao clicar em Aplicar", value: "" });
   return rows;
@@ -337,7 +337,7 @@ export function modifiersFlavor(options, before, after) {
   if (!text) return "";
   // `text` traz o motivo digitado no Shift+clique: escapado, porque o flavor é HTML.
   const safe = escapeHtml(text);
-  return Math.floor(after) !== Math.floor(before) ? ` — ${safe} (${Math.floor(before)} → ${Math.floor(after)})` : ` — ${safe}`;
+  return Math.round(after) !== Math.round(before) ? ` — ${safe} (${Math.round(before)} → ${Math.round(after)})` : ` — ${safe}`;
 }
 
 /** `label` já vem pronto de `useSkillEffect` (nome da Skill, ou "Skill — Sub-Skill" quando aplicável). */
@@ -390,8 +390,8 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
     flavor += ` — ${getAttributeLabel(mech.scalingAttribute)} ×${scaling.toFixed(1)}`;
   }
   if (levelPower !== 1) flavor += ` — ${mech.investPower && mech.investPower !== 1 ? `nível e ${getEnergyLabelForActor(actor)} investida` : "nível"} ×${levelPower.toFixed(2)}`;
-  if (scaledTotal !== roll.total) flavor += ` (${roll.total} → ${Math.floor(scaledTotal)})`;
-  if (bonusTotal !== scaledTotal) flavor += ` — bônus de arma (${Math.floor(scaledTotal)} → ${Math.floor(bonusTotal)})`;
+  if (scaledTotal !== roll.total) flavor += ` (${roll.total} → ${Math.round(scaledTotal)})`;
+  if (bonusTotal !== scaledTotal) flavor += ` — bônus de arma (${Math.round(scaledTotal)} → ${Math.round(bonusTotal)})`;
   flavor += modifiersFlavor(options, bonusTotal, boostedTotal);
 
   // Escala: pistola contra Nave, canhão contra pessoa (ver damageScaleFor).
@@ -570,8 +570,17 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
   // Mesma escala por Atributo do caminho de alvo único — aplicada UMA vez, sobre a rolagem que
   // todos os alvos compartilham (cada alvo ainda aplica as próprias reduções depois).
   const scaling = damageScalingMultiplier(actor, mech.scalingAttribute);
-  const bonusTotal = applyShipWeaponBonus(roll.total * scaling * skillLevelBonuses(mech.level).power * (mech.investPower ?? 1), actor);
+  const levelPower = skillLevelBonuses(mech.level).power * (mech.investPower ?? 1);
+  const scaledTotal = roll.total * scaling * levelPower;
+  const bonusTotal = applyShipWeaponBonus(scaledTotal, actor);
   const boostedTotal = applyRollModifiers(bonusTotal, options);
+  // O que mudou a rolagem, com o mesmo nome que o card de alvo único usa (não "bônus de arma"
+  // para tudo: quase sempre é a Escala por Atributo ou o nível).
+  const boostParts = [];
+  if (scaling !== 1) boostParts.push(`${getAttributeLabel(mech.scalingAttribute)} ×${scaling.toFixed(1)}`);
+  if (levelPower !== 1) boostParts.push(`${mech.investPower && mech.investPower !== 1 ? `nível e ${getEnergyLabelForActor(actor)} investida` : "nível"} ×${levelPower.toFixed(2)}`);
+  if (bonusTotal !== scaledTotal) boostParts.push("bônus de arma");
+  if (boostedTotal !== bonusTotal) boostParts.push("modificadores");
   const title = `${damageFlavorPrefix(mech, label)} (Emissão)${modifiersFlavor(options, bonusTotal, boostedTotal)}`;
   const rows = [];
   // Estrutura entre a origem da área e um alvo: ela leva o golpe UMA vez e protege todos atrás
@@ -662,7 +671,7 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
     rolls: [roll],
     flavor: title,
     flags: withDamageTrace(applyEntries.length ? { [SYSTEM_ID]: { damageApplyMany: { entries: applyEntries } } } : {}, traces),
-    content: `<p>${title} — rolagem bruta: <strong>${roll.total}</strong>${boostedTotal !== roll.total ? ` (bônus de arma: ${Math.floor(boostedTotal)})` : ""}</p>${blockedNotes.length ? `<p>${blockedNotes.join(" · ")}</p>` : ""}<ul>${rows.join("")}</ul>`
+    content: `<p>${title} — rolagem bruta: <strong>${roll.total}</strong>${boostedTotal !== roll.total ? ` (${escapeHtml(boostParts.join(" · ") || "ajustada")} → ${Math.round(boostedTotal)})` : ""}</p>${blockedNotes.length ? `<p>${blockedNotes.join(" · ")}</p>` : ""}<ul>${rows.join("")}</ul>`
   });
 
   return { roll, hits };

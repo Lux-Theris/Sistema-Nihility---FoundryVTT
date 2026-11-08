@@ -1,5 +1,6 @@
 import { SYSTEM_ID, MEU_SISTEMA, moduleRole, tractorHold, getShipActionConfig, focusGroupAssignments } from "../core/config.js";
 import { splitTargetedStructural, hardenedChance } from "../combat/damage-rules.js";
+import { deleteKeyUpdate } from "../helpers/foundry-compat.js";
 
 /**
  * Reparte `amount` de dano entre Módulos, em pedaços de tamanho ALEATÓRIO e em ordem ALEATÓRIA —
@@ -451,10 +452,10 @@ export async function applyPowerFocus(ship, focus) {
     return { _id: module.id, "system.powerAllocationPercent": Math.round(throttle), "system.powerGroup": assign[module.id] };
   });
   if (updates.length) await ship.updateEmbeddedDocuments("Item", updates);
-  // `-=` antes de gravar: setFlag MESCLA objetos, e um Módulo devolvido ficaria no mapa pra sempre.
+  // Apaga antes de gravar: setFlag MESCLA objetos, e um Módulo devolvido ficaria no mapa pra sempre.
   await ship.update({
     [`flags.${SYSTEM_ID}.powerFocus`]: focus,
-    [`flags.${SYSTEM_ID}.-=${POWER_FOCUS_MOVED_FLAG}`]: null
+    ...deleteKeyUpdate(`flags.${SYSTEM_ID}.${POWER_FOCUS_MOVED_FLAG}`)
   });
   if (Object.keys(moved).length) await ship.setFlag(SYSTEM_ID, POWER_FOCUS_MOVED_FLAG, moved);
 }

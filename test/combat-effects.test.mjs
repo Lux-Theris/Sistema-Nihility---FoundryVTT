@@ -39,7 +39,7 @@ import {
   incapacitationTurn
 } from "../module/combat/incapacitation-rules.js";
 import { normalizeSpread, contagionChance, withinRadius, immuneByTrait } from "../module/combat/contagion-rules.js";
-import { effectBadge } from "../module/combat/effect-badge-rules.js";
+import { effectBadge, roundsLeftFromStart } from "../module/combat/effect-badge-rules.js";
 import { suggestCombatXp, splitXp, endCombatEffectChoice } from "../module/combat/end-combat-rules.js";
 
 test("Active Effect: formato V13 e V14, e leitura dos dois", async () => {
@@ -319,6 +319,17 @@ test("Número no ícone do Token: rodadas, ∞, irradiação, contador do Caído
   assert.equal(effectBadge({ incapacitation: { kind: "unconscious", rounds: null } }), null, "Inconsciente marcado à mão");
   assert.equal(effectBadge({ environment: true, periodic: true, anchored: true }), null, "perigo do Ambiente: enquanto estiver lá");
   assert.equal(effectBadge({ curse: true, rounds: 5 }), null);
+});
+
+test("Fim do combate: rodadas que faltam contam o turno (efeito com pedaço de rodada não fica preso)", () => {
+  // Medo de 2 rodadas posto no turno 3 da rodada 1; combate de 5 combatentes encerrado no turno 2 da rodada 3.
+  const left = roundsLeftFromStart({ startRound: 1, startTurn: 3, value: 2, round: 3, turn: 2, turns: 5 });
+  assert.ok(left > 0 && left < 1, "ainda falta um pedaço de rodada");
+  assert.deepEqual(effectBadge({ rounds: left }), { text: "1", tone: "time" }, "entra na lista do Fim do combate");
+  assert.equal(roundsLeftFromStart({ startRound: 1, startTurn: 3, value: 2, round: 3, turn: 3, turns: 5 }), 0, "no turno em que vence: 0");
+  assert.equal(roundsLeftFromStart({ startRound: 1, startTurn: 0, value: 3, round: 2, turn: 0, turns: 4 }), 2);
+  assert.equal(roundsLeftFromStart({ startRound: 1, value: 2, round: 9, turns: 4 }), 0, "nunca negativo");
+  assert.equal(roundsLeftFromStart({ startRound: "x", value: 2, round: 1 }), null);
 });
 
 test("Fim do combate: XP sugerida pelos derrotados, dividida, e quais efeitos entram na lista", () => {

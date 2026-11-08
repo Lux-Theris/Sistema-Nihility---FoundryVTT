@@ -25,18 +25,22 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget } =
 
   // Caído/Inconsciente (só Personagem): avisa antes de pedir Sub-Skill ou alvo. Desligar uma Ativa
   // continua possível (ela já foi desligada ao cair, mas uma ligada à mão depois pode ser desligada).
-  if (actor.type === "character") {
-    const usingMech = skill.system.subSkills?.length ? null : skill.system;
-    if (!(usingMech?.hasUpkeep && usingMech.active) && blockIfIncapacitated(actor, "usar Habilidades")) return;
+  // Com Sub-Skills, a escolha abre se alguma estiver ligada; a escolhida é conferida depois.
+  const subSkills = skill.system.subSkills ?? [];
+  const isOnToggle = m => Boolean(m?.hasUpkeep && m.active);
+  const incapacitatedCheck = actor.type === "character";
+  if (incapacitatedCheck) {
+    const canStillDeactivate = subSkills.length ? subSkills.some(isOnToggle) : isOnToggle(skill.system);
+    if (!canStillDeactivate && blockIfIncapacitated(actor, "usar Habilidades")) return;
   }
 
-  const subSkills = skill.system.subSkills ?? [];
   let subSkillIndex = null;
   let mech = skill.system;
   if (subSkills.length) {
     subSkillIndex = await promptSubSkillChoice(skill, subSkills);
     if (subSkillIndex === null) return; // cancelou
     mech = subSkills[subSkillIndex];
+    if (incapacitatedCheck && !isOnToggle(mech) && blockIfIncapacitated(actor, "usar Habilidades")) return;
   }
 
   const mode = skillUseMode(mech, { areaEnabled: isAreaEffectsEnabled(), areaSupported: areaEffectsSupported() });

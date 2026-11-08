@@ -17,6 +17,7 @@ import { structuresOnScene, removeStructureInstance } from "../structures/struct
 import { zonesOnScene } from "../combat/area-effects.js";
 import { beginSkillUse, endSkillUse, currentSkillUseId } from "./skill-use-context.js";
 import { reportError } from "../helpers/report.js";
+import { deleteKeyUpdate } from "../helpers/foundry-compat.js";
 import {
   UNDO_VITAL_PATHS,
   UNDO_ITEM_PATHS,
@@ -321,7 +322,7 @@ async function revertActor(entry) {
     if (sum > total) update[SHIELD_PATH] = sum;
   }
   for (const [key, [before]] of fieldPairs(entry.flags)) {
-    if (before === null) update[`flags.${SYSTEM_ID}.-=${key}`] = null;
+    if (before === null) Object.assign(update, deleteKeyUpdate(`flags.${SYSTEM_ID}.${key}`));
     else update[`flags.${SYSTEM_ID}.${key}`] = before;
   }
   if (Object.keys(update).length) await actor.update(update, options());

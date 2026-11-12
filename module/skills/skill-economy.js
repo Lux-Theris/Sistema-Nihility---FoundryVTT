@@ -272,6 +272,8 @@ export async function evolveSkill(actor, sourceItemId, newSkillData) {
       effects: newSkillData.effects,
       targetType: newSkillData.targetType,
       structureId: newSkillData.structureId,
+      structureRegen: newSkillData.structureRegen,
+      structureRegenCost: newSkillData.structureRegenCost,
       areaShape: newSkillData.areaShape,
       areaDistance: newSkillData.areaDistance,
       areaAngle: newSkillData.areaAngle,

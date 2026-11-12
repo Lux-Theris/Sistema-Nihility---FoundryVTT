@@ -270,7 +270,7 @@ export async function fireStarshipWeapon(sourceActor, weaponModule, targetActor 
     if (scale !== 1) flavor += ` — escala ×${formatScale(scale)}`;
     const situational = situationalDamageFactor(sourceActor, targetActor, mech);
     const beforeStructure = boostedTotal * scale * situational;
-    const blocked = await throughStructures(sourceActor, targetActor, beforeStructure, { elementIds: mech.damageElements });
+    const blocked = await throughStructures(sourceActor, targetActor, beforeStructure, { elementIds: mech.damageElements, absolute: mech.isAbsoluteDamage });
     const scaledTotal = blocked.damage;
     flavor += blocked.note;
     // Rastro só do Mestre (ver renderDamageTrace); "Rolagem" aqui já inclui throttle e bônus de arma.

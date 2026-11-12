@@ -27,7 +27,9 @@ import {
   healBlockFactor,
   skillIsMagic,
   dispelledEffects,
-  isSuppressedBy
+  isSuppressedBy,
+  fieldSuppressionPlan,
+  effectEndedByField
 } from "../module/core/magic-rules.js";
 import { normalizeRegen, sumRegen, regenAmount } from "../module/core/regen-rules.js";
 import { normalizeCurse, curseCostRound, curseScaled } from "../module/core/curse-rules.js";
@@ -345,4 +347,16 @@ test("Fim do combate: XP sugerida pelos derrotados, dividida, e quais efeitos en
   assert.deepEqual(endCombatEffectChoice({ text: "∞", tone: "anchor" }), { listed: false, checked: false }, "Skill Ativa ligada não entra");
   assert.deepEqual(endCombatEffectChoice({ text: "35", tone: "radiation" }), { listed: false, checked: false });
   assert.deepEqual(endCombatEffectChoice(null), { listed: false, checked: false });
+});
+
+test("Campo de antimagia: Supressão do campo dura enquanto o Token está dentro; efeito que acabaria na hora", () => {
+  assert.equal(fieldSuppressionPlan({ fieldLevel: 3, existingLevel: null }), "create");
+  assert.equal(fieldSuppressionPlan({ fieldLevel: 3, existingLevel: 3 }), "keep", "não regrava a cada passo");
+  assert.equal(fieldSuppressionPlan({ fieldLevel: 5, existingLevel: 3 }), "update");
+  assert.equal(fieldSuppressionPlan({ fieldLevel: 0, existingLevel: 3 }), "remove", "saiu do campo");
+  assert.equal(fieldSuppressionPlan({ fieldLevel: 0, existingLevel: null }), "none");
+  assert.equal(effectEndedByField({ magic: true, level: 3, fieldLevel: 3 }), true);
+  assert.equal(effectEndedByField({ magic: true, level: 4, fieldLevel: 3 }), false, "acima do campo sobrevive");
+  assert.equal(effectEndedByField({ magic: false, level: 1, fieldLevel: 3 }), false);
+  assert.equal(effectEndedByField({ magic: true, level: 1, fieldLevel: 0 }), false);
 });

@@ -263,6 +263,8 @@ function skillMechanicsFields() {
     targetType: new fields.StringField({ required: false, initial: "targeted", choices: ["targeted", "self", "emission", "zone", "structure"] }),
     /** Só pra Mecânica "structure": id do catálogo de Estruturas (getStructures em config.js). */
     structureId: new fields.StringField({ required: false, initial: "", blank: true }),
+    structureRegen: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+    structureRegenCost: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
     // `blank: true` é obrigatório aqui: um StringField com `choices` some com o `blank: true`
     // implícito que todo StringField normal tem — sem isso, o próprio "" inicial falha a
     // validação ("may not be a blank string") assim que o campo não é setado explicitamente.
@@ -429,6 +431,8 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
 
       /** Só pra Mecânica "structure": id do catálogo de Estruturas (getStructures em config.js). */
       structureId: new fields.StringField({ required: false, initial: "", blank: true }),
+      structureRegen: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+      structureRegenCost: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
 
       /** Só relevante quando targetType === "emission". "" = ainda não configurada. */
       // `blank: true` é obrigatório aqui: um StringField com `choices` some com o `blank: true`

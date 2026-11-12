@@ -7,6 +7,8 @@
  * (tamanho ÷ grid.distance × grid.size).
  */
 
+import { areaContains, areaPolygon } from "../combat/area-geometry.js";
+
 /** Comprimento de uma polilinha. */
 export function polylineLength(points) {
   let total = 0;
@@ -177,4 +179,93 @@ export function segmentsCross(a, b) {
     }
   }
   return false;
+}
+
+/** Distância do ponto ao segmento mais perto (pixels). Sem segmentos: Infinity. Pura. */
+export function distanceToSegments([px, py], segments) {
+  let best = Infinity;
+  for (const [x1, y1, x2, y2] of segments ?? []) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len2 = dx * dx + dy * dy;
+    const t = len2 ? Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / len2)) : 0;
+    best = Math.min(best, Math.hypot(px - (x1 + dx * t), py - (y1 + dy * t)));
+  }
+  return best;
+}
+
+/** O corpo (círculo de raio `radiusPx` em volta do centro) encosta em algum segmento? Pura. */
+export function touchesSegments(center, radiusPx, segments, tolerancePx = 0) {
+  return distanceToSegments(center, segments) <= Math.max(0, Number(radiusPx) || 0) + Math.max(0, Number(tolerancePx) || 0);
+}
+
+/** Material da Estrutura: o guardado, senão Vida 0 = etérea e o resto física. Pura. */
+export function structureMaterial(material, hp) {
+  if (material === "physical" || material === "ethereal") return material;
+  return Number(hp) === 0 ? "ethereal" : "physical";
+}
+
+/** A Vida é a Mana de quem ergueu? O campo, senão Vida 0 que segura ataques. Pura. */
+export function structureManaPowered(manaPowered, hp, blocksAttacks) {
+  if (typeof manaPowered === "boolean") return manaPowered;
+  return Number(hp) === 0 && blocksAttacks !== false;
+}
+
+/**
+ * Quem o ataque pode atravessar sem a Estrutura segurar? Física segura todo mundo; etérea deixa
+ * passar quem ergueu e os aliados (mesma disposição do Token). Sem disposição guardada (registro
+ * antigo), só quem ergueu passa. Pura.
+ */
+export function structureLetsPass({ material, isCaster, attackerDisposition, casterDisposition }) {
+  if (material !== "ethereal") return false;
+  if (isCaster) return true;
+  if (casterDisposition === undefined || casterDisposition === null || attackerDisposition === undefined || attackerDisposition === null) return false;
+  return Number(attackerDisposition) === Number(casterDisposition);
+}
+
+/**
+ * Regeneração de Estrutura mantida: ferida e com energia paga o custo e recupera até `regen`,
+ * sem passar do teto. Cheia, sem regen ou sem energia: não muda nada. Pura.
+ */
+export function structureRegenStep({ hp, hpMax, regen, cost, energy }) {
+  const h = Number(hp) || 0;
+  const max = Number(hpMax) || 0;
+  const gain = Math.max(0, Number(regen) || 0);
+  const price = Math.max(0, Number(cost) || 0);
+  if (h >= max || gain <= 0 || (Number(energy) || 0) < price) return { hp: h, paid: 0 };
+  return { hp: Math.min(max, h + gain), paid: price };
+}
+
+/**
+ * O que a Antimagia (de Skill ou de campo) faz a uma Estrutura: "remove" (some), "unsupport" (fica de
+ * pé com Vida 1, solta da Skill) ou "keep" (nada). Só mexe no que é mágico ou mantido por Skill, e
+ * só com nível da Estrutura ≤ alcance. Etérea e movida a Mana somem; a física perde o sustento.
+ * Matéria comum, sem magia e sem Skill por trás, é de verdade: fica. Pura.
+ */
+export function antimagicStructureOutcome({ magic = false, material = "physical", sustained = false, manaPowered = false, level = 0, reach = 0 } = {}) {
+  if ((Number(level) || 0) > (Number(reach) || 0)) return "keep";
+  if (!magic && !sustained && !manaPowered) return "keep";
+  if (manaPowered || material === "ethereal") return "remove";
+  return "unsupport";
+}
+
+/**
+ * Uma área (Emissão: círculo, cone ou linha) toca a Estrutura? Algum ponto dela dentro da área, um
+ * muro cruzando a borda, ou a origem da área dentro de uma forma fechada. Pura.
+ * @param {object} area - área normalizada (area-geometry.js)
+ * @param {number[][]} segments - segmentos [x1, y1, x2, y2]
+ * @param {boolean} closed - forma fechada (círculo/quadrado)
+ */
+export function areaTouchesStructure(area, segments, closed = false) {
+  if (!area || !segments?.length) return false;
+  if (closed && pointInSegments([area.x, area.y], segments)) return true;
+  for (const [x1, y1, x2, y2] of segments) {
+    if (areaContains(area, { x: x1, y: y1 }) || areaContains(area, { x: x2, y: y2 }) || areaContains(area, { x: (x1 + x2) / 2, y: (y1 + y2) / 2 })) return true;
+  }
+  if (area.shape === "circle" && distanceToSegments([area.x, area.y], segments) <= area.radius) return true;
+  const poly = areaPolygon(area);
+  const edges = [];
+  for (let i = 0; i + 1 < poly.length / 2; i++) edges.push([poly[i * 2], poly[i * 2 + 1], poly[i * 2 + 2], poly[i * 2 + 3]]);
+  if (poly.length >= 6) edges.push([poly[poly.length - 2], poly[poly.length - 1], poly[0], poly[1]]);
+  return segmentsCross(segments, edges);
 }

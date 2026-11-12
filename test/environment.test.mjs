@@ -14,7 +14,9 @@ import {
   resolveManaDensity,
   wantedSceneFx,
   sceneFxPlan,
-  fxPresetLabel
+  fxPresetLabel,
+  castPowerFromDensity,
+  densitySustainsMagic
 } from "../module/environment/environment-rules.js";
 import {
   normalizeRadiationSource,
@@ -98,4 +100,15 @@ test("Radiação: sobe rápido numa fonte forte, para no teto, cai fora e o dano
   const outside = simulateRadiation(5, 0, 50, { ...cfg, perLevel: 1 });
   assert.equal(outside.level, 0);
   assert.equal(outside.damage, 4 + 3 + 2 + 1, "fora: o dano vai diminuindo até zerar");
+});
+
+test("Mana interna: densidade não impede lançar, só reforça; Ativa mágica não se sustenta em 0", () => {
+  assert.equal(castPowerFromDensity(0), 1, "mana rarefeita não enfraquece");
+  assert.equal(castPowerFromDensity(0.3), 1);
+  assert.equal(castPowerFromDensity(1), 1);
+  assert.equal(castPowerFromDensity(2.5), 2.5, "mana densa reforça");
+  assert.equal(castPowerFromDensity(undefined), 1);
+  assert.equal(densitySustainsMagic(0), false);
+  assert.equal(densitySustainsMagic(0.2), true);
+  assert.equal(densitySustainsMagic(3), true);
 });

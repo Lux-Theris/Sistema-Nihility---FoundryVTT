@@ -145,3 +145,19 @@ export function resolveManaDensity({ worldDefault = 1, scene = null, areas = [] 
   if (sceneValue !== null) return sceneValue;
   return normalizeDensity(worldDefault) ?? 1;
 }
+
+/**
+ * Força de uma magia conforme a densidade de mana do lugar. Mana interna: quem lança usa a PRÓPRIA
+ * Mana, então mana rarefeita não enfraquece nem impede o lançamento; mana densa ainda reforça.
+ * Pura.
+ */
+export function castPowerFromDensity(density) {
+  const d = Number(density);
+  return Number.isFinite(d) ? Math.max(1, d) : 1;
+}
+
+/** Uma Habilidade Ativa mágica se sustenta neste lugar? Densidade 0 = não. Pura. */
+export function densitySustainsMagic(density) {
+  const d = Number(density);
+  return !Number.isFinite(d) || d > 0;
+}

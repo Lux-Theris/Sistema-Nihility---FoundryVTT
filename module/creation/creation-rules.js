@@ -14,7 +14,7 @@ import { resolveSpeciesTemplate } from "../species/species-rules.js";
 export const REQUEST_MECHANIC_FIELDS = [
   "cost", "hasUpkeep", "upkeepCost", "variableMana", "magicTag", "animationPath", "description", "resistanceTarget",
   "effectType", "damageFormula", "scalingAttribute", "isMagicDamage", "isAbsoluteDamage", "damageScale", "damageElements", "effects",
-  "targetType", "structureId", "areaShape", "areaDistance", "areaAngle", "zoneRounds"
+  "targetType", "structureId", "structureRegen", "structureRegenCost", "areaShape", "areaDistance", "areaAngle", "zoneRounds"
 ];
 
 /** Pedido que ainda pode mudar: aguardando o Mestre, ou devolvido para ajustar. */

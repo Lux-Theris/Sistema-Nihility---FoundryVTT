@@ -9,7 +9,9 @@ import { worldActors, actorsFromUuids } from "../helpers/world-actors.js";
 import { escapeHtml } from "../helpers/html.js";
 import { removeZonesFor } from "../combat/area-effects.js";
 import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
-import { removeStructuresFor, antimagicLevelAt } from "../structures/structures.js";
+import { removeStructuresFor, antimagicLevelAt, regenerateSustainedStructures } from "../structures/structures.js";
+import { manaDensityFor } from "../environment/environment.js";
+import { densitySustainsMagic } from "../environment/environment-rules.js";
 import { isShipLike } from "../starship/ship-damage.js";
 import { skillStateUpdate, energyValuePath, currentEnergyValue } from "./skill-state.js";
 import { regenerateSustainedShields, dropSustainedShields } from "./sustained-shields.js";
@@ -339,15 +341,33 @@ async function enforceShipUpkeepCapacity(actor, sources) {
  * @param {Actor} actor
  */
 export async function tickActorUpkeepSkills(actor) {
-  const sources = collectActiveUpkeepSources(actor);
+  let sources = collectActiveUpkeepSources(actor);
   if (!sources.length) return [];
 
   const shipLike = isShipLike(actor);
+  // Mana interna: onde não há mana (densidade 0) nenhuma Habilidade Ativa mágica se sustenta. Desliga
+  // antes de cobrar, pelo mesmo caminho da manutenção que falha (solta os efeitos e as Estruturas).
+  if (!shipLike) {
+    const density = manaDensityFor(actor);
+    if (!densitySustainsMagic(density)) {
+      const dropped = sources.filter(source => isMagicUse(source.subSkillIndex != null ? source.skill.system.subSkills?.[source.subSkillIndex] : source.skill.system, actor));
+      if (dropped.length) {
+        for (const source of dropped) await deactivateUpkeepSource(source);
+        sources = sources.filter(source => !dropped.includes(source));
+        await ChatMessage.create({
+          speaker: ChatMessage.getSpeaker({ actor }),
+          content: `<p><strong>${escapeHtml(actor.name)}</strong> está onde não há mana: ${dropped.map(s => escapeHtml(s.label)).join(", ")} desligada(s).</p>`
+        });
+        if (!sources.length) return [];
+      }
+    }
+  }
   // Sem pool de Mana/Energia não há o que drenar nem o que desativar por falta de recurso: a
   // Habilidade Ativa vira um liga/desliga puramente narrativo (ver `energyPoolEnabled`). O Escudo
   // mantido regenera do mesmo jeito.
   if (!shipLike && !isEnergyPoolEnabled()) {
     await regenerateSustainedShields(actor);
+    await regenerateSustainedStructures(actor);
     return [];
   }
   // Antimagia: Skill Ativa mágica dentro de um campo (ou sob Selo) paga o custo extra por rodada.
@@ -367,6 +387,7 @@ export async function tickActorUpkeepSkills(actor) {
   const results = shipLike ? await enforceShipUpkeepCapacity(actor, sources) : await drainCharacterUpkeep(actor, sources);
   // Depois do dreno: Skill que caiu por falta de Mana já tirou os Escudos dela, e não regenera.
   await regenerateSustainedShields(actor);
+  await regenerateSustainedStructures(actor);
 
   const energyLabel = escapeHtml(getEnergyLabelForActor(actor));
   // Nave não "perde" a energia do upkeep — ela fica reservada enquanto a Skill estiver ligada

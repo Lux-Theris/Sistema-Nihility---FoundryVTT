@@ -86,6 +86,8 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
   if (effectType === "structure") {
     out.structureId = structures.has(m.structureId) ? m.structureId : "";
     if (!out.structureId) effectType = "none";
+    out.structureRegen = out.hasUpkeep ? clampInt(m.structureRegen, 0, 9999, 0) : 0;
+    out.structureRegenCost = out.hasUpkeep ? clampInt(m.structureRegenCost, 0, 9999, 0) : 0;
   }
 
   const targetType = ["targeted", "self", "emission", "zone"].includes(m.targetType) ? m.targetType : "targeted";

@@ -188,6 +188,8 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     effects: Array.isArray(initialData.effects) ? foundry.utils.deepClone(initialData.effects) : [],
     targetType: initialData.targetType ?? "targeted",
     structureId: initialData.structureId ?? "",
+    structureRegen: Number(initialData.structureRegen) || 0,
+    structureRegenCost: Number(initialData.structureRegenCost) || 0,
     areaShape: initialData.areaShape ?? "",
     areaDistance: initialData.areaDistance ?? 0,
     areaAngle: initialData.areaAngle ?? 53,
@@ -411,6 +413,10 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
       <div class="mechanic-panel se-structure-panel">
         <div class="form-group"><label>Estrutura</label><select name="structureId">${structureOptions}</select>
           <span class="hint-inline">Formato, tamanho e Vida vêm do catálogo (Configurações Gerais › Estruturas). Skill Ativa com Estrutura sem prazo: ela fica até a Skill ser desligada.</span>
+        </div>
+        <div class="row-2 se-regen-field" style="display:${data.hasUpkeep ? "flex" : "none"};">
+          <div class="form-group"><label title="No início do seu turno, depois da manutenção, a Estrutura ferida recupera esta Vida, sem passar do teto">Regenera (Vida/rodada)</label><input type="number" name="structureRegen" value="${data.structureRegen}" min="0"/></div>
+          <div class="form-group"><label title="${energyLabel} paga para recuperar; sem ferida não custa, sem ${energyLabel} não regenera">Custo da regeneração</label><input type="number" name="structureRegenCost" value="${data.structureRegenCost}" min="0"/></div>
         </div>
       </div>
 
@@ -642,7 +648,9 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
   const upkeepEnable = root.querySelector('[name="hasUpkeep"]');
   const upkeepField = root.querySelector(".se-upkeep-field");
   const tempUpkeepNote = root.querySelector(".se-temp-upkeep-note");
+  const regenField = root.querySelector(".se-regen-field");
   function applyUpkeepEnable() {
+    if (regenField) regenField.style.display = upkeepEnable.checked ? "flex" : "none";
     upkeepField.style.display = upkeepEnable.checked ? "flex" : "none";
     tempUpkeepNote.style.display = upkeepEnable.checked ? "block" : "none";
   }
@@ -899,6 +907,8 @@ function readSkillEditorForm(root, lockTier) {
     effectType,
     targetType,
     structureId: effectType === "structure" ? root.querySelector('[name="structureId"]').value : "",
+    structureRegen: effectType === "structure" && hasUpkeep ? Math.max(0, Number(root.querySelector('[name="structureRegen"]')?.value) || 0) : 0,
+    structureRegenCost: effectType === "structure" && hasUpkeep ? Math.max(0, Number(root.querySelector('[name="structureRegenCost"]')?.value) || 0) : 0,
     areaShape: isEmission ? root.querySelector('[name="areaShape"]').value : "",
     areaDistance: isEmission ? Number(root.querySelector('[name="areaDistance"]').value) || 0 : 0,
     areaAngle: isEmission ? Number(root.querySelector('[name="areaAngle"]').value) || 53 : 53,

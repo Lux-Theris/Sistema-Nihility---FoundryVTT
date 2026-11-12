@@ -185,6 +185,12 @@
             </select>
           </label>
           {{#if skillStructureSummary}}<div class="strip dim">{{skillStructureSummary}}</div>{{/if}}
+          {{#if system.hasUpkeep}}
+          <div class="g2">
+            <label class="fld"><span class="fld-label">Regenera (Vida/rodada) <span class="help" title="No início do seu turno, depois da manutenção, a Estrutura ferida recupera esta Vida (vezes o Poder do nível), sem passar do teto. Não vale para a que usa a Mana como Vida.">?</span></span><input class="num" type="number" name="system.structureRegen" value="{{system.structureRegen}}" min="0"/></label>
+            <label class="fld"><span class="fld-label">Custo da regeneração <span class="help" title="{{energyLabel}} paga para recuperar (com o desconto do nível). Estrutura sem ferida não custa nada; sem {{energyLabel}} suficiente ela não regenera, mas continua de pé.">?</span></span><input class="num" type="number" name="system.structureRegenCost" value="{{system.structureRegenCost}}" min="0"/></label>
+          </div>
+          {{/if}}
         </div>
       </div>
       {{/if}}

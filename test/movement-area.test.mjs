@@ -24,7 +24,15 @@ import {
   firstStructureOnPath,
   splitStructureHit,
   pointInSegments,
-  segmentsCross
+  segmentsCross,
+  distanceToSegments,
+  touchesSegments,
+  structureMaterial,
+  structureManaPowered,
+  structureLetsPass,
+  structureRegenStep,
+  antimagicStructureOutcome,
+  areaTouchesStructure
 } from "../module/structures/structure-geometry.js";
 import {
   areaFromSkill,
@@ -245,4 +253,81 @@ test("Área de Skill: normalização (payload do relay), polígono, Token e Zona
   const v13 = zoneDocumentData(ray, { generation: 13, pxPerUnit: 50, color: "#00ff00", flags });
   assert.equal(v13.documentName, "MeasuredTemplate");
   assert.deepEqual([v13.data.t, v13.data.distance, v13.data.width], ["ray", 6, 2], "de volta a metros na V13");
+});
+
+test("Estrutura: encostar na parede (distância do centro ao segmento)", () => {
+  const wall = [[0, 0, 100, 0]];
+  assert.equal(distanceToSegments([50, 30], wall), 30);
+  assert.equal(distanceToSegments([-30, 40], wall), 50); // além da ponta
+  assert.equal(distanceToSegments([1, 1], []), Infinity);
+  assert.equal(touchesSegments([50, 30], 25, wall, 5), true);
+  assert.equal(touchesSegments([50, 40], 25, wall, 5), false);
+});
+
+test("Estrutura: material e Vida-vem-da-Mana com valores antigos", () => {
+  assert.equal(structureMaterial("physical", 0), "physical");
+  assert.equal(structureMaterial(undefined, 0), "ethereal");
+  assert.equal(structureMaterial(undefined, 60), "physical");
+  assert.equal(structureManaPowered(false, 0, true), false);
+  assert.equal(structureManaPowered(undefined, 0, true), true);
+  assert.equal(structureManaPowered(undefined, 0, false), false);
+  assert.equal(structureManaPowered(undefined, 30, true), false);
+});
+
+test("Estrutura: quem atravessa a barreira", () => {
+  const base = { casterDisposition: 1, attackerDisposition: 1 };
+  assert.equal(structureLetsPass({ material: "physical", isCaster: true, ...base }), false);
+  assert.equal(structureLetsPass({ material: "ethereal", isCaster: true, ...base }), true);
+  assert.equal(structureLetsPass({ material: "ethereal", isCaster: false, ...base }), true);
+  assert.equal(structureLetsPass({ material: "ethereal", isCaster: false, casterDisposition: 1, attackerDisposition: -1 }), false);
+  // Registro antigo sem disposição: só quem ergueu passa.
+  assert.equal(structureLetsPass({ material: "ethereal", isCaster: false, attackerDisposition: 1 }), false);
+  assert.equal(structureLetsPass({ material: "ethereal", isCaster: true, attackerDisposition: 1 }), true);
+});
+
+test("Estrutura: regeneração paga só se ferida e com energia, sem passar do teto", () => {
+  assert.deepEqual(structureRegenStep({ hp: 10, hpMax: 60, regen: 20, cost: 5, energy: 9 }), { hp: 30, paid: 5 });
+  assert.deepEqual(structureRegenStep({ hp: 50, hpMax: 60, regen: 20, cost: 5, energy: 9 }), { hp: 60, paid: 5 });
+  assert.deepEqual(structureRegenStep({ hp: 60, hpMax: 60, regen: 20, cost: 5, energy: 9 }), { hp: 60, paid: 0 });
+  assert.deepEqual(structureRegenStep({ hp: 10, hpMax: 60, regen: 20, cost: 5, energy: 4 }), { hp: 10, paid: 0 });
+  assert.deepEqual(structureRegenStep({ hp: 10, hpMax: 60, regen: 0, cost: 5, energy: 9 }), { hp: 10, paid: 0 });
+});
+
+/* -------------------------------------------- */
+/*  Antimagia contra Estruturas                  */
+/* -------------------------------------------- */
+
+test("Antimagia: o que acontece com cada Estrutura", () => {
+  const base = { level: 3, reach: 5 };
+  // Etérea mágica some; etérea só mantida por Skill também.
+  assert.equal(antimagicStructureOutcome({ ...base, magic: true, material: "ethereal" }), "remove");
+  assert.equal(antimagicStructureOutcome({ ...base, sustained: true, material: "ethereal" }), "remove");
+  // Física mantida por Skill perde o sustento (Vida 1); a mágica solta também.
+  assert.equal(antimagicStructureOutcome({ ...base, sustained: true, material: "physical" }), "unsupport");
+  assert.equal(antimagicStructureOutcome({ ...base, magic: true, material: "physical" }), "unsupport");
+  // Matéria de verdade, sem magia nem Skill por trás: fica.
+  assert.equal(antimagicStructureOutcome({ ...base, material: "physical" }), "keep");
+  assert.equal(antimagicStructureOutcome({ ...base, material: "ethereal" }), "keep");
+  // Barreira de Mana sempre some.
+  assert.equal(antimagicStructureOutcome({ ...base, manaPowered: true, material: "physical" }), "remove");
+  // Nível maior que o alcance resiste; igual não.
+  assert.equal(antimagicStructureOutcome({ magic: true, material: "ethereal", level: 6, reach: 5 }), "keep");
+  assert.equal(antimagicStructureOutcome({ magic: true, material: "ethereal", level: 5, reach: 5 }), "remove");
+  assert.equal(antimagicStructureOutcome({ magic: true, material: "ethereal", reach: 1 }), "remove", "registro sem nível conta 0");
+});
+
+test("Antimagia: a área toca a Estrutura?", () => {
+  const wall = [[100, 0, 100, 200]];
+  const circleBox = [[0, 0, 300, 0], [300, 0, 300, 300], [300, 300, 0, 300], [0, 300, 0, 0]];
+  const near = normalizeArea({ shape: "circle", x: 60, y: 100, radius: 50, angle: 0, direction: 0, width: 0 });
+  const far = normalizeArea({ shape: "circle", x: -200, y: 100, radius: 50, angle: 0, direction: 0, width: 0 });
+  assert.equal(areaTouchesStructure(near, wall), true);
+  assert.equal(areaTouchesStructure(far, wall), false);
+  // Linha que cruza o muro sem ter nenhum ponto do muro por perto do eixo.
+  const ray = normalizeArea({ shape: "ray", x: 0, y: 100, radius: 400, angle: 0, direction: 0, width: 10 });
+  assert.equal(areaTouchesStructure(ray, wall), true);
+  // Dentro de uma forma fechada, sem encostar nas bordas: conta pela origem.
+  const inside = normalizeArea({ shape: "circle", x: 150, y: 150, radius: 10, angle: 0, direction: 0, width: 0 });
+  assert.equal(areaTouchesStructure(inside, circleBox, true), true);
+  assert.equal(areaTouchesStructure(inside, circleBox, false), false);
 });

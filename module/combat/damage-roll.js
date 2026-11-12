@@ -351,14 +351,16 @@ function damageFlavorPrefix(mech, label) {
 /**
  * Estrutura no caminho (parede, barreira): ela segura o golpe primeiro, até a própria Vida — ou a
  * Mana de quem conjurou, numa barreira de mana — e só o resto chega no alvo, ANTES das defesas
- * dele. Vale até pra Dano Absoluto: a parede não *resiste* ao golpe, ela está na frente dele.
+ * dele. Vale até pra Dano Absoluto contra Estrutura FÍSICA (a parede não *resiste*, está na frente);
+ * a ETÉREA o Dano Absoluto desfaz e o golpe passa inteiro.
  * @returns {Promise<{damage: number, note: string}>}
  */
-export async function throughStructures(attacker, targetActor, damage, { origin = null, elementIds = [] } = {}) {
+export async function throughStructures(attacker, targetActor, damage, { origin = null, elementIds = [], absolute = false } = {}) {
   const block = interceptingStructure(attacker, targetActor, { origin });
   if (!block) return { damage, note: "", impact: null };
-  const { absorbed, passed, label, point } = await hitStructure(block, damage, elementIds, targetActor);
-  return { damage: passed, note: absorbed ? ` — ${escapeHtml(label)} bloqueou ${absorbed}` : "", impact: point };
+  const { absorbed, passed, label, point, broken } = await hitStructure(block, damage, elementIds, targetActor, { absolute });
+  const note = broken ? ` — ${escapeHtml(label)} se desfez com o golpe` : absorbed ? ` — ${escapeHtml(label)} bloqueou ${absorbed}` : "";
+  return { damage: passed, note, impact: point };
 }
 
 export async function rollSkillDamage(actor, mech, label, targetActor = null, rollOptions = null) {
@@ -418,7 +420,7 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
     await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor }), flavor: `${flavor} — ${escapeHtml(targetActor.name)}: sem efeito (Suprimido)` });
     return { roll, finalDamage: 0 };
   }
-  const blocked = targetActor ? await throughStructures(actor, targetActor, rawDamage, { elementIds: mech.damageElements }) : { damage: rawDamage, note: "", impact: null };
+  const blocked = targetActor ? await throughStructures(actor, targetActor, rawDamage, { elementIds: mech.damageElements, absolute: Boolean(mech.isAbsoluteDamage) }) : { damage: rawDamage, note: "", impact: null };
   const scaledDamage = blocked.damage;
   const traceRows = attackTraceRows({ rolled: roll.total, boosted: boostedTotal, scale, situational, beforeStructure: rawDamage, arriving: scaledDamage });
   flavor += blocked.note;
@@ -613,9 +615,10 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
     const block = interceptingStructure(actor, targetActor, { origin });
     if (block) {
       if (!shielded.has(block.instance.id)) {
-        const { absorbed, passed, label: wall } = await hitStructure(block, targetDamage, mech.damageElements, targetActor);
+        const { absorbed, passed, label: wall, broken } = await hitStructure(block, targetDamage, mech.damageElements, targetActor, { absolute: Boolean(mech.isAbsoluteDamage) });
         shielded.set(block.instance.id, targetDamage > 0 ? passed / targetDamage : 1);
-        if (absorbed) blockedNotes.push(`${escapeHtml(wall)} bloqueou ${absorbed}`);
+        if (broken) blockedNotes.push(`${escapeHtml(wall)} se desfez com o golpe`);
+        else if (absorbed) blockedNotes.push(`${escapeHtml(wall)} bloqueou ${absorbed}`);
       }
       targetDamage = Math.round(targetDamage * shielded.get(block.instance.id));
     }

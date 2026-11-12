@@ -7,6 +7,7 @@ import { buildAffinityMatrix, elementAncestors } from "../../combat/damage-rules
 import { MEU_SISTEMA, SYSTEM_ID } from "./constants.js";
 import { getFeatureOption } from "./features.js";
 import { normalizeLightConfig } from "./rules.js";
+import { structureMaterial, structureManaPowered } from "../../structures/structure-geometry.js";
 import { createRawCache, memoByObject } from "./cache.js";
 import { normalizeArchetype } from "../../npc/npc-generator-rules.js";
 import { normalizeSkillTemplate } from "../../skills/skill-template-rules.js";
@@ -557,7 +558,11 @@ export function getStructures() {
     elements: Array.isArray(s.elements) ? s.elements.filter(e => typeof e === "string" && e) : [],
     magic: Boolean(s.magic),
     antimagicLevel: Math.max(0, Math.round(Number(s.antimagicLevel) || 0)),
-    contactDamage: typeof s.contactDamage === "string" ? s.contactDamage.trim() : ""
+    contactDamage: typeof s.contactDamage === "string" ? s.contactDamage.trim() : "",
+    // Física × Etérea (Dano Absoluto quebra a etérea) e "a Vida é a Mana de quem ergueu"; catálogos
+    // antigos sem os campos caem na regra pela Vida (ver structure-geometry.js).
+    material: structureMaterial(s.material, Math.max(0, Math.round(Number(s.hp) || 0))),
+    manaPowered: structureManaPowered(s.manaPowered, Math.max(0, Math.round(Number(s.hp) || 0)), s.blocksAttacks)
   })));
 }
 

@@ -73,3 +73,24 @@ export function isSuppressedBy(level, suppression) {
   if (suppression === null || suppression === undefined) return false;
   return (Number(level) || 0) <= Number(suppression);
 }
+
+/**
+ * Supressão do campo de antimagia: o que fazer com a que o Token carrega, dado o nível do campo em
+ * que ele está agora (0 = fora de qualquer campo) e o nível da que já existe (null = nenhuma).
+ * "create"/"update" gravam, "remove" tira (saiu do campo), "keep" e "none" não fazem nada. Pura.
+ */
+export function fieldSuppressionPlan({ fieldLevel = 0, existingLevel = null } = {}) {
+  const field = Math.max(0, Math.floor(Number(fieldLevel) || 0));
+  const has = existingLevel !== null && existingLevel !== undefined;
+  if (field <= 0) return has ? "remove" : "none";
+  if (!has) return "create";
+  return Number(existingLevel) === field ? "keep" : "update";
+}
+
+/**
+ * Um efeito mágico de nível `level` sobre quem está num campo de nível `fieldLevel` seria desfeito
+ * na hora (o campo alcança até o nível dele). Pura.
+ */
+export function effectEndedByField({ magic = false, level = 0, fieldLevel = 0 } = {}) {
+  return Boolean(magic) && (Number(fieldLevel) || 0) > 0 && (Number(level) || 0) <= (Number(fieldLevel) || 0);
+}

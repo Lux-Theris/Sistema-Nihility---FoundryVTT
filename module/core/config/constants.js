@@ -276,13 +276,13 @@ export const MEU_SISTEMA = {
    * quando o Mestre remove, ou quando a Vida/Mana de quem conjurou chega a 0).
    */
   DEFAULT_STRUCTURES: [
-    { id: "stone-wall", label: "Parede de Pedra", img: "", color: "#8d8471", shape: "free", size: 10, blocksMove: true, blocksSight: true, hp: 60, durationRounds: 0 },
-    { id: "ice-block", label: "Bloco de Gelo", img: "", color: "#6ee7ff", shape: "rect", size: 2, blocksMove: true, blocksSight: false, hp: 30, durationRounds: 3 },
-    { id: "mana-barrier", label: "Barreira de Mana", img: "", color: "#c084fc", shape: "circle", size: 3, blocksMove: true, blocksSight: false, hp: 0, durationRounds: 0, magic: true },
+    { id: "stone-wall", label: "Parede de Pedra", img: "", color: "#8d8471", shape: "free", size: 10, blocksMove: true, blocksSight: true, hp: 60, durationRounds: 0, material: "physical" },
+    { id: "ice-block", label: "Bloco de Gelo", img: "", color: "#6ee7ff", shape: "rect", size: 2, blocksMove: true, blocksSight: false, hp: 30, durationRounds: 3, material: "physical" },
+    { id: "mana-barrier", label: "Barreira de Mana", img: "", color: "#c084fc", shape: "circle", size: 3, blocksMove: true, blocksSight: false, hp: 0, durationRounds: 0, magic: true, material: "ethereal", manaPowered: true },
     // Não segura golpe nenhum: queima quem atravessa (a vantagem entre elementos vale contra ela).
-    { id: "fire-wall", label: "Muralha de Fogo", img: "", color: "#ff7043", shape: "line", size: 8, blocksMove: false, blocksSight: false, blocksAttacks: false, hp: 0, durationRounds: 3, magic: true, elements: ["fire"], contactDamage: "2d6" },
+    { id: "fire-wall", label: "Muralha de Fogo", img: "", color: "#ff7043", shape: "line", size: 8, blocksMove: false, blocksSight: false, blocksAttacks: false, hp: 0, durationRounds: 3, magic: true, material: "ethereal", manaPowered: false, elements: ["fire"], contactDamage: "2d6" },
     // Campo Antimagia: ataque mágico que o atravessa (ou sai de dentro) paga Mana extra ou é anulado.
-    { id: "antimagic-field", label: "Campo Antimagia", img: "", color: "#9aa1c2", shape: "circle", size: 4, blocksMove: false, blocksSight: false, blocksAttacks: false, hp: 0, durationRounds: 3, antimagicLevel: 1 }
+    { id: "antimagic-field", label: "Campo Antimagia", img: "", color: "#9aa1c2", shape: "circle", size: 4, blocksMove: false, blocksSight: false, blocksAttacks: false, hp: 0, durationRounds: 3, antimagicLevel: 1, material: "ethereal", manaPowered: false }
   ],
   STRUCTURE_SHAPES: ["line", "free", "circle", "rect"],
 

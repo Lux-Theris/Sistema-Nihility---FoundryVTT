@@ -163,6 +163,8 @@ export async function pickAreaTargets(skill) {
   // A origem da área viaja junto (propriedade do array, então quem só lê a lista não muda): é
   // dela que se traça a linha até cada alvo pra ver se uma Estrutura está no caminho.
   actors.origin = { x: area.x, y: area.y };
+  // A área inteira também (Antimagia em Emissão desfaz as Estruturas que ela toca).
+  actors.area = area;
   return actors;
 }
 

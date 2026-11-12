@@ -122,6 +122,7 @@ test("Skill numa frase: o que faz · onde · custo · manutenção", () => {
   );
   assert.equal(skillSummary({ effectType: "temporary", targetType: "zone", areaShape: "circle", areaDistance: 4, zoneRounds: 3, effects: [{ target: "hp", amount: 0, conditionId: "poison" }] }, ctx), "Envenenado · zona de 4 m por 3 rod.");
   assert.equal(skillSummary({ effectType: "structure", structureId: "wall", cost: 15 }, ctx), "ergue Muralha · 15 Mana", "Estrutura não tem alvo");
+  assert.equal(skillSummary({ effectType: "structure", structureId: "wall", cost: 15, structureRegen: 10, structureRegenCost: 4 }, ctx), "ergue Muralha, regenera 10/rodada (−4 Mana) · 15 Mana");
   assert.equal(skillSummary({ effectType: "none", variableMana: true, cost: 10 }, ctx), "Mana variável (base 10)");
   assert.equal(skillSummary({ effectType: "none", subSkills: [{}, {}] }, ctx), "2 Sub-Skills");
   assert.equal(skillSummary({ effectType: "none", resistanceTarget: "fire" }, { ...ctx, resistance: "Resistência Fogo 30%" }), "Resistência Fogo 30%");

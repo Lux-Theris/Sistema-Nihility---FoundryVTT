@@ -69,6 +69,7 @@ export function lintSkill(mech, ctx = {}) {
   if (structure) {
     if (!m.structureId) push("noStructure", "hard", "mechanic", "Mecânica Estrutura sem Estrutura escolhida: usar não ergue nada.");
     else if (ctx.structures && !has(ctx.structures, m.structureId)) push("unknownStructure", "hard", "mechanic", `Estrutura "${m.structureId}" não existe mais no catálogo.`);
+    if ((Number(m.structureRegen) > 0 || Number(m.structureRegenCost) > 0) && !active) push("structureRegenNotActive", "hard", "mechanic", "Regeneração da Estrutura só vale em Habilidade Ativa.");
   }
 
   if (effectType === "temporary") {

@@ -36,7 +36,10 @@ function describeMechanic(mech, ctx) {
     return effects.length > 2 ? `${shown} +${effects.length - 2}` : shown;
   }
   if (mech.effectType === "structure" || mech.targetType === "structure") {
-    return `ergue ${ctx.structures?.[mech.structureId] ?? "Estrutura"}`;
+    const regen = Number(mech.structureRegen) || 0;
+    const regenCost = Number(mech.structureRegenCost) || 0;
+    const regenText = regen > 0 ? `, regenera ${regen}/rodada${regenCost ? ` (−${regenCost} ${ctx.energyLabel || "Mana"})` : ""}` : "";
+    return `ergue ${ctx.structures?.[mech.structureId] ?? "Estrutura"}${regenText}`;
   }
   return null;
 }

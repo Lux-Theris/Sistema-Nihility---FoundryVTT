@@ -42,6 +42,8 @@ export function buildSubSkillsFromSources(sources) {
         effects: foundry.utils.deepClone(source.system.effects ?? []),
         targetType: source.system.targetType,
         structureId: source.system.structureId,
+        structureRegen: source.system.structureRegen,
+        structureRegenCost: source.system.structureRegenCost,
         areaShape: source.system.areaShape,
         areaDistance: source.system.areaDistance,
         areaAngle: source.system.areaAngle,
@@ -55,7 +57,7 @@ export function buildSubSkillsFromSources(sources) {
 const GRANTED_MECHANIC_FIELDS = [
   "level", "cost", "hasUpkeep", "upkeepCost", "variableMana", "magicTag", "animationPath", "description", "resistanceTarget",
   "effectType", "damageFormula", "scalingAttribute", "isMagicDamage", "isAbsoluteDamage", "damageScale", "damageElements", "effects",
-  "targetType", "structureId", "areaShape", "areaDistance", "areaAngle", "zoneRounds", "subSkills"
+  "targetType", "structureId", "structureRegen", "structureRegenCost", "areaShape", "areaDistance", "areaAngle", "zoneRounds", "subSkills"
 ];
 
 /**

@@ -51,7 +51,8 @@ import { registerGmRelay } from "./helpers/gm-relay.js";
 import { registerInitiative } from "./combat/combat.js";
 import { registerMovementLimit } from "./combat/movement.js";
 import { registerConditionalRefresh } from "./combat/conditional-context.js";
-import { advanceStructures, collapseStructuresOfCaster, renderStructureControls, registerStructureContact } from "./structures/structures.js";
+import { registerFieldAntimagic, endMagicInsideFields } from "./combat/antimagic.js";
+import { advanceStructures, collapseStructuresOfCaster, renderStructureControls, registerStructureContact, tickStructureContact } from "./structures/structures.js";
 import { registerStructureRendering } from "./structures/structure-render.js";
 import { registerFloatingNumbers } from "./combat/floating-numbers.js";
 import { registerEffectBadges, registerSystemEffectIcons, migrateSystemEffectIcons } from "./combat/effect-badges.js";
@@ -192,6 +193,7 @@ Hooks.once("init", () => {
   registerShieldPoolReconcile();
   registerShieldAdaptationReset();
   registerStructureContact();
+  registerFieldAntimagic();
   registerFloatingNumbers();
   registerVoiceBanner();
   registerEndCombat();
@@ -787,6 +789,10 @@ Hooks.on("updateCombat", async (combat, changed, options) => {
     if (combatant.token) await syncTokenEnvironment(combatant.token);
     // Radiação (radiation.js): acumula/cai e causa o dano da rodada. Morto não.
     if (!dead && combatant.token) await tickRadiation(combatant.token);
+    // Muralha que queima: quem continua encostado nela (ou dentro) queima de novo.
+    if (!dead) await tickStructureContact(combatant);
+    // Campo de antimagia: quem começa o turno dentro dele perde o que é mágico.
+    if (!dead && combatant.token) await endMagicInsideFields(combatant.token);
   } catch (err) {
     reportError("Falha no Contágio/Ambiente no início do turno.", err, { gmOnly: true });
   }

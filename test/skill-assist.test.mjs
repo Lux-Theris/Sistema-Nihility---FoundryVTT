@@ -36,6 +36,13 @@ test("Avisos: o que não faz nada", () => {
   assert.ok(w.every(x => x.level === "hard"));
 });
 
+test("Avisos: regeneração de Estrutura exige Habilidade Ativa", () => {
+  const base = { effectType: "structure", structureId: "wall", structureRegen: 5 };
+  assert.ok(codes(lintSkill(base, {})).includes("structureRegenNotActive"));
+  assert.ok(!codes(lintSkill({ ...base, hasUpkeep: true }, {})).includes("structureRegenNotActive"));
+  assert.ok(!codes(lintSkill({ effectType: "structure", structureId: "wall" }, {})).includes("structureRegenNotActive"));
+});
+
 test("Avisos: área 0, fórmula, Estrutura, catálogo", () => {
   assert.deepEqual(codes(lintSkill({ effectType: "damage", targetType: "emission", areaDistance: 0, damageFormula: "2d6" }, {})), ["areaZero"]);
   assert.deepEqual(codes(lintSkill({ effectType: "damage", targetType: "targeted", damageFormula: "" }, {})), ["noFormula"]);

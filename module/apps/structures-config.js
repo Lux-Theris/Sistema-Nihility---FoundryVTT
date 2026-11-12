@@ -19,7 +19,7 @@ function renderStructure(values) {
     <div class="card-config-row">
       <label>Forma <select data-field="shape">${optionsHtml(shapes, values.shape ?? "line")}</select></label>
       <label title="Linha e forma livre: comprimento máximo. Círculo: raio. Quadrado: lado.">Tamanho (m) <input type="number" step="0.5" min="0.5" data-field="size" value="${values.size ?? 5}"/></label>
-      <label title="0 = barreira de mana: o dano sai da Mana de quem conjurou">Vida <input type="number" min="0" data-field="hp" value="${values.hp ?? 30}"/></label>
+      <label title="Vida da Estrutura (ignorada se a Vida for a Mana de quem ergueu)">Vida <input type="number" min="0" data-field="hp" value="${values.hp ?? 30}"/></label>
       <label title="0 = sem prazo">Duração (rodadas) <input type="number" min="0" data-field="durationRounds" value="${values.durationRounds ?? 0}"/></label>
     </div>
     <div class="card-config-row">
@@ -33,6 +33,10 @@ function renderStructure(values) {
       <label title="Para a Antimagia: Estrutura mágica dentro de um campo antimagia custa Mana extra por rodada a quem conjurou, ou se desfaz"><input type="checkbox" data-field="magic" ${values.magic ? "checked" : ""}/> Mágica</label>
       <label title="Campo antimagia: 0 = não é. Magia que atravessa, sai de dentro ou mira alguém dentro paga Mana extra (maior quanto maior o nível) ou é anulada">Antimagia (nível) <input type="number" min="0" data-field="antimagicLevel" value="${values.antimagicLevel ?? 0}"/></label>
       <label title="Fórmula rolada contra quem atravessa ou termina o movimento dentro (ex: 2d6). Vazio = nenhum">Dano ao contato <input type="text" data-field="contactDamage" value="${escapeHtml(values.contactDamage ?? "")}" placeholder="ex: 2d6"/></label>
+    </div>
+    <div class="card-config-row">
+      <label title="Física (pedra, gelo, ferro): segura o golpe, inclusive Dano Absoluto. Etérea (mana, fogo, água): o Dano Absoluto a desfaz e passa inteiro">Material <select data-field="material">${optionsHtml([["physical", "Física"], ["ethereal", "Etérea"]], values.material ?? "physical")}</select></label>
+      <label title="Marcado: o dano que ela leva sai da Mana de quem ergueu, e ela cai quando essa Mana chega a 0 (Barreira de Mana). Desmarcado: usa a Vida acima"><input type="checkbox" data-field="manaPowered" ${values.manaPowered ? "checked" : ""}/> A Vida é a Mana de quem ergueu</label>
     </div>
     <div class="card-config-row structure-elements-row">
       <span class="hint-inline" title="Golpes contra ela seguem 'Dano extra contra elemento' (Fogo +50% contra Gelo), e o dano ao contato é destes elementos">Elementos:</span>
@@ -89,6 +93,8 @@ function readStructure(card) {
     img: el("img").value.trim(),
     blocksAttacks: el("blocksAttacks").checked,
     magic: el("magic").checked,
+    material: el("material").value === "ethereal" ? "ethereal" : "physical",
+    manaPowered: el("manaPowered").checked,
     antimagicLevel: Math.max(0, Math.round(Number(el("antimagicLevel").value) || 0)),
     contactDamage: el("contactDamage").value.trim(),
     elements: readPickerField(card.querySelector(".structure-elements")),
@@ -110,7 +116,7 @@ export const StructuresConfigApp = createCardListConfigApp({
   addLabel: "+ Nova Estrutura",
   hint:
     "Estruturas viram <strong>Paredes de verdade</strong> no mapa (bloqueiam movimento e, se marcado, visão). " +
-    "<strong>Vida 0</strong> = barreira de mana: o dano sai da Mana de quem conjurou. <strong>Duração 0</strong> = sem prazo: " +
+    "<strong>A Vida é a Mana</strong> = barreira de mana: o dano sai da Mana de quem conjurou. <strong>Material</strong>: o Dano Absoluto desfaz a etérea. <strong>Duração 0</strong> = sem prazo: " +
     "com Skill Ativa, fica até desligar; senão, até o Mestre derrubar ou a Vida/Mana de quem conjurou chegar a 0. " +
     "<strong>Forma livre</strong>: quem usa a Skill desenha clicando ponto a ponto, até o tamanho máximo. " +
     "<strong>Elementos</strong>: golpes contra ela seguem o \"Dano extra contra elemento\" de quem ataca. " +

@@ -239,7 +239,7 @@ function buildLabel(instance, segments, gridSize, color, fraction) {
 /* ------------------------------------------------------------------ Queda */
 
 /** Duração de cada animação de queda, em milissegundos. */
-const FALL_DURATION = { destroyed: 1300, manaDepleted: 1100, antimagic: 1100, expired: 1600, dismissed: 1600, casterDown: 1600 };
+const FALL_DURATION = { destroyed: 1300, manaDepleted: 1100, antimagic: 1100, broken: 1100, expired: 1600, dismissed: 1600, casterDown: 1600 };
 
 /**
  * Anima a queda de uma Estrutura que acabou de sair do registro. Só visual e só neste cliente —
@@ -279,7 +279,7 @@ function playFall(scene, instance, reason, catalog) {
         shard.rotation += shard.spin;
         shard.alpha = 1 - t;
       }
-    } else if (reason === "manaDepleted" || reason === "antimagic") {
+    } else if (reason === "manaDepleted" || reason === "antimagic" || reason === "broken") {
       // Pisca cada vez mais fraco até sumir.
       group.alpha = Math.random() < 1 - t ? 0.4 + 0.6 * Math.random() * (1 - t) : 0.05;
     } else {

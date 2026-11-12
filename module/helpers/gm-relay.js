@@ -205,13 +205,13 @@ const HANDLERS = {
    * Quem pede tem de ser dono de quem atacou. O valor em si é o da rolagem desse cliente — o
    * mesmo grau de confiança de qualquer rolagem de dano.
    */
-  async damageStructure({ sceneId, instanceId, amount, attackerUuid }, user) {
+  async damageStructure({ sceneId, instanceId, amount, attackerUuid, broken }, user) {
     if (!(await mayActFor(user, attackerUuid))) return;
     const scene = typeof sceneId === "string" ? game.scenes.get(sceneId) : null;
     const value = Math.max(0, Math.round(Number(amount) || 0));
-    if (!scene || typeof instanceId !== "string" || !value) return;
+    if (!scene || typeof instanceId !== "string" || (!value && broken !== true)) return;
     const { damageStructure } = await import("../structures/structures.js");
-    await damageStructure(scene, instanceId, value);
+    await damageStructure(scene, instanceId, value, { broken: broken === true });
   },
 
   /** "Regenerar agora" da janela de Efeitos: os Escudos mantidos deste Ator (escreve nos alvos). */
@@ -265,6 +265,17 @@ const HANDLERS = {
     const { releaseSkillAnchorsAsGm } = await import("../skills/upkeep.js");
     // `requesterId` é sempre quem pediu de verdade, nunca o que veio no payload.
     await releaseSkillAnchorsAsGm({ ...payload, requesterId: user.id });
+  },
+
+  /**
+   * Antimagia em Emissão desfaz as Estruturas que a área toca. Quem pede tem de ser dono da Skill;
+   * o alcance e o tamanho da área são conferidos contra a Skill na ficha (structures.js).
+   */
+  async antimagicStructures(payload, user) {
+    const skill = await ownedDoc(payload?.skillUuid, user);
+    if (!skill) return refuse(RELAY_REASONS.permission);
+    const { antimagicStructuresAsGm } = await import("../structures/structures.js");
+    return antimagicStructuresAsGm(payload, skill);
   },
 
   /** Derruba as Estruturas que uma Skill Ativa mantinha (ao desligá-la). */

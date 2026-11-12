@@ -8,7 +8,7 @@
  * de Skill, bom ou ruim; Título, Espécie e partes naturais nunca (ver skillIsMagic e a marca Mágico).
  */
 import { SYSTEM_ID, getActiveStatusConditions, getAntimagicReach } from "../core/config.js";
-import { dispelledEffects, skillIsMagic } from "../core/magic-rules.js";
+import { dispelledEffects, skillIsMagic, fieldSuppressionPlan } from "../core/magic-rules.js";
 import { removeShieldPool, shieldPoolsOf } from "../combat/shield-pools.js";
 import { collectActiveUpkeepSources, removeUpkeepLinkedEffects } from "./upkeep.js";
 import { skillStateUpdate } from "./skill-state.js";
@@ -29,10 +29,15 @@ function skillMagicLevel(sys) {
 /**
  * Aplica a Antimagia num alvo. Devolve as linhas do resumo para o chat.
  * @param {Actor} target
- * @param {{level:number, rounds?:number}} options - `level` = nível da Skill; `rounds` = supressão (0 = até tirar)
+ * @param {{level:number, rounds?:number, reach?:number, field?:string}} options - `level` = nível da Skill;
+ *   `rounds` = supressão (0 = até tirar); `reach` = alcance direto (campo antimagia: o nível do campo,
+ *   sem o multiplicador da mesa); `field` = id da Cena do campo: a Supressão é a do campo (sem prazo,
+ *   sai quando o Token sai do campo — ver releaseFieldSuppression) e não mexe na de Skill.
+ *   O resumo traz `changed` = quantas coisas acabaram de verdade.
  */
-export async function applyAntimagic(target, { level = 0, rounds = 0 } = {}) {
-  const reach = antimagicReachLevel(level);
+export async function applyAntimagic(target, { level = 0, rounds = 0, reach: fixedReach = null, field = null } = {}) {
+  const reach = fixedReach !== null ? Math.max(0, Math.floor(Number(fixedReach) || 0)) : antimagicReachLevel(level);
+  let changed = 0;
   const summary = [];
   // XP por uso (skill-xp.js): a Antimagia ganha pelo que desligou — cada efeito cortado, cada
   // Habilidade Ativa desligada e a Supressão contam o fixo; Escudo cortado conta pelo tamanho.
@@ -46,6 +51,7 @@ export async function applyAntimagic(target, { level = 0, rounds = 0 } = {}) {
   const cut = dispelledEffects(effects.filter(e => !e.keep), reach);
   if (cut.length) {
     await target.deleteEmbeddedDocuments("ActiveEffect", cut);
+    changed += cut.length;
     for (let i = 0; i < cut.length; i++) xp.push({ flat: true });
     summary.push(`${effects.filter(e => cut.includes(e.id)).map(e => e.name).join(", ")} removido(s)`);
   }
@@ -62,6 +68,7 @@ export async function applyAntimagic(target, { level = 0, rounds = 0 } = {}) {
     if (!magic || lvl > reach) continue;
     const removed = await removeShieldPool(target, pool);
     if (removed) {
+      changed++;
       summary.push(`Escudo de ${skill.name} (−${removed})`);
       xp.push({ value: removed, base: Number(target.system?.attributes?.hp?.max) || 1 });
     }
@@ -77,21 +84,62 @@ export async function applyAntimagic(target, { level = 0, rounds = 0 } = {}) {
       await source.skill.update(skillStateUpdate(source.skill, source.subSkillIndex, { active: false }));
       await removeUpkeepLinkedEffects(source.skill, source.subSkillIndex);
       off.push(source.label);
+      changed++;
       xp.push({ flat: true });
     }
     if (off.length) summary.push(`${off.join(", ")} desligada(s)`);
   }
 
   // 4) Condição "Suprimido": renova ficando com o maior nível e a maior duração.
-  summary.push(await applySuppression(target, reach, rounds));
-  xp.push({ flat: true });
+  const suppression = await applySuppression(target, reach, rounds, { field });
+  if (suppression) {
+    summary.push(suppression);
+    xp.push({ flat: true });
+  }
   summary.xp = xp;
+  summary.changed = changed;
   return summary;
 }
 
-async function applySuppression(target, reach, rounds) {
+/** Marca da Supressão que veio de um campo antimagia (e não de uma Skill). */
+export const FIELD_SUPPRESSION_FLAG = "antimagicField";
+
+const isSuppression = e => e.flags?.[SYSTEM_ID]?.[SUPPRESSION_FLAG] !== undefined;
+const isFieldSuppression = e => e.flags?.[SYSTEM_ID]?.[FIELD_SUPPRESSION_FLAG] !== undefined;
+
+/** Tira a Supressão de campo do Ator (saiu do campo, ou o campo caiu). A de Skill nunca é tocada. */
+export async function releaseFieldSuppression(actor) {
+  const ids = (actor?.effects ?? []).filter(e => isSuppression(e) && isFieldSuppression(e)).map(e => e.id);
+  if (ids.length) await actor.deleteEmbeddedDocuments("ActiveEffect", ids);
+  return ids.length;
+}
+
+async function applyFieldSuppression(target, reach, sceneId) {
   const condition = getActiveStatusConditions().find(c => c.suppressesMagic);
-  const existing = target.effects.find(e => e.flags?.[SYSTEM_ID]?.[SUPPRESSION_FLAG] !== undefined);
+  const name = `${condition?.label ?? "Suprimido (Antimagia)"} · campo nv ${reach}`;
+  const existing = target.effects.find(e => isSuppression(e) && isFieldSuppression(e));
+  const plan = fieldSuppressionPlan({ fieldLevel: reach, existingLevel: existing ? Number(existing.flags[SYSTEM_ID][SUPPRESSION_FLAG]) || 0 : null });
+  if (plan === "update") {
+    await existing.update({ [`flags.${SYSTEM_ID}.${SUPPRESSION_FLAG}`]: reach, [`flags.${SYSTEM_ID}.sourceLevel`]: reach, [`flags.${SYSTEM_ID}.${FIELD_SUPPRESSION_FLAG}`]: { sceneId }, name });
+    return `Suprimido pelo campo (nv ${reach})`;
+  }
+  if (plan !== "create") return "";
+  await target.createEmbeddedDocuments("ActiveEffect", [
+    {
+      name,
+      img: condition?.icon || "icons/svg/cancel.svg",
+      statuses: condition ? [condition.id] : [],
+      duration: {},
+      flags: { [SYSTEM_ID]: { skillEffect: true, conditionId: condition?.id ?? "antimagic-suppressed", [SUPPRESSION_FLAG]: reach, [FIELD_SUPPRESSION_FLAG]: { sceneId }, sourceLevel: reach, magic: false } }
+    }
+  ]);
+  return `Suprimido pelo campo (nv ${reach}) enquanto estiver nele`;
+}
+
+async function applySuppression(target, reach, rounds, { field = null } = {}) {
+  if (field) return applyFieldSuppression(target, reach, field);
+  const condition = getActiveStatusConditions().find(c => c.suppressesMagic);
+  const existing = target.effects.find(e => isSuppression(e) && !isFieldSuppression(e));
   const duration = Math.max(0, Math.round(Number(rounds) || 0));
   if (existing) {
     const level = Math.max(Number(existing.flags[SYSTEM_ID][SUPPRESSION_FLAG]) || 0, reach);

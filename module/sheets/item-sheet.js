@@ -547,9 +547,10 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.skillStructureOptions = structures.map(st => ({ value: st.id, label: st.label, selected: st.id === sys.structureId }));
     const structure = structures.find(st => st.id === sys.structureId);
     if (structure) {
-      const life = structure.hp > 0 ? `Vida ${structure.hp}` : `barreira de mana (o dano sai da ${context.energyLabel} de quem ergueu)`;
+      const life = structure.manaPowered ? `barreira de mana (o dano sai da ${context.energyLabel} de quem ergueu)` : `Vida ${structure.hp}`;
+      const material = structure.material === "ethereal" ? "etérea" : "física";
       const duration = structure.durationRounds > 0 ? `${structure.durationRounds} rodada(s)` : sys.hasUpkeep ? "até desligar a Skill" : "até o Mestre derrubar";
-      context.skillStructureSummary = `${MEU_SISTEMA.STRUCTURE_SHAPE_LABELS[structure.shape] ?? structure.shape} · tamanho ${structure.size} · ${life} · ${duration}`;
+      context.skillStructureSummary = `${MEU_SISTEMA.STRUCTURE_SHAPE_LABELS[structure.shape] ?? structure.shape} · tamanho ${structure.size} · ${material} · ${life} · ${duration}`;
     }
 
     context.skillScalingOptions = scalingOptions(sys.scalingAttribute);

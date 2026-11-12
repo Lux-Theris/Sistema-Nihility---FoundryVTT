@@ -9,11 +9,12 @@
  * (`structures`), e um cartão no chat mostra a Vida e dá ao Mestre os botões de dano e remover.
  *
  * Regras (decididas com o dono):
- *  - Vida > 0: cai quando zera. **Vida 0 = barreira de mana**: o dano sai da Mana de quem conjurou.
+ *  - Vida > 0: cai quando zera. **A Vida é a Mana** (`manaPowered`): o dano sai da Mana de quem conjurou.
+ *  - Material: física (segura tudo, até Dano Absoluto) ou etérea (o Dano Absoluto a desfaz).
  *  - Duração > 0: cai ao fim das rodadas.
- *  - Duração 0 e Skill Ativa: dura até a Skill ser desligada.
- *  - Duração 0 e Skill normal: fica até o Mestre remover, ou até a Vida ou a Mana de quem conjurou
- *    chegar a 0. Barreira de mana cai sempre que a Mana de quem conjurou chega a 0.
+ *  - Duração 0 e Skill Ativa: dura até a Skill ser desligada; a física então fica com Vida 1.
+ *  - Duração 0 e Skill normal: fica até o Mestre remover. A física sobrevive a quem conjurou; a
+ *    etérea cai se a Vida ou a Mana dele chegar a 0. Movida a Mana cai sempre que a Mana zera.
  *  - Mesa sem mapa: a Skill só posta o cartão (ninguém tem onde pôr parede).
  *
  * A geometria (cortar a forma no tamanho máximo) é pura e testada: structure-geometry.js.
@@ -45,11 +46,21 @@ import {
   splitStructureHit,
   segmentCrossing,
   pointInSegments,
-  segmentsCross
+  segmentsCross,
+  touchesSegments,
+  structureMaterial,
+  structureLetsPass,
+  structureRegenStep,
+  antimagicStructureOutcome,
+  areaTouchesStructure
 } from "./structure-geometry.js";
+import { normalizeArea, tokenDocCenter } from "../combat/area-geometry.js";
 import { hitAffinityFactor } from "../combat/damage-rules.js";
 import { lightSourceData } from "../combat/lights.js";
 import { grantSkillUseXp, vitalBase } from "../skills/skill-xp.js";
+import { skillLevelBonuses, effectiveSkillCost, isEnergyPoolEnabled } from "../core/config.js";
+import { energyValuePath, currentEnergyValue } from "../skills/skill-state.js";
+import { isShipLike } from "../starship/ship-damage.js";
 
 /** A Skill que ergueu a Estrutura (uuid), pra XP por uso. Null em registros sem Skill. */
 function structureSkillUuid(instance) {
@@ -69,7 +80,8 @@ const FALL_TEXT = {
   expired: "se desfez: o prazo acabou",
   dismissed: "foi desfeita",
   casterDown: "caiu junto com quem a ergueu",
-  antimagic: "foi desfeita pela antimagia"
+  antimagic: "foi desfeita pela antimagia",
+  broken: "se desfez com o golpe absoluto"
 };
 const MAX_POINTS = 60;
 
@@ -303,6 +315,13 @@ export async function createStructureAsGm(payload) {
   );
   const lights = structure.light ? await createStructureLights(scene, structure, segments, id) : [];
 
+  // Nível da Skill (ou Sub-Skill) lido na ficha de quem usou, nunca do payload.
+  const skillItem = source.items?.get(String(payload.skillId ?? ""));
+  const subIndex = Number.isInteger(payload.subSkillIndex) ? payload.subSkillIndex : null;
+  const level = Math.max(0, Math.round(Number(subIndex !== null ? skillItem?.system?.subSkills?.[subIndex]?.level : skillItem?.system?.level) || 0));
+  // Disposição de quem ergueu: define quem a barreira etérea deixa passar (aliados).
+  const casterDisposition = actorToken(source)?.document?.disposition ?? source.prototypeToken?.disposition;
+
   const instance = {
     id,
     structureId: structure.id,
@@ -314,7 +333,10 @@ export async function createStructureAsGm(payload) {
     shape: structure.shape,
     color: structure.color,
     img: structure.img || "",
-    manaBarrier: structure.hp === 0,
+    manaBarrier: Boolean(structure.manaPowered),
+    material: structure.material,
+    level,
+    disposition: Number.isFinite(Number(casterDisposition)) ? Number(casterDisposition) : null,
     // Mana variável: a Vida da Estrutura segue a força do investimento (o payload vem de outro
     // cliente — fica limitado a uma faixa sã). Barreira de mana (Vida 0) não muda.
     hp: Math.round(structure.hp * structurePower(payload.power)),
@@ -333,6 +355,8 @@ export async function createStructureAsGm(payload) {
     useId: String(payload.useId ?? "").slice(0, 32)
   };
   await scene.setFlag(SYSTEM_ID, `${FLAG}.${id}`, instance);
+  // Nasceu dentro (ou encostada) de um campo antimagia: já vale na hora, também fora de combate.
+  await enforceAntimagicOnStructures(scene, { charge: false });
 
   // O card sai do cliente de quem pediu (requestStructure), com esta referência.
   return { ok: true, value: { sceneId: scene.id, instanceId: id } };
@@ -408,8 +432,8 @@ function structureCapacity(instance) {
 /**
  * A Estrutura entre quem ataca e o alvo, na Cena aberta — a primeira no caminho do centro de um
  * Token ao centro do outro (ou da origem da área, `origin`). `null` sem mapa, sem Token ou sem
- * nada no caminho. A Estrutura não bloqueia os ataques de quem a ergueu: quem conjura uma
- * barreira atira de dentro dela.
+ * nada no caminho. Física segura todo mundo (até quem a ergueu); etérea deixa passar quem a
+ * ergueu e os aliados dele (mesma disposição do Token).
  * @returns {{scene: Scene, instance: object, capacity: number, point: {x: number, y: number}, attackerUuid: string|null}|null}
  */
 export function interceptingStructure(attacker, target, { origin = null } = {}) {
@@ -418,7 +442,12 @@ export function interceptingStructure(attacker, target, { origin = null } = {}) 
   const targetToken = tokenOnCanvas(target, [...(game.user?.targets ?? [])]);
   const from = origin ?? tokenOnCanvas(attacker, canvas.tokens?.controlled ?? [])?.center;
   if (!targetToken || !from) return null;
-  const instances = structuresOnScene(scene).filter(i => i.sourceActorUuid !== attacker?.uuid && instanceInfo(i).blocksAttacks);
+  const attackerDisposition = tokenOnCanvas(attacker, canvas.tokens?.controlled ?? [])?.document?.disposition ?? attacker?.prototypeToken?.disposition;
+  const instances = structuresOnScene(scene).filter(i => {
+    const info = instanceInfo(i);
+    if (!info.blocksAttacks) return false;
+    return !structureLetsPass({ material: info.material, isCaster: i.sourceActorUuid === attacker?.uuid, attackerDisposition, casterDisposition: i.disposition });
+  });
   if (!instances.length) return null;
   const hit = firstStructureOnPath(
     [from.x, from.y],
@@ -437,9 +466,14 @@ export function interceptingStructure(attacker, target, { origin = null } = {}) 
  * Golpe que bate numa Estrutura: ela segura até a capacidade e o resto segue pro alvo. O dano
  * na Estrutura é gravado na hora pelo Mestre (é o ambiente, como a cascata de uma Nave); o do
  * alvo continua nos botões de Aplicar do chat.
- * @returns {{absorbed: number, passed: number, label: string, point: {x: number, y: number}}}
+ * @returns {{absorbed: number, passed: number, label: string, point: {x: number, y: number}, broken?: boolean}}
  */
-export async function hitStructure(block, amount, elementIds = [], protectedActor = null) {
+export async function hitStructure(block, amount, elementIds = [], protectedActor = null, { absolute = false } = {}) {
+  // Dano Absoluto desfaz a Estrutura etérea e passa INTEIRO; a física segura como qualquer golpe.
+  if (absolute && instanceInfo(block.instance).material === "ethereal") {
+    await runAsGm("damageStructure", { sceneId: block.scene.id, instanceId: block.instance.id, amount: 0, broken: true, attackerUuid: block.attackerUuid });
+    return { absorbed: 0, passed: amount, label: block.instance.label, point: block.point, broken: true };
+  }
   // Vantagem entre elementos: Fogo contra Parede de Gelo bate mais forte NELA (o que passa volta à escala do golpe).
   const factor = hitAffinityFactor(elementIds, instanceInfo(block.instance).elements, getElementAffinityMatrix(), getAffinityConfig());
   const { absorbed, passed } = splitStructureHit(amount * factor, block.capacity);
@@ -468,6 +502,9 @@ export function instanceInfo(instance) {
     magic: Boolean(pick("magic", false)),
     antimagicLevel: Number(pick("antimagicLevel", 0)) || 0,
     contactDamage: pick("contactDamage", "") ?? "",
+    // Registro antigo sem material: Vida 0 = etérea.
+    material: instance?.material ?? structureMaterial(undefined, instance?.manaBarrier ? 0 : instance?.hpMax),
+    manaPowered: Boolean(instance?.manaBarrier),
     closed: instance?.shape === "circle" || instance?.shape === "rect"
   };
 }
@@ -516,7 +553,8 @@ export function antimagicBetween(attacker, target, { origin = null } = {}) {
   const fields = canvas?.ready && scene ? antimagicFields(scene) : [];
   if (fields.length) {
     const from = origin ?? actorToken(attacker, canvas.tokens?.controlled ?? [])?.center;
-    const to = target ? actorToken(target, [...(game.user?.targets ?? [])])?.center : null;
+    // O "alvo" pode ser um ponto do mapa ({point}): onde uma Estrutura ou Zona vai nascer.
+    const to = target?.point ?? (target ? actorToken(target, [...(game.user?.targets ?? [])])?.center : null);
     for (const f of fields) {
       const inside = p => f.info.closed && pointInSegments([p.x, p.y], f.segments);
       const crosses = from && to && f.segments.some(seg => segmentCrossing([from.x, from.y], [to.x, to.y], seg) !== null);
@@ -542,20 +580,114 @@ export function antimagicLevelAt(actor) {
   return Math.max(level, fieldLevelAt(antimagicFields(scene), [token.center.x, token.center.y]));
 }
 
+/** Campo antimagia em volta do Token (só por documentos, sem canvas): nível e Skills responsáveis. */
+export function antimagicFieldLevelAtToken(tokenDoc) {
+  const scene = tokenDoc?.parent;
+  if (!scene) return { level: 0, sources: [] };
+  const center = tokenDocCenter(tokenDoc, scene.grid?.size);
+  const inside = antimagicFields(scene).filter(f => f.info.closed && pointInSegments([center.x, center.y], f.segments));
+  const level = Math.max(0, ...inside.map(f => f.info.antimagicLevel));
+  return { level, sources: [...new Set(inside.filter(f => f.info.antimagicLevel === level).map(f => structureSkillUuid(f.instance)).filter(Boolean))] };
+}
+
 /**
- * Estruturas mágicas dentro (ou cruzando) de um campo antimagia: quem conjurou paga o custo extra
- * por rodada, da Mana; sem Mana, a antimagia vence e a Estrutura se desfaz. Só o Mestre.
+ * Uma Estrutura mágica (ou mantida por Skill) que `mech` ergueria em `placement` seria desfeita
+ * NA HORA por um campo antimagia que ela toca (nível do campo ≥ nível da Skill)? Devolve a
+ * Estrutura do catálogo se sim, senão null — pra recusar antes de gastar Mana. Campo não conta.
  */
-async function enforceAntimagicOnStructures(scene) {
+export function structureEndedAtOnce(mech, placement) {
+  const structure = getStructure(mech?.structureId);
+  const scene = game.scenes.get(placement?.sceneId);
+  if (!structure || !scene || structure.antimagicLevel > 0) return null;
+  const points = (placement.points ?? []).map(p => [Number(p?.[0]), Number(p?.[1])]).filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
+  const segments = structureSegments(structure.shape, points, metersToPx(scene, structure.size));
+  if (!segments.length) return null;
+  const touching = antimagicFields(scene).filter(f => segmentsCross(segments, f.segments) || (f.info.closed && segments.some(([x, y]) => pointInSegments([x, y], f.segments))));
+  const reach = Math.max(0, ...touching.map(f => f.info.antimagicLevel));
+  if (!reach) return null;
+  const outcome = antimagicStructureOutcome({
+    magic: Boolean(structure.magic),
+    material: structureMaterial(structure.material, structure.hp),
+    manaPowered: structureManaPowered(structure.manaPowered, structure.hp, structure.blocksAttacks),
+    sustained: Boolean(mech.hasUpkeep) && !(structure.durationRounds > 0),
+    level: mech.level,
+    reach
+  });
+  return outcome === "keep" ? null : structure;
+}
+
+/** Tira o sustento da Estrutura: fica de pé com Vida 1, solta da Skill (dura até cair ou o Mestre tirar). */
+export async function unsupportStructure(scene, instance) {
+  await scene.update({
+    [`flags.${SYSTEM_ID}.${FLAG}.${instance.id}.hp`]: 1,
+    [`flags.${SYSTEM_ID}.${FLAG}.${instance.id}.untilDeactivated`]: false
+  });
+  refreshStructureCards(scene.id, instance.id);
+}
+
+/**
+ * Aplica a Antimagia (alcance `reach`) a uma Estrutura: some, perde o sustento ou fica. Campo
+ * antimagia nunca é afetado. Só o Mestre.
+ * @returns {Promise<{outcome: "remove"|"unsupport"|"keep", line: string|null}>}
+ */
+async function endStructureByAntimagic(scene, instance, reach) {
+  const info = instanceInfo(instance);
+  if (info.antimagicLevel > 0) return { outcome: "keep", line: null };
+  const outcome = antimagicStructureOutcome({
+    magic: info.magic,
+    material: info.material,
+    manaPowered: info.manaPowered,
+    sustained: Boolean(instance.untilDeactivated),
+    level: instance.level,
+    reach
+  });
+  if (outcome === "remove") {
+    await removeStructureInstance(scene, instance.id, "antimagic");
+    return { outcome, line: `${instance.label}: desfeita` };
+  }
+  if (outcome === "unsupport") {
+    // Já sem sustento e com Vida 1 (de uma rodada anterior): nada a fazer.
+    if ((instance.hp ?? 0) <= 1 && !instance.untilDeactivated) return { outcome, line: null };
+    await unsupportStructure(scene, instance);
+    return { outcome, line: `${instance.label}: sem sustento (Vida 1)` };
+  }
+  return { outcome, line: null };
+}
+
+/**
+ * Estruturas mágicas ou mantidas por Skill dentro (ou cruzando) de um campo antimagia: se o nível
+ * delas não passa do nível do campo, acabam (etérea some; física perde o sustento). Acima do nível
+ * do campo, ficam — e quem conjurou a magia paga o custo extra por rodada, da Mana (`charge`; sem
+ * Mana, a antimagia vence e ela some). Campos não afetam campos. Roda a cada rodada e logo que uma
+ * Estrutura nasce (`charge: false`: a cobrança é só na virada da rodada). Só o Mestre.
+ */
+export async function enforceAntimagicOnStructures(scene, { charge = true } = {}) {
   const fields = antimagicFields(scene);
   if (!fields.length) return;
+  const lines = [];
+  const creditFields = async (touching, level) => {
+    // XP por uso: o campo (ou campos) no nível que venceu desfez uma Estrutura.
+    for (const f of touching.filter(t => t.info.antimagicLevel === level)) {
+      const skillUuid = structureSkillUuid(f.instance);
+      if (skillUuid) await grantSkillUseXp(skillUuid, [{ flat: true }]);
+    }
+  };
   for (const instance of structuresOnScene(scene)) {
     const info = instanceInfo(instance);
-    if (!info.magic || info.antimagicLevel > 0) continue;
+    if (info.antimagicLevel > 0) continue;
     const segments = structureSegmentsOf(scene, instance);
     const touching = fields.filter(f => segmentsCross(segments, f.segments) || (f.info.closed && segments.some(([x, y]) => pointInSegments([x, y], f.segments))));
     const level = Math.max(0, ...touching.map(f => f.info.antimagicLevel));
     if (!level) continue;
+
+    const { outcome, line } = await endStructureByAntimagic(scene, instance, level);
+    if (outcome !== "keep") {
+      if (!line) continue;
+      lines.push(line);
+      await creditFields(touching, level);
+      continue;
+    }
+    if (!charge || !info.magic) continue;
     const caster = await fromUuid(instance.sourceActorUuid);
     const energy = caster?.system?.attributes?.energy;
     const cost = antimagicSurcharge(0, level, getAntimagicConfig());
@@ -569,26 +701,90 @@ async function enforceAntimagicOnStructures(scene) {
       });
     } else {
       await removeStructureInstance(scene, instance.id, "antimagic");
-      // XP por uso: o campo (ou campos) no nível que venceu desfez uma Estrutura mágica.
-      for (const f of touching.filter(t => t.info.antimagicLevel === level)) {
-        const skillUuid = structureSkillUuid(f.instance);
-        if (skillUuid) await grantSkillUseXp(skillUuid, [{ flat: true }]);
-      }
+      lines.push(`${instance.label}: desfeita`);
+      await creditFields(touching, level);
     }
   }
+  if (lines.length) {
+    await ChatMessage.create({ content: `<p><strong>Campo de antimagia</strong>:</p><ul>${lines.map(l => `<li>${escapeHtml(l)}</li>`).join("")}</ul>` });
+  }
+}
+
+/**
+ * Lado do Mestre do pedido `antimagicStructures`: uma Skill de Antimagia usada em Emissão desfaz as
+ * Estruturas que a área toca. Nada vem confiável do cliente: o alcance sai do nível da Skill na
+ * ficha, e a área precisa caber no que a Skill permite.
+ * @param {object} payload - {sceneId, area, subSkillIndex}
+ * @param {Item} skill - a Skill (já conferida como de quem pediu)
+ */
+export async function antimagicStructuresAsGm(payload, skill) {
+  const scene = game.scenes.get(payload?.sceneId);
+  const area = normalizeArea(payload?.area);
+  if (!scene || !area || skill?.type !== "skill") return refuse("o pedido chegou incompleto ou inválido");
+  const index = Number.isInteger(payload.subSkillIndex) ? payload.subSkillIndex : null;
+  const mech = index !== null ? skill.system.subSkills?.[index] : skill.system;
+  if (!mech || mech.targetType !== "emission" || !(mech.effects ?? []).some(e => e.target === "antimagic")) return refuse("isso não é uma Antimagia em área");
+  const pxPerUnit = (Number(scene.grid?.size) || 100) / (Number(scene.grid?.distance) || 1);
+  if (area.shape !== mech.areaShape || area.radius > (Number(mech.areaDistance) || 0) * pxPerUnit * 1.05 + 1) return refuse("a área não é a da Skill");
+  const { antimagicReachLevel } = await import("../skills/dispel.js");
+  const reach = antimagicReachLevel(mech.level);
+  const lines = [];
+  for (const instance of structuresOnScene(scene)) {
+    if (!areaTouchesStructure(area, structureSegmentsOf(scene, instance), instanceInfo(instance).closed)) continue;
+    const { line } = await endStructureByAntimagic(scene, instance, reach);
+    if (line) lines.push(line);
+  }
+  return { ok: true, value: { lines } };
+}
+
+/**
+ * Lado de quem usa: pede ao Mestre para a Antimagia desfazer as Estruturas na área. Devolve as
+ * linhas pro chat ([] se nada aconteceu); o XP (um fixo por linha) fica com quem chama.
+ */
+export async function dispelStructuresInArea(skill, subSkillIndex, area) {
+  if (!canvas?.scene || !area) return [];
+  const outcome = await runAsGm(
+    "antimagicStructures",
+    { sceneId: canvas.scene.id, area, skillUuid: skill.uuid, subSkillIndex: subSkillIndex ?? null },
+    { reply: true, timeout: 15000 }
+  );
+  const failure = relayFailureMessage(outcome, "desfazer Estruturas com a Antimagia");
+  if (failure) {
+    ui.notifications?.warn(failure);
+    return [];
+  }
+  return Array.isArray(outcome.value?.lines) ? outcome.value.lines.map(String) : [];
 }
 
 /* ------------------------------------------------------------------ Dano ao contato */
 
+/** Estruturas da cena que queimam por contato. */
+function burningStructures(scene) {
+  return structuresOnScene(scene).filter(i => instanceInfo(i).contactDamage);
+}
+
 /**
- * Token atravessou (ou terminou dentro de) uma Estrutura com dano de contato (Muralha de Fogo):
- * rola o dano dela contra quem passou. Só o Mestre designado, no `moveToken`.
+ * O corpo do Token (centro em `center`, em pixels) está encostando na Estrutura ou dentro dela
+ * (forma fechada)? Encostar = a distância do centro à parede é no máximo meia largura do Token,
+ * com uma folga de 5% do quadrado.
+ */
+function tokenTouchesStructure(scene, tokenDocument, center, instance, info) {
+  const size = scene.grid?.size ?? 100;
+  const segments = structureSegmentsOf(scene, instance);
+  if (info.closed && pointInSegments(center, segments)) return true;
+  return touchesSegments(center, (Number(tokenDocument.width) || 1) * size / 2, segments, size * 0.05);
+}
+
+/**
+ * Token atravessou, terminou dentro de ou terminou ENCOSTADO numa Estrutura com dano de contato
+ * (Muralha de Fogo): rola o dano dela contra quem passou. Uma vez por Estrutura por movimento.
+ * Só o Mestre designado, no `moveToken`.
  */
 export function registerStructureContact() {
   Hooks.on("moveToken", async (document, movement) => {
     if (!isDesignatedGm()) return;
     const scene = document.parent;
-    const burning = structuresOnScene(scene).filter(i => instanceInfo(i).contactDamage);
+    const burning = burningStructures(scene);
     if (!burning.length || !document.actor) return;
     const size = scene.grid?.size ?? 100;
     const center = p => [Number(p.x) + ((p.width ?? document.width) * size) / 2, Number(p.y) + ((p.height ?? document.height) * size) / 2];
@@ -603,12 +799,30 @@ export function registerStructureContact() {
     const { applyStructureContactAsGm } = await import("./structure-contact.js");
     for (const instance of burning) {
       const info = instanceInfo(instance);
-      const segments = structureSegmentsOf(scene, instance);
-      const crossed = segmentsCross(pathSegments, segments);
-      const endsInside = info.closed && pointInSegments(end, segments);
-      if (crossed || endsInside) await applyStructureContactAsGm(document, instance, info);
+      const crossed = segmentsCross(pathSegments, structureSegmentsOf(scene, instance));
+      if (crossed || tokenTouchesStructure(scene, document, end, instance, info)) await applyStructureContactAsGm(document, instance, info);
     }
   });
+}
+
+/**
+ * Início do turno de quem continua encostado (ou dentro) de uma Estrutura que queima: queima de
+ * novo. Só o Mestre designado.
+ */
+export async function tickStructureContact(combatant) {
+  if (!isDesignatedGm()) return;
+  const tokenDocument = combatant?.token;
+  const scene = tokenDocument?.parent;
+  if (!tokenDocument?.actor || !scene) return;
+  const burning = burningStructures(scene);
+  if (!burning.length) return;
+  const size = scene.grid?.size ?? 100;
+  const center = [Number(tokenDocument.x) + ((tokenDocument.width ?? 1) * size) / 2, Number(tokenDocument.y) + ((tokenDocument.height ?? 1) * size) / 2];
+  const { applyStructureContactAsGm } = await import("./structure-contact.js");
+  for (const instance of burning) {
+    const info = instanceInfo(instance);
+    if (tokenTouchesStructure(scene, tokenDocument, center, instance, info)) await applyStructureContactAsGm(tokenDocument, instance, info);
+  }
 }
 
 /**
@@ -638,6 +852,11 @@ export async function removeStructureInstance(scene, instanceId, reason = "dismi
   }
   await scene.update(update);
   refreshStructureCards(scene.id, instanceId);
+  // Caiu um campo antimagia: quem estava suprimido por ele e já não está em campo nenhum se solta.
+  if (instanceInfo(instance).antimagicLevel > 0) {
+    const { endMagicInsideFields } = await import("../combat/antimagic.js");
+    for (const token of scene.tokens) await endMagicInsideFields(token);
+  }
 }
 
 /** Como uma Estrutura caiu (`{reason, label, time}`), se caiu há pouco. */
@@ -678,10 +897,16 @@ function refreshStructureCards(sceneId, instanceId) {
  * Dano numa Estrutura. Vida > 0: tira da Vida e derruba ao zerar. Barreira de mana: tira da Mana
  * de quem conjurou (Mana em 0 derruba a barreira pelo hook de Mana).
  */
-export async function damageStructure(scene, instanceId, amount) {
+export async function damageStructure(scene, instanceId, amount, { broken = false } = {}) {
   const instance = scene?.getFlag(SYSTEM_ID, FLAG)?.[instanceId];
   const value = Math.max(0, Math.round(Number(amount) || 0));
-  if (!instance || !value) return;
+  if (!instance) return;
+  // Dano Absoluto contra a etérea: ela se desfaz (só vale se for mesmo etérea).
+  if (broken) {
+    if (instanceInfo(instance).material === "ethereal") await removeStructureInstance(scene, instanceId, "broken");
+    return;
+  }
+  if (!value) return;
 
   if (instance.manaBarrier) {
     const caster = await fromUuid(instance.sourceActorUuid);
@@ -720,15 +945,24 @@ export async function removeStructuresForAsGm({ sourceUuid, skillId, subSkillInd
   for (const scene of game.scenes) {
     for (const instance of structuresOnScene(scene)) {
       if (instance.sourceActorUuid === sourceUuid && instance.skillId === skillId && (instance.subSkillIndex ?? null) === (subSkillIndex ?? null)) {
-        await removeStructureInstance(scene, instance.id, "dismissed");
+        // A física que a Skill sustentava fica de pé com Vida 1, solta da Skill (dura até cair ou o
+        // Mestre tirar); a etérea e a movida a Mana somem. Quem já era solta (prazo, ou de um uso
+        // anterior) não é tocada.
+        const info = instanceInfo(instance);
+        if (info.material === "physical" && !instance.manaBarrier) {
+          if (!instance.untilDeactivated) continue;
+          await unsupportStructure(scene, instance);
+        } else {
+          await removeStructureInstance(scene, instance.id, "dismissed");
+        }
       }
     }
   }
 }
 
 /**
- * Vida ou Mana de quem conjurou chegou a 0: caem as Estruturas sem prazo que não dependem de
- * Skill Ativa, e toda barreira de mana dele quando é a Mana que zerou.
+ * Vida ou Mana de quem conjurou chegou a 0: caem as Estruturas etéreas sem prazo que não dependem
+ * de Skill Ativa (as físicas ficam), e toda barreira de mana dele quando é a Mana que zerou.
  */
 export async function collapseStructuresOfCaster(actor, { hpZero, energyZero }) {
   if (!isDesignatedGm()) return;
@@ -736,11 +970,57 @@ export async function collapseStructuresOfCaster(actor, { hpZero, energyZero }) 
     for (const instance of structuresOnScene(scene)) {
       if (instance.sourceActorUuid !== actor.uuid) continue;
       const untimed = (instance.roundsRemaining === null || instance.roundsRemaining === undefined) && !instance.untilDeactivated;
-      if ((untimed && (hpZero || energyZero)) || (instance.manaBarrier && energyZero)) {
+      // Pedra de verdade (física, não movida a Mana) sobrevive a quem a ergueu.
+      const solid = instanceInfo(instance).material === "physical" && !instance.manaBarrier;
+      if ((untimed && !solid && (hpZero || energyZero)) || (instance.manaBarrier && energyZero)) {
         await removeStructureInstance(scene, instance.id, energyZero ? "manaDepleted" : "casterDown");
       }
     }
   }
+}
+
+/**
+ * Início do turno de quem mantém uma Skill Ativa de Estrutura (depois da manutenção): a Estrutura
+ * ferida, ainda presa à Skill ligada e com Vida própria, paga o custo (com o desconto do nível e a
+ * Mana investida) e recupera Vida, sem passar do teto. Cheia não paga; sem Mana não regenera.
+ * Não dá XP. Só o Mestre designado.
+ * @returns {Promise<string[]>} linhas pro chat
+ */
+export async function regenerateSustainedStructures(holder) {
+  if (!holder || !isDesignatedGm()) return [];
+  const rows = [];
+  for (const scene of game.scenes) {
+    for (const instance of structuresOnScene(scene)) {
+      if (instance.sourceActorUuid !== holder.uuid || !instance.untilDeactivated || instance.manaBarrier) continue;
+      if (!((instance.hp ?? 0) < (instance.hpMax ?? 0))) continue;
+      const skill = holder.items.get(instance.skillId);
+      const sub = instance.subSkillIndex ?? null;
+      const mech = sub !== null ? skill?.system?.subSkills?.[sub] : skill?.system;
+      if (!mech?.active || !(Number(mech.structureRegen) > 0)) continue;
+      const level = mech.level ?? 1;
+      const ratio = mech.variableMana ? mech.investRatio ?? 1 : 1;
+      const cost = isEnergyPoolEnabled() || isShipLike(holder) ? Math.ceil(effectiveSkillCost(Number(mech.structureRegenCost) || 0, level) * ratio) : 0;
+      const step = structureRegenStep({
+        hp: instance.hp,
+        hpMax: instance.hpMax,
+        regen: Math.round(Number(mech.structureRegen) * skillLevelBonuses(level).power),
+        cost,
+        energy: currentEnergyValue(holder)
+      });
+      if (step.hp === instance.hp) continue;
+      if (step.paid > 0) await holder.update({ [energyValuePath(holder)]: currentEnergyValue(holder) - step.paid });
+      await scene.setFlag(SYSTEM_ID, `${FLAG}.${instance.id}.hp`, step.hp);
+      refreshStructureCards(scene.id, instance.id);
+      rows.push(`${escapeHtml(instance.label)}: Vida +${step.hp - instance.hp} (${step.hp}/${instance.hpMax})${step.paid ? `, −${step.paid} ${escapeHtml(getEnergyLabelForActor(holder))}` : ""}`);
+    }
+  }
+  if (rows.length) {
+    await ChatMessage.create({
+      speaker: ChatMessage.getSpeaker({ actor: holder }),
+      content: `<p><strong>${escapeHtml(holder.name)}</strong> — Estruturas mantidas regeneram:</p><ul>${rows.map(r => `<li>${r}</li>`).join("")}</ul>`
+    });
+  }
+  return rows;
 }
 
 /* ------------------------------------------------------------------ Cartão no chat */
@@ -771,6 +1051,7 @@ export function renderStructureControls(message, html) {
   }
   if (instance.roundsRemaining) state += ` · ${instance.roundsRemaining} rodada(s)`;
   else if (instance.untilDeactivated) state += " · até desligar a Skill";
+  state += instanceInfo(instance).material === "ethereal" ? " · etérea" : " · física";
 
   box.innerHTML = `
     <span class="structure-state">${state}</span>

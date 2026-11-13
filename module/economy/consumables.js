@@ -111,7 +111,7 @@ export async function useConsumable(actor, item, event = null) {
         mech.targetType === "self" ? actor : await pickTargetActor({ self: actor, title: `Usar ${label}`, confirmLabel: "Usar", preferMap: true });
       if (!target) return null;
       if (item.system.consumable.thrown && mech.targetType === "targeted" && !(await checkFlatRange(actor, target, throwRangeFor(actor, item.system.consumable.throwBase), { label }))) return null;
-      const done = isDamage ? await rollSkillDamage(actor, mech, label, target, rollOptions) : await applySkillEffects(actor, item, mech, label, target);
+      const done = isDamage ? await rollSkillDamage(actor, mech, label, target, rollOptions, { aim: true }) : await applySkillEffects(actor, item, mech, label, target);
       if (!done) return null;
     }
   } catch (err) {

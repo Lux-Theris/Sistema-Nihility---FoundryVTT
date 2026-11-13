@@ -249,6 +249,12 @@ export function getContactsFor(actor, { includeNpcs = game.user.isGM } = {}) {
     a.type === "character" && a.system.isPlayerCharacter === true &&
     a.id !== actor.id && a.testUserPermission(game.user, "LIMITED")
   );
+  // PJ de outro jogador que está na cena atual (Token visível) também conta como "visível",
+  // mesmo sem a permissão de Limitado na ficha dele.
+  const onScene = new Set((canvas?.scene?.tokens ?? []).filter(t => !t.hidden).map(t => t.actorId));
+  const scenePcs = game.actors.filter(a =>
+    a.type === "character" && a.system.isPlayerCharacter === true && a.id !== actor.id && onScene.has(a.id)
+  );
   const crewmates = findCrewedShipsForActor(actor)
     .flatMap(ship => ship.system.crewActors.map(entry => entry.actor))
     .filter(a => a.id !== actor.id);
@@ -258,7 +264,7 @@ export function getContactsFor(actor, { includeNpcs = game.user.isGM } = {}) {
   const saved = getSavedContacts(actor).map(uuid => fromUuidSync(uuid)).filter(a => a && a.id !== actor.id);
 
   const seen = new Set();
-  return [...pcs, ...crewmates, ...npcs, ...saved].filter(a => {
+  return [...pcs, ...scenePcs, ...crewmates, ...npcs, ...saved].filter(a => {
     if (seen.has(a.id)) return false;
     seen.add(a.id);
     return true;

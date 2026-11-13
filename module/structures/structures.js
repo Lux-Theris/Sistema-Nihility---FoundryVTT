@@ -178,7 +178,10 @@ export async function pickStructurePlacement(structure, reach = null) {
   };
 
   const result = await new Promise(resolve => {
+    let settled = false;
     const finish = value => {
+      if (settled) return;
+      settled = true;
       canvas.stage.off("mousemove", onMove);
       canvas.stage.off("mousedown", onDown);
       canvas.app.view.removeEventListener("contextmenu", onCancel);
@@ -310,6 +313,12 @@ export async function createStructureAsGm(payload) {
   if (!scene) return refuse("a cena não existe mais");
   if (!structure) return refuse("essa Estrutura não está mais no catálogo");
   if (!source) return refuse("quem usou a Skill não existe mais");
+  // Um uso ergue UMA Estrutura: um pedido repetido do mesmo uso (reenvio, clique duplo) não cria outra.
+  const useId = String(payload.useId ?? "").slice(0, 32);
+  if (useId) {
+    const standing = Object.values(scene.getFlag(SYSTEM_ID, FLAG) ?? {});
+    if (standing.some(i => i?.useId === useId && i.sourceActorUuid === source.uuid && i.structureId === structure.id)) return refuse("essa Estrutura já foi erguida por este uso");
+  }
 
   const points = (Array.isArray(payload.points) ? payload.points : [])
     .slice(0, MAX_POINTS)

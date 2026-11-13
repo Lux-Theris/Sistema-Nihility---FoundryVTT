@@ -7,7 +7,7 @@ import { damageApplyFlags, withDamageTrace } from "../combat/damage-apply.js";
 import { applyStructuralDamage, applyTargetedStructuralDamage, damageCasco, repairModules, applyShipSystemEffect, addShipSystemEffect, clearShieldAdaptation } from "./starship-power.js";
 import { applyAdvantageToFormula, applyRollModifiers, normalizeRollOptions } from "../core/roll-modifiers.js";
 import { rollChance, resolveShipCascade, adaptShield, hitAffinityFactor } from "../combat/damage-rules.js";
-import { attackTraceRows, applyDamageReductions, averageElementContext, damageScaleFor, situationalDamageFactor, applyTriggeredConditions, triggeredLabel, formatScale, modifiersFlavor, throughStructures } from "../combat/damage-roll.js";
+import { attackTraceRows, applyDamageReductions, averageElementContext, damageScaleFor, situationalDamageFactor, applyTriggeredConditions, triggeredLabel, formatScale, modifiersFlavor, throughStructures, personalTraceTail } from "../combat/damage-roll.js";
 import { grantResistanceXp, registerResistanceExposure } from "../combat/resistance.js";
 import { chargeAntimagic, fieldGate } from "../combat/antimagic.js";
 import { checkFlatRange } from "../combat/range.js";

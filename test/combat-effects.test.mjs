@@ -399,3 +399,9 @@ test("Manipulação do Ator: a Skill pré-feita de mais alto nível conta; outra
   assert.equal(manipulationLevelOf([{ coreSkill: "", level: 9 }, { coreSkill: CORE_SKILLS.detection, level: 7 }]), 0);
   assert.equal(manipulationLevelOf([{ coreSkill: CORE_SKILLS.manipulation, level: 3 }, { coreSkill: CORE_SKILLS.manipulation, level: 5 }, { level: 8 }]), 5);
 });
+
+test("publicRollModeOption: V14 usa messageMode, V13 rollMode", async () => {
+  const { publicRollModeOption } = await import("../module/helpers/foundry-compat.js");
+  assert.deepEqual(publicRollModeOption(14), { messageMode: "public" });
+  assert.deepEqual(publicRollModeOption(13), { rollMode: "publicroll" });
+});

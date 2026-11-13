@@ -124,6 +124,13 @@ function checkTemplates() {
       count++;
       if (!existsSync(join(ROOT, match[0]))) missing.set(match[0], rel(file));
     }
+    // Todo `template:` que aponta para o sistema tem de ser um .hbs que existe. Na 1.89.0 o da
+    // ficha de Item virou "systems/<id>/x" — não casava com a regra acima e nenhuma ficha de Item abria.
+    for (const match of text.matchAll(/template:\s*[`"']systems\/(?:\$\{SYSTEM_ID\}|nihility-rpg-system)\/([^`"']*)[`"']/g)) {
+      count++;
+      const path = match[1];
+      if (!/^templates\/[\w./-]+\.hbs$/.test(path) || !existsSync(join(ROOT, path))) missing.set(path || "(vazio)", rel(file));
+    }
   }
   for (const [tpl, file] of missing) fail(`template não existe: ${tpl} (citado em ${file})`);
   if (!missing.size) console.log(`  ✓ ${count} citações, todos os arquivos existem`);

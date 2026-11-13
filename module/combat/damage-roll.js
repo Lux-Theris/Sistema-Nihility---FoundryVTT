@@ -365,7 +365,7 @@ export async function throughStructures(attacker, targetActor, damage, { origin 
   return { damage: passed, note, impact: point };
 }
 
-export async function rollSkillDamage(actor, mech, label, targetActor = null, rollOptions = null) {
+export async function rollSkillDamage(actor, mech, label, targetActor = null, rollOptions = null, { aim = false } = {}) {
   const formula = mech.damageFormula?.trim();
   if (!formula) {
     ui.notifications?.warn("Essa skill não tem uma Fórmula de Dano configurada.");
@@ -393,7 +393,7 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
   if (scaling !== 1) {
     flavor += ` — ${getAttributeLabel(mech.scalingAttribute)} ×${scaling.toFixed(1)}`;
   }
-  if (levelPower !== 1) flavor += ` — ${mech.investPower && mech.investPower !== 1 ? `nível e ${getEnergyLabelForActor(actor)} investida` : "nível"} ×${levelPower.toFixed(2)}`;
+  if (levelPower !== 1) flavor += ` — ${mech.investPower && mech.investPower !== 1 ? `nível e investimento de ${getEnergyLabelForActor(actor)}` : "nível"} ×${levelPower.toFixed(2)}`;
   if (scaledTotal !== roll.total) flavor += ` (${roll.total} → ${Math.round(scaledTotal)})`;
   if (bonusTotal !== scaledTotal) flavor += ` — bônus de arma (${Math.round(scaledTotal)} → ${Math.round(bonusTotal)})`;
   flavor += modifiersFlavor(options, bonusTotal, boostedTotal);
@@ -474,7 +474,7 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
     if (targetActor) flavor += ` — ${escapeHtml(targetActor.name)}: ${finalDamage}${triggeredLabel(reduction.triggeredConditions)}`;
     if (targetActor) traceRows.push(...personalTraceTail(reduction, targetActor));
     // Ferimentos por parte: quem ataca pode mirar numa parte (senão o Aplicar sorteia uma).
-    if (targetActor && finalDamage > 0) aimedPart = await promptTargetBodyPart(targetActor);
+    if (aim && targetActor && finalDamage > 0) aimedPart = await promptTargetBodyPart(targetActor);
     if (aimedPart) flavor += ` (mirando: ${escapeHtml(aimedPart.name)})`;
   }
 
@@ -561,7 +561,8 @@ export async function useWeaponAttack(sourceActor, weaponItem, targetActor = nul
     { ...shotMech, fieldGated: true },
     ammo?.label ? `${weaponItem.name} (${ammo.label})` : weaponItem.name,
     targetActor,
-    rollOptions
+    rollOptions,
+    { aim: true }
   );
   if (result && magazine.uses) await weaponItem.update({ "system.weapon.loaded": magazine.loaded - 1 });
   return result;
@@ -602,7 +603,7 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
   // para tudo: quase sempre é a Escala por Atributo ou o nível).
   const boostParts = [];
   if (scaling !== 1) boostParts.push(`${getAttributeLabel(mech.scalingAttribute)} ×${scaling.toFixed(1)}`);
-  if (levelPower !== 1) boostParts.push(`${mech.investPower && mech.investPower !== 1 ? `nível e ${getEnergyLabelForActor(actor)} investida` : "nível"} ×${levelPower.toFixed(2)}`);
+  if (levelPower !== 1) boostParts.push(`${mech.investPower && mech.investPower !== 1 ? `nível e investimento de ${getEnergyLabelForActor(actor)}` : "nível"} ×${levelPower.toFixed(2)}`);
   if (bonusTotal !== scaledTotal) boostParts.push("bônus de arma");
   if (boostedTotal !== bonusTotal) boostParts.push("modificadores");
   const title = `${damageFlavorPrefix(mech, label)} (Emissão)${modifiersFlavor(options, bonusTotal, boostedTotal)}`;

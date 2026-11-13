@@ -47,5 +47,8 @@ export async function syncShipOwnershipToCrew(ship) {
     if (!wanted.has(userId)) changes[userId] = CONST.DOCUMENT_OWNERSHIP_LEVELS.INHERIT;
   }
 
+  // Idempotente: sem nada a mudar, não escreve (o gancho de updateActor chama isto a cada mudança de tripulação).
+  const same = granted.length === previously.size && granted.every(id => previously.has(id));
+  if (same && Object.keys(changes).every(id => (current[id] ?? CONST.DOCUMENT_OWNERSHIP_LEVELS.INHERIT) === changes[id])) return;
   await ship.update({ ownership: changes, [`flags.${SYSTEM_ID}.${FLAG}`]: granted });
 }

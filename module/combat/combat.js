@@ -75,6 +75,13 @@ export async function rollInitiativeForActor(actor, rollOptions = null) {
   // Por Ator de verdade, não por id: com dois Tokens não vinculados da mesma ficha, cada um é um combatente.
   let combatant = combat.combatants.find(c => combatantIsActor(c, actor));
 
+  // Ficha do Diretório de um personagem cujo Token não é vinculado: o combatente é o do Ator sintético
+  // do Token. Se há exatamente um combatente de Token desta ficha e o usuário é dono, rola por ele.
+  if (!combatant) {
+    const sameBase = combat.combatants.filter(c => c.token?.actorId === actor.id && c.isOwner);
+    if (sameBase.length === 1) combatant = sameBase[0];
+  }
+
   if (!combatant) {
     if (!game.user.isGM) {
       ui.notifications.warn(`${actor.name} ainda não está no combate — peça ao Mestre para adicionar.`);

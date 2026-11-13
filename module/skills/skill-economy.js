@@ -318,6 +318,10 @@ export async function breakSkillPoints(actor, tier) {
     ui.notifications?.warn(`Sem Pontos ${MEU_SISTEMA.SKILL_TIER_LABELS[tier]} para quebrar.`);
     throw new Error("Pontos insuficientes.");
   }
+  if (freeSkillPoints(actor, tier) < 1) {
+    ui.notifications?.warn(`O Ponto ${MEU_SISTEMA.SKILL_TIER_LABELS[tier]} está reservado por um pedido de Habilidade em aberto. Cancele ou espere o pedido antes de quebrá-lo.`);
+    throw new Error("Ponto reservado por um pedido.");
+  }
 
   await actor.update({
     [`system.skillPoints.${tier}`]: current - 1,
@@ -337,6 +341,10 @@ export async function mergeSkillPoints(actor, tier) {
   if (current < MEU_SISTEMA.SKILL_POINT_CONVERSION_RATE) {
     ui.notifications?.warn(`Precisa de ${MEU_SISTEMA.SKILL_POINT_CONVERSION_RATE} Pontos ${MEU_SISTEMA.SKILL_TIER_LABELS[tier]} para fundir.`);
     throw new Error("Pontos insuficientes.");
+  }
+  if (freeSkillPoints(actor, tier) < MEU_SISTEMA.SKILL_POINT_CONVERSION_RATE) {
+    ui.notifications?.warn(`Há ponto ${MEU_SISTEMA.SKILL_TIER_LABELS[tier]} reservado por um pedido de Habilidade em aberto: só os pontos livres podem ser fundidos.`);
+    throw new Error("Ponto reservado por um pedido.");
   }
 
   await actor.update({

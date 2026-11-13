@@ -369,7 +369,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   };
 
   static PARTS = {
-    body: { template: `systems/${SYSTEM_ID}/x`, scrollable: [".sheet-body"] }
+    body: { template: `systems/${SYSTEM_ID}/templates/item-sheet.hbs`, scrollable: [".sheet-body"] }
   };
 
   /**

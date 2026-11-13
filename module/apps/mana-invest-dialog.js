@@ -34,7 +34,7 @@ export async function promptManaInvestment({ label, cost, available, ceiling = n
       <p>Custo de <strong>${escapeHtml(label)}</strong>: ${cost} ${escapeHtml(energyLabel)}. Você tem ${Math.floor(available)}.</p>
       <div class="mana-invest-row">
         <input type="range" class="mana-invest-range" min="${minimum}" max="${max}" step="1" value="${start}"/>
-        <input type="number" class="mana-invest-value" min="${minimum}" max="${max}" step="1" value="${start}" aria-label="${escapeHtml(energyLabel)} investida"/>
+        <input type="number" class="mana-invest-value" min="${minimum}" max="${max}" step="1" value="${start}" aria-label="${escapeHtml(`Quantidade de ${energyLabel} investida`)}"/>
       </div>
       <p class="mana-invest-power">${describe(start)}</p>
       <p class="hint">Passar da ${escapeHtml(energyLabel)} que você tem (até o dobro da máxima) custa caro: pede confirmação, rola um d100 e deixa você Inconsciente.</p>
@@ -87,17 +87,17 @@ export async function promptManaInvestment({ label, cost, available, ceiling = n
 }
 
 /**
- * "Vai além da sua Mana": confirma antes de gastar mais do que se tem. Devolve true se confirmou.
+ * "Vai além do que se tem de Mana": confirma antes de gastar mais do que se tem. Devolve true se confirmou.
  * @param {{label:string, invested:number, current:number, percent:number, energyLabel:string}} info
  */
 export async function confirmOverdraw({ label, invested, current, percent, energyLabel }) {
   const { DialogV2 } = foundry.applications.api;
   const energy = escapeHtml(energyLabel);
   const answer = await DialogV2.confirm({
-    window: { title: `Além da ${energyLabel} — ${label}` },
+    window: { title: `Além do limite de ${energyLabel} — ${label}` },
     content: `<div class="nihility-mana-invest">
       <p>Você vai investir <strong>${invested}</strong> ${energy} em <strong>${escapeHtml(label)}</strong> e só tem <strong>${Math.floor(current)}</strong> (<strong>+${percent}%</strong> além).</p>
-      <p>Vai além da sua ${energy}: rola d100 e você cai <strong>Inconsciente</strong>, com a ${energy} em 0. O efeito sai com a força de tudo o que foi investido.</p>
+      <p>Vai além do que você tem de ${energy}: rola d100 e você cai <strong>Inconsciente</strong>, com ${energy} em 0. O efeito sai com a força de tudo o que foi investido.</p>
     </div>`,
     yes: { label: "Ir além", default: false },
     no: { label: "Cancelar", default: true },

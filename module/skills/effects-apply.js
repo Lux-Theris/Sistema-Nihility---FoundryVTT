@@ -460,10 +460,12 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
       : ["weaponMagic", "weaponAbsolute"].includes(entry.target) ? ""
       : isMultiplier ? `×${(1 + entry.amount / 100).toFixed(2)}`
       : `${sign}${entry.amount}${SHIP_PERCENT_PATHS[entry.target] || entry.target === "movement" ? "%" : ""}`;
+    // Só a Condição (valor 0): o texto é o nome dela, sem "Destreza +0".
+    const head = condition?.label && !Number(entry.amount) && !valueText.replace(/[+\-0%]/g, "").trim() ? condition.label : `${targetLabel} ${valueText}`;
     summary.push(
       tiedToActive
-        ? `${targetLabel} ${valueText} (até desativar)`
-        : `${targetLabel} ${valueText}${entry.durationRounds > 0 ? ` (${entry.durationRounds} rounds)` : ""}`
+        ? `${head} (até desativar)`
+        : `${head}${entry.durationRounds > 0 ? ` (${entry.durationRounds} ${entry.durationRounds === 1 ? "rodada" : "rodadas"})` : ""}`
     );
   }
 

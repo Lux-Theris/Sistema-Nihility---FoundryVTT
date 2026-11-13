@@ -650,6 +650,20 @@ Hooks.on("updateActor", (actor, changes) => {
 
 // Mana em 0 desliga todas as Habilidades Ativas (ver shutdownActiveSkillsOnDepletion). Roda só
 // no Mestre designado, pra dois Mestres conectados não desligarem/avisarem em dobro.
+// Tripulação: quem joga com um tripulante vira Dono da Nave por qualquer caminho que mude a lista
+// (ficha, console, importação) — não só pela aba Tripulação. Idempotente.
+Hooks.on("updateActor", async (actor, changes) => {
+  if (!["starship", "vehicle"].includes(actor.type) || changes?.system?.crewMembers === undefined || !isDesignatedGm()) return;
+  try {
+    const { syncShipOwnershipToCrew } = await import("./starship/crew-ownership.js");
+    const { syncLibraryOwnershipToCrew } = await import("./pad/pad-library.js");
+    await syncLibraryOwnershipToCrew(actor);
+    await syncShipOwnershipToCrew(actor);
+  } catch (err) {
+    console.error("Nihility | falha ao sincronizar a tripulação", err);
+  }
+});
+
 Hooks.on("updateActor", (actor, changes) => {
   if (actor.type !== "character" || !isEnergyPoolEnabled() || !isDesignatedGm()) return;
   const energy = foundry.utils.getProperty(changes, "system.attributes.energy.value");

@@ -127,6 +127,15 @@ export class GlossaryApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const pool = gmView ? filterGlossary(entries, this.filter) : entries;
 
     if (!byKey.has(this.current)) this.current = byKey.has("energy") ? "energy" : entries[0]?.key ?? "";
+    // A busca mudou e o verbete aberto não está entre os resultados: abre o primeiro.
+    if (this._searchChanged) {
+      this._searchChanged = false;
+      const q = this.query.trim();
+      if (q) {
+        const found = searchGlossary(pool, q);
+        if (found.length && !found.some(r => r.entry.key === this.current)) this.current = found[0].entry.key;
+      }
+    }
     const entry = byKey.get(this.current) ?? null;
 
     // A lista: busca (plana, com o trecho) ou por assunto.
@@ -207,6 +216,7 @@ export class GlossaryApp extends HandlebarsApplicationMixin(ApplicationV2) {
         clearTimeout(this._searchTimer);
         this._searchTimer = setTimeout(() => {
           this.query = input.value;
+          this._searchChanged = true;
           this._refocusSearch = true;
           this.render();
         }, 150);

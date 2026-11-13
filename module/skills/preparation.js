@@ -78,7 +78,7 @@ export function useBlockReason(actor, skill, subSkillIndex = null) {
   return null;
 }
 
-/** `{skillId: "recarga 2"}` para a linha da ficha (botão Usar desligado). Só a Skill inteira, não Sub-Skills. */
+/** `{skillId: "livre em 3 turnos"}` para a linha da ficha (botão Usar desligado). Só a Skill inteira, não Sub-Skills. */
 export function skillTimersFor(actor) {
   const out = {};
   const prep = preparationsOf(actor);
@@ -87,7 +87,7 @@ export function skillTimersFor(actor) {
     if (skill.system.hasUpkeep && skill.system.active) continue;
     const entry = prep.find(e => e.skillUuid === skill.uuid && e.subSkillIndex == null);
     if (entry) out[skill.id] = `preparando (${entry.turnsLeft})`;
-    else if (onCooldown(skill.system.cooldownRemaining)) out[skill.id] = `recarga ${skill.system.cooldownRemaining}`;
+    else if (onCooldown(skill.system.cooldownRemaining)) out[skill.id] = (skill.system.cooldownRemaining === 1 ? "livre no próximo turno" : `livre em ${skill.system.cooldownRemaining} turnos`);
   }
   return out;
 }

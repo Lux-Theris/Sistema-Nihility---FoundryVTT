@@ -26,6 +26,7 @@ import { markedCost } from "../combat/range-rules.js";
 import { rangeChecksActive } from "../combat/range.js";
 import { applyEffectsToActor } from "./effects-apply.js";
 import { isShipLike } from "../starship/ship-damage.js";
+import { publicRollModeOption } from "../helpers/foundry-compat.js";
 import { skillStateUpdate, energyValuePath, currentEnergyValue, warnInsufficientEnergy } from "./skill-state.js";
 import { removeUpkeepLinkedEffects } from "./upkeep.js";
 import { recordSkillUse } from "./skill-undo.js";
@@ -84,9 +85,9 @@ async function resolveOverdraw(sourceActor, skillId, options, info) {
   await roll.toMessage(
     {
       speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
-      flavor: `<strong>${escapeHtml(sourceActor.name)}</strong> foi além da ${energy} em <strong>${escapeHtml(label)}</strong>: investiu ${info.invested} tendo ${Math.floor(info.current)} — <strong>+${info.percent}% além</strong>. O Mestre diz o que o d100 significa; a ${energy} vai a 0 e a pessoa cai Inconsciente.`
+      flavor: `<strong>${escapeHtml(sourceActor.name)}</strong> foi além do que tinha de ${energy} em <strong>${escapeHtml(label)}</strong>: investiu ${info.invested} tendo ${Math.floor(info.current)} — <strong>+${info.percent}% além</strong>. O Mestre diz o que o d100 significa; ${energy} vai a 0 e a pessoa cai Inconsciente.`
     },
-    { rollMode: CONFIG.ChatMessage.modes?.public ? "public" : "publicroll" }
+    publicRollModeOption()
   );
   await knockUnconscious(sourceActor);
 }
@@ -215,7 +216,7 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
     const over = overdrawInfo({ invested: spend, current: available, max: maxEnergy });
     if (over.over) {
       if (preparing) {
-        ui.notifications?.warn(`${label} tem Preparo: o Custo é pago aos poucos e não passa da ${getEnergyLabelForActor(sourceActor)} que você tem.`);
+        ui.notifications?.warn(`${label} tem Preparo: o Custo é pago aos poucos e não passa do que você tem de ${getEnergyLabelForActor(sourceActor)}.`);
         return null;
       }
       if (!(await confirmOverdraw({ label, invested: spend, current: available, percent: over.percent, energyLabel: getEnergyLabelForActor(sourceActor) }))) return null;
@@ -340,7 +341,7 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
   if (mech.effectType === "damage") {
     const result = isEmission
       ? await rollSkillDamageArea(sourceActor, mech, label, options.targetActors ?? [], options.rollOptions ?? null)
-      : await rollSkillDamage(sourceActor, mech, label, options.targetActor ?? null, options.rollOptions ?? null);
+      : await rollSkillDamage(sourceActor, mech, label, options.targetActor ?? null, options.rollOptions ?? null, { aim: !options.prepaid && !options.noAim });
     await grantSkillUseXp(skill, damageXpMeasures(result, options.targetActor));
     return result;
   }

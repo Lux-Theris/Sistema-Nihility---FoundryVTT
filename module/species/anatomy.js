@@ -263,6 +263,7 @@ export async function promptTargetBodyPart(targetActor) {
     content: `
       <div class="nihility-target-module">
         <p>O dano que chegar na Vida também cai na parte escolhida. Sem mirar, cai numa parte sorteada (as maiores têm mais chance).</p>
+        <p><em>A Habilidade já foi usada — fechar esta janela é o mesmo que Sem mirar.</em></p>
         <select name="targetPart"><option value="">Nenhuma · golpe no corpo</option>${options}</select>
       </div>`,
     buttons: [

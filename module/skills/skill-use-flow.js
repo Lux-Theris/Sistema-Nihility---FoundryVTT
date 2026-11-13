@@ -1,5 +1,6 @@
 import { isAreaEffectsEnabled, isEnergyPoolEnabled, effectiveSkillCost, getEnergyLabelForActor } from "../core/config.js";
 import { isShipLike } from "../starship/ship-damage.js";
+import { currentEnergyValue, warnInsufficientEnergy } from "./skill-state.js";
 import { useBlockReason } from "./preparation.js";
 import { useSkillEffect } from "./skill-effects.js";
 import { skillUseMode } from "./skill-use-mode.js";
@@ -68,6 +69,17 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget } =
       if (asked.cancelled) return;
       rollOptions = asked.options;
       manaInvested = asked.invested;
+    }
+  }
+
+  // Sem energia para o Custo: avisa ANTES de pedir área, Estrutura ou alvo (o mesmo aviso do uso). Fica de
+  // fora quem investe (o diálogo trata), Mana variável, Preparo (paga em partes), Nave e desligar uma Ativa.
+  if (mode !== "deactivate" && mode !== "plain" && mode !== "emissionNoCanvas" && !isShipLike(actor) && isEnergyPoolEnabled()
+    && !mech.variableMana && manaInvested == null && !(Number(mech.prepTurns) > 0)) {
+    const needed = effectiveSkillCost(mech.cost, mech.level);
+    if (needed > 0 && currentEnergyValue(actor) < needed) {
+      await warnInsufficientEnergy(actor, subSkillIndex != null ? `${skill.name} — ${mech.name}` : skill.name, needed);
+      return;
     }
   }
 

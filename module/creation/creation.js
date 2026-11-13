@@ -414,6 +414,7 @@ export async function requestNewCharacter() {
   if (existing) return existing.sheet.render(true);
   const { runAsGm } = await import("../helpers/gm-relay.js");
   const { relayFailureMessage } = await import("../helpers/gm-relay-rules.js");
+  ui.notifications.info("Pedindo a ficha ao Mestre…");
   const outcome = await runAsGm("createCharacter", {}, { reply: true, timeout: 10000 });
   if (!outcome?.ok) {
     ui.notifications.warn(relayFailureMessage(outcome, "criar a ficha") ?? "Não deu para criar a ficha.");

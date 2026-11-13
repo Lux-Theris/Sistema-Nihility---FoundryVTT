@@ -628,14 +628,21 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
     return { isGM: false, continueName: mine?.name ?? "", gmOnline: game.users.some(u => u.isGM && u.active) };
   }
 
-  static async #onCreateCharacter(event) {
+  static async #onCreateCharacter(event, target) {
     event.preventDefault();
-    const { requestNewCharacter, createCharacterFor } = await import("../creation/creation.js");
-    if (game.user.isGM) {
-      const userId = this.element.querySelector(".nm-create-for")?.value ?? "";
-      await createCharacterFor(userId);
-    } else {
-      await requestNewCharacter();
+    // Sem clique duplo enquanto o Mestre responde (o pedido pode demorar alguns segundos).
+    if (target?.disabled) return;
+    if (target) target.disabled = true;
+    try {
+      const { requestNewCharacter, createCharacterFor } = await import("../creation/creation.js");
+      if (game.user.isGM) {
+        const userId = this.element.querySelector(".nm-create-for")?.value ?? "";
+        await createCharacterFor(userId);
+      } else {
+        await requestNewCharacter();
+      }
+    } finally {
+      if (target) target.disabled = false;
     }
     this.render();
   }

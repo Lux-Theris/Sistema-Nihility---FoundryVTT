@@ -112,6 +112,15 @@ export function effectModes() {
   return globalThis.CONST?.ACTIVE_EFFECT_MODES ?? EFFECT_MODES_FALLBACK;
 }
 
+/**
+ * Opções de `Roll#toMessage` para uma rolagem pública: a V14 pede `messageMode`, a V13 só
+ * conhece `rollMode`. Pura (a geração é parâmetro).
+ */
+export function publicRollModeOption(generation = foundryGeneration()) {
+  if (generation >= 14) return { messageMode: "public" };
+  return { rollMode: globalThis.CONFIG?.ChatMessage?.modes?.public ? "public" : "publicroll" };
+}
+
 /** Geração do Foundry em uso (13, 14…). */
 export function foundryGeneration() {
   return Number(globalThis.game?.release?.generation) || 13;

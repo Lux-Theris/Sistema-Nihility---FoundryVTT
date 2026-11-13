@@ -84,6 +84,8 @@ export function skillSummaryParts(mech, ctx = {}) {
     }
   }
   if (ctx.resistance) parts.push(ctx.resistance);
+  // Skill pré-feita de Manipulação: o que ela faz é resistir ao campo de Antimagia.
+  if (mech.coreSkill === "manaManipulation") parts.push("resiste à Antimagia");
 
   const cost = Number(ctx.cost ?? mech.cost) || 0;
   if (mech.variableMana) parts.push(`${energy} variável${cost ? ` (base ${cost})` : ""}`);
@@ -93,6 +95,11 @@ export function skillSummaryParts(mech, ctx = {}) {
     const upkeep = Number(ctx.upkeep ?? mech.upkeepCost) || 0;
     parts.push(upkeep ? `Ativa: −${upkeep}/rodada` : "Ativa");
   }
+  // Recarga e Preparo (H3): só aparecem quando a Skill os tem.
+  const cooldown = Math.floor(Number(mech.cooldown)) || 0;
+  if (cooldown > 0) parts.push(`recarga ${cooldown}`);
+  const prep = Math.floor(Number(mech.prepTurns)) || 0;
+  if (prep > 0) parts.push(`pronta em ${prep} rodada${prep === 1 ? "" : "s"}`);
   return parts;
 }
 

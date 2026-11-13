@@ -106,8 +106,10 @@ function renderCard(values) {
       <div class="cond-sec-title">Elemento e Antimagia</div>
       <div class="cond-grid">
         <div class="cond-fld span-2"><span class="cond-label">Elemento do corpo <span class="help" title="Quem tem esta Condição passa a SER deste elemento (Encharcado = Água): a vantagem entre elementos vale contra ele. No Contágio, a Resistência a ele reduz a chance de pegar.">?</span></span>${pickerFieldHtml(values.elements ?? [], "condition-elements")}</div>
+        ${fld("Selo de interferência (nível)", `<input type="number" data-field="interferenceLevel" min="0" value="${values.interferenceLevel ?? 0}"/>`, { help: "Quem tem esta Condição paga energia extra em todo uso tecnológico (maior quanto maior o nível), ou ele é anulado. 0 = não é selo." })}
         ${fld("Selo antimagia (nível)", `<input type="number" data-field="antimagicLevel" min="0" value="${values.antimagicLevel ?? 0}"/>`, { help: "Quem tem esta Condição paga Mana extra em toda magia (maior quanto maior o nível), ou ela é anulada. 0 = não é selo." })}
       </div>
+      ${check("suppressesTech", values.suppressesTech, "Suprime tecnologia", "Quem tem esta Condição não sente passivos, Resistências, itens, implantes e próteses tecnológicos, nem Skills tecnológicas usadas nele, de nível até o da Condição (o PEM). Corpo mecânico fica Inconsciente enquanto durar.")}
       ${check("suppressesMagic", values.suppressesMagic, "Suprime magia", "Quem tem esta Condição não sente passivos, Resistências, itens e implantes mágicos, nem Skills mágicas usadas nele, de nível até o da Condição.")}
     </section>
 
@@ -217,6 +219,9 @@ function readCard(card) {
   row.explanation = get("explanation").trim();
   const antimagicLevel = Math.max(0, Math.round(Number(get("antimagicLevel")) || 0));
   if (antimagicLevel) row.antimagicLevel = antimagicLevel;
+  const interferenceLevel = Math.max(0, Math.round(Number(get("interferenceLevel")) || 0));
+  if (interferenceLevel) row.interferenceLevel = interferenceLevel;
+  if (card.querySelector('[data-field="suppressesTech"]')?.checked) row.suppressesTech = true;
   const elements = readPickerField(card.querySelector(".condition-elements"));
   if (elements.length) row.elements = elements;
   if (get("healBlockKinds")) row.healBlock = { kinds: get("healBlockKinds"), scope: get("healBlockScope") === "part" ? "part" : "body" };

@@ -304,7 +304,8 @@ test("Antimagia: o que acontece com cada Estrutura", () => {
   assert.equal(antimagicStructureOutcome({ ...base, sustained: true, material: "ethereal" }), "remove");
   // Física mantida por Skill perde o sustento (Vida 1); a mágica solta também.
   assert.equal(antimagicStructureOutcome({ ...base, sustained: true, material: "physical" }), "unsupport");
-  assert.equal(antimagicStructureOutcome({ ...base, magic: true, material: "physical" }), "unsupport");
+  assert.equal(antimagicStructureOutcome({ ...base, magic: true, material: "physical" }), "remove", "física mágica erguida uma vez: some");
+  assert.equal(antimagicStructureOutcome({ ...base, magic: true, sustained: true, material: "physical" }), "unsupport", "física mágica sustentada: Vida 1");
   // Matéria de verdade, sem magia nem Skill por trás: fica.
   assert.equal(antimagicStructureOutcome({ ...base, material: "physical" }), "keep");
   assert.equal(antimagicStructureOutcome({ ...base, material: "ethereal" }), "keep");

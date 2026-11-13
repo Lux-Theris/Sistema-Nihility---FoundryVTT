@@ -13,10 +13,10 @@ import { MEU_SISTEMA } from "../core/config/constants.js";
 export const PERIODIC_TARGETS = ["hp", "energy", "shipCasco", "shipHull"];
 
 /** Alvos que agem na hora e não ficam "para sempre" sem duração. */
-const INSTANT_TARGETS = ["heal", "restoreEnergy", "shield", "antimagic", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"];
+const INSTANT_TARGETS = ["heal", "restoreEnergy", "shield", "antimagic", "emp", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"];
 
 /** Alvos em que o valor não importa (liga/desliga, troca de elemento, Antimagia pelo nível). */
-const VALUELESS_TARGETS = ["weaponElement", "bodyElement", "weaponMagic", "weaponAbsolute", "antimagic"];
+const VALUELESS_TARGETS = ["weaponElement", "bodyElement", "weaponMagic", "weaponAbsolute", "antimagic", "emp"];
 
 const groupTargets = actor => new Set(MEU_SISTEMA.EFFECT_TARGET_GROUPS.filter(g => g.actor === actor).flatMap(g => g.targets));
 
@@ -47,6 +47,10 @@ export function lintSkill(mech, ctx = {}) {
 
   // --- Custo e ativação (aba Geral)
   if (!active && Number(m.upkeepCost) > 0) push("upkeepNotActive", "hard", "general", `Custo por rodada (${m.upkeepCost}) só vale em Habilidade Ativa: esta não é, então ele nunca é cobrado.`);
+  // Recarga e Preparo (H3): negativo não faz sentido; Preparo numa Ativa vale conferir.
+  if (Number(m.cooldown) < 0) push("cooldownNegative", "hard", "general", "Recarga negativa: vale como zero (sem recarga).");
+  if (Number(m.prepTurns) < 0) push("prepNegative", "hard", "general", "Preparo negativo: vale como zero (pronta na hora).");
+  if (active && Number(m.prepTurns) > 0) push("prepActive", "soft", "general", `Habilidade Ativa com Preparo de ${m.prepTurns} rodada(s): só liga depois de pronta, e o Custo por rodada começa então. Confira se é isso mesmo.`);
   if (active && !(Number(m.upkeepCost) > 0)) push("activeFree", "soft", "general", "Habilidade Ativa sem Custo por rodada: fica ligada de graça para sempre.");
   if (ctx.energyMax != null && Number(m.cost) > 0 && Number(m.cost) > Number(ctx.energyMax)) {
     push("costOverPool", "hard", "general", `Custa ${m.cost} e quem tem a Skill só tem ${ctx.energyMax} de ${energy} máxima: nunca dá para usar.`);

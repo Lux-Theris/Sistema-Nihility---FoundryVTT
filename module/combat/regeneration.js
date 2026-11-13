@@ -13,7 +13,7 @@
  */
 import { SYSTEM_ID, getHealingRules, getFeatureOption, isFeatureEnabled, isEnergyPoolEnabled, isBodyInjuryEnabled, isAnatomyEnabled, getCharacterEnergyLabel, skillLevelBonuses } from "../core/config.js";
 import { normalizeRegen, sumRegen, regenAmount } from "../core/regen-rules.js";
-import { sourceSuppressed, suppressionLevel } from "../core/suppression.js";
+import { sourceSuppressed, suppressionState } from "../core/suppression.js";
 import { restOutcome } from "../species/anatomy-rules.js";
 import { manaDensityFor } from "../environment/environment.js";
 import { healPlan, healBodyParts, partsSnapshot, partWrite } from "../species/anatomy.js";
@@ -28,7 +28,7 @@ export function collectRegenSources(actor) {
   if (isFeatureEnabled("naturalRegen")) {
     sources.push({ label: "Natural (Módulos do Sistema)", energyPercent: getFeatureOption("naturalRegen", "naturalEnergyRegenPercent") ?? 5, hpPercent: 0, level: 0, power: 1 });
   }
-  const suppression = suppressionLevel(actor);
+  const suppression = suppressionState(actor);
   for (const item of actor.items) {
     const regen = item.system?.regen;
     if (!regen || (!regen.energyPercent && !regen.hpPercent)) continue;
@@ -130,6 +130,9 @@ async function applyRest(actor, kind, outcome) {
   if (isEnergyPoolEnabled()) update["system.attributes.energy.value"] = outcome.energy;
   // `nihilityRest`: quem estava Caído/Inconsciente acorda de vez (ver incapacitation.js).
   await actor.update(update, { nihilityRest: true });
+  // Descanso zera a recarga das Habilidades (H3).
+  const { clearCooldowns } = await import("../skills/preparation.js");
+  await clearCooldowns(actor);
   if (outcome.healedParts.length) {
     await actor.updateEmbeddedDocuments("Item", outcome.healedParts.map(h => partWrite(actor.items.get(h.id), h.value)).filter(u => u._id));
   }

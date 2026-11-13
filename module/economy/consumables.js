@@ -37,7 +37,8 @@ export function consumableMech(item) {
     cost: 0,
     sourceLevel: 1,
     sourceMagic: Boolean(c.isMagicDamage),
-    magicTag: c.isMagicDamage ? "magic" : "mundane"
+    // "Mágico" marcado no Item (ou Dano Mágico) conta para a Antimagia (campo/Selo); sem marca, é mundano.
+    magicTag: c.isMagicDamage || item.system.magic ? "magic" : "mundane"
   };
 }
 
@@ -66,6 +67,15 @@ export async function useConsumable(actor, item, event = null) {
     return null;
   }
   const mech = consumableMech(item);
+  // Dentro de um campo (ou sob Selo) do tipo do item: nada acontece e o item não é gasto.
+  const { fieldGate, creditManipulation } = await import("../combat/antimagic.js");
+  const gate = fieldGate(actor, mech);
+  if (gate.blocked) {
+    ui.notifications.warn(gate.blocked);
+    return null;
+  }
+  if (gate.resisted) await creditManipulation(gate.skill);
+  mech.fieldGated = true;
   const label = item.name;
   const isDamage = mech.effectType === "damage";
   if (isDamage && !mech.damageFormula.trim()) {

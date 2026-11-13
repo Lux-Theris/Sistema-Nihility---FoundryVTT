@@ -30,7 +30,8 @@ import { getAntimagicReach,
   getVesselSizes,
   vesselKind,
   isMagicUse,
-  MAGIC_TAG_LABELS,
+  isTechUse,
+  isInterferenceEnabled,
   getAmmoTypes,
   cargoSlotsFor,
   isInventoryEnabled,
@@ -51,6 +52,7 @@ import {
   PER_EACH_KINDS,
   PER_EACH_LABELS
 } from "../combat/conditional-modifiers.js";
+import { itemNature, itemIsTech } from "../core/magic-rules.js";
 import { createGrantedSkill, removeGrantedSkill, refreshGrantedSkill, evolveSkill } from "../skills/skill-economy.js";
 import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
 import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../combat/resistance.js";
@@ -119,10 +121,15 @@ function headerChipsFor(item) {
     case "skill": {
       add(MEU_SISTEMA.SKILL_TIER_LABELS[sys.tier] ?? sys.tier, "Tier", "violet");
       add(`Nv ${sys.level}`, "Nível");
+      if (sys.coreSkill) add("Skill de base", "Skill pré-feita do sistema: outras regras dependem dela", "violet");
       if (sys.cost) add(`${sys.cost} ${getCharacterEnergyLabel()}`, "Custo ao usar");
       if (sys.hasUpkeep) add(`Ativa · ${sys.upkeepCost}/rod.`, "Habilidade Ativa", sys.active ? "ok" : "accent");
       if (sys.variableMana) add(`${getCharacterEnergyLabel()} variável`, "Aceita investir mais ou menos que o Custo", "violet");
-      if (isMagicUse(sys, item.parent)) add("Mágica", "Sofre Antimagia", "violet");
+      const chipMagic = isMagicUse(sys, item.parent);
+      const chipTech = isTechUse(sys, item.parent);
+      if (chipMagic && chipTech) add("Tecnomágica", "Sofre Antimagia e PEM", "violet");
+      else if (chipMagic) add("Mágica", "Sofre Antimagia", "violet");
+      else if (chipTech) add("Tecnológica", "Sofre PEM", "violet");
       const target = MEU_SISTEMA.SKILL_TARGET_TYPE_SHORT_LABELS[sys.targetType] ?? "";
       if (isStructureMechanic(sys)) add("Estrutura", "Mecânica ao usar");
       else if (sys.effectType === "damage") add(`Dano · ${target}`, "Mecânica ao usar", "hp");
@@ -453,7 +460,11 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.sequencerActive = sequencerAvailable();
     context.scaleEnabled = isScaleEnabled();
     context.energyLabel = getCharacterEnergyLabel();
-    context.magicTagOptions = Object.entries(MAGIC_TAG_LABELS).map(([id, label]) => ({ id, label: id === "auto" ? `Automático (custa ${context.energyLabel})` : label }));
+    // Natureza (Mágico / Tecnológico): as caixas mostram o valor de hoje, mesmo o que vem do automático.
+    context.natureMagic = isMagicUse(sys, this.item.parent);
+    context.natureTech = isTechUse(sys, this.item.parent);
+    context.itemTech = itemIsTech(sys);
+    context.interferenceEnabled = isInterferenceEnabled();
     context.energyAbbr = getStarshipEnergyAbbr();
     // Seletores de bônus de Atributo (Título, Item, Modificação) usam os rótulos e a
     // visibilidade atuais — atributo oculto sai da lista de opções novas.
@@ -573,7 +584,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const adv = (key, fields) => advancedFold(fields, this.#advOpen.get(key));
     context.advCost = adv("cost", [
       { label: `Variar a ${context.energyLabel}`, used: Boolean(sys.variableMana) },
-      { label: "Mágica (Antimagia)", used: Boolean(sys.magicTag) && sys.magicTag !== "auto" }
+      { label: "Mágico / Tecnológico", used: Boolean(sys.isTech) || sys.isMagic === false || sys.magicTag === "mundane" }
     ]);
     context.advPresentation = adv("presentation", [{ label: "Gatilho Emocional", used: Boolean(sys.emotionTrigger) }]);
     context.advDamage = adv("damage", [
@@ -676,8 +687,8 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         index,
         amount,
         durationRounds: entry.durationRounds,
-        durationUnit: entry.target === "antimagic" ? "rod. de supressão (0 = até tirar)" : sys.hasUpkeep ? "ativa" : periodic ? "ticks" : "rod.",
-        isAntimagic: entry.target === "antimagic",
+        durationUnit: ["antimagic", "emp"].includes(entry.target) ? "rod. de supressão (0 = até tirar)" : sys.hasUpkeep ? "ativa" : periodic ? "ticks" : "rod.",
+        isAntimagic: ["antimagic", "emp"].includes(entry.target),
         antimagicReach: Math.floor((Number(sys.level) || 0) * getAntimagicReach() + 1e-9),
         icon: entry.icon ?? "",
         summary,
@@ -871,7 +882,10 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   async _saveGrantedSkill(path, grantsSkill) {
     await this.item.update({ [path]: grantsSkill });
     const saved = foundry.utils.getProperty(this.item, path);
-    const refreshed = await refreshGrantedSkill(this.item.parent, saved, this._grantSourceKey(path));
+    const modMatch = path.match(/^system\.installedMods\.(\d+)\.grantsSkill$/);
+    const mod = modMatch ? this.item.system.installedMods?.[Number(modMatch[1])] : null;
+    const nature = this.item.type === "starship_module" ? { tech: true } : mod ? { magic: Boolean(mod.magic), tech: Boolean(mod.tech) } : itemNature(this.item.system);
+    const refreshed = await refreshGrantedSkill(this.item.parent, saved, this._grantSourceKey(path), nature);
     if (refreshed) ui.notifications.info(`"${saved.name}" foi atualizada na ficha.`);
   }
 
@@ -1289,7 +1303,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     if (!actor) return; // Item ainda não está numa ficha — nada a conceder/revogar.
 
     if (event.currentTarget.checked) {
-      await createGrantedSkill(actor, this.item.system.grantsSkill, this.item.id);
+      await createGrantedSkill(actor, this.item.system.grantsSkill, this.item.id, itemNature(this.item.system));
     } else {
       await removeGrantedSkill(actor, this.item.id);
     }
@@ -1365,7 +1379,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       await removeGrantedSkill(actor, sourceKey);
       mod.skillGranted = false;
     } else {
-      const created = await createGrantedSkill(actor, mod.grantsSkill, sourceKey);
+      const created = await createGrantedSkill(actor, mod.grantsSkill, sourceKey, { magic: Boolean(mod.magic), tech: Boolean(mod.tech) });
       if (!created) {
         ui.notifications?.warn("Preencha o nome da Habilidade Concedida antes de conceder.");
         return;

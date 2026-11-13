@@ -26,8 +26,8 @@ import { requestSkillSystem, isOpenRequest } from "../creation/creation-rules.js
  * @param {string} sourceKey - identifica a fonte (ex: `${itemId}` ou `${itemId}:${modIndex}`)
  * @returns {Promise<Item|null>} a Skill criada, ou null se `grantsSkill.name` estiver vazio
  */
-export async function createGrantedSkill(actor, grantsSkill, sourceKey) {
-  const data = buildGrantedSkillData(grantsSkill, MEU_SISTEMA.ITEM_GRANTABLE_SKILL_TIERS);
+export async function createGrantedSkill(actor, grantsSkill, sourceKey, sourceNature = null) {
+  const data = buildGrantedSkillData(grantsSkill, MEU_SISTEMA.ITEM_GRANTABLE_SKILL_TIERS, sourceNature);
   if (!data) return null;
   data.flags = { [SYSTEM_ID]: { grantedBySource: sourceKey } };
 
@@ -41,12 +41,12 @@ export async function createGrantedSkill(actor, grantsSkill, sourceKey) {
  * a fonte estiver concedendo agora (existe uma Skill com essa `sourceKey` no Ator).
  * @returns {Promise<boolean>} true se havia uma Skill concedida e ela foi recriada
  */
-export async function refreshGrantedSkill(actor, grantsSkill, sourceKey) {
+export async function refreshGrantedSkill(actor, grantsSkill, sourceKey, sourceNature = null) {
   if (!actor) return false;
   const current = actor.items.some(i => i.type === "skill" && i.flags?.[SYSTEM_ID]?.grantedBySource === sourceKey);
   if (!current) return false;
   await removeGrantedSkill(actor, sourceKey);
-  await createGrantedSkill(actor, grantsSkill, sourceKey);
+  await createGrantedSkill(actor, grantsSkill, sourceKey, sourceNature);
   return true;
 }
 
@@ -257,7 +257,11 @@ export async function evolveSkill(actor, sourceItemId, newSkillData) {
       cost: newSkillData.cost,
       hasUpkeep: newSkillData.hasUpkeep,
       variableMana: Boolean(newSkillData.variableMana),
+      cooldown: newSkillData.cooldown ?? 0,
+      prepTurns: newSkillData.prepTurns ?? 0,
       magicTag: newSkillData.magicTag || "auto",
+      isMagic: newSkillData.isMagic ?? null,
+      isTech: newSkillData.isTech ?? null,
       upkeepCost: newSkillData.upkeepCost,
       animationPath: newSkillData.animationPath,
       description: newSkillData.description,

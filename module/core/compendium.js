@@ -4,7 +4,7 @@
  * ai-helper.js (Fase 4 do refactor) porque é usado por praticamente todo o resto do sistema
  * (Sheets, Apps, skill-economy.js, ai-generation.js), não só pela geração via IA.
  */
-import { SYSTEM_ID, MEU_SISTEMA } from "./config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getCharacterEnergyLabel } from "./config.js";
 import { compendiumCollectionClass } from "../helpers/foundry-compat.js";
 import { runAsGm } from "../helpers/gm-relay.js";
 
@@ -91,6 +91,37 @@ export async function ensureSystemCompendiums() {
       throw err;
     }
   }
+  try {
+    await ensureCoreSkills();
+  } catch (err) {
+    console.warn(`${SYSTEM_ID} | Falha ao semear as Skills pré-feitas`, err);
+  }
+}
+
+/** Dados de uma Skill pré-feita com o nome e o texto no rótulo de energia atual do mundo. */
+export function coreSkillData(key, energyLabel = getCharacterEnergyLabel()) {
+  const def = MEU_SISTEMA.CORE_SKILL_DEFS?.[key];
+  if (!def) return null;
+  const fill = text => String(text).replaceAll("{E}", energyLabel);
+  return {
+    name: fill(def.name),
+    type: "skill",
+    system: { tier: "normal", cost: 0, effectType: "none", magicTag: "mundane", level: 1, coreSkill: key, description: fill(def.description) }
+  };
+}
+
+/**
+ * Semeia no Compêndio de Skills as Skills pré-feitas que faltam. Casa pela chave `coreSkill` (nunca
+ * pelo nome: o rótulo da energia pode ter mudado). Só o Mestre; não mexe nas que já existem.
+ */
+export async function ensureCoreSkills() {
+  if (!game.user.isGM) return;
+  const pack = getCompendiumForItemType("skill");
+  if (!pack) return;
+  const index = await pack.getIndex({ fields: ["system.coreSkill"] });
+  const missing = Object.keys(MEU_SISTEMA.CORE_SKILL_DEFS ?? {}).filter(key => !index.some(e => e.system?.coreSkill === key));
+  if (!missing.length) return;
+  await pack.documentClass.createDocuments(missing.map(key => coreSkillData(key)), { pack: pack.collection });
 }
 
 export function getCompendiumForItemType(itemType) {

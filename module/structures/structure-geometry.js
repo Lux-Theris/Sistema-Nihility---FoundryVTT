@@ -246,7 +246,9 @@ export function antimagicStructureOutcome({ magic = false, material = "physical"
   if ((Number(level) || 0) > (Number(reach) || 0)) return "keep";
   if (!magic && !sustained && !manaPowered) return "keep";
   if (manaPowered || material === "ethereal") return "remove";
-  return "unsupport";
+  // Física sustentada por Skill: perde o sustento e fica com Vida 1. Física mágica erguida uma vez
+  // (sem Skill segurando): some — decisão do dono, 12/11.
+  return sustained ? "unsupport" : "remove";
 }
 
 /**

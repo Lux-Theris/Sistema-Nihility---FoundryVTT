@@ -11,6 +11,7 @@ import { FEATURES, CAMPAIGN_PRESETS, FEATURE_GROUPS } from "./defaults/features.
 import { DEFAULT_CURRENCIES, DEFAULT_SCALES } from "./defaults/misc.js";
 import { DEFAULT_NPC_ARCHETYPES, NPC_NAME_TABLES, NPC_ARCHETYPE_GROUP_LABELS } from "./defaults/npc.js";
 import { DEFAULT_SKILL_TEMPLATES, SKILL_TEMPLATE_GROUP_LABELS } from "./defaults/skill-templates.js";
+import { CORE_SKILL_DEFS } from "./defaults/core-skills.js";
 export { PHYSICAL_SUBTYPES, RADIATION_ELEMENT } from "./defaults/elements.js";
 
 export const SYSTEM_ID = "nihility-rpg-system";
@@ -62,6 +63,7 @@ export const MEU_SISTEMA = {
     damageScalingDivisor: "damageScalingDivisor",
     manaInvestExponent: "manaInvestExponent",
     manaInvestMinPercent: "manaInvestMinPercent",
+    manaInvestOvercharge: "manaInvestOvercharge",
     restShortHpPercent: "restShortHpPercent",
     restShortEnergyPercent: "restShortEnergyPercent",
     healBlockZeroMultiplier: "healBlockZeroMultiplier",
@@ -77,6 +79,7 @@ export const MEU_SISTEMA = {
     affinitySuperEffective: "affinitySuperEffective",
     antimagicGrowth: "antimagicGrowth",
     antimagicReach: "antimagicReach",
+    technomagicPower: "technomagicPower",
     manaDensityDefault: "manaDensityDefault",
     shipFocusBoost: "shipFocusBoost",
     shipFocusCut: "shipFocusCut",
@@ -282,7 +285,9 @@ export const MEU_SISTEMA = {
     // Não segura golpe nenhum: queima quem atravessa (a vantagem entre elementos vale contra ela).
     { id: "fire-wall", label: "Muralha de Fogo", img: "", color: "#ff7043", shape: "line", size: 8, blocksMove: false, blocksSight: false, blocksAttacks: false, hp: 0, durationRounds: 3, magic: true, material: "ethereal", manaPowered: false, elements: ["fire"], contactDamage: "2d6" },
     // Campo Antimagia: ataque mágico que o atravessa (ou sai de dentro) paga Mana extra ou é anulado.
-    { id: "antimagic-field", label: "Campo Antimagia", img: "", color: "#9aa1c2", shape: "circle", size: 4, blocksMove: false, blocksSight: false, blocksAttacks: false, hp: 0, durationRounds: 3, antimagicLevel: 1, material: "ethereal", manaPowered: false }
+    { id: "antimagic-field", label: "Campo Antimagia", img: "", color: "#9aa1c2", shape: "circle", size: 4, blocksMove: false, blocksSight: false, blocksAttacks: false, hp: 0, durationRounds: 3, antimagicLevel: 1, material: "ethereal", manaPowered: false },
+    // Campo de Interferência: o mesmo para a tecnologia (uso tecnológico paga energia extra ou é anulado).
+    { id: "interference-field", label: "Campo de Interferência", img: "", color: "#5eead4", shape: "circle", size: 4, blocksMove: false, blocksSight: false, blocksAttacks: false, hp: 0, durationRounds: 3, interferenceLevel: 1, material: "ethereal", manaPowered: false }
   ],
   STRUCTURE_SHAPES: ["line", "free", "circle", "rect"],
 
@@ -503,11 +508,13 @@ export const MEU_SISTEMA = {
     "shipCasco",
     "shipHull",
     "shipDamageReduction",
-    "antimagic"
+    "antimagic",
+    "emp"
   ],
 
   EFFECT_TARGET_LABELS: {
     antimagic: "Antimagia (corta efeitos mágicos e suprime)",
+    emp: "PEM (corta efeitos tecnológicos e suprime)",
     strength: "Força",
     defense: "Defesa",
     magic: "Magia",
@@ -550,6 +557,7 @@ export const MEU_SISTEMA = {
     { label: "Arma", actor: "any", targets: ["weaponDamage", "weaponElement", "weaponMagic", "weaponAbsolute"] },
     { label: "Elemento", actor: "any", targets: ["bodyElement"] },
     { label: "Magia", actor: "character", targets: ["antimagic"] },
+    { label: "Tecnologia", actor: "any", targets: ["emp"] },
     { label: "Nave", actor: "ship", targets: ["shipWeaponDamage", "shipWeaponPenetration", "shipShieldCapacity", "shipShieldRegen", "shipReactorOutput", "shipPropulsion", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"] }
   ],
 
@@ -650,6 +658,8 @@ export const MEU_SISTEMA = {
   // Modelos de Skill (defaults/skill-templates.js).
   DEFAULT_SKILL_TEMPLATES,
   SKILL_TEMPLATE_GROUP_LABELS,
+  // Skills pré-feitas (defaults/core-skills.js).
+  CORE_SKILL_DEFS,
 
   SPECIES_GROUP_LABELS: {
     fantasia: "Fantasia",

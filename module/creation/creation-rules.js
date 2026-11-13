@@ -12,7 +12,7 @@ import { resolveSpeciesTemplate } from "../species/species-rules.js";
  * (Sub-Skills, linhagem) e o que a aprovação decide sozinha (Nível 1, desligada, sem XP).
  */
 export const REQUEST_MECHANIC_FIELDS = [
-  "cost", "hasUpkeep", "upkeepCost", "variableMana", "magicTag", "animationPath", "description", "resistanceTarget",
+  "cost", "hasUpkeep", "upkeepCost", "variableMana", "cooldown", "prepTurns", "magicTag", "isMagic", "isTech", "animationPath", "description", "resistanceTarget",
   "effectType", "damageFormula", "scalingAttribute", "isMagicDamage", "isAbsoluteDamage", "damageScale", "damageElements", "effects",
   "targetType", "structureId", "structureRegen", "structureRegenCost", "areaShape", "areaDistance", "areaAngle", "zoneRounds"
 ];

@@ -11,6 +11,10 @@
  *    focando quem cai mais rápido;
  *  - "derrubar um PJ" = todos os oponentes indo no PJ que cai mais rápido (o pior caso).
  * Nada de cura, Condição, tática nem posição no mapa.
+ *
+ * Recarga e Preparo (H3): um ataque com Recarga N só cai a cada N+1 rodadas; um com Preparo N cai
+ * pela 1ª vez na rodada N+1 (ver `attackCadence`). Nas rodadas em que o ataque principal não está
+ * pronto, vale o ataque de reserva (grátis), se houver.
  */
 import { npcTierHp, NPC_TIERS } from "../npc/npc-generator-rules.js";
 
@@ -29,6 +33,30 @@ export function unitHp(unit, tiers = {}) {
   const base = Math.max(1, Number(unit?.hpBase) || 1);
   const hp = unit?.tier ? npcTierHp(base, unit.tier, tiers) : base;
   return hp + Math.max(0, Number(unit?.shield) || 0);
+}
+
+/**
+ * Quando um ataque cai. Preparo P: a 1ª vez na rodada P + 1; Recarga C: depois do disparo fica
+ * bloqueado C turnos (livre no C + 1º). Com os dois, o próximo preparo só começa passada a recarga:
+ * período = P + (C > 0 ? C + 1 : 0), no mínimo 1. Só Recarga: período C + 1 ("a cada N + 1 rodadas").
+ * @param {{cooldown?: number, prep?: number}} attack
+ * @returns {{first: number, period: number}}
+ */
+export function attackCadence(attack = {}) {
+  const prep = Math.max(0, Math.floor(Number(attack?.prep)) || 0);
+  const cooldown = Math.max(0, Math.floor(Number(attack?.cooldown)) || 0);
+  return { first: prep + 1, period: Math.max(1, prep + (cooldown > 0 ? cooldown + 1 : 0)) };
+}
+
+/** O ataque está pronto nesta rodada (1 = a primeira)? */
+export function attackReady(round, attack = {}) {
+  const { first, period } = attackCadence(attack);
+  return round >= first && (round - first) % period === 0;
+}
+
+/** Fração das rodadas em que o ataque cai (média), para comparar ataques: 1 sem Recarga/Preparo. */
+export function cadenceFactor(attack = {}) {
+  return 1 / attackCadence(attack).period;
 }
 
 /** Golpes para derrubar: ⌈Vida ÷ golpe⌉ (Infinity se o golpe não passa). */
@@ -66,7 +94,7 @@ export function roundsToDefeat(attackers, defenders, tiers = {}) {
   const used = new Map();
   for (let round = 1; round <= MAX_ROUNDS; round++) {
     for (const a of atk) {
-      const attack = currentAttack(a, used);
+      const attack = currentAttack(a, used, round);
       if (!attack) continue;
       const alive = def.filter(d => d.hp > 0);
       if (!alive.length) break;
@@ -82,11 +110,13 @@ export function roundsToDefeat(attackers, defenders, tiers = {}) {
 }
 
 /** O ataque deste indivíduo nesta rodada: o escolhido até acabarem os usos, depois o de reserva. */
-function currentAttack(individual, used) {
+function currentAttack(individual, used, round = 1) {
   const attack = individual.unit.attack;
   if (!attack) return null;
   const id = `${individual.key}#${individual.index}`;
   const count = used.get(id) ?? 0;
+  // Recarga/Preparo: fora da rodada em que cai, não gasta uso (nem Mana) — vale o de reserva.
+  if (!attackReady(round, attack)) return attack.fallback ?? null;
   used.set(id, count + 1);
   const uses = attack.uses ?? Infinity;
   return count < uses ? attack : attack.fallback ?? null;
@@ -98,10 +128,23 @@ function currentAttack(individual, used) {
  */
 export function roundsToDropEach(attackers, defenders, tiers = {}) {
   const atk = expand(attackers, tiers);
+  const hasCadence = atk.some(a => attackCadence(a.unit.attack).period > 1 || attackCadence(a.unit.attack).first > 1);
   return (defenders ?? []).map(unit => {
-    const perRound = atk.reduce((sum, a) => sum + (Number(a.unit.attack?.perTarget?.[unit.key]) || 0), 0);
+    const hitOf = a => Number(a.unit.attack?.perTarget?.[unit.key]) || 0;
+    const perRound = atk.reduce((sum, a) => sum + hitOf(a), 0);
     const hp = unitHp(unit, tiers);
-    return { key: unit.key, name: unit.name, rounds: perRound > 0 ? Math.max(1, Math.ceil(hp / perRound - 1e-9)) : Infinity };
+    if (!hasCadence) return { key: unit.key, name: unit.name, rounds: perRound > 0 ? Math.max(1, Math.ceil(hp / perRound - 1e-9)) : Infinity };
+    // Com Recarga/Preparo, soma só o que cai em cada rodada (pior caso: todos no mesmo PJ).
+    let dealt = 0;
+    let rounds = Infinity;
+    for (let round = 1; round <= MAX_ROUNDS * 10; round++) {
+      dealt += atk.reduce((sum, a) => sum + (attackReady(round, a.unit.attack) ? hitOf(a) : 0), 0);
+      if (dealt >= hp - 1e-9) {
+        rounds = round;
+        break;
+      }
+    }
+    return { key: unit.key, name: unit.name, rounds };
   });
 }
 

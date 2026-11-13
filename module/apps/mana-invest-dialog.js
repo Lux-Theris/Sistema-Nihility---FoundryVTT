@@ -11,14 +11,15 @@ import { escapeHtml } from "../helpers/html.js";
  * @param {string} options.label - nome da Skill
  * @param {number} options.cost - Custo da Skill (já com o desconto de nível)
  * @param {number} options.available - Mana atual de quem usa
+ * @param {number} [options.ceiling] - o mais que se pode investir (2× a Mana máxima); padrão = a Mana atual
  * @param {number} options.minimum - o menos que se pode investir
  * @param {number} options.exponent - expoente da curva (Regras da Mesa)
  * @param {string} options.energyLabel
  * @returns {Promise<number|null>} a Mana investida, ou `null` se cancelou
  */
-export async function promptManaInvestment({ label, cost, available, minimum, exponent, energyLabel }) {
+export async function promptManaInvestment({ label, cost, available, ceiling = null, minimum, exponent, energyLabel }) {
   const { DialogV2 } = foundry.applications.api;
-  const max = Math.max(minimum, Math.floor(available));
+  const max = Math.max(minimum, Math.floor(ceiling ?? available));
   const start = Math.min(max, Math.max(minimum, cost));
   const describe = invested => {
     const ratio = cost > 0 ? invested / cost : 1;
@@ -36,6 +37,7 @@ export async function promptManaInvestment({ label, cost, available, minimum, ex
         <input type="number" class="mana-invest-value" min="${minimum}" max="${max}" step="1" value="${start}" aria-label="${escapeHtml(energyLabel)} investida"/>
       </div>
       <p class="mana-invest-power">${describe(start)}</p>
+      <p class="hint">Passar da ${escapeHtml(energyLabel)} que você tem (até o dobro da máxima) custa caro: pede confirmação, rola um d100 e deixa você Inconsciente.</p>
       <p class="hint">Menos que o Custo enfraquece na mesma proporção. Mais que o Custo fortalece sem teto, mas cada ${escapeHtml(energyLabel)} a mais rende menos que a anterior.</p>
     </div>`;
 
@@ -82,4 +84,24 @@ export async function promptManaInvestment({ label, cost, available, minimum, ex
   });
 
   return typeof result === "number" ? result : null;
+}
+
+/**
+ * "Vai além da sua Mana": confirma antes de gastar mais do que se tem. Devolve true se confirmou.
+ * @param {{label:string, invested:number, current:number, percent:number, energyLabel:string}} info
+ */
+export async function confirmOverdraw({ label, invested, current, percent, energyLabel }) {
+  const { DialogV2 } = foundry.applications.api;
+  const energy = escapeHtml(energyLabel);
+  const answer = await DialogV2.confirm({
+    window: { title: `Além da ${energyLabel} — ${label}` },
+    content: `<div class="nihility-mana-invest">
+      <p>Você vai investir <strong>${invested}</strong> ${energy} em <strong>${escapeHtml(label)}</strong> e só tem <strong>${Math.floor(current)}</strong> (<strong>+${percent}%</strong> além).</p>
+      <p>Vai além da sua ${energy}: rola d100 e você cai <strong>Inconsciente</strong>, com a ${energy} em 0. O efeito sai com a força de tudo o que foi investido.</p>
+    </div>`,
+    yes: { label: "Ir além", default: false },
+    no: { label: "Cancelar", default: true },
+    rejectClose: false
+  });
+  return answer === true;
 }

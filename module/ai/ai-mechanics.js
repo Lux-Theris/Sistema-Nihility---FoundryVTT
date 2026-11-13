@@ -44,6 +44,7 @@ export function mechanicsGuide(catalogs = {}) {
     'Mecânica de Skill, no campo "mechanics": {',
     '  "effectType": "none" (só descritiva) | "damage" | "temporary" (buffs/debuffs/Condições/cura/veneno),',
     '  "cost": número (Mana gasta ao usar), "hasUpkeep": boolean (liga/desliga), "upkeepCost": número por rodada,',
+    '  "cooldown": rodadas de recarga depois de usar (0 = nenhuma), "prepTurns": rodadas de preparo antes de disparar (0 = na hora),',
     '  "targetType": "targeted" (um alvo) | "self" | "emission" (área na hora) | "zone" (área que fica),',
     '  "areaShape": "circle"|"cone"|"ray", "areaDistance": número (unidades do grid, 1–30), "areaAngle": graus (cone),',
     '  "damageFormula": fórmula de dados do Foundry ("2d6+3"), "isMagicDamage": boolean, "damageElements": [ids de elemento],',
@@ -81,6 +82,8 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
   out.cost = clampInt(m.cost, 0, 9999, 0);
   out.hasUpkeep = Boolean(m.hasUpkeep);
   out.upkeepCost = out.hasUpkeep ? clampInt(m.upkeepCost, 0, 9999, 0) : 0;
+  out.cooldown = clampInt(m.cooldown, 0, 99, 0);
+  out.prepTurns = clampInt(m.prepTurns, 0, 20, 0);
 
   let effectType = MEU_SISTEMA.SKILL_EFFECT_TYPES.includes(m.effectType) ? m.effectType : "none";
   if (effectType === "structure") {
@@ -104,6 +107,8 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
     if (formula && isValidFormula(formula)) {
       out.damageFormula = formula;
       out.isMagicDamage = Boolean(m.isMagicDamage);
+      if (typeof m.isMagic === "boolean") out.isMagic = m.isMagic;
+      if (typeof m.isTech === "boolean") out.isTech = m.isTech;
       out.damageElements = pickIds(m.damageElements, elements);
       out.scalingAttribute = attributes.has(m.scalingAttribute) ? m.scalingAttribute : "";
     } else {

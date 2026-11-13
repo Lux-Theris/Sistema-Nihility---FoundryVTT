@@ -16,10 +16,10 @@ export const UNDO_VITAL_PATHS = {
 };
 
 /** Campos de cada Item fotografados (Skill ligada, XP, Vida de parte/Módulo…). */
-export const UNDO_ITEM_PATHS = ["system.active", "system.xp", "system.hp.value", "system.integrity", "system.lost", "system.status"];
+export const UNDO_ITEM_PATHS = ["system.active", "system.xp", "system.hp.value", "system.integrity", "system.lost", "system.status", "system.cooldownRemaining"];
 
 /** Flags do sistema no Ator que um uso pode mexer e que voltam inteiras. */
-export const UNDO_FLAG_KEYS = ["sustainedShields", "shipEffects"];
+export const UNDO_FLAG_KEYS = ["sustainedShields", "shipEffects", "preparing"];
 
 /**
  * Os diffs vão para um flag de mensagem, e o Foundry expande chave com ponto ("system.xp") em
@@ -187,11 +187,15 @@ export function undoPreviewRows(record, { damage = [], skillLabel = "" } = {}) {
         const turnedOn = active ? active[1] === true : (subs[1] ?? []).some((on, i) => on && !(subs[0] ?? [])[i]);
         rows.push({ tag: turnedOn ? "desliga" : "liga", tone: "off", text: `${item.name} (Skill Ativa)${actor.isSource ? "" : ` de ${actor.name}`}` });
       }
-      const rest = Object.keys(changes).filter(k => !["system.xp", "system.active", "subSkillsActive"].includes(k));
+      if (changes["system.cooldownRemaining"] || changes.subSkillsCooldown) {
+        rows.push({ tag: "volta", tone: "effect", text: `Recarga de ${item.name}${actor.isSource ? "" : ` (${actor.name})`}` });
+      }
+      const rest = Object.keys(changes).filter(k => !["system.xp", "system.active", "subSkillsActive", "system.cooldownRemaining", "subSkillsCooldown"].includes(k));
       if (rest.length) rows.push({ tag: "volta", tone: "effect", text: `${item.name} de ${actor.name} volta como estava` });
     }
     const flags = asFields(actor.flags);
     if (flags.sustainedShields) rows.push({ tag: "volta", tone: "effect", text: `Escudo mantido de ${actor.name}` });
+    if (flags.preparing) rows.push({ tag: "volta", tone: "effect", text: `Preparo de ${actor.name}` });
     if (flags.shipEffects) rows.push({ tag: "volta", tone: "effect", text: `Efeitos de sistema de ${actor.name}` });
   }
   if (record?.placed?.structure) rows.push({ tag: "some", tone: "effect", text: `Estrutura erguida por ${skillLabel || "este uso"}` });

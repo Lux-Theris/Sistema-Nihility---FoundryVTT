@@ -18,6 +18,7 @@ import {
   getActiveSkillTemplates
 } from "../core/config.js";
 import { lintSkill, lintIndex } from "./skill-lint-rules.js";
+import { isMagicUse, isTechUse, technomagicFactor, getTechnomagicPower } from "../core/config.js";
 import { suggestSkillCost, costCloseEnough, holderLine } from "./skill-cost-rules.js";
 import { templateSkillData } from "./skill-template-rules.js";
 import { skillSummary } from "./skill-summary.js";
@@ -79,6 +80,7 @@ export function skillAssist(mech, { actor = null } = {}) {
   const structures = getStructures();
   const suggestion = suggestSkillCost(mech, {
     manaPerPoint: getSkillCostManaPerPoint(),
+    technomagicFactor: technomagicFactor(isMagicUse(mech, actor), isTechUse(mech, actor), getTechnomagicPower()),
     structureHp: id => structures.find(s => s.id === id)?.hp ?? 0,
     conditionLabel: id => conditions.find(c => c.id === id)?.label ?? id,
     targetLabel: key => getEffectTargetLabels()[key] ?? key,

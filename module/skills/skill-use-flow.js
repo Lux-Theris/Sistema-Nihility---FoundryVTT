@@ -1,4 +1,6 @@
-import { isAreaEffectsEnabled } from "../core/config.js";
+import { isAreaEffectsEnabled, isEnergyPoolEnabled, effectiveSkillCost, getEnergyLabelForActor } from "../core/config.js";
+import { isShipLike } from "../starship/ship-damage.js";
+import { useBlockReason } from "./preparation.js";
 import { useSkillEffect } from "./skill-effects.js";
 import { skillUseMode } from "./skill-use-mode.js";
 import { getStructure, pickStructurePlacement } from "../structures/structures.js";
@@ -43,7 +45,29 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget } =
     if (incapacitatedCheck && !isOnToggle(mech) && blockIfIncapacitated(actor, "usar Habilidades")) return;
   }
 
+  // Recarga ou Preparo em andamento (H3): avisa antes de pedir alvo, área ou rolagem.
+  const blocked = useBlockReason(actor, skill, subSkillIndex);
+  if (blocked) {
+    ui.notifications.warn(blocked);
+    return;
+  }
+
   const mode = skillUseMode(mech, { areaEnabled: isAreaEffectsEnabled(), areaSupported: areaEffectsSupported() });
+
+  // Shift+clique: modificadores de rolagem (só quando há dano a rolar) e "Investir Mana" (C2, em toda
+  // Skill com Custo que não seja Descritiva). Antes de Estrutura, Zona, área ou alvo.
+  let rollOptions = null;
+  let manaInvested = null;
+  if (mode !== "deactivate" && mode !== "plain" && mode !== "emissionNoCanvas") {
+    const isDamage = mech.effectType === "damage";
+    const invest = investFor(actor, mech);
+    if (event?.shiftKey && (isDamage || invest)) {
+      const asked = await rollOptionsFromEvent(event, isDamage ? `Dano — ${skill.name}` : `Usar — ${skill.name}`, { invest, modifiers: isDamage });
+      if (asked.cancelled) return;
+      rollOptions = asked.options;
+      manaInvested = asked.invested;
+    }
+  }
 
   // Estrutura: posiciona (ou desenha) no mapa e o Mestre ergue — ver structures.js. Sem mapa, a
   // Skill só posta o cartão.
@@ -59,7 +83,7 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget } =
         structurePlacement = await pickStructurePlacement(structure);
         if (!structurePlacement) return;
       }
-      await useSkillEffect(actor, itemId, { structurePlacement, subSkillIndex });
+      await useSkillEffect(actor, itemId, { structurePlacement, subSkillIndex, manaInvested });
     } catch (err) {
       reportError("Falha ao erguer a Estrutura.", err);
     }
@@ -81,36 +105,40 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget } =
     return;
   }
 
-  // Shift+clique: modificadores de rolagem — só quando há dano a rolar.
-  let rollOptions = null;
-  if (mech.effectType === "damage") {
-    const asked = await rollOptionsFromEvent(event, `Dano — ${skill.name}`);
-    if (asked.cancelled) return;
-    rollOptions = asked.options;
-  }
-
   try {
     if (mode === "zone") {
       // Zona: posiciona a área (fica na cena) — quem estiver dentro sofre no início do turno.
       const zonePlacement = await pickZonePlacement({ system: mech });
       if (!zonePlacement) return;
-      await useSkillEffect(actor, itemId, { zonePlacement, subSkillIndex, rollOptions });
+      await useSkillEffect(actor, itemId, { zonePlacement, subSkillIndex, rollOptions, manaInvested });
     } else if (mode === "emission") {
       // Sem alvo manual: a forma posicionada no mapa decide quem é afetado (aplica direto).
       const targetActors = await pickAreaTargets({ system: mech });
-      await useSkillEffect(actor, itemId, { targetActors, subSkillIndex, rollOptions });
+      await useSkillEffect(actor, itemId, { targetActors, subSkillIndex, rollOptions, manaInvested });
     } else if (mode === "self") {
-      await useSkillEffect(actor, itemId, { targetActor: actor, subSkillIndex, rollOptions });
+      await useSkillEffect(actor, itemId, { targetActor: actor, subSkillIndex, rollOptions, manaInvested });
     } else {
       // Alvo único. Todo dano pode ser reduzido pelo alvo, então dano e efeito temporário pedem
       // alvo — o seletor já vem com quem usa marcado (inclusive a própria nave).
       const targetActor = await pickTarget?.();
       if (!targetActor) return;
-      await useSkillEffect(actor, itemId, { targetActor, subSkillIndex, rollOptions });
+      await useSkillEffect(actor, itemId, { targetActor, subSkillIndex, rollOptions, manaInvested });
     }
   } catch (err) {
     reportError("Falha ao usar a Habilidade.", err);
   }
+}
+
+/**
+ * O que o campo "Investir" do Shift+clique precisa saber, ou null quando a Skill não permite (Nave
+ * paga da Bateria; sem Custo; Mana variável tem o diálogo dela; campanha sem Mana).
+ */
+function investFor(actor, mech) {
+  if (isShipLike(actor) || !isEnergyPoolEnabled() || mech.variableMana) return null;
+  const cost = effectiveSkillCost(mech.cost, mech.level);
+  if (!(cost > 0)) return null;
+  const energy = actor.system?.attributes?.energy ?? {};
+  return { cost, current: Number(energy.value) || 0, max: Number(energy.max) || 0, energyLabel: getEnergyLabelForActor(actor) };
 }
 
 /**

@@ -190,6 +190,9 @@ export function isStatusConditionsEnabled() {
   return isFeatureEnabled("statusConditions");
 }
 
+export function isInterferenceEnabled() {
+  return isFeatureEnabled("interference");
+}
 export function isEnvironmentEnabled() {
   return isFeatureEnabled("environment");
 }

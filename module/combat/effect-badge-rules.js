@@ -11,7 +11,8 @@ export const BADGE_COLORS = {
   time: 0xffcf5c,
   anchor: 0x6ee7ff,
   radiation: 0xc6ff00,
-  danger: 0xff5c5c
+  danger: 0xff5c5c,
+  prep: 0xffa24d
 };
 
 /**
@@ -39,9 +40,13 @@ function positiveInt(value) {
  * @param {{radiationLevel?:number, incapacitation?:{kind?:string, rounds?:number|null, stabilized?:boolean}|null,
  *          environment?:boolean, curse?:boolean, periodic?:boolean, ticksRemaining?:number|null,
  *          anchored?:boolean, finite?:number, rounds?:number|null}} info
- * @returns {{text: string, tone: "time"|"anchor"|"radiation"|"danger"}|null}
+ * @returns {{text: string, tone: "time"|"anchor"|"radiation"|"danger"|"prep"}|null}
  */
 export function effectBadge(info = {}) {
+  // Preparando: X (H3) — o número é quantos turnos faltam para disparar.
+  const preparing = positiveInt(info.preparing);
+  if (preparing) return { text: String(preparing), tone: "prep" };
+
   const level = positiveInt(info.radiationLevel);
   if (level) return { text: String(level), tone: "radiation" };
 

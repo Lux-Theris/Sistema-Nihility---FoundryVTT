@@ -6,6 +6,7 @@
  * cross-Actor (`game.actors`), não algo que um getter de Data Model (limitado ao próprio
  * documento) consegue responder sozinho.
  */
+import { sourceSuppressed, suppressionState } from "../core/suppression.js";
 
 /** Nave(s)/Veículo(s) que atualmente listam este Ator como tripulante (system.crewMembers). Um personagem pode tripular mais de uma ao mesmo tempo. */
 export function findCrewedShipsForActor(actorOrUuid) {
@@ -17,7 +18,11 @@ export function findCrewedShipsForActor(actorOrUuid) {
   );
 }
 
-/** Verdadeiro se o Ator possuir ao menos um Item marcado como dispositivo PAD (não exige equipado). */
+/**
+ * Verdadeiro se o Ator possuir ao menos um Item marcado como dispositivo PAD (não exige equipado).
+ * O aparelho é tecnológico por padrão: sob Supressão tecnológica (PEM) ele não conta.
+ */
 export function hasPadDevice(actor) {
-  return actor.items.some(i => i.type === "item" && i.system.isPadDevice === true);
+  const state = suppressionState(actor);
+  return actor.items.some(i => i.type === "item" && i.system.isPadDevice === true && !sourceSuppressed(actor, i, null, state));
 }

@@ -49,7 +49,7 @@ test("Regras desta mesa: frase de cada Condição", () => {
   assert.equal(conditionSentence({ incapacitates: true }), "não age nem se move");
   assert.equal(conditionSentence({}), "o Mestre decide o que ela impede");
   assert.equal(conditionSentence({ curse: { enabled: true } }, { energyLabel: "Fluxo" }), "uma maldição: cobra Fluxo todo turno");
-  assert.equal(conditionSentence({ antimagicLevel: 3 }, { energyLabel: "Fluxo" }), "magia custa Fluxo extra");
+  assert.equal(conditionSentence({ antimagicLevel: 3 }, { energyLabel: "Fluxo" }), "a magia dele não sai, a não ser que resista (Manipulação)");
   assert.equal(conditionSentence({ suppressesMagic: true }), "a magia dele para de funcionar");
   assert.equal(conditionSentence({ healBlock: { kinds: "regen" } }), "não regenera");
   assert.equal(conditionSentence({ healBlock: { kinds: "all" } }), "não pode ser curado");

@@ -6,6 +6,20 @@
 import { getActiveSpeciesPresets, getActiveStatusConditions, getCharacterEnergyLabel, getScaleConfig, getStarshipEnergyLabel } from "./catalogs.js";
 import { SYSTEM_ID } from "./constants.js";
 import { originTraitIdsOf, resolveActorTraits } from "./rules.js";
+import { CORE_SKILLS } from "../magic-rules.js";
+
+/**
+ * A Skill de Manipulação de mais alto nível do Ator (a pré-feita `coreSkill: "manaManipulation"`,
+ * inclusive a concedida por Item) e o nível dela. Sem ela, `{skill: null, level: 0}`.
+ */
+export function actorManipulation(actor) {
+  let skill = null;
+  for (const item of actor?.items ?? []) {
+    if (item.type !== "skill" || item.system?.coreSkill !== CORE_SKILLS.manipulation) continue;
+    if (!skill || (Number(item.system.level) || 0) > (Number(skill.system.level) || 0)) skill = item;
+  }
+  return { skill, level: skill ? Number(skill.system.level) || 0 : 0 };
+}
 
 /**
  * Elementos que um Ator É agora (pra vantagem entre elementos): os da Espécie, os dos efeitos
@@ -73,19 +87,28 @@ export function vesselKind(actorOrType) {
   return type === "vehicle" ? "vehicle" : "ship";
 }
 
-/** Nível do "Selo antimagia" que o próprio Ator carrega (a maior Condição ativa com antimagia). */
-export function actorAntimagicLevel(actor) {
-  const sealed = getActiveStatusConditions().filter(c => Number(c.antimagicLevel) > 0);
+/**
+ * Nível do Selo que o próprio Ator carrega (a maior Condição ativa com o campo): `antimagicLevel`
+ * para a magia, `interferenceLevel` para a tecnologia (`kind: "tech"`).
+ */
+export function actorSealLevel(actor, kind = "magic") {
+  const field = kind === "tech" ? "interferenceLevel" : "antimagicLevel";
+  const sealed = getActiveStatusConditions().filter(c => Number(c[field]) > 0);
   if (!sealed.length || !actor?.effects) return 0;
   let level = 0;
   for (const effect of actor.effects) {
     if (effect.disabled) continue;
     for (const status of effect.statuses ?? []) {
       const condition = sealed.find(c => c.id === status);
-      if (condition) level = Math.max(level, Number(condition.antimagicLevel) || 0);
+      if (condition) level = Math.max(level, Number(condition[field]) || 0);
     }
   }
   return level;
+}
+
+/** Nível do "Selo antimagia" que o próprio Ator carrega. */
+export function actorAntimagicLevel(actor) {
+  return actorSealLevel(actor, "magic");
 }
 
 /** Mesmo Ator? Por `uuid`: distingue Tokens não vinculados da mesma ficha. */

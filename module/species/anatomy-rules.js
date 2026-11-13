@@ -51,14 +51,22 @@ export function partFunctions(part) {
   const prosthesis = mods.find(m => m.kind === "prosthesis");
   // Prótese com Funções declaradas manda; prótese antiga (só o interruptor) mantém as naturais.
   const base = part?.isProsthetic && prosthesis?.functions?.length ? prosthesis.functions : part?.functions ?? [];
-  const implants = mods.filter(m => m.kind !== "prosthesis").flatMap(m => m.functions ?? []);
+  const implants = mods.filter(m => m.kind !== "prosthesis" && !m.suppressed).flatMap(m => m.functions ?? []);
   return [...new Set([...base, ...implants])];
+}
+
+/** Prótese suprimida (PEM): a parte continua lá, mas não funciona — como uma parte inutilizada. */
+export function partDisabled(part) {
+  if (!part?.isProsthetic) return false;
+  const prosthesisMods = (part.mods ?? []).filter(m => m.kind === "prosthesis");
+  // Com Item de prótese instalado, vale a supressão dele; sem (prótese de Herança), a da própria parte.
+  return prosthesisMods.length ? prosthesisMods.some(m => m.suppressed) : Boolean(part.prostheticSuppressed);
 }
 
 function partWeight(part, woundedByHp) {
   const max = Number(part?.hpMax) || 0;
   const value = Number(part?.hpValue) || 0;
-  if (value <= 0) return 0;
+  if (value <= 0 || partDisabled(part)) return 0;
   if (!woundedByHp || max <= 0) return 1;
   return Math.min(1, value / max);
 }
@@ -74,7 +82,7 @@ export function bodyFunctionState(parts = [], catalog = []) {
   for (const fn of catalog) {
     const holders = parts.filter(p => partFunctions(p).includes(fn.id));
     const weights = holders.map(p => partWeight(p, Boolean(fn.woundedByHp)));
-    const lostParts = holders.filter(p => (Number(p.hpValue) || 0) <= 0);
+    const lostParts = holders.filter(p => (Number(p.hpValue) || 0) <= 0 || partDisabled(p));
     byFunction[fn.id] = {
       total: holders.length,
       working: weights.reduce((a, b) => a + b, 0),

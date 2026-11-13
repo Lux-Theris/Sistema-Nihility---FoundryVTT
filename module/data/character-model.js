@@ -25,7 +25,7 @@ import { actorOriginLayers } from "../species/origin.js";
 import { bodyFunctionState, injuredMovement, legacyFunctionsFor, resolvePartVitals } from "../species/anatomy-rules.js";
 import { originAttributeRows, originStatRows, originMovement, originScale } from "../species/species-rules.js";
 import { sumConditionalModifiers } from "../combat/conditional-modifiers.js";
-import { sourceSuppressed, suppressionLevel } from "../core/suppression.js";
+import { sourceSuppressed, suppressionState } from "../core/suppression.js";
 import { npcTierHp, NPC_TIERS } from "../npc/npc-generator-rules.js";
 import { getNpcTierConfig } from "../core/config.js";
 
@@ -281,7 +281,7 @@ export function itemAttributeSources(actor, key) {
     }
   };
   // Antimagia: fonte mágica suprimida não conta (ver core/suppression.js).
-  const suppression = suppressionLevel(actor);
+  const suppression = suppressionState(actor);
   for (const item of actor.items) {
     if (item.type === "skill" && !sourceSuppressed(actor, item, null, suppression)) add(item.system.attributeBonuses, item.name, item.uuid, "skill");
     else if (item.type === "item" && item.system.equipped && !sourceSuppressed(actor, item, null, suppression)) add(item.system.attributeBonuses, item.name, item.uuid, "item");
@@ -310,7 +310,7 @@ export function statModifierSources(actor, stat) {
     const value = Number(modifiers?.[stat]) || 0;
     if (value) list.push({ label, value, uuid, kind });
   };
-  const suppression = suppressionLevel(actor);
+  const suppression = suppressionState(actor);
   for (const item of actor.items) {
     if (item.type === "skill" && !sourceSuppressed(actor, item, null, suppression)) add(item.system.statModifiers, item.name, item.uuid, "skill");
     else if (item.type === "item" && item.system.equipped && !sourceSuppressed(actor, item, null, suppression)) add(item.system.statModifiers, item.name, item.uuid, "item");
@@ -376,6 +376,8 @@ function deriveBodyState(dataModel) {
     return;
   }
   const known = getActiveBodyFunctions().map(f => f.id);
+  // PEM: implante/prótese tecnológico suprimido não vale (a prótese vira parte inutilizada).
+  const suppression = suppressionState(dataModel.parent);
   const parts = dataModel.parent.items
     .filter(i => i.type === "body_part")
     .map(i => {
@@ -391,7 +393,9 @@ function deriveBodyState(dataModel) {
         lost: i.system.status === "lost",
         functions: i.system.functions?.length ? i.system.functions : fallback,
         isProsthetic: Boolean(i.system.isProsthetic),
-        mods: (i.system.installedMods ?? []).map(m => ({ kind: m.kind || "implant", functions: m.functions ?? [] }))
+        mods: (i.system.installedMods ?? []).map(m => ({ kind: m.kind || "implant", functions: m.functions ?? [], suppressed: sourceSuppressed(dataModel.parent, i, m, suppression) })),
+        // Prótese que veio da Herança (parte transformada, sem Item instalado) é tecnológica também.
+        prostheticSuppressed: Boolean(i.system.isProsthetic) && sourceSuppressed(dataModel.parent, i, { tech: true }, suppression)
       };
     });
   dataModel.bodyState = bodyFunctionState(parts, getActiveBodyFunctions());

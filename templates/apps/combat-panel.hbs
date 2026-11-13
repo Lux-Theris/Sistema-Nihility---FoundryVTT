@@ -21,7 +21,7 @@
           <td class="cp-n">{{#if r.shield}}{{r.shield}}{{else}}—{{/if}}</td>
           <td>{{#if r.energyText}}<span class="cp-bar mp"><i style="width: {{r.energyPercent}}%;"></i></span><span class="cp-n">{{r.energyText}}</span>{{else}}<span class="cp-dim">—</span>{{/if}}</td>
           <td class="cp-effects">{{#each r.effects as |e|}}<span class="cp-ic" title="{{e.name}}"><img src="{{e.img}}" alt="">{{#if e.badge}}<b class="{{e.tone}}">{{e.badge}}</b>{{/if}}</span>{{else}}<span class="cp-dim">—</span>{{/each}}</td>
-          <td class="cp-act">{{#each r.actives as |a|}}<div>{{a.label}} <em>−{{a.cost}}/rod.</em></div>{{else}}<span class="cp-dim">—</span>{{/each}}</td>
+          <td class="cp-act">{{#each r.actives as |a|}}<div>{{a.label}} {{#if a.prep}}<em>({{a.prep}})</em>{{else}}<em>−{{a.cost}}/rod.</em>{{/if}}</div>{{else}}<span class="cp-dim">—</span>{{/each}}</td>
           <td class="cp-n">{{#if r.movement}}{{r.movement}}{{else}}—{{/if}}</td>
           <td><button type="button" data-action="openEffects" data-actor-uuid="{{r.actorUuid}}">Efeitos</button></td>
         </tr>

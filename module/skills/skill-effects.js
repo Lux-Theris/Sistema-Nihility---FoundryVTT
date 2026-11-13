@@ -7,18 +7,20 @@
  *    HP/Mana Máximo mesmo quando o alvo é um atributo); "shield" é somado
  *    direto, sem duração, gasto na mão pelo jogador conforme absorve dano.
  */
-import { getActiveStatusConditions, getEnergyLabelForActor, isEnergyPoolEnabled, effectiveSkillCost, isStructureMechanic, manaInvestmentPower, getManaInvestConfig, isMagicUse } from "../core/config.js";
+import { getActiveStatusConditions, getEnergyLabelForActor, isEnergyPoolEnabled, effectiveSkillCost, isStructureMechanic, manaInvestmentPower, getManaInvestConfig, isMagicUse, isTechUse, technomagicFactor, getTechnomagicPower, isInterferenceEnabled } from "../core/config.js";
 import { manaDensityFor } from "../environment/environment.js";
 import { castPowerFromDensity, densitySustainsMagic } from "../environment/environment-rules.js";
-import { chargeAntimagic, placementTargets, fieldEndsEffectAt } from "../combat/antimagic.js";
-import { suppressionLevel } from "../core/suppression.js";
-import { skillIsMagic } from "../core/magic-rules.js";
+import { chargeAntimagic, placementTargets, fieldGate, creditManipulation } from "../combat/antimagic.js";
+import { suppressionLevel, techSuppressionLevel } from "../core/suppression.js";
+import { skillIsMagic, skillIsTech } from "../core/magic-rules.js";
 import { createZone } from "../combat/area-effects.js";
 import { grantSkillUseXp, vitalBase } from "./skill-xp.js";
-import { blockIfIncapacitated } from "../combat/incapacitation.js";
+import { blockIfIncapacitated, knockUnconscious } from "../combat/incapacitation.js";
+import { useBlockReason, startPreparation, applyCooldownAfterUse, inStartedCombat } from "./preparation.js";
+import { packUseOptions, preparationPayments, overdrawInfo, investCeiling } from "./cooldown-rules.js";
 import { playSkillAnimation } from "../core/vfx.js";
-import { requestStructure, dispelStructuresInArea, structureEndedAtOnce } from "../structures/structures.js";
-import { promptManaInvestment } from "../apps/mana-invest-dialog.js";
+import { requestStructure, dispelStructuresInArea } from "../structures/structures.js";
+import { promptManaInvestment, confirmOverdraw } from "../apps/mana-invest-dialog.js";
 import { rollSkillDamage, rollSkillDamageArea } from "../combat/damage-roll.js";
 import { applyEffectsToActor } from "./effects-apply.js";
 import { isShipLike } from "../starship/ship-damage.js";
@@ -54,11 +56,40 @@ import { applyEffectChoices, normalizeEffectRequest, splitByWriteAccess } from "
  * @param {{targetActor?: Actor, targetActors?: Actor[], subSkillIndex?: number}} [options]
  */
 export async function useSkillEffect(sourceActor, skillId, options = {}) {
-  // Desfazer uso (skill-undo.js): fotografa antes/depois e guarda o registro no card.
-  return recordSkillUse(sourceActor, skillId, options, () => runSkillEffect(sourceActor, skillId, options));
+  // `timers`: o que o uso conta para a Recarga e a Sobrecarga (preenchido por runSkillEffect).
+  const timers = { ratio: 1, skip: false, overdraw: null };
+  // Desfazer uso (skill-undo.js): fotografa antes/depois e guarda o registro no card. A recarga e a
+  // queda por passar da Mana são gravadas DENTRO do embrulho, para o Desfazer levá-las junto.
+  return recordSkillUse(sourceActor, skillId, options, async () => {
+    const result = await runSkillEffect(sourceActor, skillId, options, timers);
+    if (result && !timers.skip) {
+      const skill = sourceActor.items.get(skillId);
+      await applyCooldownAfterUse(sourceActor, skill, options.subSkillIndex ?? null, timers.ratio);
+    }
+    // A Mana foi gasta (e foi além do que havia): d100 e Inconsciente, qualquer que tenha sido o resultado.
+    if (timers.overdraw) await resolveOverdraw(sourceActor, skillId, options, timers.overdraw);
+    return result;
+  });
 }
 
-async function runSkillEffect(sourceActor, skillId, options = {}) {
+/** O d100 público de quem foi além da Mana, o aviso de quanto passou, e a queda para Inconsciente. */
+async function resolveOverdraw(sourceActor, skillId, options, info) {
+  const skill = sourceActor.items.get(skillId);
+  const sub = options.subSkillIndex != null ? (skill?.system?.subSkills ?? [])[options.subSkillIndex] : null;
+  const label = skill ? (sub ? `${skill.name} — ${sub.name}` : skill.name) : "a Habilidade";
+  const energy = escapeHtml(getEnergyLabelForActor(sourceActor));
+  const roll = await new Roll("1d100").evaluate();
+  await roll.toMessage(
+    {
+      speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
+      flavor: `<strong>${escapeHtml(sourceActor.name)}</strong> foi além da ${energy} em <strong>${escapeHtml(label)}</strong>: investiu ${info.invested} tendo ${Math.floor(info.current)} — <strong>+${info.percent}% além</strong>. O Mestre diz o que o d100 significa; a ${energy} vai a 0 e a pessoa cai Inconsciente.`
+    },
+    { rollMode: CONFIG.ChatMessage.modes?.public ? "public" : "publicroll" }
+  );
+  await knockUnconscious(sourceActor);
+}
+
+async function runSkillEffect(sourceActor, skillId, options = {}, timers = { ratio: 1, skip: false, overdraw: null }) {
   const skill = sourceActor.items.get(skillId);
   if (!skill) return null;
 
@@ -73,6 +104,7 @@ async function runSkillEffect(sourceActor, skillId, options = {}) {
   }
 
   if (mech.hasUpkeep && mech.active) {
+    timers.skip = true;
     await skill.update(skillStateUpdate(skill, options.subSkillIndex, { active: false }));
     await removeUpkeepLinkedEffects(skill, options.subSkillIndex ?? null);
     await ChatMessage.create({
@@ -85,10 +117,26 @@ async function runSkillEffect(sourceActor, skillId, options = {}) {
   // Caído/Inconsciente (incapacitation.js): não usa Habilidade nenhuma.
   if (blockIfIncapacitated(sourceActor, "usar Habilidades")) return null;
 
+  // Recarga ou Preparo em andamento (H3). O disparo de um Preparo (`prepaid`) já passou por aqui.
+  if (!options.prepaid) {
+    const blocked = useBlockReason(sourceActor, skill, options.subSkillIndex ?? null);
+    if (blocked) {
+      ui.notifications?.warn(blocked);
+      return null;
+    }
+  }
+
   // Suprimido (Antimagia): Skill mágica de nível ≤ a supressão não se usa — nem liga, se for Ativa.
   const suppression = sourceActor.type === "character" ? suppressionLevel(sourceActor) : null;
   if (suppression !== null && skillIsMagic({ ...mech, tier: skill.system.tier }) && (Number(mech.level) || 0) <= suppression) {
     ui.notifications?.warn(`${sourceActor.name} está Suprimido (Antimagia nv ${suppression}): ${label} não funciona.`);
+    return null;
+  }
+
+  // Suprimido (Tecnologia, o PEM): Skill tecnológica de nível ≤ a supressão também não funciona.
+  const techSuppression = sourceActor.type === "character" ? techSuppressionLevel(sourceActor) : null;
+  if (techSuppression !== null && skillIsTech({ ...mech }, sourceActor) && (Number(mech.level) || 0) <= techSuppression) {
+    ui.notifications?.warn(`${sourceActor.name} está Suprimido (Tecnologia nv ${techSuppression}): ${label} não funciona.`);
     return null;
   }
 
@@ -103,13 +151,13 @@ async function runSkillEffect(sourceActor, skillId, options = {}) {
   }
   const manaDensity = castPowerFromDensity(rawDensity);
 
-  // Estrutura mágica que um campo antimagia desfaria na hora: recusa ANTES de gastar Mana ou pagar o extra.
-  if (isStructureMechanic(mech) && options.structurePlacement && isMagicUse(mech, sourceActor)) {
-    const doomed = structureEndedAtOnce(mech, options.structurePlacement);
-    if (doomed) {
-      ui.notifications?.warn(`O Campo de Antimagia desfaria ${doomed.label} na hora.`);
-      return null;
-    }
+  // Dentro de um Campo de Antimagia/Interferência (ou sob Selo): nada acontece e nada se gasta, a menos
+  // que a Manipulação deixe passar (o extra é cobrado junto com o Custo, mais abaixo). De fora para
+  // dentro, o uso é pago e some ou paga o extra (chargeAntimagic, depois do pagamento).
+  const earlyGate = fieldGate(sourceActor, mech);
+  if (earlyGate.blocked) {
+    ui.notifications?.warn(earlyGate.blocked);
+    return null;
   }
 
   // Numa campanha sem pool de Mana/Energia (setting `energyPoolEnabled`), Personagem/Criatura
@@ -124,45 +172,104 @@ async function runSkillEffect(sourceActor, skillId, options = {}) {
   // força da Skill segue `manaInvestmentPower`. Só pra quem paga com Mana (Nave paga com a Bateria).
   let paid = cost;
   let investRatio = 1;
+  let overdraw = null;
   const investConfig = getManaInvestConfig();
-  if (cost > 0 && mech.variableMana && !isShipLike(sourceActor)) {
+  const canInvest = cost > 0 && !isShipLike(sourceActor);
+  const preparing = Number(mech.prepTurns) > 0 && !options.prepaid && inStartedCombat(sourceActor);
+  if (options.prepaid) {
+    // Disparo de um Preparo (H3): o Custo já foi pago, parte por turno; só a força do investimento vale.
+    paid = 0;
+    investRatio = Number(options.prepaid.ratio) || 1;
+  } else if (canInvest && (mech.variableMana || options.manaInvested != null)) {
+    // Investir (C2): o Custo é o piso (a Mana variável tem o mínimo dela); o teto é 2× a Mana máxima.
+    // Passar da Mana que se tem pede confirmação e vira d100 + Inconsciente depois do efeito.
     const available = currentEnergyValue(sourceActor);
-    const minimum = Math.max(1, Math.ceil((cost * investConfig.minPercent) / 100));
-    if (available < minimum) {
+    const maxEnergy = Number(sourceActor.system.attributes?.energy?.max) || 0;
+    const ceiling = Math.max(investCeiling(maxEnergy), Math.floor(available));
+    const minimum = mech.variableMana ? Math.max(1, Math.ceil((cost * investConfig.minPercent) / 100)) : cost;
+    if (mech.variableMana && available < minimum) {
       await warnInsufficientEnergy(sourceActor, label, minimum);
       return null;
     }
-    const invested =
+    let invested =
       options.manaInvested ??
       (await promptManaInvestment({
         label,
         cost,
         available,
+        ceiling,
         minimum,
         exponent: investConfig.exponent,
         energyLabel: getEnergyLabelForActor(sourceActor)
       }));
     if (invested == null) return null;
+    invested = Math.min(ceiling, Math.max(minimum, Math.round(Number(invested)) || minimum));
+    const over = overdrawInfo({ invested, current: available, max: maxEnergy });
+    if (over.over) {
+      if (preparing) {
+        ui.notifications?.warn(`${label} tem Preparo: o Custo é pago aos poucos e não passa da ${getEnergyLabelForActor(sourceActor)} que você tem.`);
+        return null;
+      }
+      if (!(await confirmOverdraw({ label, invested, current: available, percent: over.percent, energyLabel: getEnergyLabelForActor(sourceActor) }))) return null;
+      overdraw = { ...over, invested, current: available, max: maxEnergy };
+    }
     paid = invested;
     investRatio = invested / cost;
   }
+  timers.ratio = investRatio;
 
-  if (paid > 0) {
+  if (preparing) {
+    // Preparo (H3): o Custo todo (com o investimento) é dividido em N partes; a 1ª sai agora, as outras no
+    // começo de cada turno de preparo (preparation.js). Alvo e área já foram escolhidos e ficam guardados.
+    const payments = preparationPayments(paid, mech.prepTurns);
     const current = currentEnergyValue(sourceActor);
-    if (current < paid) {
-      await warnInsufficientEnergy(sourceActor, label, paid);
+    // Dentro de um campo: o extra da Manipulação (sobre o Custo todo) sai agora, junto da 1ª parte.
+    const prepGate = fieldGate(sourceActor, mech, { baseCost: paid });
+    const firstDue = payments[0] + prepGate.extra;
+    if (firstDue > 0 && current < firstDue) {
+      await warnInsufficientEnergy(sourceActor, label, firstDue);
       return null;
     }
-    await sourceActor.update({ [energyValuePath(sourceActor)]: current - paid });
+    if (firstDue > 0) await sourceActor.update({ [energyValuePath(sourceActor)]: current - firstDue });
+    if (prepGate.resisted) await creditManipulation(prepGate.skill);
+    await startPreparation({ actor: sourceActor, skill, subSkillIndex: options.subSkillIndex ?? null, payments, investRatio, options: packUseOptions(options) });
+    timers.skip = true;
+    const energyName = escapeHtml(getEnergyLabelForActor(sourceActor));
+    await ChatMessage.create({
+      speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
+      content: `<p><strong>${escapeHtml(sourceActor.name)}</strong> começou a preparar <strong>${escapeHtml(label)}</strong> — pronta em ${mech.prepTurns} rodada(s)${paid > 0 ? `; o Custo (${paid} ${energyName}) sai em ${payments.length} parte(s): ${payments.join(" + ")}` : ""}.</p>`
+    });
+    return true;
+  }
+
+  // Dentro de um campo, com Manipulação a curva pede um extra sobre o que se paga (0 fora de campo).
+  const hold = fieldGate(sourceActor, mech, { baseCost: paid });
+  if (paid + hold.extra > 0) {
+    const current = currentEnergyValue(sourceActor);
+    if (!overdraw && current < paid + hold.extra) {
+      await warnInsufficientEnergy(sourceActor, label, paid + hold.extra);
+      return null;
+    }
+    await sourceActor.update({ [energyValuePath(sourceActor)]: Math.max(0, current - paid - hold.extra) });
+    timers.overdraw = overdraw;
+  }
+  if (hold.resisted) {
+    await creditManipulation(hold.skill);
+    if (hold.extra > 0) await postAntimagicPaid(sourceActor, label, ` — Manipulação no campo: +${hold.extra} ${getEnergyLabelForActor(sourceActor)}`);
   }
   if (mech.hasUpkeep) {
     // A razão investida fica guardada: o Custo por rodada é cobrado vezes ela enquanto ligada.
     await skill.update(skillStateUpdate(skill, options.subSkillIndex, { active: true, investRatio: investRatio }));
   }
   // Daqui pra frente a Skill carrega a força do investimento (dano, Efeitos, Vida de Estrutura).
-  const investPower = manaInvestmentPower(investRatio, investConfig.exponent) * manaDensity;
+  // Tecnomágico (mágico E tecnológico) sai mais forte (Regras da Mesa).
+  const technomagic = technomagicFactor(isMagicUse(mech, sourceActor), isTechUse(mech, sourceActor), getTechnomagicPower());
+  const investPower = manaInvestmentPower(investRatio, investConfig.exponent) * manaDensity * technomagic;
   if (manaDensity > 1) ui.notifications?.info(`Mana densa aqui (×${manaDensity}): ${label} sai com essa força.`);
-  if (investPower !== 1) mech = { ...(typeof mech.toObject === "function" ? mech.toObject() : mech), investPower };
+  // `paidCost`: o Custo realmente pago (com o investimento), base do extra de Antimagia. `fieldGated`:
+  // o portão do campo já foi passado (chargeAntimagic não cobra de novo quem usa de dentro).
+  const paidCost = options.prepaid ? cost * investRatio : paid;
+  mech = { ...(typeof mech.toObject === "function" ? mech.toObject() : mech), investPower, paidCost, fieldGated: true };
 
   // Dispara e esquece — nunca aguardado, a animação não deve atrasar a mecânica/chat. Dano em alvo
   // único toca a animação dentro de `rollSkillDamage`, que sabe se uma Estrutura segurou o golpe
@@ -244,15 +351,16 @@ async function runSkillEffect(sourceActor, skillId, options = {}) {
   return true;
 }
 
-const FIELD_ENDS_NOTE = " — anulado: o Campo de Antimagia o desfaria na hora";
-
-/** Uso anulado pela antimagia (nada foi aplicado): um aviso no chat. Devolve false. */
+/**
+ * Uso anulado pelo campo (nada foi aplicado): um aviso no chat. Devolve true: o uso já foi PAGO e
+ * "saiu" (gasta o consumível e começa a Recarga) — só não chegou a ninguém.
+ */
 async function postAntimagicNulled(sourceActor, label, note) {
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
     content: `<p><strong>${escapeHtml(sourceActor.name)}</strong> usou <strong>${escapeHtml(label)}</strong>${escapeHtml(note)}.</p>`
   });
-  return false;
+  return true;
 }
 
 /** Custo extra de antimagia pago: uma linha curta no chat (nada se perde, só custa mais). */
@@ -338,8 +446,6 @@ export async function applySkillEffects(sourceActor, skill, mech, label, targetA
   }
 
   // Antimagia: Efeito mágico (buff, cura, Escudo) para dentro ou através de um campo cobra o extra, ou anula.
-  // Se o campo desfaria o Efeito na hora (nível do campo ≥ o da Skill), anula sem cobrar o extra.
-  if (fieldEndsEffectAt(sourceActor, mech, targetActor)) return postAntimagicNulled(sourceActor, label, FIELD_ENDS_NOTE);
   const am = await chargeAntimagic(sourceActor, mech, [targetActor]);
   if (am.nulled.has(targetActor.uuid)) return postAntimagicNulled(sourceActor, label, am.note);
 
@@ -427,23 +533,17 @@ export async function applySkillEffectsArea(sourceActor, skill, mech, label, tar
   }
   // Antimagia em Emissão também desfaz as Estruturas que a área toca, mesmo sem ninguém dentro.
   const area = targetActors.area ?? null;
-  const dispelsStructures = Boolean(area) && (mech.effects ?? []).some(e => e.target === "antimagic");
+  const dispelsStructures = Boolean(area) && (mech.effects ?? []).some(e => e.target === "antimagic" || (e.target === "emp" && isInterferenceEnabled()));
   if (!targetActors.length && !dispelsStructures) {
     ui.notifications?.warn("Nenhum alvo encontrado na área.");
     return null;
   }
 
   // Antimagia (campo ou Selo): paga o extra uma vez, ou anula os alvos sob ela.
-  // Quem está num campo que desfaria o Efeito na hora é anulado sem cobrar o extra; o resto paga ou anula.
-  const ended = targetActors.filter(t => fieldEndsEffectAt(sourceActor, mech, t));
-  const rest = targetActors.filter(t => !ended.includes(t));
-  const am = await chargeAntimagic(sourceActor, mech, rest, { origin: targetActors.origin ?? null });
-  const live = rest.filter(t => !am.nulled.has(t.uuid));
-  const rows = [
-    ...ended.map(t => `<li><strong>${escapeHtml(t.name)}</strong>: anulado, o Campo de Antimagia o desfaria na hora</li>`),
-    ...rest.filter(t => am.nulled.has(t.uuid)).map(t => `<li><strong>${escapeHtml(t.name)}</strong>: anulado pela antimagia</li>`)
-  ];
-  if (targetActors.length && !live.length) return postAntimagicNulled(sourceActor, label, am.note || FIELD_ENDS_NOTE);
+  const am = await chargeAntimagic(sourceActor, mech, targetActors, { origin: targetActors.origin ?? null });
+  const live = targetActors.filter(t => !am.nulled.has(t.uuid));
+  const rows = targetActors.filter(t => am.nulled.has(t.uuid)).map(t => `<li><strong>${escapeHtml(t.name)}</strong>: anulado pela antimagia</li>`);
+  if (targetActors.length && !live.length) return postAntimagicNulled(sourceActor, label, am.note);
 
   const results = live.length ? await applyEffectsToTargets(skill, mech, label, live, subSkillIndex) : [];
   // Ninguém recebeu nada (todos alheios e sem Mestre): o aviso já saiu.

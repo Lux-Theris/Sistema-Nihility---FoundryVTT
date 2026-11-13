@@ -5,7 +5,7 @@
  */
 import { buildAffinityMatrix, elementAncestors } from "../../combat/damage-rules.js";
 import { MEU_SISTEMA, SYSTEM_ID } from "./constants.js";
-import { getFeatureOption } from "./features.js";
+import { getFeatureOption, isFeatureEnabled } from "./features.js";
 import { normalizeLightConfig } from "./rules.js";
 import { structureMaterial, structureManaPowered } from "../../structures/structure-geometry.js";
 import { createRawCache, memoByObject } from "./cache.js";
@@ -558,6 +558,9 @@ export function getStructures() {
     elements: Array.isArray(s.elements) ? s.elements.filter(e => typeof e === "string" && e) : [],
     magic: Boolean(s.magic),
     antimagicLevel: Math.max(0, Math.round(Number(s.antimagicLevel) || 0)),
+    // Natureza tecnológica (o PEM alcança) e campo de interferência (espelho de antimagicLevel).
+    tech: Boolean(s.tech),
+    interferenceLevel: Math.max(0, Math.round(Number(s.interferenceLevel) || 0)),
     contactDamage: typeof s.contactDamage === "string" ? s.contactDamage.trim() : "",
     // Física × Etérea (Dano Absoluto quebra a etérea) e "a Vida é a Mana de quem ergueu"; catálogos
     // antigos sem os campos caem na regra pela Vida (ver structure-geometry.js).
@@ -660,8 +663,19 @@ export function getManaInvestConfig() {
   };
   return {
     exponent: Math.min(1, Math.max(0.05, read("manaInvestExponent", 0.75))),
-    minPercent: Math.max(0, read("manaInvestMinPercent", 25))
+    minPercent: Math.max(0, read("manaInvestMinPercent", 25)),
+    overcharge: Math.max(0, read("manaInvestOvercharge", 1))
   };
+}
+
+/** Multiplicador de poder do uso tecnomágico (Regras da Mesa; padrão 2, nunca menos que 1). */
+export function getTechnomagicPower() {
+  try {
+    const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.technomagicPower));
+    return Number.isFinite(value) ? Math.max(1, value) : 2;
+  } catch (err) {
+    return 2;
+  }
 }
 
 /** Catálogo de Funções de Tripulação. */
@@ -741,9 +755,11 @@ export function getEffectTargetLabels() {
 export function getEffectTargetGroups(current) {
   const labels = getEffectTargetLabels();
   const visible = new Set(getVisibleAttributes().map(a => a.key));
+  const emp = isFeatureEnabled("interference");
   return MEU_SISTEMA.EFFECT_TARGET_GROUPS.map(group => ({
     label: group.label,
     options: group.targets
+      .filter(t => t !== "emp" || emp || t === current)
       .filter(t => !MEU_SISTEMA.COMBAT_ATTRIBUTES.includes(t) || visible.has(t) || t === current)
       .map(t => ({ value: t, label: labels[t] ?? t, selected: t === current }))
   })).filter(group => group.options.length);

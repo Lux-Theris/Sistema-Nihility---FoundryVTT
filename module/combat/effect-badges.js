@@ -62,6 +62,7 @@ export function badgeFor(effect, { combat = null } = {}) {
   const anchors = effectAnchors(f, effect.origin);
   return effectBadge({
     radiationLevel: f.radiation?.level ?? 0,
+    preparing: f.preparing?.turnsLeft ?? 0,
     incapacitation: f.incapacitation ?? null,
     environment: Boolean(f.environment?.sceneId),
     curse: Boolean(f.curse),

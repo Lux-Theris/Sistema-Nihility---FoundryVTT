@@ -27,7 +27,11 @@ export function buildSubSkillsFromSources(sources) {
         cost: source.system.cost,
         hasUpkeep: source.system.hasUpkeep,
         variableMana: Boolean(source.system.variableMana),
+        cooldown: source.system.cooldown ?? 0,
+        prepTurns: source.system.prepTurns ?? 0,
         magicTag: source.system.magicTag || "auto",
+        isMagic: source.system.isMagic ?? null,
+        isTech: source.system.isTech ?? null,
         upkeepCost: source.system.upkeepCost,
         animationPath: source.system.animationPath,
         description: source.system.description,
@@ -55,7 +59,7 @@ export function buildSubSkillsFromSources(sources) {
 
 /** Campos mecânicos copiados de uma Habilidade Concedida pra Skill criada na ficha. */
 const GRANTED_MECHANIC_FIELDS = [
-  "level", "cost", "hasUpkeep", "upkeepCost", "variableMana", "magicTag", "animationPath", "description", "resistanceTarget",
+  "level", "cost", "hasUpkeep", "upkeepCost", "variableMana", "cooldown", "prepTurns", "magicTag", "isMagic", "isTech", "animationPath", "description", "resistanceTarget",
   "effectType", "damageFormula", "scalingAttribute", "isMagicDamage", "isAbsoluteDamage", "damageScale", "damageElements", "effects",
   "targetType", "structureId", "structureRegen", "structureRegenCost", "areaShape", "areaDistance", "areaAngle", "zoneRounds", "subSkills"
 ];
@@ -66,9 +70,12 @@ const GRANTED_MECHANIC_FIELDS = [
  * marca `isItemGranted`. Pura — `createGrantedSkill` em skill-economy.js só a grava.
  * @param {object} grantsSkill
  * @param {string[]} grantableTiers - MEU_SISTEMA.ITEM_GRANTABLE_SKILL_TIERS
+ * @param {{magic?:boolean, tech?:boolean}|null} [sourceNature] - natureza da fonte (Item, Módulo,
+ *   implante): a Skill concedida herda o que o molde não definiu (caixa ainda `null`). Fonte
+ *   mágica → Skill mágica; fonte tecnológica (Módulo sempre) → Skill tecnológica.
  * @returns {object|null} `{name, type, system}`, ou null sem nome
  */
-export function buildGrantedSkillData(grantsSkill, grantableTiers) {
+export function buildGrantedSkillData(grantsSkill, grantableTiers, sourceNature = null) {
   const name = grantsSkill?.name?.trim();
   if (!name) return null;
 
@@ -76,6 +83,8 @@ export function buildGrantedSkillData(grantsSkill, grantableTiers) {
   for (const field of GRANTED_MECHANIC_FIELDS) {
     if (grantsSkill[field] !== undefined) system[field] = foundry.utils.deepClone(grantsSkill[field]);
   }
+  if (sourceNature?.magic && typeof system.isMagic !== "boolean") system.isMagic = true;
+  if (sourceNature?.tech && typeof system.isTech !== "boolean") system.isTech = true;
   system.level = Math.max(1, Number(system.level) || 1);
   system.cost = Number(system.cost) || 0;
   system.description = system.description || "";

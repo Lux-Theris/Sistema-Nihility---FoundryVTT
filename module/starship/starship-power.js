@@ -190,6 +190,30 @@ export async function applyShipSystemEffect(ship, effect, { targetModuleId = nul
   return `resistência baixa (−${percent}% por ${rounds} rodada(s))`;
 }
 
+/**
+ * PEM numa Nave/Veículo (regra simples): um pulso de alcance `reach` derruba os `1 + ⌊alcance ÷ 5⌋`
+ * Módulos ligados que mais gastam energia (o Endurecimento de cada um ainda pode segurar) e
+ * drena `5% × alcance` da Bateria (teto 75%), tudo por `rounds` rodadas. Usa os efeitos de sistema
+ * `moduleDisable` e `energyDrain`, então "Reiniciar sistemas" e o fim do prazo valem como sempre.
+ * @returns {Promise<string[]>} linhas pro resumo
+ */
+export async function applyEmpToShip(ship, { reach = 0, rounds = 0 } = {}) {
+  const duration = Math.max(1, Math.round(Number(rounds) || 2));
+  const count = 1 + Math.floor(Math.max(0, Number(reach) || 0) / 5);
+  const online = ship.system.modules
+    .filter(m => m.system.status === "online" && (m.system.hp?.value ?? 0) > 0)
+    .sort((a, b) => (Number(b.system.powerConsumption) || 0) - (Number(a.system.powerConsumption) || 0));
+  const lines = [];
+  for (const module of online.slice(0, count)) {
+    const line = await applyShipSystemEffect(ship, { type: "moduleDisable", chance: 100, rounds: duration }, { targetModuleId: module.id, label: "PEM" });
+    if (line) lines.push(line);
+  }
+  const percent = Math.min(75, Math.max(5, Math.round(Number(reach) || 0) * 5));
+  const drain = await applyShipSystemEffect(ship, { type: "energyDrain", chance: 100, percent, rounds: duration }, { label: "PEM" });
+  if (drain) lines.push(drain);
+  return lines;
+}
+
 /** Adiciona um efeito de sistema direto (ações da Nave, como "Preparar para impacto"). */
 export async function addShipSystemEffect(ship, { kind, percent = 0, rounds = 1, label = "" }) {
   const list = foundry.utils.deepClone(ship.getFlag(SYSTEM_ID, SHIP_EFFECTS_FLAG) ?? []);

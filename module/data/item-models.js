@@ -124,10 +124,23 @@ function usageFields() {
      */
     magicTag: new fields.StringField({ required: false, initial: "auto", choices: ["auto", "magic", "mundane"] }),
     /**
+     * Natureza (caixas "Mágico" e "Tecnológico"; as duas = tecnomágico, nenhuma = analógico).
+     * `null` = ainda não escolhida: vale a regra antiga (`magicTag` + automático) e, para
+     * tecnológico, só Nave/Veículo. Ao salvar a ficha viram true/false. Ver isMagicUse/isTechUse.
+     */
+    isMagic: new fields.BooleanField({ required: false, nullable: true, initial: null }),
+    isTech: new fields.BooleanField({ required: false, nullable: true, initial: null }),
+    /**
      * Estado de uso: Mana investida ÷ Custo na última vez que a Skill foi LIGADA (Habilidade
      * Ativa). O Custo por rodada é cobrado vezes esta razão enquanto ela estiver ligada.
      */
-    investRatio: new fields.NumberField({ required: false, initial: 1, min: 0 })
+    investRatio: new fields.NumberField({ required: false, initial: 1, min: 0 }),
+    /** Recarga: depois de usada, a Skill fica bloqueada por N turnos do dono (só em combate). 0 = sem. */
+    cooldown: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+    /** Preparo: fica pronta em N rodadas; o Custo é pago em N partes, uma por turno de preparo. 0 = na hora. */
+    prepTurns: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+    /** Estado: turnos do dono até poder usar de novo (ver cooldown-rules.js). Nunca copiado ao clonar/fundir. */
+    cooldownRemaining: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 })
   };
 }
 
@@ -343,6 +356,12 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
        */
       evolvedFrom: new fields.StringField({ required: false, initial: "" }),
 
+      /**
+       * Skill pré-feita do sistema ("manaManipulation" | "manaDetection", ver CORE_SKILLS). "" = comum.
+       * De propósito fora das listas de cópia de mecânica (fusão/evolução não a herdam).
+       */
+      coreSkill: new fields.StringField({ required: false, initial: "" }),
+
       /** Gatilho emocional que originou uma Skill Única (preenchido manual ou via IA). */
       emotionTrigger: new fields.StringField({ required: false, initial: "" }),
 
@@ -539,6 +558,8 @@ export class BodyPartDataModel extends foundry.abstract.TypeDataModel {
           functions: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
           /** Mágico (copiado do Item ao instalar): a Antimagia suprime esta modificação. */
           magic: new fields.BooleanField({ required: false, initial: false }),
+          /** Tecnológico (copiado do Item ao instalar): o PEM suprime esta modificação. */
+          tech: new fields.BooleanField({ required: false, initial: false }),
           /** O Item de onde veio (para voltar ao inventário ao remover). */
           sourceItem: new fields.ObjectField({ required: false, nullable: true, initial: null }),
           /** Vida máxima da parte natural antes da prótese (volta ao remover a prótese). */
@@ -827,6 +848,11 @@ export class GenericItemDataModel extends foundry.abstract.TypeDataModel {
       equipped: new fields.BooleanField({ required: false, initial: false }),
       /** Mágico: a Antimagia suprime os bônus deste Item (e do implante feito dele) enquanto durar. */
       magic: new fields.BooleanField({ required: false, initial: false }),
+      /**
+       * Tecnológico: o PEM suprime os bônus deste Item. `null` = padrão: implante, prótese e
+       * aparelho do PAD já são tecnológicos (ver itemIsTech).
+       */
+      tech: new fields.BooleanField({ required: false, nullable: true, initial: null }),
       value: new fields.SchemaField({
         amount: new fields.NumberField({ required: true, initial: 0, min: 0 }),
         currency: new fields.StringField({ required: false, initial: "gold" })

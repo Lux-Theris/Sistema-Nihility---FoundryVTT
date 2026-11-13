@@ -94,6 +94,7 @@ function describeActiveEffect(effect, actor) {
     remaining = "até Antimagia ou o Mestre";
   }
   if (flags.suppression !== undefined && flags.suppression !== null) lines = [`Passivos, itens e Skills mágicos de nível ≤ ${flags.suppression} não valem; Skills mágicas usadas nele não têm efeito`];
+  if (flags.techSuppression !== undefined && flags.techSuppression !== null) lines = [`Passivos, itens, implantes e próteses tecnológicos de nível ≤ ${flags.techSuppression} não valem; Skills tecnológicas usadas nele não têm efeito`];
   if (condition && !lines.length) lines = ["só o marcador (o Mestre decide o efeito)"];
   return {
     img: effect.img,

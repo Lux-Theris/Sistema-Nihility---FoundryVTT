@@ -10,6 +10,10 @@
 import {
   MEU_SISTEMA,
   damageScalingMultiplier,
+  isMagicUse,
+  isTechUse,
+  technomagicFactor,
+  getTechnomagicPower,
   skillLevelBonuses,
   effectiveSkillCost,
   isEnergyPoolEnabled,
@@ -19,7 +23,7 @@ import {
 } from "../core/config.js";
 import { averageRoll } from "../skills/skill-cost-rules.js";
 import { applyDamageReductions, damageScaleFor, situationalDamageFactor } from "./damage-roll.js";
-import { unitHp } from "./encounter-rules.js";
+import { unitHp, cadenceFactor } from "./encounter-rules.js";
 
 /** Alvos que um ataque em área acerta, por padrão (o canvas: "até 3"). */
 export const DEFAULT_AREA_TARGETS = 3;
@@ -82,7 +86,9 @@ function rawAverage(actor, option) {
   const avg = averageRoll(option.mech.damageFormula);
   const scaling = damageScalingMultiplier(actor, option.mech.scalingAttribute);
   const power = option.kind === "skill" ? skillLevelBonuses(option.mech.level).power : 1;
-  return { avg, scaling, power, raw: avg * scaling * power };
+  // Tecnomágico (mágico E tecnológico) sai mais forte, como em useSkillEffect.
+  const technomagic = option.kind === "skill" ? technomagicFactor(isMagicUse(option.mech, actor), isTechUse(option.mech, actor), getTechnomagicPower()) : 1;
+  return { avg, scaling, power, technomagic, raw: avg * scaling * power * technomagic };
 }
 
 /**
@@ -91,7 +97,7 @@ function rawAverage(actor, option) {
  */
 export function averageHit(attacker, option, target) {
   const fmt = n => (Math.round(n * 100) / 100).toString().replace(".", ",");
-  const { avg, scaling, power, raw } = rawAverage(attacker, option);
+  const { avg, scaling, power, technomagic, raw } = rawAverage(attacker, option);
   const scale = damageScaleFor(attacker, option.mech, target);
   const situational = situationalDamageFactor(attacker, target, option.mech);
   const reduction = applyDamageReductions(raw * scale * situational, option.mech, target, { attacker, triggerConditions: false });
@@ -100,6 +106,7 @@ export function averageHit(attacker, option, target) {
   const rows = [{ label: `Dano médio de ${option.mech.damageFormula}`, value: fmt(avg) }];
   if (scaling !== 1) rows.push({ label: `Escala por ${getAttributeLabel(option.mech.scalingAttribute)}`, value: `× ${fmt(scaling)}` });
   if (power !== 1) rows.push({ label: `Nível ${option.mech.level} da Skill`, value: `× ${fmt(power)}` });
+  if (technomagic !== 1) rows.push({ label: "Tecnomágico", value: `× ${fmt(technomagic)}` });
   if (scale !== 1) rows.push({ label: "Escala de tamanho", value: `× ${fmt(scale)}` });
   if (situational !== 1) rows.push({ label: "Quando → Então de quem ataca", value: `× ${fmt(situational)}` });
   rows.push({ label: `${elementNames}${option.mech.isMagicDamage ? ", Dano Mágico" : ""}${option.mech.isAbsoluteDamage ? ", Dano Absoluto" : ""}`, value: fmt(raw * scale * situational) });
@@ -154,7 +161,8 @@ export function buildSides({ allies, foes }, { choices = {}, areaTargets = {} } 
       const perRound = option => {
         const total = enemies.reduce((sum, e) => sum + hit(unit, option, e).damage * (e.count ?? 1), 0);
         const count = enemies.reduce((sum, e) => sum + (e.count ?? 1), 0) || 1;
-        return (total / count) * Math.min(targets(option), count);
+        // Recarga/Preparo: o golpe cai só em parte das rodadas (cadenceFactor).
+        return (total / count) * Math.min(targets(option), count) * cadenceFactor({ cooldown: option.mech.cooldown, prep: option.mech.prepTurns });
       };
       const ranked = [...unit.options].sort((a, b) => perRound(b) - perRound(a));
       const chosen = unit.options.find(o => o.id === choices[unit.key]) ?? ranked[0] ?? null;
@@ -166,6 +174,8 @@ export function buildSides({ allies, foes }, { choices = {}, areaTargets = {} } 
               label: option.label,
               targets: targets(option),
               uses: option.cost > 0 ? Math.floor(unit.energyMax / option.cost) : Infinity,
+              cooldown: Math.max(0, Number(option.mech.cooldown) || 0),
+              prep: Math.max(0, Number(option.mech.prepTurns) || 0),
               perTarget: Object.fromEntries(enemies.map(e => [e.key, hit(unit, option, e).damage]))
             }
           : null;

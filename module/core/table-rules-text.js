@@ -18,8 +18,10 @@ export function conditionSentence(condition, { attributeLabel = k => k, energyLa
   const e = condition?.effect;
   if (condition?.incapacitates) return "não age nem se move";
   if (condition?.curse?.enabled) return `uma maldição: cobra ${energyLabel} todo turno`;
-  if (condition?.antimagicLevel) return `magia custa ${energyLabel} extra`;
+  if (condition?.antimagicLevel) return `a magia dele não sai, a não ser que resista (Manipulação)`;
   if (condition?.suppressesMagic) return "a magia dele para de funcionar";
+  if (condition?.interferenceLevel) return `a tecnologia dele não sai`;
+  if (condition?.suppressesTech) return "a tecnologia dele para de funcionar";
   const healBlock = condition?.healBlock ?? (condition?.blocksRegeneration ? { kinds: "regen" } : null);
   if (healBlock && !e?.kind) return healBlock.kinds === "all" ? "não pode ser curado" : "não regenera";
   if (!e?.kind) return "o Mestre decide o que ela impede";
@@ -85,6 +87,9 @@ export function buildTableRulesPages(d) {
     }
     if (d.features.resistances) parts.push("<p>Resistências reduzem o dano de um tipo; chegando a 100% viram Imunidade.</p>");
     if (d.features.areaEffects) parts.push("<p>Habilidades em área acertam todos dentro do círculo, cone ou linha.</p>");
+    parts.push("<h2>Campo de Antimagia</h2>");
+    parts.push(`<p>Magia que vem <b>de fora</b> e cruza um campo de Antimagia gasta a ${energy} e <b>some</b>, se o campo vencer. <b>De dentro</b> do campo, ou sob um Selo de Antimagia, a magia <b>nem sai</b> e não gasta nada. A Habilidade <b>Manipulação de ${energy}</b> muda isso: quanto maior o nível dela diante do campo, menos ele atrapalha — primeiro a magia passa pagando ${energy} a mais, depois passa de graça. Sem a Manipulação, o campo sempre vence. Usá-la contra a Antimagia a faz evoluir.</p>`);
+    if (d.features.interference) parts.push("<p>O Campo de Interferência faz o mesmo com a tecnologia, mas não há Habilidade que o vença: o uso tecnológico de fora some, e de dentro nem sai.</p>");
     pages.push({ key: "combat", name: "Combate", html: parts.join("\n") });
   }
 

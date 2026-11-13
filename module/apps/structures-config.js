@@ -31,6 +31,8 @@ function renderStructure(values) {
     <div class="card-config-row">
       <label title="Desmarcado: a Estrutura não segura golpes entre quem ataca e o alvo (campo antimagia, Muralha de Fogo)"><input type="checkbox" data-field="blocksAttacks" ${values.blocksAttacks !== false ? "checked" : ""}/> Segura golpes</label>
       <label title="Para a Antimagia: Estrutura mágica dentro de um campo antimagia custa Mana extra por rodada a quem conjurou, ou se desfaz"><input type="checkbox" data-field="magic" ${values.magic ? "checked" : ""}/> Mágica</label>
+      <label title="Para o PEM: Estrutura tecnológica dentro de um campo de interferência custa energia extra por rodada a quem conjurou, ou se desfaz. Mágica e Tecnológica juntas = tecnomágica"><input type="checkbox" data-field="tech" ${values.tech ? "checked" : ""}/> Tecnológica</label>
+      <label title="Campo de interferência (o PEM): 0 = não é. Uso tecnológico que atravessa, sai de dentro ou mira alguém dentro paga energia extra (maior quanto maior o nível) ou é anulado; arma tecnológica não dispara através. Não afeta o mágico">Interferência (nível) <input type="number" min="0" data-field="interferenceLevel" value="${values.interferenceLevel ?? 0}"/></label>
       <label title="Campo antimagia: 0 = não é. Magia que atravessa, sai de dentro ou mira alguém dentro paga Mana extra (maior quanto maior o nível) ou é anulada">Antimagia (nível) <input type="number" min="0" data-field="antimagicLevel" value="${values.antimagicLevel ?? 0}"/></label>
       <label title="Fórmula rolada contra quem atravessa ou termina o movimento dentro (ex: 2d6). Vazio = nenhum">Dano ao contato <input type="text" data-field="contactDamage" value="${escapeHtml(values.contactDamage ?? "")}" placeholder="ex: 2d6"/></label>
     </div>
@@ -93,6 +95,8 @@ function readStructure(card) {
     img: el("img").value.trim(),
     blocksAttacks: el("blocksAttacks").checked,
     magic: el("magic").checked,
+    tech: el("tech").checked,
+    interferenceLevel: Math.max(0, Math.round(Number(el("interferenceLevel").value) || 0)),
     material: el("material").value === "ethereal" ? "ethereal" : "physical",
     manaPowered: el("manaPowered").checked,
     antimagicLevel: Math.max(0, Math.round(Number(el("antimagicLevel").value) || 0)),
@@ -120,7 +124,8 @@ export const StructuresConfigApp = createCardListConfigApp({
     "com Skill Ativa, fica até desligar; senão, até o Mestre derrubar ou a Vida/Mana de quem conjurou chegar a 0. " +
     "<strong>Forma livre</strong>: quem usa a Skill desenha clicando ponto a ponto, até o tamanho máximo. " +
     "<strong>Elementos</strong>: golpes contra ela seguem o \"Dano extra contra elemento\" de quem ataca. " +
-    "<strong>Antimagia</strong>: magia que cruza o campo paga Mana extra ou é anulada.",
+    "<strong>Antimagia</strong>: magia que cruza o campo paga Mana extra ou é anulada. " +
+    "<strong>Interferência</strong>: o mesmo para a tecnologia (o PEM).",
   getActiveList: getStructures,
   renderCard: renderStructure,
   readCard: readStructure,

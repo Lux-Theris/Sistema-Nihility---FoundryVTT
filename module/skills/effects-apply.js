@@ -2,7 +2,7 @@
  * Efeitos Temporários: criar/renovar Active Effects e Condições num alvo, e os ticks periódicos (Veneno, cura).
  * (Separado de skill-effects.js na reorganização de pastas — mesma lógica de antes.)
  */
-import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions, getEffectTargetLabels, skillLevelBonuses, getDamageElement } from "../core/config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions, getEffectTargetLabels, skillLevelBonuses, getDamageElement, isInterferenceEnabled } from "../core/config.js";
 import { makeAnchor, addAnchor, effectAnchors, finiteRemaining, serializeFinite, durationRemaining, refreshFiniteRounds, PERMANENT, ANCHORED_TARGETS_FLAG, recordAnchoredTarget } from "../combat/effect-anchors.js";
 import { escapeHtml } from "../helpers/html.js";
 import { applyStructuralDamage, damageCasco, repairModules } from "../starship/starship-power.js";
@@ -17,8 +17,9 @@ import { isShipLike, applyShipInstantEffect } from "../starship/ship-damage.js";
 import { recordSustainedShield } from "./sustained-shields.js";
 import { combatNow } from "./upkeep.js";
 import { healBodyParts, healPlan } from "../species/anatomy.js";
-import { skillIsMagic } from "../core/magic-rules.js";
-import { applyAntimagic, suppressionLevel } from "./dispel.js";
+import { skillIsMagic, skillIsTech } from "../core/magic-rules.js";
+import { applyAntimagic, applyEmp, suppressionLevel, techSuppressionLevel } from "./dispel.js";
+import { protectingStructureKinds } from "../structures/structures.js";
 import { applyCurse } from "./curses.js";
 import { effectMeasuresFor, vitalBase, grantSkillUseXp } from "./skill-xp.js";
 import { resolveEffectAmount } from "../economy/consumable-rules.js";
@@ -141,12 +142,16 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
   // (marcado à mão) = nível 0; elemento = nível do golpe (`sourceLevel`/`sourceMagic` vindos de quem chama).
   const sourceLevel = Math.max(0, Number(mech.sourceLevel ?? (originSkill?.parent ? mech.level : 0)) || 0);
   const sourceMagic = mech.sourceMagic ?? (originSkill?.parent ? skillIsMagic({ ...mech, tier: mech.tier ?? originSkill.system?.tier }) : false);
-  // Quem está Suprimido (Antimagia) não sente Skill mágica nem cura de nível ≤ a supressão.
+  const sourceTech = mech.sourceTech ?? (originSkill?.parent ? skillIsTech({ ...mech }, originSkill.parent) : false);
+  // Quem está Suprimido (Antimagia) não sente Skill mágica nem cura de nível ≤ a supressão; quem
+  // está Suprimido (Tecnologia, PEM) não sente Skill tecnológica de nível ≤ a supressão.
   const suppressed = targetActor.type === "character" ? suppressionLevel(targetActor) : null;
+  const techSuppressed = targetActor.type === "character" ? techSuppressionLevel(targetActor) : null;
   const shielded = entry => {
-    if (suppressed === null || entry.target === "antimagic" || !originSkill?.parent) return false;
+    if (entry.target === "antimagic" || entry.target === "emp" || !originSkill?.parent) return false;
     const isHeal = entry.target === "hp" && Number(entry.amount) > 0;
-    return (sourceMagic || isHeal) && sourceLevel <= suppressed;
+    if (suppressed !== null && (sourceMagic || isHeal) && sourceLevel <= suppressed) return true;
+    return techSuppressed !== null && sourceTech && sourceLevel <= techSuppressed;
   };
 
   for (let entry of entries) {
@@ -160,13 +165,16 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
       summary.push(`${getEffectTargetLabels()[entry.target] ?? entry.target}: sem efeito (${targetActor.name} está Suprimido)`);
       continue;
     }
-    // Antimagia (prancha 8): corta, desliga e suprime — com o nível desta Skill.
-    if (entry.target === "antimagic") {
-      if (targetActor.type !== "character") {
-        summary.push(`Antimagia: não se aplica a ${targetActor.name}`);
+    // Antimagia (prancha 8) e PEM: cortam, desligam e suprimem — com o nível desta Skill. Camada do
+    // tipo oposto (Escudo, ou Estrutura no caminho/em volta) protege o alvo.
+    if (entry.target === "antimagic" || (entry.target === "emp" && isInterferenceEnabled())) {
+      const isEmp = entry.target === "emp";
+      if (targetActor.type !== "character" && !(isEmp && isShipLike(targetActor))) {
+        summary.push(`${isEmp ? "PEM" : "Antimagia"}: não se aplica a ${targetActor.name}`);
         continue;
       }
-      const dispelled = await applyAntimagic(targetActor, { level: sourceLevel, rounds: entry.durationRounds });
+      const structureKinds = protectingStructureKinds(originSkill?.parent ?? null, targetActor);
+      const dispelled = await (isEmp ? applyEmp : applyAntimagic)(targetActor, { level: sourceLevel, rounds: entry.durationRounds, structureKinds });
       summary.push(...dispelled);
       xp.push(...(dispelled.xp ?? []));
       continue;
@@ -306,7 +314,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
       const existingFlags = existing.flags[SYSTEM_ID];
       // Reaplicar com nível maior sobe o nível guardado (a Antimagia e o bloqueio de cura leem ele).
       if (sourceLevel > (Number(existingFlags.sourceLevel) || 0)) {
-        await existing.update({ [`flags.${SYSTEM_ID}.sourceLevel`]: sourceLevel, [`flags.${SYSTEM_ID}.magic`]: Boolean(sourceMagic || existingFlags.magic) });
+        await existing.update({ [`flags.${SYSTEM_ID}.sourceLevel`]: sourceLevel, [`flags.${SYSTEM_ID}.magic`]: Boolean(sourceMagic || existingFlags.magic), [`flags.${SYSTEM_ID}.tech`]: Boolean(sourceTech || existingFlags.tech) });
       }
 
       if (periodic) {
@@ -391,6 +399,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
               tickDamageElements: Array.isArray(entry.damageElements) ? entry.damageElements : [],
               sourceLevel,
               magic: sourceMagic,
+              tech: sourceTech,
               healBlockPartId: entry.healBlockPartId || "",
               // Cura nas partes do corpo (Ferimentos por parte): o tipo e, numa Regeneração de Skill
               // Única ou Ultimate, se ela também conserta próteses.
@@ -428,6 +437,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
             bodyElement: change.bodyElement ?? "",
             sourceLevel,
             magic: sourceMagic,
+            tech: sourceTech,
             healBlockPartId: entry.healBlockPartId || ""
           }
         }

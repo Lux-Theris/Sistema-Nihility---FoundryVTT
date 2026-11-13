@@ -159,16 +159,42 @@ export function categorySlotLimit(category, vesselClass) {
 }
 
 /**
- * A Skill/arma é mágica? Marca explícita manda; no Automático, é mágica quando custa a energia do
- * personagem (Custo ou Custo por rodada) ou tem Dano Mágico. Nave/Veículo nunca (paga com a
- * Bateria). Pura (só lê os campos).
+ * A Skill/arma é mágica? Natureza explícita (`isMagic`, caixa "Mágico") manda; sem ela, a marca
+ * antiga `magicTag` (magic/mundane); no Automático, é mágica quando custa a energia do personagem
+ * (Custo ou Custo por rodada) ou tem Dano Mágico. Nave/Veículo nunca (paga com a Bateria).
+ * Tecnomágico (as duas caixas) conta como mágico. Pura (só lê os campos).
  */
 export function isMagicUse(mech, actor) {
   if (!mech) return false;
+  if (typeof mech.isMagic === "boolean") return mech.isMagic;
   if (mech.magicTag === "magic") return true;
   if (mech.magicTag === "mundane") return false;
   if (["starship", "vehicle"].includes(actor?.type)) return false;
   return (Number(mech.cost) || 0) > 0 || (Boolean(mech.hasUpkeep) && (Number(mech.upkeepCost) || 0) > 0) || Boolean(mech.isMagicDamage);
+}
+
+/**
+ * A Skill/arma é tecnológica? Natureza explícita (`isTech`, caixa "Tecnológico") manda; sem ela,
+ * só Nave/Veículo (e o que ela concede) é tecnológico por natureza. Tecnomágico = isMagicUse e
+ * isTechUse juntos; tecnológico puro NÃO é mágico (ignora a densidade de mana). Pura.
+ */
+export function isTechUse(mech, actor) {
+  if (!mech) return false;
+  if (typeof mech.isTech === "boolean") return mech.isTech;
+  return ["starship", "vehicle"].includes(actor?.type);
+}
+
+/**
+ * Fator de poder do uso: tecnomágico (mágico E tecnológico) multiplica por `power` (nunca menos
+ * que 1); qualquer outra natureza, ×1. Pura — a Skill passa `isMagicUse` e `isTechUse`.
+ */
+export function technomagicFactor(magic, tech, power = 2) {
+  return magic && tech ? Math.max(1, Number(power) || 1) : 1;
+}
+
+/** Natureza `{magic, tech}` de uma mecânica de uso. Analógico = nenhuma das duas. */
+export function useNature(mech, actor) {
+  return { magic: isMagicUse(mech, actor), tech: isTechUse(mech, actor) };
 }
 
 /**

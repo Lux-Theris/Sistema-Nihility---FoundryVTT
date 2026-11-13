@@ -91,6 +91,8 @@
           {{#if system.hasUpkeep}}
           <div class="fld"><span class="fld-label">{{energyLabel}} por Rodada</span><span class="sa-costrow"><input class="num" type="number" name="system.upkeepCost" value="{{system.upkeepCost}}" min="0" aria-label="{{energyLabel}} por Rodada"/>{{{upkeepChipHtml}}}</span></div>
           {{/if}}
+          <div class="fld"><span class="fld-label">Recarga (rodadas) <span class="help" title="Depois de usada, a Skill fica bloqueada por este tanto de turnos seus (só em combate). 0 = sem recarga. Investir mais de 2× o Custo soma recarga (curva em Regras da Mesa).">?</span></span><input class="num" type="number" name="system.cooldown" value="{{system.cooldown}}" min="0" step="1" aria-label="Recarga em rodadas"/></div>
+          <div class="fld"><span class="fld-label">Fica pronta em (rodadas) <span class="help" title="Preparo: a Skill só dispara este tanto de turnos seus depois. O Custo é pago em partes iguais, uma ao começar e uma no início de cada turno de preparo; faltou {{energyLabel}} numa parte, a Skill falha. 0 = dispara na hora. Fora de combate dispara na hora, pagando tudo.">?</span></span><input class="num" type="number" name="system.prepTurns" value="{{system.prepTurns}}" min="0" step="1" aria-label="Fica pronta em rodadas"/></div>
         </div>
         <details class="adv" data-adv-key="cost" {{#if advCost.open}}open{{/if}}>
           {{> nihility.advSummary fold=advCost}}
@@ -98,8 +100,10 @@
             <div class="fld span-all">
               <label class="toggle"><input type="checkbox" name="system.variableMana" {{#if system.variableMana}}checked{{/if}}/><span class="toggle-track"></span><span>Aceita variar a {{energyLabel}}</span><span class="help" title="Ao usar, escolhe quanta {{energyLabel}} investir. Menos que o Custo enfraquece na mesma proporção; mais fortalece sem teto, mas cada {{energyLabel}} a mais rende menos que a anterior (curva e mínimo em Regras da Mesa). Numa Habilidade Ativa, o custo por rodada acompanha o investimento.">?</span></label>
             </div>
-            <label class="fld"><span class="fld-label">Mágica <span class="help" title="Para a Antimagia. Automático: é mágica quando custa {{energyLabel}} (ou tem Dano Mágico). Magia que atravessa um campo antimagia (ou é usada sob um Selo) paga {{energyLabel}} extra ou é anulada.">?</span></span>
-              <select name="system.magicTag">{{#each magicTagOptions as |opt|}}<option value="{{opt.id}}" {{#if (eq opt.id ../system.magicTag)}}selected{{/if}}>{{opt.label}}</option>{{/each}}</select></label>
+            <div class="fld"><span class="fld-label">Natureza <span class="help" title="Mágico: a Antimagia o alcança (e quem usa paga {{energyLabel}} extra ao atravessar um campo antimagia). Tecnológico: o PEM o alcança. As duas = tecnomágico (sofre as duas, mas sai mais forte); nenhuma = analógico, imune aos dois. Sem mexer, vale o automático: mágico quando custa {{energyLabel}} ou tem Dano Mágico.">?</span></span>
+              <label class="toggle"><input type="checkbox" name="system.isMagic" {{#if natureMagic}}checked{{/if}}/><span class="toggle-track"></span><span>Mágico</span></label>
+              <label class="toggle"><input type="checkbox" name="system.isTech" {{#if natureTech}}checked{{/if}}/><span class="toggle-track"></span><span>Tecnológico</span></label>
+            </div>
           </div>
         </details>
       </div>
@@ -562,6 +566,7 @@
           <label class="toggle"><input type="checkbox" class="item-equip-toggle" name="system.equipped" {{#if system.equipped}}checked{{/if}}/><span class="toggle-track"></span><span>Equipado</span></label>
           <p class="empty-note">Ligado: concede a Habilidade, ativa os bônus da aba <a data-action="selectTab" data-tab="equipped">Enquanto equipado</a> e, se for arma, libera o Atacar. Desligado: remove a Habilidade.</p>
           <label class="toggle"><input type="checkbox" name="system.magic" {{#if system.magic}}checked{{/if}}/><span class="toggle-track"></span><span>Mágico</span><span class="help" title="A Antimagia (Condição Suprimido) desliga os bônus deste Item enquanto durar — e os do implante feito dele. Sem a marca, o Item é mundano: a Antimagia não o alcança.">?</span></label>
+          <label class="toggle"><input type="checkbox" name="system.tech" {{#if itemTech}}checked{{/if}}/><span class="toggle-track"></span><span>Tecnológico</span><span class="help" title="O PEM (Suprimido: Tecnologia) desliga os bônus deste Item e do implante feito dele; também desliga o aparelho do PAD. Implante, prótese e aparelho do PAD já vêm marcados. Uma arma Tecnológica não dispara através de um campo de interferência. As duas marcas = tecnomágico.">?</span></label>
         </div>
       </div>
 

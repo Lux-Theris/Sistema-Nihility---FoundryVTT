@@ -29,7 +29,10 @@ import {
   dispelledEffects,
   isSuppressedBy,
   fieldSuppressionPlan,
-  effectEndedByField
+  effectEndedByField,
+  fieldUseOutcome,
+  manipulationLevelOf,
+  CORE_SKILLS
 } from "../module/core/magic-rules.js";
 import { normalizeRegen, sumRegen, regenAmount } from "../module/core/regen-rules.js";
 import { normalizeCurse, curseCostRound, curseScaled } from "../module/core/curse-rules.js";
@@ -359,4 +362,40 @@ test("Campo de antimagia: Supressão do campo dura enquanto o Token está dentro
   assert.equal(effectEndedByField({ magic: true, level: 4, fieldLevel: 3 }), false, "acima do campo sobrevive");
   assert.equal(effectEndedByField({ magic: false, level: 1, fieldLevel: 3 }), false);
   assert.equal(effectEndedByField({ magic: true, level: 1, fieldLevel: 0 }), false);
+});
+
+test("Campo de Antimagia: de fora some, de dentro nem sai, e a Manipulação decide pela curva do bloqueio de cura", () => {
+  const base = { kind: "magic", fieldLevel: 6, baseCost: 20, zeroMultiplier: 2 };
+  // Sem campo: passa.
+  assert.equal(fieldUseOutcome({ ...base, fieldLevel: 0 }).action, "pass");
+  // Sem Manipulação o campo sempre vence: de fora some, de dentro nada acontece.
+  assert.equal(fieldUseOutcome({ ...base, inside: false, manipulationLevel: 0 }).action, "vanish");
+  assert.equal(fieldUseOutcome({ ...base, inside: true, manipulationLevel: 0 }).action, "blocked");
+  // Com Manipulação ≤ campo + ⅓ (limite 8): f = 1, igual a não ter.
+  assert.equal(fieldUseOutcome({ ...base, inside: false, manipulationLevel: 8 }).action, "vanish");
+  assert.equal(fieldUseOutcome({ ...base, inside: true, manipulationLevel: 8 }).action, "blocked");
+  // Meio da curva (limite 8, zero em 16): nível 12 → f = 0,5; extra = ceil(20 × 0,5).
+  const mid = fieldUseOutcome({ ...base, inside: true, manipulationLevel: 12 });
+  assert.equal(mid.action, "extra");
+  assert.equal(mid.extra, 10);
+  assert.equal(mid.resisted, true);
+  assert.equal(fieldUseOutcome({ ...base, inside: false, manipulationLevel: 12, baseCost: 7 }).extra, 4, "arredonda para cima");
+  // Acima do zero da curva: passa de graça, dentro ou fora.
+  for (const inside of [true, false]) {
+    const free = fieldUseOutcome({ ...base, inside, manipulationLevel: 16 });
+    assert.equal(free.action, "pass");
+    assert.equal(free.extra, 0);
+    assert.equal(free.resisted, true);
+  }
+  // Tecnologia não tem Skill contra: nem com nível alto.
+  assert.equal(fieldUseOutcome({ ...base, kind: "tech", inside: false, manipulationLevel: 99 }).action, "vanish");
+  assert.equal(fieldUseOutcome({ ...base, kind: "tech", inside: true, manipulationLevel: 99 }).action, "blocked");
+  // O multiplicador de zero estica a curva (com 4× o zero vai a 32: nível 16 ainda paga).
+  assert.equal(fieldUseOutcome({ ...base, inside: true, manipulationLevel: 16, zeroMultiplier: 4 }).action, "extra");
+});
+
+test("Manipulação do Ator: a Skill pré-feita de mais alto nível conta; outras Skills não", () => {
+  assert.equal(manipulationLevelOf([]), 0);
+  assert.equal(manipulationLevelOf([{ coreSkill: "", level: 9 }, { coreSkill: CORE_SKILLS.detection, level: 7 }]), 0);
+  assert.equal(manipulationLevelOf([{ coreSkill: CORE_SKILLS.manipulation, level: 3 }, { coreSkill: CORE_SKILLS.manipulation, level: 5 }, { level: 8 }]), 5);
 });

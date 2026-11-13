@@ -58,6 +58,7 @@ import { registerFloatingNumbers } from "./combat/floating-numbers.js";
 import { registerEffectBadges, registerSystemEffectIcons, migrateSystemEffectIcons } from "./combat/effect-badges.js";
 import { registerVoiceBanner } from "./core/voice-banner.js";
 import { registerEndCombat } from "./apps/end-combat.js";
+import { tickSkillTimers, registerSkillTimers } from "./skills/preparation.js";
 import { registerSkillUndo, renderSkillUndo } from "./skills/skill-undo.js";
 import { registerNpcTierHooks } from "./npc/npc-generator.js";
 import { registerEncounterSimTracker } from "./apps/encounter-sim.js";
@@ -208,6 +209,7 @@ Hooks.once("init", () => {
   registerGlossaryLinks();
   registerHotbarMacros();
   registerIncapacitation();
+  registerSkillTimers();
   registerEnvironment();
   registerEnvironmentSceneMenu();
   registerRadiation();
@@ -308,6 +310,7 @@ Hooks.once("ready", async () => {
   await runMigrationIfNeeded("physicalSubtypes", migratePhysicalSubtypes);
   await runMigrationIfNeeded("incapacitationConditions", migrateIncapacitationConditions);
   await runMigrationIfNeeded("radiationElement", migrateRadiationElement);
+  await runMigrationIfNeeded("techConditions", migrateTechConditions);
   await runMigrationIfNeeded("systemEffectIcons", migrateSystemEffectIcons);
   console.log(`${SYSTEM_ID} | Sistema pronto.`);
 });
@@ -369,6 +372,29 @@ async function migrateIncapacitationConditions() {
   list.push(...foundry.utils.deepClone(missing));
   await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData, JSON.stringify(list, null, 2));
   // A paleta do HUD do Token já foi montada nesta carga: republica para as duas aparecerem agora.
+  registerStatusConditions();
+}
+
+/**
+ * Migração única (Natureza + PEM): catálogo de Condições já salvo ganha as que o PEM e a Antimagia
+ * usam e podem faltar nele — "Suprimido (Tecnologia)", "Selo de Interferência", "Suprimido
+ * (Antimagia)" e "Selo Antimagia". Só acrescenta o que não existe; nada é reescrito.
+ */
+async function migrateTechConditions() {
+  const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData);
+  if (!raw) return;
+  let list;
+  try {
+    list = typeof raw === "string" ? JSON.parse(raw) : raw;
+  } catch (err) {
+    return;
+  }
+  if (!Array.isArray(list)) return;
+  const wanted = c => c.suppressesTech || c.suppressesMagic || Number(c.interferenceLevel) > 0 || Number(c.antimagicLevel) > 0;
+  const missing = MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS.filter(c => wanted(c) && !list.some(e => e?.id === c.id));
+  if (!missing.length) return;
+  list.push(...foundry.utils.deepClone(missing));
+  await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData, JSON.stringify(list, null, 2));
   registerStatusConditions();
 }
 
@@ -776,6 +802,13 @@ Hooks.on("updateCombat", async (combat, changed, options) => {
     await tickIncapacitation(actor);
   } catch (err) {
     reportError("Falha ao contar Caído/Inconsciente no início do turno.", err, { gmOnly: true });
+  }
+  try {
+    // Recarga e Preparo (H3): logo depois do Vida 0 (quem caiu perde o preparo), antes de qualquer
+    // regeneração ou manutenção — a parte do Custo do turno é a primeira coisa paga. Morto não.
+    if (!isDead(actor)) await tickSkillTimers(actor);
+  } catch (err) {
+    reportError("Falha ao andar recarga e preparo das Habilidades no início do turno.", err, { gmOnly: true });
   }
   // Morto: o turno dele não processa ticks, regeneração, Zona, manutenção nem Maldição. Seguem só
   // as Zonas que ELE lançou (contando, para sumirem no prazo) e a limpeza dos efeitos das

@@ -6,6 +6,7 @@
  */
 import { chargesLeft, magazineState } from "./consumable-rules.js";
 import { MEU_SISTEMA, stackCount, isInventoryEnabled } from "../core/config.js";
+import { itemNature } from "../core/magic-rules.js";
 import { createGrantedSkill, removeGrantedSkill } from "../skills/skill-economy.js";
 
 const { DialogV2 } = foundry.applications.api;
@@ -117,7 +118,7 @@ export async function toggleEquipped(item) {
   if (!actor) return;
   const equipped = !item.system.equipped;
   await item.update({ "system.equipped": equipped });
-  if (equipped) await createGrantedSkill(actor, item.system.grantsSkill, item.id);
+  if (equipped) await createGrantedSkill(actor, item.system.grantsSkill, item.id, itemNature(item.system));
   else await removeGrantedSkill(actor, item.id);
 }
 

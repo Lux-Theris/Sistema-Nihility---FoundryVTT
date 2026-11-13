@@ -8,7 +8,7 @@
  *  - Skill: sempre, a menos que seja Habilidade Ativa — aí só enquanto ligada.
  */
 import { SYSTEM_ID, actorTraits, combatantIsActor } from "../core/config.js";
-import { sourceSuppressed, suppressionLevel } from "../core/suppression.js";
+import { sourceSuppressed, suppressionState } from "../core/suppression.js";
 import { sumConditionalModifiers } from "./conditional-modifiers.js";
 import { originConditionalSources } from "../species/species-rules.js";
 
@@ -20,7 +20,7 @@ export function collectConditionalModifiers(actor) {
 /** As mesmas regras, agrupadas pelo Item de onde vieram (a janela "De onde vem" mostra a fonte). */
 export function conditionalModifierSources(actor) {
   const sources = [];
-  const suppression = suppressionLevel(actor);
+  const suppression = suppressionState(actor);
   for (const item of actor?.items ?? []) {
     const list = item.system?.conditionalModifiers;
     if (!list?.length) continue;

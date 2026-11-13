@@ -75,6 +75,8 @@ export const DEFAULT_STATUS_CONDITIONS = [
   { id: "blindness", label: "Cegueira", icon: "icons/svg/blind.svg", explanation: "Não enxerga: o Mestre decide o que ele não consegue fazer (mirar de longe, ler, achar alguém)." },
   // Selo antimagia: toda magia de quem tem o selo paga Mana extra (ver antimagicSurcharge).
   { id: "antimagic-seal", label: "Selo Antimagia", icon: "icons/svg/padlock.svg", antimagicLevel: 1, explanation: "Toda magia dele custa mais; num selo forte, ela nem sai." },
+  // Selo de Interferência (espelho tecnológico do Selo Antimagia): todo uso tecnológico dele paga energia extra.
+  { id: "interference-seal", label: "Selo de Interferência", icon: "icons/svg/lightning.svg", interferenceLevel: 1, explanation: "Toda tecnologia dele custa mais energia; num selo forte, ela nem funciona." },
   { id: "poison", label: "Veneno", icon: "icons/svg/poison.svg",
     effect: { kind: "tick", tickTarget: "hp", tickSign: "damage", valueMode: "hitPercent", value: 5, durationRounds: 3, tickUnit: "combatRound" } },
   { id: "burn", label: "Queimadura", icon: "icons/svg/fire.svg",
@@ -96,6 +98,8 @@ export const DEFAULT_STATUS_CONDITIONS = [
   // Antimagia (prancha 8): enquanto durar, passivos, Resistências, itens e implantes mágicos de
   // nível ≤ o da supressão não contam, e Habilidades Ativas mágicas desse nível não ligam.
   { id: "antimagic-suppressed", label: "Suprimido (Antimagia)", icon: "icons/svg/cancel.svg", suppressesMagic: true },
+  // PEM: o mesmo para a tecnologia — Skills, itens, implantes e próteses tecnológicos de nível ≤ o da supressão não valem.
+  { id: "tech-suppressed", label: "Suprimido (Tecnologia)", icon: "icons/svg/cancel.svg", suppressesTech: true },
   // Exemplo de Maldição (prancha 6): vários efeitos, sem prazo, paga pela Mana da vítima.
   { id: "curse-blood", label: "Maldição de Sangue", icon: "icons/svg/blood.svg", healBlock: { kinds: "regen", scope: "body" },
     curse: { enabled: true, costPercent: 5, onUnpaid: "hp", worsenStep: 25, worsenCap: 3, effects: [

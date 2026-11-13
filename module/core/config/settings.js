@@ -116,6 +116,15 @@ export function registerSystemSettings() {
     default: 25
   });
 
+  game.settings.register(SYSTEM_ID, S.manaInvestOvercharge, {
+    name: "Custo variável — Sobrecarga (multiplicador da recarga)",
+    hint: "Investir mais de 2× o Custo de uma Skill dá recarga extra de ⌈(r − 2)² × este valor⌉ rodadas (r = investido ÷ Custo). Padrão 1; 0 desliga a recarga por sobrecarga.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 1
+  });
+
   game.settings.register(SYSTEM_ID, S.shipTargetAsk, {
     name: "Naves — Perguntar sistema-alvo ao atacar",
     hint: "Ao atacar uma Nave/Veículo com alvo único, pergunta se quer mirar num Módulo (Motor, Armas, Escudo…). Desligado, o dano de Integridade sempre se espalha.",
@@ -170,11 +179,21 @@ export function registerSystemSettings() {
     default: 1.5
   });
 
+  game.settings.register(SYSTEM_ID, S.technomagicPower, {
+    name: "Tecnomagia — multiplicador de poder",
+    hint: "Um uso que é Mágico E Tecnológico (tecnomágico) sai com a força multiplicada por isto: dano, Efeitos e Vida de Estrutura. Em compensação sofre Antimagia e PEM. Padrão 2 (×2); mínimo 1 (sem bônus).",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 2
+  });
+
   game.settings.register(SYSTEM_ID, S.antimagicBase, {
     name: "Antimagia — Base do custo extra",
     hint: "Magia sob antimagia paga (Custo da Skill + esta base) × (crescimento^nível − 1) a mais, na hora (ou por rodada, se for contínua). Não tem como pagar: é anulada. Padrão 10.",
     scope: "world",
-    config: true,
+    // Sem uso desde 1.88 (o campo agora decide pela Manipulação): fica registrada, escondida.
+    config: false,
     type: Number,
     default: 10
   });
@@ -183,7 +202,8 @@ export function registerSystemSettings() {
     name: "Antimagia — Crescimento por nível",
     hint: "Quanto o custo extra multiplica a cada nível de antimagia. Padrão 2: nível 1 = ×1, nível 2 = ×3, nível 3 = ×7 sobre (Custo + base).",
     scope: "world",
-    config: true,
+    // Sem uso desde 1.88 (o campo agora decide pela Manipulação): fica registrada, escondida.
+    config: false,
     type: Number,
     default: 2
   });

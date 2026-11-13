@@ -6,6 +6,7 @@
  * (`system.bodyState`, ver deriveBodyState em character-model.js).
  */
 import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions, getActiveBodyFunctions, getFeatureOption, getHealingRules, isAnatomyEnabled, isBodyInjuryEnabled } from "../core/config.js";
+import { itemNature, itemIsTech } from "../core/magic-rules.js";
 import { healBlockFactor } from "../core/magic-rules.js";
 import { implantFits, legacyFunctionsFor, partDamage, partHealing, pickHitPart, healCap, partHealable } from "./anatomy-rules.js";
 import { isDesignatedGm } from "../helpers/gm-relay.js";
@@ -49,6 +50,7 @@ export async function installImplant(actor, partId, item) {
     attributeBonuses: foundry.utils.deepClone(item.system.attributeBonuses ?? []),
     kind: isProsthesis ? "prosthesis" : "implant",
     magic: Boolean(item.system.magic),
+    tech: itemIsTech(item.system),
     location: implant.location ?? "",
     functions: [...(implant.functions ?? [])],
     sourceItem,
@@ -58,7 +60,7 @@ export async function installImplant(actor, partId, item) {
   });
   const index = mods.length - 1;
   if (item.system.grantsSkill?.name) {
-    const created = await createGrantedSkill(actor, item.system.grantsSkill, `${part.id}:${index}`);
+    const created = await createGrantedSkill(actor, item.system.grantsSkill, `${part.id}:${index}`, itemNature(item.system));
     if (created) mods[index].skillGranted = true;
   }
   const update = { "system.installedMods": mods };

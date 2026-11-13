@@ -7,6 +7,7 @@
  */
 import { SYSTEM_ID, isFeatureEnabled, getNpcTierConfig } from "../core/config.js";
 import { badgeFor } from "../combat/effect-badges.js";
+import { preparationsOf } from "../skills/preparation.js";
 import { collectActiveUpkeepSources } from "../skills/upkeep.js";
 import { NPC_TIER_LABELS } from "../npc/npc-generator-rules.js";
 
@@ -88,7 +89,13 @@ export class CombatPanelApp extends HandlebarsApplicationMixin(ApplicationV2) {
         energyPercent: pct(energy.value ?? 0, energy.max ?? 0),
         effects,
         fallen: fallenFlag?.kind ? `${fallenFlag.kind === "fallen" ? "Caído" : "Inconsciente"}${fallenFlag.rounds ? ` · ${fallenFlag.rounds}` : ""}` : "",
-        actives: actor && !ship ? collectActiveUpkeepSources(actor).map(s => ({ label: s.label, cost: s.upkeepCost })) : [],
+        // Habilidades Ativas e, junto, os Preparos em andamento ("preparando X (turnos que faltam)").
+        actives: actor
+          ? [
+              ...(ship ? [] : collectActiveUpkeepSources(actor).map(s => ({ label: s.label, cost: s.upkeepCost, prep: null }))),
+              ...preparationsOf(actor).map(e => ({ label: `preparando ${e.label}`, cost: null, prep: e.turnsLeft }))
+            ]
+          : [],
         movement: movementOn && total > 0 ? `${Math.round(used * 10) / 10}/${dash ? total * 2 : total} m${dash ? " (correndo)" : ""}` : ""
       };
     });

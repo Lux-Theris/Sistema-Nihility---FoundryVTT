@@ -75,6 +75,7 @@ import { handleItemDrop, splitStack, toggleEquipped, inventoryContext } from "..
 import { EffectsListApp } from "../apps/effects-list.js";
 import { enableHotbarDrag } from "../core/hotbar.js";
 import { skillSummariesFor } from "../skills/skill-summary-ui.js";
+import { skillTimersFor } from "../skills/preparation.js";
 import { useConsumable, reloadWeapon, weaponCanFire } from "../economy/consumables.js";
 import { magazineState } from "../economy/consumable-rules.js";
 import { blockIfIncapacitated } from "../combat/incapacitation.js";
@@ -636,6 +637,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.freeSkillPoints = MEU_SISTEMA.SKILL_POINT_TIERS.reduce((sum, t) => sum + freeSkillPoints(actor, t), 0);
     // A Skill numa frase, na linha da ficha (o que faz · onde · custo · manutenção).
     context.skillSummaries = skillSummariesFor(actor);
+    // Recarga e Preparo (H3): a Skill bloqueada mostra o motivo e o botão Usar fica desligado.
+    context.skillTimers = skillTimersFor(actor);
     context.fusableTiers = FUSABLE_TARGET_TIERS.filter(t => t !== "ultimate" || ultimateVisible);
     context.hasUltimateSkill = actor.system.hasUltimateSkill;
 

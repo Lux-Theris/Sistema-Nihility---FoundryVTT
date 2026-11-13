@@ -16,7 +16,8 @@
  *    entrar, todas as Habilidades Ativas desligam. Regeneração, cura periódica e cura de terceiros
  *    continuam — o que para é o que exige agir.
  */
-import { SYSTEM_ID, getActiveStatusConditions, getFeatureOption, isIncapacitationEnabled } from "../core/config.js";
+import { SYSTEM_ID, getActiveStatusConditions, getFeatureOption, isIncapacitationEnabled, actorTraits } from "../core/config.js";
+import { TECH_SUPPRESSION_FLAG } from "../core/suppression.js";
 import { isDesignatedGm } from "../helpers/gm-relay.js";
 import { escapeHtml } from "../helpers/html.js";
 import { incapacitatingIds, isIncapacitatedBy, zeroHpOutcome, incapacitationTurn } from "./incapacitation-rules.js";
@@ -126,6 +127,18 @@ async function wakeToUnconscious(actor) {
   if (rounds > 0 && !effectWith(actor, "unconscious")) await addIncapacitation(actor, "unconscious", { kind: "unconscious", rounds });
 }
 
+/**
+ * Passou da Mana (C2, skills/cooldown-rules.js): a pessoa cai Inconsciente pelo contador de acordar
+ * (`wakeRounds`, pelo menos 1). Não mexe em quem já está Inconsciente, Caído ou morto.
+ * @returns {Promise<boolean>} true se ficou Inconsciente agora
+ */
+export async function knockUnconscious(actor) {
+  if (!actor || actor.type !== "character" || isDead(actor) || effectWith(actor, "unconscious") || effectWith(actor, "fallen")) return false;
+  const rounds = Math.max(1, Number(getFeatureOption("incapacitation", "wakeRounds")) || 3);
+  await addIncapacitation(actor, "unconscious", { kind: "unconscious", rounds });
+  return true;
+}
+
 /** Desfazer do card de dano: a queda é revertida inteira, sem Inconsciente. */
 async function undoFall(actor) {
   await effectWith(actor, "fallen")?.delete();
@@ -162,6 +175,59 @@ async function wakeFully(actor) {
   await effectWith(actor, "fallen")?.delete();
   const unconscious = effectWith(actor, "unconscious");
   if (unconscious?.getFlag(SYSTEM_ID, FLAG)) await unconscious.delete();
+}
+
+/* ------------------------------------------------------------------ PEM: corpo mecânico desliga */
+
+/** Flag do Inconsciente que o PEM causa (sem contador): `{field: bool}`. */
+const EMP_FLAG = "empShutdown";
+
+/** O corpo é mecânico (Traço `mechanical`: Androide, Ciborgue…)? */
+export function isMechanicalBody(actor) {
+  return actor?.type === "character" && actorTraits(actor).includes("mechanical");
+}
+
+/**
+ * O PEM alcançou um corpo mecânico: fica Inconsciente (sem contador) enquanto a Supressão
+ * tecnológica durar — `rounds` do PEM de Skill (0 = até tirar) ou enquanto estiver no campo
+ * (`field`). Nunca mexe num Inconsciente que já exista (de Vida 0 ou marcado à mão). Só o Mestre.
+ * @returns {Promise<string|null>} linha pro resumo, ou null se nada mudou
+ */
+export async function applyEmpShutdown(actor, { rounds = 0, field = false } = {}) {
+  // Morto não "desliga": já está fora de jogo.
+  if (!isMechanicalBody(actor) || isDead(actor) || effectWith(actor, "unconscious")) return null;
+  const { label, icon } = conditionData("unconscious");
+  const duration = Math.max(0, Math.round(Number(rounds) || 0));
+  await actor.createEmbeddedDocuments(
+    "ActiveEffect",
+    [{
+      name: `${label} (PEM)`,
+      img: icon,
+      statuses: ["unconscious"],
+      duration: !field && duration > 0 ? { rounds: duration } : {},
+      flags: { [SYSTEM_ID]: { skillEffect: true, conditionId: "unconscious", [EMP_FLAG]: { field: Boolean(field) } } }
+    }],
+    { nihilityConfigured: true }
+  );
+  return `${actor.name} desliga (${label})`;
+}
+
+/**
+ * Acorda quem o PEM desligou, quando a Supressão tecnológica que causou acabou: `field` = saiu do
+ * campo (só o desligamento de campo); sem `field`, o de Skill, se não restou nenhuma Supressão
+ * tecnológica. Inconsciente de Vida 0 ou à mão nunca é tocado.
+ */
+export async function releaseEmpShutdown(actor, { field = false } = {}) {
+  if (!actor) return false;
+  const ids = actor.effects
+    .filter(e => {
+      const flag = e.getFlag(SYSTEM_ID, EMP_FLAG);
+      return flag && Boolean(flag.field) === Boolean(field);
+    })
+    .map(e => e.id);
+  if (!ids.length) return false;
+  await actor.deleteEmbeddedDocuments("ActiveEffect", ids);
+  return true;
 }
 
 /* ------------------------------------------------------------------ Turno */
@@ -241,6 +307,19 @@ function renderIncapacitationCard(message, html) {
 export function registerIncapacitation() {
   Hooks.on("updateActor", onUpdateActor);
 
+  // PEM: quando a Supressão tecnológica que desligou um corpo mecânico some (acabou, o Mestre
+  // tirou, saiu do campo), ele acorda. Só o Mestre designado.
+  Hooks.on("deleteActiveEffect", async effect => {
+    if (!isDesignatedGm()) return;
+    const flags = effect.flags?.[SYSTEM_ID];
+    if (flags?.[TECH_SUPPRESSION_FLAG] === undefined) return;
+    const actor = effect.parent;
+    if (!actor || actor.documentName !== "Actor") return;
+    const field = flags.interferenceField !== undefined;
+    const remains = actor.effects.some(e => e.id !== effect.id && !e.disabled && e.flags?.[SYSTEM_ID]?.[TECH_SUPPRESSION_FLAG] !== undefined && (e.flags[SYSTEM_ID].interferenceField !== undefined) === field);
+    if (!remains) await releaseEmpShutdown(actor, { field });
+  });
+
   // Entrou numa Condição que incapacita (por esta regra, à mão no Token, por Skill): todas as
   // Habilidades Ativas desligam. Só o Mestre designado executa.
   Hooks.on("createActiveEffect", async effect => {
@@ -251,6 +330,9 @@ export function registerIncapacitation() {
     if (![...(effect.statuses ?? [])].some(s => ids.has(s) || s === defeatedId())) return;
     const { shutdownActiveSkills } = await import("../skills/upkeep.js");
     await shutdownActiveSkills(actor, { reason: `está ${effect.name}` });
+    // Preparo em andamento (H3) também se perde.
+    const { cancelAllPreparations } = await import("../skills/preparation.js");
+    await cancelAllPreparations(actor, `o personagem ficou ${effect.name}`);
   });
 
   // Não move o Token (o Mestre move — tirar um corpo do caminho, por exemplo).

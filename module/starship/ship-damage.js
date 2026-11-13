@@ -9,6 +9,7 @@ import { applyAdvantageToFormula, applyRollModifiers, normalizeRollOptions } fro
 import { rollChance, resolveShipCascade, adaptShield, hitAffinityFactor } from "../combat/damage-rules.js";
 import { attackTraceRows, applyDamageReductions, averageElementContext, damageScaleFor, situationalDamageFactor, applyTriggeredConditions, triggeredLabel, formatScale, modifiersFlavor, throughStructures } from "../combat/damage-roll.js";
 import { grantResistanceXp, registerResistanceExposure } from "../combat/resistance.js";
+import { chargeAntimagic, fieldGate } from "../combat/antimagic.js";
 import { escapeHtml } from "../helpers/html.js";
 
 /** Nave OU Veículo — os dois compartilham o mesmo `ShipSystemsDataModel` desde o overhaul de Porte. */
@@ -225,6 +226,12 @@ export async function fireStarshipWeapon(sourceActor, weaponModule, targetActor 
     ui.notifications?.warn(`${weaponModule.name} está em recarga (${sys.cooldownRemaining} rodada(s) restantes).`);
     return null;
   }
+  // De dentro de um Campo de Interferência (ou sob Selo) a arma de Nave não dispara: nada se gasta.
+  const gate = fieldGate(sourceActor, { isMagic: false, isTech: true, weaponShot: true, level: 1 });
+  if (gate.blocked) {
+    ui.notifications?.warn(gate.blocked);
+    return null;
+  }
   // Lançador: escolhe a munição compatível no Porão; a fórmula, os elementos e o Absoluto vêm dela.
   let ammoItem = null;
   if (sys.usesAmmo) {
@@ -266,6 +273,14 @@ export async function fireStarshipWeapon(sourceActor, weaponModule, targetActor 
   let finalDamage = null;
   let messageFlags = {};
   if (targetActor) {
+    // Arma de Nave é tecnológica: um campo de interferência no caminho a anula (sem custo). Gasta a
+    // munição e entra em recarga mesmo assim.
+    const interference = await chargeAntimagic(sourceActor, { isMagic: false, isTech: true, weaponShot: true, level: 1, fieldGated: true }, [targetActor]);
+    if (interference.nulled.has(targetActor.uuid)) {
+      await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: sourceActor }), flavor: `${flavor}${interference.note} — ${escapeHtml(targetActor.name)}: 0` });
+      if (sys.cooldownRounds > 0) await weaponModule.update({ "system.cooldownRemaining": Math.max(1, Math.ceil(sys.cooldownRounds * throttleRatio)) });
+      return { roll, finalDamage: 0 };
+    }
     const scale = damageScaleFor(sourceActor, mech, targetActor);
     if (scale !== 1) flavor += ` — escala ×${formatScale(scale)}`;
     const situational = situationalDamageFactor(sourceActor, targetActor, mech);

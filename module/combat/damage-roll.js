@@ -2,7 +2,7 @@
  * Rolar dano de Skill/arma: escala, bônus, Shift, Estruturas no caminho, reduções do alvo por elemento e o card de dano.
  * (Separado de skill-effects.js na reorganização de pastas — mesma lógica de antes.)
  */
-import { SYSTEM_ID, isMagicUse, damageElementChain, getActiveDamageElements, getActiveStatusConditions, getEnergyLabelForActor, getAttributeLabel, damageScalingMultiplier, skillLevelBonuses, getDamageElement, actorTraits, isScaleEnabled, getFeatureOption, actorScaleIndex, scaleIndexOf, actorElements, getElementAffinityMatrix, getAffinityConfig } from "../core/config.js";
+import { SYSTEM_ID, isMagicUse, isTechUse, damageElementChain, getActiveDamageElements, getActiveStatusConditions, getEnergyLabelForActor, getAttributeLabel, damageScalingMultiplier, skillLevelBonuses, getDamageElement, actorTraits, isScaleEnabled, getFeatureOption, actorScaleIndex, scaleIndexOf, actorElements, getElementAffinityMatrix, getAffinityConfig } from "../core/config.js";
 import { playSkillAnimation } from "../core/vfx.js";
 import { damageApplyFlags, withDamageTrace } from "./damage-apply.js";
 import { magazineState } from "../economy/consumable-rules.js";
@@ -11,10 +11,11 @@ import { applyAdvantageToFormula, applyRollModifiers, describeRollOptions, norma
 import { splitDamageParts, resolveDamageParts, describeDamageParts, scaleMultiplier, rollChance, elementVsDefender, chainedResistance, inheritedElementEffects } from "./damage-rules.js";
 import { conditionalBonus } from "./conditional-context.js";
 import { interceptingStructure, hitStructure } from "../structures/structures.js";
-import { chargeAntimagic } from "./antimagic.js";
+import { chargeAntimagic, fieldGate, creditManipulation } from "./antimagic.js";
 import { applyEffectsToActor } from "../skills/effects-apply.js";
 import { promptTargetBodyPart } from "../species/anatomy.js";
-import { suppressionLevel } from "../skills/dispel.js";
+import { suppressionLevel, techSuppressionLevel } from "../skills/dispel.js";
+import { itemIsTech } from "../core/magic-rules.js";
 import { magicDefenseReduction, resistanceSourceFor, grantResistanceXp, registerResistanceExposure } from "./resistance.js";
 import { isShipLike, applyShipWeaponBonus, applyStarshipDamageCascade } from "../starship/ship-damage.js";
 import { escapeHtml } from "../helpers/html.js";
@@ -416,7 +417,11 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
   // Alvo Suprimido (Antimagia): golpe mágico de alvo único, de nível ≤ a supressão, não tem efeito.
   // Em área continua acertando (rollSkillDamageArea não passa por aqui).
   const suppressedAt = targetActor?.type === "character" ? suppressionLevel(targetActor) : null;
-  if (suppressedAt !== null && (isMagicUse(mech, actor) || mech.magicTag === "magic") && (Number(mech.level) || 1) <= suppressedAt) {
+  const techSuppressedAt = targetActor?.type === "character" ? techSuppressionLevel(targetActor) : null;
+  const hitLevelNow = Number(mech.level) || 1;
+  const magicSuppressed = suppressedAt !== null && (isMagicUse(mech, actor) || mech.magicTag === "magic") && hitLevelNow <= suppressedAt;
+  const techSuppressedHit = techSuppressedAt !== null && isTechUse(mech, actor) && !mech.weaponShot && hitLevelNow <= techSuppressedAt;
+  if (magicSuppressed || techSuppressedHit) {
     await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor }), flavor: `${flavor} — ${escapeHtml(targetActor.name)}: sem efeito (Suprimido)` });
     return { roll, finalDamage: 0 };
   }
@@ -525,9 +530,7 @@ export async function useWeaponAttack(sourceActor, weaponItem, targetActor = nul
   // Aprimoramento vindo de Skills (alvos "weapon*"): vale pra qualquer arma equipada do Ator.
   const bonuses = sourceActor.system.weaponBonuses ?? {};
   const override = bonuses.elementOverride && getDamageElement(bonuses.elementOverride) ? bonuses.elementOverride : "";
-  const result = await rollSkillDamage(
-    sourceActor,
-    {
+  const shotMech = {
       damageFormula: ammo?.damageFormula?.trim() || weapon.damageFormula,
       scalingAttribute: weapon.scalingAttribute,
       isMagicDamage: weapon.isMagicDamage || (bonuses.forceMagic ?? 0) > 0,
@@ -535,8 +538,22 @@ export async function useWeaponAttack(sourceActor, weaponItem, targetActor = nul
       damageScale: weapon.damageScale,
       damageElements: override ? [override] : ammo?.damageElements?.length ? ammo.damageElements : weapon.damageElements,
       weaponBonus: { flat: Number(bonuses.damageFlat) || 0, multiplier: bonuses.damageMultiplier ?? 1 },
+      // Arma tecnológica não dispara através de um campo de interferência (anulada, sem custo).
+      isTech: itemIsTech(weaponItem.system),
+      weaponShot: true,
       level: 1
-    },
+  };
+  // Dentro de um Campo de Interferência/Antimagia (ou sob Selo): nada acontece — não gasta o disparo.
+  // (O tiro de fora para dentro gasta o disparo e some em chargeAntimagic.)
+  const gate = fieldGate(sourceActor, shotMech);
+  if (gate.blocked) {
+    ui.notifications?.warn(gate.blocked);
+    return null;
+  }
+  if (gate.resisted) await creditManipulation(gate.skill);
+  const result = await rollSkillDamage(
+    sourceActor,
+    { ...shotMech, fieldGated: true },
     ammo?.label ? `${weaponItem.name} (${ammo.label})` : weaponItem.name,
     targetActor,
     rollOptions
@@ -607,7 +624,7 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
     const situational = situationalDamageFactor(actor, targetActor, mech);
     let targetDamage = boostedTotal * scale * situational;
     if (antimagic.nulled.has(targetActor.uuid)) {
-      rows.push(`<li><strong>${escapeHtml(targetActor.name)}</strong>: 0 (antimagia)</li>`);
+      rows.push(`<li><strong>${escapeHtml(targetActor.name)}</strong>: 0 (anulado pelo campo)</li>`);
       traces.push({ name: targetActor.name, rows: attackTraceRows({ rolled: roll.total, boosted: boostedTotal, scale, situational, nulled: true }) });
       continue;
     }

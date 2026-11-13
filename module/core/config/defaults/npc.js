@@ -57,10 +57,11 @@ const weapon = (name, formula, elements, scaling, chance = 100, extra = {}) => (
   name,
   img: "icons/svg/sword.svg",
   chance,
-  system: { quantity: 1, equipped: true, description: "", weapon: { enabled: true, damageFormula: formula, scalingAttribute: scaling, damageElements: elements, isMagicDamage: Boolean(extra.magic) } }
+  system: { quantity: 1, equipped: true, description: "", weapon: { enabled: true, damageFormula: formula, scalingAttribute: scaling, damageElements: elements, isMagicDamage: Boolean(extra.magic) }, ...(extra.tech ? { tech: true } : {}) }
 });
 
-const gear = (name, chance = 100, img = "icons/svg/item-bag.svg") => ({ name, img, chance, system: { quantity: 1, equipped: false, description: "" } });
+// `tech`: Item Tecnológico (o PEM o alcança; arma tecnológica não dispara através de campo de interferência).
+const gear = (name, chance = 100, img = "icons/svg/item-bag.svg", tech = false) => ({ name, img, chance, system: { quantity: 1, equipped: false, description: "", ...(tech ? { tech: true } : {}) } });
 
 const potion = (name, target, chance, extra = {}) => ({
   name,
@@ -294,7 +295,7 @@ export const DEFAULT_NPC_ARCHETYPES = [
       buff("Sobrecarga de Arma", "Mexe na arma até ela bater mais forte.", "self", [effect("weaponDamage", 3, 3)], 8),
       narrative("Sabotagem", "Desliga uma porta, câmera ou máquina por algumas rodadas.")
     ],
-    items: [gear("Chave inteligente", 100), weapon("Pistola de Pregos", "1d6", ["piercing"], "precision", 60), gear("Kit de reparo", 50)]
+    items: [gear("Chave inteligente", 100, undefined, true), weapon("Pistola de Pregos", "1d6", ["piercing"], "precision", 60, { tech: true }), gear("Kit de reparo", 50)]
   },
   {
     id: "policial",
@@ -315,7 +316,7 @@ export const DEFAULT_NPC_ARCHETYPES = [
       buff("Ordem de Parar", "\"Parado!\" — o alvo hesita.", "targeted", [effect("strength", -2, 1, { conditionId: "fear" })], 6),
       buff("Cobertura", "Se abriga atrás do que encontrar.", "self", [effect("defense", 4, 2)], 6)
     ],
-    items: [weapon("Pistola", "1d8", ["kinetic"], "precision"), weapon("Cassetete", "1d6", ["blunt"], "strength", 80), gear("Distintivo", 100), gear("Algemas", 70)]
+    items: [weapon("Pistola", "1d8", ["kinetic"], "precision", 100, { tech: true }), weapon("Cassetete", "1d6", ["blunt"], "strength", 80), gear("Distintivo", 100), gear("Algemas", 70)]
   },
   {
     id: "soldado",
@@ -336,7 +337,7 @@ export const DEFAULT_NPC_ARCHETYPES = [
       buff("Fogo de Supressão", "Ninguém levanta a cabeça debaixo desses tiros.", "emission", [effect("dexterity", -3, 2, { conditionId: "slow" })], 10, area("cone", 6)),
       buff("Entrincheirar", "Firma posição atrás de cobertura.", "self", [effect("defense", 5, 3)], 8)
     ],
-    items: [weapon("Rifle de Assalto", "1d10", ["kinetic"], "precision"), weapon("Faca de Combate", "1d6", ["slashing"], "dexterity", 80), grenade("Granada", "3d6", ["kinetic"], 60), potion("Stimpack", "heal", 50)]
+    items: [weapon("Rifle de Assalto", "1d10", ["kinetic"], "precision", 100, { tech: true }), weapon("Faca de Combate", "1d6", ["slashing"], "dexterity", 80), grenade("Granada", "3d6", ["kinetic"], 60), potion("Stimpack", "heal", 50)]
   },
   {
     id: "medico",
@@ -357,7 +358,7 @@ export const DEFAULT_NPC_ARCHETYPES = [
       buff("Sedativo", "Um dardo que derruba o alvo por um instante.", "targeted", [effect("dexterity", -4, 1, { conditionId: "stun" })], 12),
       narrative("Antídoto", "Neutraliza um veneno: o Mestre tira a Condição.")
     ],
-    items: [potion("Kit Médico", "heal", 100, { targetType: "targeted", charges: 3 }), weapon("Pistola Leve", "1d6", ["kinetic"], "precision", 60), potion("Stimpack", "heal", 50)]
+    items: [potion("Kit Médico", "heal", 100, { targetType: "targeted", charges: 3 }), weapon("Pistola Leve", "1d6", ["kinetic"], "precision", 60, { tech: true }), potion("Stimpack", "heal", 50)]
   },
   {
     id: "hacker",
@@ -378,7 +379,7 @@ export const DEFAULT_NPC_ARCHETYPES = [
       buff("Camuflagem Óptica", "Some da vista por algumas rodadas.", "self", [effect("stealth", 5, 3)], 10),
       buff("Cegar Câmeras", "Sobrecarrega os implantes visuais do alvo.", "targeted", [effect("perception", -4, 2, { conditionId: "blindness" })], 10)
     ],
-    items: [gear("Deck de invasão", 100), weapon("Pistola Leve", "1d6", ["kinetic"], "precision", 60)]
+    items: [gear("Deck de invasão", 100, undefined, true), weapon("Pistola Leve", "1d6", ["kinetic"], "precision", 60, { tech: true })]
   }
 ];
 

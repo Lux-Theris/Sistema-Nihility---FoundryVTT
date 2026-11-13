@@ -54,6 +54,7 @@ import { handleItemDrop, splitStack, cargoContext } from "../economy/inventory.j
 import { EffectsListApp } from "../apps/effects-list.js";
 import { enableHotbarDrag } from "../core/hotbar.js";
 import { skillSummariesFor } from "../skills/skill-summary-ui.js";
+import { skillTimersFor } from "../skills/preparation.js";
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
 
@@ -577,7 +578,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     await module.update({ "system.status": next });
 
     if (next === "online") {
-      await createGrantedSkill(this.actor, module.system.grantsSkill, module.id);
+      await createGrantedSkill(this.actor, module.system.grantsSkill, module.id, { tech: true });
     } else {
       await removeGrantedSkill(this.actor, module.id);
     }
@@ -1044,6 +1045,8 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     context.skills = actor.system.skills;
     context.skillSummaries = skillSummariesFor(actor);
+    // Recarga e Preparo (H3): a Skill bloqueada mostra o motivo e o botão Usar fica desligado.
+    context.skillTimers = skillTimersFor(actor);
     context.padShipEnabled = isPadShipEnabled();
     context.crewActors = actor.system.crewActors;
     context.totalConsumption = actor.system.totalConsumption;

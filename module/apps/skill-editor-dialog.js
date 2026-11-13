@@ -15,7 +15,8 @@ import {
   getStructures,
   isStructuresEnabled,
   isStructureMechanic,
-  MAGIC_TAG_LABELS
+  isMagicUse,
+  isTechUse
 } from "../core/config.js";
 import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../combat/resistance.js";
 import { pickerFieldHtml, readPickerField, wireElementPickerField } from "./checklist-picker.js";
@@ -78,7 +79,7 @@ function buildEffectRowHtml(entry) {
     <div class="effect-row-main">
       <select class="se-effect-target">${options}</select>
       <select class="se-effect-element-id" title="Elemento (das armas, ou que o alvo passa a ser)" style="display:${["weaponElement", "bodyElement"].includes(entry.target) ? "inline-block" : "none"};">${elementIdOptions}</select>
-      <input type="number" class="se-effect-amount" value="${entry.amount}" placeholder="Qtd." style="display:${entry.target === "antimagic" ? "none" : ""};"/>
+      <input type="number" class="se-effect-amount" value="${entry.amount}" placeholder="Qtd." style="display:${["antimagic", "emp"].includes(entry.target) ? "none" : ""};"/>
       <input type="number" class="se-effect-duration" value="${entry.durationRounds}" min="0" placeholder="Rounds/Ticks"/>
       <a class="se-effect-delete" title="Remover"><i class="fas fa-trash"></i></a>
     </div>
@@ -174,7 +175,11 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     hasUpkeep: Boolean(initialData.hasUpkeep),
     variableMana: Boolean(initialData.variableMana),
     magicTag: initialData.magicTag || "auto",
+    isMagic: initialData.isMagic ?? null,
+    isTech: initialData.isTech ?? null,
     upkeepCost: initialData.upkeepCost ?? 0,
+    cooldown: initialData.cooldown ?? 0,
+    prepTurns: initialData.prepTurns ?? 0,
     animationPath: initialData.animationPath ?? "",
     description: initialData.description ?? "",
     resistanceTarget: initialData.resistanceTarget ?? "",
@@ -320,7 +325,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
   // "Avançado ▸" (K1): abre sozinho quando algum campo de dentro tem valor.
   const advTop = advancedFold([
     { label: `Variar a ${energyLabel}`, used: Boolean(data.variableMana) },
-    { label: "Mágica", used: Boolean(data.magicTag) && data.magicTag !== "auto" },
+    { label: "Mágico / Tecnológico", used: Boolean(data.isTech) || data.isMagic === false || data.magicTag === "mundane" },
     { label: "Animação", used: Boolean(data.animationPath) }
   ]);
   const advDamage = advancedFold([
@@ -359,6 +364,10 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
           : `<div class="form-group"><label>Nível</label><input type="number" name="level" value="${data.level}" min="1" ${levelReadonly ? "readonly" : ""}/></div>`}
         <div class="form-group"><label>Custo de ${energyLabel}</label><span class="sa-costrow"><input type="number" name="cost" value="${data.cost}" min="0"/><span class="se-sug" data-sug="cost"></span></span></div>
       </div>
+      <div class="row-2">
+        <div class="form-group" title="Depois de usada, a Skill fica bloqueada por este tanto de turnos seus (só em combate). 0 = sem recarga."><label>Recarga (rodadas)</label><input type="number" name="cooldown" value="${data.cooldown}" min="0" step="1"/></div>
+        <div class="form-group" title="Preparo: só dispara este tanto de turnos seus depois; o Custo é pago em partes, uma por turno. 0 = na hora."><label>Fica pronta em (rodadas)</label><input type="number" name="prepTurns" value="${data.prepTurns}" min="0" step="1"/></div>
+      </div>
       <label class="checkbox-line">
         <input type="checkbox" name="hasUpkeep" ${data.hasUpkeep ? "checked" : ""}/>
         Habilidade Ativa
@@ -374,9 +383,10 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
         <input type="checkbox" name="variableMana" ${data.variableMana ? "checked" : ""}/>
         Aceita variar a ${energyLabel}
       </label>
-      <div class="form-group" title="Para a Antimagia. Automático: é mágica quando custa ${energyLabel} (ou tem Dano Mágico).">
-        <label>Mágica</label>
-        <select name="magicTag">${Object.entries(MAGIC_TAG_LABELS).map(([id, label]) => `<option value="${id}" ${data.magicTag === id ? "selected" : ""}>${id === "auto" ? `Automático (custa ${energyLabel})` : label}</option>`).join("")}</select>
+      <div class="form-group" title="Mágico: a Antimagia o alcança. Tecnológico: o PEM o alcança. As duas = tecnomágico (sofre as duas, sai mais forte); nenhuma = analógico, imune aos dois. Sem mexer, vale o automático: mágico quando custa ${energyLabel} (ou tem Dano Mágico).">
+        <label>Natureza</label>
+        <label class="checkbox-line"><input type="checkbox" name="isMagic" ${isMagicUse(data, null) ? "checked" : ""}/> Mágico</label>
+        <label class="checkbox-line"><input type="checkbox" name="isTech" ${isTechUse(data, null) ? "checked" : ""}/> Tecnológico</label>
       </div>
       <div class="form-group">
         <label>Animação</label>
@@ -735,7 +745,7 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
     targetSelect.addEventListener("change", applyPeriodicVisibility);
     // Antimagia não tem quantidade: a força é o nível da Skill; a duração é a da supressão.
     targetSelect.addEventListener("change", () => {
-      li.querySelector(".se-effect-amount").style.display = targetSelect.value === "antimagic" ? "none" : "";
+      li.querySelector(".se-effect-amount").style.display = ["antimagic", "emp"].includes(targetSelect.value) ? "none" : "";
     });
     targetSelect.addEventListener("change", applyModifierTypeVisibility);
     // Luz do Escudo pessoal: só pro alvo Escudo; a luz fica em `data-light` (JSON) até salvar.
@@ -899,8 +909,12 @@ function readSkillEditorForm(root, lockTier) {
     cost: Number(root.querySelector('[name="cost"]').value) || 0,
     hasUpkeep,
     variableMana: Boolean(root.querySelector('[name="variableMana"]')?.checked),
-    magicTag: root.querySelector('[name="magicTag"]')?.value || "auto",
+    magicTag: "auto",
+    isMagic: root.querySelector('[name="isMagic"]')?.checked ?? null,
+    isTech: root.querySelector('[name="isTech"]')?.checked ?? null,
     upkeepCost: hasUpkeep ? Number(root.querySelector('[name="upkeepCost"]').value) || 0 : 0,
+    cooldown: Math.max(0, Math.floor(Number(root.querySelector('[name="cooldown"]')?.value)) || 0),
+    prepTurns: Math.max(0, Math.floor(Number(root.querySelector('[name="prepTurns"]')?.value)) || 0),
     animationPath: root.querySelector('[name="animationPath"]').value.trim(),
     description: root.querySelector('prose-mirror[name="description"]').value,
     resistanceTarget: resistEnabled ? resistChecked?.value ?? "general" : "",

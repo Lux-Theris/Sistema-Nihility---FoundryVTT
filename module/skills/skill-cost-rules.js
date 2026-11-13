@@ -7,6 +7,9 @@
  * níveis já acontece sozinho. Os pesos foram calibrados nas Skills que vêm no sistema
  * (Arquétipos de NPC): Bola de Fogo (4d6, círculo 4 m, escala por Magia) ≈ 25.
  *
+ * Recarga e Preparo (H3) não mudam o custo sugerido: o Preparo só PARCELA o mesmo Custo pelos turnos
+ * de preparo, e a Recarga limita a frequência (não a força de cada uso).
+ *
  * A Mana de quem tem a Skill NÃO entra na sugestão (o mesmo poder sugere o mesmo custo para
  * todos); ela só aparece numa linha à parte (`holderLine`).
  */
@@ -72,6 +75,7 @@ const fmt = n => (Math.round(n * 100) / 100).toString().replace(".", ",");
  * @param {object} mech - a Skill no formato do schema
  * @param {object} [ctx]
  * @param {number} [ctx.manaPerPoint] - Regras da Mesa (padrão 0,9)
+ * @param {number} [ctx.technomagicFactor] - ×N se a Skill é Mágica E Tecnológica (Regras da Mesa; 1 = não é)
  * @param {(id: string) => number} [ctx.structureHp] - Vida da Estrutura do catálogo
  * @param {(id: string) => string} [ctx.conditionLabel]
  * @param {(key: string) => string} [ctx.targetLabel]
@@ -110,9 +114,9 @@ export function suggestSkillCost(mech, ctx = {}) {
       const name = label(ctx.targetLabel, target);
       let p = 0;
       let text = "";
-      if (target === "antimagic") {
+      if (target === "antimagic" || target === "emp") {
         p = w.antimagic;
-        text = "Antimagia";
+        text = target === "emp" ? "PEM" : "Antimagia";
       } else if (["weaponElement", "bodyElement", "weaponMagic", "weaponAbsolute"].includes(target)) {
         p = w.toggle;
         text = name;
@@ -164,6 +168,11 @@ export function suggestSkillCost(mech, ctx = {}) {
     rows.push({ label: "Alvo único", value: "× 1" });
   }
 
+  const technomagic = Math.max(1, Number(ctx.technomagicFactor) || 1);
+  if (technomagic > 1 && points > 0) {
+    points *= technomagic;
+    rows.push({ label: "Tecnomágico: sai mais forte (Regras da Mesa)", value: `× ${fmt(technomagic)}` });
+  }
   rows.push({ label: "Mana por ponto (Regras da Mesa)", value: `× ${fmt(perPoint)}` });
   const cost = points > 0 ? Math.max(1, Math.round(points * perPoint)) : 0;
   const upkeep = active && cost > 0 ? Math.max(1, Math.round(cost * w.upkeepShare)) : null;

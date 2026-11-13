@@ -48,7 +48,10 @@ function itemFields(item) {
     if (value !== undefined) out[path] = foundry.utils.deepClone(value);
   }
   const subs = item._source?.system?.subSkills;
-  if (Array.isArray(subs) && subs.length) out.subSkillsActive = subs.map(s => Boolean(s?.active));
+  if (Array.isArray(subs) && subs.length) {
+    out.subSkillsActive = subs.map(s => Boolean(s?.active));
+    out.subSkillsCooldown = subs.map(s => Number(s?.cooldownRemaining) || 0);
+  }
   return out;
 }
 
@@ -298,9 +301,15 @@ async function revertActor(entry) {
     const update = { _id: doc.id };
     for (const [key, value] of Object.entries(reverted)) {
       if (key === "subSkillsActive") {
-        const subs = foundry.utils.deepClone(doc._source.system.subSkills ?? []);
+        const subs = update["system.subSkills"] ?? foundry.utils.deepClone(doc._source.system.subSkills ?? []);
         subs.forEach((s, i) => {
           if (typeof value?.[i] === "boolean") s.active = value[i];
+        });
+        update["system.subSkills"] = subs;
+      } else if (key === "subSkillsCooldown") {
+        const subs = update["system.subSkills"] ?? foundry.utils.deepClone(doc._source.system.subSkills ?? []);
+        subs.forEach((s, i) => {
+          if (typeof value?.[i] === "number") s.cooldownRemaining = value[i];
         });
         update["system.subSkills"] = subs;
       } else {

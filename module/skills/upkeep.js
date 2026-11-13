@@ -2,7 +2,9 @@
  * Habilidades Ativas: âncoras ao desligar, dreno por rodada, Mana em 0 e o que some no próximo turno.
  * (Separado de skill-effects.js na reorganização de pastas — mesma lógica de antes.)
  */
-import { SYSTEM_ID, getEnergyLabelForActor, isEnergyPoolEnabled, effectiveSkillCost, combatantIsActor, isMagicUse, antimagicSurcharge, getAntimagicConfig } from "../core/config.js";
+import { SYSTEM_ID, getEnergyLabelForActor, isEnergyPoolEnabled, effectiveSkillCost, combatantIsActor, isMagicUse, isTechUse, isInterferenceEnabled, getHealingRules, actorManipulation } from "../core/config.js";
+import { fieldUseOutcome } from "../core/magic-rules.js";
+import { creditManipulation } from "../combat/antimagic.js";
 import { runAsGm } from "../helpers/gm-relay.js";
 import { makeAnchor, removeAnchor, effectAnchors, finiteRemaining, anchorLifetime, PERMANENT, ANCHORED_TARGETS_FLAG, ANCHORED_TARGETS_CAP, anchoredTargetsFor, forgetAnchoredTargets } from "../combat/effect-anchors.js";
 import { worldActors, actorsFromUuids } from "../helpers/world-actors.js";
@@ -370,18 +372,39 @@ export async function tickActorUpkeepSkills(actor) {
     await regenerateSustainedStructures(actor);
     return [];
   }
-  // Antimagia: Skill Ativa mágica dentro de um campo (ou sob Selo) paga o custo extra por rodada.
+  // Campo de Antimagia/Interferência (ou Selo): a Skill Ativa da natureza do campo paga o extra da
+  // Manipulação por rodada (curva do bloqueio de cura, sobre o custo por rodada) ou desliga. Sem
+  // Manipulação — e a tecnologia nunca tem — o campo vence: desliga.
   if (!shipLike) {
-    const level = antimagicLevelAt(actor);
-    if (level > 0) {
-      const config = getAntimagicConfig();
-      for (const source of sources) {
+    const dropped = [];
+    for (const kind of isInterferenceEnabled() ? ["magic", "tech"] : ["magic"]) {
+      const level = antimagicLevelAt(actor, kind);
+      if (level <= 0) continue;
+      const manipulation = kind === "magic" ? actorManipulation(actor) : { skill: null, level: 0 };
+      for (const source of [...sources]) {
         const mech = source.subSkillIndex != null ? source.skill.system.subSkills?.[source.subSkillIndex] : source.skill.system;
-        if (!isMagicUse(mech, actor)) continue;
-        source.antimagic = antimagicSurcharge(source.upkeepCost, level, config);
-        source.upkeepCost += source.antimagic;
-        source.label += ` (antimagia +${source.antimagic})`;
+        if (!(kind === "magic" ? isMagicUse(mech, actor) : isTechUse(mech, actor))) continue;
+        const outcome = fieldUseOutcome({ inside: true, kind, manipulationLevel: manipulation.level, fieldLevel: level, baseCost: source.upkeepCost, zeroMultiplier: getHealingRules().zeroMultiplier });
+        if (outcome.action === "blocked") {
+          await deactivateUpkeepSource(source);
+          sources = sources.filter(x => x !== source);
+          dropped.push(source);
+          continue;
+        }
+        if (outcome.resisted) await creditManipulation(manipulation.skill);
+        if (outcome.extra > 0) {
+          source.antimagic = (source.antimagic ?? 0) + outcome.extra;
+          source.upkeepCost += outcome.extra;
+          source.label += ` (${kind === "magic" ? "antimagia" : "interferência"} +${outcome.extra})`;
+        }
       }
+    }
+    if (dropped.length) {
+      await ChatMessage.create({
+        speaker: ChatMessage.getSpeaker({ actor }),
+        content: `<p><strong>${escapeHtml(actor.name)}</strong> está num campo que vence a Manipulação: ${dropped.map(s => escapeHtml(s.label)).join(", ")} desligada(s).</p>`
+      });
+      if (!sources.length) return [];
     }
   }
   const results = shipLike ? await enforceShipUpkeepCapacity(actor, sources) : await drainCharacterUpkeep(actor, sources);

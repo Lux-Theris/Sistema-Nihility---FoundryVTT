@@ -55,6 +55,11 @@ export function isStructuresEnabled() {
   return isFeatureEnabled("structures");
 }
 
+/** Alcance de Skill/arma/arremesso e Marcas (H4). Desligado: nada é conferido nem mostrado. */
+export function isSkillRangeEnabled() {
+  return isFeatureEnabled("skillRange");
+}
+
 /**
  * Leitor ÚNICO de todo bloco ligável/desligável do sistema (ver MEU_SISTEMA.FEATURES) — use
  * isto, e não `game.settings.get` direto, pra gatear qualquer coisa: só aqui a cadeia de

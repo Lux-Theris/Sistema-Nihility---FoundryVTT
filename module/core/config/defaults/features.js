@@ -235,6 +235,15 @@ export const FEATURES = {
       npcBossSkills: { label: "Skills a mais no Chefe (gerador)", hint: "Sorteadas a mais da lista do arquétipo.", type: "number", default: 2, min: 0 }
     }
   },
+  skillRange: {
+    setting: "skillRangeEnabled",
+    name: "Alcance de Skill e Marcas",
+    hint: "Skills, armas e granadas ganham alcance em metros (0 = sem limite): fora dele o uso é recusado. Uma Marca (efeito \"Marcar\") deixa lançar a partir do Marcado, pagando o custo × (distância ÷ alcance)². Formas de área podem sair de quem lança ou ser postas livres. Sem mapa ou sem Token, nada é conferido. Desligar só esconde os campos e para de conferir; nada salvo se perde.",
+    default: true,
+    options: {
+      throwPerStrength: { label: "Força por metro de arremesso", hint: "Granadas e itens arremessáveis: alcance = base + ⌊Força ÷ este valor⌋ metros.", type: "number", default: 5, min: 1 }
+    }
+  },
   skillUndo: {
     setting: "skillUndoEnabled",
     name: "Desfazer uso de Skill",
@@ -401,6 +410,7 @@ const FEATURE_LAYOUT = {
   incapacitation: ["combat", "PJ em 0 cai e tem rodadas até a morte; NPC morre direto."],
   scale: ["combat", "Pessoa contra Nave: o dano cresce ou diminui pela Escala.", true],
   naturalRegen: ["combat", "Mana (e Vida, se configurado) volta um pouco a cada turno.", true],
+  skillRange: ["combat", "Alcance em metros para Skills, armas e granadas; Marcas lançam de longe."],
   skillUndo: ["combat", "O Mestre desfaz o último uso de uma Skill até o turno acabar."],
   endOfCombat: ["combat", "Ao encerrar: tira efeitos que congelariam, dá XP e descanso."],
   economy: ["world", "Moedas, conversão e transferência entre personagens."],

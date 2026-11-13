@@ -26,56 +26,56 @@ export const DEFAULT_SKILL_TEMPLATES = [
     label: "Golpe",
     hint: "dano físico num alvo",
     group: "dano",
-    skill: { ...base, cost: 8, effectType: "damage", targetType: "targeted", damageFormula: "2d6", damageElements: ["physical"], scalingAttribute: "strength" }
+    skill: { ...base, cost: 8, range: 1.5, effectType: "damage", targetType: "targeted", damageFormula: "2d6", damageElements: ["physical"], scalingAttribute: "strength" }
   },
   {
     id: "ataque_magico",
     label: "Ataque mágico",
     hint: "dano mágico num alvo",
     group: "dano",
-    skill: { ...base, cost: 10, effectType: "damage", targetType: "targeted", damageFormula: "2d6", damageElements: [], scalingAttribute: "magic", isMagicDamage: true }
+    skill: { ...base, cost: 10, range: 20, effectType: "damage", targetType: "targeted", damageFormula: "2d6", damageElements: [], scalingAttribute: "magic", isMagicDamage: true }
   },
   {
     id: "area_dano",
     label: "Área de dano",
     hint: "círculo, todos dentro",
     group: "dano",
-    skill: { ...base, cost: 25, effectType: "damage", targetType: "emission", areaShape: "circle", areaDistance: 4, areaAngle: 53, damageFormula: "4d6", damageElements: ["fire"], scalingAttribute: "magic", isMagicDamage: true }
+    skill: { ...base, cost: 25, range: 20, areaOrigin: "free", effectType: "damage", targetType: "emission", areaShape: "circle", areaDistance: 4, areaAngle: 53, damageFormula: "4d6", damageElements: ["fire"], scalingAttribute: "magic", isMagicDamage: true }
   },
   {
     id: "veneno",
     label: "Veneno",
     hint: "dano por rodada",
     group: "dano",
-    skill: { ...base, cost: 10, effectType: "temporary", targetType: "targeted", effects: [effect("hp", -5, 3, { periodic: true, conditionId: "poison" })] }
+    skill: { ...base, cost: 10, range: 10, effectType: "temporary", targetType: "targeted", effects: [effect("hp", -5, 3, { periodic: true, conditionId: "poison" })] }
   },
   {
     id: "cura",
     label: "Cura",
     hint: "Vida na hora",
     group: "ajuda",
-    skill: { ...base, cost: 12, effectType: "temporary", targetType: "targeted", effects: [effect("heal", 30, 0)] }
+    skill: { ...base, cost: 12, range: 1.5, effectType: "temporary", targetType: "targeted", effects: [effect("heal", 30, 0)] }
   },
   {
     id: "cura_tempo",
     label: "Cura ao longo do tempo",
     hint: "Vida por rodada",
     group: "ajuda",
-    skill: { ...base, cost: 12, effectType: "temporary", targetType: "targeted", effects: [effect("hp", 10, 3, { periodic: true, healKind: "cura" })] }
+    skill: { ...base, cost: 12, range: 1.5, effectType: "temporary", targetType: "targeted", effects: [effect("hp", 10, 3, { periodic: true, healKind: "cura" })] }
   },
   {
     id: "buff",
     label: "Buff de atributo",
     hint: "+ num aliado, rodadas",
     group: "ajuda",
-    skill: { ...base, cost: 8, effectType: "temporary", targetType: "targeted", effects: [effect("strength", 3, 3)] }
+    skill: { ...base, cost: 8, range: 1.5, effectType: "temporary", targetType: "targeted", effects: [effect("strength", 3, 3)] }
   },
   {
     id: "escudo",
     label: "Escudo",
     hint: "absorve dano",
     group: "ajuda",
-    skill: { ...base, cost: 12, effectType: "temporary", targetType: "targeted", effects: [effect("shield", 30, 0)] }
+    skill: { ...base, cost: 12, range: 10, effectType: "temporary", targetType: "targeted", effects: [effect("shield", 30, 0)] }
   },
   {
     id: "aura",
@@ -89,21 +89,21 @@ export const DEFAULT_SKILL_TEMPLATES = [
     label: "Debuff com Condição",
     hint: "Lentidão, Medo…",
     group: "controle",
-    skill: { ...base, cost: 12, effectType: "temporary", targetType: "targeted", effects: [effect("dexterity", -4, 3, { conditionId: "slow" })] }
+    skill: { ...base, cost: 12, range: 10, effectType: "temporary", targetType: "targeted", effects: [effect("dexterity", -4, 3, { conditionId: "slow" })] }
   },
   {
     id: "barreira",
     label: "Barreira",
     hint: "Estrutura no mapa",
     group: "controle",
-    skill: { ...base, cost: 15, effectType: "structure", targetType: "targeted", structureId: "stone-wall" }
+    skill: { ...base, cost: 15, range: 10, effectType: "structure", targetType: "targeted", structureId: "stone-wall" }
   },
   {
     id: "zona",
     label: "Zona",
     hint: "área que fica e bate todo turno",
     group: "controle",
-    skill: { ...base, cost: 20, effectType: "damage", targetType: "zone", areaShape: "circle", areaDistance: 3, areaAngle: 53, zoneRounds: 3, damageFormula: "2d6", damageElements: ["fire"], scalingAttribute: "magic", isMagicDamage: true }
+    skill: { ...base, cost: 20, range: 20, areaOrigin: "free", effectType: "damage", targetType: "zone", areaShape: "circle", areaDistance: 3, areaAngle: 53, zoneRounds: 3, damageFormula: "2d6", damageElements: ["fire"], scalingAttribute: "magic", isMagicDamage: true }
   }
 ];
 

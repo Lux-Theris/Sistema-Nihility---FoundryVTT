@@ -54,13 +54,15 @@ export function templateSkillData(template, overrides = {}, catalogs = {}) {
     ...skill,
     name: overrides.name || skill.name || template?.label || "Nova Habilidade",
     tier: overrides.tier || skill.tier || "normal",
-    level: 1
+    level: 1,
+    // Skill nova: a forma sai de quem lança, a menos que o modelo diga outra coisa (H4).
+    areaOrigin: skill.areaOrigin ?? "caster"
   };
 }
 
 /** Uma Skill pronta → entrada de modelo ("Salvar como modelo"). */
 export function templateFromSkill(name, system, existingIds = []) {
-  const { xp, active, investRatio, isItemGranted, fusionSources, evolvedFrom, subSkills, xpMax, xpReady, xpPercent, ...skill } = structuredClone(system ?? {});
+  const { xp, active, investRatio, markFactor, isItemGranted, fusionSources, evolvedFrom, subSkills, xpMax, xpReady, xpPercent, ...skill } = structuredClone(system ?? {});
   let id = archetypeSlug(name) || "modelo";
   for (let n = 2; existingIds.includes(id); n++) id = `${archetypeSlug(name) || "modelo"}_${n}`;
   return normalizeSkillTemplate({ id, label: name, hint: "", group: skill.effectType === "damage" ? "dano" : skill.effectType === "structure" ? "controle" : "ajuda", skill: { ...skill, level: 1 } });

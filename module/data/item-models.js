@@ -139,6 +139,18 @@ function usageFields() {
     cooldown: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
     /** Preparo: fica pronta em N rodadas; o Custo é pago em N partes, uma por turno de preparo. 0 = na hora. */
     prepTurns: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+    /** Alcance em metros (H4). 0 = sem limite — tudo salvo antes continua igual. */
+    range: new fields.NumberField({ required: false, initial: 0, min: 0 }),
+    /**
+     * Origem da forma de área (Emissão/Zona): "caster" sai de quem lança (ou da Marca), "free" é posta
+     * onde se quiser. `null` (Skill salva antes do H4) vale "free", o comportamento de sempre; uma
+     * Skill NOVA criada pela ficha nasce "caster".
+     */
+    areaOrigin: new fields.StringField({ required: false, nullable: true, initial: null, choices: ["caster", "free"] }),
+    /** A partir deste nível a forma presa em quem lança passa a ser livre (0 = nunca). */
+    areaFreeLevel: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+    /** Estado: fator do custo de ter ligado esta Ativa pela Marca (1 = normal). Nunca copiado. */
+    markFactor: new fields.NumberField({ required: false, initial: 1, min: 1 }),
     /** Estado: turnos do dono até poder usar de novo (ver cooldown-rules.js). Nunca copiado ao clonar/fundir. */
     cooldownRemaining: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 })
   };
@@ -825,6 +837,8 @@ export class StarshipModuleDataModel extends foundry.abstract.TypeDataModel {
       isAbsoluteDamage: new fields.BooleanField({ required: false, initial: false }),
       cooldownRounds: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
       cooldownRemaining: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
+      /** Alcance da Arma em QUADRADOS da cena (H4); 0 = sem limite. Convertido por `scene.grid.distance`. */
+      range: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
 
       /** Habilidade opcional concedida à Nave enquanto o módulo estiver "online" (ver grantedSkillSchema). */
       grantsSkill: grantedSkillSchema()
@@ -928,6 +942,8 @@ export class GenericItemDataModel extends foundry.abstract.TypeDataModel {
          * disparo), porque o Item de munição já foi gasto.
          */
         magazineSize: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+        /** Alcance em metros (H4); 0 = sem limite. */
+        range: new fields.NumberField({ required: false, initial: 0, min: 0 }),
         loaded: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
         ammoTypes: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
         loadedAmmo: new fields.ObjectField({ required: false, nullable: true, initial: null })
@@ -954,7 +970,10 @@ export class GenericItemDataModel extends foundry.abstract.TypeDataModel {
         /** Usos por unidade (kit de 5 usos). 0 ou 1 = cada uso gasta uma unidade da pilha. */
         charges: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
         /** Cargas já gastas da unidade aberta. */
-        chargesUsed: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 })
+        chargesUsed: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+        /** Arremessável (granada, H4): o alcance é `throwBase` m + ⌊Força ÷ passo⌋ (só nos modos Num alvo e Área). */
+        thrown: new fields.BooleanField({ required: false, initial: false }),
+        throwBase: new fields.NumberField({ required: false, initial: 10, min: 0 })
       }),
 
       /**

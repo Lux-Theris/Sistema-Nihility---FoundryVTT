@@ -10,6 +10,8 @@ import { rollChance, resolveShipCascade, adaptShield, hitAffinityFactor } from "
 import { attackTraceRows, applyDamageReductions, averageElementContext, damageScaleFor, situationalDamageFactor, applyTriggeredConditions, triggeredLabel, formatScale, modifiersFlavor, throughStructures } from "../combat/damage-roll.js";
 import { grantResistanceXp, registerResistanceExposure } from "../combat/resistance.js";
 import { chargeAntimagic, fieldGate } from "../combat/antimagic.js";
+import { checkFlatRange } from "../combat/range.js";
+import { shipRangeUnits } from "../combat/range-rules.js";
 import { escapeHtml } from "../helpers/html.js";
 
 /** Nave OU Veículo — os dois compartilham o mesmo `ShipSystemsDataModel` desde o overhaul de Porte. */
@@ -231,6 +233,11 @@ export async function fireStarshipWeapon(sourceActor, weaponModule, targetActor 
   if (gate.blocked) {
     ui.notifications?.warn(gate.blocked);
     return null;
+  }
+  // Alcance (H4): em quadrados da cena; fora dele a arma não dispara (o Mestre pode usar mesmo assim).
+  if (Number(sys.range) > 0 && targetActor) {
+    const units = shipRangeUnits(sys.range, Number(canvas?.scene?.grid?.distance) || 1);
+    if (!(await checkFlatRange(sourceActor, targetActor, units, { label: weaponModule.name }))) return null;
   }
   // Lançador: escolhe a munição compatível no Porão; a fórmula, os elementos e o Absoluto vêm dela.
   let ammoItem = null;

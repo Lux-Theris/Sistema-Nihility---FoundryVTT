@@ -13,10 +13,10 @@ import { MEU_SISTEMA } from "../core/config/constants.js";
 export const PERIODIC_TARGETS = ["hp", "energy", "shipCasco", "shipHull"];
 
 /** Alvos que agem na hora e não ficam "para sempre" sem duração. */
-const INSTANT_TARGETS = ["heal", "restoreEnergy", "shield", "antimagic", "emp", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"];
+const INSTANT_TARGETS = ["heal", "restoreEnergy", "shield", "antimagic", "emp", "mark", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"];
 
 /** Alvos em que o valor não importa (liga/desliga, troca de elemento, Antimagia pelo nível). */
-const VALUELESS_TARGETS = ["weaponElement", "bodyElement", "weaponMagic", "weaponAbsolute", "antimagic", "emp"];
+const VALUELESS_TARGETS = ["weaponElement", "bodyElement", "weaponMagic", "weaponAbsolute", "antimagic", "emp", "mark"];
 
 const groupTargets = actor => new Set(MEU_SISTEMA.EFFECT_TARGET_GROUPS.filter(g => g.actor === actor).flatMap(g => g.targets));
 
@@ -54,6 +54,12 @@ export function lintSkill(mech, ctx = {}) {
   if (active && !(Number(m.upkeepCost) > 0)) push("activeFree", "soft", "general", "Habilidade Ativa sem Custo por rodada: fica ligada de graça para sempre.");
   if (ctx.energyMax != null && Number(m.cost) > 0 && Number(m.cost) > Number(ctx.energyMax)) {
     push("costOverPool", "hard", "general", `Custa ${m.cost} e quem tem a Skill só tem ${ctx.energyMax} de ${energy} máxima: nunca dá para usar.`);
+  }
+
+  // --- Alcance (H4): só avisos "confira"; nada trava.
+  if (ctx.skillRange !== false) {
+    if (Number(m.range) > 0 && m.targetType === "self") push("rangeSelf", "soft", "mechanic", `Alcance de ${m.range} m numa Skill "Si mesmo": o alcance não faz diferença, ela sempre cai em quem usa.`);
+    if (usesTarget && isArea && m.areaOrigin === "caster" && Number(m.range) > 0) push("rangeCasterOrigin", "soft", "mechanic", `Alcance de ${m.range} m com a forma presa em quem lança: o alcance só vale pela Marca (a forma sai do Token de quem lança, ou do Marcado).`);
   }
 
   // --- Mecânica

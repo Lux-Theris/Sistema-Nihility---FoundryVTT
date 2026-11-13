@@ -12,6 +12,7 @@ import { splitDamageParts, resolveDamageParts, describeDamageParts, scaleMultipl
 import { conditionalBonus } from "./conditional-context.js";
 import { interceptingStructure, hitStructure } from "../structures/structures.js";
 import { chargeAntimagic, fieldGate, creditManipulation } from "./antimagic.js";
+import { checkFlatRange } from "./range.js";
 import { applyEffectsToActor } from "../skills/effects-apply.js";
 import { promptTargetBodyPart } from "../species/anatomy.js";
 import { suppressionLevel, techSuppressionLevel } from "../skills/dispel.js";
@@ -404,7 +405,9 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
   if (scale !== 1) flavor += ` — escala ×${formatScale(scale)}`;
   // Parede/barreira entre quem ataca e o alvo segura primeiro (ver throughStructures).
   // Antimagia: ataque mágico que cruza um campo (ou sob Selo) paga a energia extra ou é anulado.
-  const antimagic = targetActor ? await chargeAntimagic(actor, mech, [targetActor]) : null;
+  // Pela Marca (H4), a linha parte do Marcado (`mech.viaMark.origin`).
+  const viaOrigin = mech.viaMark?.origin ?? null;
+  const antimagic = targetActor ? await chargeAntimagic(actor, mech, [targetActor], { origin: viaOrigin }) : null;
   if (antimagic?.note) flavor += antimagic.note;
   if (antimagic?.nulled.has(targetActor.uuid)) {
     await roll.toMessage({
@@ -425,7 +428,7 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
     await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor }), flavor: `${flavor} — ${escapeHtml(targetActor.name)}: sem efeito (Suprimido)` });
     return { roll, finalDamage: 0 };
   }
-  const blocked = targetActor ? await throughStructures(actor, targetActor, rawDamage, { elementIds: mech.damageElements, absolute: Boolean(mech.isAbsoluteDamage) }) : { damage: rawDamage, note: "", impact: null };
+  const blocked = targetActor ? await throughStructures(actor, targetActor, rawDamage, { origin: viaOrigin, elementIds: mech.damageElements, absolute: Boolean(mech.isAbsoluteDamage) }) : { damage: rawDamage, note: "", impact: null };
   const scaledDamage = blocked.damage;
   const traceRows = attackTraceRows({ rolled: roll.total, boosted: boostedTotal, scale, situational, beforeStructure: rawDamage, arriving: scaledDamage });
   flavor += blocked.note;
@@ -551,6 +554,8 @@ export async function useWeaponAttack(sourceActor, weaponItem, targetActor = nul
     return null;
   }
   if (gate.resisted) await creditManipulation(gate.skill);
+  // Alcance da arma (H4): sem Marca; o Mestre pode usar mesmo assim. Confere antes de gastar o disparo.
+  if (!(await checkFlatRange(sourceActor, targetActor, weapon.range, { label: weaponItem.name }))) return null;
   const result = await rollSkillDamage(
     sourceActor,
     { ...shotMech, fieldGated: true },

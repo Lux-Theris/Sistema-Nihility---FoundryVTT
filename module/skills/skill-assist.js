@@ -15,7 +15,8 @@ import {
   getEnergyLabelForActor,
   getCharacterEnergyLabel,
   getSkillCostManaPerPoint,
-  getActiveSkillTemplates
+  getActiveSkillTemplates,
+  isSkillRangeEnabled
 } from "../core/config.js";
 import { lintSkill, lintIndex } from "./skill-lint-rules.js";
 import { isMagicUse, isTechUse, technomagicFactor, getTechnomagicPower } from "../core/config.js";
@@ -73,7 +74,8 @@ export function skillAssist(mech, { actor = null } = {}) {
     actorType: actorKind(actor),
     energyMax,
     validFormula,
-    energyLabel
+    energyLabel,
+    skillRange: isSkillRangeEnabled()
   });
   const { byTab, byEffect } = lintIndex(warnings);
   const conditions = getActiveStatusConditions();
@@ -143,6 +145,7 @@ export function skillSentence(skill) {
     targets: getEffectTargetLabels(),
     structures: byId(getStructures()),
     energyLabel: getCharacterEnergyLabel(),
+    skillRange: isSkillRangeEnabled(),
     cost: skill.cost,
     upkeep: skill.upkeepCost
   });

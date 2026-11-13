@@ -2,7 +2,7 @@
  * Efeitos Temporários: criar/renovar Active Effects e Condições num alvo, e os ticks periódicos (Veneno, cura).
  * (Separado de skill-effects.js na reorganização de pastas — mesma lógica de antes.)
  */
-import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions, getEffectTargetLabels, skillLevelBonuses, getDamageElement, isInterferenceEnabled } from "../core/config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions, getEffectTargetLabels, skillLevelBonuses, getDamageElement, isInterferenceEnabled, isSkillRangeEnabled, sameActor } from "../core/config.js";
 import { makeAnchor, addAnchor, effectAnchors, finiteRemaining, serializeFinite, durationRemaining, refreshFiniteRounds, PERMANENT, ANCHORED_TARGETS_FLAG, recordAnchoredTarget } from "../combat/effect-anchors.js";
 import { escapeHtml } from "../helpers/html.js";
 import { applyStructuralDamage, damageCasco, repairModules } from "../starship/starship-power.js";
@@ -148,7 +148,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
   const suppressed = targetActor.type === "character" ? suppressionLevel(targetActor) : null;
   const techSuppressed = targetActor.type === "character" ? techSuppressionLevel(targetActor) : null;
   const shielded = entry => {
-    if (entry.target === "antimagic" || entry.target === "emp" || !originSkill?.parent) return false;
+    if (entry.target === "antimagic" || entry.target === "emp" || entry.target === "mark" || !originSkill?.parent) return false;
     const isHeal = entry.target === "hp" && Number(entry.amount) > 0;
     if (suppressed !== null && (sourceMagic || isHeal) && sourceLevel <= suppressed) return true;
     return techSuppressed !== null && sourceTech && sourceLevel <= techSuppressed;
@@ -165,6 +165,18 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
       summary.push(`${getEffectTargetLabels()[entry.target] ?? entry.target}: sem efeito (${targetActor.name} está Suprimido)`);
       continue;
     }
+    // Marcar (H4): quem usou passa a poder lançar Skills a partir do alvo.
+    if (entry.target === "mark") {
+      const caster = originSkill?.parent;
+      if (!isSkillRangeEnabled()) summary.push("Marca: o recurso Alcance e Marcas está desligado");
+      else if (!caster) summary.push("Marca: sem quem marcar");
+      else if (sameActor(caster, targetActor)) summary.push("Marca: ninguém marca a si mesmo");
+      else {
+        summary.push(await applyMark(targetActor, caster, { rounds: Math.max(0, Number(entry.durationRounds) || 0), level: sourceLevel, tech: sourceTech, origin }));
+        xp.push({ flat: true });
+      }
+      continue;
+    }
     // Antimagia (prancha 8) e PEM: cortam, desligam e suprimem — com o nível desta Skill. Camada do
     // tipo oposto (Escudo, ou Estrutura no caminho/em volta) protege o alvo.
     if (entry.target === "antimagic" || (entry.target === "emp" && isInterferenceEnabled())) {
@@ -173,7 +185,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
         summary.push(`${isEmp ? "PEM" : "Antimagia"}: não se aplica a ${targetActor.name}`);
         continue;
       }
-      const structureKinds = protectingStructureKinds(originSkill?.parent ?? null, targetActor);
+      const structureKinds = protectingStructureKinds(originSkill?.parent ?? null, targetActor, { origin: mech.viaMark?.origin ?? null });
       const dispelled = await (isEmp ? applyEmp : applyAntimagic)(targetActor, { level: sourceLevel, rounds: entry.durationRounds, structureKinds });
       summary.push(...dispelled);
       xp.push(...(dispelled.xp ?? []));
@@ -457,6 +469,46 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
 
   summary.xp = xp;
   return summary;
+}
+
+/**
+ * Põe a Marca de `caster` em `targetActor` (H4): a Condição "Marcado" com o flag `markedBy`. É um efeito
+ * MÁGICO (a Antimagia desfaz, e dentro de um campo ele acaba). Marcar de novo renova o prazo e o nível.
+ * `rounds` 0 = até ser desfeita.
+ */
+async function applyMark(targetActor, caster, { rounds = 0, level = 0, tech = false, origin = {} } = {}) {
+  const duration = rounds > 0 ? { rounds } : {};
+  const existing = targetActor.effects.find(e => e.getFlag(SYSTEM_ID, "markedBy") === caster.uuid);
+  if (existing) {
+    const update = { "duration.rounds": rounds > 0 ? rounds : null, [`flags.${SYSTEM_ID}.sourceLevel`]: Math.max(level, Number(existing.getFlag(SYSTEM_ID, "sourceLevel")) || 0) };
+    if (rounds > 0 && game.combat) Object.assign(update, { "duration.startRound": game.combat.round ?? 0, "duration.startTurn": game.combat.turn ?? 0 });
+    await existing.update(update);
+    return `Marca de ${caster.name} renovada em ${targetActor.name}${rounds > 0 ? ` (${rounds} rodada(s))` : ""}`;
+  }
+  const condition = getActiveStatusConditions().find(c => c.id === "marked");
+  await createActiveEffects(targetActor, [
+    {
+      name: `Marcado (por ${caster.name})`,
+      img: condition?.icon || "icons/svg/target.svg",
+      origin: origin.uuid ?? undefined,
+      statuses: condition ? ["marked"] : [],
+      duration,
+      flags: {
+        [SYSTEM_ID]: {
+          skillEffect: true,
+          conditionId: "marked",
+          markedBy: caster.uuid,
+          tiedToActive: false,
+          activeAnchors: [],
+          sourceSkillId: origin.id ?? null,
+          sourceLevel: level,
+          magic: true,
+          tech: Boolean(tech)
+        }
+      }
+    }
+  ]);
+  return `Marca de ${caster.name} em ${targetActor.name}${rounds > 0 ? ` (${rounds} rodada(s))` : " (até ser desfeita)"}`;
 }
 
 /**

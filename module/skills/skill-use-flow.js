@@ -9,6 +9,8 @@ import { rollOptionsFromEvent } from "../apps/roll-options-dialog.js";
 import { blockIfIncapacitated } from "../combat/incapacitation.js";
 import { escapeHtml } from "../helpers/html.js";
 import { reportError } from "../helpers/report.js";
+import { reachContext, resolveTargetReach, confirmMarkCost } from "../combat/range.js";
+import { shapeIsFree } from "../combat/range-rules.js";
 
 /**
  * "Usar Habilidade" — o MESMO caminho para a ficha de Personagem, a de Nave/Veículo e a hotbar.
@@ -74,16 +76,20 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget } =
   if (mode === "structure") {
     try {
       let structurePlacement = null;
+      let viaMark = null;
       if (canvas?.ready && canvas.scene) {
         const structure = getStructure(mech.structureId);
         if (!structure) {
           ui.notifications.warn(`${skill.name} não tem uma Estrutura escolhida.`);
           return;
         }
-        structurePlacement = await pickStructurePlacement(structure);
+        // Alcance (H4): os pontos têm de estar ao alcance de quem lança ou de uma Marca.
+        structurePlacement = await pickStructurePlacement(structure, reachContext(actor, { range: mech.range, free: true }));
         if (!structurePlacement) return;
+        viaMark = structurePlacement.viaMark ?? null;
+        if (viaMark && !(await confirmMarkCost({ title: `Marca — ${skill.name}`, via: viaMark, baseCost: baseCostOf(actor, mech), actor }))) return;
       }
-      await useSkillEffect(actor, itemId, { structurePlacement, subSkillIndex, manaInvested });
+      await useSkillEffect(actor, itemId, { structurePlacement, subSkillIndex, manaInvested, viaMark });
     } catch (err) {
       reportError("Falha ao erguer a Estrutura.", err);
     }
@@ -108,13 +114,19 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget } =
   try {
     if (mode === "zone") {
       // Zona: posiciona a área (fica na cena) — quem estiver dentro sofre no início do turno.
-      const zonePlacement = await pickZonePlacement({ system: mech });
+      const zonePlacement = await pickZonePlacement({ system: mech }, areaReach(actor, mech));
       if (!zonePlacement) return;
-      await useSkillEffect(actor, itemId, { zonePlacement, subSkillIndex, rollOptions, manaInvested });
+      const viaMark = zonePlacement.viaMark ?? null;
+      if (viaMark && !(await confirmMarkCost({ title: `Marca — ${skill.name}`, via: viaMark, baseCost: baseCostOf(actor, mech), actor }))) return;
+      await useSkillEffect(actor, itemId, { zonePlacement, subSkillIndex, rollOptions, manaInvested, viaMark });
     } else if (mode === "emission") {
       // Sem alvo manual: a forma posicionada no mapa decide quem é afetado (aplica direto).
-      const targetActors = await pickAreaTargets({ system: mech });
-      await useSkillEffect(actor, itemId, { targetActors, subSkillIndex, rollOptions, manaInvested });
+      const targetActors = await pickAreaTargets({ system: mech }, areaReach(actor, mech));
+      // Sem `origin` = cancelou a colocação (pickAreaTargets devolve [] nos dois casos).
+      if (!targetActors.origin) return;
+      const viaMark = targetActors.viaMark ?? null;
+      if (viaMark && !(await confirmMarkCost({ title: `Marca — ${skill.name}`, via: viaMark, baseCost: baseCostOf(actor, mech), actor }))) return;
+      await useSkillEffect(actor, itemId, { targetActors, subSkillIndex, rollOptions, manaInvested, viaMark });
     } else if (mode === "self") {
       await useSkillEffect(actor, itemId, { targetActor: actor, subSkillIndex, rollOptions, manaInvested });
     } else {
@@ -122,11 +134,26 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget } =
       // alvo — o seletor já vem com quem usa marcado (inclusive a própria nave).
       const targetActor = await pickTarget?.();
       if (!targetActor) return;
-      await useSkillEffect(actor, itemId, { targetActor, subSkillIndex, rollOptions, manaInvested });
+      // Alcance (H4): fora dele, só pela Marca (ou o Mestre ignora).
+      const reach = await resolveTargetReach(actor, targetActor, mech, { label: skill.name, baseCost: baseCostOf(actor, mech) });
+      if (!reach.ok) return;
+      await useSkillEffect(actor, itemId, { targetActor, subSkillIndex, rollOptions, manaInvested, viaMark: reach.viaMark });
     }
   } catch (err) {
     reportError("Falha ao usar a Habilidade.", err);
   }
+}
+
+/** O contexto de alcance de uma forma de área: presa em quem lança, ou livre (a partir do nível). */
+function areaReach(actor, mech) {
+  const free = shapeIsFree({ areaOrigin: mech.areaOrigin, areaFreeLevel: mech.areaFreeLevel, level: mech.level });
+  return reachContext(actor, { range: mech.range, free });
+}
+
+/** O Custo normal da Skill (o que a Marca multiplica), para mostrar nos avisos. */
+function baseCostOf(actor, mech) {
+  if (!isShipLike(actor) && !isEnergyPoolEnabled()) return 0;
+  return effectiveSkillCost(mech.cost, mech.level);
 }
 
 /**

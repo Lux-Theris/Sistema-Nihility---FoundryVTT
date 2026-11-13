@@ -1373,7 +1373,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       const fromTemplate = picked.template ? skillFromTemplate(picked.template, { name: picked.name, tier: picked.tier }) : null;
       const { name: templateName, ...templateSystem } = fromTemplate ?? {};
       const [created] = await this.actor.createEmbeddedDocuments("Item", [
-        { name: picked.name || templateName || "Nova Habilidade", type: "skill", system: fromTemplate ? { ...templateSystem, tier: picked.tier, level: 1 } : { tier: picked.tier, level: 1 } }
+        { name: picked.name || templateName || "Nova Habilidade", type: "skill", system: fromTemplate ? { ...templateSystem, tier: picked.tier, level: 1 } : { tier: picked.tier, level: 1, areaOrigin: "caster" } }
       ]);
       const sheet = created.sheet;
       const hookId = Hooks.on("closeApplicationV2", async app => {

@@ -122,7 +122,7 @@ export function cooldownMessage(label, stored) {
 
 /* ------------------------------------------------------------------ Opções do uso, guardadas no Preparo */
 
-const COPIED_OPTION_KEYS = ["structurePlacement", "zonePlacement", "rollOptions", "manaInvested"];
+const COPIED_OPTION_KEYS = ["structurePlacement", "zonePlacement", "rollOptions", "manaInvested", "viaMark"];
 
 /**
  * As opções de um uso (alvos, área, posição, rolagem) como dados simples, para ficarem no flag do

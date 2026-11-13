@@ -100,6 +100,10 @@ export const DEFAULT_STATUS_CONDITIONS = [
   { id: "antimagic-suppressed", label: "Suprimido (Antimagia)", icon: "icons/svg/cancel.svg", suppressesMagic: true },
   // PEM: o mesmo para a tecnologia — Skills, itens, implantes e próteses tecnológicos de nível ≤ o da supressão não valem.
   { id: "tech-suppressed", label: "Suprimido (Tecnologia)", icon: "icons/svg/cancel.svg", suppressesTech: true },
+  // Marca (H4): o efeito "Marcar" aplica esta Condição com o flag `markedBy` (uuid de quem marcou). Quem
+  // marcou pode lançar Skills a partir do Marcado (alcance, custo × (distância ÷ alcance)²). É mágica:
+  // Antimagia desfaz, e dentro de um campo ela acaba.
+  { id: "marked", label: "Marcado", icon: "icons/svg/target.svg", explanation: "Alguém pôs uma Marca nele. Quem marcou pode lançar Skills como se estivesse onde o Marcado está, pagando mais quanto mais longe estiver. A Antimagia desfaz a Marca." },
   // Exemplo de Maldição (prancha 6): vários efeitos, sem prazo, paga pela Mana da vítima.
   { id: "curse-blood", label: "Maldição de Sangue", icon: "icons/svg/blood.svg", healBlock: { kinds: "regen", scope: "body" },
     curse: { enabled: true, costPercent: 5, onUnpaid: "hp", worsenStep: 25, worsenCap: 3, effects: [

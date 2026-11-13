@@ -87,6 +87,11 @@ export function buildTableRulesPages(d) {
     }
     if (d.features.resistances) parts.push("<p>Resistências reduzem o dano de um tipo; chegando a 100% viram Imunidade.</p>");
     if (d.features.areaEffects) parts.push("<p>Habilidades em área acertam todos dentro do círculo, cone ou linha.</p>");
+    if (d.features.skillRange) {
+      parts.push("<h2>Alcance e Marcas</h2>");
+      parts.push(`<p>Habilidades, armas e granadas têm um <b>alcance</b> em metros (0 = sem limite), medido do centro do seu Token ao do alvo. Fora dele o uso é recusado. Uma Habilidade de área pode sair do seu Token (o círculo em volta de você, o cone e a linha só giram) ou ser posta livre, dentro do alcance. Granadas vão até uma base mais a sua Força.</p>`);
+      parts.push(`<p>Uma <b>Marca</b> é um efeito mágico que você põe em alguém: enquanto durar, você pode lançar Habilidades <i>como se estivesse onde o Marcado está</i> — o alvo, a área e as paredes no caminho contam a partir dele. Custa mais quanto mais longe: o custo vezes (distância ÷ alcance) ao quadrado. A Antimagia desfaz a Marca.</p>`);
+    }
     parts.push("<h2>Campo de Antimagia</h2>");
     parts.push(`<p>Magia que vem <b>de fora</b> e cruza um campo de Antimagia gasta a ${energy} e <b>some</b>, se o campo vencer. <b>De dentro</b> do campo, ou sob um Selo de Antimagia, a magia <b>nem sai</b> e não gasta nada. A Habilidade <b>Manipulação de ${energy}</b> muda isso: quanto maior o nível dela diante do campo, menos ele atrapalha — primeiro a magia passa pagando ${energy} a mais, depois passa de graça. Sem a Manipulação, o campo sempre vence. Usá-la contra a Antimagia a faz evoluir.</p>`);
     if (d.features.interference) parts.push("<p>O Campo de Interferência faz o mesmo com a tecnologia, mas não há Habilidade que o vença: o uso tecnológico de fora some, e de dentro nem sai.</p>");

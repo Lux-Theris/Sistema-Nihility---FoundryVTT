@@ -257,7 +257,8 @@ export function collectActiveUpkeepSources(actor) {
         subSkillIndex: null,
         label: skill.name,
         // Mana variável: o Custo por rodada é cobrado vezes a razão investida ao ligar.
-        upkeepCost: Math.ceil(effectiveSkillCost(skill.system.upkeepCost, skill.system.level) * (skill.system.variableMana ? skill.system.investRatio ?? 1 : 1))
+        // Ligada pela Marca (H4): o fator da distância, fixado ao ligar, multiplica a manutenção.
+        upkeepCost: Math.ceil(effectiveSkillCost(skill.system.upkeepCost, skill.system.level) * (skill.system.variableMana ? skill.system.investRatio ?? 1 : 1) * (skill.system.markFactor ?? 1))
       });
     }
     (skill.system.subSkills ?? []).forEach((sub, i) => {
@@ -266,7 +267,7 @@ export function collectActiveUpkeepSources(actor) {
           skill,
           subSkillIndex: i,
           label: `${skill.name} — ${sub.name}`,
-          upkeepCost: Math.ceil(effectiveSkillCost(sub.upkeepCost, sub.level) * (sub.variableMana ? sub.investRatio ?? 1 : 1))
+          upkeepCost: Math.ceil(effectiveSkillCost(sub.upkeepCost, sub.level) * (sub.variableMana ? sub.investRatio ?? 1 : 1) * (sub.markFactor ?? 1))
         });
       }
     });

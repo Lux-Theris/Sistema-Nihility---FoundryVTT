@@ -20,6 +20,7 @@ import { isIncapacitated } from "../combat/incapacitation.js";
 import { isDesignatedGm } from "../helpers/gm-relay.js";
 import { escapeHtml } from "../helpers/html.js";
 import { reportError } from "../helpers/report.js";
+import { refreshMark } from "../combat/range.js";
 import { skillStateUpdate, energyValuePath, currentEnergyValue } from "./skill-state.js";
 import {
   cooldownMessage,
@@ -190,7 +191,7 @@ export async function failPreparation(actor, entry, reason) {
   await dropEntry(actor, entry);
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor }),
-    content: `<p>O preparo de <strong>${escapeHtml(entry.label)}</strong> de <strong>${escapeHtml(actor.name)}</strong> falhou: ${escapeHtml(reason)}. A ${escapeHtml(getEnergyLabelForActor(actor))} já paga se perdeu.</p>`
+    content: `<p>O preparo de <strong>${escapeHtml(entry.label)}</strong> de <strong>${escapeHtml(actor.name)}</strong> falhou: ${escapeHtml(reason)}. O que já foi pago de ${escapeHtml(getEnergyLabelForActor(actor))} se perdeu.</p>`
   });
 }
 
@@ -224,6 +225,19 @@ async function releasePreparation(actor, entry, skill) {
     return;
   }
   delete options.targetUuidMissing;
+  // Pela Marca (H4): se a Marca sumiu antes de disparar (Antimagia, prazo, campo), a Skill falha e o
+  // pago se perde. A origem é onde o Marcado está agora (ele pode ter andado); o fator fica o do início.
+  if (options.viaMark) {
+    const mark = refreshMark(actor.uuid, options.viaMark.markUuid);
+    if (!mark) {
+      await ChatMessage.create({
+        speaker: ChatMessage.getSpeaker({ actor }),
+        content: `<p>A Marca usada por <strong>${escapeHtml(entry.label)}</strong> sumiu antes de disparar: o preparo falhou. O que já foi pago de ${escapeHtml(getEnergyLabelForActor(actor))} se perdeu.</p>`
+      });
+      return;
+    }
+    if (mark.point) options.viaMark = { ...options.viaMark, origin: { x: mark.point.x, y: mark.point.y } };
+  }
   const { useSkillEffect } = await import("./skill-effects.js");
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor }),

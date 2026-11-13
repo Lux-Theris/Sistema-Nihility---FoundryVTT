@@ -29,6 +29,8 @@
                 <option value="">— elemento —</option>
                 {{#each eff.elementIdOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
               </select>
+              {{else if eff.isMark}}
+              <span class="effect-note" title="Quem usa a Skill passa a poder lançar Skills a partir do alvo, pagando mais quanto mais longe estiver (custo × (distância ÷ alcance)²). A Antimagia desfaz a Marca.">Marca de quem usa</span>
               {{else if eff.isAntimagic}}
               <span class="effect-note" title="Alcança até o nível desta Skill × o alcance das Regras da Mesa (padrão 1,5).">alcança nível {{eff.antimagicReach}}</span>
               {{else}}

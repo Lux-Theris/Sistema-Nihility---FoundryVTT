@@ -22,6 +22,8 @@ import { playSkillAnimation } from "../core/vfx.js";
 import { requestStructure, dispelStructuresInArea } from "../structures/structures.js";
 import { promptManaInvestment, confirmOverdraw } from "../apps/mana-invest-dialog.js";
 import { rollSkillDamage, rollSkillDamageArea } from "../combat/damage-roll.js";
+import { markedCost } from "../combat/range-rules.js";
+import { rangeChecksActive } from "../combat/range.js";
 import { applyEffectsToActor } from "./effects-apply.js";
 import { isShipLike } from "../starship/ship-damage.js";
 import { skillStateUpdate, energyValuePath, currentEnergyValue, warnInsufficientEnergy } from "./skill-state.js";
@@ -105,7 +107,7 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
 
   if (mech.hasUpkeep && mech.active) {
     timers.skip = true;
-    await skill.update(skillStateUpdate(skill, options.subSkillIndex, { active: false }));
+    await skill.update(skillStateUpdate(skill, options.subSkillIndex, { active: false, markFactor: 1 }));
     await removeUpkeepLinkedEffects(skill, options.subSkillIndex ?? null);
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
@@ -170,7 +172,11 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
 
   // Mana variável: quem usa escolhe quanto investir (sem teto; mínimo nas Regras da Mesa), e a
   // força da Skill segue `manaInvestmentPower`. Só pra quem paga com Mana (Nave paga com a Bateria).
-  let paid = cost;
+  // Pela Marca (H4): o Custo pago é multiplicado por (distância ÷ alcance)², inclusive o investido, as
+  // parcelas de um Preparo e a manutenção de uma Ativa (o fator fica guardado ao ligar, como o investimento).
+  const viaMark = options.viaMark && rangeChecksActive() ? options.viaMark : null;
+  const markFactor = viaMark ? Math.max(1, Number(viaMark.factor) || 1) : 1;
+  let paid = options.prepaid ? cost : markedCost(cost, markFactor);
   let investRatio = 1;
   let overdraw = null;
   const investConfig = getManaInvestConfig();
@@ -187,8 +193,8 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
     const maxEnergy = Number(sourceActor.system.attributes?.energy?.max) || 0;
     const ceiling = Math.max(investCeiling(maxEnergy), Math.floor(available));
     const minimum = mech.variableMana ? Math.max(1, Math.ceil((cost * investConfig.minPercent) / 100)) : cost;
-    if (mech.variableMana && available < minimum) {
-      await warnInsufficientEnergy(sourceActor, label, minimum);
+    if (mech.variableMana && available < markedCost(minimum, markFactor)) {
+      await warnInsufficientEnergy(sourceActor, label, markedCost(minimum, markFactor));
       return null;
     }
     let invested =
@@ -204,16 +210,18 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
       }));
     if (invested == null) return null;
     invested = Math.min(ceiling, Math.max(minimum, Math.round(Number(invested)) || minimum));
-    const over = overdrawInfo({ invested, current: available, max: maxEnergy });
+    // O que realmente sai da Mana (com a Marca) é que conta para passar do que se tem.
+    const spend = markedCost(invested, markFactor);
+    const over = overdrawInfo({ invested: spend, current: available, max: maxEnergy });
     if (over.over) {
       if (preparing) {
         ui.notifications?.warn(`${label} tem Preparo: o Custo é pago aos poucos e não passa da ${getEnergyLabelForActor(sourceActor)} que você tem.`);
         return null;
       }
-      if (!(await confirmOverdraw({ label, invested, current: available, percent: over.percent, energyLabel: getEnergyLabelForActor(sourceActor) }))) return null;
-      overdraw = { ...over, invested, current: available, max: maxEnergy };
+      if (!(await confirmOverdraw({ label, invested: spend, current: available, percent: over.percent, energyLabel: getEnergyLabelForActor(sourceActor) }))) return null;
+      overdraw = { ...over, invested: spend, current: available, max: maxEnergy };
     }
-    paid = invested;
+    paid = spend;
     investRatio = invested / cost;
   }
   timers.ratio = investRatio;
@@ -259,7 +267,7 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
   }
   if (mech.hasUpkeep) {
     // A razão investida fica guardada: o Custo por rodada é cobrado vezes ela enquanto ligada.
-    await skill.update(skillStateUpdate(skill, options.subSkillIndex, { active: true, investRatio: investRatio }));
+    await skill.update(skillStateUpdate(skill, options.subSkillIndex, { active: true, investRatio: investRatio, markFactor }));
   }
   // Daqui pra frente a Skill carrega a força do investimento (dano, Efeitos, Vida de Estrutura).
   // Tecnomágico (mágico E tecnológico) sai mais forte (Regras da Mesa).
@@ -268,8 +276,9 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
   if (manaDensity > 1) ui.notifications?.info(`Mana densa aqui (×${manaDensity}): ${label} sai com essa força.`);
   // `paidCost`: o Custo realmente pago (com o investimento), base do extra de Antimagia. `fieldGated`:
   // o portão do campo já foi passado (chargeAntimagic não cobra de novo quem usa de dentro).
-  const paidCost = options.prepaid ? cost * investRatio : paid;
-  mech = { ...(typeof mech.toObject === "function" ? mech.toObject() : mech), investPower, paidCost, fieldGated: true };
+  const paidCost = options.prepaid ? markedCost(cost * investRatio, markFactor) : paid;
+  // `viaMark`: de onde o uso sai (Estruturas no caminho e campos de antimagia contam a partir do Marcado).
+  mech = { ...(typeof mech.toObject === "function" ? mech.toObject() : mech), investPower, paidCost, fieldGated: true, viaMark };
 
   // Dispara e esquece — nunca aguardado, a animação não deve atrasar a mecânica/chat. Dano em alvo
   // único toca a animação dentro de `rollSkillDamage`, que sabe se uma Estrutura segurou o golpe
@@ -281,7 +290,7 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
     // Estrutura: a Skill ergue parede/bloco no mapa (ver structures.js). Sem mapa, só o cartão.
     // Antimagia (campo ou Selo): lançar uma Estrutura mágica para dentro ou através dele cobra o
     // extra, ou anula — a checagem é nos pontos onde ela nasceria e na linha de quem lança.
-    const am = await chargeAntimagic(sourceActor, mech, placementTargets(options.structurePlacement?.points));
+    const am = await chargeAntimagic(sourceActor, mech, placementTargets(options.structurePlacement?.points), { origin: viaMark?.origin ?? null });
     if (am.nulled.size) return postAntimagicNulled(sourceActor, label, am.note);
     await postAntimagicPaid(sourceActor, label, am.note);
     // XP por uso: o fixo ao erguer; o dano que ela segurar conta depois (hitStructure).
@@ -304,7 +313,7 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
     // próprio turno (ver `tickZonesForCombatant`). Aqui só nasce a área na cena.
     if (!options.zonePlacement) return null;
     const zoneArea = options.zonePlacement.area;
-    const am = await chargeAntimagic(sourceActor, mech, placementTargets(zoneArea ? [{ x: zoneArea.x, y: zoneArea.y }] : []));
+    const am = await chargeAntimagic(sourceActor, mech, placementTargets(zoneArea ? [{ x: zoneArea.x, y: zoneArea.y }] : []), { origin: viaMark?.origin ?? null });
     if (am.nulled.size) return postAntimagicNulled(sourceActor, label, am.note);
     await postAntimagicPaid(sourceActor, label, am.note);
     const created = await createZone(options.zonePlacement, {
@@ -446,7 +455,7 @@ export async function applySkillEffects(sourceActor, skill, mech, label, targetA
   }
 
   // Antimagia: Efeito mágico (buff, cura, Escudo) para dentro ou através de um campo cobra o extra, ou anula.
-  const am = await chargeAntimagic(sourceActor, mech, [targetActor]);
+  const am = await chargeAntimagic(sourceActor, mech, [targetActor], { origin: mech.viaMark?.origin ?? null });
   if (am.nulled.has(targetActor.uuid)) return postAntimagicNulled(sourceActor, label, am.note);
 
   // Cura com Ferimentos por parte: quem usa pode focar numa parte (ela enche primeiro).

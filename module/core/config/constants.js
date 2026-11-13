@@ -509,12 +509,14 @@ export const MEU_SISTEMA = {
     "shipHull",
     "shipDamageReduction",
     "antimagic",
-    "emp"
+    "emp",
+    "mark"
   ],
 
   EFFECT_TARGET_LABELS: {
     antimagic: "Antimagia (corta efeitos mágicos e suprime)",
     emp: "PEM (corta efeitos tecnológicos e suprime)",
+    mark: "Marcar (lançar Skills a partir do alvo)",
     strength: "Força",
     defense: "Defesa",
     magic: "Magia",
@@ -556,7 +558,7 @@ export const MEU_SISTEMA = {
     { label: "Vitais", actor: "character", targets: ["heal", "restoreEnergy", "hp", "energy", "shield", "movement"] },
     { label: "Arma", actor: "any", targets: ["weaponDamage", "weaponElement", "weaponMagic", "weaponAbsolute"] },
     { label: "Elemento", actor: "any", targets: ["bodyElement"] },
-    { label: "Magia", actor: "character", targets: ["antimagic"] },
+    { label: "Magia", actor: "character", targets: ["antimagic", "mark"] },
     { label: "Tecnologia", actor: "any", targets: ["emp"] },
     { label: "Nave", actor: "ship", targets: ["shipWeaponDamage", "shipWeaponPenetration", "shipShieldCapacity", "shipShieldRegen", "shipReactorOutput", "shipPropulsion", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"] }
   ],

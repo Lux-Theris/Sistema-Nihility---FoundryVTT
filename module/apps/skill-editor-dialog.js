@@ -16,7 +16,8 @@ import {
   isStructuresEnabled,
   isStructureMechanic,
   isMagicUse,
-  isTechUse
+  isTechUse,
+  isSkillRangeEnabled
 } from "../core/config.js";
 import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../combat/resistance.js";
 import { pickerFieldHtml, readPickerField, wireElementPickerField } from "./checklist-picker.js";
@@ -79,7 +80,7 @@ function buildEffectRowHtml(entry) {
     <div class="effect-row-main">
       <select class="se-effect-target">${options}</select>
       <select class="se-effect-element-id" title="Elemento (das armas, ou que o alvo passa a ser)" style="display:${["weaponElement", "bodyElement"].includes(entry.target) ? "inline-block" : "none"};">${elementIdOptions}</select>
-      <input type="number" class="se-effect-amount" value="${entry.amount}" placeholder="Qtd." style="display:${["antimagic", "emp"].includes(entry.target) ? "none" : ""};"/>
+      <input type="number" class="se-effect-amount" value="${entry.amount}" placeholder="Qtd." style="display:${["antimagic", "emp", "mark"].includes(entry.target) ? "none" : ""};"/>
       <input type="number" class="se-effect-duration" value="${entry.durationRounds}" min="0" placeholder="Rounds/Ticks"/>
       <a class="se-effect-delete" title="Remover"><i class="fas fa-trash"></i></a>
     </div>
@@ -180,6 +181,10 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     upkeepCost: initialData.upkeepCost ?? 0,
     cooldown: initialData.cooldown ?? 0,
     prepTurns: initialData.prepTurns ?? 0,
+    // Alcance (H4): Skill nova nasce com a forma presa em quem lança; uma que já existe e não tem o campo fica livre.
+    range: Number(initialData.range) || 0,
+    areaOrigin: initialData.areaOrigin ?? (offerTemplates ? "caster" : "free"),
+    areaFreeLevel: Number(initialData.areaFreeLevel) || 0,
     animationPath: initialData.animationPath ?? "",
     description: initialData.description ?? "",
     resistanceTarget: initialData.resistanceTarget ?? "",
@@ -321,6 +326,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
       </div>`
     : "";
 
+  const rangeOn = isSkillRangeEnabled();
   const energyLabel = getCharacterEnergyLabel();
   // "Avançado ▸" (K1): abre sozinho quando algum campo de dentro tem valor.
   const advTop = advancedFold([
@@ -410,7 +416,12 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
 
       <div class="se-range-section">
         <div class="form-group"><label>Tipo de Alvo</label><select name="targetType">${targetTypeOptions}</select></div>
+        ${rangeOn ? `<div class="form-group se-reach-field" title="Até onde a Skill chega, em metros (0 = sem limite). Fora dele só pela Marca de quem usa (custo × (distância ÷ alcance)²)."><label>Alcance <span class="hint-inline" style="display:inline;">(metros, 0 = sem limite)</span></label><input type="number" name="range" value="${data.range}" min="0" step="0.5"/></div>` : `<input type="hidden" name="range" value="${data.range}"/>`}
         <div class="mechanic-panel se-emission-panel">
+          ${rangeOn ? `<div class="row-2">
+            <div class="form-group" title="Sai de quem lança: o círculo fica em volta do Token e o cone/linha só giram. Livre: você põe a forma onde quiser, dentro do alcance."><label>Origem da forma</label><select name="areaOrigin"><option value="caster" ${data.areaOrigin === "caster" ? "selected" : ""}>Sai de quem lança</option><option value="free" ${data.areaOrigin !== "caster" ? "selected" : ""}>Livre</option></select></div>
+            <div class="form-group se-free-level-field" title="A partir deste nível a forma presa passa a ser livre. 0 = nunca."><label>Livre a partir do nível</label><input type="number" name="areaFreeLevel" value="${data.areaFreeLevel}" min="0"/></div>
+          </div>` : `<input type="hidden" name="areaOrigin" value="${data.areaOrigin}"/><input type="hidden" name="areaFreeLevel" value="${data.areaFreeLevel}"/>`}
           <div class="form-group se-zone-rounds-field"><label>Duração da Zona <span class="hint-inline" style="display:inline;">(rodadas de combate)</span></label><input type="number" name="zoneRounds" value="${data.zoneRounds}" min="1"/></div>
           <div class="form-group"><label>Formato de Área</label><select name="areaShape">${areaShapeOptions}</select></div>
           <div class="row-2">
@@ -424,6 +435,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
         <div class="form-group"><label>Estrutura</label><select name="structureId">${structureOptions}</select>
           <span class="hint-inline">Formato, tamanho e Vida vêm do catálogo (Configurações Gerais › Estruturas). Skill Ativa com Estrutura sem prazo: ela fica até a Skill ser desligada.</span>
         </div>
+        ${rangeOn ? `<div class="form-group" title="Até onde a Estrutura pode ser posta, em metros (0 = sem limite)."><label>Alcance <span class="hint-inline" style="display:inline;">(metros, 0 = sem limite)</span></label><input type="number" name="structureRange" value="${data.range}" min="0" step="0.5"/></div>` : `<input type="hidden" name="structureRange" value="${data.range}"/>`}
         <div class="row-2 se-regen-field" style="display:${data.hasUpkeep ? "flex" : "none"};">
           <div class="form-group"><label title="No início do seu turno, depois da manutenção, a Estrutura ferida recupera esta Vida, sem passar do teto">Regenera (Vida/rodada)</label><input type="number" name="structureRegen" value="${data.structureRegen}" min="0"/></div>
           <div class="form-group"><label title="${energyLabel} paga para recuperar; sem ferida não custa, sem ${energyLabel} não regenera">Custo da regeneração</label><input type="number" name="structureRegenCost" value="${data.structureRegenCost}" min="0"/></div>
@@ -635,12 +647,18 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
   function applyTargetType() {
     const isArea = targetTypeSelect.value === "emission" || targetTypeSelect.value === "zone";
     emissionPanel.style.display = isArea ? "flex" : "none";
+    const reachField = root.querySelector(".se-reach-field");
+    if (reachField) reachField.style.display = targetTypeSelect.value === "self" ? "none" : "flex";
+    const originSelect = root.querySelector('select[name="areaOrigin"]');
+    const freeLevel = root.querySelector(".se-free-level-field");
+    if (originSelect && freeLevel) freeLevel.style.display = originSelect.value === "caster" ? "flex" : "none";
     root.querySelector(".se-zone-rounds-field").style.display = targetTypeSelect.value === "zone" ? "flex" : "none";
   }
   function applyAreaShape() {
     angleField.style.display = areaShapeSelect.value === "cone" ? "flex" : "none";
   }
   targetTypeSelect.addEventListener("change", applyTargetType);
+  root.querySelector('select[name="areaOrigin"]')?.addEventListener("change", applyTargetType);
   areaShapeSelect.addEventListener("change", applyAreaShape);
   applyTargetType();
   applyAreaShape();
@@ -745,7 +763,7 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
     targetSelect.addEventListener("change", applyPeriodicVisibility);
     // Antimagia não tem quantidade: a força é o nível da Skill; a duração é a da supressão.
     targetSelect.addEventListener("change", () => {
-      li.querySelector(".se-effect-amount").style.display = ["antimagic", "emp"].includes(targetSelect.value) ? "none" : "";
+      li.querySelector(".se-effect-amount").style.display = ["antimagic", "emp", "mark"].includes(targetSelect.value) ? "none" : "";
     });
     targetSelect.addEventListener("change", applyModifierTypeVisibility);
     // Luz do Escudo pessoal: só pro alvo Escudo; a luz fica em `data-light` (JSON) até salvar.
@@ -915,6 +933,9 @@ function readSkillEditorForm(root, lockTier) {
     upkeepCost: hasUpkeep ? Number(root.querySelector('[name="upkeepCost"]').value) || 0 : 0,
     cooldown: Math.max(0, Math.floor(Number(root.querySelector('[name="cooldown"]')?.value)) || 0),
     prepTurns: Math.max(0, Math.floor(Number(root.querySelector('[name="prepTurns"]')?.value)) || 0),
+    range: Math.max(0, Number(root.querySelector(effectType === "structure" ? '[name="structureRange"]' : '[name="range"]')?.value) || 0),
+    areaOrigin: root.querySelector('[name="areaOrigin"]')?.value === "caster" ? "caster" : "free",
+    areaFreeLevel: Math.max(0, Math.floor(Number(root.querySelector('[name="areaFreeLevel"]')?.value)) || 0),
     animationPath: root.querySelector('[name="animationPath"]').value.trim(),
     description: root.querySelector('prose-mirror[name="description"]').value,
     resistanceTarget: resistEnabled ? resistChecked?.value ?? "general" : "",

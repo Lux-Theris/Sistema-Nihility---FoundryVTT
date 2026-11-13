@@ -58,6 +58,8 @@ import {
   areaTouchesStructure
 } from "./structure-geometry.js";
 import { normalizeArea, tokenDocCenter } from "../combat/area-geometry.js";
+import { pointReach, viaMarkFrom } from "../combat/range.js";
+import { outOfRangeMessage } from "../combat/range-rules.js";
 import { hitAffinityFactor } from "../combat/damage-rules.js";
 import { lightSourceData } from "../combat/lights.js";
 import { grantSkillUseXp, vitalBase } from "../skills/skill-xp.js";
@@ -123,8 +125,11 @@ function snap(point, free) {
  *  - Forma livre: cada clique acrescenta um ponto; Enter termina; Backspace desfaz o último;
  *    termina sozinha quando o comprimento acaba.
  *  - Esc ou clique direito cancela. Shift desliga o encaixe no grid.
+ *  - `reach` (range.js, alcance H4): cada ponto clicado tem de estar no alcance de quem lança ou no
+ *    alcance de uma Marca (aí a colocação é "pela Marca": `viaMark` no resultado, o mais caro dos
+ *    pontos); fora disso o clique é recusado com aviso.
  */
-export async function pickStructurePlacement(structure) {
+export async function pickStructurePlacement(structure, reach = null) {
   if (!canvas?.ready || !canvas.scene) return null;
   const scene = canvas.scene;
   const sizePx = metersToPx(scene, structure.size);
@@ -143,9 +148,14 @@ export async function pickStructurePlacement(structure) {
 
   const points = [];
   let cursor = null;
+  let worstVia = null;
 
   const draw = () => {
     graphics.clear();
+    if (reach && reach.rangePx > 0) {
+      graphics.lineStyle(2, color, 0.35).beginFill(color, 0.04).drawCircle(reach.anchor.x, reach.anchor.y, reach.rangePx).endFill();
+      for (const m of reach.centers) graphics.lineStyle(2, 0xffd36b, 0.35).beginFill(0xffd36b, 0.04).drawCircle(m.point.x, m.point.y, reach.rangePx).endFill();
+    }
     const preview = cursor ? [...points, cursor] : [...points];
     if (shape === "circle" || shape === "rect") {
       if (!cursor) return;
@@ -175,7 +185,7 @@ export async function pickStructurePlacement(structure) {
       document.removeEventListener("keydown", onKey, true);
       resolve(value);
     };
-    const done = () => finish({ sceneId: scene.id, shape, points: points.slice(0, MAX_POINTS) });
+    const done = () => finish({ sceneId: scene.id, shape, points: points.slice(0, MAX_POINTS), viaMark: viaMarkFrom(worstVia, reach) });
 
     const onMove = event => {
       const local = event.data.getLocalPosition(canvas.stage);
@@ -188,6 +198,13 @@ export async function pickStructurePlacement(structure) {
       event.stopPropagation();
       const local = event.data.getLocalPosition(canvas.stage);
       const p = snap(local, event.data.originalEvent?.shiftKey);
+      // Alcance (H4): o ponto tem de estar ao alcance de quem lança ou de uma Marca.
+      const reached = pointReach(reach, { x: p.x, y: p.y });
+      if (!reached) {
+        ui.notifications.warn(`${structure.label}: ${outOfRangeMessage(Math.hypot(p.x - reach.anchor.x, p.y - reach.anchor.y) / (reach.rangePx / reach.range), reach.range)}.`);
+        return;
+      }
+      if (reached.via && (!worstVia || reached.via.factor > worstVia.factor)) worstVia = reached.via;
       points.push([p.x, p.y]);
       if (shape === "circle" || shape === "rect") return done();
       if (shape === "line" && points.length >= 2) return done();
@@ -1121,7 +1138,7 @@ export async function regenerateSustainedStructures(holder) {
       const mech = sub !== null ? skill?.system?.subSkills?.[sub] : skill?.system;
       if (!mech?.active || !(Number(mech.structureRegen) > 0)) continue;
       const level = mech.level ?? 1;
-      const ratio = mech.variableMana ? mech.investRatio ?? 1 : 1;
+      const ratio = (mech.variableMana ? mech.investRatio ?? 1 : 1) * (mech.markFactor ?? 1);
       const cost = isEnergyPoolEnabled() || isShipLike(holder) ? Math.ceil(effectiveSkillCost(Number(mech.structureRegenCost) || 0, level) * ratio) : 0;
       const step = structureRegenStep({
         hp: instance.hp,

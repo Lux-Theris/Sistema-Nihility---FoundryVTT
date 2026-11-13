@@ -312,6 +312,7 @@ Hooks.once("ready", async () => {
   await runMigrationIfNeeded("radiationElement", migrateRadiationElement);
   await runMigrationIfNeeded("techConditions", migrateTechConditions);
   await runMigrationIfNeeded("systemEffectIcons", migrateSystemEffectIcons);
+  await runMigrationIfNeeded("markCondition", migrateMarkCondition);
   console.log(`${SYSTEM_ID} | Sistema pronto.`);
 });
 
@@ -394,6 +395,27 @@ async function migrateTechConditions() {
   const missing = MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS.filter(c => wanted(c) && !list.some(e => e?.id === c.id));
   if (!missing.length) return;
   list.push(...foundry.utils.deepClone(missing));
+  await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData, JSON.stringify(list, null, 2));
+  registerStatusConditions();
+}
+
+/**
+ * Migração única (H4): catálogo de Condições já salvo ganha "Marcado", a Condição que o efeito
+ * "Marcar" aplica. Quem nunca salvou o catálogo já a recebe pelo padrão.
+ */
+async function migrateMarkCondition() {
+  const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData);
+  if (!raw) return;
+  let list;
+  try {
+    list = typeof raw === "string" ? JSON.parse(raw) : raw;
+  } catch (err) {
+    return;
+  }
+  if (!Array.isArray(list) || list.some(e => e?.id === "marked")) return;
+  const mark = MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS.find(c => c.id === "marked");
+  if (!mark) return;
+  list.push(foundry.utils.deepClone(mark));
   await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData, JSON.stringify(list, null, 2));
   registerStatusConditions();
 }

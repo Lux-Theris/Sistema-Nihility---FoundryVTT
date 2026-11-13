@@ -60,6 +60,23 @@ function describeReach(mech) {
   }
 }
 
+/** Alcance (H4): "alcance 20 m" e, nas formas de área, de onde saem ("sai de você", "livre", "livre a partir do nv 5"). */
+function describeRange(mech) {
+  const out = [];
+  const range = Number(mech.range) || 0;
+  if (range > 0 && mech.targetType !== "self") out.push(`alcance ${String(Math.round(range * 10) / 10).replace(".", ",")} m`);
+  const area = mech.targetType === "emission" || mech.targetType === "zone";
+  if (area && SHAPE_WORDS[mech.areaShape]) {
+    if (mech.areaOrigin === "caster") {
+      const from = Math.floor(Number(mech.areaFreeLevel)) || 0;
+      out.push(from > 0 ? `sai de você, livre a partir do nv ${from}` : "sai de você");
+    } else if (mech.areaOrigin === "free" || range > 0) {
+      out.push("livre");
+    }
+  }
+  return out;
+}
+
 /**
  * As partes da frase, na ordem em que se lê: o que faz → onde → quanto custa → manutenção.
  * @param {object} mech - `skill.system`
@@ -81,6 +98,7 @@ export function skillSummaryParts(mech, ctx = {}) {
     if (mechanic) {
       parts.push(mechanic);
       if (mech.effectType !== "structure" && mech.targetType !== "structure") parts.push(describeReach(mech));
+      if (ctx.skillRange !== false) parts.push(...describeRange(mech));
     }
   }
   if (ctx.resistance) parts.push(ctx.resistance);

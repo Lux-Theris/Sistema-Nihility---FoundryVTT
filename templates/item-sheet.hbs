@@ -155,8 +155,24 @@
             <label class="seg-opt {{#if opt.checked}}on{{/if}}" title="{{opt.title}}"><input type="radio" name="system.targetType" value="{{opt.value}}" {{#if opt.checked}}checked{{/if}}/>{{opt.label}}</label>
             {{/each}}
           </div>
+          {{#if skillRangeShown}}
+          <label class="fld"><span class="fld-label">Alcance <span class="help" title="Até onde a Skill chega, em metros (0 = sem limite). Fora dele o uso é recusado, a não ser pela Marca de quem usa (o custo sobe: custo × (distância ÷ alcance)²). Sem mapa ou sem Token, não é conferido.">?</span></span><span class="suffix"><input type="number" name="system.range" value="{{system.range}}" min="0" step="0.5" aria-label="Alcance"/><span>m</span></span></label>
+          {{/if}}
           {{#if skillIsArea}}
           <div class="area-box">
+            {{#if skillRangeOn}}
+            <div class="fld area-shape">
+              <span class="fld-label">Origem da forma <span class="help" title="Sai de quem lança: o círculo fica em volta do Token (aura) e o cone/linha começam nele e só giram. Livre: você põe a forma onde quiser, dentro do alcance. Pela Marca, a forma sai do Marcado.">?</span></span>
+              <div class="seg" role="radiogroup" aria-label="Origem da forma">
+                {{#each skillAreaOriginSeg as |opt|}}
+                <label class="seg-opt {{#if opt.checked}}on{{/if}}" title="{{opt.title}}"><input type="radio" name="system.areaOrigin" value="{{opt.value}}" {{#if opt.checked}}checked{{/if}}/>{{opt.label}}</label>
+                {{/each}}
+              </div>
+            </div>
+            {{#if (eq system.areaOrigin "caster")}}
+            <label class="fld"><span class="fld-label">Livre a partir do nível <span class="help" title="Com forma presa em quem lança: a partir deste nível da Skill a forma passa a ser livre. 0 = nunca.">?</span></span><input class="num" type="number" name="system.areaFreeLevel" value="{{system.areaFreeLevel}}" min="0"/></label>
+            {{/if}}
+            {{/if}}
             <div class="fld area-shape">
               <span class="fld-label">Formato de Área</span>
               <div class="seg" role="radiogroup" aria-label="Formato de Área">
@@ -189,6 +205,9 @@
             </select>
           </label>
           {{#if skillStructureSummary}}<div class="strip dim">{{skillStructureSummary}}</div>{{/if}}
+          {{#if skillRangeOn}}
+          <label class="fld"><span class="fld-label">Alcance <span class="help" title="Até onde a Estrutura pode ser posta, em metros (0 = sem limite). Fora dele, só pela Marca de quem usa (custo × (distância ÷ alcance)²).">?</span></span><span class="suffix"><input type="number" name="system.range" value="{{system.range}}" min="0" step="0.5" aria-label="Alcance"/><span>m</span></span></label>
+          {{/if}}
           {{#if system.hasUpkeep}}
           <div class="g2">
             <label class="fld"><span class="fld-label">Regenera (Vida/rodada) <span class="help" title="No início do seu turno, depois da manutenção, a Estrutura ferida recupera esta Vida (vezes o Poder do nível), sem passar do teto. Não vale para a que usa a Mana como Vida.">?</span></span><input class="num" type="number" name="system.structureRegen" value="{{system.structureRegen}}" min="0"/></label>
@@ -490,6 +509,9 @@
           <label class="fld"><span class="fld-label">Fórmula de Dano</span><input class="mono" type="text" name="system.damageFormula" value="{{system.damageFormula}}" placeholder="3d10"/></label>
           <label class="fld"><span class="fld-label">Penetração <span class="help" title="Valor a 100% de throttle.">?</span></span><span class="suffix"><input type="number" name="system.penetration" value="{{system.penetration}}" min="0" max="100" aria-label="Penetração"/><span>%</span></span></label>
           <label class="fld"><span class="fld-label">Recarga <span class="help" title="Rodadas, a 100% de throttle. 0 = sempre disponível para disparar.">?</span></span><span class="suffix"><input type="number" name="system.cooldownRounds" value="{{system.cooldownRounds}}" min="0" aria-label="Recarga"/><span>rod.</span></span></label>
+          {{#if skillRangeOn}}
+          <label class="fld"><span class="fld-label">Alcance <span class="help" title="Em quadrados da cena (0 = sem limite). Fora dele a arma não dispara.">?</span></span><span class="suffix"><input type="number" name="system.range" value="{{system.range}}" min="0" aria-label="Alcance"/><span>quad.</span></span></label>
+          {{/if}}
           <label class="toggle span-all"><input type="checkbox" name="system.isAbsoluteDamage" {{#if system.isAbsoluteDamage}}checked{{/if}}/><span class="toggle-track"></span><span>Dano Absoluto</span><span class="help" title="Passa por Escudo e Casco direto pra Integridade Estrutural. A Evasão do alvo ainda vale.">?</span></label>
           <div class="fld span-all"><span class="fld-label">Elemento(s)</span>{{> nihility.elementChips field=moduleElementField path="system.damageElements" editable=editable}}</div>
           <label class="toggle span-all"><input type="checkbox" name="system.usesAmmo" {{#if system.usesAmmo}}checked{{/if}}/><span class="toggle-track"></span><span>Usa munição (lançador)</span><span class="help" title="Dispara Munição do Porão: a fórmula, os elementos e o Absoluto vêm da munição; a Penetração soma. Sem munição compatível, não dispara.">?</span></label>
@@ -638,6 +660,14 @@
           <div class="fld span-all"><span class="fld-label">Elemento(s)</span>{{> nihility.elementChips field=weaponElementField path="system.weapon.damageElements" editable=editable}}</div>
         </div>
       </div>
+      {{#if skillRangeOn}}
+      <div class="sec">
+        <div class="sec-head">Alcance</div>
+        <div class="sec-body g2">
+          <label class="fld"><span class="fld-label">Alcance <span class="help" title="Em metros (0 = sem limite). Fora dele a arma não ataca (o Mestre pode usar mesmo assim). Sem mapa ou sem Token, não é conferido.">?</span></span><span class="suffix"><input type="number" name="system.weapon.range" value="{{system.weapon.range}}" min="0" step="0.5" aria-label="Alcance"/><span>m</span></span></label>
+        </div>
+      </div>
+      {{/if}}
       <div class="sec">
         <div class="sec-head">Carregador<span class="sp"></span>{{#if weaponLoadedLabel}}<span class="sec-head-note">carregado: {{weaponLoadedLabel}}</span>{{/if}}</div>
         <div class="sec-body g2">
@@ -715,6 +745,12 @@
       <div class="sec">
         <div class="sec-head">Usos</div>
         <div class="sec-body g2">
+          {{#if skillRangeOn}}
+          <label class="toggle span-all" title="Granada e afins: o alcance é a base mais a Força de quem arremessa. Vale nos modos Num alvo e Área."><input type="checkbox" name="system.consumable.thrown" {{#if system.consumable.thrown}}checked{{/if}}/><span class="toggle-track"></span><span>Arremessável</span></label>
+          {{#if system.consumable.thrown}}
+          <label class="fld"><span class="fld-label">Alcance base <span class="help" title="Metros sem contar a Força. A Força soma ⌊Força ÷ passo⌋ metros (o passo está em Módulos do Sistema › Alcance de Skill e Marcas).">?</span></span><span class="suffix"><input type="number" name="system.consumable.throwBase" value="{{system.consumable.throwBase}}" min="0" step="0.5" aria-label="Alcance base"/><span>m</span></span></label>
+          {{/if}}
+          {{/if}}
           <label class="fld"><span class="fld-label">Cargas por unidade <span class="help" title="Kit médico de 5 usos = 5. Cada Usar gasta 1 carga; ao zerar, sai 1 da pilha e a próxima começa cheia. 0 ou 1 = cada uso gasta uma unidade.">?</span></span><input class="num" type="number" min="0" name="system.consumable.charges" value="{{system.consumable.charges}}"/></label>
           {{#if (gt system.consumable.charges 1)}}
           <label class="fld"><span class="fld-label">Cargas gastas da unidade aberta</span><input class="num" type="number" min="0" name="system.consumable.chargesUsed" value="{{system.consumable.chargesUsed}}"/></label>

@@ -9,7 +9,8 @@ import {
   getStructures,
   getEnergyLabelForActor,
   getStarshipEnergyAbbr,
-  effectiveSkillCost
+  effectiveSkillCost,
+  isSkillRangeEnabled
 } from "../core/config.js";
 import { computeResistancePercent } from "../combat/resistance.js";
 import { skillSummary } from "./skill-summary.js";
@@ -26,6 +27,7 @@ export function skillSummariesFor(actor) {
     conditions: byId(getActiveStatusConditions()),
     targets: getEffectTargetLabels(),
     structures: byId(getStructures()),
+    skillRange: isSkillRangeEnabled(),
     // Na Nave o rótulo longo ("Sistema Eletro-Plasmático (EPS)") comeria a linha inteira.
     energyLabel: ["starship", "vehicle"].includes(actor.type) ? getStarshipEnergyAbbr() : getEnergyLabelForActor(actor)
   };

@@ -18,6 +18,7 @@ import { areaEffectsSupported, pickAreaTargets } from "../combat/area-effects.js
 import { rollSkillDamage, rollSkillDamageArea } from "../combat/damage-roll.js";
 import { applySkillEffects, applySkillEffectsArea } from "../skills/skill-effects.js";
 import { reportError } from "../helpers/report.js";
+import { reachContext, checkFlatRange, throwRangeFor } from "../combat/range.js";
 
 /** A "mecânica" de um consumível, no formato que os caminhos de Skill entendem. */
 export function consumableMech(item) {
@@ -96,7 +97,9 @@ export async function useConsumable(actor, item, event = null) {
 
   try {
     if (mech.targetType === "emission" && isAreaEffectsEnabled() && areaEffectsSupported()) {
-      const targets = await pickAreaTargets({ system: mech });
+      // Arremessável (H4): o ponto só vai até base + Força; sem Marca.
+      const throwReach = item.system.consumable.thrown ? reachContext(actor, { range: throwRangeFor(actor, item.system.consumable.throwBase), free: true, marks: false }) : null;
+      const targets = await pickAreaTargets({ system: mech }, throwReach);
       // Sem `origin` = cancelou a colocação (pickAreaTargets devolve [] nos dois casos).
       if (!targets.origin) return null;
       if (isDamage) await rollSkillDamageArea(actor, mech, label, targets, rollOptions);
@@ -107,6 +110,7 @@ export async function useConsumable(actor, item, event = null) {
       const target =
         mech.targetType === "self" ? actor : await pickTargetActor({ self: actor, title: `Usar ${label}`, confirmLabel: "Usar", preferMap: true });
       if (!target) return null;
+      if (item.system.consumable.thrown && mech.targetType === "targeted" && !(await checkFlatRange(actor, target, throwRangeFor(actor, item.system.consumable.throwBase), { label }))) return null;
       const done = isDamage ? await rollSkillDamage(actor, mech, label, target, rollOptions) : await applySkillEffects(actor, item, mech, label, target);
       if (!done) return null;
     }

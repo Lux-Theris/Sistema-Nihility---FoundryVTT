@@ -114,9 +114,9 @@ export function suggestSkillCost(mech, ctx = {}) {
       const name = label(ctx.targetLabel, target);
       let p = 0;
       let text = "";
-      if (target === "antimagic" || target === "emp") {
+      if (target === "antimagic" || target === "emp" || target === "mark") {
         p = w.antimagic;
-        text = target === "emp" ? "PEM" : "Antimagia";
+        text = target === "emp" ? "PEM" : target === "mark" ? "Marca" : "Antimagia";
       } else if (["weaponElement", "bodyElement", "weaponMagic", "weaponAbsolute"].includes(target)) {
         p = w.toggle;
         text = name;

@@ -45,6 +45,7 @@ export function mechanicsGuide(catalogs = {}) {
     '  "effectType": "none" (só descritiva) | "damage" | "temporary" (buffs/debuffs/Condições/cura/veneno),',
     '  "cost": número (Mana gasta ao usar), "hasUpkeep": boolean (liga/desliga), "upkeepCost": número por rodada,',
     '  "cooldown": rodadas de recarga depois de usar (0 = nenhuma), "prepTurns": rodadas de preparo antes de disparar (0 = na hora),',
+    '  "range": alcance em metros (0 = sem limite; projéteis 10–30, toque 1.5), "areaOrigin": "caster" (a forma sai de quem lança) | "free" (posta onde quiser), "areaFreeLevel": nível a partir do qual vira livre (0 = nunca),',
     '  "targetType": "targeted" (um alvo) | "self" | "emission" (área na hora) | "zone" (área que fica),',
     '  "areaShape": "circle"|"cone"|"ray", "areaDistance": número (unidades do grid, 1–30), "areaAngle": graus (cone),',
     '  "damageFormula": fórmula de dados do Foundry ("2d6+3"), "isMagicDamage": boolean, "damageElements": [ids de elemento],',
@@ -84,6 +85,9 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
   out.upkeepCost = out.hasUpkeep ? clampInt(m.upkeepCost, 0, 9999, 0) : 0;
   out.cooldown = clampInt(m.cooldown, 0, 99, 0);
   out.prepTurns = clampInt(m.prepTurns, 0, 20, 0);
+  out.range = clampInt(m.range, 0, 10000, 0);
+  out.areaOrigin = ["caster", "free"].includes(m.areaOrigin) ? m.areaOrigin : "free";
+  out.areaFreeLevel = clampInt(m.areaFreeLevel, 0, 99, 0);
 
   let effectType = MEU_SISTEMA.SKILL_EFFECT_TYPES.includes(m.effectType) ? m.effectType : "none";
   if (effectType === "structure") {

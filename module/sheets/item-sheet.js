@@ -16,6 +16,7 @@ import { getAntimagicReach,
   getCharacterEnergyLabel,
   isStatusConditionsEnabled,
   isAreaEffectsEnabled,
+  isSkillRangeEnabled,
   getScaleConfig,
   isScaleEnabled,
   getActiveTraits,
@@ -368,7 +369,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   };
 
   static PARTS = {
-    body: { template: `systems/${SYSTEM_ID}/templates/item-sheet.hbs`, scrollable: [".sheet-body"] }
+    body: { template: `systems/${SYSTEM_ID}/x`, scrollable: [".sheet-body"] }
   };
 
   /**
@@ -449,6 +450,8 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.config = MEU_SISTEMA;
     context.itemType = item.type;
     context.inventoryEnabled = isInventoryEnabled();
+    // Alcance e Marcas (H4): desligado, os campos somem da ficha (o que está salvo fica).
+    context.skillRangeOn = isSkillRangeEnabled();
     context.currencies = getActiveCurrencies();
     context.item = item;
     context.owner = item.isOwner;
@@ -549,6 +552,15 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       sys.targetType
     );
     context.skillIsArea = sys.targetType === "emission" || sys.targetType === "zone";
+    // Alcance não faz diferença numa Skill "Si mesmo". Origem da forma: sem valor salvo vale "livre".
+    context.skillRangeShown = context.skillRangeOn && sys.targetType !== "self";
+    context.skillAreaOriginSeg = seg(
+      [
+        ["caster", "Sai de quem lança", "A forma sai do Token de quem lança (ou da Marca): o círculo fica em volta dele, o cone e a linha só giram."],
+        ["free", "Livre", "A forma é posta onde quiser, dentro do alcance."]
+      ],
+      sys.areaOrigin ?? "free"
+    );
     context.skillAreaShapeSeg = seg(
       MEU_SISTEMA.SKILL_AREA_SHAPES.filter(Boolean).map(s => [s, MEU_SISTEMA.SKILL_AREA_SHAPE_LABELS[s]]),
       sys.areaShape
@@ -687,8 +699,9 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         index,
         amount,
         durationRounds: entry.durationRounds,
-        durationUnit: ["antimagic", "emp"].includes(entry.target) ? "rod. de supressão (0 = até tirar)" : sys.hasUpkeep ? "ativa" : periodic ? "ticks" : "rod.",
+        durationUnit: entry.target === "mark" ? "rod. (0 = até desfeita)" : ["antimagic", "emp"].includes(entry.target) ? "rod. de supressão (0 = até tirar)" : sys.hasUpkeep ? "ativa" : periodic ? "ticks" : "rod.",
         isAntimagic: ["antimagic", "emp"].includes(entry.target),
+        isMark: entry.target === "mark",
         antimagicReach: Math.floor((Number(sys.level) || 0) * getAntimagicReach() + 1e-9),
         icon: entry.icon ?? "",
         summary,

@@ -22,6 +22,8 @@ import { runAsGm } from "../helpers/gm-relay.js";
 import { relayFailureMessage } from "../helpers/gm-relay-rules.js";
 import { foundryGeneration } from "../helpers/foundry-compat.js";
 import { areaFromSkill, areaContains, areaPolygon, normalizeArea, tokenDocCenter, areaFromTemplateData } from "./area-geometry.js";
+import { clampToRange, filterByReach, markCostFactor, pointDistance } from "./range-rules.js";
+import { pointReach, viaMarkFrom } from "./range.js";
 
 /** Precisa só de uma cena aberta no canvas — nada específico de versão. */
 export function areaEffectsSupported() {
@@ -60,9 +62,16 @@ function localPoint(event) {
 /**
  * Deixa o usuário posicionar a forma da Skill no canvas — segue o mouse, roda do mouse gira
  * Cone/Linha (Shift = passo fino), clique esquerdo confirma, clique direito ou Esc cancela.
- * Devolve a área (`area-geometry.js`) ou null se cancelado.
+ * Devolve `{area, via}` (`area-geometry.js`; `via` = a Marca usada, ou null) ou null se cancelado.
+ *
+ * `reach` (range.js, opcional; sem ele a forma é livre como sempre foi):
+ *  - forma PRESA (`reach.free` falso): sai do Token de quem lança e só gira com a roda; com Marcas, a
+ *    tecla M troca a origem entre quem lança e cada Marca (a forma sai do Marcado);
+ *  - forma LIVRE com alcance: o ponto de origem só vai até a borda do alcance de quem lança, a menos
+ *    que caia dentro do círculo de alcance de uma Marca (então é "pela Marca"). Os círculos aparecem
+ *    fracos no mapa.
  */
-async function placeArea(mech) {
+async function placeArea(mech, reach = null) {
   if (!areaEffectsSupported()) {
     throw new Error("Skills de área precisam de uma cena aberta no canvas.");
   }
@@ -71,7 +80,33 @@ async function placeArea(mech) {
   const color = Number(foundry.utils.Color?.from?.(colorCss) ?? 0xff0000);
 
   let direction = 0;
-  let origin = snapToGrid({ x: canvas.stage.pivot.x, y: canvas.stage.pivot.y });
+  const held = Boolean(reach) && !reach.free;
+  // Origens possíveis de uma forma presa: quem lança e, em seguida, cada Marca.
+  const anchors = held
+    ? [
+        { point: reach.anchor, via: null },
+        ...reach.centers.map(m => {
+          const distance = pointDistance(reach.anchor, m.point);
+          return { point: m.point, via: { ...m, distance, factor: markCostFactor(distance, reach.rangePx) } };
+        })
+      ]
+    : [];
+  let anchorIndex = 0;
+  let via = null;
+  let origin = held ? { ...anchors[0].point } : snapToGrid({ x: canvas.stage.pivot.x, y: canvas.stage.pivot.y });
+  /** Aplica o alcance ao ponto sob o mouse (forma livre com alcance). */
+  const constrain = point => {
+    if (!reach || held || !(reach.rangePx > 0)) return point;
+    const reached = pointReach(reach, point);
+    if (reached) {
+      via = reached.via;
+      return point;
+    }
+    via = null;
+    const clamped = clampToRange(point, reach.anchor, reach.rangePx);
+    return { x: clamped.x, y: clamped.y };
+  };
+  if (reach && !held) origin = constrain(origin);
   const current = () => areaFromSkill(mech, origin, { ...scale, direction });
 
   const graphics = new PIXI.Graphics();
@@ -79,6 +114,11 @@ async function placeArea(mech) {
   const draw = () => {
     const area = current();
     graphics.clear();
+    // Círculos de alcance: o de quem lança e o de cada Marca (fracos).
+    if (reach && reach.rangePx > 0) {
+      graphics.lineStyle(2, color, 0.35).beginFill(color, 0.04).drawCircle(reach.anchor.x, reach.anchor.y, reach.rangePx).endFill();
+      for (const m of reach.centers) graphics.lineStyle(2, 0xffd36b, 0.35).beginFill(0xffd36b, 0.04).drawCircle(m.point.x, m.point.y, reach.rangePx).endFill();
+    }
     graphics.lineStyle(3, color, 0.9).beginFill(color, 0.2);
     if (area.shape === "circle") graphics.drawCircle(area.x, area.y, area.radius);
     else graphics.drawPolygon(areaPolygon(area));
@@ -87,7 +127,8 @@ async function placeArea(mech) {
   draw();
 
   const turnHint = needsDirection(mech.areaShape) ? " · roda do mouse gira" : "";
-  ui.notifications.info(`Posicione a área: clique confirma${turnHint} · Esc ou clique direito cancela.`);
+  const heldHint = held ? ` · sai de quem lança${anchors.length > 1 ? " · M troca para uma Marca" : ""}` : "";
+  ui.notifications.info(`Posicione a área: clique confirma${turnHint}${heldHint} · Esc ou clique direito cancela.`);
 
   const placement = await new Promise(resolve => {
     let moveTime = 0;
@@ -96,7 +137,8 @@ async function placeArea(mech) {
       const now = Date.now();
       if (now - moveTime <= 20) return;
       moveTime = now;
-      origin = snapToGrid(localPoint(event), event.data?.originalEvent?.shiftKey ?? event.shiftKey);
+      if (held) return;
+      origin = constrain(snapToGrid(localPoint(event), event.data?.originalEvent?.shiftKey ?? event.shiftKey));
       draw();
     };
 
@@ -112,7 +154,7 @@ async function placeArea(mech) {
     const onConfirm = event => {
       if ((event.button ?? event.data?.button) !== 0) return;
       event.stopPropagation();
-      finish(current());
+      finish({ area: current(), via });
     };
 
     const onCancel = event => {
@@ -121,6 +163,14 @@ async function placeArea(mech) {
     };
 
     const onKeyDown = event => {
+      if (held && anchors.length > 1 && (event.key === "m" || event.key === "M")) {
+        event.preventDefault();
+        anchorIndex = (anchorIndex + 1) % anchors.length;
+        origin = { ...anchors[anchorIndex].point };
+        via = anchors[anchorIndex].via;
+        draw();
+        return;
+      }
       if (event.key !== "Escape") return;
       event.preventDefault();
       finish(null);
@@ -152,14 +202,20 @@ async function placeArea(mech) {
  * @param {{system: object}} skill - objeto com `.system` = `skill.system` ou snapshot de Sub-Skill
  * @returns {Promise<Actor[]>}
  */
-export async function pickAreaTargets(skill) {
-  const area = await placeArea(skill.system);
+export async function pickAreaTargets(skill, reach = null) {
+  const placed = await placeArea(skill.system, reach);
+  const area = placed?.area;
   if (!area) return [];
 
-  const actors = canvas.tokens.placeables
-    .filter(token => areaContains(area, token.center))
-    .map(token => token.actor)
-    .filter(Boolean);
+  // Cone/linha livres: quem está além do alcance (de quem lança, ou da Marca usada) não sofre.
+  const inside = canvas.tokens.placeables.filter(token => areaContains(area, token.center));
+  const limited =
+    reach && reach.free && reach.rangePx > 0 && (skill.system.areaShape === "cone" || skill.system.areaShape === "ray")
+      ? filterByReach(inside, placed.via?.point ?? reach.anchor, reach.rangePx, token => token.center)
+      : inside;
+  const actors = limited.map(token => token.actor).filter(Boolean);
+  // Qual Marca serviu (a confirmação do custo e o fator vão em useSkillEffect).
+  actors.viaMark = viaMarkFrom(placed.via, reach);
   // A origem da área viaja junto (propriedade do array, então quem só lê a lista não muda): é
   // dela que se traça a linha até cada alvo pra ver se uma Estrutura está no caminho.
   actors.origin = { x: area.x, y: area.y };
@@ -176,9 +232,9 @@ export async function pickAreaTargets(skill) {
  * Posiciona uma Zona (mesma interação da Emissão) e devolve a área — pronta para `createZone` —
  * ou null se o usuário cancelou. Nada é criado aqui.
  */
-export async function pickZonePlacement(skill) {
-  const area = await placeArea(skill.system);
-  return area ? { area, color: userColorCss() } : null;
+export async function pickZonePlacement(skill, reach = null) {
+  const placed = await placeArea(skill.system, reach);
+  return placed?.area ? { area: placed.area, color: userColorCss(), viaMark: viaMarkFrom(placed.via, reach) } : null;
 }
 
 /**

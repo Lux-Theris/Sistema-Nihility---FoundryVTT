@@ -282,6 +282,9 @@ export async function evolveSkill(actor, sourceItemId, newSkillData) {
       areaDistance: newSkillData.areaDistance,
       areaAngle: newSkillData.areaAngle,
       zoneRounds: newSkillData.zoneRounds,
+      range: newSkillData.range ?? 0,
+      areaOrigin: newSkillData.areaOrigin ?? null,
+      areaFreeLevel: newSkillData.areaFreeLevel ?? 0,
       evolvedFrom: source.name
     }
   };

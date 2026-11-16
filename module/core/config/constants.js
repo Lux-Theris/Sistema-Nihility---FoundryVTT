@@ -510,13 +510,19 @@ export const MEU_SISTEMA = {
     "shipDamageReduction",
     "antimagic",
     "emp",
-    "mark"
+    "mark",
+    "push",
+    "flight",
+    "burrow"
   ],
 
   EFFECT_TARGET_LABELS: {
     antimagic: "Antimagia (corta efeitos mágicos e suprime)",
     emp: "PEM (corta efeitos tecnológicos e suprime)",
     mark: "Marcar (lançar Skills a partir do alvo)",
+    push: "Empurrar/Puxar (metros)",
+    flight: "Voando (pode subir no mapa)",
+    burrow: "Escavando (pode descer abaixo do chão)",
     strength: "Força",
     defense: "Defesa",
     magic: "Magia",
@@ -559,6 +565,7 @@ export const MEU_SISTEMA = {
     { label: "Arma", actor: "any", targets: ["weaponDamage", "weaponElement", "weaponMagic", "weaponAbsolute"] },
     { label: "Elemento", actor: "any", targets: ["bodyElement"] },
     { label: "Magia", actor: "character", targets: ["antimagic", "mark"] },
+    { label: "Movimento", actor: "character", targets: ["push", "flight", "burrow"] },
     { label: "Tecnologia", actor: "any", targets: ["emp"] },
     { label: "Nave", actor: "ship", targets: ["shipWeaponDamage", "shipWeaponPenetration", "shipShieldCapacity", "shipShieldRegen", "shipReactorOutput", "shipPropulsion", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"] }
   ],

@@ -60,6 +60,16 @@ export function isSkillRangeEnabled() {
   return isFeatureEnabled("skillRange");
 }
 
+/** Empurrar/puxar (J1): Skill, arma de gravidade e dano de impacto. Desligado: nada se move nem se confere. */
+export function isForcedMovementEnabled() {
+  return isFeatureEnabled("forcedMovement");
+}
+
+/** Voo, altura e escavação (J4): a elevação do Token entra nas distâncias e áreas. */
+export function isElevationEnabled() {
+  return isFeatureEnabled("elevation");
+}
+
 /**
  * Leitor ÚNICO de todo bloco ligável/desligável do sistema (ver MEU_SISTEMA.FEATURES) — use
  * isto, e não `game.settings.get` direto, pra gatear qualquer coisa: só aqui a cadeia de

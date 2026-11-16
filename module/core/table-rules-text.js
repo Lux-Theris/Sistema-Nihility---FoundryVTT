@@ -92,6 +92,14 @@ export function buildTableRulesPages(d) {
       parts.push(`<p>Habilidades, armas e granadas têm um <b>alcance</b> em metros (0 = sem limite), medido do centro do seu Token ao do alvo. Fora dele o uso é recusado. Uma Habilidade de área pode sair do seu Token (o círculo em volta de você, o cone e a linha só giram) ou ser posta livre, dentro do alcance. Granadas vão até uma base mais a sua Força.</p>`);
       parts.push(`<p>Uma <b>Marca</b> é um efeito mágico que você põe em alguém: enquanto durar, você pode lançar Habilidades <i>como se estivesse onde o Marcado está</i> — o alvo, a área e as paredes no caminho contam a partir dele. Custa mais quanto mais longe: o custo vezes (distância ÷ alcance) ao quadrado. A Antimagia desfaz a Marca.</p>`);
     }
+    if (d.features.forcedMovement) {
+      parts.push("<h2>Empurrar e puxar</h2>");
+      parts.push("<p>Algumas Habilidades e armas de gravidade <b>empurram</b> (afastam de quem usou ou do centro da área) ou <b>puxam</b> o alvo em linha reta. A Defesa Mágica (se for magia), a Resistência do elemento e certos Traços diminuem os metros; o alvo rola Defesa contra quem empurra e, <b>se vencer, anda só metade</b>. O movimento para na primeira parede ou Estrutura, e os metros que sobraram viram <b>dano de impacto</b> (Contundente); a Estrutura também o leva. Não gasta o seu Deslocamento.</p>");
+    }
+    if (d.features.elevation) {
+      parts.push("<h2>Voo, altura e escavação</h2>");
+      parts.push("<p>Quem pode voar (Traço Voador ou o efeito Voando) sobe e desce um quadrado por vez pelo menu do Token; quem pode cavar desce abaixo do chão. A <b>altura conta nas distâncias</b> e as áreas são esferas: um círculo de 5 m não pega quem está 6 m acima. <b>Debaixo da terra</b> ninguém na superfície ou no ar alcança você. Quem perde o voo no ar <b>cai</b>: o Mestre calcula o dano (cada metro acima de 3 m vale uma parte da Vida máxima, Contundente).</p>");
+    }
     parts.push("<h2>Campo de Antimagia</h2>");
     parts.push(`<p>Magia que vem <b>de fora</b> e cruza um campo de Antimagia gasta a ${energy} e <b>some</b>, se o campo vencer. <b>De dentro</b> do campo, ou sob um Selo de Antimagia, a magia <b>nem sai</b> e não gasta nada. A Habilidade <b>Manipulação de ${energy}</b> muda isso: quanto maior o nível dela diante do campo, menos ele atrapalha — primeiro a magia passa pagando ${energy} a mais, depois passa de graça. Sem a Manipulação, o campo sempre vence. Usá-la contra a Antimagia a faz evoluir.</p>`);
     if (d.features.interference) parts.push("<p>O Campo de Interferência faz o mesmo com a tecnologia, mas não há Habilidade que o vença: o uso tecnológico de fora some, e de dentro nem sai.</p>");

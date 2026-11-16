@@ -53,12 +53,14 @@ export function mechanicsGuide(catalogs = {}) {
     '  "effects": [{"target": alvo, "amount": número (negativo = debuff/dano), "durationRounds": rodadas (0 = sem prazo),',
     '               "conditionId": id de Condição ou "", "periodic": boolean (só hp/energy: aplica a cada rodada),',
     '               "damageElements": [ids] (tick de dano), "elementId": id (só weaponElement/bodyElement)}],',
+    '  Efeitos de movimento (grupo "Movimento"): {"target":"push","amount": metros,"pushDirection":"push"|"pull"|"choose","immuneTraits":[ids de Traço]} empurra/puxa o alvo em linha reta; {"target":"flight"} e {"target":"burrow"} dão voo/escavação pela "durationRounds" (amount 0).',
     '  "resistanceTarget": "" | "general" | id de elemento (Skill passiva de Resistência; 10% por nível)',
     "}",
     "Use SÓ estes ids:",
     `- Elementos: ${list(catalogs.elements)}`,
     `- Condições: ${list(catalogs.conditions)}`,
     `- Atributos: ${list(catalogs.attributes)}`,
+    `- Traços: ${list(catalogs.traits)}`,
     `- Alvos de efeito: ${targets || "strength, defense, magic, hp, energy, shield"}`,
     "Prefira mecânica simples e coerente com a descrição. Uma Skill de cura é temporary com hp positivo e periodic; um veneno é temporary com hp negativo, periodic e conditionId do veneno.",
     'Numa cura periódica, "healKind": "cura" (fecha feridas), "regeneracao" (também refaz membros perdidos — regeneração de troll, de slime) ou "reparo" (conserta próteses e máquinas).'
@@ -78,6 +80,7 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
   const conditions = ids(catalogs.conditions);
   const attributes = ids(catalogs.attributes);
   const structures = ids(catalogs.structures);
+  const traits = ids(catalogs.traits);
   const out = {};
 
   out.cost = clampInt(m.cost, 0, 9999, 0);
@@ -126,8 +129,10 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
     for (const e of Array.isArray(m.effects) ? m.effects.slice(0, 4) : []) {
       if (!e || !MEU_SISTEMA.EFFECT_TARGETS.includes(e.target) || String(e.target).startsWith("ship")) continue;
       const conditionId = conditions.has(e.conditionId) ? e.conditionId : "";
-      const amount = clampInt(e.amount, -999, 999, 0);
-      if (!amount && !conditionId) continue;
+      const movementOnly = ["flight", "burrow"].includes(e.target);
+      // Empurrar/Puxar: metros, sempre positivos (a direção é o campo pushDirection).
+      const amount = e.target === "push" ? clampInt(e.amount, 0, 200, 0) : movementOnly ? 0 : clampInt(e.amount, -999, 999, 0);
+      if (!amount && !conditionId && !movementOnly) continue;
       const periodic = Boolean(e.periodic) && ["hp", "energy"].includes(e.target);
       const entry = {
         target: e.target,
@@ -142,6 +147,12 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
       if (["weaponElement", "bodyElement"].includes(e.target)) {
         entry.elementId = elements.has(e.elementId) ? e.elementId : "";
         if (!entry.elementId) continue;
+      }
+      if (e.target === "push") {
+        entry.pushDirection = ["push", "pull", "choose"].includes(e.pushDirection) ? e.pushDirection : "push";
+        entry.immuneTraits = pickIds(e.immuneTraits, traits, 10);
+        entry.damageElements = pickIds(e.damageElements, elements);
+        entry.durationRounds = 0;
       }
       if (periodic && entry.durationRounds === 0) entry.durationRounds = 3;
       // Cura periódica: Cura (padrão), Regeneração (refaz partes perdidas) ou Reparo (próteses).

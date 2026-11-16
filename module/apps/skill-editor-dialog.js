@@ -20,7 +20,7 @@ import {
   isSkillRangeEnabled
 } from "../core/config.js";
 import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../combat/resistance.js";
-import { pickerFieldHtml, readPickerField, wireElementPickerField } from "./checklist-picker.js";
+import { pickerFieldHtml, readPickerField, wireElementPickerField, wireTraitPickerField } from "./checklist-picker.js";
 import { openLightConfigDialog, describeLight } from "../combat/lights.js";
 import { advancedFold } from "../helpers/advanced-fold.js";
 import { escapeHtml } from "../helpers/html.js";
@@ -81,7 +81,7 @@ function buildEffectRowHtml(entry) {
     <div class="effect-row-main">
       <select class="se-effect-target">${options}</select>
       <select class="se-effect-element-id" title="Elemento (das armas, ou que o alvo passa a ser)" style="display:${["weaponElement", "bodyElement"].includes(entry.target) ? "inline-block" : "none"};">${elementIdOptions}</select>
-      <input type="number" class="se-effect-amount" value="${entry.amount}" placeholder="Qtd." style="display:${["antimagic", "emp", "mark"].includes(entry.target) ? "none" : ""};"/>
+      <input type="number" class="se-effect-amount" value="${entry.amount}" placeholder="${entry.target === "push" ? "Metros" : "Qtd."}" style="display:${["antimagic", "emp", "mark", "flight", "burrow"].includes(entry.target) ? "none" : ""};"/>
       <input type="number" class="se-effect-duration" value="${entry.durationRounds}" min="0" placeholder="Rounds/Ticks"/>
       <a class="se-effect-delete" title="Remover"><i class="fas fa-trash"></i></a>
     </div>
@@ -94,6 +94,7 @@ function buildEffectRowHtml(entry) {
         <input type="checkbox" class="se-effect-periodic" ${entry.periodic ? "checked" : ""}/> Periódico
       </label>
       <select class="se-effect-tick-unit" style="display:${periodicVisible && entry.periodic ? "inline-block" : "none"};">${tickUnitOptions}</select>
+      <select class="se-effect-push-direction" title="Empurrar afasta de quem usou (ou do centro da área); puxar aproxima. O alvo que vence o teste de Defesa anda só metade." style="display:${entry.target === "push" ? "inline-block" : "none"};">${[["push", "Empurrar"], ["pull", "Puxar"], ["choose", "Escolher ao usar"]].map(([v, l]) => `<option value="${v}" ${v === (entry.pushDirection || "push") ? "selected" : ""}>${l}</option>`).join("")}</select>
       <select class="se-effect-modifier-type" style="display:${modifierTypeVisible ? "inline-block" : "none"};" title="Fixo soma direto no resultado; Multiplicador lê Quantidade como percentual (20 = ×1.20)">${modifierTypeOptions}</select>
     </div>
     <details class="adv se-effect-adv">
@@ -103,9 +104,13 @@ function buildEffectRowHtml(entry) {
       <select class="se-effect-curse-unpaid" title="Maldição: quando a vítima não tem Mana para pagar (só para esta Skill)" style="display:${getActiveStatusConditions().find(c => c.id === entry.conditionId)?.curse?.enabled ? "inline-block" : "none"};">${[["", "Como na maldição"], ["hp", "Paga com Vida"], ["sleep", "Dorme"], ["worsen", "Piora"], ["continue", "Continua igual"]].map(([v, l]) => `<option value="${v}" ${v === (entry.curseOnUnpaid ?? "") ? "selected" : ""}>Sem Mana: ${l}</option>`).join("")}</select>
       <select class="se-effect-heal-kind" title="Se o tick for cura (valor positivo): o que ela faz nas Partes do Corpo" style="display:${periodicVisible && entry.periodic && entry.target === "hp" ? "inline-block" : "none"};">${healKindOptions}</select>
     </div>
-    <div class="effect-row-periodic-extra" style="display:${(periodicVisible && entry.periodic) || entry.target === "shield" ? "flex" : "none"};">
-      <span class="hint-inline se-elements-label" style="display:inline;">${entry.target === "shield" ? "Elemento do escudo (vazio = neutro):" : "Elemento do tick (ignorado se o tick for cura):"}</span>
+    <div class="effect-row-periodic-extra" style="display:${(periodicVisible && entry.periodic) || entry.target === "shield" || entry.target === "push" ? "flex" : "none"};">
+      <span class="hint-inline se-elements-label" style="display:inline;">${entry.target === "push" ? "Elemento do empurrão (vazio = só a Defesa Mágica):" : entry.target === "shield" ? "Elemento do escudo (vazio = neutro):" : "Elemento do tick (ignorado se o tick for cura):"}</span>
       ${pickerFieldHtml(entryElements, "se-effect-elements")}
+    </div>
+    <div class="effect-row-push-traits" style="display:${entry.target === "push" ? "flex" : "none"};">
+      <span class="hint-inline" style="display:inline;">Traços que não saem do lugar:</span>
+      ${pickerFieldHtml(Array.isArray(entry.immuneTraits) ? entry.immuneTraits : [], "se-effect-immune-traits")}
     </div>
     <div class="effect-row-shield" style="display:${entry.target === "shield" ? "flex" : "none"};">
       <label class="hint-inline" title="Só numa Habilidade Ativa: Escudo mantido, regenera no início de cada turno de quem mantém, até o Teto, e some ao desligar.">Regenera/rodada <input type="number" class="se-effect-shield-regen" value="${Number(entry.shieldRegen) || 0}" min="0"/></label>
@@ -753,8 +758,11 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
       li.querySelector(".se-effect-heal-kind").style.display = periodicOn && targetSelect.value === "hp" ? "inline-block" : "none";
       // A mesma lista de elementos serve de "elemento do escudo" num Efeito de Escudo.
       const isShield = targetSelect.value === "shield";
-      periodicExtra.style.display = periodicOn || isShield ? "flex" : "none";
-      periodicExtra.querySelector(".se-elements-label").textContent = isShield ? "Elemento do escudo (vazio = neutro):" : "Elemento do tick (ignorado se o tick for cura):";
+      const isPush = targetSelect.value === "push";
+      periodicExtra.style.display = periodicOn || isShield || isPush ? "flex" : "none";
+      periodicExtra.querySelector(".se-elements-label").textContent = isPush ? "Elemento do empurrão (vazio = só a Defesa Mágica):" : isShield ? "Elemento do escudo (vazio = neutro):" : "Elemento do tick (ignorado se o tick for cura):";
+      li.querySelector(".effect-row-push-traits").style.display = isPush ? "flex" : "none";
+      li.querySelector(".se-effect-push-direction").style.display = isPush ? "inline-block" : "none";
     }
     // Fixo/Multiplicador só existe pros alvos "de Nave" (Dano/Penetração de Arma) — some sozinho
     // (volta pro padrão "flat") pra qualquer outro alvo, mesmo padrão de applyPeriodicVisibility.
@@ -766,7 +774,7 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
     targetSelect.addEventListener("change", applyPeriodicVisibility);
     // Antimagia não tem quantidade: a força é o nível da Skill; a duração é a da supressão.
     targetSelect.addEventListener("change", () => {
-      li.querySelector(".se-effect-amount").style.display = ["antimagic", "emp", "mark"].includes(targetSelect.value) ? "none" : "";
+      li.querySelector(".se-effect-amount").style.display = ["antimagic", "emp", "mark", "flight", "burrow"].includes(targetSelect.value) ? "none" : "";
     });
     targetSelect.addEventListener("change", applyModifierTypeVisibility);
     // Luz do Escudo pessoal: só pro alvo Escudo; a luz fica em `data-light` (JSON) até salvar.
@@ -828,6 +836,8 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
         periodicOn ? { label: "Elemento do tick", used: elements } : null,
         isHeal ? { label: "Tipo de cura", used: healSelect.value !== "cura" } : null,
         isShield ? { label: "Elemento do escudo", used: elements } : null,
+        target === "push" ? { label: "Elemento do empurrão", used: elements } : null,
+        target === "push" ? { label: "Traços que não saem do lugar", used: readPickerField(li.querySelector(".se-effect-immune-traits")).length > 0 } : null,
         isShield && active ? { label: "Escudo mantido", used: Boolean(shieldRegen || shieldCap) } : null,
         isShield ? { label: "Luz", used: Boolean(light?.enabled) } : null,
         curseSelect.style.display !== "none" ? { label: "Sem Mana para pagar", used: Boolean(curseSelect.value) } : null
@@ -844,6 +854,7 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
     li.querySelector(".se-light-edit").addEventListener("click", () => setTimeout(refreshAdv, 0));
 
     wireElementPickerField(li.querySelector(".se-effect-elements"), { onChange: () => refreshAdv() });
+    wireTraitPickerField(li.querySelector(".se-effect-immune-traits"), { onChange: () => refreshAdv() });
     refreshAdv();
 
     effectList.appendChild(li);
@@ -974,6 +985,8 @@ function readSkillEditorForm(root, lockTier) {
             healKind: row.querySelector(".se-effect-heal-kind")?.value || "cura",
             curseOnUnpaid: row.querySelector(".se-effect-curse-unpaid")?.value || "",
             damageElements: readPickerField(row.querySelector(".se-effect-elements")),
+            pushDirection: row.querySelector(".se-effect-push-direction")?.value || "push",
+            immuneTraits: row.querySelector(".se-effect-target").value === "push" ? readPickerField(row.querySelector(".se-effect-immune-traits")) : [],
             shieldRegen: row.querySelector(".se-effect-target").value === "shield" ? Math.max(0, Number(row.querySelector(".se-effect-shield-regen")?.value) || 0) : 0,
             shieldCap: row.querySelector(".se-effect-target").value === "shield" ? Math.max(0, Number(row.querySelector(".se-effect-shield-cap")?.value) || 0) : 0,
             light: (() => {

@@ -13,10 +13,10 @@ import { MEU_SISTEMA } from "../core/config/constants.js";
 export const PERIODIC_TARGETS = ["hp", "energy", "shipCasco", "shipHull"];
 
 /** Alvos que agem na hora e não ficam "para sempre" sem duração. */
-const INSTANT_TARGETS = ["heal", "restoreEnergy", "shield", "antimagic", "emp", "mark", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"];
+const INSTANT_TARGETS = ["heal", "restoreEnergy", "shield", "antimagic", "emp", "mark", "push", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"];
 
 /** Alvos em que o valor não importa (liga/desliga, troca de elemento, Antimagia pelo nível). */
-const VALUELESS_TARGETS = ["weaponElement", "bodyElement", "weaponMagic", "weaponAbsolute", "antimagic", "emp", "mark"];
+const VALUELESS_TARGETS = ["weaponElement", "bodyElement", "weaponMagic", "weaponAbsolute", "antimagic", "emp", "mark", "flight", "burrow"];
 
 const groupTargets = actor => new Set(MEU_SISTEMA.EFFECT_TARGET_GROUPS.filter(g => g.actor === actor).flatMap(g => g.targets));
 
@@ -91,7 +91,10 @@ export function lintSkill(mech, ctx = {}) {
       const target = e?.target ?? "";
       if (e?.periodic && !PERIODIC_TARGETS.includes(target)) push("periodicTarget", "hard", "mechanic", `${n}: Periódico só funciona em Vida ou ${energy} (ou Casco/Integridade de Nave). Este vira um efeito comum.`, i);
       if ((Number(e?.shieldRegen) > 0 || Number(e?.shieldCap) > 0) && target === "shield" && !active) push("sustainedNotActive", "hard", "mechanic", `${n}: Escudo mantido (regeneração/teto) só vale em Habilidade Ativa.`, i);
-      if (!Number(e?.amount) && !e?.conditionId && !VALUELESS_TARGETS.includes(target)) push("zeroEffect", "hard", "mechanic", `${n}: valor 0 e sem Condição — não muda nada.`, i);
+      // Empurrar/Puxar (J1): os metros são o efeito; sem eles nada se move.
+      if (target === "push" && !(Number(e?.amount) > 0)) push("pushZero", "hard", "mechanic", `${n}: Empurrar/Puxar com 0 metros — não move ninguém.`, i);
+      if (target === "push" && Number(e?.amount) > 0 && m.targetType === "self") push("pushSelf", "soft", "mechanic", `${n}: Empurrar/Puxar numa Skill "Si mesmo" — quem usa é a origem, então ninguém se move.`, i);
+      if (!Number(e?.amount) && !e?.conditionId && !VALUELESS_TARGETS.includes(target) && target !== "push") push("zeroEffect", "hard", "mechanic", `${n}: valor 0 e sem Condição — não muda nada.`, i);
       if (e?.conditionId && ctx.conditions && !has(ctx.conditions, e.conditionId)) push("unknownCondition", "hard", "mechanic", `${n}: a Condição "${e.conditionId}" não existe mais no catálogo.`, i);
       for (const id of e?.damageElements ?? []) {
         if (ctx.elements && !has(ctx.elements, id)) push("unknownElement", "hard", "mechanic", `${n}: elemento "${id}" não existe mais no catálogo.`, i);

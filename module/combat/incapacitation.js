@@ -336,8 +336,9 @@ export function registerIncapacitation() {
   });
 
   // Não move o Token (o Mestre move — tirar um corpo do caminho, por exemplo).
-  Hooks.on("preMoveToken", document => {
-    if (game.user.isGM || !isIncapacitated(document.actor)) return undefined;
+  Hooks.on("preMoveToken", (document, movement, operation) => {
+    // O empurrão do sistema arrasta até um Caído (nihilityForced); o Mestre também sempre pode.
+    if (game.user.isGM || operation?.nihilityForced || !isIncapacitated(document.actor)) return undefined;
     ui.notifications.warn(`${document.actor.name} está ${incapacitationLabel(document.actor)} e não pode se mover.`);
     return false;
   });

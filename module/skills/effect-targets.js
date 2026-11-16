@@ -80,6 +80,10 @@ export function resolveEffectChange(entry, targetActor) {
       return ship ? null : { key: "system.weaponBonuses.forceMagic", mode: M.ADD, value: "1", isMultiplier: false };
     case "weaponAbsolute":
       return { key: ship ? "system.combatBonuses.weaponAbsolute" : "system.weaponBonuses.absolute", mode: M.ADD, value: "1", isMultiplier: false };
+    case "flight":
+    case "burrow":
+      // Voando/Escavando (J4): não mexe em campo; o efeito só carrega o flag `movementMode`, lido por canFly/canBurrow.
+      return ship ? null : { key: null, movementMode: entry.target, isMultiplier: false };
     case "bodyElement":
       // Não mexe em campo: o efeito só carrega o flag `bodyElement`, lido por actorElements.
       return entry.elementId ? { key: null, bodyElement: entry.elementId, isMultiplier: false } : null;

@@ -13,6 +13,14 @@ const signed = n => (n > 0 ? `+${n}` : `−${Math.abs(n)}`);
 
 /** "Força +3", "Vida −5/rodada", "Envenenado", "Escudo +20". */
 function describeEffect(entry, ctx) {
+  // Movimento (J1/J4): "empurra 5 m", "puxa 5 m", "empurra ou puxa 5 m", "voo", "escava".
+  if (entry.target === "push") {
+    const meters = Math.round((Number(entry.amount) || 0) * 10) / 10;
+    const verb = entry.pushDirection === "pull" ? "puxa" : entry.pushDirection === "choose" ? "empurra ou puxa" : "empurra";
+    return `${verb} ${String(meters).replace(".", ",")} m`;
+  }
+  if (entry.target === "flight") return "voo";
+  if (entry.target === "burrow") return "escava";
   const condition = entry.conditionId ? ctx.conditions?.[entry.conditionId] ?? entry.conditionId : "";
   const amount = Number(entry.amount) || 0;
   if (!amount) return condition || ctx.targets?.[entry.target] || entry.target || "";

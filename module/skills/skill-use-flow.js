@@ -126,7 +126,7 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget } =
   try {
     if (mode === "zone") {
       // Zona: posiciona a área (fica na cena) — quem estiver dentro sofre no início do turno.
-      const zonePlacement = await pickZonePlacement({ system: mech }, areaReach(actor, mech));
+      const zonePlacement = await pickZonePlacement({ system: mech }, areaReach(actor, mech), { caster: actor });
       if (!zonePlacement) return;
       const viaMark = zonePlacement.viaMark ?? null;
       if (viaMark && !(await confirmMarkCost({ title: `Marca — ${skill.name}`, via: viaMark, baseCost: baseCostOf(actor, mech), actor }))) return;

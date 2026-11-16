@@ -244,6 +244,24 @@ export const FEATURES = {
       throwPerStrength: { label: "Força por metro de arremesso", hint: "Granadas e itens arremessáveis: alcance = base + ⌊Força ÷ este valor⌋ metros.", type: "number", default: 5, min: 1 }
     }
   },
+  forcedMovement: {
+    setting: "forcedMovementEnabled",
+    name: "Empurrar e puxar",
+    hint: "O efeito de Skill \"Empurrar/Puxar\" e a arma de gravidade movem o Token do alvo em linha reta, a partir de quem usou (ou do centro da área). O movimento para na primeira parede ou Estrutura; o que sobrou vira dano de impacto (Contundente) e a Estrutura também o leva. Não gasta o Deslocamento do alvo. Desligar só para de mover e esconde os campos; nada salvo se perde.",
+    default: true,
+    options: {
+      collisionPercent: { label: "Dano de impacto (% da Vida máx. por metro)", hint: "Metros que sobraram ao bater × este % da Vida máxima de quem bateu, como dano Contundente.", type: "number", default: 5, min: 0 }
+    }
+  },
+  elevation: {
+    setting: "elevationEnabled",
+    name: "Voo, altura e escavação",
+    hint: "A elevação do Token passa a valer: quem tem o Traço Voador ou o efeito \"Voando\" sobe e desce pelo Token HUD; quem cava (Traço Escavador ou efeito \"Escavando\") desce abaixo de 0. As distâncias somam a altura, as áreas viram esferas e quem está debaixo da terra fica protegido de quem está na superfície. Perder o voo no ar avisa o Mestre da queda e oferece calcular o dano. Desligar só esconde e para de conferir; nada salvo se perde.",
+    default: true,
+    options: {
+      fallPercent: { label: "Dano de queda (% da Vida máx. por metro)", hint: "Cada metro de queda acima de 3 m vale este % da Vida máxima de quem caiu, como dano Contundente.", type: "number", default: 3, min: 0 }
+    }
+  },
   skillUndo: {
     setting: "skillUndoEnabled",
     name: "Desfazer uso de Skill",
@@ -411,6 +429,8 @@ const FEATURE_LAYOUT = {
   scale: ["combat", "Pessoa contra Nave: o dano cresce ou diminui pela Escala.", true],
   naturalRegen: ["combat", "Mana (e Vida, se configurado) volta um pouco a cada turno.", true],
   skillRange: ["combat", "Alcance em metros para Skills, armas e granadas; Marcas lançam de longe."],
+  forcedMovement: ["combat", "Skills e armas de gravidade empurram ou puxam o alvo pelo mapa."],
+  elevation: ["combat", "Voo, altura e escavação: a elevação do Token entra nas distâncias.", true],
   skillUndo: ["combat", "O Mestre desfaz o último uso de uma Skill até o turno acabar."],
   endOfCombat: ["combat", "Ao encerrar: tira efeitos que congelariam, dá XP e descanso."],
   economy: ["world", "Moedas, conversão e transferência entre personagens."],

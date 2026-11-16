@@ -10,7 +10,7 @@
  *  - Recurso desligado (`FEATURES.skillRange`): nada é conferido, e nenhuma Marca vale.
  *  - Uma Marca é um Active Effect com o flag `markedBy` (uuid de quem marcou); só quem marcou a usa.
  */
-import { SYSTEM_ID, actorToken, isSkillRangeEnabled, getFeatureOption, getEnergyLabelForActor } from "../core/config.js";
+import { SYSTEM_ID, actorToken, isSkillRangeEnabled, isElevationEnabled, getFeatureOption, getEnergyLabelForActor } from "../core/config.js";
 import { escapeHtml } from "../helpers/html.js";
 import {
   inRange,
@@ -23,10 +23,17 @@ import {
   meters,
   normalizeRange
 } from "./range-rules.js";
+import { distance3d } from "./forced-movement-rules.js";
+import { tokenElevation, verticalAccess } from "./elevation.js";
 
 /** Há cena aberta e o recurso está ligado? */
 export function rangeChecksActive() {
   return isSkillRangeEnabled() && Boolean(typeof canvas !== "undefined" && canvas?.ready && canvas.scene);
+}
+
+/** Há cena aberta e o recurso Voo, altura e escavação está ligado? (a vertical vale mesmo sem o Alcance) */
+function elevationChecksActive() {
+  return isElevationEnabled() && Boolean(typeof canvas !== "undefined" && canvas?.ready && canvas.scene);
 }
 
 /** Pixels por unidade (metro) da cena aberta. */
@@ -52,15 +59,41 @@ export function measurePointDistance(a, b) {
 }
 
 /**
+ * Distância entre dois Tokens, de centro a centro, SOMANDO a altura (J4: hipotenusa com a diferença de
+ * elevação). Com o recurso Voo, altura e escavação desligado, só o plano — como sempre foi.
+ */
+export function measureTokenDistance(fromToken, toToken) {
+  const planar = measurePointDistance(fromToken.center, toToken.center);
+  return isElevationEnabled() ? distance3d(planar, tokenElevation(toToken) - tokenElevation(fromToken)) : planar;
+}
+
+/**
+ * Debaixo da terra ninguém na superfície/no ar alcança (recusa com aviso; o Mestre decide) e corpo a
+ * corpo contra alvo fora da altura da mão só avisa. `range`: alcance da arma (null = Skill, sem aviso de corpo a corpo).
+ * @returns {boolean} pode seguir
+ */
+function verticalAllowed(casterToken, targetToken, { range = null, label = "" } = {}) {
+  const v = verticalAccess(casterToken, targetToken, { range });
+  const who = label ? `${label}: ` : "";
+  if (v.hidden) {
+    const text = `${who}o alvo está debaixo da terra e não pode ser alcançado daqui.`;
+    ui.notifications.warn(text);
+    return Boolean(game.user?.isGM);
+  }
+  if (v.melee) ui.notifications.warn(`${who}o alvo está ${meters(v.gap)} acima ou abaixo — fora do alcance de um golpe corpo a corpo.`);
+  return true;
+}
+
+/**
  * Distância de centro a centro entre dois Atores, em unidades da cena (metros), ou `null` quando não
  * dá para medir (sem cena, ou um dos dois sem Token nela). Único ponto de medida do sistema.
  */
 export function measureActorDistance(a, b) {
   if (!canvas?.ready || !canvas.scene) return null;
-  const from = casterTokenOf(a)?.center;
-  const to = targetTokenOf(b)?.center;
-  if (!from || !to) return null;
-  return measurePointDistance(from, to);
+  const from = casterTokenOf(a);
+  const to = targetTokenOf(b);
+  if (!from?.center || !to?.center) return null;
+  return measureTokenDistance(from, to);
 }
 
 /** O alcance de arremesso de quem lança: base + ⌊Força ÷ passo⌋ (passo = opção do recurso). */
@@ -173,12 +206,19 @@ export async function confirmMarkCost({ title, via, baseCost, actor }) {
  */
 export async function resolveTargetReach(caster, target, mech, { label, baseCost = 0 } = {}) {
   const range = normalizeRange(mech?.range);
+  if (mech?.targetType !== "self" && elevationChecksActive()) {
+    const casterToken = casterTokenOf(caster);
+    const targetToken = targetTokenOf(target);
+    if (casterToken && targetToken && !verticalAllowed(casterToken, targetToken, { label })) return { ok: false, viaMark: null };
+  }
   if (!rangeChecksActive() || range <= 0 || mech?.targetType === "self") return { ok: true, viaMark: null };
-  const from = casterTokenOf(caster)?.center;
-  const to = targetTokenOf(target)?.center;
+  const casterToken = casterTokenOf(caster);
+  const targetToken = targetTokenOf(target);
+  const from = casterToken?.center;
+  const to = targetToken?.center;
   if (!from || !to) return { ok: true, viaMark: null };
 
-  const distance = measurePointDistance(from, to);
+  const distance = measureTokenDistance(casterToken, targetToken);
   if (inRange(distance, range)) return { ok: true, viaMark: null };
 
   const scale = pxPerUnit();
@@ -207,6 +247,11 @@ export async function resolveTargetReach(caster, target, mech, { label, baseCost
  */
 export async function checkFlatRange(caster, target, range, { label = "" } = {}) {
   const r = normalizeRange(range);
+  if (elevationChecksActive() && target) {
+    const casterToken = casterTokenOf(caster);
+    const targetToken = targetTokenOf(target);
+    if (casterToken && targetToken && !verticalAllowed(casterToken, targetToken, { range: r, label })) return false;
+  }
   if (!rangeChecksActive() || r <= 0) return true;
   const distance = measureActorDistance(caster, target);
   if (distance === null || inRange(distance, r)) return true;

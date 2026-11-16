@@ -647,6 +647,33 @@
         </div>
       </div>
       {{#if system.weapon.enabled}}
+      {{#if weaponModeOn}}
+      <div class="sec">
+        <div class="sec-head">Modo <span class="help" title="Dano rola dano. Gravidade é uma arma dedicada a empurrar e puxar (tipo gravity gun): cada disparo pergunta Empurrar ou Puxar, gasta carregador/munição e respeita alcance e Interferência, mas não rola dano.">?</span></div>
+        <div class="sec-body">
+          <div class="seg" role="radiogroup" aria-label="Modo da arma">
+            {{#each weaponModeSeg as |opt|}}
+            <label class="seg-opt {{#if opt.checked}}on{{/if}}"><input type="radio" name="system.weapon.mode" value="{{opt.value}}" {{#if opt.checked}}checked{{/if}}/>{{opt.label}}</label>
+            {{/each}}
+          </div>
+        </div>
+      </div>
+      {{/if}}
+      {{#if weaponGravity}}
+      <div class="sec">
+        <div class="sec-head">Empurrão</div>
+        <div class="sec-body g2">
+          <label class="fld"><span class="fld-label">Metros <span class="help" title="Quanto o alvo anda, em linha reta. A Defesa Mágica (se mágica), a Resistência do elemento e os Traços imunes reduzem; quem vence o teste de Defesa anda só metade.">?</span></span><span class="suffix"><input type="number" name="system.weapon.pushMeters" value="{{system.weapon.pushMeters}}" min="0" step="0.5" aria-label="Metros"/><span>m</span></span></label>
+          <label class="fld"><span class="fld-label">Atributo do teste <span class="help" title="Quem dispara rola este atributo contra a Defesa do alvo. Vazio = Força (Magia, se a arma for mágica).">?</span></span>
+            <select name="system.weapon.scalingAttribute">
+              {{#each weaponScalingOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+            </select>
+          </label>
+          <label class="toggle span-all"><input type="checkbox" name="system.weapon.isMagicDamage" {{#if system.weapon.isMagicDamage}}checked{{/if}}/><span class="toggle-track"></span><span>Mágica</span><span class="help" title="A Defesa Mágica do alvo reduz os metros e o teste usa Magia.">?</span></label>
+          <div class="fld span-all"><span class="fld-label">Elemento(s)</span>{{> nihility.elementChips field=weaponElementField path="system.weapon.damageElements" editable=editable}}</div>
+        </div>
+      </div>
+      {{else}}
       <div class="sec">
         <div class="sec-head">Dano</div>
         <div class="sec-body g2">
@@ -668,6 +695,7 @@
           <div class="fld span-all"><span class="fld-label">Elemento(s)</span>{{> nihility.elementChips field=weaponElementField path="system.weapon.damageElements" editable=editable}}</div>
         </div>
       </div>
+      {{/if}}
       {{#if skillRangeOn}}
       <div class="sec">
         <div class="sec-head">Alcance</div>

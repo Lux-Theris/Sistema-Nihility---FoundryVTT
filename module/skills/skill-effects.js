@@ -24,6 +24,7 @@ import { promptManaInvestment, confirmOverdraw } from "../apps/mana-invest-dialo
 import { rollSkillDamage, rollSkillDamageArea } from "../combat/damage-roll.js";
 import { markedCost } from "../combat/range-rules.js";
 import { rangeChecksActive } from "../combat/range.js";
+import { runSkillPushes, pushOriginFor } from "../combat/forced-movement.js";
 import { applyEffectsToActor } from "./effects-apply.js";
 import { isShipLike } from "../starship/ship-damage.js";
 import { publicRollModeOption } from "../helpers/foundry-compat.js";
@@ -473,6 +474,10 @@ export async function applySkillEffects(sourceActor, skill, mech, label, targetA
   const [{ summary, applied }] = await applyEffectsToTargets(skill, effective, label, [targetActor], subSkillIndex, choices);
   // Sem Mestre para aplicar num alvo alheio: o aviso já saiu, e não se anuncia o que não aconteceu.
   if (!applied) return false;
+  // Empurrar/Puxar (J1): quem usou pede ao Mestre; o que aconteceu entra no mesmo card.
+  const push = await runSkillPushes({ sourceActor, item: skill, mech: effective, label, subSkillIndex, targets: [targetActor], origin: pushOriginFor(sourceActor, effective) });
+  summary.push(...push.lines);
+  summary.xp = [...(summary.xp ?? []), ...Array.from({ length: Math.min(push.moved, 5) }, () => ({ flat: true }))];
   await grantSkillUseXp(skill, summary.xp);
 
   await ChatMessage.create({
@@ -562,6 +567,12 @@ export async function applySkillEffectsArea(sourceActor, skill, mech, label, tar
   for (const { actor: targetActor, summary } of results) {
     xp.push(...(summary.xp ?? []));
     rows.push(`<li><strong>${escapeHtml(targetActor.name)}</strong>: ${summary.map(escapeHtml).join(", ")}</li>`);
+  }
+  // Empurrar/Puxar (J1): cada alvo é empurrado a partir do centro da área (puxar = em direção a ele).
+  if (live.length) {
+    const push = await runSkillPushes({ sourceActor, item: skill, mech, label, subSkillIndex, targets: live, origin: pushOriginFor(sourceActor, mech, targetActors.origin ?? null) });
+    for (const line of push.lines) rows.push(`<li>${escapeHtml(line)}</li>`);
+    xp.push(...Array.from({ length: Math.min(push.moved, 5) }, () => ({ flat: true })));
   }
   if (dispelsStructures) {
     const lines = await dispelStructuresInArea(skill, subSkillIndex, area);

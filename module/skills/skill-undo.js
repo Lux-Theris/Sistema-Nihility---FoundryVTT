@@ -22,6 +22,7 @@ import {
   UNDO_VITAL_PATHS,
   UNDO_ITEM_PATHS,
   UNDO_FLAG_KEYS,
+  diffPositions,
   diffFields,
   fieldPairs,
   revertFields,
@@ -64,6 +65,12 @@ function vitalFields(actor, kind) {
   return out;
 }
 
+/** x, y e elevação dos Tokens do Ator na cena aberta (o empurrão e a queda mexem nisto). */
+function tokenPositions(actor) {
+  const docs = actor.isToken ? [actor.token] : actor.getActiveTokens?.(false, true) ?? [];
+  return docs.filter(Boolean).map(doc => ({ uuid: doc.uuid, x: doc._source?.x ?? doc.x, y: doc._source?.y ?? doc.y, elevation: doc._source?.elevation ?? doc.elevation ?? 0 }));
+}
+
 function snapshotActor(actor) {
   const kind = isShipLike(actor) ? "ship" : "character";
   const items = {};
@@ -72,6 +79,7 @@ function snapshotActor(actor) {
   for (const key of UNDO_FLAG_KEYS) flags[key] = foundry.utils.deepClone(actor.getFlag(SYSTEM_ID, key) ?? null);
   return {
     kind,
+    positions: tokenPositions(actor),
     vitals: vitalFields(actor, kind),
     pools: kind === "character" ? foundry.utils.deepClone(foundry.utils.getProperty(actor._source, POOLS_PATH) ?? []) : null,
     effects: actor.effects.map(e => e.toObject()),
@@ -94,6 +102,7 @@ function actorEntry(actor, before, after, isSource) {
     name: actorDisplayName(actor),
     kind: before.kind,
     isSource,
+    positions: diffPositions(before.positions, after.positions),
     energyLabel: getEnergyLabelForActor(actor),
     vitals: fieldPairs(diffFields(before.vitals, after.vitals)),
     pools: samePools ? null : { before: before.pools ?? [], after: after.pools ?? [] },
@@ -291,6 +300,15 @@ async function revertActor(entry) {
   if (changed.length) await actor.updateEmbeddedDocuments("ActiveEffect", changed, { ...options(), recursive: false });
   const deleted = (entry.effects?.deleted ?? []).filter(e => !actor.effects.has(e._id));
   if (deleted.length) await actor.createEmbeddedDocuments("ActiveEffect", deleted, { ...options(), keepId: true, nihilityConfigured: true });
+
+  // Empurrão/queda: o Token volta ao lugar de antes (sem gastar Deslocamento nem parar em parede).
+  if ((entry.positions ?? []).length) {
+    const { moveTokenForced } = await import("../combat/forced-movement.js");
+    for (const p of entry.positions) {
+      const tokenDoc = await fromUuid(p.uuid);
+      if (tokenDoc?.documentName === "Token") await moveTokenForced(tokenDoc, { x: p.from.x, y: p.from.y, elevation: p.from.elevation });
+    }
+  }
 
   // Itens: Skill que ligou desliga, XP de uso sai, Vida de parte/Módulo volta.
   const itemUpdates = [];

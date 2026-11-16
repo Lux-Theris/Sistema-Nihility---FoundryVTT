@@ -123,6 +123,8 @@ export function registerMovementLimit() {
     /** @override */
     constrainMovementPath(waypoints, options) {
       const result = super.constrainMovementPath(waypoints, options);
+      // Empurrão, queda e Desfazer uso (forced-movement.js): não gastam nem são cortados pelo Deslocamento.
+      if (options?.nihilityForced) return result;
       try {
         const budget = budgetFor(this.document);
         return budget ? truncateToBudget(this, result, budget.remaining) : result;
@@ -154,7 +156,8 @@ export function registerMovementLimit() {
 
   // Rede de segurança: movimento que não passou pelo corte acima (ex.: chamada direta de
   // `TokenDocument#move`) é cancelado inteiro se estourar o orçamento.
-  Hooks.on("preMoveToken", (document, movement) => {
+  Hooks.on("preMoveToken", (document, movement, operation) => {
+    if (operation?.nihilityForced) return undefined;
     const budget = budgetFor(document);
     if (!budget) return undefined;
     if (movementCost(movement) > budget.remaining + EPSILON) {
@@ -166,6 +169,7 @@ export function registerMovementLimit() {
 
   // Contabiliza o que foi andado. Roda em todos os clientes, mas só o Mestre designado grava.
   Hooks.on("moveToken", (document, movement, operation, user) => {
+    if (operation?.nihilityForced) return;
     if (!isDesignatedGm() || !limitEnabledFor(document.actor)) return;
     if (user?.isGM && getMovementConfig().gmIgnores) return;
 

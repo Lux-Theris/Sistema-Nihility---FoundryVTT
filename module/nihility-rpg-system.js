@@ -70,6 +70,7 @@ import { registerIncapacitation, tickIncapacitation, isDead } from "./combat/inc
 import { tickContagion } from "./combat/contagion.js";
 import { registerEnvironment, syncTokenEnvironment } from "./environment/environment.js";
 import { registerRadiation, tickRadiation } from "./environment/radiation.js";
+import { registerElevation } from "./combat/elevation.js";
 import { registerEnvironmentSceneMenu } from "./apps/environment-config.js";
 import { registerShieldLightHooks } from "./combat/lights.js";
 import { registerShieldPoolReconcile } from "./combat/shield-pools.js";
@@ -213,6 +214,8 @@ Hooks.once("init", () => {
   registerEnvironment();
   registerEnvironmentSceneMenu();
   registerRadiation();
+  // Voo, altura e escavação (J4): botões ↑/↓ no Token HUD, queda, aviso de elevação à mão.
+  registerElevation();
 
   // Partials reaproveitados entre templates (hoje só a Habilidade Concedida, usada 3x na ficha
   // de Item). Precisa estar registrado antes da primeira ficha abrir.

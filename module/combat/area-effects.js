@@ -17,14 +17,32 @@
  */
 
 import { currentSkillUseId } from "../skills/skill-use-context.js";
-import { SYSTEM_ID } from "../core/config.js";
+import { SYSTEM_ID, actorToken, isElevationEnabled } from "../core/config.js";
 import { runAsGm } from "../helpers/gm-relay.js";
 import { relayFailureMessage } from "../helpers/gm-relay-rules.js";
 import { foundryGeneration } from "../helpers/foundry-compat.js";
-import { areaFromSkill, areaContains, areaPolygon, normalizeArea, tokenDocCenter, areaFromTemplateData, areaAffectsTarget } from "./area-geometry.js";
+import { areaFromSkill, areaContains, areaContains3d, areaPolygon, normalizeArea, tokenDocCenter, areaFromTemplateData, areaAffectsTarget } from "./area-geometry.js";
 import { clampToRange, filterByReach, markCostFactor, pointDistance } from "./range-rules.js";
 import { pointReach, viaMarkFrom, casterTokenOf } from "./range.js";
 import { isDead } from "./incapacitation.js";
+import { tokenElevation } from "./elevation.js";
+
+/**
+ * O ponto está dentro da área? Com o recurso Voo, altura e escavação ligado, a altura também conta
+ * (círculo = esfera; cone e linha, a distância 3D ao vértice; debaixo da terra, ninguém de cima chega).
+ */
+function insideArea(area, point, elevation, pxPerUnit) {
+  return isElevationEnabled() ? areaContains3d(area, point, elevation, pxPerUnit) : areaContains(area, point);
+}
+
+/** Elevação do Token do Ator de um uuid (a Marca usada), ou 0. */
+function elevationOfActorUuid(uuid) {
+  try {
+    return tokenElevation(actorToken(fromUuidSync(uuid)));
+  } catch (err) {
+    return 0;
+  }
+}
 
 /** Precisa só de uma cena aberta no canvas — nada específico de versão. */
 export function areaEffectsSupported() {
@@ -72,7 +90,7 @@ function localPoint(event) {
  *    que caia dentro do círculo de alcance de uma Marca (então é "pela Marca"). Os círculos aparecem
  *    fracos no mapa.
  */
-async function placeArea(mech, reach = null) {
+async function placeArea(mech, reach = null, { caster = null } = {}) {
   if (!areaEffectsSupported()) {
     throw new Error("Skills de área precisam de uma cena aberta no canvas.");
   }
@@ -108,7 +126,10 @@ async function placeArea(mech, reach = null) {
     return { x: clamped.x, y: clamped.y };
   };
   if (reach && !held) origin = constrain(origin);
-  const current = () => areaFromSkill(mech, origin, { ...scale, direction });
+  // O centro da área fica na altura de quem lança (ou do Marcado, se a forma sai dele); sem Token, 0.
+  const casterElevation = isElevationEnabled() && caster ? tokenElevation(actorToken(caster, canvas.tokens?.controlled ?? [])) : 0;
+  const currentElevation = () => (!isElevationEnabled() ? 0 : via ? elevationOfActorUuid(via.uuid) : casterElevation);
+  const current = () => areaFromSkill(mech, origin, { ...scale, direction, elevation: currentElevation() });
 
   const graphics = new PIXI.Graphics();
   canvas.controls.addChild(graphics);
@@ -204,12 +225,13 @@ async function placeArea(mech, reach = null) {
  * @returns {Promise<Actor[]>}
  */
 export async function pickAreaTargets(skill, reach = null, { caster = null } = {}) {
-  const placed = await placeArea(skill.system, reach);
+  const placed = await placeArea(skill.system, reach, { caster });
   const area = placed?.area;
   if (!area) return [];
 
   // Cone/linha livres: quem está além do alcance (de quem lança, ou da Marca usada) não sofre.
-  const inside = canvas.tokens.placeables.filter(token => areaContains(area, token.center));
+  const { pxPerUnit } = sceneScale(canvas.scene);
+  const inside = canvas.tokens.placeables.filter(token => insideArea(area, token.center, tokenElevation(token), pxPerUnit));
   const limited =
     reach && reach.free && reach.rangePx > 0 && (skill.system.areaShape === "cone" || skill.system.areaShape === "ray")
       ? filterByReach(inside, placed.via?.point ?? reach.anchor, reach.rangePx, token => token.center)
@@ -243,8 +265,8 @@ export async function pickAreaTargets(skill, reach = null, { caster = null } = {
  * Posiciona uma Zona (mesma interação da Emissão) e devolve a área — pronta para `createZone` —
  * ou null se o usuário cancelou. Nada é criado aqui.
  */
-export async function pickZonePlacement(skill, reach = null) {
-  const placed = await placeArea(skill.system, reach);
+export async function pickZonePlacement(skill, reach = null, { caster = null } = {}) {
+  const placed = await placeArea(skill.system, reach, { caster });
   return placed?.area ? { area: placed.area, color: userColorCss(), viaMark: viaMarkFrom(placed.via, reach) } : null;
 }
 
@@ -317,5 +339,5 @@ export function zoneArea(zoneDoc) {
 export function zoneContainsToken(zoneDoc, tokenDoc) {
   const area = zoneArea(zoneDoc);
   if (!area || !tokenDoc) return false;
-  return areaContains(area, tokenDocCenter(tokenDoc, zoneDoc.parent?.grid?.size));
+  return insideArea(area, tokenDocCenter(tokenDoc, zoneDoc.parent?.grid?.size), Number(tokenDoc.elevation) || 0, sceneScale(zoneDoc.parent).pxPerUnit);
 }

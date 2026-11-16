@@ -511,6 +511,7 @@ export const DEFAULT_BODY_FUNCTIONS = [
   { id: "manipulacao", label: "manipulação", count: "perPart", effect: { kind: "condition", conditionId: "maimed" } },
   { id: "locomocao", label: "locomoção", count: "proportional", woundedByHp: true, effect: { kind: "movement", crawlMeters: 1, crawlFunction: "manipulacao" } },
   { id: "voo", label: "voo", count: "perPart", effect: { kind: "removeTrait", traitId: "flying" } },
+  { id: "escavar", label: "escavar", count: "perPart", effect: { kind: "removeTrait", traitId: "burrowing" } },
   { id: "equilibrio", label: "equilíbrio", count: "once", effect: { kind: "condition", conditionId: "unbalanced" } }
 ];
 
@@ -524,6 +525,7 @@ export const DEFAULT_TRAITS = [
   { id: "mechanical", label: "Mecânico" },
   { id: "draconic", label: "Dracônico" },
   { id: "flying", label: "Voador" },
+  { id: "burrowing", label: "Escavador" },
   { id: "wingless", label: "Sem Asas" },
   { id: "undead", label: "Morto-vivo" },
   { id: "beast", label: "Besta" }

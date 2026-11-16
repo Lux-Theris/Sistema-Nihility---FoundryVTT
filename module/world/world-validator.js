@@ -96,6 +96,8 @@ export function checkMechanic(mech, idx, prefix = "") {
     checkRef(issues, idx, at(where, "Condição"), "conditions", entry?.conditionId);
     checkRef(issues, idx, at(where, "Elemento"), "elements", entry?.elementId);
     checkRefs(issues, idx, at(where, "Elementos"), "elements", entry?.damageElements);
+    // Empurrar/Puxar: os Traços que não saem do lugar.
+    checkRefs(issues, idx, at(where, "Traços imunes"), "traits", entry?.immuneTraits);
   });
   checkRefs(issues, idx, at(prefix, "Elementos de dano"), "elements", mech.damageElements);
   if (mech.effectType === "structure" || mech.targetType === "structure" || mech.structureId) {

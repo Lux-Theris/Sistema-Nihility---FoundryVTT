@@ -214,6 +214,16 @@ const HANDLERS = {
     await damageStructure(scene, instanceId, value, { broken: broken === true });
   },
 
+  /**
+   * Empurrar/Puxar (J1): o Mestre move os Tokens. Quem pede tem de ser dono da Skill/arma de origem; o
+   * resto (metros, direção, Traços) é refeito da ficha do lado do Mestre (ver forcedMoveAsGm).
+   */
+  async forcedMove(payload, user) {
+    if (!(await mayActFor(user, payload?.sourceUuid))) return refuse(RELAY_REASONS.permission);
+    const { forcedMoveAsGm } = await import("../combat/forced-movement.js");
+    return forcedMoveAsGm(payload ?? {});
+  },
+
   /** "Regenerar agora" da janela de Efeitos: os Escudos mantidos deste Ator (escreve nos alvos). */
   async regenerateSustainedShields(payload, user) {
     const actor = await ownedDoc(payload?.actorUuid, user);

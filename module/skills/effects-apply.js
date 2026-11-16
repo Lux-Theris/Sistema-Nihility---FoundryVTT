@@ -24,6 +24,9 @@ import { applyCurse } from "./curses.js";
 import { effectMeasuresFor, vitalBase, grantSkillUseXp } from "./skill-xp.js";
 import { resolveEffectAmount } from "../economy/consumable-rules.js";
 
+/** Nome curto dos efeitos de movimento (J4), para o Active Effect e o resumo. */
+const MOVEMENT_MODE_NAMES = { flight: "Voando", burrow: "Escavando" };
+
 /** Tiers cuja Regeneração também conserta próteses ("a partir da Única"). */
 const PROSTHESIS_REGEN_TIERS = ["unique", "ultimate"];
 
@@ -161,6 +164,9 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
       const max = ["energy", "restoreEnergy"].includes(entry.target) ? targetActor.system?.attributes?.energy?.max : targetActor.system?.attributes?.hp?.max;
       entry = { ...entry, amount: resolveEffectAmount(entry.amount, "percentMax", max), amountMode: "flat" };
     }
+    // Empurrar/Puxar (J1) não é um efeito que fica no alvo: quem usa a Skill (applySkillEffects*) move o
+    // Token pelo Mestre (forced-movement.js). Chegando aqui por outro caminho, nada acontece.
+    if (entry.target === "push") continue;
     if (shielded(entry)) {
       summary.push(`${getEffectTargetLabels()[entry.target] ?? entry.target}: sem efeito (${targetActor.name} está Suprimido)`);
       continue;
@@ -306,6 +312,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
       continue;
     }
     const isMultiplier = change.isMultiplier;
+    if (change.movementMode) xp.push({ flat: true });
 
     const periodic = isPeriodicEntry(entry);
     // Periódico conta a cada tick (tickPeriodicEffect); aqui só a Condição, se houver.
@@ -320,7 +327,9 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
     // varrer o mundo (ver removeUpkeepLinkedEffects). Antes, e não depois: se a anotação faltasse
     // e o efeito existisse, ele ficaria ancorado para sempre.
     if (tiedToActive) await rememberAnchoredTarget(originSkill?.parent, anchor, targetActor.uuid);
-    const existing = findStackableEffect(targetActor, entry.conditionId, periodic, entry.damageElements);
+    // Voando/Escavando: um só efeito de cada por Ator — reaplicar renova (e soma a âncora), não duplica.
+    const existing = findStackableEffect(targetActor, entry.conditionId, periodic, entry.damageElements)
+      ?? (change.movementMode ? targetActor.effects.find(e => e.flags?.[SYSTEM_ID]?.movementMode === change.movementMode) ?? null : null);
 
     if (existing) {
       const existingFlags = existing.flags[SYSTEM_ID];
@@ -431,7 +440,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
 
     await createActiveEffects(targetActor, [
       {
-        name: condition?.label ?? (change.bodyElement ? `${label}: ${getDamageElement(change.bodyElement)?.label ?? change.bodyElement}` : `${label}: ${targetLabel} ${sign}${entry.amount}`),
+        name: condition?.label ?? (change.movementMode ? `${label}: ${MOVEMENT_MODE_NAMES[change.movementMode]}` : change.bodyElement ? `${label}: ${getDamageElement(change.bodyElement)?.label ?? change.bodyElement}` : `${label}: ${targetLabel} ${sign}${entry.amount}`),
         img: entry.icon || condition?.icon || origin.img || "icons/svg/aura.svg",
         origin: origin.uuid ?? undefined,
         statuses: entry.conditionId ? [entry.conditionId] : [],
@@ -447,6 +456,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
             sourceSkillId: origin.id,
             sourceSubSkillIndex: subSkillIndex,
             bodyElement: change.bodyElement ?? "",
+            movementMode: change.movementMode ?? "",
             sourceLevel,
             magic: sourceMagic,
             tech: sourceTech,
@@ -457,7 +467,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
     ]);
     const valueText =
       ["weaponElement", "bodyElement"].includes(entry.target) ? `→ ${getDamageElement(entry.elementId)?.label ?? entry.elementId}`
-      : ["weaponMagic", "weaponAbsolute"].includes(entry.target) ? ""
+      : ["weaponMagic", "weaponAbsolute"].includes(entry.target) || change.movementMode ? ""
       : isMultiplier ? `×${(1 + entry.amount / 100).toFixed(2)}`
       : `${sign}${entry.amount}${SHIP_PERCENT_PATHS[entry.target] || entry.target === "movement" ? "%" : ""}`;
     // Só a Condição (valor 0): o texto é o nome dela, sem "Destreza +0".

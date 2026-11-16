@@ -515,6 +515,11 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
 export async function useWeaponAttack(sourceActor, weaponItem, targetActor = null, rollOptions = null) {
   const weapon = weaponItem?.system?.weapon;
   if (!weapon?.enabled) return null;
+  // Arma de gravidade (J1): empurra e puxa em vez de rolar dano.
+  if (weapon.mode === "gravity") {
+    const { useGravityWeapon } = await import("./forced-movement.js");
+    return useGravityWeapon(sourceActor, weaponItem, targetActor);
+  }
   if (!weapon.damageFormula?.trim()) {
     ui.notifications?.warn(`${weaponItem.name} não tem uma Fórmula de Dano configurada.`);
     return null;

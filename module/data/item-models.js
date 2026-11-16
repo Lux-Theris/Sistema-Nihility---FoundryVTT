@@ -249,7 +249,14 @@ function effectEntrySchema() {
      * Só quando a Condição é uma Maldição: o que fazer quando a vítima não tem Mana para pagar,
      * só para esta Skill ("" = o que a Maldição do catálogo diz). Ver curse-rules.js.
      */
-    curseOnUnpaid: new fields.StringField({ required: false, initial: "", blank: true })
+    curseOnUnpaid: new fields.StringField({ required: false, initial: "", blank: true }),
+    /**
+     * Só no alvo "push" (Empurrar/Puxar, J1): `amount` são METROS; "push" afasta de quem usou (ou do
+     * centro da área), "pull" aproxima, "choose" pergunta ao usar. `immuneTraits`: Traços (ids) de
+     * quem não sai do lugar. Ver forced-movement-rules.js.
+     */
+    pushDirection: new fields.StringField({ required: false, initial: "push", blank: true, choices: ["push", "pull", "choose"] }),
+    immuneTraits: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] })
   });
 }
 
@@ -950,6 +957,12 @@ export class GenericItemDataModel extends foundry.abstract.TypeDataModel {
         magazineSize: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
         /** Alcance em metros (H4); 0 = sem limite. */
         range: new fields.NumberField({ required: false, initial: 0, min: 0 }),
+        /**
+         * Modo da arma (J1): "damage" (padrão) rola dano; "gravity" é uma arma dedicada a empurrar e
+         * puxar (cada disparo pergunta qual) por `pushMeters` metros, sem rolar dano.
+         */
+        mode: new fields.StringField({ required: false, initial: "damage", blank: true, choices: ["damage", "gravity"] }),
+        pushMeters: new fields.NumberField({ required: false, initial: 0, min: 0 }),
         loaded: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
         ammoTypes: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
         loadedAmmo: new fields.ObjectField({ required: false, nullable: true, initial: null })

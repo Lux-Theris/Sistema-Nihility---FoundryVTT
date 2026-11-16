@@ -31,10 +31,13 @@
               </select>
               {{else if eff.isMark}}
               <span class="effect-note" title="Quem usa a Skill passa a poder lançar Skills a partir do alvo, pagando mais quanto mais longe estiver (custo × (distância ÷ alcance)²). A Antimagia desfaz a Marca.">Marca de quem usa</span>
+              {{else if eff.isMovementMode}}
+              <span class="effect-note">{{eff.movementModeNote}}</span>
               {{else if eff.isAntimagic}}
               <span class="effect-note" title="Alcança até o nível desta Skill × o alcance das Regras da Mesa (padrão 1,5).">alcança nível {{eff.antimagicReach}}</span>
               {{else}}
-              <input class="num skill-effect-input" type="number" data-effect-field="amount" value="{{eff.amount}}" aria-label="Quantidade"/>
+              <input class="num skill-effect-input" type="number" data-effect-field="amount" value="{{eff.amount}}" aria-label="{{#if eff.isPush}}Metros{{else}}Quantidade{{/if}}" {{#if eff.isPush}}min="0" title="Metros que o alvo anda"{{/if}}/>
+              {{#if eff.isPush}}<span class="effect-note">m</span>{{/if}}
               {{#if eff.acceptsPercent}}
               <select class="skill-effect-input effect-amount-mode" data-effect-field="amountMode" aria-label="Pontos ou % do máximo" title="% do máximo: do alvo (Vida máxima para Vida e Escudo, Mana máxima para Mana). Vale igual em qualquer nível.">
                 <option value="flat" {{#unless eff.isPercent}}selected{{/unless}}>pts</option>
@@ -63,6 +66,16 @@
               </select>
               {{/if}}
               {{/if}}
+              {{#if eff.isPush}}
+              <div class="fld-row span-all">
+                <span class="fld-label">Direção <span class="help" title="Empurrar afasta de quem usou (ou do centro da área); puxar aproxima, sem passar dele. Escolher ao usar pergunta a cada uso. Quem vence o teste de Defesa anda só metade.">?</span></span>
+                <div class="seg compact" role="radiogroup" aria-label="Direção">
+                  {{#each eff.pushDirectionOptions as |opt|}}
+                  <label class="seg-opt {{#if opt.selected}}on{{/if}}"><input type="radio" class="skill-effect-input" data-effect-field="pushDirection" value="{{opt.value}}" {{#if opt.selected}}checked{{/if}}/>{{opt.label}}</label>
+                  {{/each}}
+                </div>
+              </div>
+              {{/if}}
               {{#if eff.isShipTarget}}
               <div class="fld-row span-all">
                 <span class="fld-label">Modo</span>
@@ -82,6 +95,19 @@
               <div class="adv-body effect-card-extra">
                 {{#if eff.periodic}}
                 <div class="fld span-all"><span class="fld-label">Elemento do tick <span class="help" title="Ignorado se o tick for cura.">?</span></span>{{> nihility.elementChips field=eff.elementField path=eff.elementPath editable=../editable}}</div>
+                {{/if}}
+                {{#if eff.isPush}}
+                <div class="fld span-all"><span class="fld-label">Elemento do empurrão <span class="help" title="Cada Resistência do elemento do alvo reduz os metros. Vazio = só a Defesa Mágica (se for mágica).">?</span></span>{{> nihility.elementChips field=eff.elementField path=eff.elementPath editable=../editable}}</div>
+                <div class="fld span-all"><span class="fld-label">Traços que não saem do lugar <span class="help" title="Quem tem algum destes Traços não é movido (um colosso, uma estátua).">?</span></span>
+                  <div class="element-field">
+                    {{#each eff.traitField.chips as |t|}}
+                    <span class="element-chip checked">{{t.label}}{{#if ../../editable}}<a class="element-chip-remove" data-action="removeEffectTrait" data-trait="{{t.id}}" title="Tirar {{t.label}}" aria-label="Tirar {{t.label}}"><i class="fas fa-times"></i></a>{{/if}}</span>
+                    {{else}}
+                    <span class="element-field-empty">nenhum</span>
+                    {{/each}}
+                    {{#if ../editable}}<button type="button" class="element-field-add" data-action="pickEffectTraits">+ Traço · {{eff.traitField.total}}</button>{{/if}}
+                  </div>
+                </div>
                 {{/if}}
                 {{#if eff.isHeal}}
                 <div class="fld-row span-all">

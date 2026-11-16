@@ -16,6 +16,11 @@
 
 export const AREA_SHAPES = ["circle", "cone", "ray"];
 
+/** Limite (m) da elevação guardada numa área — o relay valida o payload de um cliente. */
+const MAX_AREA_ELEVATION = 10000;
+
+import { areaReaches3d } from "./forced-movement-rules.js";
+
 const EPSILON = 1e-6;
 
 const toRad = deg => (deg * Math.PI) / 180;
@@ -30,9 +35,10 @@ function angleGap(a, b) {
  * Monta a área a partir dos campos da Skill (`areaShape`/`areaDistance`/`areaAngle`).
  * @param {{areaShape:string, areaDistance:number, areaAngle?:number}} mech
  * @param {{x:number, y:number}} origin - ponto em pixels
- * @param {{pxPerUnit:number, cellPx:number, direction?:number}} grid - px por metro (unidade da cena) e tamanho da célula
+ * @param {{pxPerUnit:number, cellPx:number, direction?:number, elevation?:number}} grid - px por metro (unidade da cena),
+ *   tamanho da célula e a elevação (m) do centro da área (J4: círculo = esfera)
  */
-export function areaFromSkill(mech, origin, { pxPerUnit, cellPx, direction = 0 }) {
+export function areaFromSkill(mech, origin, { pxPerUnit, cellPx, direction = 0, elevation = 0 }) {
   const shape = mech?.areaShape;
   if (!AREA_SHAPES.includes(shape)) throw new Error(`Formato de Área inválido: "${shape}".`);
   return normalizeArea({
@@ -42,7 +48,8 @@ export function areaFromSkill(mech, origin, { pxPerUnit, cellPx, direction = 0 }
     radius: (Number(mech.areaDistance) || 0) * (Number(pxPerUnit) || 1),
     angle: shape === "cone" ? Number(mech.areaAngle) || 53 : 0,
     direction,
-    width: shape === "ray" ? Number(cellPx) || 100 : 0
+    width: shape === "ray" ? Number(cellPx) || 100 : 0,
+    elevation
   });
 }
 
@@ -64,8 +71,33 @@ export function normalizeArea(area) {
     radius: num(area.radius, 0, 1e6),
     angle: area.shape === "cone" ? num(area.angle, 1, 360, 53) : 0,
     direction,
-    width: area.shape === "ray" ? num(area.width, 1, 1e5, 100) : 0
+    width: area.shape === "ray" ? num(area.width, 1, 1e5, 100) : 0,
+    // Elevação do centro (J4), em unidades da cena; ausente = 0 (áreas de antes não mudam).
+    elevation: num(area.elevation, -MAX_AREA_ELEVATION, MAX_AREA_ELEVATION)
   };
+}
+
+/**
+ * A área alcança um alvo em outra elevação? Já dentro no PLANO (`areaContains`), confere a distância
+ * 3D: círculo = esfera (distância ao centro ≤ raio); cone e linha, a distância 3D até o vértice ≤
+ * comprimento. Quem está debaixo da terra (elevação < 0) não é alcançado por uma área na superfície
+ * ou no ar. `pxPerUnit` converte o plano (pixels) em metros.
+ * @param {object} area
+ * @param {{x:number,y:number}} point - centro do alvo, em pixels
+ * @param {number} targetElevation - elevação do alvo, em metros
+ * @param {number} pxPerUnit
+ */
+export function areaContains3d(area, point, targetElevation = 0, pxPerUnit = 1) {
+  if (!areaContains(area, point)) return false;
+  const scale = Number(pxPerUnit) > 0 ? Number(pxPerUnit) : 1;
+  const planarUnits = Math.hypot(point.x - area.x, point.y - area.y) / scale;
+  return areaReaches3d({
+    shape: area.shape,
+    radiusUnits: area.radius / scale,
+    planarUnits,
+    areaElevation: Number(area.elevation) || 0,
+    targetElevation: Number(targetElevation) || 0
+  });
 }
 
 /**

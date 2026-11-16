@@ -1487,7 +1487,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     }
 
     try {
-      if (!weapon.system.weapon.damageFormula?.trim()) {
+      // Arma de gravidade (J1) não rola dano: não precisa de fórmula.
+      if (weapon.system.weapon.mode !== "gravity" && !weapon.system.weapon.damageFormula?.trim()) {
         ui.notifications.warn(`${weapon.name} não tem uma Fórmula de Dano configurada.`);
         return;
       }

@@ -29,6 +29,8 @@ export const COST_WEIGHTS = {
   condition: 4,
   toggle: 4,
   antimagic: 8,
+  pushPerMeter: 0.8,
+  movementMode: 5,
   structureHpPerPoint: 5,
   upkeepShare: 0.25,
   percentTarget: 0.1
@@ -117,6 +119,13 @@ export function suggestSkillCost(mech, ctx = {}) {
       if (target === "antimagic" || target === "emp" || target === "mark") {
         p = w.antimagic;
         text = target === "emp" ? "PEM" : target === "mark" ? "Marca" : "Antimagia";
+      } else if (target === "push") {
+        p = Math.max(0, Number(e?.amount) || 0) * w.pushPerMeter;
+        text = `Empurrar/Puxar ${raw} m`;
+      } else if (target === "flight" || target === "burrow") {
+        const rounds = active ? w.activeTicks : Math.max(1, Math.min(w.maxRounds, Number(e?.durationRounds) || w.foreverRounds));
+        p = w.movementMode + rounds * 0.5;
+        text = `${name} por ${active ? "rodada ativa" : `${rounds} rodada(s)`}`;
       } else if (["weaponElement", "bodyElement", "weaponMagic", "weaponAbsolute"].includes(target)) {
         p = w.toggle;
         text = name;

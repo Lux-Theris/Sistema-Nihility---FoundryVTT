@@ -103,11 +103,30 @@ export function diffEffects(before = [], after = []) {
   return { created, deleted, changed };
 }
 
+const samePlace = (a, b) => (Number(a?.x) || 0) === (Number(b?.x) || 0) && (Number(a?.y) || 0) === (Number(b?.y) || 0) && (Number(a?.elevation) || 0) === (Number(b?.elevation) || 0);
+
+/**
+ * Posições dos Tokens de um Ator antes × depois (empurrão, queda…): `[{uuid, from, to}]` só dos que
+ * saíram do lugar (x, y ou elevação). Token que sumiu no meio do uso não conta.
+ * @param {Array<{uuid:string, x:number, y:number, elevation:number}>} before
+ * @param {Array<{uuid:string, x:number, y:number, elevation:number}>} after
+ */
+export function diffPositions(before = [], after = []) {
+  const afterBy = new Map((after ?? []).map(p => [p.uuid, p]));
+  const out = [];
+  for (const b of before ?? []) {
+    const a = afterBy.get(b.uuid);
+    if (!a || samePlace(a, b)) continue;
+    out.push({ uuid: b.uuid, from: { x: b.x, y: b.y, elevation: b.elevation ?? 0 }, to: { x: a.x, y: a.y, elevation: a.elevation ?? 0 } });
+  }
+  return out;
+}
+
 /** O registro de um Ator tem alguma coisa a desfazer? */
 export function actorEntryHasChanges(entry) {
   if (!entry) return false;
   const e = entry.effects ?? {};
-  return Boolean(
+  return Boolean((entry.positions ?? []).length ||
     fieldPairs(entry.vitals).length ||
       entry.pools ||
       (e.created?.length ?? 0) + (e.deleted?.length ?? 0) + (e.changed?.length ?? 0) ||
@@ -193,6 +212,8 @@ export function undoPreviewRows(record, { damage = [], skillLabel = "" } = {}) {
       const rest = Object.keys(changes).filter(k => !["system.xp", "system.active", "subSkillsActive", "system.cooldownRemaining", "subSkillsCooldown"].includes(k));
       if (rest.length) rows.push({ tag: "volta", tone: "effect", text: `${item.name} de ${actor.name} volta como estava` });
     }
+    // Empurrão/queda: o Token volta ao lugar de antes.
+    if ((actor.positions ?? []).length) rows.push({ tag: "volta", tone: "effect", text: `${actor.name} volta ao lugar de antes (empurrão)` });
     const flags = asFields(actor.flags);
     if (flags.sustainedShields) rows.push({ tag: "volta", tone: "effect", text: `Escudo mantido de ${actor.name}` });
     if (flags.preparing) rows.push({ tag: "volta", tone: "effect", text: `Preparo de ${actor.name}` });

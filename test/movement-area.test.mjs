@@ -225,7 +225,7 @@ test("Área de Skill: círculo, cone e linha decidem quem está dentro sem Measu
 test("Área de Skill: normalização (payload do relay), polígono, Token e Zona por versão", () => {
   assert.equal(normalizeArea({ shape: "rect" }), null, "forma desconhecida é recusada");
   const wild = normalizeArea({ shape: "cone", x: "abc", y: 5e9, radius: -3, angle: 9999, direction: -90 });
-  assert.deepEqual(wild, { shape: "cone", x: 0, y: 1e6, radius: 0, angle: 360, direction: 270, width: 0 });
+  assert.deepEqual(wild, { shape: "cone", x: 0, y: 1e6, radius: 0, angle: 360, direction: 270, width: 0, elevation: 0 });
 
   const ray = normalizeArea({ shape: "ray", x: 0, y: 0, radius: 300, direction: 0, width: 100 });
   assert.deepEqual(areaPolygon(ray), [0, 50, 300, 50, 300, -50, 0, -50]);
@@ -240,7 +240,7 @@ test("Área de Skill: normalização (payload do relay), polígono, Token e Zona
 
   // Zona salva na V13 antes desta versão (template em metros) volta para pixels.
   const legacy = areaFromTemplateData({ t: "ray", x: 0, y: 0, distance: 8, direction: 0, width: 2 }, 50);
-  assert.deepEqual(legacy, { shape: "ray", x: 0, y: 0, radius: 400, angle: 0, direction: 0, width: 100 });
+  assert.deepEqual(legacy, { shape: "ray", x: 0, y: 0, radius: 400, angle: 0, direction: 0, width: 100, elevation: 0 });
   assert.equal(areaFromTemplateData({ t: "rect" }, 50), null);
 
   const flags = { x: 1 };

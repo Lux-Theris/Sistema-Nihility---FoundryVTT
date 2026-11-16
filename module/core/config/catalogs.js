@@ -756,10 +756,14 @@ export function getEffectTargetGroups(current) {
   const labels = getEffectTargetLabels();
   const visible = new Set(getVisibleAttributes().map(a => a.key));
   const emp = isFeatureEnabled("interference");
+  const push = isFeatureEnabled("forcedMovement");
+  const elevation = isFeatureEnabled("elevation");
   return MEU_SISTEMA.EFFECT_TARGET_GROUPS.map(group => ({
     label: group.label,
     options: group.targets
       .filter(t => t !== "emp" || emp || t === current)
+      .filter(t => t !== "push" || push || t === current)
+      .filter(t => !["flight", "burrow"].includes(t) || elevation || t === current)
       .filter(t => !MEU_SISTEMA.COMBAT_ATTRIBUTES.includes(t) || visible.has(t) || t === current)
       .map(t => ({ value: t, label: labels[t] ?? t, selected: t === current }))
   })).filter(group => group.options.length);

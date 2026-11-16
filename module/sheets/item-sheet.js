@@ -17,6 +17,7 @@ import { getAntimagicReach,
   isStatusConditionsEnabled,
   isAreaEffectsEnabled,
   isSkillRangeEnabled,
+  isForcedMovementEnabled,
   getScaleConfig,
   isScaleEnabled,
   getActiveTraits,
@@ -58,7 +59,7 @@ import { createGrantedSkill, removeGrantedSkill, refreshGrantedSkill, evolveSkil
 import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
 import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } from "../combat/resistance.js";
 import { openSkillEditorDialog, mechanicSummaryFor } from "../apps/skill-editor-dialog.js";
-import { pickDamageElements, selectedElementChips } from "../apps/checklist-picker.js";
+import { pickDamageElements, pickTraits, selectedElementChips, selectedTraitChips } from "../apps/checklist-picker.js";
 import { magazineState } from "../economy/consumable-rules.js";
 import { openLightConfigDialog, describeLight } from "../combat/lights.js";
 import { pickImageFile, filePickerClass } from "../helpers/foundry-compat.js";
@@ -332,6 +333,8 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       addSkillEffect: NihilityItemSheet.#onSkillEffectAdd,
       deleteSkillEffect: NihilityItemSheet.#onSkillEffectDelete,
       pickElements: NihilityItemSheet.#onPickElements,
+      pickEffectTraits: NihilityItemSheet.#onPickEffectTraits,
+      removeEffectTrait: NihilityItemSheet.#onRemoveEffectTrait,
       toggleAmmoType: NihilityItemSheet.#onToggleAmmoType,
       toggleImplantList: NihilityItemSheet.#onToggleImplantList,
       removeElement: NihilityItemSheet.#onRemoveElement,
@@ -658,10 +661,13 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
       let summary;
       if (["weaponElement", "bodyElement"].includes(entry.target)) summary = `${targetLabel} → ${elements.find(el => el.id === entry.elementId)?.label ?? "?"}`;
+      else if (entry.target === "push") summary = `${{ pull: "Puxa", choose: "Empurra ou puxa" }[entry.pushDirection] ?? "Empurra"} ${amount} m`;
+      else if (["flight", "burrow"].includes(entry.target)) summary = targetLabel;
       else if (isShipTarget && entry.modifierType === "multiplier") summary = `${targetLabel} ×${(1 + amount / 100).toFixed(2).replace(".", ",")}`;
       else summary = `${targetLabel} ${signed(amount)}${entry.amountMode === "percentMax" && ["hp", "energy", "shield", "heal", "restoreEnergy"].includes(entry.target) ? "% do máx." : ""}${periodic ? " por tick" : ""}`;
       const extra = [];
-      if (sys.hasUpkeep) extra.push("enquanto ativa");
+      if (entry.target === "push") extra.push("na hora");
+      else if (sys.hasUpkeep) extra.push("enquanto ativa");
       else if (entry.target === "shield") extra.push("até absorver");
       else extra.push(`${entry.durationRounds} ${periodic ? "tick(s)" : "rodada(s)"}`);
       if (condition) extra.push(condition.label);
@@ -682,11 +688,14 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       const isHeal = periodic && entry.target === "hp" && Number(entry.amount) > 0;
       const isShield = entry.target === "shield";
       const hasElements = Boolean(entry.damageElements?.length);
+      const isPush = entry.target === "push";
       // "Avançado ▸" do card (K1): Periódico fica à vista (muda o que a Duração quer dizer);
       // vai para dentro só o que poucos Efeitos usam.
       const advFold = advancedFold(
         [
           periodic ? { label: "Elemento do tick", used: hasElements } : null,
+          isPush ? { label: "Elemento do empurrão", used: hasElements } : null,
+          isPush ? { label: "Traços que não saem do lugar", used: Boolean(entry.immuneTraits?.length) } : null,
           isHeal ? { label: "Tipo de cura", used: Boolean(entry.healKind) && entry.healKind !== "cura" } : null,
           isShield ? { label: "Elemento do escudo", used: hasElements } : null,
           isShield && sys.hasUpkeep ? { label: "Escudo mantido", used: Boolean(Number(entry.shieldRegen) || Number(entry.shieldCap)) } : null,
@@ -701,9 +710,14 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         index,
         amount,
         durationRounds: entry.durationRounds,
-        durationUnit: entry.target === "mark" ? "rod. (0 = até desfeita)" : ["antimagic", "emp"].includes(entry.target) ? "rod. de supressão (0 = até tirar)" : sys.hasUpkeep ? "ativa" : periodic ? "ticks" : "rod.",
+        durationUnit: entry.target === "push" ? "" : ["flight", "burrow"].includes(entry.target) ? (sys.hasUpkeep ? "ativa" : "rod. (0 = até desfeito)") : entry.target === "mark" ? "rod. (0 = até desfeita)" : ["antimagic", "emp"].includes(entry.target) ? "rod. de supressão (0 = até tirar)" : sys.hasUpkeep ? "ativa" : periodic ? "ticks" : "rod.",
         isAntimagic: ["antimagic", "emp"].includes(entry.target),
         isMark: entry.target === "mark",
+        isPush,
+        isMovementMode: ["flight", "burrow"].includes(entry.target),
+        movementModeNote: entry.target === "flight" ? "quem usa pode voar (subir no mapa)" : "quem usa pode cavar (descer abaixo do chão)",
+        pushDirectionOptions: [["push", "Empurrar"], ["pull", "Puxar"], ["choose", "Escolher ao usar"]].map(([value, label]) => ({ value, label, selected: value === (entry.pushDirection || "push") })),
+        traitField: selectedTraitChips(entry.immuneTraits),
         antimagicReach: Math.floor((Number(sys.level) || 0) * getAntimagicReach() + 1e-9),
         icon: entry.icon ?? "",
         summary,
@@ -723,7 +737,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         shieldCap: entry.shieldCap ?? 0,
         lightSummary: describeLight(entry.light),
         lightOn: Boolean(entry.light?.enabled),
-        hasExtras: showCondition || acceptsPeriodic || isShipTarget,
+        hasExtras: showCondition || acceptsPeriodic || isShipTarget || isPush,
         conditionOptions: [{ value: "", label: "— sem Condição —", selected: !entry.conditionId }].concat(
           conditions.map(c => ({ value: c.id, label: c.label, selected: c.id === entry.conditionId }))
         ),
@@ -767,6 +781,10 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.weaponScalingOptions = scalingOptions(weapon.scalingAttribute);
     context.weaponScaleOptions = scaleOptions(weapon.damageScale);
     context.weaponElementField = selectedElementChips(weapon.damageElements);
+    // Modo da arma (J1): Dano ou Gravidade (empurra e puxa). Só se oferece com o recurso ligado (ou se já é de gravidade).
+    context.weaponGravity = weapon.mode === "gravity";
+    context.weaponModeOn = isForcedMovementEnabled() || context.weaponGravity;
+    context.weaponModeSeg = seg([["damage", "Dano"], ["gravity", "Gravidade (empurra e puxa)"]], weapon.mode === "gravity" ? "gravity" : "damage");
     const ammo = this.item.system.ammo ?? {};
     context.ammoElementField = selectedElementChips(ammo.damageElements ?? []);
     context.ammoTypeOptions = [{ id: "", label: "—" }, ...getAmmoTypes()].map(a => ({ id: a.id, label: a.label, selected: a.id === (ammo.type ?? "") }));
@@ -1227,6 +1245,31 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const path = target.dataset.path;
     const picked = await pickDamageElements(this.#readElementList(path));
     if (picked) await this.#writeElementList(path, picked);
+  }
+
+  /** Empurrar/Puxar: Traços (ids) de quem não sai do lugar, guardados no Efeito (`immuneTraits`). */
+  static async #onPickEffectTraits(event, target) {
+    event.preventDefault();
+    if (!this.isEditable) return;
+    const index = Number(target.closest("[data-index]")?.dataset.index);
+    const effects = this.#cloneEffects();
+    const entry = effects[index];
+    if (!entry) return;
+    const picked = await pickTraits(entry.immuneTraits ?? [], { title: "Traços que não saem do lugar" });
+    if (!picked) return;
+    entry.immuneTraits = picked;
+    await this.item.update({ [this.#effectsPath()]: effects });
+  }
+
+  static async #onRemoveEffectTrait(event, target) {
+    event.preventDefault();
+    if (!this.isEditable) return;
+    const index = Number(target.closest("[data-index]")?.dataset.index);
+    const effects = this.#cloneEffects();
+    const entry = effects[index];
+    if (!entry) return;
+    entry.immuneTraits = (entry.immuneTraits ?? []).filter(id => id !== target.dataset.trait);
+    await this.item.update({ [this.#effectsPath()]: effects });
   }
 
   static async #onRemoveElement(event, target) {

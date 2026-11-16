@@ -9,6 +9,7 @@
  * por este diff. O que a ficha criou à mão (sem marca de origem) nunca entra na conta.
  */
 import { MEU_SISTEMA, isStructureMechanic } from "../core/config.js";
+import { normalizeSenses } from "../combat/senses-rules.js";
 
 /* ------------------------------------------------------------------ catálogo */
 
@@ -37,6 +38,15 @@ function ensureKeys(list, labelOf) {
   });
 }
 
+/** Os passivos de uma origem; `senses` (J4b) só aparece quando há algum, e sai normalizado. */
+function normalizePassives(passives) {
+  if (!passives || typeof passives !== "object") return {};
+  if (!Array.isArray(passives.senses)) return passives;
+  const senses = normalizeSenses(passives.senses);
+  const { senses: _drop, ...rest } = passives;
+  return senses.length ? { ...rest, senses } : rest;
+}
+
 /** Uma entrada do catálogo com todos os campos do rework (dados antigos ganham os padrões). */
 export function normalizeSpeciesEntry(entry = {}) {
   return {
@@ -49,7 +59,7 @@ export function normalizeSpeciesEntry(entry = {}) {
     skills: ensureKeys(entry.skills, s => s?.name),
     lineages: Array.isArray(entry.lineages) ? entry.lineages : [],
     evolvesTo: Array.isArray(entry.evolvesTo) ? entry.evolvesTo : [],
-    passives: entry.passives && typeof entry.passives === "object" ? entry.passives : {}
+    passives: normalizePassives(entry.passives)
   };
 }
 

@@ -8,11 +8,12 @@
  * a versão subindo onde partes/Skills mudaram (species-rules.js#bumpSpeciesVersions). Chaves são
  * estrutura: a da Espécie, das partes e das Linhagens travam depois de salvas.
  */
-import { SYSTEM_ID, MEU_SISTEMA, getActiveSpeciesPresets, debugLog, speciesCarry, getActiveAttributes, getActiveDamageElements, getScaleConfig, getActiveTraits, getActiveStatusConditions } from "../core/config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getActiveSpeciesPresets, debugLog, speciesCarry, getActiveAttributes, getActiveDamageElements, getScaleConfig, getActiveTraits, getActiveStatusConditions, isSensesEnabled } from "../core/config.js";
 import { openSkillEditorDialog, mechanicSummaryFor } from "./skill-editor-dialog.js";
 import { wireTraitPickerField, wireElementPickerField, selectedTraitChips, selectedElementChips } from "./checklist-picker.js";
 import { normalizeSpeciesCatalog, bumpSpeciesVersions, speciesSlug } from "../species/species-rules.js";
 import { actorsWithSpecies, syncPreviewFor, openSpeciesSync } from "../species/species.js";
+import { SENSE_TARGETS, SENSE_LABELS } from "../combat/senses-rules.js";
 import { WHEN_KINDS, WHEN_LABELS, THEN_KINDS, THEN_LABELS } from "../combat/conditional-modifiers.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -187,6 +188,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
       regen: { energyPercent: 0, hpPercent: 0, hpKind: "cura", ...(entry.passives.regen ?? {}) },
       energyMod: entry.passives.statModifiers?.energy ?? 0,
       resistances: (entry.passives.resistances ?? []).map((r, i) => ({ ...r, index: i })),
+      senses: (entry.passives.senses ?? []).map((s, i) => ({ ...s, index: i })),
       rules: (entry.passives.conditionalModifiers ?? []).map((r, i) => {
         const whenKind = r.when?.kind || "always";
         const thenKind = r.then?.kind || "attributeFlat";
@@ -235,12 +237,14 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
     context.tabs = this._tabs().map(t => ({
       ...t,
       active: t.id === this.tab,
-      count: { body: entry.parts.length + (this._tabs().some(x => x.id === "skills") ? 0 : entry.skills.length), skills: entry.skills.length, rules: (entry.excludes?.length ?? 0) + (entry.allowedSpecies?.list?.length ?? 0), passives: (entry.passives.attributeBonuses?.length ?? 0) + (entry.passives.resistances?.length ?? 0) + (entry.passives.conditionalModifiers?.length ?? 0), lineages: entry.lineages.length, evolution: entry.evolvesTo.length }[t.id] || ""
+      count: { body: entry.parts.length + (this._tabs().some(x => x.id === "skills") ? 0 : entry.skills.length), skills: entry.skills.length, rules: (entry.excludes?.length ?? 0) + (entry.allowedSpecies?.list?.length ?? 0), passives: (entry.passives.attributeBonuses?.length ?? 0) + (entry.passives.resistances?.length ?? 0) + (entry.passives.senses?.length ?? 0) + (entry.passives.conditionalModifiers?.length ?? 0), lineages: entry.lineages.length, evolution: entry.evolvesTo.length }[t.id] || ""
     }));
     context.tab = this.tab;
     context.attributes = attributes;
     context.elements = elements.map(e => ({ id: e.id, label: e.label }));
     context.resistanceTargets = [{ id: "general", label: "Geral" }, ...context.elements];
+    context.senseModes = SENSE_TARGETS.map(id => ({ id, label: SENSE_LABELS[id] }));
+    context.sensesOn = isSensesEnabled();
     context.scales = getScaleConfig().scales;
     context.groupOptions = Object.entries(MEU_SISTEMA.SPECIES_GROUP_LABELS).map(([key, label]) => ({ key, label }));
     context.otherSpecies = Object.entries(this.catalog).filter(([o]) => o !== id).map(([o, e]) => ({ id: o, label: e.label || o }));
@@ -377,6 +381,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
       part: () => ({ key: "", label: "", slot: "body", hpMax: 10, hpPercent: MEU_SISTEMA.PART_HP_PERCENT_BY_SLOT.default, tags: [] }),
       bonus: () => ({ attribute: "strength", amount: 1 }),
       resistance: () => ({ target: "general", amount: 10 }),
+      sense: () => ({ mode: "senseTremor", range: 0 }),
       rule: () => ({ when: { kind: "always", value: "", threshold: 50 }, then: { kind: "attributeFlat", target: "any", value: 1 }, perEach: "" }),
       lineage: () => {
         let lid = "nova_linhagem";

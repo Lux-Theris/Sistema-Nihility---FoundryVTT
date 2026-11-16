@@ -16,7 +16,7 @@ export const PERIODIC_TARGETS = ["hp", "energy", "shipCasco", "shipHull"];
 const INSTANT_TARGETS = ["heal", "restoreEnergy", "shield", "antimagic", "emp", "mark", "push", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"];
 
 /** Alvos em que o valor não importa (liga/desliga, troca de elemento, Antimagia pelo nível). */
-const VALUELESS_TARGETS = ["weaponElement", "bodyElement", "weaponMagic", "weaponAbsolute", "antimagic", "emp", "mark", "flight", "burrow"];
+const VALUELESS_TARGETS = ["weaponElement", "bodyElement", "weaponMagic", "weaponAbsolute", "antimagic", "emp", "mark", "flight", "burrow", "senseTremor", "senseInvisible", "senseTrue", "senseAll"];
 
 const groupTargets = actor => new Set(MEU_SISTEMA.EFFECT_TARGET_GROUPS.filter(g => g.actor === actor).flatMap(g => g.targets));
 

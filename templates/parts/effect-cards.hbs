@@ -36,8 +36,9 @@
               {{else if eff.isAntimagic}}
               <span class="effect-note" title="Alcança até o nível desta Skill × o alcance das Regras da Mesa (padrão 1,5).">alcança nível {{eff.antimagicReach}}</span>
               {{else}}
-              <input class="num skill-effect-input" type="number" data-effect-field="amount" value="{{eff.amount}}" aria-label="{{#if eff.isPush}}Metros{{else}}Quantidade{{/if}}" {{#if eff.isPush}}min="0" title="Metros que o alvo anda"{{/if}}/>
+              <input class="num skill-effect-input" type="number" data-effect-field="amount" value="{{eff.amount}}" aria-label="{{#if eff.isPush}}Metros{{else if eff.isSense}}Alcance em metros{{else}}Quantidade{{/if}}" {{#if eff.isPush}}min="0" title="Metros que o alvo anda"{{/if}}{{#if eff.isSense}}min="0" title="Alcance do sentido em metros (0 = sem limite). Não cresce com o nível. Só na V14, com a visão ligada no Token."{{/if}}/>
               {{#if eff.isPush}}<span class="effect-note">m</span>{{/if}}
+              {{#if eff.isSense}}<span class="effect-note">m (0 = sem limite)</span>{{/if}}
               {{#if eff.acceptsPercent}}
               <select class="skill-effect-input effect-amount-mode" data-effect-field="amountMode" aria-label="Pontos ou % do máximo" title="% do máximo: do alvo (Vida máxima para Vida e Escudo, Mana máxima para Mana). Vale igual em qualquer nível.">
                 <option value="flat" {{#unless eff.isPercent}}selected{{/unless}}>pts</option>

@@ -10,9 +10,12 @@
  * Recarga e Preparo (H3) não mudam o custo sugerido: o Preparo só PARCELA o mesmo Custo pelos turnos
  * de preparo, e a Recarga limita a frequência (não a força de cada uso).
  *
+ * Um Sentido (J4b: sísmico, ver o invisível…) vale um valor fixo pequeno (`senseFlat`) + um pouco pela duração.
+ *
  * A Mana de quem tem a Skill NÃO entra na sugestão (o mesmo poder sugere o mesmo custo para
  * todos); ela só aparece numa linha à parte (`holderLine`).
  */
+import { isSenseTarget } from "../combat/senses-rules.js";
 
 /** Pesos da conta. Ficam aqui (e não em settings) para a conta ser legível linha a linha. */
 export const COST_WEIGHTS = {
@@ -31,6 +34,8 @@ export const COST_WEIGHTS = {
   antimagic: 8,
   pushPerMeter: 0.8,
   movementMode: 5,
+  // Sentido (J4b): valor fixo por sentido (+ um pouco pela duração); o alcance em metros não pesa.
+  senseFlat: 3,
   structureHpPerPoint: 5,
   upkeepShare: 0.25,
   percentTarget: 0.1
@@ -122,6 +127,11 @@ export function suggestSkillCost(mech, ctx = {}) {
       } else if (target === "push") {
         p = Math.max(0, Number(e?.amount) || 0) * w.pushPerMeter;
         text = `Empurrar/Puxar ${raw} m`;
+      } else if (isSenseTarget(target)) {
+        // Sentido (J4b): um valor fixo pequeno por sentido, mais um pouco pela duração; o alcance não pesa.
+        const rounds = active ? w.activeTicks : Math.max(1, Math.min(w.maxRounds, Number(e?.durationRounds) || w.foreverRounds));
+        p = w.senseFlat + rounds * 0.25;
+        text = `${name} por ${active ? "rodada ativa" : `${rounds} rodada(s)`}`;
       } else if (target === "flight" || target === "burrow") {
         const rounds = active ? w.activeTicks : Math.max(1, Math.min(w.maxRounds, Number(e?.durationRounds) || w.foreverRounds));
         p = w.movementMode + rounds * 0.5;

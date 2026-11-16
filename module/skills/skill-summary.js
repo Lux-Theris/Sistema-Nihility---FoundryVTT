@@ -6,6 +6,7 @@
  * resolvidos (custo efetivo pelo nível, rótulo da energia) chegam em `ctx`, montado com os
  * leitores de config.js por `skillSummariesFor` (skill-summary-ui.js).
  */
+import { isSenseTarget, SENSE_LABELS, describeSenseRange, senseRangeValue } from "../combat/senses-rules.js";
 
 const SHAPE_WORDS = { circle: "círculo", cone: "cone", ray: "linha" };
 
@@ -21,6 +22,11 @@ function describeEffect(entry, ctx) {
   }
   if (entry.target === "flight") return "voo";
   if (entry.target === "burrow") return "escava";
+  // Sentidos (J4b): "sentido sísmico 10 m", "ver o invisível (sem limite)".
+  if (isSenseTarget(entry.target)) {
+    const range = describeSenseRange(senseRangeValue(entry.amount));
+    return `${SENSE_LABELS[entry.target].toLowerCase()} ${range === "sem limite" ? "(sem limite)" : range.replace(".", ",")}`;
+  }
   const condition = entry.conditionId ? ctx.conditions?.[entry.conditionId] ?? entry.conditionId : "";
   const amount = Number(entry.amount) || 0;
   if (!amount) return condition || ctx.targets?.[entry.target] || entry.target || "";

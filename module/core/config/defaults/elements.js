@@ -72,7 +72,9 @@ export const SCIFI_DAMAGE_ELEMENTS = [
  * core do Foundry (`icons/svg/*`), sem depender de asset externo.
  */
 export const DEFAULT_STATUS_CONDITIONS = [
-  { id: "blindness", label: "Cegueira", icon: "icons/svg/blind.svg", explanation: "Não enxerga: o Mestre decide o que ele não consegue fazer (mirar de longe, ler, achar alguém)." },
+  { id: "blindness", label: "Cegueira", icon: "icons/svg/blind.svg", mapStatus: "blind", explanation: "Não enxerga: o Mestre decide o que ele não consegue fazer (mirar de longe, ler, achar alguém)." },
+  // Invisibilidade (J4b): marca o Token como Invisível no mapa; só quem tem "Ver o invisível" etc. o percebe.
+  { id: "invisibility", label: "Invisibilidade", icon: "icons/svg/invisible.svg", mapStatus: "invisible", explanation: "Não é visto: quem não tem um sentido especial (Ver o invisível, Visão verdadeira, Sentir tudo) não o percebe no mapa." },
   // Selo antimagia: toda magia de quem tem o selo paga Mana extra (ver antimagicSurcharge).
   { id: "antimagic-seal", label: "Selo Antimagia", icon: "icons/svg/padlock.svg", antimagicLevel: 1, explanation: "Toda magia dele custa mais; num selo forte, ela nem sai." },
   // Selo de Interferência (espelho tecnológico do Selo Antimagia): todo uso tecnológico dele paga energia extra.

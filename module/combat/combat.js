@@ -14,6 +14,7 @@ import { SYSTEM_ID, MEU_SISTEMA, getAttributeLabel, combatantIsActor, actorToken
 import { buildAttributeRollFormula } from "../core/dice.js";
 import { buildModifiedFormula, describeRollOptions, isNeutralRollOptions } from "../core/roll-modifiers.js";
 import { escapeHtml } from "../helpers/html.js";
+import { combatantVisibleByPerception } from "./senses.js";
 
 /** Atributo que rege a iniciativa (setting; cai em Destreza se a setting sumir ou virar inválida). */
 export function getInitiativeAttribute() {
@@ -41,6 +42,15 @@ export function registerInitiative() {
   const BaseCombatant = CONFIG.Combatant.documentClass;
 
   CONFIG.Combatant.documentClass = class NihilityCombatant extends BaseCombatant {
+    /**
+     * @override Quem não é dono só vê na lista (e no carrossel do Carousel Combat Tracker, que lê isto) quem
+     * o personagem percebe — só some o escondido por sentido (J4b). Compõe com o getter do core e com o
+     * wrap de outros módulos, porque parte de `super.visible`.
+     */
+    get visible() {
+      return combatantVisibleByPerception(this, super.visible);
+    }
+
     /** @override */
     _getInitiativeFormula() {
       const attributeKey = getInitiativeAttribute();

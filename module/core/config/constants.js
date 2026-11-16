@@ -513,7 +513,11 @@ export const MEU_SISTEMA = {
     "mark",
     "push",
     "flight",
-    "burrow"
+    "burrow",
+    "senseTremor",
+    "senseInvisible",
+    "senseTrue",
+    "senseAll"
   ],
 
   EFFECT_TARGET_LABELS: {
@@ -523,6 +527,10 @@ export const MEU_SISTEMA = {
     push: "Empurrar/Puxar (metros)",
     flight: "Voando (pode subir no mapa)",
     burrow: "Escavando (pode descer abaixo do chão)",
+    senseTremor: "Sentido sísmico (alcance em m)",
+    senseInvisible: "Ver o invisível (alcance em m)",
+    senseTrue: "Visão verdadeira (alcance em m)",
+    senseAll: "Sentir tudo (alcance em m)",
     strength: "Força",
     defense: "Defesa",
     magic: "Magia",
@@ -566,6 +574,7 @@ export const MEU_SISTEMA = {
     { label: "Elemento", actor: "any", targets: ["bodyElement"] },
     { label: "Magia", actor: "character", targets: ["antimagic", "mark"] },
     { label: "Movimento", actor: "character", targets: ["push", "flight", "burrow"] },
+    { label: "Sentidos", actor: "character", targets: ["senseTremor", "senseInvisible", "senseTrue", "senseAll"] },
     { label: "Tecnologia", actor: "any", targets: ["emp"] },
     { label: "Nave", actor: "ship", targets: ["shipWeaponDamage", "shipWeaponPenetration", "shipShieldCapacity", "shipShieldRegen", "shipReactorOutput", "shipPropulsion", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"] }
   ],

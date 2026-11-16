@@ -11,6 +11,7 @@
 import { SYSTEM_ID, getActiveSpeciesPresets, getActiveHeritages, isAnatomyEnabled, isFeatureEnabled, getActiveTraits, getDamageElement } from "../core/config.js";
 import { resolveSpeciesTemplate, speciesDiff, racialSkillSystem, normalizeSpeciesEntry, normalizeSpeciesCatalog, isSpeciesLocked, heritageConflicts, evolutionOptions, evolutionResistanceUpgrades } from "./species-rules.js";
 import { getHeritageEntry } from "./origin.js";
+import { originSenseRows } from "../combat/senses-rules.js";
 import { legacyFunctionsFor } from "./anatomy-rules.js";
 import { getActiveBodyFunctions } from "../core/config.js";
 
@@ -324,7 +325,9 @@ export function originContext(actor) {
   const elementLabel = id => getDamageElement(id)?.label ?? id;
   const live = [
     ...(entry?.traits ?? []).map(traitLabel),
-    ...(entry?.elements ?? []).map(elementLabel)
+    ...(entry?.elements ?? []).map(elementLabel),
+    // Sentidos de nascença (J4b): "Sentido sísmico 10 m".
+    ...(isFeatureEnabled("senses") ? originSenseRows(system.originLayers).map(r => `${r.sense} ${r.range}`) : [])
   ];
   const history = (system.speciesState?.history ?? [])
     .slice(-8)

@@ -211,6 +211,20 @@
           {{/each}}
         </div>
       </div>
+      {{#if sensesOn}}
+      <div class="se-sec">
+        <div class="se-sh">Sentidos <span class="se-badge live">ao vivo</span><span class="se-sp"></span><a class="se-add" data-action="addRow" data-list="passives.senses" data-template="sense">+ Sentido</a></div>
+        <div class="se-table">
+          {{#each sel.senses as |s|}}
+          <div class="se-tr se-pair">
+            <select data-path="passives.senses.{{s.index}}.mode">{{#each @root.senseModes as |m|}}<option value="{{m.id}}" {{#if (eq m.id s.mode)}}selected{{/if}}>{{m.label}}</option>{{/each}}</select>
+            <input type="number" min="0" data-path="passives.senses.{{s.index}}.range" data-kind="number" value="{{s.range}}" aria-label="Alcance em metros (0 = sem limite)" title="Alcance em metros (0 = sem limite). Precisa de visão ativa no Token (V14)."/>
+            <a class="se-x" data-action="removeRow" data-list="passives.senses" data-index="{{s.index}}" title="Remover"><i class="fas fa-times"></i></a>
+          </div>
+          {{/each}}
+        </div>
+      </div>
+      {{/if}}
       <div class="se-sec">
         <div class="se-sh">Quando → Então <span class="se-sp"></span><a class="se-add" data-action="addRow" data-list="passives.conditionalModifiers" data-template="rule">+ Regra</a></div>
         <div class="se-table">

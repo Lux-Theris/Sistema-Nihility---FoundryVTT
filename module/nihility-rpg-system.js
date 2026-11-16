@@ -71,6 +71,7 @@ import { tickContagion } from "./combat/contagion.js";
 import { registerEnvironment, syncTokenEnvironment } from "./environment/environment.js";
 import { registerRadiation, tickRadiation } from "./environment/radiation.js";
 import { registerElevation } from "./combat/elevation.js";
+import { registerSenses } from "./combat/senses.js";
 import { registerEnvironmentSceneMenu } from "./apps/environment-config.js";
 import { registerShieldLightHooks } from "./combat/lights.js";
 import { registerShieldPoolReconcile } from "./combat/shield-pools.js";
@@ -216,6 +217,7 @@ Hooks.once("init", () => {
   registerRadiation();
   // Voo, altura e escavação (J4): botões ↑/↓ no Token HUD, queda, aviso de elevação à mão.
   registerElevation();
+  registerSenses();
 
   // Partials reaproveitados entre templates (hoje só a Habilidade Concedida, usada 3x na ficha
   // de Item). Precisa estar registrado antes da primeira ficha abrir.
@@ -316,6 +318,7 @@ Hooks.once("ready", async () => {
   await runMigrationIfNeeded("techConditions", migrateTechConditions);
   await runMigrationIfNeeded("systemEffectIcons", migrateSystemEffectIcons);
   await runMigrationIfNeeded("markCondition", migrateMarkCondition);
+  await runMigrationIfNeeded("senseConditions", migrateSenseConditions);
   console.log(`${SYSTEM_ID} | Sistema pronto.`);
 });
 
@@ -419,6 +422,27 @@ async function migrateMarkCondition() {
   const mark = MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS.find(c => c.id === "marked");
   if (!mark) return;
   list.push(foundry.utils.deepClone(mark));
+  await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData, JSON.stringify(list, null, 2));
+  registerStatusConditions();
+}
+
+/**
+ * Migração única (J4b): catálogo de Condições já salvo ganha "Invisibilidade". O campo `mapStatus` das
+ * Condições de fábrica (Cegueira) é preenchido na leitura, só quando falta.
+ */
+async function migrateSenseConditions() {
+  const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData);
+  if (!raw) return;
+  let list;
+  try {
+    list = typeof raw === "string" ? JSON.parse(raw) : raw;
+  } catch (err) {
+    return;
+  }
+  if (!Array.isArray(list) || list.some(e => e?.id === "invisibility")) return;
+  const invisibility = MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS.find(c => c.id === "invisibility");
+  if (!invisibility) return;
+  list.push(foundry.utils.deepClone(invisibility));
   await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData, JSON.stringify(list, null, 2));
   registerStatusConditions();
 }

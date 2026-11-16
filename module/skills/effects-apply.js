@@ -9,7 +9,8 @@ import { applyStructuralDamage, damageCasco, repairModules } from "../starship/s
 import { resolveConditionEffect, refreshReapplication } from "../combat/damage-rules.js";
 import { requestShieldLight } from "../combat/lights.js";
 import { addShieldToPool } from "../combat/shield-pools.js";
-import { buildEffectChanges, createActiveEffects } from "../helpers/foundry-compat.js";
+import { buildEffectChanges, createActiveEffects, foundryGeneration, readEffectChanges } from "../helpers/foundry-compat.js";
+import { isSenseTarget, SENSE_LABELS, describeSenseRange, senseRangeValue } from "../combat/senses-rules.js";
 import { applyDamageReductions, averageElementContext } from "../combat/damage-roll.js";
 import { SHIP_PERCENT_PATHS, resolveEffectChange } from "./effect-targets.js";
 import { grantResistanceXp, registerResistanceExposure } from "../combat/resistance.js";
@@ -127,7 +128,8 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
     levelPower === 1
       ? rawEntries
       : rawEntries.map(entry =>
-          entry.modifierType === "multiplier"
+          // Sentido: o alcance em metros não cresce com o Poder do nível nem com o investimento.
+          entry.modifierType === "multiplier" || isSenseTarget(entry.target)
             ? entry
             : {
                 ...entry,
@@ -305,6 +307,11 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
 
     // Tick de Nave (Casco/Integridade) não mexe em campo nenhum por Active Effect: é só o flag
     // do tick, lido por tickPeriodicEffect.
+    if (isSenseTarget(entry.target) && !shipTarget && !isShipLike(targetActor) && foundryGeneration() < 14) {
+      // Sentidos mudam o Token por um Active Effect de Token, que só existe na V14.
+      summary.push(`${SENSE_LABELS[entry.target]}: precisa do Foundry V14`);
+      continue;
+    }
     const change = shipTarget ? { isMultiplier: false } : resolveEffectChange(entry, targetActor);
     if (!change) {
       // Antes era silencioso: "Força" numa Nave virava um efeito que não fazia nada.
@@ -329,13 +336,22 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
     if (tiedToActive) await rememberAnchoredTarget(originSkill?.parent, anchor, targetActor.uuid);
     // Voando/Escavando: um só efeito de cada por Ator — reaplicar renova (e soma a âncora), não duplica.
     const existing = findStackableEffect(targetActor, entry.conditionId, periodic, entry.damageElements)
-      ?? (change.movementMode ? targetActor.effects.find(e => e.flags?.[SYSTEM_ID]?.movementMode === change.movementMode) ?? null : null);
+      ?? (change.movementMode ? targetActor.effects.find(e => e.flags?.[SYSTEM_ID]?.movementMode === change.movementMode) ?? null : null)
+      ?? (change.senseMode ? targetActor.effects.find(e => e.flags?.[SYSTEM_ID]?.senseMode === change.senseMode) ?? null : null);
 
     if (existing) {
       const existingFlags = existing.flags[SYSTEM_ID];
       // Reaplicar com nível maior sobe o nível guardado (a Antimagia e o bloqueio de cura leem ele).
       if (sourceLevel > (Number(existingFlags.sourceLevel) || 0)) {
         await existing.update({ [`flags.${SYSTEM_ID}.sourceLevel`]: sourceLevel, [`flags.${SYSTEM_ID}.magic`]: Boolean(sourceMagic || existingFlags.magic), [`flags.${SYSTEM_ID}.tech`]: Boolean(sourceTech || existingFlags.tech) });
+      }
+
+      // Sentido já ativo: fica o MAIOR alcance (sem limite vence), como o resto reaplicado só renova.
+      if (change.senseMode) {
+        const old = readEffectChanges(existing).find(c => c.key === change.key);
+        if (old && senseRangeValue(old.value) < senseRangeValue(change.value)) {
+          await existing.update(buildEffectChanges([{ key: change.key, mode: change.mode, value: change.value }, ...(change.extra ?? [])]));
+        }
       }
 
       if (periodic) {
@@ -440,13 +456,13 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
 
     await createActiveEffects(targetActor, [
       {
-        name: condition?.label ?? (change.movementMode ? `${label}: ${MOVEMENT_MODE_NAMES[change.movementMode]}` : change.bodyElement ? `${label}: ${getDamageElement(change.bodyElement)?.label ?? change.bodyElement}` : `${label}: ${targetLabel} ${sign}${entry.amount}`),
+        name: condition?.label ?? (change.senseMode ? `${label}: ${SENSE_LABELS[change.senseMode]}` : change.movementMode ? `${label}: ${MOVEMENT_MODE_NAMES[change.movementMode]}` : change.bodyElement ? `${label}: ${getDamageElement(change.bodyElement)?.label ?? change.bodyElement}` : `${label}: ${targetLabel} ${sign}${entry.amount}`),
         img: entry.icon || condition?.icon || origin.img || "icons/svg/aura.svg",
         origin: origin.uuid ?? undefined,
         statuses: entry.conditionId ? [entry.conditionId] : [],
         duration: !tiedToActive && entry.durationRounds > 0 ? { rounds: entry.durationRounds } : {},
         // Formato V13 (`changes` + `mode`) ou V14 (`system.changes` + `type`): ver foundry-compat.js.
-        ...(change.key ? buildEffectChanges([{ key: change.key, mode: change.mode, value: change.value }]) : {}),
+        ...(change.key ? buildEffectChanges([{ key: change.key, mode: change.mode, value: change.value }, ...(change.extra ?? [])]) : {}),
         flags: {
           [SYSTEM_ID]: {
             skillEffect: true,
@@ -457,6 +473,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
             sourceSubSkillIndex: subSkillIndex,
             bodyElement: change.bodyElement ?? "",
             movementMode: change.movementMode ?? "",
+            senseMode: change.senseMode ?? "",
             sourceLevel,
             magic: sourceMagic,
             tech: sourceTech,
@@ -467,11 +484,12 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
     ]);
     const valueText =
       ["weaponElement", "bodyElement"].includes(entry.target) ? `→ ${getDamageElement(entry.elementId)?.label ?? entry.elementId}`
+      : change.senseMode ? describeSenseRange(Number(change.value))
       : ["weaponMagic", "weaponAbsolute"].includes(entry.target) || change.movementMode ? ""
       : isMultiplier ? `×${(1 + entry.amount / 100).toFixed(2)}`
       : `${sign}${entry.amount}${SHIP_PERCENT_PATHS[entry.target] || entry.target === "movement" ? "%" : ""}`;
     // Só a Condição (valor 0): o texto é o nome dela, sem "Destreza +0".
-    const head = condition?.label && !Number(entry.amount) && !valueText.replace(/[+\-0%]/g, "").trim() ? condition.label : `${targetLabel} ${valueText}`;
+    const head = change.senseMode ? `${SENSE_LABELS[change.senseMode]} ${valueText}` : condition?.label && !Number(entry.amount) && !valueText.replace(/[+\-0%]/g, "").trim() ? condition.label : `${targetLabel} ${valueText}`;
     summary.push(
       tiedToActive
         ? `${head} (até desativar)`

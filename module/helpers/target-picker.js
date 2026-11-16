@@ -16,6 +16,7 @@
  */
 import { SYSTEM_ID, MEU_SISTEMA, sceneActorCandidates, sameActor, actorDisplayName } from "../core/config.js";
 import { escapeHtml } from "./html.js";
+import { actorPerceivedByUser } from "../combat/senses.js";
 
 const { DialogV2 } = foundry.applications.api;
 
@@ -40,9 +41,11 @@ function offSceneAllowed() {
  * uma pergunta diferente ("quem está aqui?" vs "quem é meu?").
  */
 function buildGroups(self, types) {
-  const matchesType = actor => !types || types.includes(actor.type);
+  // Sentidos e visibilidade (J4b): o jogador só escolhe quem o personagem percebe (o próprio fica sempre;
+  // o Mestre vê tudo). Vale para quem tem Token na cena aberta — o resto do mundo segue como antes.
+  const matchesType = actor => (!types || types.includes(actor.type)) && actorPerceivedByUser(actor, { self });
 
-  const scene = sceneActorCandidates({ types });
+  const scene = sceneActorCandidates({ types }).filter(actor => actorPerceivedByUser(actor, { self }));
   const mine = game.actors.filter(a => matchesType(a) && a.isOwner && !sameActor(a, self));
   const pcs = game.actors.filter(
     a => matchesType(a) && a.type === "character" && a.system?.isPlayerCharacter === true && a.testUserPermission(game.user, "LIMITED")

@@ -4,6 +4,7 @@
  * `core/config.js`, que reexporta tudo.)
  */
 import { buildAffinityMatrix, elementAncestors } from "../../combat/damage-rules.js";
+import { fillMapStatus } from "../../combat/senses-rules.js";
 import { MEU_SISTEMA, SYSTEM_ID } from "./constants.js";
 import { getFeatureOption, isFeatureEnabled } from "./features.js";
 import { normalizeLightConfig } from "./rules.js";
@@ -181,7 +182,12 @@ export function getActiveStatusConditions() {
         const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
         if (Array.isArray(parsed) && parsed.length) {
           const defaults = Object.fromEntries(MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS.map(c => [c.id, c]));
-          return parsed.map(c => (c && c.explanation === undefined && defaults[c.id]?.explanation ? { ...c, explanation: defaults[c.id].explanation } : c));
+          return parsed.map(c => {
+            if (!c) return c;
+            const withText = c.explanation === undefined && defaults[c.id]?.explanation ? { ...c, explanation: defaults[c.id].explanation } : c;
+            // "No mapa" (J4b): só preenche quando o campo falta; o que o Mestre limpou de propósito fica limpo.
+            return fillMapStatus(withText, defaults);
+          });
         }
       }
     } catch (err) {
@@ -758,12 +764,14 @@ export function getEffectTargetGroups(current) {
   const emp = isFeatureEnabled("interference");
   const push = isFeatureEnabled("forcedMovement");
   const elevation = isFeatureEnabled("elevation");
+  const senses = isFeatureEnabled("senses");
   return MEU_SISTEMA.EFFECT_TARGET_GROUPS.map(group => ({
     label: group.label,
     options: group.targets
       .filter(t => t !== "emp" || emp || t === current)
       .filter(t => t !== "push" || push || t === current)
       .filter(t => !["flight", "burrow"].includes(t) || elevation || t === current)
+      .filter(t => !t.startsWith("sense") || senses || t === current)
       .filter(t => !MEU_SISTEMA.COMBAT_ATTRIBUTES.includes(t) || visible.has(t) || t === current)
       .map(t => ({ value: t, label: labels[t] ?? t, selected: t === current }))
   })).filter(group => group.options.length);

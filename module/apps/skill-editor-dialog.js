@@ -81,7 +81,7 @@ function buildEffectRowHtml(entry) {
     <div class="effect-row-main">
       <select class="se-effect-target">${options}</select>
       <select class="se-effect-element-id" title="Elemento (das armas, ou que o alvo passa a ser)" style="display:${["weaponElement", "bodyElement"].includes(entry.target) ? "inline-block" : "none"};">${elementIdOptions}</select>
-      <input type="number" class="se-effect-amount" value="${entry.amount}" placeholder="${entry.target === "push" ? "Metros" : "Qtd."}" style="display:${["antimagic", "emp", "mark", "flight", "burrow"].includes(entry.target) ? "none" : ""};"/>
+      <input type="number" class="se-effect-amount" value="${entry.amount}" placeholder="${entry.target === "push" ? "Metros" : String(entry.target).startsWith("sense") ? "Alcance m (0 = sem limite)" : "Qtd."}" style="display:${["antimagic", "emp", "mark", "flight", "burrow"].includes(entry.target) ? "none" : ""};"/>
       <input type="number" class="se-effect-duration" value="${entry.durationRounds}" min="0" placeholder="Rounds/Ticks"/>
       <a class="se-effect-delete" title="Remover"><i class="fas fa-trash"></i></a>
     </div>

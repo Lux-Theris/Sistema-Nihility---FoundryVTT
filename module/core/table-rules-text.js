@@ -100,6 +100,10 @@ export function buildTableRulesPages(d) {
       parts.push("<h2>Voo, altura e escavação</h2>");
       parts.push("<p>Quem pode voar (Traço Voador ou o efeito Voando) sobe e desce um quadrado por vez pelo menu do Token; quem pode cavar desce abaixo do chão. A <b>altura conta nas distâncias</b> e as áreas são esferas: um círculo de 5 m não pega quem está 6 m acima. <b>Debaixo da terra</b> ninguém na superfície ou no ar alcança você. Quem perde o voo no ar <b>cai</b>: o Mestre calcula o dano (cada metro acima de 3 m vale uma parte da Vida máxima, Contundente).</p>");
     }
+    if (d.features.senses) {
+      parts.push("<h2>Sentidos e visibilidade</h2>");
+      parts.push("<p>Quem está <b>debaixo da terra</b> ou <b>Invisível</b> não aparece no mapa nem na lista de iniciativa para quem não tem o sentido certo, e não aparece na escolha de alvo. Quem está debaixo da terra também não enxerga: só percebe os outros com <b>Sentido sísmico</b> ou <b>Sentir tudo</b>. <b>Ver o invisível</b>, <b>Visão verdadeira</b> e <b>Sentir tudo</b> revelam o Invisível. Esses sentidos vêm de Habilidades ou da Espécie, com um alcance em metros.</p>");
+    }
     parts.push("<h2>Campo de Antimagia</h2>");
     parts.push(`<p>Magia que vem <b>de fora</b> e cruza um campo de Antimagia gasta a ${energy} e <b>some</b>, se o campo vencer. <b>De dentro</b> do campo, ou sob um Selo de Antimagia, a magia <b>nem sai</b> e não gasta nada. A Habilidade <b>Manipulação de ${energy}</b> muda isso: quanto maior o nível dela diante do campo, menos ele atrapalha — primeiro a magia passa pagando ${energy} a mais, depois passa de graça. Sem a Manipulação, o campo sempre vence. Usá-la contra a Antimagia a faz evoluir.</p>`);
     if (d.features.interference) parts.push("<p>O Campo de Interferência faz o mesmo com a tecnologia, mas não há Habilidade que o vença: o uso tecnológico de fora some, e de dentro nem sai.</p>");

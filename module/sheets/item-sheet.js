@@ -65,6 +65,7 @@ import { openLightConfigDialog, describeLight } from "../combat/lights.js";
 import { pickImageFile, filePickerClass } from "../helpers/foundry-compat.js";
 import { sequencerAvailable } from "../core/vfx.js";
 import { AREA_AFFECTS_OPTIONS } from "../combat/area-geometry.js";
+import { isSenseTarget, SENSE_LABELS, describeSenseRange, senseRangeValue } from "../combat/senses-rules.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -663,6 +664,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       if (["weaponElement", "bodyElement"].includes(entry.target)) summary = `${targetLabel} → ${elements.find(el => el.id === entry.elementId)?.label ?? "?"}`;
       else if (entry.target === "push") summary = `${{ pull: "Puxa", choose: "Empurra ou puxa" }[entry.pushDirection] ?? "Empurra"} ${amount} m`;
       else if (["flight", "burrow"].includes(entry.target)) summary = targetLabel;
+      else if (isSenseTarget(entry.target)) summary = `${SENSE_LABELS[entry.target]} ${describeSenseRange(senseRangeValue(amount))}`;
       else if (isShipTarget && entry.modifierType === "multiplier") summary = `${targetLabel} ×${(1 + amount / 100).toFixed(2).replace(".", ",")}`;
       else summary = `${targetLabel} ${signed(amount)}${entry.amountMode === "percentMax" && ["hp", "energy", "shield", "heal", "restoreEnergy"].includes(entry.target) ? "% do máx." : ""}${periodic ? " por tick" : ""}`;
       const extra = [];
@@ -710,10 +712,11 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         index,
         amount,
         durationRounds: entry.durationRounds,
-        durationUnit: entry.target === "push" ? "" : ["flight", "burrow"].includes(entry.target) ? (sys.hasUpkeep ? "ativa" : "rod. (0 = até desfeito)") : entry.target === "mark" ? "rod. (0 = até desfeita)" : ["antimagic", "emp"].includes(entry.target) ? "rod. de supressão (0 = até tirar)" : sys.hasUpkeep ? "ativa" : periodic ? "ticks" : "rod.",
+        durationUnit: entry.target === "push" ? "" : ["flight", "burrow"].includes(entry.target) ? (sys.hasUpkeep ? "ativa" : "rod. (0 = até desfeito)") : isSenseTarget(entry.target) ? (sys.hasUpkeep ? "ativa" : "rod. (0 = até desfeito)") : entry.target === "mark" ? "rod. (0 = até desfeita)" : ["antimagic", "emp"].includes(entry.target) ? "rod. de supressão (0 = até tirar)" : sys.hasUpkeep ? "ativa" : periodic ? "ticks" : "rod.",
         isAntimagic: ["antimagic", "emp"].includes(entry.target),
         isMark: entry.target === "mark",
         isPush,
+        isSense: isSenseTarget(entry.target),
         isMovementMode: ["flight", "burrow"].includes(entry.target),
         movementModeNote: entry.target === "flight" ? "quem usa pode voar (subir no mapa)" : "quem usa pode cavar (descer abaixo do chão)",
         pushDirectionOptions: [["push", "Empurrar"], ["pull", "Puxar"], ["choose", "Escolher ao usar"]].map(([value, label]) => ({ value, label, selected: value === (entry.pushDirection || "push") })),

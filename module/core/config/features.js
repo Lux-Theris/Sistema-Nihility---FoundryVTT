@@ -70,6 +70,11 @@ export function isElevationEnabled() {
   return isFeatureEnabled("elevation");
 }
 
+/** Sentidos e visibilidade (J4b): debaixo da terra, invisível, sentidos por Skill/Espécie. */
+export function isSensesEnabled() {
+  return isFeatureEnabled("senses");
+}
+
 /**
  * Leitor ÚNICO de todo bloco ligável/desligável do sistema (ver MEU_SISTEMA.FEATURES) — use
  * isto, e não `game.settings.get` direto, pra gatear qualquer coisa: só aqui a cadeia de

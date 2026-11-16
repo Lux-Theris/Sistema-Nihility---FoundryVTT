@@ -5,6 +5,7 @@
 import { getEffectTargetLabels } from "../core/config.js";
 import { effectModes } from "../helpers/foundry-compat.js";
 import { isShipLike, shipWeaponPenetration } from "../starship/ship-damage.js";
+import { isSenseTarget, senseChangeKeys, senseRangeValue, describeSenseChange } from "../combat/senses-rules.js";
 
 const EFFECT_TARGET_PATHS = {
   strength: "system.attributes.combat.strength.buffDelta",
@@ -84,6 +85,24 @@ export function resolveEffectChange(entry, targetActor) {
     case "burrow":
       // Voando/Escavando (J4): não mexe em campo; o efeito só carrega o flag `movementMode`, lido por canFly/canBurrow.
       return ship ? null : { key: null, movementMode: entry.target, isMultiplier: false };
+    case "senseTremor":
+    case "senseInvisible":
+    case "senseTrue":
+    case "senseAll": {
+      // Sentidos (J4b): um Active Effect que muda o Token do Ator (chave `token.`, V14). O alcance NÃO cresce
+      // com o Poder do nível nem com o investimento (como o Alcance da Skill); 0 = sem limite (número grande).
+      // Os dois campos em OVERRIDE: um modo que o Token ainda não tem não existe para um UPGRADE comparar.
+      if (ship) return null;
+      const keys = senseChangeKeys(entry.target);
+      return {
+        key: keys.range,
+        mode: M.OVERRIDE,
+        value: String(senseRangeValue(amount)),
+        extra: [{ key: keys.enabled, mode: M.OVERRIDE, value: "true" }],
+        senseMode: entry.target,
+        isMultiplier: false
+      };
+    }
     case "bodyElement":
       // Não mexe em campo: o efeito só carrega o flag `bodyElement`, lido por actorElements.
       return entry.elementId ? { key: null, bodyElement: entry.elementId, isMultiplier: false } : null;
@@ -109,6 +128,8 @@ export function describeEffectChangeKey(key) {
   for (const [target, path] of Object.entries(EFFECT_TARGET_PATHS)) if (path === key) return labels[target] ?? target;
   for (const [target, path] of Object.entries(SHIP_PERCENT_PATHS)) if (path === key) return labels[target] ?? target;
   for (const [target, paths] of Object.entries(SHIP_TARGET_PATHS)) if (Object.values(paths).includes(key)) return labels[target] ?? target;
+  const sense = describeSenseChange(key, null);
+  if (sense) return sense.replace(/ sem limite$/, "");
   const weapon = {
     damageFlat: "Dano das armas",
     damageMultiplier: "Dano das armas",

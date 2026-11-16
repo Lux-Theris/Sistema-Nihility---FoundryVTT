@@ -11,6 +11,7 @@ import { readEffectChanges, effectModes } from "../helpers/foundry-compat.js";
 import { describeShieldPools } from "../combat/shield-pools.js";
 import { structuresOnScene } from "../structures/structures.js";
 import { describeEffectChangeKey } from "../skills/effect-targets.js";
+import { describeSenseChange } from "../combat/senses-rules.js";
 import { collectActiveUpkeepSources } from "../skills/upkeep.js";
 import { endShipSystemEffect } from "../starship/starship-power.js";
 import { runAsGm } from "../helpers/gm-relay.js";
@@ -27,6 +28,8 @@ const isShip = actor => ["starship", "vehicle"].includes(actor?.type);
 
 /** "Força +3", "Dano das armas ×1.20", "Elemento das armas → Fogo", "Deslocamento −50%". */
 function describeChange(change) {
+  const sense = describeSenseChange(change.key, change.value);
+  if (sense) return sense;
   const M = effectModes();
   const label = describeEffectChangeKey(change.key);
   const value = Number(change.value);

@@ -262,6 +262,12 @@ export const FEATURES = {
       fallPercent: { label: "Dano de queda (% da Vida máx. por metro)", hint: "Cada metro de queda acima de 3 m vale este % da Vida máxima de quem caiu, como dano Contundente.", type: "number", default: 3, min: 0 }
     }
   },
+  senses: {
+    setting: "sensesEnabled",
+    name: "Sentidos e visibilidade",
+    hint: "Quem está debaixo da terra (elevação abaixo de 0) some do mapa para os outros e não enxerga: só o Sentido sísmico ou o Sentir tudo percebem. Skills e a Espécie podem dar Sentido sísmico, Ver o invisível, Visão verdadeira e Sentir tudo (valor = alcance em metros, 0 = sem limite); Condições podem marcar Invisível ou Cego no mapa. O seletor de alvo e a lista de iniciativa mostram aos jogadores só quem o personagem percebe. Só vale em cena com Visão de Token ligada e com a visão ativa nos Tokens (V14). Desligar só esconde e para de conferir; nada salvo se perde.",
+    default: true
+  },
   skillUndo: {
     setting: "skillUndoEnabled",
     name: "Desfazer uso de Skill",
@@ -431,6 +437,7 @@ const FEATURE_LAYOUT = {
   skillRange: ["combat", "Alcance em metros para Skills, armas e granadas; Marcas lançam de longe."],
   forcedMovement: ["combat", "Skills e armas de gravidade empurram ou puxam o alvo pelo mapa."],
   elevation: ["combat", "Voo, altura e escavação: a elevação do Token entra nas distâncias.", true],
+  senses: ["combat", "Debaixo da terra ou invisível, só quem tem o sentido certo percebe."],
   skillUndo: ["combat", "O Mestre desfaz o último uso de uma Skill até o turno acabar."],
   endOfCombat: ["combat", "Ao encerrar: tira efeitos que congelariam, dá XP e descanso."],
   economy: ["world", "Moedas, conversão e transferência entre personagens."],

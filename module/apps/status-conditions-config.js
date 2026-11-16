@@ -2,6 +2,7 @@ import { MEU_SISTEMA, getActiveStatusConditions, getAttributeLabels } from "../c
 import { CURSE_UNPAID, CURSE_UNPAID_LABELS, normalizeCurse } from "../core/curse-rules.js";
 import { createCardListConfigApp, escapeHtml, optionsHtml } from "./card-list-config-factory.js";
 import { registerStatusConditions } from "../combat/conditions.js";
+import { normalizeMapStatus } from "../combat/senses-rules.js";
 import { pickerFieldHtml, readPickerField, wireElementPickerField, wireTraitPickerField } from "./checklist-picker.js";
 
 /**
@@ -24,6 +25,7 @@ const TICK_UNITS = [["combatRound", "Por rodada de combate"], ["manual", "Manual
 const MOD_MODES = [["percent", "%"], ["fixed", "Fixo"]];
 const HEAL_KINDS = MEU_SISTEMA.HEAL_KINDS.map(k => [k, MEU_SISTEMA.HEAL_KIND_LABELS[k]]);
 const HEAL_BLOCK_KINDS = [["", "Não"], ["regen", "Só Regeneração"], ["all", "Toda cura"]];
+const MAP_STATUSES = [["", "Nada"], ["invisible", "Invisível"], ["blind", "Cego"]];
 const HEAL_BLOCK_SCOPES = [["body", "Corpo todo"], ["part", "Parte atingida"]];
 
 /** O bloqueio salvo (a antiga caixa "Impede regeneração" = só Regeneração). */
@@ -109,6 +111,7 @@ function renderCard(values) {
         ${fld("Selo de interferência (nível)", `<input type="number" data-field="interferenceLevel" min="0" value="${values.interferenceLevel ?? 0}"/>`, { help: "Quem tem esta Condição paga energia extra em todo uso tecnológico (maior quanto maior o nível), ou ele é anulado. 0 = não é selo." })}
         ${fld("Selo antimagia (nível)", `<input type="number" data-field="antimagicLevel" min="0" value="${values.antimagicLevel ?? 0}"/>`, { help: "Quem tem esta Condição paga Mana extra em toda magia (maior quanto maior o nível), ou ela é anulada. 0 = não é selo." })}
       </div>
+      ${fld("No mapa", `<select data-field="mapStatus">${optionsHtml(MAP_STATUSES, values.mapStatus ?? "")}</select>`, { help: "Põe o status do Foundry no Token: Invisível (só quem tem Ver o invisível, Visão verdadeira ou Sentir tudo o percebe) ou Cego (a visão dele falha). Vale com o bloco Sentidos e visibilidade ligado." })}
       ${check("suppressesTech", values.suppressesTech, "Suprime tecnologia", "Quem tem esta Condição não sente passivos, Resistências, itens, implantes e próteses tecnológicos, nem Skills tecnológicas usadas nele, de nível até o da Condição (o PEM). Corpo mecânico fica Inconsciente enquanto durar.")}
       ${check("suppressesMagic", values.suppressesMagic, "Suprime magia", "Quem tem esta Condição não sente passivos, Resistências, itens e implantes mágicos, nem Skills mágicas usadas nele, de nível até o da Condição.")}
     </section>
@@ -217,6 +220,8 @@ function readCard(card) {
   const row = { id, label: get("label").trim() || id, icon: get("icon").trim() || "icons/svg/aura.svg" };
   // Sempre gravado (mesmo vazio): vazio de propósito não volta a ser o texto de fábrica.
   row.explanation = get("explanation").trim();
+  // Sempre gravado (como a explicação): "Nada" de propósito não volta a ser o de fábrica.
+  row.mapStatus = normalizeMapStatus(get("mapStatus"));
   const antimagicLevel = Math.max(0, Math.round(Number(get("antimagicLevel")) || 0));
   if (antimagicLevel) row.antimagicLevel = antimagicLevel;
   const interferenceLevel = Math.max(0, Math.round(Number(get("interferenceLevel")) || 0));

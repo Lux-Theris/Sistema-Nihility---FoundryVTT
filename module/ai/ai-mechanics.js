@@ -54,6 +54,7 @@ export function mechanicsGuide(catalogs = {}) {
     '               "conditionId": id de Condição ou "", "periodic": boolean (só hp/energy: aplica a cada rodada),',
     '               "damageElements": [ids] (tick de dano), "elementId": id (só weaponElement/bodyElement)}],',
     '  Efeitos de movimento (grupo "Movimento"): {"target":"push","amount": metros,"pushDirection":"push"|"pull"|"choose","immuneTraits":[ids de Traço]} empurra/puxa o alvo em linha reta; {"target":"flight"} e {"target":"burrow"} dão voo/escavação pela "durationRounds" (amount 0).',
+    '  Efeitos de sentido (grupo "Sentidos", só Personagem): {"target":"senseTremor"|"senseInvisible"|"senseTrue"|"senseAll","amount": alcance em metros (0 = sem limite),"durationRounds": rodadas} — Sentido sísmico, Ver o invisível, Visão verdadeira, Sentir tudo.',
     '  "resistanceTarget": "" | "general" | id de elemento (Skill passiva de Resistência; 10% por nível)',
     "}",
     "Use SÓ estes ids:",
@@ -130,9 +131,10 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
       if (!e || !MEU_SISTEMA.EFFECT_TARGETS.includes(e.target) || String(e.target).startsWith("ship")) continue;
       const conditionId = conditions.has(e.conditionId) ? e.conditionId : "";
       const movementOnly = ["flight", "burrow"].includes(e.target);
+      const senseOnly = String(e.target).startsWith("sense");
       // Empurrar/Puxar: metros, sempre positivos (a direção é o campo pushDirection).
-      const amount = e.target === "push" ? clampInt(e.amount, 0, 200, 0) : movementOnly ? 0 : clampInt(e.amount, -999, 999, 0);
-      if (!amount && !conditionId && !movementOnly) continue;
+      const amount = e.target === "push" ? clampInt(e.amount, 0, 200, 0) : movementOnly ? 0 : senseOnly ? clampInt(e.amount, 0, 1000, 0) : clampInt(e.amount, -999, 999, 0);
+      if (!amount && !conditionId && !movementOnly && !senseOnly) continue;
       const periodic = Boolean(e.periodic) && ["hp", "energy"].includes(e.target);
       const entry = {
         target: e.target,

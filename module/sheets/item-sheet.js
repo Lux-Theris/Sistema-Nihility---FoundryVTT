@@ -66,6 +66,8 @@ import { pickImageFile, filePickerClass } from "../helpers/foundry-compat.js";
 import { sequencerAvailable } from "../core/vfx.js";
 import { AREA_AFFECTS_OPTIONS } from "../combat/area-geometry.js";
 import { isSenseTarget, SENSE_LABELS, describeSenseRange, senseRangeValue } from "../combat/senses-rules.js";
+import { isWeaponMasteryEnabled, masteryConfig, masterySentenceFor, weaponTypeChoices, weaponTypeDisplay } from "../combat/weapon-mastery.js";
+import { masteryLevelUpBlock } from "../combat/weapon-mastery-rules.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -143,6 +145,7 @@ function headerChipsFor(item) {
         const element = sys.resistanceTarget === "general" ? "Geral" : getActiveDamageElements().find(el => el.id === sys.resistanceTarget)?.label ?? sys.resistanceTarget;
         add(`Resist. ${element} ${percent}%`, "Resistência passiva", "gold");
       }
+      if (sys.weaponMastery && isWeaponMasteryEnabled()) add(masterySentenceFor(sys).replace(/ · .*$/, "") || "Maestria", "Maestria de arma (passiva)", "gold");
       if ((sys.fusionSources ?? []).length) add(`Fusão de ${sys.fusionSources.length}`, "Linhagem de fusão");
       if (sys.isItemGranted) add("Concedida", "Concedida por Item/Módulo — fixa");
       break;
@@ -219,6 +222,7 @@ function tabsFor(item) {
         : { damage: "dano", temporary: `${(sys.effects ?? []).length} ef.` }[sys.effectType] ?? "";
       const passives =
         (sys.resistanceTarget ? 1 : 0) +
+        (sys.weaponMastery ? 1 : 0) +
         (sys.statModifiers?.hp ? 1 : 0) +
         (sys.statModifiers?.energy ? 1 : 0) +
         (sys.attributeBonuses ?? []).length +
@@ -598,6 +602,22 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       context.skillResistanceName = computeResistanceName(resistanceTarget, sys.level);
     }
 
+    // Maestria de arma (H6): passiva, de um Tipo de arma. Só se oferece com o recurso ligado (ou se a Skill já é uma).
+    const masteryType = sys.weaponMastery ?? "";
+    context.weaponMasteryOn = isWeaponMasteryEnabled();
+    context.showMasterySection = context.weaponMasteryOn || Boolean(masteryType);
+    const strike = sys.weaponStrike ?? "";
+    context.skillStrikeIsWeapon = Boolean(strike) && strike !== "unarmed";
+    context.skillStrikeOptions = [{ value: "", label: "— nenhum —", selected: !strike }, ...weaponTypeChoices(strike).map(o => ({ ...o, selected: o.value === strike }))];
+    context.skillMasteryOptions = [{ value: "", label: "— nenhuma —", selected: !masteryType }, ...weaponTypeChoices(masteryType).map(o => ({ ...o, selected: o.value === masteryType }))];
+    context.isMasterySkill = Boolean(masteryType) && context.weaponMasteryOn;
+    if (context.isMasterySkill) {
+      context.masterySentence = masterySentenceFor(sys);
+      context.masteryMaxLevel = masteryConfig().maxLevel;
+      context.masteryEvolved = (Number(sys.masteryRank) || 1) >= 2;
+      context.masteryRank = Number(sys.masteryRank) || 1;
+    }
+
     // "Avançado ▸" das seções (K1): os campos raros, cada um dizendo se está em uso.
     const adv = (key, fields) => advancedFold(fields, this.#advOpen.get(key));
     context.advCost = adv("cost", [
@@ -662,6 +682,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
       let summary;
       if (["weaponElement", "bodyElement"].includes(entry.target)) summary = `${targetLabel} → ${elements.find(el => el.id === entry.elementId)?.label ?? "?"}`;
+      else if (entry.target === "unarmedType") summary = `${targetLabel} → ${entry.weaponTypeId ? weaponTypeDisplay(entry.weaponTypeId) : "?"}`;
       else if (entry.target === "push") summary = `${{ pull: "Puxa", choose: "Empurra ou puxa" }[entry.pushDirection] ?? "Empurra"} ${amount} m`;
       else if (["flight", "burrow"].includes(entry.target)) summary = targetLabel;
       else if (isSenseTarget(entry.target)) summary = `${SENSE_LABELS[entry.target]} ${describeSenseRange(senseRangeValue(amount))}`;
@@ -728,6 +749,8 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         groupLabel: MEU_SISTEMA.EFFECT_TARGET_GROUPS[groupIndex]?.label ?? "—",
         groupClass: groupClasses[groupIndex] ?? "",
         targetGroups,
+        isUnarmedType: entry.target === "unarmedType",
+        weaponTypeIdOptions: entry.target === "unarmedType" ? weaponTypeChoices(entry.weaponTypeId ?? "").map(o => ({ ...o, selected: o.value === (entry.weaponTypeId ?? "") })) : [],
         isElementTarget: ["weaponElement", "bodyElement"].includes(entry.target),
         elementIdOptions: elements.map(el => ({ value: el.id, label: el.label, selected: el.id === entry.elementId })),
         acceptsPeriodic,
@@ -784,6 +807,9 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.weaponScalingOptions = scalingOptions(weapon.scalingAttribute);
     context.weaponScaleOptions = scaleOptions(weapon.damageScale);
     context.weaponElementField = selectedElementChips(weapon.damageElements);
+    // Tipo de arma (H6): só com o recurso ligado. O tipo salvo continua escolhido (mesmo fora do catálogo).
+    context.weaponMasteryOn = isWeaponMasteryEnabled();
+    context.weaponTypeOptions = [{ value: "", label: "— sem tipo —", selected: !weapon.weaponType }, ...weaponTypeChoices(weapon.weaponType ?? "").map(o => ({ ...o, selected: o.value === (weapon.weaponType ?? "") }))];
     // Modo da arma (J1): Dano ou Gravidade (empurra e puxa). Só se oferece com o recurso ligado (ou se já é de gravidade).
     context.weaponGravity = weapon.mode === "gravity";
     context.weaponModeOn = isForcedMovementEnabled() || context.weaponGravity;
@@ -1349,7 +1375,10 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const ultimateVisible = hasUltimate || game.user.isGM;
     const tierChoices = MEU_SISTEMA.SKILL_TIERS.filter(t => t !== "racial" && (t !== "ultimate" || ultimateVisible));
 
-    const data = await openSkillEditorDialog({}, { tierChoices, levelReadonly: !game.user.isGM });
+    // Uma Maestria evolui para a mesma Maestria, um degrau acima: o editor já abre com o tipo.
+    const sys = this.item.system;
+    const seed = sys.weaponMastery ? { weaponMastery: sys.weaponMastery, masteryRank: (Number(sys.masteryRank) || 1) + 1 } : {};
+    const data = await openSkillEditorDialog(seed, { tierChoices, levelReadonly: !game.user.isGM });
     if (!data) return;
 
     await evolveSkill(actor, this.item.id, data);
@@ -1545,6 +1574,15 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
             ? "Resistência Geral já está no teto (nível 5, 50%) — não existe Imunidade Geral."
             : `Essa Skill já está no nível máximo (${maxLevel}, Imunidade).`
         );
+        return;
+      }
+    }
+
+    // Maestria de arma (H6): para no nível máximo; a evoluída não tem níveis. O próximo passo é a Evolução.
+    if (this.item.system.weaponMastery && isWeaponMasteryEnabled()) {
+      const block = masteryLevelUpBlock({ rank: this.item.system.masteryRank, level: currentLevel }, masteryConfig());
+      if (block) {
+        ui.notifications.warn(block);
         return;
       }
     }

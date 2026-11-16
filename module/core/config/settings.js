@@ -125,6 +125,33 @@ export function registerSystemSettings() {
     default: 1
   });
 
+  // Ataque desarmado (H6): sempre existe, mesmo com `FEATURES.weaponMastery` desligada.
+  game.settings.register(SYSTEM_ID, S.unarmedFormula, {
+    name: "Desarmado — fórmula de dano",
+    hint: "Dano base do ataque desarmado (qualquer fórmula de dados do Foundry, ex.: 1d4). Fórmula inválida volta para 1d4. Itens marcados \"Reforça o desarmado\" somam a fórmula deles a esta.",
+    scope: "world",
+    config: true,
+    type: String,
+    default: "1d4"
+  });
+  game.settings.register(SYSTEM_ID, S.unarmedAttribute, {
+    name: "Desarmado — atributo de escala",
+    hint: "O atributo que multiplica o dano do ataque desarmado (e que o 🎲 rola).",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: Object.fromEntries(getActiveAttributes().map(a => [a.key, a.label])),
+    default: "strength"
+  });
+  game.settings.register(SYSTEM_ID, S.unarmedElement, {
+    name: "Desarmado — elemento de dano (id)",
+    hint: "Id do Tipo de Dano do ataque desarmado (padrão: blunt, Contundente). Se não existir no catálogo, usa physical; se também não, sem elemento.",
+    scope: "world",
+    config: true,
+    type: String,
+    default: "blunt"
+  });
+
   game.settings.register(SYSTEM_ID, S.shipTargetAsk, {
     name: "Naves — Perguntar sistema-alvo ao atacar",
     hint: "Ao atacar uma Nave/Veículo com alvo único, pergunta se quer mirar num Módulo (Motor, Armas, Escudo…). Desligado, o dano de Integridade sempre se espalha.",
@@ -579,7 +606,7 @@ export function registerSystemSettings() {
   });
 
   // Catálogos de Nave (vazio = padrão do código; ver readCatalog).
-  for (const key of ["moduleCategoriesData", "shipClassesData", "vehicleClassesData", "shipSizesData", "vehicleSizesData", "ammoTypesData", "crewRolesData", "structuresData"]) {
+  for (const key of ["moduleCategoriesData", "shipClassesData", "vehicleClassesData", "shipSizesData", "vehicleSizesData", "ammoTypesData", "crewRolesData", "structuresData", "weaponTypesData"]) {
     game.settings.register(SYSTEM_ID, S[key], { scope: "world", config: false, type: String, default: "" });
   }
 

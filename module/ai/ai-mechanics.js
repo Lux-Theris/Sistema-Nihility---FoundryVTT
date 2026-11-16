@@ -11,6 +11,7 @@ import {
   MEU_SISTEMA,
   getActiveTraits,
   getActiveBodyFunctions,
+  getActiveWeaponTypes,
   getActiveDamageElements,
   getActiveStatusConditions,
   getActiveAttributes,
@@ -55,13 +56,17 @@ export function mechanicsGuide(catalogs = {}) {
     '               "damageElements": [ids] (tick de dano), "elementId": id (só weaponElement/bodyElement)}],',
     '  Efeitos de movimento (grupo "Movimento"): {"target":"push","amount": metros,"pushDirection":"push"|"pull"|"choose","immuneTraits":[ids de Traço]} empurra/puxa o alvo em linha reta; {"target":"flight"} e {"target":"burrow"} dão voo/escavação pela "durationRounds" (amount 0).',
     '  Efeitos de sentido (grupo "Sentidos", só Personagem): {"target":"senseTremor"|"senseInvisible"|"senseTrue"|"senseAll","amount": alcance em metros (0 = sem limite),"durationRounds": rodadas} — Sentido sísmico, Ver o invisível, Visão verdadeira, Sentir tudo.',
-    '  "resistanceTarget": "" | "general" | id de elemento (Skill passiva de Resistência; 10% por nível)',
+    '  "resistanceTarget": "" | "general" | id de elemento (Skill passiva de Resistência; 10% por nível),',
+    '  "weaponStrike": "" | id de Tipo de arma (só Skill de dano: arte marcial/golpe de arma conta como ataque do tipo; "unarmed" = golpe desarmado),',
+    '  "weaponMastery": "" | id de Tipo de arma (Skill passiva de Maestria: +% de dano com armas daquele tipo; sem mecânica de uso),',
+    '  Efeito {"target":"unarmedType","weaponTypeId": id de Tipo de arma,"durationRounds": rodadas} faz o ataque desarmado contar como aquele tipo.',
     "}",
     "Use SÓ estes ids:",
     `- Elementos: ${list(catalogs.elements)}`,
     `- Condições: ${list(catalogs.conditions)}`,
     `- Atributos: ${list(catalogs.attributes)}`,
     `- Traços: ${list(catalogs.traits)}`,
+    `- Tipos de arma: ${list(catalogs.weaponTypes)}`,
     `- Alvos de efeito: ${targets || "strength, defense, magic, hp, energy, shield"}`,
     "Prefira mecânica simples e coerente com a descrição. Uma Skill de cura é temporary com hp positivo e periodic; um veneno é temporary com hp negativo, periodic e conditionId do veneno.",
     'Numa cura periódica, "healKind": "cura" (fecha feridas), "regeneracao" (também refaz membros perdidos — regeneração de troll, de slime) ou "reparo" (conserta próteses e máquinas).'
@@ -82,6 +87,7 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
   const attributes = ids(catalogs.attributes);
   const structures = ids(catalogs.structures);
   const traits = ids(catalogs.traits);
+  const weaponTypes = ids(catalogs.weaponTypes);
   const out = {};
 
   out.cost = clampInt(m.cost, 0, 9999, 0);
@@ -120,6 +126,9 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
       if (typeof m.isTech === "boolean") out.isTech = m.isTech;
       out.damageElements = pickIds(m.damageElements, elements);
       out.scalingAttribute = attributes.has(m.scalingAttribute) ? m.scalingAttribute : "";
+      // Golpe de arma (arte marcial): só um tipo que existe neste mundo.
+      out.weaponStrike = weaponTypes.has(m.weaponStrike) ? m.weaponStrike : "";
+      if (typeof m.strikeRequiresWeapon === "boolean") out.strikeRequiresWeapon = m.strikeRequiresWeapon;
     } else {
       effectType = "none";
     }
@@ -130,7 +139,7 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
     for (const e of Array.isArray(m.effects) ? m.effects.slice(0, 4) : []) {
       if (!e || !MEU_SISTEMA.EFFECT_TARGETS.includes(e.target) || String(e.target).startsWith("ship")) continue;
       const conditionId = conditions.has(e.conditionId) ? e.conditionId : "";
-      const movementOnly = ["flight", "burrow"].includes(e.target);
+      const movementOnly = ["flight", "burrow", "unarmedType"].includes(e.target);
       const senseOnly = String(e.target).startsWith("sense");
       // Empurrar/Puxar: metros, sempre positivos (a direção é o campo pushDirection).
       const amount = e.target === "push" ? clampInt(e.amount, 0, 200, 0) : movementOnly ? 0 : senseOnly ? clampInt(e.amount, 0, 1000, 0) : clampInt(e.amount, -999, 999, 0);
@@ -150,6 +159,11 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
         entry.elementId = elements.has(e.elementId) ? e.elementId : "";
         if (!entry.elementId) continue;
       }
+      // Desarmado vira tipo de arma: só com um tipo que existe no catálogo; sem valor numérico.
+      if (e.target === "unarmedType") {
+        entry.weaponTypeId = weaponTypes.has(e.weaponTypeId) ? e.weaponTypeId : "";
+        if (!entry.weaponTypeId) continue;
+      }
       if (e.target === "push") {
         entry.pushDirection = ["push", "pull", "choose"].includes(e.pushDirection) ? e.pushDirection : "push";
         entry.immuneTraits = pickIds(e.immuneTraits, traits, 10);
@@ -167,6 +181,14 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
 
   const resistance = m.resistanceTarget === "general" || elements.has(m.resistanceTarget) ? m.resistanceTarget : "";
   out.resistanceTarget = resistance;
+  // Maestria de arma (H6): passiva, de um tipo que existe aqui; vira Descritiva e mundana.
+  const mastery = weaponTypes.has(m.weaponMastery) ? m.weaponMastery : "";
+  out.weaponMastery = mastery;
+  if (mastery) {
+    out.masteryRank = 1;
+    out.magicTag = "mundane";
+    effectType = "none";
+  }
   out.effectType = effectType;
   return out;
 }
@@ -183,7 +205,9 @@ export function sanitizeWeapon(raw, catalogs = {}, { isValidFormula = simpleForm
     scalingAttribute: attributes.has(raw.scalingAttribute) ? raw.scalingAttribute : "",
     isMagicDamage: Boolean(raw.isMagicDamage),
     isAbsoluteDamage: false,
-    damageElements: pickIds(raw.damageElements, ids(catalogs.elements))
+    damageElements: pickIds(raw.damageElements, ids(catalogs.elements)),
+    // Tipo de arma (H6): só um id que existe no catálogo deste mundo.
+    weaponType: ids(catalogs.weaponTypes).has(raw.weaponType) ? raw.weaponType : ""
   };
 }
 
@@ -208,7 +232,8 @@ export function currentAICatalogs() {
     structures: getStructures().map(s => ({ id: s.id, label: s.label })),
     targetLabels: getEffectTargetLabels(),
     traits: getActiveTraits().map(t => ({ id: t.id, label: t.label })),
-    bodyFunctions: getActiveBodyFunctions().map(f => ({ id: f.id, label: f.label }))
+    bodyFunctions: getActiveBodyFunctions().map(f => ({ id: f.id, label: f.label })),
+    weaponTypes: getActiveWeaponTypes().map(t => ({ id: t.id, label: t.label }))
   };
 }
 

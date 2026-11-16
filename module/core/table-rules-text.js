@@ -92,6 +92,16 @@ export function buildTableRulesPages(d) {
       parts.push(`<p>Habilidades, armas e granadas têm um <b>alcance</b> em metros (0 = sem limite), medido do centro do seu Token ao do alvo. Fora dele o uso é recusado. Uma Habilidade de área pode sair do seu Token (o círculo em volta de você, o cone e a linha só giram) ou ser posta livre, dentro do alcance. Granadas vão até uma base mais a sua Força.</p>`);
       parts.push(`<p>Uma <b>Marca</b> é um efeito mágico que você põe em alguém: enquanto durar, você pode lançar Habilidades <i>como se estivesse onde o Marcado está</i> — o alvo, a área e as paredes no caminho contam a partir dele. Custa mais quanto mais longe: o custo vezes (distância ÷ alcance) ao quadrado. A Antimagia desfaz a Marca.</p>`);
     }
+    if (d.features.weaponMastery && d.mastery) {
+      const m = d.mastery;
+      parts.push("<h2>Tipos de arma e Maestria</h2>");
+      const subtypes = m.detailed ? ", com subtipos como Espadas e Adagas" : "";
+      const subtypeNote = m.detailed ? ` — a de um subtipo vale só para ele, mas rende ${esc(m.subtypeFactor)}× por nível` : "";
+      parts.push(
+        `<p>Cada arma pode ter um <b>tipo</b> (Lâminas, Armas de Fogo, Energia…${subtypes}). Uma <b>Maestria</b> é uma Habilidade passiva de um tipo: dá <b>+${esc(m.percentPerLevel)}% de dano por nível</b> (até o nível ${esc(m.maxLevel)}) com as armas daquele tipo${subtypeNote}. Depois do nível máximo, só a <b>Evolução</b> a leva a +${esc(m.evolvedPercent)}%. Só a melhor Maestria que cobre o ataque conta. Ela cresce com os seus golpes, e o botão 🎲 de ataque soma o nível dela. Sem Maestria, depois de muitos ataques o Mestre pode concedê-la.</p>`
+      );
+      parts.push("<p>Você sempre pode <b>atacar desarmado</b> (dano baixo, escala pela Força). Soco-inglês e itens parecidos reforçam o golpe; algumas artes marciais contam como ataque desarmado (ou de uma arma) e usam a Maestria também.</p>");
+    }
     if (d.features.forcedMovement) {
       parts.push("<h2>Empurrar e puxar</h2>");
       parts.push("<p>Algumas Habilidades e armas de gravidade <b>empurram</b> (afastam de quem usou ou do centro da área) ou <b>puxam</b> o alvo em linha reta. A Defesa Mágica (se for magia), a Resistência do elemento e certos Traços diminuem os metros; o alvo rola Defesa contra quem empurra e, <b>se vencer, anda só metade</b>. O movimento para na primeira parede ou Estrutura, e os metros que sobraram viram <b>dano de impacto</b> (Contundente); a Estrutura também o leva. Não gasta o seu Deslocamento.</p>");

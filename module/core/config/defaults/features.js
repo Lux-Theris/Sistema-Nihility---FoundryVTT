@@ -253,6 +253,21 @@ export const FEATURES = {
       collisionPercent: { label: "Dano de impacto (% da Vida máx. por metro)", hint: "Metros que sobraram ao bater × este % da Vida máxima de quem bateu, como dano Contundente.", type: "number", default: 5, min: 0 }
     }
   },
+  weaponMastery: {
+    setting: "weaponMasteryEnabled",
+    name: "Tipos de arma e Maestria",
+    hint: "Toda arma pode ter um Tipo (Lâminas, Armas de Fogo, Energia…). Uma Skill de Maestria de um tipo dá +% de dano com as armas daquele tipo (e um 🎲 de ataque que soma o nível dela), sobe com o uso (XP) e, depois do nível máximo, só por Evolução. Depois de N ataques com um tipo sem Maestria, o Mestre recebe a sugestão de dar uma. O ataque desarmado continua existindo com o recurso desligado, só sem Maestria. Desligar só esconde os campos e para o bônus, a XP e a sugestão; nada salvo se perde.",
+    default: true,
+    options: {
+      weaponTypesDetailed: { label: "Lista detalhada de tipos (com subtipos)", hint: "Desligado: só os grupos (Lâminas, Contundentes…); todo subtipo vale como o grupo dele. Ligado: Lâminas › Espadas, Adagas… Trocar nunca apaga o que está salvo.", type: "boolean", default: false },
+      masteryPercentPerLevel: { label: "Maestria — % de dano por nível", hint: "Maestria de um grupo (ou da lista simples): este % por nível.", type: "number", default: 5, min: 0 },
+      masterySubtypeFactor: { label: "Maestria de subtipo — multiplicador", hint: "Só na lista detalhada: a Maestria de um subtipo vale este múltiplo do % por nível (1,5 = 7,5% por nível), mas só para aquele subtipo.", type: "number", default: 1.5, min: 0 },
+      masteryMaxLevel: { label: "Maestria — nível máximo", hint: "Depois dele, só a Evolução dá mais.", type: "number", default: 10, min: 1 },
+      masteryEvolvedPercent: { label: "Maestria evoluída — % de dano fixo", hint: "Sem níveis; num subtipo, também × o multiplicador de subtipo.", type: "number", default: 100, min: 0 },
+      masteryXpShare: { label: "XP da Maestria — % da XP de uso de Skill", hint: "Cada ataque com a arma rende este % do que o mesmo dano renderia a uma Skill.", type: "number", default: 25, min: 0 },
+      masteryLearnThreshold: { label: "Ataques até sugerir uma Maestria", hint: "Depois de tantos ataques com um tipo sem Maestria, o Mestre recebe um card com o botão \"Dar Maestria\". 0 = nunca sugere.", type: "number", default: 25, min: 0 }
+    }
+  },
   elevation: {
     setting: "elevationEnabled",
     name: "Voo, altura e escavação",
@@ -436,6 +451,7 @@ const FEATURE_LAYOUT = {
   naturalRegen: ["combat", "Mana (e Vida, se configurado) volta um pouco a cada turno.", true],
   skillRange: ["combat", "Alcance em metros para Skills, armas e granadas; Marcas lançam de longe."],
   forcedMovement: ["combat", "Skills e armas de gravidade empurram ou puxam o alvo pelo mapa."],
+  weaponMastery: ["combat", "Tipos de arma e Maestria: +% de dano com o tipo que você treina."],
   elevation: ["combat", "Voo, altura e escavação: a elevação do Token entra nas distâncias.", true],
   senses: ["combat", "Debaixo da terra ou invisível, só quem tem o sentido certo percebe."],
   skillUndo: ["combat", "O Mestre desfaz o último uso de uma Skill até o turno acabar."],

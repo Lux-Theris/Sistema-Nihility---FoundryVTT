@@ -38,6 +38,7 @@ import { magicDefenseReduction, resistanceSourceFor } from "./resistance.js";
 import { applyDamageReductions, personalTraceTail } from "./damage-roll.js";
 import { damageApplyFlags, withDamageTrace } from "./damage-apply.js";
 import { tokenDocCenter } from "./area-geometry.js";
+import { gravityWeaponMeters } from "./weapon-mastery.js";
 import { blockIfIncapacitated } from "./incapacitation.js";
 import { magazineState } from "../economy/consumable-rules.js";
 import { chargeAntimagic, fieldGate, creditManipulation } from "./antimagic.js";
@@ -309,7 +310,8 @@ function resolvePushSpec(item, payload) {
     if (!direction) return { error: "faltou a direção" };
     return {
       label: item.name,
-      meters: Math.max(0, Number(weapon.pushMeters) || 0),
+      // Maestria de arma (H6): o mesmo % do dano, refeito aqui do que está na ficha do dono.
+      meters: Math.max(0, gravityWeaponMeters(item.parent, item, Number(weapon.pushMeters) || 0)),
       direction,
       magical: Boolean(weapon.isMagicDamage),
       scalingAttribute: weapon.scalingAttribute || "",

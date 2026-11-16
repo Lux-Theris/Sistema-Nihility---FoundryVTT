@@ -108,8 +108,8 @@ test("Custo sugerido: efeitos, porcentagem, Ativa e as Skills padrão por perto"
 
 test("Modelos: normaliza, preenche e troca o que o mundo não tem", () => {
   const defaults = MEU_SISTEMA.DEFAULT_SKILL_TEMPLATES.map(normalizeSkillTemplate);
-  assert.equal(defaults.length, 12);
-  assert.equal(new Set(defaults.map(t => t.id)).size, 12);
+  assert.equal(defaults.length, 13);
+  assert.equal(new Set(defaults.map(t => t.id)).size, 13);
   for (const t of defaults) {
     assert.ok(MEU_SISTEMA.SKILL_EFFECT_TYPES.includes(t.skill.effectType), t.id);
     // Todo modelo de fábrica já nasce sem aviso "não faz nada".

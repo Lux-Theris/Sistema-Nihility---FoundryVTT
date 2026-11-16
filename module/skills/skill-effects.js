@@ -15,6 +15,8 @@ import { suppressionLevel, techSuppressionLevel } from "../core/suppression.js";
 import { skillIsMagic, skillIsTech } from "../core/magic-rules.js";
 import { createZone } from "../combat/area-effects.js";
 import { grantSkillUseXp, vitalBase } from "./skill-xp.js";
+import { afterSkillStrike, strikeBlockReason } from "../combat/weapon-mastery.js";
+import { resolveWeaponStrike } from "../combat/weapon-mastery-rules.js";
 import { blockIfIncapacitated, knockUnconscious } from "../combat/incapacitation.js";
 import { useBlockReason, startPreparation, applyCooldownAfterUse, inStartedCombat } from "./preparation.js";
 import { packUseOptions, preparationPayments, overdrawInfo, investCeiling } from "./cooldown-rules.js";
@@ -104,6 +106,9 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
     if (sub) {
       mech = sub;
       label = `${skill.name} — ${sub.name}`;
+      // Golpe de arma (H6): a Sub-Skill sem o próprio herda o da Skill-mãe (arte marcial com vários golpes).
+      const strike = resolveWeaponStrike(sub.weaponStrike, skill.system.weaponStrike);
+      if (strike !== (sub.weaponStrike ?? "")) mech = { ...(typeof sub.toObject === "function" ? sub.toObject() : sub), weaponStrike: strike };
     }
   }
 
@@ -123,7 +128,7 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
 
   // Recarga ou Preparo em andamento (H3). O disparo de um Preparo (`prepaid`) já passou por aqui.
   if (!options.prepaid) {
-    const blocked = useBlockReason(sourceActor, skill, options.subSkillIndex ?? null);
+    const blocked = useBlockReason(sourceActor, skill, options.subSkillIndex ?? null) ?? strikeBlockReason(sourceActor, skill, options.subSkillIndex ?? null);
     if (blocked) {
       ui.notifications?.warn(blocked);
       return null;
@@ -344,6 +349,8 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
       ? await rollSkillDamageArea(sourceActor, mech, label, options.targetActors ?? [], options.rollOptions ?? null)
       : await rollSkillDamage(sourceActor, mech, label, options.targetActor ?? null, options.rollOptions ?? null, { aim: !options.prepaid && !options.noAim });
     await grantSkillUseXp(skill, damageXpMeasures(result, options.targetActor));
+    // Golpe de arma (H6): a Maestria do tipo ganha a fatia dela (ou a prática conta).
+    await afterSkillStrike(sourceActor, mech, result, options.targetActor ?? null);
     return result;
   }
   if (mech.effectType === "temporary") {

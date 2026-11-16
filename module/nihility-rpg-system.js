@@ -66,6 +66,7 @@ import { registerCombatPanelTracker } from "./apps/combat-panel.js";
 import { registerCreationHooks, renderCreationReadyControls } from "./creation/creation.js";
 import { registerGlossaryLinks } from "./glossary/glossary.js";
 import { registerHotbarMacros, useItemFromHotbar } from "./core/hotbar.js";
+import { registerWeaponMastery, renderMasterySuggestion, unarmedAttackFromHotbar } from "./combat/weapon-mastery.js";
 import { registerIncapacitation, tickIncapacitation, isDead } from "./combat/incapacitation.js";
 import { tickContagion } from "./combat/contagion.js";
 import { registerEnvironment, syncTokenEnvironment } from "./environment/environment.js";
@@ -117,6 +118,8 @@ Hooks.once("init", () => {
     requestShipRepair: () => requestShipRepair(),
     // Macro criada ao arrastar uma Skill/arma da ficha para a hotbar (ver core/hotbar.js).
     useItem: uuid => useItemFromHotbar(uuid),
+    // Ataque desarmado (H6) pela hotbar: arrastar a linha "Ataque desarmado" da ficha cria esta macro.
+    unarmedAttack: actorUuid => unarmedAttackFromHotbar(actorUuid),
     // Gerador de NPC por arquétipo (só o Mestre).
     generateNpc: async () => (await import("./apps/npc-generator.js")).openNpcGenerator(),
     // Simulador de encontro (só o Mestre).
@@ -210,6 +213,7 @@ Hooks.once("init", () => {
   // Link "Abrir o Glossário" do diário Regras desta mesa (o diário não roda script).
   registerGlossaryLinks();
   registerHotbarMacros();
+  registerWeaponMastery();
   registerIncapacitation();
   registerSkillTimers();
   registerEnvironment();
@@ -567,7 +571,9 @@ function defaultPrototypeToken(type) {
       "prototypeToken.bar2.attribute": "casco",
       // Nave é sempre única no mundo — token não-vinculado criaria cópias com energia própria.
       "prototypeToken.actorLink": true,
-      "prototypeToken.displayName": CONST.TOKEN_DISPLAY_MODES.HOVER
+      "prototypeToken.displayName": CONST.TOKEN_DISPLAY_MODES.HOVER,
+      // Visão ligada: numa cena com Visão de Token, sem isso o Token não enxerga nem usa Sentidos (J4b).
+      "prototypeToken.sight.enabled": true
     };
   }
 
@@ -575,7 +581,9 @@ function defaultPrototypeToken(type) {
     "prototypeToken.bar1.attribute": "attributes.hp",
     // Campanha sem pool de Mana não configura a segunda barra em vez de mostrar uma barra vazia.
     "prototypeToken.bar2.attribute": isEnergyPoolEnabled() ? "attributes.energy" : null,
-    "prototypeToken.displayName": CONST.TOKEN_DISPLAY_MODES.HOVER
+    "prototypeToken.displayName": CONST.TOKEN_DISPLAY_MODES.HOVER,
+    // Visão ligada: numa cena com Visão de Token, sem isso o Token não enxerga nem usa Sentidos (J4b).
+    "prototypeToken.sight.enabled": true
   };
 }
 
@@ -965,6 +973,8 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
   renderSkillRequestControls(message, html);
   // Card "está pronto" da ficha em modo criação (Abrir ficha / Pedir ajuste / Liberar, só o Mestre).
   renderCreationReadyControls(message, html);
+  // Sugestão de Maestria de arma (aprender pela prática): botão "Dar Maestria de X", só o Mestre.
+  renderMasterySuggestion(message, html);
 
   // Pedido de Reparo de Nave/Veículo (Overhaul de Naves, Fase 7) — o modificador do Mestre é
   // lido do próprio input no momento do clique, não guardado nas flags da mensagem.

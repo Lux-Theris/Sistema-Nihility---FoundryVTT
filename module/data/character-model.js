@@ -190,6 +190,8 @@ function baseActorSchema() {
       damageFlat: new fields.NumberField({ required: true, initial: 0 }),
       damageMultiplier: new fields.NumberField({ required: true, initial: 1, min: 0 }),
       elementOverride: new fields.StringField({ required: false, initial: "", blank: true }),
+      /** Alvo "unarmedType" (H6): tipo de arma em que o ataque desarmado se transforma (OVERRIDE). */
+      unarmedType: new fields.StringField({ required: false, initial: "", blank: true }),
       forceMagic: new fields.NumberField({ required: true, initial: 0 }),
       absolute: new fields.NumberField({ required: true, initial: 0 })
     }),

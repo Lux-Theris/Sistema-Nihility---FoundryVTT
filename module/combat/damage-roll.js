@@ -20,6 +20,8 @@ import { itemIsTech } from "../core/magic-rules.js";
 import { magicDefenseReduction, resistanceSourceFor, grantResistanceXp, registerResistanceExposure } from "./resistance.js";
 import { isShipLike, applyShipWeaponBonus, applyStarshipDamageCascade } from "../starship/ship-damage.js";
 import { escapeHtml } from "../helpers/html.js";
+import { weaponMasteryHit, afterWeaponAttack, strikeMasteryBonus } from "./weapon-mastery.js";
+import { masteryFactor, masteryTraceRow, formatMasteryPercent } from "./weapon-mastery-rules.js";
 
 /**
  * Cascata de dano de 3 camadas pra Nave/Veículo (Overhaul de Naves, Fase 4): Escudo → Casco →
@@ -43,9 +45,11 @@ import { escapeHtml } from "../helpers/html.js";
  * escala, condicional de quem ataca, Antimagia e Estrutura no caminho. As defesas do alvo vêm
  * depois (applyDamageReductions / applyStarshipDamageCascade).
  */
-export function attackTraceRows({ rolled, boosted, scale = 1, situational = 1, beforeStructure = null, arriving, nulled = false }) {
+export function attackTraceRows({ rolled, boosted, scale = 1, situational = 1, beforeStructure = null, arriving, nulled = false, mastery = null }) {
   const rows = [{ label: "Rolagem", value: String(rolled) }];
-  if (Math.round(boosted) !== rolled) rows.push({ label: "Com escala por atributo, nível, bônus de arma e Shift", value: String(Math.round(boosted)) });
+  if (Math.round(boosted) !== rolled) rows.push({ label: "Com escala por atributo, nível, bônus de arma, Maestria e Shift", value: String(Math.round(boosted)) });
+  // Maestria de arma (H6): quanto ela somou (só o Mestre vê o rastro).
+  if (mastery) rows.push(masteryTraceRow(mastery.label, mastery.percent));
   if (scale !== 1) rows.push({ label: "Escala de tamanho", value: `×${formatScale(scale)}` });
   if (situational !== 1) rows.push({ label: "Quando → Então de quem ataca", value: `×${Math.round(situational * 100) / 100}` });
   if (nulled) {
@@ -383,7 +387,10 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
   const levelPower = skillLevelBonuses(mech.level).power * (mech.investPower ?? 1);
   const scaledTotal = roll.total * scaling * levelPower;
   // Nave: bônus de arma em `combatBonuses`; arma pessoal: `weaponBonuses` (via useWeaponAttack).
-  const personal = mech.weaponBonus ? scaledTotal * (mech.weaponBonus.multiplier ?? 1) + (mech.weaponBonus.flat ?? 0) : scaledTotal;
+  const weaponBonused = mech.weaponBonus ? scaledTotal * (mech.weaponBonus.multiplier ?? 1) + (mech.weaponBonus.flat ?? 0) : scaledTotal;
+  // Maestria de arma (H6): depois da escala e dos bônus de arma, antes dos modificadores do Shift e das defesas.
+  const mastery = mech.masteryBonus ?? strikeMasteryBonus(actor, mech);
+  const personal = mastery ? weaponBonused * masteryFactor(mastery.percent) : weaponBonused;
   const bonusTotal = applyShipWeaponBonus(personal, actor);
   // Modificadores do shift+clique: depois de toda escala e bônus automáticos, antes das
   // reduções do alvo (ver roll-modifiers.js).
@@ -396,6 +403,7 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
   if (levelPower !== 1) flavor += ` — ${mech.investPower && mech.investPower !== 1 ? `nível e investimento de ${getEnergyLabelForActor(actor)}` : "nível"} ×${levelPower.toFixed(2)}`;
   if (scaledTotal !== roll.total) flavor += ` (${roll.total} → ${Math.round(scaledTotal)})`;
   if (bonusTotal !== scaledTotal) flavor += ` — bônus de arma (${Math.round(scaledTotal)} → ${Math.round(bonusTotal)})`;
+  if (mastery) flavor += ` — Maestria ${escapeHtml(mastery.label)} +${formatMasteryPercent(mastery.percent)}%`;
   flavor += modifiersFlavor(options, bonusTotal, boostedTotal);
 
   // Escala: pistola contra Nave, canhão contra pessoa (ver damageScaleFor).
@@ -413,7 +421,7 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
     await roll.toMessage({
       speaker: ChatMessage.getSpeaker({ actor }),
       flavor: `${flavor} — ${escapeHtml(targetActor.name)}: 0`,
-      flags: withDamageTrace({}, [{ name: targetActor.name, rows: attackTraceRows({ rolled: roll.total, boosted: boostedTotal, scale, situational, nulled: true }) }])
+      flags: withDamageTrace({}, [{ name: targetActor.name, rows: attackTraceRows({ rolled: roll.total, boosted: boostedTotal, scale, situational, nulled: true, mastery }) }])
     });
     return { roll, finalDamage: 0 };
   }
@@ -430,7 +438,7 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
   }
   const blocked = targetActor ? await throughStructures(actor, targetActor, rawDamage, { origin: viaOrigin, elementIds: mech.damageElements, absolute: Boolean(mech.isAbsoluteDamage) }) : { damage: rawDamage, note: "", impact: null };
   const scaledDamage = blocked.damage;
-  const traceRows = attackTraceRows({ rolled: roll.total, boosted: boostedTotal, scale, situational, beforeStructure: rawDamage, arriving: scaledDamage });
+  const traceRows = attackTraceRows({ rolled: roll.total, boosted: boostedTotal, scale, situational, beforeStructure: rawDamage, arriving: scaledDamage, mastery });
   flavor += blocked.note;
   // A animação da Skill para no ponto de impacto se uma parede segurou, e só segue até o alvo se
   // sobrou dano (arma pessoal não tem animação, então nada acontece pra ela).
@@ -538,6 +546,8 @@ export async function useWeaponAttack(sourceActor, weaponItem, targetActor = nul
   // Aprimoramento vindo de Skills (alvos "weapon*"): vale pra qualquer arma equipada do Ator.
   const bonuses = sourceActor.system.weaponBonuses ?? {};
   const override = bonuses.elementOverride && getDamageElement(bonuses.elementOverride) ? bonuses.elementOverride : "";
+  // Maestria de arma (H6): a melhor que cobre o tipo desta arma (ou do desarmado, já resolvido pelo tipo).
+  const masteryHit = weaponMasteryHit(sourceActor, weaponItem);
   const shotMech = {
       damageFormula: ammo?.damageFormula?.trim() || weapon.damageFormula,
       scalingAttribute: weapon.scalingAttribute,
@@ -546,6 +556,7 @@ export async function useWeaponAttack(sourceActor, weaponItem, targetActor = nul
       damageScale: weapon.damageScale,
       damageElements: override ? [override] : ammo?.damageElements?.length ? ammo.damageElements : weapon.damageElements,
       weaponBonus: { flat: Number(bonuses.damageFlat) || 0, multiplier: bonuses.damageMultiplier ?? 1 },
+      masteryBonus: masteryHit ? { percent: masteryHit.percent, label: masteryHit.label } : null,
       // Arma tecnológica não dispara através de um campo de interferência (anulada, sem custo).
       isTech: itemIsTech(weaponItem.system),
       weaponShot: true,
@@ -570,6 +581,8 @@ export async function useWeaponAttack(sourceActor, weaponItem, targetActor = nul
     { aim: true }
   );
   if (result && magazine.uses) await weaponItem.update({ "system.weapon.loaded": magazine.loaded - 1 });
+  // XP da Maestria (ou a contagem para a sugestão de aprender pela prática): só depois do golpe resolvido.
+  if (result) await afterWeaponAttack(sourceActor, weaponItem, masteryHit, result, targetActor);
   return result;
 }
 
@@ -602,14 +615,17 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
   const scaling = damageScalingMultiplier(actor, mech.scalingAttribute);
   const levelPower = skillLevelBonuses(mech.level).power * (mech.investPower ?? 1);
   const scaledTotal = roll.total * scaling * levelPower;
-  const bonusTotal = applyShipWeaponBonus(scaledTotal, actor);
+  // Golpe de arma de Skill (H6): a Maestria que cobre o tipo multiplica, como no alvo único.
+  const mastery = strikeMasteryBonus(actor, mech);
+  const bonusTotal = applyShipWeaponBonus(mastery ? scaledTotal * masteryFactor(mastery.percent) : scaledTotal, actor);
   const boostedTotal = applyRollModifiers(bonusTotal, options);
   // O que mudou a rolagem, com o mesmo nome que o card de alvo único usa (não "bônus de arma"
   // para tudo: quase sempre é a Escala por Atributo ou o nível).
   const boostParts = [];
   if (scaling !== 1) boostParts.push(`${getAttributeLabel(mech.scalingAttribute)} ×${scaling.toFixed(1)}`);
   if (levelPower !== 1) boostParts.push(`${mech.investPower && mech.investPower !== 1 ? `nível e investimento de ${getEnergyLabelForActor(actor)}` : "nível"} ×${levelPower.toFixed(2)}`);
-  if (bonusTotal !== scaledTotal) boostParts.push("bônus de arma");
+  if (mastery) boostParts.push(`Maestria ${mastery.label} +${formatMasteryPercent(mastery.percent)}%`);
+  else if (bonusTotal !== scaledTotal) boostParts.push("bônus de arma");
   if (boostedTotal !== bonusTotal) boostParts.push("modificadores");
   const title = `${damageFlavorPrefix(mech, label)} (Emissão)${modifiersFlavor(options, bonusTotal, boostedTotal)}`;
   const rows = [];
@@ -636,7 +652,7 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
     let targetDamage = boostedTotal * scale * situational;
     if (antimagic.nulled.has(targetActor.uuid)) {
       rows.push(`<li><strong>${escapeHtml(targetActor.name)}</strong>: 0 (anulado pelo campo)</li>`);
-      traces.push({ name: targetActor.name, rows: attackTraceRows({ rolled: roll.total, boosted: boostedTotal, scale, situational, nulled: true }) });
+      traces.push({ name: targetActor.name, rows: attackTraceRows({ rolled: roll.total, boosted: boostedTotal, scale, situational, nulled: true, mastery }) });
       continue;
     }
     const beforeStructure = targetDamage;
@@ -650,7 +666,7 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
       }
       targetDamage = Math.round(targetDamage * shielded.get(block.instance.id));
     }
-    const traceRows = attackTraceRows({ rolled: roll.total, boosted: boostedTotal, scale, situational, beforeStructure, arriving: targetDamage });
+    const traceRows = attackTraceRows({ rolled: roll.total, boosted: boostedTotal, scale, situational, beforeStructure, arriving: targetDamage, mastery });
     traces.push({ name: targetActor.name, rows: traceRows });
     if (isShipLike(targetActor)) {
       const ctx = averageElementContext(mech.damageElements, targetActor);

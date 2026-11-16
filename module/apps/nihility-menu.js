@@ -28,7 +28,8 @@ import {
   getVisibleAttributes,
   debugLog,
   getVesselSizes,
-  getAmmoTypes
+  getAmmoTypes,
+  getActiveWeaponTypes
 } from "../core/config.js";
 import { ensureSystemCompendiums, registerItemInCompendium } from "../core/compendium.js";
 import { saveTextToFile, readFileAsText } from "../helpers/foundry-compat.js";
@@ -498,6 +499,7 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
         label: "Combate e Dano",
         rows: [
           { action: "damage-elements-config", icon: "fas fa-fire", title: "Tipos de Dano", desc: "Elementos por grupo e o que cada um causa ao acertar.", state: `${count(elements.length, "tipo", "tipos")} · ${count(new Set(elements.map(e => e.group)).size, "grupo", "grupos")}` },
+          { action: "weapon-types-config", icon: "fas fa-khanda", title: "Tipos de Arma", desc: "Lâminas, Armas de Fogo, Energia… e os subtipos da lista detalhada.", state: count(getActiveWeaponTypes().length, "tipo", "tipos"), feature: "weaponMastery" },
           { action: "status-conditions-config", icon: "fas fa-skull-crossbones", title: "Condições", desc: "Queimadura, Lentidão, Veneno… com efeito padrão.", state: `${conditions.length} · ${conditions.filter(c => c.effect?.kind).length} com efeito`, feature: "statusConditions" },
           { action: "scales-config", icon: "fas fa-up-right-and-down-left-from-center", title: "Escalas", desc: "Pessoal, Veículo, Nave, Capital — quanto o dano muda entre elas.", state: count(getScaleConfig().scales.length, "escala", "escalas"), feature: "scale" },
           { action: "structures-config", icon: "fas fa-dungeon", title: "Estruturas", desc: "Paredes, blocos e barreiras que as Skills erguem no mapa.", state: count(getStructures().length, "estrutura", "estruturas"), feature: "structures" },
@@ -853,6 +855,11 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
           "crew-roles-config": apps.CrewRolesConfigApp
         }[action];
         new App().render(true);
+        break;
+      }
+      case "weapon-types-config": {
+        const { WeaponTypesConfigApp } = await import("./weapon-types-config.js");
+        new WeaponTypesConfigApp().render(true);
         break;
       }
       case "structures-config": {

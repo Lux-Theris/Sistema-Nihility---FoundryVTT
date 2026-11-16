@@ -136,7 +136,7 @@ export function suggestSkillCost(mech, ctx = {}) {
         const rounds = active ? w.activeTicks : Math.max(1, Math.min(w.maxRounds, Number(e?.durationRounds) || w.foreverRounds));
         p = w.movementMode + rounds * 0.5;
         text = `${name} por ${active ? "rodada ativa" : `${rounds} rodada(s)`}`;
-      } else if (["weaponElement", "bodyElement", "weaponMagic", "weaponAbsolute"].includes(target)) {
+      } else if (["weaponElement", "bodyElement", "weaponMagic", "weaponAbsolute", "unarmedType"].includes(target)) {
         p = w.toggle;
         text = name;
       } else if (e?.periodic) {

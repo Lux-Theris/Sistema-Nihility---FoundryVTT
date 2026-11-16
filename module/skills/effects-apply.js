@@ -2,7 +2,7 @@
  * Efeitos Temporários: criar/renovar Active Effects e Condições num alvo, e os ticks periódicos (Veneno, cura).
  * (Separado de skill-effects.js na reorganização de pastas — mesma lógica de antes.)
  */
-import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions, getEffectTargetLabels, skillLevelBonuses, getDamageElement, isInterferenceEnabled, isSkillRangeEnabled, sameActor } from "../core/config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions, getEffectTargetLabels, skillLevelBonuses, getDamageElement, getWeaponType, isInterferenceEnabled, isSkillRangeEnabled, sameActor } from "../core/config.js";
 import { makeAnchor, addAnchor, effectAnchors, finiteRemaining, serializeFinite, durationRemaining, refreshFiniteRounds, PERMANENT, ANCHORED_TARGETS_FLAG, recordAnchoredTarget } from "../combat/effect-anchors.js";
 import { escapeHtml } from "../helpers/html.js";
 import { applyStructuralDamage, damageCasco, repairModules } from "../starship/starship-power.js";
@@ -485,6 +485,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
     const valueText =
       ["weaponElement", "bodyElement"].includes(entry.target) ? `→ ${getDamageElement(entry.elementId)?.label ?? entry.elementId}`
       : change.senseMode ? describeSenseRange(Number(change.value))
+      : entry.target === "unarmedType" ? `→ ${getWeaponType(entry.weaponTypeId)?.label ?? entry.weaponTypeId}`
       : ["weaponMagic", "weaponAbsolute"].includes(entry.target) || change.movementMode ? ""
       : isMultiplier ? `×${(1 + entry.amount / 100).toFixed(2)}`
       : `${sign}${entry.amount}${SHIP_PERCENT_PATHS[entry.target] || entry.target === "movement" ? "%" : ""}`;

@@ -17,7 +17,7 @@ const GROUPS = [
   { id: "progression", label: "Progressão", test: key => /^(xp|attributePoints|skillPoints|skillPower|skillDiscount|skillCycle|skillCostFloor|skillCostMana|resistance)/.test(key) },
   { id: "vitals", label: "Vida e Energia", test: key => /(vital|energy|Energy|manaInvest|manaDensity|^rest|healBlock|cureRegrow)/.test(key) },
   { id: "ships", label: "Naves", test: key => /^ship/.test(key) },
-  { id: "combat", label: "Combate", test: key => /(initiative|damage|OffScene|Scaling|antimagic|technomagic|affinity)/i.test(key) },
+  { id: "combat", label: "Combate", test: key => /(initiative|damage|OffScene|Scaling|antimagic|technomagic|affinity|unarmed)/i.test(key) },
   { id: "other", label: "Outras", test: () => true }
 ];
 

@@ -10,6 +10,7 @@ import {
   getActiveStatusConditions,
   getActiveDamageElements,
   getStructures,
+  getActiveWeaponTypes,
   getEffectTargetLabels,
   getAttributeLabel,
   getEnergyLabelForActor,
@@ -23,6 +24,7 @@ import { isMagicUse, isTechUse, technomagicFactor, getTechnomagicPower } from ".
 import { suggestSkillCost, costCloseEnough, holderLine } from "./skill-cost-rules.js";
 import { templateSkillData } from "./skill-template-rules.js";
 import { skillSummary } from "./skill-summary.js";
+import { masterySentenceFor, isWeaponMasteryEnabled } from "../combat/weapon-mastery.js";
 import { escapeHtml } from "../helpers/html.js";
 
 /** "Nave" ou "Personagem" (ou null sem ficha). */
@@ -52,7 +54,8 @@ export function worldCatalogs() {
   return {
     conditions: getActiveStatusConditions().map(c => c.id),
     elements: getActiveDamageElements().map(e => e.id),
-    structures: getStructures().map(s => s.id)
+    structures: getStructures().map(s => s.id),
+    weaponTypes: getActiveWeaponTypes().map(t => t.id)
   };
 }
 
@@ -71,6 +74,7 @@ export function skillAssist(mech, { actor = null } = {}) {
     conditions: catalogs.conditions,
     elements: catalogs.elements,
     structures: catalogs.structures,
+    weaponTypes: catalogs.weaponTypes,
     actorType: actorKind(actor),
     energyMax,
     validFormula,
@@ -144,6 +148,9 @@ export function skillSentence(skill) {
     conditions: byId(getActiveStatusConditions()),
     targets: getEffectTargetLabels(),
     structures: byId(getStructures()),
+    weaponTypes: byId(getActiveWeaponTypes()),
+    mastery: masterySentenceFor(skill),
+    strikesOn: isWeaponMasteryEnabled(),
     energyLabel: getCharacterEnergyLabel(),
     skillRange: isSkillRangeEnabled(),
     cost: skill.cost,

@@ -563,11 +563,11 @@ function buildItemSystemPrompt() {
     'consumível, tesouro, arma...). Responda SEMPRE com um único objeto JSON estrito, sem markdown, ' +
     'no formato: {"name": string, "description": string (HTML curto), "quantity": number, ' +
     '"weight": number, "valueAmount": number, "valueCurrency": string, ' +
-    '"weapon": null | {"damageFormula": fórmula de dados ("1d8+2"), "damageElements": [ids], "scalingAttribute": id ou "", "isMagicDamage": boolean}, ' +
+    '"weapon": null | {"damageFormula": fórmula de dados ("1d8+2"), "damageElements": [ids], "scalingAttribute": id ou "", "isMagicDamage": boolean, "weaponType": id de Tipo de arma ou ""}, ' +
     '"attributeBonuses": [{"attribute": id, "amount": número}] (enquanto equipado, somado na rolagem), ' +
     '"statModifiers": {"hp": número, "energy": número} (Vida/Mana máxima enquanto equipado)}. ' +
     'Só preencha "weapon" se for uma arma; bônus só se o item claramente der. ' +
-    `Elementos: ${list(catalogs.elements)}. Atributos: ${list(catalogs.attributes)}.`
+    `Elementos: ${list(catalogs.elements)}. Atributos: ${list(catalogs.attributes)}. Tipos de arma: ${list(catalogs.weaponTypes ?? [])}.`
   );
 }
 

@@ -47,6 +47,9 @@ export function templateSkillData(template, overrides = {}, catalogs = {}) {
       damageElements: (e.damageElements ?? []).filter(id => known(catalogs.elements, id))
     }));
   }
+  // Tipo de arma (H6): só se existe neste mundo; senão a Maestria/golpe fica sem tipo.
+  if (skill.weaponMastery && !known(catalogs.weaponTypes, skill.weaponMastery)) skill.weaponMastery = "";
+  if (skill.weaponStrike && !known(catalogs.weaponTypes, skill.weaponStrike)) skill.weaponStrike = "";
   if (skill.effectType === "structure" && Array.isArray(catalogs.structures) && !catalogs.structures.includes(skill.structureId)) {
     skill.structureId = catalogs.structures[0] ?? "";
   }

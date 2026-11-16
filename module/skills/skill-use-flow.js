@@ -2,6 +2,7 @@ import { isAreaEffectsEnabled, isEnergyPoolEnabled, effectiveSkillCost, getEnerg
 import { isShipLike } from "../starship/ship-damage.js";
 import { currentEnergyValue, warnInsufficientEnergy } from "./skill-state.js";
 import { useBlockReason } from "./preparation.js";
+import { strikeBlockReason } from "../combat/weapon-mastery.js";
 import { useSkillEffect } from "./skill-effects.js";
 import { skillUseMode } from "./skill-use-mode.js";
 import { getStructure, pickStructurePlacement } from "../structures/structures.js";
@@ -12,6 +13,7 @@ import { escapeHtml } from "../helpers/html.js";
 import { reportError } from "../helpers/report.js";
 import { reachContext, resolveTargetReach, confirmMarkCost } from "../combat/range.js";
 import { shapeIsFree } from "../combat/range-rules.js";
+import { isWeaponMasteryEnabled } from "../combat/weapon-mastery.js";
 
 /**
  * "Usar Habilidade" — o MESMO caminho para a ficha de Personagem, a de Nave/Veículo e a hotbar.
@@ -27,6 +29,12 @@ import { shapeIsFree } from "../combat/range-rules.js";
 export async function useSkillFlow(actor, itemId, { event = null, pickTarget } = {}) {
   const skill = actor?.items.get(itemId);
   if (!skill) return;
+
+  // Maestria de arma (H6): passiva, só dá o bônus nos ataques com armas do tipo (e vale pela hotbar também).
+  if (skill.system.weaponMastery && isWeaponMasteryEnabled()) {
+    ui.notifications.info(`${skill.name} é passiva: o bônus vale sozinho nos ataques com armas do tipo.`);
+    return;
+  }
 
   // Caído/Inconsciente (só Personagem): avisa antes de pedir Sub-Skill ou alvo. Desligar uma Ativa
   // continua possível (ela já foi desligada ao cair, mas uma ligada à mão depois pode ser desligada).
@@ -49,7 +57,7 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget } =
   }
 
   // Recarga ou Preparo em andamento (H3): avisa antes de pedir alvo, área ou rolagem.
-  const blocked = useBlockReason(actor, skill, subSkillIndex);
+  const blocked = useBlockReason(actor, skill, subSkillIndex) ?? strikeBlockReason(actor, skill, subSkillIndex);
   if (blocked) {
     ui.notifications.warn(blocked);
     return;

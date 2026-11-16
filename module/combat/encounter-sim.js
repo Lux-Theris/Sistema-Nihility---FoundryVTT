@@ -24,6 +24,8 @@ import {
 import { averageRoll } from "../skills/skill-cost-rules.js";
 import { applyDamageReductions, damageScaleFor, situationalDamageFactor } from "./damage-roll.js";
 import { unitHp, cadenceFactor } from "./encounter-rules.js";
+import { weaponMasteryHit, strikeMasteryBonus, unarmedWeaponItem } from "./weapon-mastery.js";
+import { resolveWeaponStrike, masteryFactor, formatMasteryPercent } from "./weapon-mastery-rules.js";
 
 /** Alvos que um ataque em área acerta, por padrão (o canvas: "até 3"). */
 export const DEFAULT_AREA_TARGETS = 3;
@@ -47,7 +49,10 @@ export function attackOptions(actor) {
       for (const entry of list) {
         const m = entry.mech;
         if (m.effectType !== "damage" || !String(m.damageFormula ?? "").trim()) continue;
+        // Golpe de arma (H6): a Sub-Skill sem o próprio herda o da Skill-mãe; a Maestria entra pela mesma função do dano real.
+        const strike = strikeMasteryBonus(actor, { weaponStrike: resolveWeaponStrike(m.weaponStrike, s.weaponStrike) });
         out.push({
+          mastery: strike,
           id: entry.id,
           label: entry.label,
           mech: m,
@@ -60,7 +65,9 @@ export function attackOptions(actor) {
       const w = item.system.weapon;
       const ammo = w.magazineSize > 0 ? w.loadedAmmo ?? null : null;
       if (!String(ammo?.damageFormula || w.damageFormula || "").trim()) continue;
+      const hit = weaponMasteryHit(actor, item);
       out.push({
+        mastery: hit ? { percent: hit.percent, label: hit.label } : null,
         id: item.id,
         label: item.name,
         kind: "weapon",
@@ -78,6 +85,21 @@ export function attackOptions(actor) {
       });
     }
   }
+  // Ataque desarmado (H6): sempre existe, e entra como mais uma opção.
+  if (actor?.type === "character") {
+    const unarmed = unarmedWeaponItem(actor);
+    const w = unarmed.system.weapon;
+    const hit = weaponMasteryHit(actor, unarmed);
+    out.push({
+      mastery: hit ? { percent: hit.percent, label: hit.label } : null,
+      id: "unarmed",
+      label: unarmed.name,
+      kind: "weapon",
+      cost: 0,
+      area: false,
+      mech: { damageFormula: w.damageFormula, scalingAttribute: w.scalingAttribute, isMagicDamage: w.isMagicDamage, isAbsoluteDamage: w.isAbsoluteDamage, damageScale: "", damageElements: w.damageElements, level: 1 }
+    });
+  }
   return out;
 }
 
@@ -88,7 +110,8 @@ function rawAverage(actor, option) {
   const power = option.kind === "skill" ? skillLevelBonuses(option.mech.level).power : 1;
   // Tecnomágico (mágico E tecnológico) sai mais forte, como em useSkillEffect.
   const technomagic = option.kind === "skill" ? technomagicFactor(isMagicUse(option.mech, actor), isTechUse(option.mech, actor), getTechnomagicPower()) : 1;
-  return { avg, scaling, power, technomagic, raw: avg * scaling * power * technomagic };
+  const mastery = option.mastery ? masteryFactor(option.mastery.percent) : 1;
+  return { avg, scaling, power, technomagic, mastery, raw: avg * scaling * power * technomagic * mastery };
 }
 
 /**
@@ -97,7 +120,7 @@ function rawAverage(actor, option) {
  */
 export function averageHit(attacker, option, target) {
   const fmt = n => (Math.round(n * 100) / 100).toString().replace(".", ",");
-  const { avg, scaling, power, technomagic, raw } = rawAverage(attacker, option);
+  const { avg, scaling, power, technomagic, mastery, raw } = rawAverage(attacker, option);
   const scale = damageScaleFor(attacker, option.mech, target);
   const situational = situationalDamageFactor(attacker, target, option.mech);
   const reduction = applyDamageReductions(raw * scale * situational, option.mech, target, { attacker, triggerConditions: false });
@@ -107,6 +130,7 @@ export function averageHit(attacker, option, target) {
   if (scaling !== 1) rows.push({ label: `Escala por ${getAttributeLabel(option.mech.scalingAttribute)}`, value: `× ${fmt(scaling)}` });
   if (power !== 1) rows.push({ label: `Nível ${option.mech.level} da Skill`, value: `× ${fmt(power)}` });
   if (technomagic !== 1) rows.push({ label: "Tecnomágico", value: `× ${fmt(technomagic)}` });
+  if (mastery !== 1) rows.push({ label: `Maestria ${option.mastery.label}`, value: `+${formatMasteryPercent(option.mastery.percent)}%` });
   if (scale !== 1) rows.push({ label: "Escala de tamanho", value: `× ${fmt(scale)}` });
   if (situational !== 1) rows.push({ label: "Quando → Então de quem ataca", value: `× ${fmt(situational)}` });
   rows.push({ label: `${elementNames}${option.mech.isMagicDamage ? ", Dano Mágico" : ""}${option.mech.isAbsoluteDamage ? ", Dano Absoluto" : ""}`, value: fmt(raw * scale * situational) });

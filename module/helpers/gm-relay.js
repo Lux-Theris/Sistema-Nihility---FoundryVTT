@@ -103,16 +103,22 @@ const HANDLERS = {
    * de quem atacou). Mesmo raciocínio da `resistanceXp`: não há posse a exigir, então o pedido é
    * limitado — o Mestre refaz a conta com a configuração DELE, poucas medidas, e no máximo uma
    * unidade ("uma Vida inteira") por pedido, nunca além do teto do nível.
-   * @param {{skillUuid:string, measures:Array<object>}} payload
+   * @param {{skillUuid:string, measures:Array<object>, mastery?:boolean}} payload
    */
-  async skillUseXp({ skillUuid, measures }) {
+  async skillUseXp({ skillUuid, measures, mastery }) {
     const skill = typeof skillUuid === "string" ? await fromUuid(skillUuid) : null;
     if (!skill || skill.type !== "skill" || skill.system.isItemGranted || !Array.isArray(measures)) return;
     const { skillUseXp } = await import("../skills/skill-xp-rules.js");
     const { skillXpConfig } = await import("../skills/skill-xp.js");
-    const { isFeatureEnabled } = await import("../core/config.js");
+    const { isFeatureEnabled, getFeatureOption } = await import("../core/config.js");
     if (!isFeatureEnabled("skillUseXp")) return;
-    const config = skillXpConfig();
+    // Maestria de arma (H6): a fatia vem da configuração do Mestre, e só vale para uma Maestria que ainda sobe.
+    const { masteryXpConfig } = await import("../skills/skill-xp.js");
+    const { masteryEarnsXp } = await import("../combat/weapon-mastery-rules.js");
+    if (mastery && (!isFeatureEnabled("weaponMastery") || !skill.system.weaponMastery || !masteryEarnsXp(skill.system, { maxLevel: getFeatureOption("weaponMastery", "masteryMaxLevel") }))) return;
+    // Uma Maestria só ganha XP pelo caminho dela (com o teto de nível e a fatia), nunca como Skill comum.
+    if (!mastery && skill.system.weaponMastery) return;
+    const config = mastery ? masteryXpConfig() : skillXpConfig();
     const clean = measures.slice(0, 10).map(m => (m?.flat ? { flat: true } : { value: Number(m?.value) || 0, base: Number(m?.base) || 0, buff: Boolean(m?.buff), block: Boolean(m?.block) }));
     const gain = skillUseXp(clean, { ...config, cap: config.factor });
     if (!gain) return;

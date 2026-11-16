@@ -63,6 +63,16 @@ export function gatherTableRules() {
     incapacitation: features.incapacitation
       ? { deathRounds: getFeatureOption("incapacitation", "deathRounds"), wakeRounds: getFeatureOption("incapacitation", "wakeRounds"), npcDies: getFeatureOption("incapacitation", "npcDiesAtZero") }
       : null,
+    // Maestria de arma (H6): os números que o texto cita.
+    mastery: features.weaponMastery
+      ? {
+          percentPerLevel: getFeatureOption("weaponMastery", "masteryPercentPerLevel"),
+          maxLevel: getFeatureOption("weaponMastery", "masteryMaxLevel"),
+          evolvedPercent: getFeatureOption("weaponMastery", "masteryEvolvedPercent"),
+          subtypeFactor: getFeatureOption("weaponMastery", "masterySubtypeFactor"),
+          detailed: getFeatureOption("weaponMastery", "weaponTypesDetailed")
+        }
+      : null,
     features,
     conditions: getActiveStatusConditions().map(c => ({ label: c.label, sentence: conditionSentence(c, { attributeLabel: getAttributeLabel, energyLabel: getCharacterEnergyLabel() }), explanation: c.explanation ?? "" })),
     elements: elements.map(e => ({ label: e.label, parent: e.parent ? byId[e.parent] ?? "" : "" })),

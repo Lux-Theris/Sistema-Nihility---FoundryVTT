@@ -34,6 +34,13 @@ function buildRowInputsHtml(fields, values) {
       if (field.type === "color") {
         return `<input type="color" data-field="${field.key}" value="${value}"/>`;
       }
+      if (field.type === "select") {
+        // Opções fixas ou calculadas na hora (`options()`); um valor salvo que não está na lista continua listado.
+        const raw = typeof field.options === "function" ? field.options() : field.options ?? [];
+        const list = raw.some(o => String(o.value) === String(values[field.key] ?? "")) || !(values[field.key] ?? "") ? raw : [...raw, { value: values[field.key], label: `${values[field.key]} (não existe)` }];
+        const current = String(values[field.key] ?? field.default ?? "");
+        return `<select data-field="${field.key}" title="${escapeHtml(field.label)}">${list.map(o => `<option value="${escapeHtml(o.value)}" ${String(o.value) === current ? "selected" : ""}>${escapeHtml(o.label)}</option>`).join("")}</select>`;
+      }
       if (field.type === "number") {
         return `<input type="number" step="${field.step ?? 1}" data-field="${field.key}" value="${value}" placeholder="${escapeHtml(field.label)}"/>`;
       }
@@ -65,7 +72,7 @@ function buildRowInputsHtml(fields, values) {
  * @param {string} config.title - título da janela
  * @param {keyof MEU_SISTEMA["SETTINGS"]} config.settingsKey - chave em MEU_SISTEMA.SETTINGS
  *   onde a lista é salva (setting `config:false`, guardada como JSON)
- * @param {Array<{key:string,label:string,type:"text"|"number"|"color"|"icon",placeholder?:string,default?:*,step?:number}>} config.fields
+ * @param {Array<{key:string,label:string,type:"text"|"number"|"color"|"icon"|"select",placeholder?:string,default?:*,step?:number,options?:Array|(() => Array<{value:string,label:string}>)}>} config.fields
  * @param {() => Array<object>} config.getActiveList - reader (setting > default) da lista atual
  * @param {string} [config.hint] - texto de ajuda (HTML) no topo do editor
  * @param {number} [config.width]

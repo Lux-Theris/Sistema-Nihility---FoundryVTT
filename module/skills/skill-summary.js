@@ -6,6 +6,7 @@
  * resolvidos (custo efetivo pelo nível, rótulo da energia) chegam em `ctx`, montado com os
  * leitores de config.js por `skillSummariesFor` (skill-summary-ui.js).
  */
+import { strikeSentence } from "../combat/weapon-mastery-rules.js";
 import { isSenseTarget, SENSE_LABELS, describeSenseRange, senseRangeValue } from "../combat/senses-rules.js";
 
 const SHAPE_WORDS = { circle: "círculo", cone: "cone", ray: "linha" };
@@ -22,6 +23,7 @@ function describeEffect(entry, ctx) {
   }
   if (entry.target === "flight") return "voo";
   if (entry.target === "burrow") return "escava";
+  if (entry.target === "unarmedType") return `desarmado vira ${ctx.weaponTypes?.[entry.weaponTypeId] ?? entry.weaponTypeId ?? "?"}`;
   // Sentidos (J4b): "sentido sísmico 10 m", "ver o invisível (sem limite)".
   if (isSenseTarget(entry.target)) {
     const range = describeSenseRange(senseRangeValue(entry.amount));
@@ -99,7 +101,7 @@ function describeRange(mech) {
  * As partes da frase, na ordem em que se lê: o que faz → onde → quanto custa → manutenção.
  * @param {object} mech - `skill.system`
  * @param {{elements?:object, conditions?:object, targets?:object, structures?:object,
- *   energyLabel?:string, cost?:number, upkeep?:number, resistance?:string}} ctx
+ *   energyLabel?:string, cost?:number, upkeep?:number, resistance?:string, mastery?:string, weaponTypes?:object}} ctx
  *   `cost`/`upkeep` já com o desconto do nível; `resistance` = "Resistência a Fogo 30%" pronto.
  * @returns {string[]}
  */
@@ -117,9 +119,13 @@ export function skillSummaryParts(mech, ctx = {}) {
       parts.push(mechanic);
       if (mech.effectType !== "structure" && mech.targetType !== "structure") parts.push(describeReach(mech));
       if (ctx.skillRange !== false) parts.push(...describeRange(mech));
+      // Golpe de arma (H6): "golpe desarmado" / "golpe de Lâminas".
+      if (mech.effectType === "damage" && mech.weaponStrike && ctx.strikesOn) parts.push(strikeSentence(mech.weaponStrike, ctx.weaponTypes?.[mech.weaponStrike]) + (mech.weaponStrike !== "unarmed" && mech.strikeRequiresWeapon !== false ? " (com a arma)" : ""));
     }
   }
   if (ctx.resistance) parts.push(ctx.resistance);
+  // Maestria de arma (H6): a frase pronta ("Maestria: Lâminas · +15% de dano") vem de fora.
+  if (ctx.mastery) parts.push(ctx.mastery);
   // Skill pré-feita de Manipulação: o que ela faz é resistir ao campo de Antimagia.
   if (mech.coreSkill === "manaManipulation") parts.push("resiste à Antimagia");
 

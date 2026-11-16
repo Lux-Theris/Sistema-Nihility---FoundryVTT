@@ -12,6 +12,7 @@ import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
 import { renderSystemTemplate } from "../helpers/foundry-compat.js";
 import { escapeHtml } from "../helpers/html.js";
 import { requestSkillSystem, isOpenRequest } from "../creation/creation-rules.js";
+import { evolvedMasteryRank } from "../combat/weapon-mastery-rules.js";
 
 /* -------------------------------------------- */
 /*  Habilidades concedidas por Item/Módulo       */
@@ -266,6 +267,10 @@ export async function evolveSkill(actor, sourceItemId, newSkillData) {
       animationPath: newSkillData.animationPath,
       description: newSkillData.description,
       resistanceTarget: newSkillData.resistanceTarget,
+      // Maestria de arma (H6): evoluir a Maestria mantém o tipo e sobe um degrau de rank (bônus fixo, sem níveis).
+      // (uma Maestria sempre evolui para a mesma Maestria, um degrau acima — o editor não a troca)
+      weaponMastery: source.system.weaponMastery || newSkillData.weaponMastery || "",
+      masteryRank: source.system.weaponMastery ? evolvedMasteryRank(source.system.masteryRank) : 1,
       effectType: newSkillData.effectType,
       damageFormula: newSkillData.damageFormula,
       scalingAttribute: newSkillData.scalingAttribute,
@@ -286,9 +291,16 @@ export async function evolveSkill(actor, sourceItemId, newSkillData) {
       areaOrigin: newSkillData.areaOrigin ?? null,
       areaFreeLevel: newSkillData.areaFreeLevel ?? 0,
       areaAffects: newSkillData.areaAffects ?? "all",
+      weaponStrike: newSkillData.weaponStrike ?? "",
+      strikeRequiresWeapon: newSkillData.strikeRequiresWeapon ?? true,
       evolvedFrom: source.name
     }
   };
+  // Maestria evoluída continua mundana e passiva (a mecânica de uso do editor, se houver, não conta).
+  if (evolvedItemData.system.weaponMastery) {
+    evolvedItemData.system.magicTag = "mundane";
+    evolvedItemData.system.isMagic = false;
+  }
 
   await actor.deleteEmbeddedDocuments("Item", [source.id]);
   const [createdOnActor] = await actor.createEmbeddedDocuments("Item", [evolvedItemData]);

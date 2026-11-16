@@ -11,6 +11,7 @@
  * `game.*` — quem coleta é apps/world-validator-app.js.
  */
 import { sizeFitsClass } from "../core/config.js";
+import { weaponTypeCatalogIssues } from "../combat/weapon-mastery-rules.js";
 
 const ids = list => new Set((list ?? []).map(entry => (typeof entry === "string" ? entry : entry?.id ?? entry?.key)).filter(Boolean));
 
@@ -32,6 +33,7 @@ export function buildCatalogIndex(catalogs = {}) {
     heritages: ids(catalogs.heritages),
     bodyFunctions: ids(catalogs.bodyFunctions),
     ammoTypes: ids(catalogs.ammoTypes),
+    weaponTypes: ids(catalogs.weaponTypes),
     crewRoles: ids(catalogs.crewRoles),
     moduleCategories: ids(catalogs.moduleCategories),
     shipSizes: ids(catalogs.shipSizes),
@@ -54,6 +56,7 @@ const CATALOG_LABELS = {
   heritages: "Heranças",
   bodyFunctions: "Funções de Parte",
   ammoTypes: "Munições",
+  weaponTypes: "Tipos de Arma",
   crewRoles: "Funções de Tripulação",
   moduleCategories: "Categorias de Módulo",
   shipSizes: "Portes de Nave",
@@ -98,7 +101,12 @@ export function checkMechanic(mech, idx, prefix = "") {
     checkRefs(issues, idx, at(where, "Elementos"), "elements", entry?.damageElements);
     // Empurrar/Puxar: os Traços que não saem do lugar.
     checkRefs(issues, idx, at(where, "Traços imunes"), "traits", entry?.immuneTraits);
+    // Desarmado vira tipo de arma.
+    if (entry?.target === "unarmedType") checkRef(issues, idx, at(where, "Tipo de arma"), "weaponTypes", entry?.weaponTypeId);
   });
+  // Maestria de arma e golpe de arma (H6): o tipo precisa existir no catálogo.
+  checkRef(issues, idx, at(prefix, "Maestria de arma"), "weaponTypes", mech.weaponMastery);
+  checkRef(issues, idx, at(prefix, "Golpe de arma"), "weaponTypes", mech.weaponStrike);
   checkRefs(issues, idx, at(prefix, "Elementos de dano"), "elements", mech.damageElements);
   if (mech.effectType === "structure" || mech.targetType === "structure" || mech.structureId) {
     checkRef(issues, idx, at(prefix, "Estrutura"), "structures", mech.structureId);
@@ -153,6 +161,7 @@ export function validateItem(item, idx) {
         checkRefs(issues, idx, "Arma › Elementos", "elements", s.weapon.damageElements);
         checkRef(issues, idx, "Arma › Atributo de escala", "attributes", s.weapon.scalingAttribute);
         checkRef(issues, idx, "Arma › Escala do dano", "scales", s.weapon.damageScale);
+        checkRef(issues, idx, "Arma › Tipo de arma", "weaponTypes", s.weapon.weaponType);
       }
       if (s.implant?.enabled && idx.bodyFunctions?.size) checkRefs(issues, idx, "Implante › Funções", "bodyFunctions", s.implant.functions);
       if (s.ammo?.enabled) {
@@ -263,6 +272,12 @@ export function validateActor(actor, idx, { uuidExists = () => true, catalogs = 
 export function validateCatalogs(catalogs, idx = buildCatalogIndex(catalogs)) {
   const issues = [];
   const push = (catalog, entry, list) => list.forEach(issue => issues.push({ ...issue, catalog, entry }));
+
+  // Tipos de arma: pai desconhecido, de si mesmo ou em ciclo.
+  for (const problem of weaponTypeCatalogIssues(catalogs.weaponTypes)) {
+    const message = { selfParent: "o tipo é subtipo de si mesmo", unknownParent: `"${problem.parent}" não existe em Tipos de Arma`, cycle: "a cadeia de \"Subtipo de\" volta para si mesma (ciclo)" }[problem.kind];
+    issues.push({ catalog: "weaponTypes", entry: problem.id, where: "Subtipo de", ref: problem.parent ?? "", message });
+  }
 
   for (const element of catalogs.elements ?? []) {
     const list = [];

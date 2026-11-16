@@ -143,7 +143,7 @@ test("IA: arma e bônus de Item", () => {
   assert.equal(sanitizeWeapon(null, AI_CATALOGS), null);
   assert.equal(sanitizeWeapon({ damageFormula: "" }, AI_CATALOGS), null);
   assert.deepEqual(sanitizeWeapon({ damageFormula: "1d8+2", damageElements: ["fire", "x"], scalingAttribute: "dex" }, AI_CATALOGS), {
-    enabled: true, damageFormula: "1d8+2", scalingAttribute: "", isMagicDamage: false, isAbsoluteDamage: false, damageElements: ["fire"]
+    enabled: true, damageFormula: "1d8+2", scalingAttribute: "", isMagicDamage: false, isAbsoluteDamage: false, damageElements: ["fire"], weaponType: ""
   });
   const b = sanitizeItemBonuses({ attributeBonuses: [{ attribute: "strength", amount: 99 }, { attribute: "luck", amount: 2 }], statModifiers: { hp: 30 } }, AI_CATALOGS);
   assert.deepEqual(b.attributeBonuses, [{ attribute: "strength", amount: 20 }]);
@@ -183,4 +183,16 @@ test("IA: Espécie gerada é saneada para o formato do catálogo", () => {
   assert.deepEqual(her.entry.replaces.slots, ["arm"]);
   assert.equal(her.entry.lineages, undefined);
   assert.match(originGuide(catalogs), /locomocao \(locomoção\)/);
+});
+
+test("IA: tipo de arma só vale se existir no catálogo (H6)", () => {
+  const catalogs = { ...AI_CATALOGS, weaponTypes: [{ id: "swords", label: "Espadas" }] };
+  assert.equal(sanitizeWeapon({ damageFormula: "1d8", weaponType: "swords" }, catalogs).weaponType, "swords");
+  assert.equal(sanitizeWeapon({ damageFormula: "1d8", weaponType: "lasers" }, catalogs).weaponType, "");
+  const m = sanitizeSkillMechanics({ effectType: "damage", damageFormula: "1d6", weaponStrike: "swords", weaponMastery: "swords" }, catalogs);
+  assert.equal(m.weaponStrike, "swords");
+  assert.equal(m.weaponMastery, "swords");
+  assert.equal(m.magicTag, "mundane");
+  const strike = sanitizeSkillMechanics({ effectType: "damage", damageFormula: "1d6", weaponStrike: "swords" }, catalogs);
+  assert.equal(strike.weaponStrike, "swords");
 });

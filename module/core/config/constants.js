@@ -12,6 +12,7 @@ import { DEFAULT_CURRENCIES, DEFAULT_SCALES } from "./defaults/misc.js";
 import { DEFAULT_NPC_ARCHETYPES, NPC_NAME_TABLES, NPC_ARCHETYPE_GROUP_LABELS } from "./defaults/npc.js";
 import { DEFAULT_SKILL_TEMPLATES, SKILL_TEMPLATE_GROUP_LABELS } from "./defaults/skill-templates.js";
 import { CORE_SKILL_DEFS } from "./defaults/core-skills.js";
+import { DEFAULT_WEAPON_TYPES } from "./defaults/weapons.js";
 export { PHYSICAL_SUBTYPES, RADIATION_ELEMENT } from "./defaults/elements.js";
 
 export const SYSTEM_ID = "nihility-rpg-system";
@@ -35,6 +36,11 @@ export const MEU_SISTEMA = {
     heritagesData: "heritagesData",
     npcArchetypesData: "npcArchetypesData",
     skillTemplatesData: "skillTemplatesData",
+    // Tipos de arma (H6): catálogo plano com `parent`; ataque desarmado do mundo (Regras da Mesa).
+    weaponTypesData: "weaponTypesData",
+    unarmedFormula: "unarmedFormula",
+    unarmedAttribute: "unarmedAttribute",
+    unarmedElement: "unarmedElement",
     skillCostManaPerPoint: "skillCostManaPerPoint",
     bodyFunctionsData: "bodyFunctionsData",
     attributePointsStarting: "attributePointsStarting",
@@ -517,7 +523,8 @@ export const MEU_SISTEMA = {
     "senseTremor",
     "senseInvisible",
     "senseTrue",
-    "senseAll"
+    "senseAll",
+    "unarmedType"
   ],
 
   EFFECT_TARGET_LABELS: {
@@ -531,6 +538,7 @@ export const MEU_SISTEMA = {
     senseInvisible: "Ver o invisível (alcance em m)",
     senseTrue: "Visão verdadeira (alcance em m)",
     senseAll: "Sentir tudo (alcance em m)",
+    unarmedType: "Desarmado vira tipo de arma",
     strength: "Força",
     defense: "Defesa",
     magic: "Magia",
@@ -570,7 +578,7 @@ export const MEU_SISTEMA = {
   EFFECT_TARGET_GROUPS: [
     { label: "Atributos", actor: "character", targets: ["strength", "defense", "magic", "magicalDefense", "dexterity", "stealth", "perception", "precision"] },
     { label: "Vitais", actor: "character", targets: ["heal", "restoreEnergy", "hp", "energy", "shield", "movement"] },
-    { label: "Arma", actor: "any", targets: ["weaponDamage", "weaponElement", "weaponMagic", "weaponAbsolute"] },
+    { label: "Arma", actor: "any", targets: ["weaponDamage", "weaponElement", "weaponMagic", "weaponAbsolute", "unarmedType"] },
     { label: "Elemento", actor: "any", targets: ["bodyElement"] },
     { label: "Magia", actor: "character", targets: ["antimagic", "mark"] },
     { label: "Movimento", actor: "character", targets: ["push", "flight", "burrow"] },
@@ -678,6 +686,8 @@ export const MEU_SISTEMA = {
   SKILL_TEMPLATE_GROUP_LABELS,
   // Skills pré-feitas (defaults/core-skills.js).
   CORE_SKILL_DEFS,
+  // Tipos de arma (defaults/weapons.js).
+  DEFAULT_WEAPON_TYPES,
 
   SPECIES_GROUP_LABELS: {
     fantasia: "Fantasia",

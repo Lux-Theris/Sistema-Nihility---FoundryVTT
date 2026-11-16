@@ -26,6 +26,7 @@ import { advancedFold } from "../helpers/advanced-fold.js";
 import { escapeHtml } from "../helpers/html.js";
 import { AREA_AFFECTS_OPTIONS } from "../combat/area-geometry.js";
 import { getCompendiumForItemType } from "../core/compendium.js";
+import { isWeaponMasteryEnabled, weaponTypeChoices } from "../combat/weapon-mastery.js";
 import { skillAssist, warningsBoxHtml, costChipHtml, templateGroups, templateFillSentence, skillFromTemplate } from "../skills/skill-assist.js";
 
 const { DialogV2 } = foundry.applications.api;
@@ -53,6 +54,9 @@ function buildEffectRowHtml(entry) {
   const elementIdOptions =
     `<option value="">— elemento —</option>` +
     getActiveDamageElements().map(el => `<option value="${el.id}" ${el.id === entry.elementId ? "selected" : ""}>${escapeHtml(el.label)}</option>`).join("");
+  const weaponTypeIdOptions =
+    `<option value="">— tipo de arma —</option>` +
+    weaponTypeChoices(entry.weaponTypeId ?? "").map(o => `<option value="${escapeHtml(o.value)}" ${o.value === entry.weaponTypeId ? "selected" : ""}>${escapeHtml(o.label)}</option>`).join("");
   // Campanha sem Condições nomeadas: o <select> continua existindo (o resto do editor e o
   // `readForm` contam com ele), mas fica escondido e só com a opção vazia — o efeito numérico
   // da entrada continua funcionando igual, sem ganhar nome/ícone de status.
@@ -81,7 +85,8 @@ function buildEffectRowHtml(entry) {
     <div class="effect-row-main">
       <select class="se-effect-target">${options}</select>
       <select class="se-effect-element-id" title="Elemento (das armas, ou que o alvo passa a ser)" style="display:${["weaponElement", "bodyElement"].includes(entry.target) ? "inline-block" : "none"};">${elementIdOptions}</select>
-      <input type="number" class="se-effect-amount" value="${entry.amount}" placeholder="${entry.target === "push" ? "Metros" : String(entry.target).startsWith("sense") ? "Alcance m (0 = sem limite)" : "Qtd."}" style="display:${["antimagic", "emp", "mark", "flight", "burrow"].includes(entry.target) ? "none" : ""};"/>
+      <select class="se-effect-weapon-type" title="O ataque desarmado passa a contar como este tipo de arma (Maestria, XP e aprendizado)" style="display:${entry.target === "unarmedType" ? "inline-block" : "none"};">${weaponTypeIdOptions}</select>
+      <input type="number" class="se-effect-amount" value="${entry.amount}" placeholder="${entry.target === "push" ? "Metros" : String(entry.target).startsWith("sense") ? "Alcance m (0 = sem limite)" : "Qtd."}" style="display:${["antimagic", "emp", "mark", "flight", "burrow", "unarmedType"].includes(entry.target) ? "none" : ""};"/>
       <input type="number" class="se-effect-duration" value="${entry.durationRounds}" min="0" placeholder="Rounds/Ticks"/>
       <a class="se-effect-delete" title="Remover"><i class="fas fa-trash"></i></a>
     </div>
@@ -195,6 +200,10 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     animationPath: initialData.animationPath ?? "",
     description: initialData.description ?? "",
     resistanceTarget: initialData.resistanceTarget ?? "",
+    weaponMastery: initialData.weaponMastery ?? "",
+    weaponStrike: initialData.weaponStrike ?? "",
+    strikeRequiresWeapon: initialData.strikeRequiresWeapon ?? true,
+    masteryRank: Number(initialData.masteryRank) || 1,
     effectType: initialData.effectType ?? "none",
     damageFormula: initialData.damageFormula ?? "",
     scalingAttribute: initialData.scalingAttribute ?? "",
@@ -303,6 +312,21 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
         <p class="hint-inline se-resist-info">&nbsp;</p>
       </div>`
     : "";
+
+  // Maestria de arma (H6): uma Skill passiva de um Tipo de arma. Com o recurso desligado o campo some,
+  // mas o valor salvo vai num input escondido — o editor nunca o apaga sem querer.
+  const masteryOn = isWeaponMasteryEnabled();
+  const masterySection = masteryOn
+    ? `
+      <div class="form-group se-mastery-field" title="Passiva: sem botão Usar. Dá +% de dano com as armas do tipo (grupo: todos os subtipos; subtipo: só ele). Uma Maestria nasce mundana.">
+        <label>Maestria de arma <span class="hint-inline" style="display:inline;">(passiva — o tipo de arma que esta Skill treina)</span></label>
+        <select name="weaponMastery">
+          <option value="" ${data.weaponMastery ? "" : "selected"}>— não é uma Maestria —</option>
+          ${weaponTypeChoices(data.weaponMastery).map(o => `<option value="${escapeHtml(o.value)}" ${o.value === data.weaponMastery ? "selected" : ""}>${escapeHtml(o.label)}</option>`).join("")}
+        </select>
+        <input type="hidden" name="masteryRank" value="${data.masteryRank}"/>
+      </div>`
+    : `<input type="hidden" name="weaponMastery" value="${escapeHtml(data.weaponMastery)}"/><input type="hidden" name="masteryRank" value="${data.masteryRank}"/>`;
 
   const subSkillsField = data.subSkills.length
     ? `<div class="form-group sub-skills-block">
@@ -416,6 +440,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
       ${fusionLineageField}
 
       ${resistanceSection}
+      ${masterySection}
 
       <hr/>
 
@@ -459,6 +484,13 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
         </div>
         <label class="checkbox-line"><input type="checkbox" name="isMagicDamage" ${data.isMagicDamage ? "checked" : ""}/> Dano Mágico</label>
         <div class="form-group"><label>Elemento(s)</label>${pickerFieldHtml(data.damageElements, "se-damage-elements")}</div>
+        ${masteryOn
+          ? `<div class="form-group" title="Arte marcial: a Skill conta como um ataque deste tipo (Desarmado = golpe desarmado). Sub-Skill vazia herda a da Skill-mãe."><label>Golpe de arma</label><select name="weaponStrike">
+              <option value="" ${data.weaponStrike ? "" : "selected"}>— nenhum —</option>
+              ${weaponTypeChoices(data.weaponStrike).map(o => `<option value="${escapeHtml(o.value)}" ${o.value === data.weaponStrike ? "selected" : ""}>${escapeHtml(o.label)}</option>`).join("")}
+            </select></div>
+            <label class="checkbox-line" title="Golpe de arma (não desarmado): só sai com uma arma do tipo (ou de um subtipo dele) equipada."><input type="checkbox" name="strikeRequiresWeapon" ${data.strikeRequiresWeapon !== false ? "checked" : ""}/> Exige arma do tipo equipada</label>`
+          : `<input type="hidden" name="weaponStrike" value="${escapeHtml(data.weaponStrike)}"/><input type="hidden" name="strikeRequiresWeapon" value="${data.strikeRequiresWeapon !== false ? "1" : ""}"/>`}
         <details class="adv" ${advDamage.open ? "open" : ""}>
         ${advSummaryHtml(advDamage)}
         <div class="adv-body">
@@ -774,7 +806,7 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
     targetSelect.addEventListener("change", applyPeriodicVisibility);
     // Antimagia não tem quantidade: a força é o nível da Skill; a duração é a da supressão.
     targetSelect.addEventListener("change", () => {
-      li.querySelector(".se-effect-amount").style.display = ["antimagic", "emp", "mark", "flight", "burrow"].includes(targetSelect.value) ? "none" : "";
+      li.querySelector(".se-effect-amount").style.display = ["antimagic", "emp", "mark", "flight", "burrow", "unarmedType"].includes(targetSelect.value) ? "none" : "";
     });
     targetSelect.addEventListener("change", applyModifierTypeVisibility);
     // Luz do Escudo pessoal: só pro alvo Escudo; a luz fica em `data-light` (JSON) até salvar.
@@ -800,6 +832,7 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
     });
     targetSelect.addEventListener("change", () => {
       li.querySelector(".se-effect-element-id").style.display = ["weaponElement", "bodyElement"].includes(targetSelect.value) ? "inline-block" : "none";
+      li.querySelector(".se-effect-weapon-type").style.display = targetSelect.value === "unarmedType" ? "inline-block" : "none";
     });
     periodicCheckbox.addEventListener("change", applyPeriodicVisibility);
     // Maldição: o "sem Mana" aparece só quando a Condição escolhida é uma Maldição.
@@ -932,6 +965,7 @@ function readSkillEditorForm(root, lockTier) {
   const targetType = hasRange ? chosenTargetType : "targeted";
   const isEmission = hasRange && (targetType === "emission" || targetType === "zone");
   const hasUpkeep = root.querySelector('[name="hasUpkeep"]').checked;
+  const weaponMastery = root.querySelector('[name="weaponMastery"]')?.value ?? "";
   const scalingAttribute = root.querySelector('[name="scalingAttribute"]')?.value ?? "";
 
   return {
@@ -941,8 +975,9 @@ function readSkillEditorForm(root, lockTier) {
     cost: Number(root.querySelector('[name="cost"]').value) || 0,
     hasUpkeep,
     variableMana: Boolean(root.querySelector('[name="variableMana"]')?.checked),
-    magicTag: "auto",
-    isMagic: root.querySelector('[name="isMagic"]')?.checked ?? null,
+    // Uma Maestria nasce mundana: Antimagia/PEM nunca a desligam.
+    magicTag: weaponMastery ? "mundane" : "auto",
+    isMagic: weaponMastery ? false : root.querySelector('[name="isMagic"]')?.checked ?? null,
     isTech: root.querySelector('[name="isTech"]')?.checked ?? null,
     upkeepCost: hasUpkeep ? Number(root.querySelector('[name="upkeepCost"]').value) || 0 : 0,
     cooldown: Math.max(0, Math.floor(Number(root.querySelector('[name="cooldown"]')?.value)) || 0),
@@ -954,6 +989,8 @@ function readSkillEditorForm(root, lockTier) {
     animationPath: root.querySelector('[name="animationPath"]').value.trim(),
     description: root.querySelector('prose-mirror[name="description"]').value,
     resistanceTarget: resistEnabled ? resistChecked?.value ?? "general" : "",
+    weaponMastery,
+    masteryRank: weaponMastery ? Math.max(1, Math.floor(Number(root.querySelector('[name="masteryRank"]')?.value)) || 1) : 1,
     effectType,
     targetType,
     structureId: effectType === "structure" ? root.querySelector('[name="structureId"]').value : "",
@@ -968,6 +1005,12 @@ function readSkillEditorForm(root, lockTier) {
     isMagicDamage: effectType === "damage" && root.querySelector('[name="isMagicDamage"]').checked,
     isAbsoluteDamage: effectType === "damage" && Boolean(root.querySelector('[name="isAbsoluteDamage"]')?.checked),
     damageScale: effectType === "damage" ? root.querySelector('[name="damageScale"]')?.value ?? "" : "",
+    weaponStrike: effectType === "damage" ? root.querySelector('[name="weaponStrike"]')?.value ?? "" : "",
+    strikeRequiresWeapon: (() => {
+      const el = root.querySelector('[name="strikeRequiresWeapon"]');
+      if (!el) return true;
+      return el.type === "checkbox" ? el.checked : Boolean(el.value);
+    })(),
     damageElements:
       effectType === "damage" ? readPickerField(root.querySelector(".se-damage-elements")) : [],
     effects:
@@ -975,6 +1018,7 @@ function readSkillEditorForm(root, lockTier) {
         ? Array.from(root.querySelectorAll(".se-effect-list .effect-row")).map(row => ({
             target: row.querySelector(".se-effect-target").value,
             elementId: row.querySelector(".se-effect-element-id")?.value ?? "",
+            weaponTypeId: row.querySelector(".se-effect-target").value === "unarmedType" ? row.querySelector(".se-effect-weapon-type")?.value ?? "" : "",
             amount: Number(row.querySelector(".se-effect-amount").value) || 0,
             modifierType: row.querySelector(".se-effect-modifier-type").value,
             durationRounds: Number(row.querySelector(".se-effect-duration").value) || 0,

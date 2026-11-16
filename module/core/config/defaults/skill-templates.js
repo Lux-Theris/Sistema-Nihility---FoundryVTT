@@ -99,6 +99,13 @@ export const DEFAULT_SKILL_TEMPLATES = [
     skill: { ...base, cost: 15, range: 10, effectType: "structure", targetType: "targeted", structureId: "stone-wall" }
   },
   {
+    id: "maestria",
+    label: "Maestria de arma",
+    hint: "passiva: +% de dano com um tipo de arma",
+    group: "ajuda",
+    skill: { ...base, tier: "extra", cost: 0, effectType: "none", weaponMastery: "blades", masteryRank: 1, magicTag: "mundane", isMagic: false }
+  },
+  {
     id: "zona",
     label: "Zona",
     hint: "área que fica e bate todo turno",

@@ -76,6 +76,10 @@ export function resolveEffectChange(entry, targetActor) {
         value: entry.elementId,
         isMultiplier: false
       };
+    case "unarmedType":
+      // Desarmado vira tipo de arma (H6): só Personagem tem ataque desarmado.
+      if (ship || !entry.weaponTypeId) return null;
+      return { key: "system.weaponBonuses.unarmedType", mode: M.OVERRIDE, value: entry.weaponTypeId, isMultiplier: false };
     case "weaponMagic":
       // Nave não tem Defesa Mágica envolvida nas próprias armas — só faz sentido em Personagem.
       return ship ? null : { key: "system.weaponBonuses.forceMagic", mode: M.ADD, value: "1", isMultiplier: false };
@@ -137,6 +141,7 @@ export function describeEffectChangeKey(key) {
     weaponDamageMultiplier: "Dano das armas",
     elementOverride: "Elemento das armas",
     weaponElementOverride: "Elemento das armas",
+    unarmedType: "Desarmado vira tipo de arma",
     forceMagic: "Armas causam dano Mágico",
     absolute: "Armas causam Dano Absoluto",
     weaponAbsolute: "Armas causam Dano Absoluto"

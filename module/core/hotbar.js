@@ -48,6 +48,40 @@ export function enableHotbarDrag(root, actor) {
   }
 }
 
+/** A linha "Ataque desarmado" (H6) também vai para a hotbar: o arrasto leva o uuid do PERSONAGEM, não de um Item. */
+export function enableUnarmedHotbarDrag(root, actor) {
+  if (!root || !actor?.isOwner) return;
+  for (const row of root.querySelectorAll("[data-unarmed]")) {
+    if (row.dataset.hotbarDrag) continue;
+    row.dataset.hotbarDrag = "1";
+    row.setAttribute("draggable", "true");
+    row.title ||= "Arraste para a hotbar para atacar desarmado num clique";
+    row.addEventListener("dragstart", event => {
+      event.stopPropagation();
+      event.dataTransfer.setData("text/plain", JSON.stringify({ type: DRAG_TYPE, unarmed: actor.uuid }));
+    });
+  }
+}
+
+async function createUnarmedMacro(actorUuid, slot) {
+  const command = `game.nihility.unarmedAttack(${JSON.stringify(actorUuid)});`;
+  try {
+    const actor = fromUuidSync(actorUuid);
+    let macro = game.macros.find(m => m.command === command && (m.author?.id ?? m.author) === game.user.id);
+    macro ??= await Macro.create({
+      name: `Ataque desarmado${actor?.name ? ` (${actor.name})` : ""}`,
+      type: "script",
+      img: "icons/skills/melee/unarmed-punch-fist.webp",
+      command,
+      flags: { [SYSTEM_ID]: { unarmedMacro: actorUuid } }
+    });
+    if (macro) await game.user.assignHotbarMacro(macro, slot);
+  } catch (err) {
+    console.warn(`${SYSTEM_ID} | Não foi possível criar a macro do ataque desarmado.`, err);
+    ui.notifications.warn("Não foi possível criar a macro — peça ao Mestre a permissão de usar macros de script.");
+  }
+}
+
 async function createActionMacro(item, slot) {
   const command = `game.nihility.useItem(${JSON.stringify(item.uuid)});`;
   try {
@@ -68,6 +102,10 @@ async function createActionMacro(item, slot) {
 
 /** `hotbarDrop` é síncrono: decide aqui, cria a macro depois. `false` impede a macro padrão do core. */
 function onHotbarDrop(_hotbar, data, slot) {
+  if (data?.type === DRAG_TYPE && typeof data.unarmed === "string") {
+    createUnarmedMacro(data.unarmed, slot);
+    return false;
+  }
   if (data?.type !== DRAG_TYPE && data?.type !== "Item") return;
   const item = typeof data.uuid === "string" ? fromUuidSync(data.uuid) : null;
   if (!hotbarKind(item)) return;

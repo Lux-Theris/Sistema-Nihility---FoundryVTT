@@ -16,7 +16,7 @@ export const PERIODIC_TARGETS = ["hp", "energy", "shipCasco", "shipHull"];
 const INSTANT_TARGETS = ["heal", "restoreEnergy", "shield", "antimagic", "emp", "mark", "push", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"];
 
 /** Alvos em que o valor não importa (liga/desliga, troca de elemento, Antimagia pelo nível). */
-const VALUELESS_TARGETS = ["weaponElement", "bodyElement", "weaponMagic", "weaponAbsolute", "antimagic", "emp", "mark", "flight", "burrow", "senseTremor", "senseInvisible", "senseTrue", "senseAll"];
+const VALUELESS_TARGETS = ["weaponElement", "bodyElement", "weaponMagic", "weaponAbsolute", "unarmedType", "antimagic", "emp", "mark", "flight", "burrow", "senseTremor", "senseInvisible", "senseTrue", "senseAll"];
 
 const groupTargets = actor => new Set(MEU_SISTEMA.EFFECT_TARGET_GROUPS.filter(g => g.actor === actor).flatMap(g => g.targets));
 
@@ -25,6 +25,7 @@ const groupTargets = actor => new Set(MEU_SISTEMA.EFFECT_TARGET_GROUPS.filter(g 
  * @param {object} [ctx]
  * @param {Set<string>|string[]} [ctx.conditions] - ids do catálogo de Condições
  * @param {Set<string>|string[]} [ctx.elements] - ids dos Tipos de Dano
+ * @param {Set<string>|string[]} [ctx.weaponTypes] - ids do catálogo de Tipos de arma
  * @param {Set<string>|string[]} [ctx.structures] - ids do catálogo de Estruturas
  * @param {"character"|"ship"|null} [ctx.actorType] - quem tem a Skill (null = sem ficha)
  * @param {number|null} [ctx.energyMax] - Mana/Bateria máxima de quem tem a Skill
@@ -61,6 +62,15 @@ export function lintSkill(mech, ctx = {}) {
     if (Number(m.range) > 0 && m.targetType === "self") push("rangeSelf", "soft", "mechanic", `Alcance de ${m.range} m numa Skill "Si mesmo": o alcance não faz diferença, ela sempre cai em quem usa.`);
     if (usesTarget && isArea && m.areaOrigin === "caster" && Number(m.range) > 0) push("rangeCasterOrigin", "soft", "mechanic", `Alcance de ${m.range} m com a forma presa em quem lança: o alcance só vale pela Marca (a forma sai do Token de quem lança, ou do Marcado).`);
   }
+
+  // --- Maestria de arma (H6): uma Maestria é passiva; mecânica de uso numa Maestria nunca roda.
+  if (m.weaponMastery) {
+    if (usesTarget || structure || active || Number(m.cost) > 0) push("masteryMechanic", "soft", "general", "Maestria de arma é passiva: dano, efeitos, Custo e ativação desta Skill nunca são usados (ela só dá o bônus de dano com as armas do tipo). Era isso?");
+    if (ctx.weaponTypes && !has(ctx.weaponTypes, m.weaponMastery)) push("unknownWeaponType", "hard", "general", `Maestria de um tipo de arma ("${m.weaponMastery}") que não existe mais no catálogo: não vale para nenhuma arma.`);
+  }
+
+  // Golpe de arma (H6): só vale numa Skill de dano.
+  if (m.weaponStrike && effectType !== "damage") push("strikeNotDamage", "soft", "mechanic", "Golpe de arma numa Skill que não é de dano: o tipo de arma só vale quando a Skill causa dano. Era isso?");
 
   // --- Mecânica
   if (usesTarget && isArea && !(Number(m.areaDistance) > 0)) push("areaZero", "hard", "mechanic", `${m.targetType === "zone" ? "Zona" : "Área"} com distância 0: ninguém fica dentro.`);
@@ -99,6 +109,8 @@ export function lintSkill(mech, ctx = {}) {
       for (const id of e?.damageElements ?? []) {
         if (ctx.elements && !has(ctx.elements, id)) push("unknownElement", "hard", "mechanic", `${n}: elemento "${id}" não existe mais no catálogo.`, i);
       }
+      if (target === "unarmedType" && !e?.weaponTypeId) push("unarmedTypeMissing", "hard", "mechanic", `${n}: "Desarmado vira tipo" sem escolher o tipo — não faz nada.`, i);
+      if (target === "unarmedType" && e?.weaponTypeId && ctx.weaponTypes && !has(ctx.weaponTypes, e.weaponTypeId)) push("unknownWeaponType", "hard", "mechanic", `${n}: o tipo de arma "${e.weaponTypeId}" não existe mais no catálogo.`, i);
       if (["weaponElement", "bodyElement"].includes(target) && e?.elementId && ctx.elements && !has(ctx.elements, e.elementId)) push("unknownElement", "hard", "mechanic", `${n}: elemento "${e.elementId}" não existe mais no catálogo.`, i);
       // Um tripulante pode mirar a Nave com efeito de Nave; só "Si mesmo" é certeza de que não pega.
       if (m.targetType === "self" && ctx.actorType === "character" && shipOnly.has(target)) push("shipOnSelf", "hard", "mechanic", `${n}: efeito de Nave numa Skill "Si mesmo" de Personagem — cai no próprio personagem e não faz nada.`, i);

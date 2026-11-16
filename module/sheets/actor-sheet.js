@@ -73,12 +73,13 @@ import { pickImageFile } from "../helpers/foundry-compat.js";
 
 import { handleItemDrop, splitStack, toggleEquipped, inventoryContext } from "../economy/inventory.js";
 import { EffectsListApp } from "../apps/effects-list.js";
-import { enableHotbarDrag } from "../core/hotbar.js";
+import { enableHotbarDrag, enableUnarmedHotbarDrag } from "../core/hotbar.js";
 import { skillSummariesFor } from "../skills/skill-summary-ui.js";
 import { skillTimersFor } from "../skills/preparation.js";
 import { useConsumable, reloadWeapon, weaponCanFire } from "../economy/consumables.js";
 import { magazineState } from "../economy/consumable-rules.js";
 import { blockIfIncapacitated } from "../combat/incapacitation.js";
+import { actorMasteries, unarmedSummary, weaponAttackFlow, weaponAttackRoll, augmentsUnarmed } from "../combat/weapon-mastery.js";
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
 
@@ -208,6 +209,9 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       resetAttributePoints: NihilityActorSheet.#onResetAttributePoints,
       gmResetAllAttributePoints: NihilityActorSheet.#onGmResetAllAttributePoints,
       attackWithWeapon: NihilityActorSheet.#onAttackWithWeapon,
+      weaponAttackRoll: NihilityActorSheet.#onWeaponAttackRoll,
+      unarmedAttack: NihilityActorSheet.#onUnarmedAttack,
+      unarmedAttackRoll: NihilityActorSheet.#onUnarmedAttackRoll,
       useConsumable: NihilityActorSheet.#onUseConsumable,
       reloadWeapon: NihilityActorSheet.#onReloadWeapon,
       breakSkillPoints: NihilityActorSheet.#onBreakSkillPoints,
@@ -639,6 +643,9 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.skillSummaries = skillSummariesFor(actor);
     // Recarga e Preparo (H3): a Skill bloqueada mostra o motivo e o botão Usar fica desligado.
     context.skillTimers = skillTimersFor(actor);
+    // Maestria de arma (H6): a Skill é passiva (sem Usar). E o ataque desarmado, sempre à mão (Personagem).
+    context.masterySkills = Object.fromEntries(actorMasteries(actor).map(m => [m.skill.id, true]));
+    context.unarmed = actor.type === "character" ? unarmedSummary(actor) : null;
     context.fusableTiers = FUSABLE_TARGET_TIERS.filter(t => t !== "ultimate" || ultimateVisible);
     context.hasUltimateSkill = actor.system.hasUltimateSkill;
 
@@ -865,6 +872,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     super._onRender(context, options);
     this._onRenderInventory();
     enableHotbarDrag(this.element, this.actor);
+    enableUnarmedHotbarDrag(this.element, this.actor);
     if (!this.isEditable) return;
 
     this.element.querySelector(".species-select")?.addEventListener("change", this._onSpeciesChange.bind(this));
@@ -1422,7 +1430,10 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     const ultimateVisible = hasUltimate || game.user.isGM;
     const tierChoices = MEU_SISTEMA.SKILL_TIERS.filter(t => t !== "racial" && (t !== "ultimate" || ultimateVisible));
 
-    const data = await openSkillEditorDialog({}, { tierChoices, levelReadonly: !game.user.isGM });
+    // Uma Maestria evolui para a mesma Maestria, um degrau acima: o editor já abre com o tipo.
+    const source = this.actor.items.get(itemId)?.system;
+    const seed = source?.weaponMastery ? { weaponMastery: source.weaponMastery, masteryRank: (Number(source.masteryRank) || 1) + 1 } : {};
+    const data = await openSkillEditorDialog(seed, { tierChoices, levelReadonly: !game.user.isGM });
     if (!data) return;
 
     try {
@@ -1477,32 +1488,43 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     if (item) await reloadWeapon(this.actor, item);
   }
 
+  /** O 🎲 de ataque de uma arma: atributo de escala + nível da Maestria que cobre o tipo (Shift abre os modificadores). */
+  static async #onWeaponAttackRoll(event, target) {
+    event.preventDefault();
+    const weapon = this.actor.items.get(target.closest(".item-row").dataset.itemId);
+    if (!weapon?.system.weapon?.enabled) return;
+    await weaponAttackRoll(this.actor, weapon, event);
+  }
+
+  /** "Atacar desarmado" (sempre disponível), pelo mesmo caminho de uma arma. */
+  static async #onUnarmedAttack(event, target) {
+    event.preventDefault();
+    await this.unarmedAttack(event);
+  }
+
+  static async #onUnarmedAttackRoll(event, target) {
+    event.preventDefault();
+    await weaponAttackRoll(this.actor, null, event);
+  }
+
+  /** Público para a macro da hotbar (`game.nihility.unarmedAttack`), como `attackWithWeaponItem`. */
+  async unarmedAttack(event = null) {
+    await weaponAttackFlow(this.actor, null, event);
+  }
+
   /** O corpo do botão "Atacar", público para a macro da hotbar (ver `useSkillItem`). */
   async attackWithWeaponItem(itemId, event = null) {
     const weapon = this.actor.items.get(itemId);
     if (!weapon?.system.weapon?.enabled) return;
+    if (augmentsUnarmed(weapon)) {
+      ui.notifications.warn(`${weapon.name} reforça o ataque desarmado: use "Atacar desarmado".`);
+      return;
+    }
     if (!weapon.system.equipped) {
       ui.notifications.warn(`${weapon.name} precisa estar equipada pra atacar.`);
       return;
     }
-
-    try {
-      // Arma de gravidade (J1) não rola dano: não precisa de fórmula.
-      if (weapon.system.weapon.mode !== "gravity" && !weapon.system.weapon.damageFormula?.trim()) {
-        ui.notifications.warn(`${weapon.name} não tem uma Fórmula de Dano configurada.`);
-        return;
-      }
-      if (blockIfIncapacitated(this.actor, "atacar")) return;
-      // Carregador vazio: avisa antes de pedir alvo (o Recarregar fica na linha da arma).
-      if (!weaponCanFire(weapon)) return;
-      const { cancelled, options } = await rollOptionsFromEvent(event, `Atacar com ${weapon.name}`);
-      if (cancelled) return;
-      const targetActor = await pickTargetActor({ self: this.actor, title: `Atacar com ${weapon.name}`, confirmLabel: "Atacar", preferMap: true });
-      if (!targetActor) return;
-      await useWeaponAttack(this.actor, weapon, targetActor, options);
-    } catch (err) {
-      reportError("Falha ao atacar com arma.", err);
-    }
+    await weaponAttackFlow(this.actor, weapon, event);
   }
 
   /**

@@ -431,6 +431,23 @@ function cachedList(settingKey, fallback, normalize) {
   return cachedCatalog(settingKey, raw => normalize(parseCatalogList(raw) ?? fallback));
 }
 
+/**
+ * Catálogo de Tipos de arma (H6): `{id, label, parent}`, plano como os elementos de dano. Não altere
+ * o que volta (é o mesmo objeto para todo mundo). Cai no de fábrica se vazio/inválido.
+ */
+export function getActiveWeaponTypes() {
+  return cachedList("weaponTypesData", MEU_SISTEMA.DEFAULT_WEAPON_TYPES, list => list.map(t => ({
+    id: t.id,
+    label: t.label || t.id,
+    parent: typeof t.parent === "string" ? t.parent : ""
+  })));
+}
+
+/** Um Tipo de arma pelo id, ou null. */
+export function getWeaponType(id) {
+  return getActiveWeaponTypes().find(t => t.id === id) ?? null;
+}
+
 /** Catálogo de Categorias de Módulo (setting > padrão), com Função válida em toda entrada. */
 export function getModuleCategories() {
   return cachedList("moduleCategoriesData", MEU_SISTEMA.DEFAULT_MODULE_CATEGORIES, list => list.map(c => ({
@@ -765,10 +782,12 @@ export function getEffectTargetGroups(current) {
   const push = isFeatureEnabled("forcedMovement");
   const elevation = isFeatureEnabled("elevation");
   const senses = isFeatureEnabled("senses");
+  const mastery = isFeatureEnabled("weaponMastery");
   return MEU_SISTEMA.EFFECT_TARGET_GROUPS.map(group => ({
     label: group.label,
     options: group.targets
       .filter(t => t !== "emp" || emp || t === current)
+      .filter(t => t !== "unarmedType" || mastery || t === current)
       .filter(t => t !== "push" || push || t === current)
       .filter(t => !["flight", "burrow"].includes(t) || elevation || t === current)
       .filter(t => !t.startsWith("sense") || senses || t === current)

@@ -29,6 +29,11 @@
                 <option value="">— elemento —</option>
                 {{#each eff.elementIdOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
               </select>
+              {{else if eff.isUnarmedType}}
+              <select class="skill-effect-input" data-effect-field="weaponTypeId" aria-label="Tipo de arma" title="O ataque desarmado passa a contar como este tipo (Maestria, XP e aprendizado). Vence o item que reforça o desarmado.">
+                <option value="">— tipo de arma —</option>
+                {{#each eff.weaponTypeIdOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+              </select>
               {{else if eff.isMark}}
               <span class="effect-note" title="Quem usa a Skill passa a poder lançar Skills a partir do alvo, pagando mais quanto mais longe estiver (custo × (distância ÷ alcance)²). A Antimagia desfaz a Marca.">Marca de quem usa</span>
               {{else if eff.isMovementMode}}

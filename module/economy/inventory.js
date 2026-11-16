@@ -149,6 +149,8 @@ function itemRow(item, containers) {
     weight: Math.round((Number(sys.weight) || 0) * quantity * 100) / 100,
     equipped: Boolean(sys.equipped),
     isWeapon: Boolean(sys.weapon?.enabled),
+    // Reforça o desarmado (H6): não ganha botão Atacar, a fórmula soma ao ataque desarmado.
+    augmentsUnarmed: Boolean(sys.weapon?.enabled && sys.weapon.augmentsUnarmed),
     weaponFormula: sys.weapon?.damageFormula ?? "",
     isContainer: Boolean(sys.container?.enabled),
     isAmmo: Boolean(sys.ammo?.enabled),

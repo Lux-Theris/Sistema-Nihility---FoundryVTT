@@ -114,6 +114,17 @@ function usageFields() {
   return {
     hasUpkeep: new fields.BooleanField({ required: false, initial: false }),
     upkeepCost: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+    /**
+     * Golpe de arma (H6): "" = nenhum; senão o id de um Tipo de arma ("unarmed" = golpe desarmado). Uma Skill de
+     * dano com isto conta como ataque daquele tipo: a Maestria que o cobre multiplica o dano, rende XP e conta
+     * para aprender pela prática. Uma Sub-Skill com o campo vazio herda o da Skill-mãe (resolveWeaponStrike).
+     */
+    weaponStrike: new fields.StringField({ required: false, initial: "", blank: true }),
+    /**
+     * O golpe de arma (não desarmado) exige uma arma compatível equipada (a do tipo ou de um subtipo dele).
+     * Sub-Skill que herda o golpe da Skill-mãe herda também esta marca. Desligado = usa sem arma.
+     */
+    strikeRequiresWeapon: new fields.BooleanField({ required: false, initial: true }),
     active: new fields.BooleanField({ required: false, initial: false }),
     animationPath: new fields.StringField({ required: false, initial: "" }),
     /** Aceita investir mais (ou menos) Mana que o Custo — ver manaInvestmentPower em config.js. */
@@ -191,6 +202,8 @@ function effectEntrySchema() {
   return new fields.SchemaField({
     /** Alvos "weaponElement" e "bodyElement": o Elemento que as armas causam / que o alvo passa a ser. */
     elementId: new fields.StringField({ required: false, initial: "", blank: true }),
+    /** Alvo "unarmedType": o Tipo de arma (id de getActiveWeaponTypes) em que o ataque desarmado se transforma. */
+    weaponTypeId: new fields.StringField({ required: false, initial: "", blank: true }),
     target: new fields.StringField({ required: true, choices: MEU_SISTEMA.EFFECT_TARGETS }),
     amount: new fields.NumberField({ required: true, integer: true, initial: 1 }),
     /**
@@ -513,7 +526,17 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
        * Geral tem teto no nível 5 (50%, nunca vira Imunidade — seria OP demais); Resistência a
        * um Elemento específico tem teto no nível 10 (100% = Imunidade, e o nome muda sozinho).
        */
-      resistanceTarget: new fields.StringField({ required: false, initial: "" })
+      resistanceTarget: new fields.StringField({ required: false, initial: "" }),
+
+      /**
+       * Maestria de arma (H6, `FEATURES.weaponMastery`): "" = a Skill não é uma Maestria; senão, o id de
+       * um Tipo de arma do catálogo (`getActiveWeaponTypes`). Uma Maestria é passiva (como a Resistência):
+       * sem "Usar", fora do ciclo Poder/Desconto, e dá +% de dano com as armas daquele tipo. Sem `choices`:
+       * o catálogo é editável em runtime. `masteryRank` 1 = a de sempre, com níveis; 2+ = evoluída (por
+       * Evolução), com um % fixo e sem níveis. Ver combat/weapon-mastery-rules.js.
+       */
+      weaponMastery: new fields.StringField({ required: false, initial: "", blank: true }),
+      masteryRank: new fields.NumberField({ required: false, integer: true, initial: 1, min: 1 })
     };
   }
 }
@@ -963,6 +986,14 @@ export class GenericItemDataModel extends foundry.abstract.TypeDataModel {
          */
         mode: new fields.StringField({ required: false, initial: "damage", blank: true, choices: ["damage", "gravity"] }),
         pushMeters: new fields.NumberField({ required: false, initial: 0, min: 0 }),
+        /** Tipo de arma (H6): id do catálogo `getActiveWeaponTypes`; "" = sem tipo (nenhuma Maestria vale). */
+        weaponType: new fields.StringField({ required: false, initial: "", blank: true }),
+        /**
+         * "Reforça o desarmado" (H6): equipado, o item NÃO ganha botão Atacar; a fórmula dele soma à do
+         * ataque desarmado, os elementos dele (se tiver) trocam o elemento, o `weaponType` (se tiver)
+         * troca o tipo (soco-inglês com lâmina = Lâminas) e mágico/tecnologia/Absoluto dele valem.
+         */
+        augmentsUnarmed: new fields.BooleanField({ required: false, initial: false }),
         loaded: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
         ammoTypes: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
         loadedAmmo: new fields.ObjectField({ required: false, nullable: true, initial: null })

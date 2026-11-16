@@ -7,6 +7,7 @@ import {
   getActiveStatusConditions,
   getEffectTargetLabels,
   getStructures,
+  getActiveWeaponTypes,
   getEnergyLabelForActor,
   getStarshipEnergyAbbr,
   effectiveSkillCost,
@@ -14,6 +15,7 @@ import {
 } from "../core/config.js";
 import { computeResistancePercent } from "../combat/resistance.js";
 import { skillSummary } from "./skill-summary.js";
+import { masterySentenceFor, isWeaponMasteryEnabled } from "../combat/weapon-mastery.js";
 
 const byId = list => Object.fromEntries((list ?? []).map(entry => [entry.id, entry.label]));
 
@@ -27,6 +29,8 @@ export function skillSummariesFor(actor) {
     conditions: byId(getActiveStatusConditions()),
     targets: getEffectTargetLabels(),
     structures: byId(getStructures()),
+    weaponTypes: byId(getActiveWeaponTypes()),
+    strikesOn: isWeaponMasteryEnabled(),
     skillRange: isSkillRangeEnabled(),
     // Na Nave o rótulo longo ("Sistema Eletro-Plasmático (EPS)") comeria a linha inteira.
     energyLabel: ["starship", "vehicle"].includes(actor.type) ? getStarshipEnergyAbbr() : getEnergyLabelForActor(actor)
@@ -44,7 +48,8 @@ export function skillSummariesFor(actor) {
       ...base,
       cost: effectiveSkillCost(sys.cost, sys.level),
       upkeep: effectiveSkillCost(sys.upkeepCost, sys.level),
-      resistance
+      resistance,
+      mastery: masterySentenceFor(sys)
     });
   }
   return out;

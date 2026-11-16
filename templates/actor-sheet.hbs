@@ -4,7 +4,7 @@
   <span class="item-name">{{row.name}}</span>
   <span class="item-qty" title="{{row.stacks}} slot(s) — pilhas de {{row.stackSize}}">x{{row.quantity}}{{#if row.isContainer}} · contêiner{{/if}}{{#if row.isAmmo}} · munição{{#if row.ammoRounds}} aberta ({{row.ammoRounds}}){{/if}}{{/if}}</span>
   <span class="inv-weight" title="Peso total da pilha">{{row.weight}} kg</span>
-  {{#if row.isWeapon}}{{#if row.equipped}}<button type="button" class="skill-use-button" data-action="attackWithWeapon" title="Atacar com {{row.name}}">⚔</button>{{/if}}{{/if}}
+  {{#if row.isWeapon}}{{#if row.augmentsUnarmed}}{{#if row.equipped}}<span class="hint-inline" title="Equipado: a fórmula soma ao ataque desarmado">reforça o desarmado</span>{{/if}}{{else}}{{#if row.equipped}}<button type="button" class="skill-use-button" data-action="attackWithWeapon" title="Atacar com {{row.name}}">⚔</button><button type="button" class="skill-use-button" data-action="weaponAttackRoll" title="Rolar o ataque (atributo de escala + Maestria)">🎲</button>{{/if}}{{/if}}{{/if}}
   {{#if row.magazine.uses}}<span class="inv-mag {{#if row.magazine.empty}}is-empty{{/if}}" title="Disparos no carregador">🔋 {{row.magazine.loaded}}/{{row.magazine.max}}</span><button type="button" class="skill-use-button" data-action="reloadWeapon" title="Recarregar / trocar munição (o que estava dentro volta para o inventário)">⟳</button>{{/if}}
   {{#if row.isConsumable}}{{#if row.chargesText}}<span class="inv-charges" title="Cargas da unidade aberta">{{row.chargesText}}</span>{{/if}}<button type="button" class="skill-use-button" data-action="useConsumable" title="Usar {{row.name}}">Usar</button>{{/if}}
   {{#if row.hasContainers}}
@@ -389,6 +389,8 @@
                   <span class="item-name">{{skill.name}}<span class="skill-summary">{{lookup ../../skillSummaries skill.id}}</span></span>
                   {{#if skill.system.active}}
                   <button type="button" class="skill-use-button active" data-action="useSkill" title="Desativar (drenando {{skill.system.upkeepCost}} de {{../../energyLabel}} por rodada)">🔥 Desativar</button>
+                  {{else if (lookup ../../masterySkills skill.id)}}
+                  <span class="hint-inline skill-passive-tag" title="Maestria de arma: passiva — o bônus vale sozinho nos ataques com armas do tipo">passiva</span>
                   {{else if (lookup ../../skillTimers skill.id)}}
                   <button type="button" class="skill-use-button" disabled title="{{skill.name}}: {{lookup ../../skillTimers skill.id}} — não dá para usar agora">⏳ {{lookup ../../skillTimers skill.id}}</button>
                   {{else if skill.system.subSkills.length}}
@@ -423,6 +425,19 @@
             <p class="hint-inline">Um pedido aparece na lista como "aguardando" e só gasta o ponto quando o Mestre aprova.</p>{{/if}}
           </div>
 
+          {{#if unarmed}}
+          <div class="block unarmed-block">
+            <p class="block-title">Ataque desarmado</p>
+            <ol class="item-list">
+              <li class="item-row unarmed-row" data-unarmed="{{actor.uuid}}">
+                <span class="item-name">👊 {{unarmed.name}}<span class="skill-summary">{{unarmed.summary}}</span></span>
+                <button type="button" class="skill-use-button" data-action="unarmedAttack" title="Atacar desarmado (Shift: modificadores de rolagem). Arraste para a hotbar.">⚔ Atacar</button>
+                <button type="button" class="skill-use-button" data-action="unarmedAttackRoll" title="Rolar o ataque (atributo de escala + Maestria)">🎲</button>
+              </li>
+            </ol>
+          </div>
+          {{/if}}
+
           {{#unless trim.gear.hide}}
           <div class="block {{#if trim.gear.gmEmpty}}is-empty-gm{{/if}}">
             <p class="block-title">{{#if inventoryEnabled}}Equipados <a class="hint-inline" data-action="selectTab" data-tab="inventory">(abrir o Inventário)</a>{{else}}Itens Gerais{{/if}}{{#if trim.gear.gmEmpty}}<span class="trim-tag">nada · o jogador não vê</span>{{/if}}</p>
@@ -435,7 +450,12 @@
                 {{#if item.system.weapon.enabled}}
                 <span class="item-weapon-formula" title="Fórmula de dano">🗡 {{item.system.weapon.damageFormula}}</span>
                 {{#if item.system.equipped}}
+                {{#if item.system.weapon.augmentsUnarmed}}
+                <span class="hint-inline" title="Equipado: a fórmula soma ao ataque desarmado">reforça o desarmado</span>
+                {{else}}
                 <button type="button" class="skill-use-button" data-action="attackWithWeapon" title="Atacar com {{item.name}}">⚔ Atacar</button>
+                <button type="button" class="skill-use-button" data-action="weaponAttackRoll" title="Rolar o ataque (atributo de escala + Maestria)">🎲</button>
+                {{/if}}
                 {{else}}
                 <span class="hint-inline" title="Equipe o item pra poder atacar com ele">(desequipada)</span>
                 {{/if}}

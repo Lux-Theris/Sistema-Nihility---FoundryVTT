@@ -12,9 +12,9 @@ import { resolveSpeciesTemplate } from "../species/species-rules.js";
  * (Sub-Skills, linhagem) e o que a aprovação decide sozinha (Nível 1, desligada, sem XP).
  */
 export const REQUEST_MECHANIC_FIELDS = [
-  "cost", "hasUpkeep", "upkeepCost", "variableMana", "cooldown", "prepTurns", "magicTag", "isMagic", "isTech", "animationPath", "description", "resistanceTarget",
+  "cost", "hasUpkeep", "upkeepCost", "variableMana", "cooldown", "prepTurns", "magicTag", "isMagic", "isTech", "animationPath", "description", "resistanceTarget", "weaponMastery",
   "effectType", "damageFormula", "scalingAttribute", "isMagicDamage", "isAbsoluteDamage", "damageScale", "damageElements", "effects",
-  "targetType", "structureId", "structureRegen", "structureRegenCost", "areaShape", "areaDistance", "areaAngle", "zoneRounds", "range", "areaOrigin", "areaFreeLevel", "areaAffects"
+  "targetType", "structureId", "structureRegen", "structureRegenCost", "areaShape", "areaDistance", "areaAngle", "zoneRounds", "range", "areaOrigin", "areaFreeLevel", "areaAffects", "weaponStrike", "strikeRequiresWeapon"
 ];
 
 /** Pedido que ainda pode mudar: aguardando o Mestre, ou devolvido para ajustar. */
@@ -44,6 +44,12 @@ export function requestSkillSystem(mech = {}, tier = "normal") {
   system.description = typeof system.description === "string" ? system.description : "";
   if (!Array.isArray(system.effects)) system.effects = [];
   if (!Array.isArray(system.damageElements)) system.damageElements = [];
+  // Maestria de arma (H6): o pedido nasce no rank 1 (a evolução é do Mestre) e mundana.
+  if (system.weaponMastery) {
+    system.masteryRank = 1;
+    system.magicTag = "mundane";
+    system.isMagic = false;
+  }
   // Estrutura era Tipo de Alvo em 1.37: um pedido antigo que ainda diga isso vira a Mecânica.
   if (system.targetType === "structure") {
     system.effectType = "structure";

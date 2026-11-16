@@ -54,7 +54,8 @@ export function buildSubSkillsFromSources(sources) {
         zoneRounds: source.system.zoneRounds,
         range: source.system.range ?? 0,
         areaOrigin: source.system.areaOrigin ?? null,
-        areaFreeLevel: source.system.areaFreeLevel ?? 0
+        areaFreeLevel: source.system.areaFreeLevel ?? 0,
+        areaAffects: source.system.areaAffects ?? "all"
       }
     ];
   });
@@ -64,7 +65,7 @@ export function buildSubSkillsFromSources(sources) {
 const GRANTED_MECHANIC_FIELDS = [
   "level", "cost", "hasUpkeep", "upkeepCost", "variableMana", "cooldown", "prepTurns", "magicTag", "isMagic", "isTech", "animationPath", "description", "resistanceTarget",
   "effectType", "damageFormula", "scalingAttribute", "isMagicDamage", "isAbsoluteDamage", "damageScale", "damageElements", "effects",
-  "targetType", "structureId", "structureRegen", "structureRegenCost", "areaShape", "areaDistance", "areaAngle", "zoneRounds", "range", "areaOrigin", "areaFreeLevel", "subSkills"
+  "targetType", "structureId", "structureRegen", "structureRegenCost", "areaShape", "areaDistance", "areaAngle", "zoneRounds", "range", "areaOrigin", "areaFreeLevel", "areaAffects", "subSkills"
 ];
 
 /**

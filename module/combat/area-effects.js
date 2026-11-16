@@ -21,9 +21,10 @@ import { SYSTEM_ID } from "../core/config.js";
 import { runAsGm } from "../helpers/gm-relay.js";
 import { relayFailureMessage } from "../helpers/gm-relay-rules.js";
 import { foundryGeneration } from "../helpers/foundry-compat.js";
-import { areaFromSkill, areaContains, areaPolygon, normalizeArea, tokenDocCenter, areaFromTemplateData } from "./area-geometry.js";
+import { areaFromSkill, areaContains, areaPolygon, normalizeArea, tokenDocCenter, areaFromTemplateData, areaAffectsTarget } from "./area-geometry.js";
 import { clampToRange, filterByReach, markCostFactor, pointDistance } from "./range-rules.js";
-import { pointReach, viaMarkFrom } from "./range.js";
+import { pointReach, viaMarkFrom, casterTokenOf } from "./range.js";
+import { isDead } from "./incapacitation.js";
 
 /** Precisa só de uma cena aberta no canvas — nada específico de versão. */
 export function areaEffectsSupported() {
@@ -202,7 +203,7 @@ async function placeArea(mech, reach = null) {
  * @param {{system: object}} skill - objeto com `.system` = `skill.system` ou snapshot de Sub-Skill
  * @returns {Promise<Actor[]>}
  */
-export async function pickAreaTargets(skill, reach = null) {
+export async function pickAreaTargets(skill, reach = null, { caster = null } = {}) {
   const placed = await placeArea(skill.system, reach);
   const area = placed?.area;
   if (!area) return [];
@@ -213,7 +214,17 @@ export async function pickAreaTargets(skill, reach = null) {
     reach && reach.free && reach.rangePx > 0 && (skill.system.areaShape === "cone" || skill.system.areaShape === "ray")
       ? filterByReach(inside, placed.via?.point ?? reach.anchor, reach.rangePx, token => token.center)
       : inside;
-  const actors = limited.map(token => token.actor).filter(Boolean);
+  // Quem a área atinge (todos / menos quem lançou / aliados / inimigos) e nunca os mortos.
+  const casterDisposition = caster ? casterTokenOf(caster)?.document?.disposition ?? null : null;
+  const actors = limited
+    .filter(token => token.actor && areaAffectsTarget({
+      affects: skill.system.areaAffects,
+      isCaster: Boolean(caster) && token.actor.uuid === caster.uuid,
+      dead: isDead(token.actor),
+      casterDisposition,
+      disposition: token.document?.disposition ?? null
+    }))
+    .map(token => token.actor);
   // Qual Marca serviu (a confirmação do custo e o fator vão em useSkillEffect).
   actors.viaMark = viaMarkFrom(placed.via, reach);
   // A origem da área viaja junto (propriedade do array, então quem só lê a lista não muda): é
@@ -260,6 +271,9 @@ export async function createZone(placement, { sourceActor, skillId, subSkillInde
       // Skill Ativa: a Zona vive até a Skill ser desligada, sem contagem de rodadas.
       untilDeactivated: Boolean(untilDeactivated),
       roundsRemaining: Math.max(1, Number(rounds) || 1),
+      // De que lado quem lançou estava ("Quem a área atinge": aliados/inimigos), caso o Token dele
+      // saia da cena depois.
+      casterDisposition: casterTokenOf(sourceActor)?.document?.disposition ?? null,
       // Desfazer uso (skill-undo.js): o Mestre acha esta Zona pelo id do uso.
       useId: currentSkillUseId()
     }

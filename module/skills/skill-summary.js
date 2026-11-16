@@ -74,6 +74,10 @@ function describeRange(mech) {
       out.push("livre");
     }
   }
+  if (area) {
+    const who = { notCaster: "poupa você", allies: "só aliados", enemies: "só inimigos" }[mech.areaAffects];
+    if (who) out.push(who);
+  }
   return out;
 }
 

@@ -133,7 +133,7 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget } =
       await useSkillEffect(actor, itemId, { zonePlacement, subSkillIndex, rollOptions, manaInvested, viaMark });
     } else if (mode === "emission") {
       // Sem alvo manual: a forma posicionada no mapa decide quem é afetado (aplica direto).
-      const targetActors = await pickAreaTargets({ system: mech }, areaReach(actor, mech));
+      const targetActors = await pickAreaTargets({ system: mech }, areaReach(actor, mech), { caster: actor });
       // Sem `origin` = cancelou a colocação (pickAreaTargets devolve [] nos dois casos).
       if (!targetActors.origin) return;
       const viaMark = targetActors.viaMark ?? null;

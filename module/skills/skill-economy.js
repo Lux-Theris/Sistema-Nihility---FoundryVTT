@@ -285,6 +285,7 @@ export async function evolveSkill(actor, sourceItemId, newSkillData) {
       range: newSkillData.range ?? 0,
       areaOrigin: newSkillData.areaOrigin ?? null,
       areaFreeLevel: newSkillData.areaFreeLevel ?? 0,
+      areaAffects: newSkillData.areaAffects ?? "all",
       evolvedFrom: source.name
     }
   };

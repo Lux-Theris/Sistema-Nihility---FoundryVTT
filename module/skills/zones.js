@@ -5,6 +5,7 @@
 import { SYSTEM_ID } from "../core/config.js";
 import { combatantScene } from "../helpers/foundry-compat.js";
 import { zonesOnScene, zoneContainsToken } from "../combat/area-effects.js";
+import { areaAffectsTarget } from "../combat/area-geometry.js";
 import { rollSkillDamage } from "../combat/damage-roll.js";
 import { applySkillEffects, damageXpMeasures } from "./skill-effects.js";
 import { grantSkillUseXp } from "./skill-xp.js";
@@ -65,6 +66,15 @@ export async function tickZonesForCombatant(combatant) {
       if (zone.untilDeactivated) await zoneDoc.delete();
       continue;
     }
+    // Quem a Zona atinge: o lado de quem lançou é o do Token dele agora (ou o de quando lançou).
+    const casterDoc = scene.tokens.find(t => t.actor?.uuid === sourceActor.uuid);
+    const casterDisposition = casterDoc?.disposition ?? zone.casterDisposition ?? null;
+    if (!areaAffectsTarget({
+      affects: mech.areaAffects,
+      isCaster: sourceActor.uuid === targetActor.uuid,
+      casterDisposition,
+      disposition: tokenDoc.disposition ?? null
+    })) continue;
     const label = zone.label;
 
     if (mech.effectType === "damage") {

@@ -211,3 +211,38 @@ export function zoneDocumentData(area, { generation, pxPerUnit, color, name, fla
     }
   };
 }
+
+/* -------------------------------------------- */
+/*  Quem a área atinge (Emissão e Zona, 1.89.2)  */
+/* -------------------------------------------- */
+
+/** Valores de `areaAffects`. "all" (ou vazio, Skill salva antes) = todo mundo dentro, como sempre foi. */
+export const AREA_AFFECTS = ["all", "notCaster", "allies", "enemies"];
+
+/** [valor, rótulo, dica] para os editores. */
+export const AREA_AFFECTS_OPTIONS = [
+  ["all", "Todos", "Todo mundo dentro da área, inclusive quem lançou (uma Bola de Fogo nos pés queima você)."],
+  ["notCaster", "Menos quem lançou", "Todo mundo dentro, menos quem lançou."],
+  ["allies", "Só aliados", "Quem lançou e quem está do mesmo lado (mesma disposição do Token: amigo, neutro ou hostil). Para curas e auras de apoio."],
+  ["enemies", "Só inimigos", "Só quem está do outro lado (disposição do Token diferente da de quem lançou)."]
+];
+
+/**
+ * Este Ator dentro da área sofre o efeito? Pura.
+ *  - morto nunca (curar ou ferir um corpo não faz nada de útil e inflava a XP por uso);
+ *  - "notCaster": todos menos quem lançou;
+ *  - "allies": quem lançou e quem está do mesmo lado (mesma disposição do Token);
+ *  - "enemies": só quem está do outro lado (quem lançou nunca).
+ * Sem disposição conhecida de quem lançou (Token fora da cena e Zona antiga), "allies"/"enemies"
+ * caem em "todos menos quem lançou" — melhor atingir a mais que sumir com o efeito.
+ * @param {{affects?: string, isCaster: boolean, dead?: boolean, casterDisposition?: number|null, disposition?: number|null}} p
+ */
+export function areaAffectsTarget({ affects = "all", isCaster, dead = false, casterDisposition = null, disposition = null }) {
+  if (dead) return false;
+  const mode = AREA_AFFECTS.includes(affects) ? affects : "all";
+  if (mode === "all") return true;
+  if (isCaster) return mode === "allies";
+  if (mode === "notCaster" || casterDisposition == null || disposition == null) return true;
+  const same = Number(casterDisposition) === Number(disposition);
+  return mode === "allies" ? same : !same;
+}

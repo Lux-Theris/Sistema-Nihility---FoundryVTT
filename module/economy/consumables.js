@@ -99,7 +99,7 @@ export async function useConsumable(actor, item, event = null) {
     if (mech.targetType === "emission" && isAreaEffectsEnabled() && areaEffectsSupported()) {
       // Arremessável (H4): o ponto só vai até base + Força; sem Marca.
       const throwReach = item.system.consumable.thrown ? reachContext(actor, { range: throwRangeFor(actor, item.system.consumable.throwBase), free: true, marks: false }) : null;
-      const targets = await pickAreaTargets({ system: mech }, throwReach);
+      const targets = await pickAreaTargets({ system: mech }, throwReach, { caster: actor });
       // Sem `origin` = cancelou a colocação (pickAreaTargets devolve [] nos dois casos).
       if (!targets.origin) return null;
       if (isDamage) await rollSkillDamageArea(actor, mech, label, targets, rollOptions);

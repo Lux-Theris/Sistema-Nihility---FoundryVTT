@@ -149,6 +149,12 @@ function usageFields() {
     areaOrigin: new fields.StringField({ required: false, nullable: true, initial: null, choices: ["caster", "free"] }),
     /** A partir deste nível a forma presa em quem lança passa a ser livre (0 = nunca). */
     areaFreeLevel: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+    /**
+     * Quem a área (Emissão/Zona) atinge: "all" todos (o de sempre), "notCaster" todos menos quem
+     * lançou, "allies" quem lançou e o mesmo lado (disposição do Token), "enemies" só o outro lado.
+     * Morto nunca é atingido por área. Ver `areaAffectsTarget` (area-geometry.js).
+     */
+    areaAffects: new fields.StringField({ required: false, initial: "all", choices: ["all", "notCaster", "allies", "enemies"] }),
     /** Estado: fator do custo de ter ligado esta Ativa pela Marca (1 = normal). Nunca copiado. */
     markFactor: new fields.NumberField({ required: false, initial: 1, min: 1 }),
     /** Estado: turnos do dono até poder usar de novo (ver cooldown-rules.js). Nunca copiado ao clonar/fundir. */

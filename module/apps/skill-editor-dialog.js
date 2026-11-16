@@ -24,6 +24,7 @@ import { pickerFieldHtml, readPickerField, wireElementPickerField } from "./chec
 import { openLightConfigDialog, describeLight } from "../combat/lights.js";
 import { advancedFold } from "../helpers/advanced-fold.js";
 import { escapeHtml } from "../helpers/html.js";
+import { AREA_AFFECTS_OPTIONS } from "../combat/area-geometry.js";
 import { getCompendiumForItemType } from "../core/compendium.js";
 import { skillAssist, warningsBoxHtml, costChipHtml, templateGroups, templateFillSentence, skillFromTemplate } from "../skills/skill-assist.js";
 
@@ -185,6 +186,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     range: Number(initialData.range) || 0,
     areaOrigin: initialData.areaOrigin ?? (offerTemplates ? "caster" : "free"),
     areaFreeLevel: Number(initialData.areaFreeLevel) || 0,
+    areaAffects: initialData.areaAffects ?? "all",
     animationPath: initialData.animationPath ?? "",
     description: initialData.description ?? "",
     resistanceTarget: initialData.resistanceTarget ?? "",
@@ -422,6 +424,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
             <div class="form-group" title="Sai de quem lança: o círculo fica em volta do Token e o cone/linha só giram. Livre: você põe a forma onde quiser, dentro do alcance."><label>Origem da forma</label><select name="areaOrigin"><option value="caster" ${data.areaOrigin === "caster" ? "selected" : ""}>Sai de quem lança</option><option value="free" ${data.areaOrigin !== "caster" ? "selected" : ""}>Livre</option></select></div>
             <div class="form-group se-free-level-field" title="A partir deste nível a forma presa passa a ser livre. 0 = nunca."><label>Livre a partir do nível</label><input type="number" name="areaFreeLevel" value="${data.areaFreeLevel}" min="0"/></div>
           </div>` : `<input type="hidden" name="areaOrigin" value="${data.areaOrigin}"/><input type="hidden" name="areaFreeLevel" value="${data.areaFreeLevel}"/>`}
+          <div class="form-group" title="Quem dentro da área sofre o efeito. Aliado = mesma disposição do Token (amigo/neutro/hostil) de quem lança. Morto nunca é atingido por área."><label>Quem a área atinge</label><select name="areaAffects">${AREA_AFFECTS_OPTIONS.map(([v, l]) => `<option value="${v}" ${data.areaAffects === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>
           <div class="form-group se-zone-rounds-field"><label>Duração da Zona <span class="hint-inline" style="display:inline;">(rodadas de combate)</span></label><input type="number" name="zoneRounds" value="${data.zoneRounds}" min="1"/></div>
           <div class="form-group"><label>Formato de Área</label><select name="areaShape">${areaShapeOptions}</select></div>
           <div class="row-2">
@@ -936,6 +939,7 @@ function readSkillEditorForm(root, lockTier) {
     range: Math.max(0, Number(root.querySelector(effectType === "structure" ? '[name="structureRange"]' : '[name="range"]')?.value) || 0),
     areaOrigin: root.querySelector('[name="areaOrigin"]')?.value === "caster" ? "caster" : "free",
     areaFreeLevel: Math.max(0, Math.floor(Number(root.querySelector('[name="areaFreeLevel"]')?.value)) || 0),
+    areaAffects: isEmission ? AREA_AFFECTS_OPTIONS.find(([v]) => v === root.querySelector('[name="areaAffects"]')?.value)?.[0] ?? "all" : "all",
     animationPath: root.querySelector('[name="animationPath"]').value.trim(),
     description: root.querySelector('prose-mirror[name="description"]').value,
     resistanceTarget: resistEnabled ? resistChecked?.value ?? "general" : "",

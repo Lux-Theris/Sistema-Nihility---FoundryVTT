@@ -332,3 +332,38 @@ test("Antimagia: a área toca a Estrutura?", () => {
   assert.equal(areaTouchesStructure(inside, circleBox, true), true);
   assert.equal(areaTouchesStructure(inside, circleBox, false), false);
 });
+
+/* -------------------------------------------- */
+/*  Quem a área atinge (1.89.2)                  */
+/* -------------------------------------------- */
+
+test("areaAffectsTarget: todos, menos quem lançou, aliados, inimigos e mortos", async () => {
+  const { areaAffectsTarget } = await import("../module/combat/area-geometry.js");
+  const FRIEND = 1, HOSTILE = -1;
+  const self = { isCaster: true, casterDisposition: FRIEND, disposition: FRIEND };
+  const ally = { isCaster: false, casterDisposition: FRIEND, disposition: FRIEND };
+  const foe = { isCaster: false, casterDisposition: FRIEND, disposition: HOSTILE };
+  // Padrão (e Skill salva antes, sem o campo): todo mundo, inclusive quem lançou.
+  for (const who of [self, ally, foe]) {
+    assert.equal(areaAffectsTarget({ ...who }), true);
+    assert.equal(areaAffectsTarget({ ...who, affects: "all" }), true);
+  }
+  assert.deepEqual([self, ally, foe].map(w => areaAffectsTarget({ ...w, affects: "notCaster" })), [false, true, true]);
+  assert.deepEqual([self, ally, foe].map(w => areaAffectsTarget({ ...w, affects: "allies" })), [true, true, false]);
+  assert.deepEqual([self, ally, foe].map(w => areaAffectsTarget({ ...w, affects: "enemies" })), [false, false, true]);
+  // Morto nunca, em modo nenhum.
+  for (const affects of ["all", "notCaster", "allies", "enemies"]) assert.equal(areaAffectsTarget({ ...foe, affects, dead: true }), false);
+  // Sem saber o lado de quem lançou: aliados/inimigos viram "menos quem lançou".
+  assert.equal(areaAffectsTarget({ isCaster: false, affects: "allies", casterDisposition: null, disposition: HOSTILE }), true);
+  assert.equal(areaAffectsTarget({ isCaster: true, affects: "enemies", casterDisposition: null, disposition: FRIEND }), false);
+  // Valor desconhecido = todos.
+  assert.equal(areaAffectsTarget({ ...self, affects: "banana" }), true);
+});
+
+test("skillSummary diz quem a área atinge", async () => {
+  const { skillSummary } = await import("../module/skills/skill-summary.js");
+  const base = { effectType: "damage", damageFormula: "2d6", targetType: "zone", areaShape: "circle", areaDistance: 3, zoneRounds: 2 };
+  assert.match(skillSummary({ ...base, areaAffects: "notCaster" }), /poupa você/);
+  assert.match(skillSummary({ ...base, areaAffects: "allies" }), /só aliados/);
+  assert.doesNotMatch(skillSummary({ ...base, areaAffects: "all" }), /poupa|só /);
+});

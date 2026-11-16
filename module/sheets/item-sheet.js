@@ -63,6 +63,7 @@ import { magazineState } from "../economy/consumable-rules.js";
 import { openLightConfigDialog, describeLight } from "../combat/lights.js";
 import { pickImageFile, filePickerClass } from "../helpers/foundry-compat.js";
 import { sequencerAvailable } from "../core/vfx.js";
+import { AREA_AFFECTS_OPTIONS } from "../combat/area-geometry.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -561,6 +562,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       ],
       sys.areaOrigin ?? "free"
     );
+    context.skillAreaAffectsSeg = seg(AREA_AFFECTS_OPTIONS, sys.areaAffects ?? "all");
     context.skillAreaShapeSeg = seg(
       MEU_SISTEMA.SKILL_AREA_SHAPES.filter(Boolean).map(s => [s, MEU_SISTEMA.SKILL_AREA_SHAPE_LABELS[s]]),
       sys.areaShape

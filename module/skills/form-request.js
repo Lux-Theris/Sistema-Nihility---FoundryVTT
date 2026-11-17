@@ -1,7 +1,7 @@
 import { SYSTEM_ID, getVisibleAttributes, getVitalFormula, getSpeciesForCreation, isFormsEnabled, getEnergyLabelForActor } from "../core/config.js";
 import { escapeHtml } from "../helpers/html.js";
 import { reportError } from "../helpers/report.js";
-import { canUploadImages, uploadDocumentImage, uploadButtonHtml, wireUploadButton } from "../helpers/image-upload.js";
+import { canUploadImages, uploadDocumentImage, uploadButtonHtml, wireUploadButton, wireGalleryButton } from "../helpers/image-upload.js";
 import { normalizeFormRequest } from "./form-rules.js";
 import { attributePurpose, vitalPreview } from "../creation/creation-rules.js";
 import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
@@ -103,6 +103,7 @@ export async function openFormRequestEditor(actor, current = null, { title = "Pe
       const path = await uploadDocumentImage(actor, file);
       if (path) root.querySelector('[name="img"]').value = path;
     });
+    wireGalleryButton(root, "img", path => { root.querySelector('[name="img"]').value = path; });
     update();
   };
 

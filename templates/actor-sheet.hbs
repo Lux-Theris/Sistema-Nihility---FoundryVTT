@@ -33,6 +33,10 @@
       <div class="creation-upload">
         <button type="button" data-upload-button="portrait" {{#unless canUpload}}disabled title="Peça ao Mestre a permissão 'Enviar arquivos'"{{/unless}}>Enviar imagem…</button>
         <button type="button" data-upload-button="token" {{#unless canUpload}}disabled title="Peça ao Mestre a permissão 'Enviar arquivos'"{{/unless}}>Enviar imagem do Token…</button>
+        {{#if canUseGallery}}
+        <button type="button" data-gallery-button="portrait" title="Escolher uma imagem que você já enviou">Minhas imagens…</button>
+        <button type="button" data-gallery-button="token" title="Escolher uma imagem que você já enviou para o Token">Minhas imagens (Token)…</button>
+        {{/if}}
         <input type="file" accept="image/*" data-upload-input="portrait" hidden/>
         <input type="file" accept="image/*" data-upload-input="token" hidden/>
       </div>

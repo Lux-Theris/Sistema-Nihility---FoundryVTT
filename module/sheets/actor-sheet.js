@@ -71,7 +71,7 @@ import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
 import { openSkillEditorDialog } from "../apps/skill-editor-dialog.js";
 import { editPortraitFrameAction, CLEAR_PORTRAIT_FRAME } from "../helpers/portrait-frame.js";
 import { pickImageFile } from "../helpers/foundry-compat.js";
-import { canUploadImages, uploadDocumentImage, wireUploadButton } from "../helpers/image-upload.js";
+import { canUploadImages, canUseGallery, uploadDocumentImage, wireUploadButton, wireGalleryButton } from "../helpers/image-upload.js";
 
 import { handleItemDrop, splitStack, toggleEquipped, inventoryContext } from "../economy/inventory.js";
 import { EffectsListApp } from "../apps/effects-list.js";
@@ -541,6 +541,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     // Modo criação (J10): faixa "Criando", grade de Espécies na Origem, "Confirmar" guardado.
     context.creation = inCreation(actor) ? await this.#creationContext() : null;
     context.canUpload = canUploadImages();
+    context.canUseGallery = canUseGallery();
     // "Ao confirmar" (prancha 2 B): Vida/Mana/iniciativa com os pendentes, dentro e fora da criação.
     context.vitalPreview = context.attributePoolEnabled && (context.creation || context.attributePointsPending) ? vitalPreviewFor(actor) : null;
     // "Começar de um jeito" (prancha 2 D): só enquanto nenhum ponto foi confirmado.
@@ -908,6 +909,9 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       const path = await uploadDocumentImage(this.actor, file);
       if (path) await this.actor.update({ "prototypeToken.texture.src": path });
     });
+    // "Minhas imagens…": o que o jogador já enviou para a pasta dele (1.94.1).
+    wireGalleryButton(this.element, "portrait", path => this.actor.update({ img: path }));
+    wireGalleryButton(this.element, "token", path => this.actor.update({ "prototypeToken.texture.src": path }));
     this.element.querySelector(".lineage-select")?.addEventListener("change", this._onLineageChange.bind(this));
     // Arrastando um implante: verde onde cabe, vermelho onde não cabe (o motivo aparece na linha).
     this.element.querySelectorAll("[data-part-id]").forEach(row => {

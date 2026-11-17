@@ -203,3 +203,30 @@ details.adv > .adv-body > .span-all { grid-column: 1 / -1; }
 @media (max-width: 520px) {
   details.adv > .adv-body.g2, details.adv > .adv-body.g3 { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* "Minhas imagens" — galeria da pasta do jogador (1.94.1). Cor explícita: o tema do core pinta texto
+   escuro dentro de label/diálogo. */
+.nihility-gallery, .nihility-gallery-confirm { color: var(--nihility-text); }
+.nihility-gallery .ng-hint, .nihility-gallery .ng-empty { color: var(--nihility-text-dim); font-size: 0.85em; margin: 0 0 6px; }
+.nihility-gallery .ng-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px;
+  max-height: 360px; overflow-y: auto; padding: 2px;
+}
+.nihility-gallery .ng-tile {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 4px; border: 1px solid var(--nihility-border-soft); border-radius: 6px;
+  background: var(--nihility-bg-panel-alt); color: var(--nihility-text); cursor: pointer;
+}
+.nihility-gallery .ng-tile input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
+.nihility-gallery .ng-tile:has(input:checked) { border-color: var(--nihility-accent); box-shadow: 0 0 0 1px var(--nihility-accent); }
+.nihility-gallery .ng-tile img { width: 88px; height: 88px; object-fit: contain; border: none; background: var(--nihility-bg-dark); border-radius: 4px; }
+.nihility-gallery .ng-name {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 0.8em; color: var(--nihility-text-dim);
+}
+.nihility-gallery .ng-del {
+  position: absolute; top: 2px; right: 2px; width: 22px; height: 22px; min-height: 0; line-height: normal;
+  padding: 0; font-size: 0.75em; color: var(--nihility-danger); background: rgba(16, 18, 26, 0.85);
+  border: 1px solid var(--nihility-border-soft); border-radius: 4px;
+}
+.nihility-gallery .ng-actions { margin-top: 8px; }

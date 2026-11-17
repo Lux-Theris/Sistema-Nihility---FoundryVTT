@@ -200,6 +200,23 @@ const HANDLERS = {
   },
 
   /**
+   * Pasta de imagens do jogador (1.94.1): criar pasta e listar exigem "Usar o navegador de arquivos",
+   * que o jogador não tem; o Mestre faz por ele. A pasta vem de `user` (dito pelo servidor), nunca do
+   * payload — ninguém pede a pasta de outro. Só para quem tem "Enviar arquivos".
+   */
+  async ensureUploadFolder(payload, user) {
+    if (!user?.can?.("FILES_UPLOAD")) return refuse(RELAY_REASONS.permission);
+    const { ensurePlayerFolderAsGm } = await import("./player-uploads.js");
+    return ensurePlayerFolderAsGm(user);
+  },
+
+  async listUploadFolder(payload, user) {
+    if (!user?.can?.("FILES_UPLOAD")) return refuse(RELAY_REASONS.permission);
+    const { listPlayerFolderAsGm } = await import("./player-uploads.js");
+    return listPlayerFolderAsGm(user);
+  },
+
+  /**
    * Forma (H5): o Mestre cria a ficha temporária e troca os Tokens. Quem pede tem de ser dono do
    * personagem; molde, Skill e estado são lidos da ficha (ver transformActorAsGm).
    */

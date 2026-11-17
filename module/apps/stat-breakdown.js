@@ -209,6 +209,7 @@ export class StatBreakdownApp extends HandlebarsApplicationMixin(ApplicationV2) 
       buffs: effectSources(actor, `system.attributes.${stat}.buffDelta`),
       buffActual: vital.buffDelta || 0,
       enabled: stat === "hp" || formula.energyEnabled,
+      named: stat === "energy" ? Number(vital.namedLoss) || 0 : 0,
       min: stat === "hp" ? 1 : 0
     });
 
@@ -245,6 +246,14 @@ export class StatBreakdownApp extends HandlebarsApplicationMixin(ApplicationV2) 
         hint: "Efeitos de Skills valendo agora.",
         rows: ex.temporary.map(row),
         result: { label: "Soma", value: signed(ex.temporaryTotal) }
+      });
+    }
+    if (ex.namedLoss > 0) {
+      sections.push({
+        title: "Nomeação",
+        hint: "Mana máxima perdida para sempre ao dar nomes (Corredor de alma).",
+        rows: [{ label: "Nomeação", value: signed(-ex.namedLoss) }],
+        result: { label: "Soma", value: signed(-ex.namedLoss) }
       });
     }
     // Nível de NPC (M6): Lacaio = 1, Elite/Chefe multiplicam o que veio acima.

@@ -18,6 +18,7 @@ const GROUPS = [
   { id: "vitals", label: "Vida e Energia", test: key => /(vital|energy|Energy|manaInvest|manaDensity|^rest|healBlock|cureRegrow)/.test(key) },
   { id: "ships", label: "Naves", test: key => /^ship/.test(key) },
   { id: "combat", label: "Combate", test: key => /(initiative|damage|OffScene|Scaling|antimagic|technomagic|affinity|unarmed)/i.test(key) },
+  { id: "naming", label: "Nomeação", test: key => /^naming/.test(key) },
   { id: "clock", label: "Relógio e descanso", test: key => /^clock/.test(key) },
   { id: "other", label: "Outras", test: () => true }
 ];

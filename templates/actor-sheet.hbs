@@ -441,6 +441,23 @@
             <p class="hint-inline">Um pedido aparece na lista como "aguardando" e só gasta o ponto quando o Mestre aprova.</p>{{/if}}
           </div>
 
+          {{#each borrowed as |sec|}}
+          <div class="block borrowed-block">
+            <p class="block-title">{{sec.title}}{{#unless sec.accepting}} <span class="hint-inline">{{sec.refusal}}</span>{{/unless}}</p>
+            <ol class="item-list">
+              {{#each sec.rows as |row|}}
+              <li class="item-row borrowed-row" data-kind="{{sec.kind}}" data-owner-uuid="{{sec.ownerUuid}}" data-skill-id="{{row.id}}">
+                <img src="{{row.img}}" width="24" height="24"/>
+                <span class="item-name">{{row.name}}<span class="skill-summary">{{row.sentence}}</span></span>
+                <button type="button" class="skill-use-button" data-action="useBorrowedSkill" {{#if row.disabled}}disabled title="{{#if row.timer}}{{row.timer}}{{else}}{{sec.refusal}}{{/if}}"{{else}} title="Usar com a sua Mana; o XP vai para {{sec.ownerName}}"{{/if}}>✨ Usar</button>
+              </li>
+              {{else}}
+              <li class="hint-inline">{{sec.emptyText}}</li>
+              {{/each}}
+            </ol>
+          </div>
+          {{/each}}
+
           {{#if unarmed}}
           <div class="block unarmed-block">
             <p class="block-title">Ataque desarmado</p>
@@ -696,6 +713,38 @@
           <li class="origin-empty">Nenhuma. Heranças são o que aconteceu com o personagem (Vampirizado, Meio-Dragão, Convertido em Ciborgue…).</li>
           {{/each}}
         </ul>
+      </div>
+      {{/if}}
+
+      {{#if (or links.any links.canCreatePact naming)}}
+      <div class="origin-layer links">
+        <div class="origin-layer-head"><b>Vínculos</b>
+          {{#if links.canCreatePact}}<span class="origin-sp"></span><button type="button" data-action="createPact">Criar Pacto…</button>{{/if}}
+        </div>
+        {{#if naming}}
+        {{#if naming.namedBy}}<p class="origin-desc">Nomeado por <b>{{naming.namedBy.name}}</b> (Corredor de alma).</p>{{/if}}
+        {{#each naming.named as |n|}}<p class="origin-desc">Nomeou <b>{{n.name}}</b> (Corredor de alma).</p>{{/each}}
+        {{#if naming.lost}}<p class="origin-desc">Mana máxima perdida pela Nomeação: −{{naming.lost}}.</p>{{/if}}
+        {{#if naming.showBank}}<p class="origin-desc">XP da Nomeação guardado: <b>{{naming.bank}}</b> <button type="button" data-action="openNamingBank">Evoluir uma Skill…</button></p>{{/if}}
+        {{/if}}
+        {{#each links.asOwner as |l|}}
+        <div class="origin-link">
+          <p class="origin-desc"><b>{{l.kindLabel}}</b> · {{l.borrowerName}} usa as suas Skills{{#if l.isPact}} liberadas{{/if}}, com a Mana dele; o XP é seu.</p>
+          <button type="button" data-action="toggleAcceptRequests" data-kind="{{l.kind}}" data-borrower="{{l.borrowerUuid}}">{{#if l.accepting}}Aceitando pedidos · parar{{else}}Não aceita pedidos · voltar a aceitar{{/if}}</button>
+          {{#if l.canCut}}<button type="button" data-action="cutLink" data-kind="{{l.kind}}" data-owner="{{@root.actor.uuid}}" data-borrower="{{l.borrowerUuid}}">{{#if l.isPact}}Cortar Pacto{{else}}Cortar Corredor de alma{{/if}}</button>{{/if}}
+          {{#if l.isPact}}
+          <div class="origin-pact-skills">
+            {{#each l.skills as |s|}}<label><input type="checkbox" data-action="togglePactSkill" data-borrower="{{l.borrowerUuid}}" data-skill="{{s.id}}" {{#if s.checked}}checked{{/if}}/> {{s.name}}</label>{{else}}<span class="hint-inline">Nenhuma Skill sua pode ser emprestada.</span>{{/each}}
+          </div>
+          {{/if}}
+        </div>
+        {{/each}}
+        {{#each links.asBorrower as |l|}}
+        <div class="origin-link">
+          <p class="origin-desc"><b>{{l.kindLabel}}</b> · você usa as Skills de {{l.ownerName}} (aba Ficha), com a sua Mana.</p>
+          {{#if l.canCut}}<button type="button" data-action="cutLink" data-kind="{{l.kind}}" data-owner="{{l.ownerUuid}}" data-borrower="{{@root.actor.uuid}}">{{#if (eq l.kind "pact")}}Cortar Pacto{{else}}Cortar Corredor de alma{{/if}}</button>{{/if}}
+        </div>
+        {{/each}}
       </div>
       {{/if}}
 

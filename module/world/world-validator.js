@@ -202,6 +202,24 @@ export function validateItem(item, idx) {
 }
 
 /**
+ * Vínculos da Nomeação e do Pacto (flags `soulLink`, `soulLinks`, `borrowLinks`, `lendLinks`) que
+ * apontam para um Ator apagado. Só lista; o vínculo sobra inofensivo (o leitor ignora quem sumiu).
+ * @param {object} [flags] - os flags do sistema no Ator
+ * @param {(uuid:string) => boolean} uuidExists
+ */
+export function soulLinkIssues(flags, uuidExists = () => true) {
+  const out = [];
+  const check = (where, uuid) => {
+    if (typeof uuid === "string" && uuid && !uuidExists(uuid)) out.push({ where, catalog: "actors", ref: uuid, message: "vínculo com um personagem que não existe mais (apagado)" });
+  };
+  check("Corredor de alma (quem nomeou)", flags?.soulLink?.namerUuid);
+  for (const link of flags?.soulLinks ?? []) check("Corredor de alma (nomeado)", link?.namedUuid);
+  for (const link of flags?.borrowLinks ?? []) check(link?.kind === "pact" ? "Pacto (patrono)" : "Corredor de alma (dono)", link?.sourceUuid);
+  for (const link of flags?.lendLinks ?? []) check(link?.kind === "pact" ? "Pacto (bruxo)" : "Corredor de alma (usuário)", link?.borrowerUuid);
+  return out;
+}
+
+/**
  * Um Ator com seus Itens.
  * @param {{name:string, type:string, system:object, items?:Array}} actor
  * @param {object} idx - buildCatalogIndex
@@ -215,7 +233,9 @@ export function validateActor(actor, idx, { uuidExists = () => true, catalogs = 
 
   if (actor?.type === "character") {
     checkRef(issues, idx, "Espécie", "species", s.species);
-    checkRefs(issues, idx, "Heranças", "heritages", (s.heritages ?? []).map(h => h?.id));
+    // "named" (Nomeação) é uma Herança de fábrica: se ela sumiu do catálogo não é erro (nada depende dela).
+    checkRefs(issues, idx, "Heranças", "heritages", (s.heritages ?? []).map(h => h?.id).filter(id => id !== "named"));
+    issues.push(...soulLinkIssues(actor?.flags?.["nihility-rpg-system"], uuidExists));
     if (s.lineage && catalogs?.species?.[s.species]) {
       const lineages = (catalogs.species[s.species].lineages ?? []).map(l => l.id);
       if (!lineages.includes(s.lineage)) issues.push({ where: "Linhagem", catalog: "species", ref: s.lineage, message: `"${s.lineage}" não existe nas Linhagens desta Espécie` });

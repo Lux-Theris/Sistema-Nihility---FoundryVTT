@@ -38,6 +38,7 @@ import { runAsGm } from "../helpers/gm-relay.js";
 import { RELAY_REASONS, refuse, relayFailureMessage } from "../helpers/gm-relay-rules.js";
 import { applyEffectChoices, normalizeEffectRequest, splitByWriteAccess } from "./effect-relay-rules.js";
 import { requestTransform } from "./forms.js";
+import { applyBorrowedCooldown, isBorrowedUseAllowed, borrowedVia } from "./borrowed-skills.js";
 
 /**
  * Ponto de entrada único de "Usar Habilidade".
@@ -70,8 +71,9 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
   return recordSkillUse(sourceActor, skillId, options, async () => {
     const result = await runSkillEffect(sourceActor, skillId, options, timers);
     if (result && !timers.skip) {
-      const skill = sourceActor.items.get(skillId);
-      await applyCooldownAfterUse(sourceActor, skill, options.subSkillIndex ?? null, timers.ratio);
+      // Skill emprestada (7a): a Recarga é gravada na Skill do DONO (pelo Mestre, se quem usa não é dono).
+      if (options.borrowedSkill) await applyBorrowedCooldown(sourceActor, options.borrowedSkill, options.subSkillIndex ?? null, timers.ratio);
+      else await applyCooldownAfterUse(sourceActor, sourceActor.items.get(skillId), options.subSkillIndex ?? null, timers.ratio);
     }
     // A Mana foi gasta (e foi além do que havia): d100 e Inconsciente, qualquer que tenha sido o resultado.
     if (timers.overdraw) await resolveOverdraw(sourceActor, skillId, options, timers.overdraw);
@@ -81,7 +83,7 @@ export async function useSkillEffect(sourceActor, skillId, options = {}) {
 
 /** O d100 público de quem foi além da Mana, o aviso de quanto passou, e a queda para Inconsciente. */
 async function resolveOverdraw(sourceActor, skillId, options, info) {
-  const skill = sourceActor.items.get(skillId);
+  const skill = options.borrowedSkill ?? sourceActor.items.get(skillId);
   const sub = options.subSkillIndex != null ? (skill?.system?.subSkills ?? [])[options.subSkillIndex] : null;
   const label = skill ? (sub ? `${skill.name} — ${sub.name}` : skill.name) : "a Habilidade";
   const energy = escapeHtml(getEnergyLabelForActor(sourceActor));
@@ -97,8 +99,14 @@ async function resolveOverdraw(sourceActor, skillId, options, info) {
 }
 
 async function runSkillEffect(sourceActor, skillId, options = {}, timers = { ratio: 1, skip: false, overdraw: null }) {
-  const skill = sourceActor.items.get(skillId);
+  // Skill emprestada (7a, Corredor de alma ou Pacto): a mecânica e o nível são da Skill do DONO, mas
+  // quem lança, paga a Mana e tem Token, alcance, campos e Supressão é quem usa (`sourceActor`).
+  const skill = options.borrowedSkill ?? sourceActor.items.get(skillId);
   if (!skill) return null;
+  if (options.borrowedSkill && !isBorrowedUseAllowed(sourceActor, skill, options.borrowedVia)) {
+    ui.notifications?.warn("Este vínculo não vale mais (ou a Skill não pode ser emprestada).");
+    return null;
+  }
 
   let mech = skill.system;
   let label = skill.name;
@@ -277,6 +285,13 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
     // A razão investida fica guardada: o Custo por rodada é cobrado vezes ela enquanto ligada.
     await skill.update(skillStateUpdate(skill, options.subSkillIndex, { active: true, investRatio: investRatio, markFactor }));
   }
+  // Skill emprestada (7a): uma linha diz de quem é a Skill (o card do uso, para o Desfazer, é o mesmo).
+  if (options.borrowedSkill) {
+    await ChatMessage.create({
+      speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
+      content: `<p><strong>${escapeHtml(sourceActor.name)}</strong> usa <strong>${escapeHtml(label)}</strong> ${escapeHtml(borrowedVia(options.borrowedVia, skill))}.</p>`
+    });
+  }
   // Daqui pra frente a Skill carrega a força do investimento (dano, Efeitos, Vida de Estrutura).
   // Tecnomágico (mágico E tecnológico) sai mais forte (Regras da Mesa).
   const technomagic = technomagicFactor(isMagicUse(mech, sourceActor), isTechUse(mech, sourceActor), getTechnomagicPower());
@@ -445,7 +460,7 @@ function withEffectChoices(mech, choices) {
  * (`applySkillEffects` no relay), que refaz a mecânica a partir da Skill do lado dele e aplica.
  * O mesmo modelo de dnd5e/Midi-QOL: quem tem a permissão grava.
  */
-async function applyEffectsToTargets(skill, mech, label, targets, subSkillIndex, choices = {}) {
+async function applyEffectsToTargets(skill, mech, label, targets, subSkillIndex, choices = {}, sourceActor = null) {
   const { local, remote } = splitByWriteAccess(targets, target => target.isOwner);
   const results = new Map();
   for (const target of local) results.set(target, { summary: await applyEffectsToActor(mech, label, skill, target, subSkillIndex), applied: true });
@@ -453,7 +468,15 @@ async function applyEffectsToTargets(skill, mech, label, targets, subSkillIndex,
   if (remote.length) {
     const outcome = await runAsGm(
       "applySkillEffects",
-      { sourceUuid: skill.uuid, subSkillIndex, targetUuids: remote.map(t => t.uuid), investPower: mech.investPower ?? 1, ...choices },
+      {
+        sourceUuid: skill.uuid,
+        subSkillIndex,
+        targetUuids: remote.map(t => t.uuid),
+        investPower: mech.investPower ?? 1,
+        // Skill emprestada (7a): quem usa não é dono da Skill; o Mestre confere o vínculo.
+        ...(sourceActor && skill.parent && sourceActor.uuid !== skill.parent.uuid ? { borrowerUuid: sourceActor.uuid } : {}),
+        ...choices
+      },
       { reply: true, timeout: 15000 }
     );
     const failure = relayFailureMessage(outcome, `aplicar ${label} em ${remote.map(t => t.name).join(", ")}`);
@@ -491,7 +514,7 @@ export async function applySkillEffects(sourceActor, skill, mech, label, targetA
     if (part) choices.healBlockPartId = part.id;
   }
   const effective = withEffectChoices(mech, choices);
-  const [{ summary, applied }] = await applyEffectsToTargets(skill, effective, label, [targetActor], subSkillIndex, choices);
+  const [{ summary, applied }] = await applyEffectsToTargets(skill, effective, label, [targetActor], subSkillIndex, choices, sourceActor);
   // Sem Mestre para aplicar num alvo alheio: o aviso já saiu, e não se anuncia o que não aconteceu.
   if (!applied) return false;
   // Empurrar/Puxar (J1): quem usou pede ao Mestre; o que aconteceu entra no mesmo card.
@@ -521,7 +544,11 @@ export async function applySkillEffectsAsGm(payload, user) {
   if (!request) return refuse(RELAY_REASONS.invalid);
   const origin = await fromUuid(request.sourceUuid);
   if (origin?.documentName !== "Item" || !origin.parent) return refuse(RELAY_REASONS.invalid);
-  if (!user?.isGM && !origin.testUserPermission(user, "OWNER")) return refuse(RELAY_REASONS.permission);
+  if (!user?.isGM && !origin.testUserPermission(user, "OWNER")) {
+    // Skill emprestada (7a): quem pede é dono de QUEM USA, e o vínculo tem de valer e liberar esta Skill.
+    const { borrowedRequestAllowed } = await import("./borrowed-skills.js");
+    if (!(await borrowedRequestAllowed(payload?.borrowerUuid, origin, user))) return refuse(RELAY_REASONS.permission);
+  }
 
   let mech;
   let label = origin.name;
@@ -580,7 +607,7 @@ export async function applySkillEffectsArea(sourceActor, skill, mech, label, tar
   const rows = targetActors.filter(t => am.nulled.has(t.uuid)).map(t => `<li><strong>${escapeHtml(t.name)}</strong>: anulado pela antimagia</li>`);
   if (targetActors.length && !live.length) return postAntimagicNulled(sourceActor, label, am.note);
 
-  const results = live.length ? await applyEffectsToTargets(skill, mech, label, live, subSkillIndex) : [];
+  const results = live.length ? await applyEffectsToTargets(skill, mech, label, live, subSkillIndex, {}, sourceActor) : [];
   // Ninguém recebeu nada (todos alheios e sem Mestre): o aviso já saiu.
   if (live.length && !results.some(r => r.applied)) return false;
   const xp = [];

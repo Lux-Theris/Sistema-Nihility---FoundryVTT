@@ -63,7 +63,9 @@ function baseActorSchema() {
       energy: new fields.SchemaField({
         value: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
         max: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
-        buffDelta: new fields.NumberField({ required: true, integer: true, initial: 0 })
+        buffDelta: new fields.NumberField({ required: true, integer: true, initial: 0 }),
+        /** Nomeação (7a): Mana máxima perdida para sempre (soma de cada Nomeação feita). */
+        namedLoss: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 })
       }),
       /**
        * Escudo: HP extra temporário concedido por Skills. Diferente de HP/Mana,
@@ -581,7 +583,8 @@ function deriveVitalStats(dataModel) {
   }
 
   const baseEnergyMax = Math.max(formula.floor, Math.round(product(formula.energy) * formula.multiplier));
-  energy.max = Math.max(0, baseEnergyMax + sumPermanentStatModifier(actor, "energy") + (energy.buffDelta || 0));
+  // Nomeação (7a): a Mana máxima perdida para sempre sai depois do piso e dos modificadores.
+  energy.max = Math.max(0, baseEnergyMax + sumPermanentStatModifier(actor, "energy") + (energy.buffDelta || 0) - (Number(energy.namedLoss) || 0));
   // Forma (H5): a cópia temporária usa a Mana máxima do personagem (a Mana é da mente, não do corpo).
   const formOf = actor?.flags?.["nihility-rpg-system"]?.formOf;
   if (formOf && Number.isFinite(Number(formOf.energyMax)) && Number(formOf.energyMax) >= 0) energy.max = Math.round(Number(formOf.energyMax));

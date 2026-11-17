@@ -295,6 +295,18 @@ export const FEATURES = {
     hint: "Uma Habilidade Ativa de Forma dá ao personagem uma ficha temporária (a ficha-molde da forma) e ele passa a jogar com ela: atributos, Vida, Espécie e Traços, partes do corpo, Skills Raciais, armas naturais, imagem e tamanho vêm da forma; nível, XP, Mana, Títulos e as Skills dele vão junto. Itens equipados não vão. A forma tem Vida própria: em 0 o personagem volta e o dano que sobrou passa para ele. Ao voltar, a Mana gasta não volta; o XP ganho e as Condições voltam. O jogador pode pedir uma forma ao Mestre. Desligar esconde a Mecânica Forma e impede ligar; quem já está transformado continua até desligar; nada salvo se perde.",
     default: true
   },
+  naming: {
+    setting: "namingEnabled",
+    name: "Nomeação e Corredor de alma",
+    hint: "No Token HUD, \"Nomear\" dá um nome a uma criatura: quem nomeia perde Mana máxima para sempre (a soma dos atributos do nomeado × um fator), a criatura passa a ter ficha própria no Diretório e ganha a Herança \"Nomeado\", e a Mana perdida vira XP para as Skills dela (que podem subir vários níveis de uma vez; o que não cabe fica guardado para Evoluir uma Skill). Os dois ficam ligados pelo Corredor de alma: o nomeado usa as Skills de quem o nomeou com a Mana dele (o XP de uso vai para o dono; quem nomeou pode parar de aceitar pedidos), e quem nomeou recebe uma parte do XP que o nomeado ganhar. Se a Mana máxima não chega, a Nomeação falha: a Mana vai a 0 e quem nomeava cai Inconsciente. Jogador pede, o Mestre aprova. Desligar esconde o botão e bloqueia novas Nomeações e o uso emprestado; nada salvo se perde.",
+    default: true
+  },
+  pact: {
+    setting: "pactEnabled",
+    name: "Pacto",
+    hint: "O Mestre cria um Pacto entre um patrono e um bruxo: o patrono marca quais Skills libera, e o bruxo as usa com a própria Mana (no nível do patrono; alcance, Antimagia e Supressão contam do bruxo). Todo o XP de uso vai para o patrono. Qualquer um dos dois, ou o Mestre, corta o Pacto, e o patrono pode parar de aceitar pedidos. Passam só Skills de uso na hora (sem Ativa, Preparo, Resistência, Maestria nem Forma). Desligar esconde a seção e impede usar; nada salvo se perde.",
+    default: true
+  },
   worldClock: {
     setting: "worldClockEnabled",
     name: "Relógio do mundo, dia/noite e escuro",
@@ -479,6 +491,8 @@ const FEATURE_LAYOUT = {
   radiation: ["world", "Lugares irradiam; ficar ali acumula e machuca.", true],
   traps: ["world", "Regiões com armadilha: dano e Condição a quem pisa."],
   forms: ["character", "Skill de Forma: o personagem joga com a ficha temporária de outro corpo."],
+  naming: ["character", "Nomear uma criatura a liga a você: Corredor de alma, XP e Mana máxima perdida."],
+  pact: ["character", "Pacto entre patrono e bruxo: o bruxo usa as Skills liberadas com a própria Mana."],
   worldClock: ["world", "Relógio do mundo: dia/noite, escuro e o Descanso que passa o tempo."],
   vessels: ["world", "Naves e Veículos com Módulos, Grid de Energia e tripulação."],
   shipManeuver: ["world", "Naves se movem por casas e esquivam pela Rotação.", true],

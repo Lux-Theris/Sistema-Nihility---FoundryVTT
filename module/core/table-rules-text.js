@@ -114,6 +114,15 @@ export function buildTableRulesPages(d) {
       parts.push("<h2>Formas</h2>");
       parts.push("<p>Uma Habilidade de <b>Forma</b> (sempre Ativa) transforma você: enquanto estiver ligada você joga com uma <b>ficha temporária</b> — os <b>atributos, a Vida, a Espécie, as partes do corpo, as armas naturais, a imagem e o tamanho vêm da forma</b>; o <b>nível, o XP, a Mana, os Títulos e as suas Habilidades vão com você</b>. Os itens que você carrega não vão. A forma tem Vida própria: se ela chegar a 0, você volta ao normal e <b>o dano que sobrou passa para você</b>. Desligar a Habilidade, ficar sem Mana ou sofrer Antimagia também fazem você voltar. Ao voltar, a Mana gasta não volta; o XP ganho e as Condições voltam com você. Você pode <b>pedir uma forma</b> ao Mestre: escolhe a Espécie, a imagem e reparte os mesmos pontos de atributo que o seu personagem tem.</p>");
     }
+    if (d.features.naming) {
+      parts.push("<h2>Nomeação e Corredor de alma</h2>");
+      parts.push(`<p>No menu do Token, <b>Nomear</b> dá um nome a uma criatura. Quem nomeia <b>perde ${energy} máxima para sempre</b> (a soma dos atributos da criatura); a criatura ganha ficha própria, a Herança <b>Nomeado</b> e <b>XP nas Habilidades</b>, que podem subir vários níveis de uma vez. Se a ${energy} máxima não chega, a Nomeação falha: a ${energy} vai a 0 e quem nomeava desmaia. O jogador pede e o Mestre aprova.</p>`);
+      parts.push(`<p>Os dois ficam ligados pelo <b>Corredor de alma</b>: o nomeado pode usar as Habilidades de quem o nomeou (de uso na hora), com a própria ${energy}, no nível de quem nomeou; o <b>XP de uso vai para quem nomeou</b>, que pode parar de aceitar pedidos. Quem nomeou também recebe uma parte de todo XP que o nomeado ganhar.</p>`);
+    }
+    if (d.features.pact) {
+      parts.push("<h2>Pacto</h2>");
+      parts.push(`<p>Num <b>Pacto</b> (criado pelo Mestre), o bruxo usa as Habilidades que o patrono <b>liberou</b>, com a própria ${energy}, no nível do patrono. Alcance, Antimagia e Supressão contam do bruxo; o XP de uso vai para o patrono. O patrono ou o bruxo podem cortar o Pacto, e o patrono pode parar de aceitar pedidos.</p>`);
+    }
     if (d.features.senses) {
       parts.push("<h2>Sentidos e visibilidade</h2>");
       parts.push("<p>Quem está <b>debaixo da terra</b> ou <b>Invisível</b> não aparece no mapa nem na lista de iniciativa para quem não tem o sentido certo, e não aparece na escolha de alvo. Quem está debaixo da terra também não enxerga: só percebe os outros com <b>Sentido sísmico</b> ou <b>Sentir tudo</b>. <b>Ver o invisível</b>, <b>Visão verdadeira</b> e <b>Sentir tudo</b> revelam o Invisível. Esses sentidos vêm de Habilidades ou da Espécie, com um alcance em metros.</p>");

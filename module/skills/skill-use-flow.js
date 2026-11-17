@@ -27,9 +27,11 @@ import { formUseBlock, formUseCheck } from "./forms.js";
  * @param {Event|{shiftKey: boolean}|null} [options.event]  Só para o Shift (modificadores de rolagem).
  * @param {() => Promise<Actor|null>} options.pickTarget  O seletor de alvo da ficha (`_promptSkillTarget`).
  */
-export async function useSkillFlow(actor, itemId, { event = null, pickTarget } = {}) {
-  const skill = actor?.items.get(itemId);
+export async function useSkillFlow(actor, itemId, { event = null, pickTarget, borrowedSkill = null, borrowedVia = null } = {}) {
+  // Skill emprestada (7a): a Skill é a do DONO (o Item vem de `borrowedSkill`), e quem lança é `actor`.
+  const skill = borrowedSkill ?? actor?.items.get(itemId);
   if (!skill) return;
+  const useSkill = (opts = {}) => useSkillEffect(actor, skill.id, borrowedSkill ? { ...opts, borrowedSkill, borrowedVia } : opts);
 
   // Maestria de arma (H6): passiva, só dá o bônus nos ataques com armas do tipo (e vale pela hotbar também).
   if (skill.system.weaponMastery && isWeaponMasteryEnabled()) {
@@ -100,7 +102,7 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget } =
       return;
     }
     try {
-      await useSkillEffect(actor, itemId, { subSkillIndex, manaInvested });
+      await useSkill({ subSkillIndex, manaInvested });
     } catch (err) {
       reportError("Falha ao assumir a forma.", err);
     }
@@ -125,7 +127,7 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget } =
         viaMark = structurePlacement.viaMark ?? null;
         if (viaMark && !(await confirmMarkCost({ title: `Marca — ${skill.name}`, via: viaMark, baseCost: baseCostOf(actor, mech), actor }))) return;
       }
-      await useSkillEffect(actor, itemId, { structurePlacement, subSkillIndex, manaInvested, viaMark });
+      await useSkill({ structurePlacement, subSkillIndex, manaInvested, viaMark });
     } catch (err) {
       reportError("Falha ao erguer a Estrutura.", err);
     }
@@ -135,7 +137,7 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget } =
   // Ativa já ligada (só desliga) ou Descritiva: sem alvo nem rolagem.
   if (mode === "deactivate" || mode === "plain") {
     try {
-      await useSkillEffect(actor, itemId, { subSkillIndex });
+      await useSkill({ subSkillIndex });
     } catch (err) {
       reportError("Falha ao usar a Habilidade.", err);
     }
@@ -154,7 +156,7 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget } =
       if (!zonePlacement) return;
       const viaMark = zonePlacement.viaMark ?? null;
       if (viaMark && !(await confirmMarkCost({ title: `Marca — ${skill.name}`, via: viaMark, baseCost: baseCostOf(actor, mech), actor }))) return;
-      await useSkillEffect(actor, itemId, { zonePlacement, subSkillIndex, rollOptions, manaInvested, viaMark });
+      await useSkill({ zonePlacement, subSkillIndex, rollOptions, manaInvested, viaMark });
     } else if (mode === "emission") {
       // Sem alvo manual: a forma posicionada no mapa decide quem é afetado (aplica direto).
       const targetActors = await pickAreaTargets({ system: mech }, areaReach(actor, mech), { caster: actor });
@@ -162,9 +164,9 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget } =
       if (!targetActors.origin) return;
       const viaMark = targetActors.viaMark ?? null;
       if (viaMark && !(await confirmMarkCost({ title: `Marca — ${skill.name}`, via: viaMark, baseCost: baseCostOf(actor, mech), actor }))) return;
-      await useSkillEffect(actor, itemId, { targetActors, subSkillIndex, rollOptions, manaInvested, viaMark });
+      await useSkill({ targetActors, subSkillIndex, rollOptions, manaInvested, viaMark });
     } else if (mode === "self") {
-      await useSkillEffect(actor, itemId, { targetActor: actor, subSkillIndex, rollOptions, manaInvested });
+      await useSkill({ targetActor: actor, subSkillIndex, rollOptions, manaInvested });
     } else {
       // Alvo único. Todo dano pode ser reduzido pelo alvo, então dano e efeito temporário pedem
       // alvo — o seletor já vem com quem usa marcado (inclusive a própria nave).
@@ -173,7 +175,7 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget } =
       // Alcance (H4): fora dele, só pela Marca (ou o Mestre ignora).
       const reach = await resolveTargetReach(actor, targetActor, mech, { label: skill.name, baseCost: baseCostOf(actor, mech) });
       if (!reach.ok) return;
-      await useSkillEffect(actor, itemId, { targetActor, subSkillIndex, rollOptions, manaInvested, viaMark: reach.viaMark });
+      await useSkill({ targetActor, subSkillIndex, rollOptions, manaInvested, viaMark: reach.viaMark });
     }
   } catch (err) {
     reportError("Falha ao usar a Habilidade.", err);

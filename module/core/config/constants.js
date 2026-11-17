@@ -42,6 +42,10 @@ export const MEU_SISTEMA = {
     unarmedAttribute: "unarmedAttribute",
     unarmedElement: "unarmedElement",
     skillCostManaPerPoint: "skillCostManaPerPoint",
+    // Nomeação (7a): custo, XP e parte do XP que passa a quem nomeou.
+    namingManaFactor: "namingManaFactor",
+    namingXpFactor: "namingXpFactor",
+    namingShareXpPercent: "namingShareXpPercent",
     bodyFunctionsData: "bodyFunctionsData",
     attributePointsStarting: "attributePointsStarting",
     attributePointsPerLevel: "attributePointsPerLevel",

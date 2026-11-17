@@ -563,6 +563,32 @@ export function registerSystemSettings() {
     default: 0.9
   });
 
+  // Nomeação (7a): Regras da Mesa, grupo "Nomeação".
+  game.settings.register(SYSTEM_ID, S.namingManaFactor, {
+    name: "Nomeação — fator da Mana máxima perdida",
+    hint: "A Mana máxima que quem nomeia perde para sempre = soma dos atributos de combate do nomeado × este fator. Padrão 1. Sem Mana máxima suficiente a Nomeação falha.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 1
+  });
+  game.settings.register(SYSTEM_ID, S.namingXpFactor, {
+    name: "Nomeação — fator do XP",
+    hint: "A Mana máxima perdida × este fator vira XP, dividido igual entre as Skills do nomeado que podem subir. Padrão 10.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 10
+  });
+  game.settings.register(SYSTEM_ID, S.namingShareXpPercent, {
+    name: "Nomeação — % do XP do nomeado que vai a quem nomeou",
+    hint: "De todo XP que o nomeado ganha, esta porcentagem também vai a quem o nomeou (bônus: o nomeado não perde nada). Padrão 10; 0 desliga.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 10
+  });
+
   // Arquétipos do Gerador de NPC (vazio = os de fábrica, MEU_SISTEMA.DEFAULT_NPC_ARCHETYPES).
   game.settings.register(SYSTEM_ID, S.npcArchetypesData, {
     scope: "world",

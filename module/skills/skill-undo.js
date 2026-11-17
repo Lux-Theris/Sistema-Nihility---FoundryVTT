@@ -127,7 +127,7 @@ function combatOf(actor) {
  * Skill Ativa não é registrado (não há o que desfazer). Um erro aqui nunca derruba o uso.
  */
 export async function recordSkillUse(sourceActor, skillId, options, run) {
-  const skill = sourceActor?.items?.get(skillId);
+  const skill = options?.borrowedSkill ?? sourceActor?.items?.get(skillId);
   const sub = options?.subSkillIndex != null ? skill?.system?.subSkills?.[options.subSkillIndex] : null;
   const mech = sub ?? skill?.system;
   if (!skill || !mech || (mech.hasUpkeep && mech.active) || !isSkillUndoEnabled()) return run();

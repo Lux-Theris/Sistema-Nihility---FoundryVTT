@@ -230,3 +230,13 @@ details.adv > .adv-body > .span-all { grid-column: 1 / -1; }
   border: 1px solid var(--nihility-border-soft); border-radius: 4px;
 }
 .nihility-gallery .ng-actions { margin-top: 8px; }
+
+/* Nomeação, Corredor de alma e Pacto (7a): diálogos, linhas emprestadas e vínculos. */
+.nihility-naming-dialog, .nihility-naming-dialog label, .nihility-naming-dialog p, .nihility-naming-dialog li { color: var(--nihility-text); }
+.nihility-naming-dialog .naming-bank-row { display: block; margin: 4px 0; }
+.nihility-naming-dialog em { color: var(--nihility-text-dim); }
+.nihility-naming-request .naming-status button { margin-right: 6px; }
+.borrowed-block .item-name { color: var(--nihility-text); }
+.origin-layer.links .origin-link { margin: 6px 0; padding: 6px 0; border-top: 1px solid var(--nihility-border-soft); }
+.origin-layer.links .origin-pact-skills { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; color: var(--nihility-text); }
+.origin-layer.links .origin-pact-skills label { color: var(--nihility-text); }

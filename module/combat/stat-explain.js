@@ -66,17 +66,19 @@ export function explainAttribute({ points = 0, pending = 0, titles = [], buffs =
  * @param {Array} [input.permanent] - Títulos/Skills/Itens/Modificações (statModifiers)
  * @param {Array} [input.buffs] - Active Effects no `buffDelta` de Vida/Mana
  * @param {number} [input.buffActual]
+ * @param {number} [input.named] - Mana máxima perdida para sempre pela Nomeação (7a), subtraída por último
  * @param {boolean} [input.enabled] - false = campanha sem esse pool (Mana desligada)
  * @param {number} [input.min] - 1 para Vida, 0 para Mana
  */
-export function explainVital({ pair = [], multiplier = 1, floor = 0, permanent = [], buffs = [], buffActual = null, enabled = true, min = 0 } = {}) {
+export function explainVital({ pair = [], multiplier = 1, floor = 0, permanent = [], buffs = [], buffActual = null, enabled = true, min = 0, named = 0 } = {}) {
   if (!enabled) return { enabled: false, max: 0 };
   const [a = { total: 0 }, b = { total: 0 }] = pair;
   const product = (Number(a.total) || 0) * (Number(b.total) || 0);
   const formulaValue = Math.round(product * multiplier);
   const base = Math.max(floor, formulaValue);
   const temporary = withResidual(buffs, buffActual);
-  const raw = base + sum(permanent) + sum(temporary);
+  const namedLoss = Math.max(0, Number(named) || 0);
+  const raw = base + sum(permanent) + sum(temporary) - namedLoss;
   return {
     enabled: true,
     pair: [a, b],
@@ -90,6 +92,7 @@ export function explainVital({ pair = [], multiplier = 1, floor = 0, permanent =
     permanentTotal: sum(permanent),
     temporary,
     temporaryTotal: sum(temporary),
+    namedLoss,
     min,
     minApplied: raw < min,
     max: Math.max(min, raw)

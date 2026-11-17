@@ -226,6 +226,31 @@ const HANDLERS = {
     return transformActorAsGm(payload ?? {}, user);
   },
 
+  /**
+   * Skill emprestada (7a): a Recarga de depois do uso é gravada na Skill do DONO. Quem pede é dono de
+   * quem usou; o vínculo e a Recarga são refeitos do lado do Mestre (ver borrowedCooldownAsGm).
+   */
+  async borrowedCooldown(payload, user) {
+    const { borrowedCooldownAsGm } = await import("../skills/borrowed-skills.js");
+    return borrowedCooldownAsGm(payload ?? {}, user);
+  },
+
+  /** O patrono ou o bruxo corta o Pacto (o Mestre desfaz os dois lados). Corredor de alma: só o Mestre. */
+  async cutBorrowLink(payload, user) {
+    const { cutLinkAsGm } = await import("../skills/borrowed-skills.js");
+    return cutLinkAsGm(payload ?? {}, user);
+  },
+
+  /**
+   * Corredor de alma (7a): parte do XP que o nomeado ganhou vai a quem o nomeou. Quem pede é dono do
+   * nomeado (foi quem gravou o XP dele); o vínculo é conferido aqui e o ganho é limitado a um nível.
+   */
+  async soulXp(payload, user) {
+    if (!(await mayActFor(user, payload?.namedUuid))) return refuse(RELAY_REASONS.permission);
+    const { soulXpAsGm } = await import("../species/naming.js");
+    return soulXpAsGm(payload ?? {});
+  },
+
   /** Ergue uma Estrutura (Paredes + Desenho). Validação e catálogo ficam em structures.js. */
   async createStructure(payload, user) {
     if (!(await mayActFor(user, payload?.sourceActorUuid))) return refuse(RELAY_REASONS.permission);

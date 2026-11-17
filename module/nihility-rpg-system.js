@@ -77,6 +77,7 @@ import { registerElevation } from "./combat/elevation.js";
 import { registerForms } from "./skills/forms.js";
 import { renderFormRequestControls } from "./skills/form-request.js";
 import { registerSenses } from "./combat/senses.js";
+import { registerNaming } from "./species/naming.js";
 import { registerEnvironmentSceneMenu } from "./apps/environment-config.js";
 import { registerShieldLightHooks } from "./combat/lights.js";
 import { registerShieldPoolReconcile } from "./combat/shield-pools.js";
@@ -137,7 +138,13 @@ Hooks.once("init", () => {
     // Glossário do mundo (1.85.0), opcionalmente já num verbete: game.nihility.glossary("penetration").
     glossary: async key => (await import("./glossary/glossary.js")).openGlossary(key),
     // Ficha em modo criação (J10): jogador pede ao Mestre; Mestre cria direto.
-    createCharacter: async () => (await import("./creation/creation.js")).requestNewCharacter()
+    createCharacter: async () => (await import("./creation/creation.js")).requestNewCharacter(),
+    // Nomeação (7a) pelo Token marcado com T (um jogador só abre o HUD de Token que controla).
+    nameTarget: async () => {
+      const token = game.user.targets?.first?.();
+      if (!token) return ui.notifications.warn("Marque (tecla T) o Token a nomear.");
+      return (await import("./species/naming.js")).requestNaming(token.document);
+    }
   };
 
   registerSystemSettings();
@@ -233,6 +240,8 @@ Hooks.once("init", () => {
   registerElevation();
   registerForms();
   registerSenses();
+  // Nomeação e Corredor de alma (7a): botão "Nomear" no Token HUD, card do pedido e XP compartilhado.
+  registerNaming();
 
   // Partials reaproveitados entre templates (hoje só a Habilidade Concedida, usada 3x na ficha
   // de Item). Precisa estar registrado antes da primeira ficha abrir.

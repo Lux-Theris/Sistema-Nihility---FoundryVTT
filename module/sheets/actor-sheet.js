@@ -1,4 +1,7 @@
 import { effectAnchors, finiteRemaining, anchorLifetime, PERMANENT } from "../combat/effect-anchors.js";
+import { borrowedSectionsFor, useBorrowedSkill, linkRowsFor, cutLink, toggleAcceptRequests, setPactReleased, createPactDialog } from "../skills/borrowed-skills.js";
+import { namingContext, openNamingBank } from "../species/naming.js";
+import { isPactEnabled } from "../core/config.js";
 import { changeActorSpecies, originContext, openSpeciesSync, changeActorHeritage, openEvolution } from "../species/species.js";
 import { anatomyContext, installImplant, uninstallImplant, currentDraggedImplant, setBodyPartLost } from "../species/anatomy.js";
 import { implantFits } from "../species/anatomy-rules.js";
@@ -245,6 +248,12 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       originUnlock: NihilityActorSheet.#onOriginUnlock,
       heritageAdd: NihilityActorSheet.#onHeritageAdd,
       originEvolve: NihilityActorSheet.#onOriginEvolve,
+      useBorrowedSkill: NihilityActorSheet.#onUseBorrowedSkill,
+      toggleAcceptRequests: NihilityActorSheet.#onToggleAcceptRequests,
+      togglePactSkill: NihilityActorSheet.#onTogglePactSkill,
+      cutLink: NihilityActorSheet.#onCutLink,
+      createPact: NihilityActorSheet.#onCreatePact,
+      openNamingBank: NihilityActorSheet.#onOpenNamingBank,
       uninstallImplant: NihilityActorSheet.#onUninstallImplant,
       toggleBodyPartLost: NihilityActorSheet.#onToggleBodyPartLost,
       heritageRemove: NihilityActorSheet.#onHeritageRemove,
@@ -369,6 +378,51 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
   static async #onOriginEvolve(event) {
     event.preventDefault();
     await openEvolution(this.actor);
+  }
+
+  /** Skills emprestadas (7a): "Usar" numa linha do Corredor de alma ou do Pacto. A Skill é a do dono. */
+  static async #onUseBorrowedSkill(event, target) {
+    event.preventDefault();
+    const row = target.closest(".borrowed-row");
+    if (!row) return;
+    await useBorrowedSkill(this.actor, {
+      kind: row.dataset.kind,
+      ownerUuid: row.dataset.ownerUuid,
+      skillId: row.dataset.skillId,
+      event,
+      pickTarget: () => this._promptSkillTarget()
+    });
+  }
+
+  /** O dono liga/desliga "Aceitar pedidos" de um vínculo (grava na própria ficha). */
+  static async #onToggleAcceptRequests(event, target) {
+    event.preventDefault();
+    if (!this.actor.isOwner) return;
+    await toggleAcceptRequests(this.actor, target.dataset.kind, target.dataset.borrower);
+  }
+
+  /** O patrono marca/desmarca uma Skill liberada no Pacto. */
+  static async #onTogglePactSkill(event, target) {
+    if (!this.actor.isOwner) return;
+    await setPactReleased(this.actor, target.dataset.borrower, target.dataset.skill, Boolean(target.checked));
+  }
+
+  /** Cortar um vínculo (Pacto: patrono, bruxo ou Mestre; Corredor de alma: só o Mestre). */
+  static async #onCutLink(event, target) {
+    event.preventDefault();
+    await cutLink({ kind: target.dataset.kind, ownerUuid: target.dataset.owner, borrowerUuid: target.dataset.borrower });
+  }
+
+  /** Mestre: "Criar Pacto…" — esta ficha é o bruxo. */
+  static async #onCreatePact(event) {
+    event.preventDefault();
+    await createPactDialog(this.actor);
+  }
+
+  /** Mestre: reabre "Sobraram N de XP da Nomeação". */
+  static async #onOpenNamingBank(event) {
+    event.preventDefault();
+    await openNamingBank(this.actor);
   }
 
   /** Mestre: "+ Herança…" — escolhe a Herança e de onde veio, depois a prévia (com aviso de regra). */
@@ -516,6 +570,10 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.speciesLocked = !game.user.isGM && isSpeciesLocked(actor.system);
     // Origem (Espécie · Linhagem · Heranças): cabeçalho e aba Origem — ver originContext em species.js.
     context.origin = originContext(actor);
+    // Nomeação e vínculos (7a): Corredor de alma e Pacto na aba Origem; Skills emprestadas na lista de Habilidades.
+    context.naming = namingContext(actor);
+    context.links = { ...linkRowsFor(actor), canCreatePact: game.user.isGM && isPactEnabled() && actor.type === "character" };
+    context.borrowed = actor.type === "character" ? borrowedSectionsFor(actor) : [];
     // Só os atributos que a campanha exibe (ver getActiveAttributes em config.js). Um atributo
     // oculto continua valendo por baixo — só não aparece nem é rolável.
     const purposeCtx = attributePurposeContext();

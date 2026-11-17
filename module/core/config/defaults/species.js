@@ -490,6 +490,13 @@ export const DEFAULT_HERITAGES = [
     traits: [], elements: ["acid"],
     passives: { statModifiers: { hp: 30 }, resistances: [{ target: "acid", amount: 25 }] },
     skills: [], excludes: ["convertido_ciborgue"], allowedSpecies: { mode: "any", list: [] }
+  },
+  {
+    id: "named", label: "Nomeado", group: "fantasia", acquired: "acquired",
+    description: "Recebeu um nome de alguém que o reconheceu. Está ligado a quem o nomeou pelo Corredor de alma.",
+    traits: [], elements: [],
+    skills: [], announce: "{nome} recebeu um nome e ficou ligado a quem o deu.",
+    allowedSpecies: { mode: "any", list: [] }
   }
 ];
 

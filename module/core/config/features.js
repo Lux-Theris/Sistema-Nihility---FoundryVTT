@@ -85,6 +85,16 @@ export function isFormsEnabled() {
   return isFeatureEnabled("forms");
 }
 
+/** Nomeação e Corredor de alma (7a). Desligado: sem botão Nomear e sem uso emprestado. */
+export function isNamingEnabled() {
+  return isFeatureEnabled("naming");
+}
+
+/** Pacto (7a): Skills emprestadas pelo patrono ao bruxo. */
+export function isPactEnabled() {
+  return isFeatureEnabled("pact");
+}
+
 /** Relógio do mundo, dia/noite e escuro (J9). Desligado: o Descanso volta a ser na hora. */
 export function isWorldClockEnabled() {
   return isFeatureEnabled("worldClock");

@@ -407,7 +407,7 @@ export function heritageWarnings(actor, heritageId, heritageIds) {
  * Espécie; ganhar avisa as regras de convivência e guarda de onde veio; anúncio pela Voz do Mundo.
  * @returns {Promise<boolean>}
  */
-export async function changeActorHeritage(actor, heritageId, { op = "add", source = "" } = {}) {
+export async function changeActorHeritage(actor, heritageId, { op = "add", source = "", interactive = true, announce = true } = {}) {
   if (!game.user.isGM) return false;
   const current = actor.system.heritages ?? [];
   const records = op === "add"
@@ -418,8 +418,12 @@ export async function changeActorHeritage(actor, heritageId, { op = "add", sourc
   preview.target.heritageRecords = records;
   const entry = getHeritageEntry(heritageId);
   const warnings = op === "add" ? heritageWarnings(actor, heritageId, ids) : [];
-  const { openSpeciesPreview } = await import("../apps/species-preview.js");
-  const choice = await openSpeciesPreview(preview, { title: `${op === "add" ? "Ganhar" : "Perder"} Herança — ${actor.name}`, warnings });
+  // Sem prévia (Nomeação, 7a): aplica direto e deixa quem chamou decidir o anúncio (`announce`).
+  let choice = { announce };
+  if (interactive) {
+    const { openSpeciesPreview } = await import("../apps/species-preview.js");
+    choice = await openSpeciesPreview(preview, { title: `${op === "add" ? "Ganhar" : "Perder"} Herança — ${actor.name}`, warnings });
+  }
   if (!choice) return false;
   const label = entry?.label ?? heritageId;
   await applySpeciesPreview(preview, { reason: op === "add" ? "heritage" : "heritage-lost", note: op === "add" && source ? `${label} — ${source}` : label });

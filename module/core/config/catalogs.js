@@ -313,6 +313,19 @@ export function getSkillCostManaPerPoint() {
   }
 }
 
+/** Nomeação (7a): os três números das Regras da Mesa. */
+export function getNamingConfig() {
+  const read = (key, fallback, min) => {
+    try {
+      const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[key]));
+      return Number.isFinite(value) ? Math.max(min, value) : fallback;
+    } catch (err) {
+      return fallback;
+    }
+  };
+  return { manaFactor: read("namingManaFactor", 1, 0), xpFactor: read("namingXpFactor", 10, 0), sharePercent: read("namingShareXpPercent", 10, 0) };
+}
+
 /** Lista de arquétipos (de fábrica, se nada vier) normalizada. */
 export function defaultNpcArchetypes(list = MEU_SISTEMA.DEFAULT_NPC_ARCHETYPES) {
   return list.map(a => normalizeArchetype(a, MEU_SISTEMA.COMBAT_ATTRIBUTES));

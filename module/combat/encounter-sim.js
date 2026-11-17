@@ -32,7 +32,8 @@ export const DEFAULT_AREA_TARGETS = 3;
 
 /** Nave/Veículo ficam de fora nesta versão (têm a cascata de 3 camadas própria). */
 export function canSimulate(actor) {
-  return actor?.type === "character";
+  // O molde de forma (H5) é um corpo, não um combatente.
+  return actor?.type === "character" && !actor.system?.formTemplate;
 }
 
 /**

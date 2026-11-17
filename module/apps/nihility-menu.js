@@ -412,6 +412,7 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
     context.isGM = isGM;
     context.npcGeneratorEnabled = isGM && isFeatureEnabled("npcGenerator");
     context.encounterSimEnabled = isGM && isFeatureEnabled("encounterSim");
+    context.worldClockEnabled = isGM && isFeatureEnabled("worldClock");
 
     // Jogador nunca cai numa aba GM-only, mesmo se essa era a última aba aberta (troca de usuário/re-render).
     if (!isGM && GM_ONLY_TABS.includes(this.activeTab)) this.activeTab = "fichas";
@@ -574,7 +575,7 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
   _getVisibleActors() {
     const isGM = game.user.isGM;
     return game.actors
-      .filter(actor => isGM || actor.testUserPermission(game.user, "OBSERVER"))
+      .filter(actor => isGM || (actor.testUserPermission(game.user, "OBSERVER") && !actor.system?.formTemplate))
       .map(actor => ({
         id: actor.id,
         name: actor.name,
@@ -758,6 +759,11 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
       case "combat-panel": {
         const { openCombatPanel } = await import("./combat-panel.js");
         openCombatPanel();
+        break;
+      }
+      case "world-clock": {
+        const { openWorldClock } = await import("./world-clock-app.js");
+        openWorldClock();
         break;
       }
       case "encounter-sim": {

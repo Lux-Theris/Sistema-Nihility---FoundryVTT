@@ -58,6 +58,7 @@ import { rollAttribute, buildAttributeRollFormula } from "../core/dice.js";
 import { rollInitiativeForActor, getInitiativeLabel } from "../combat/combat.js";
 import { getMovementDashStatus, toggleMovementDash } from "../combat/movement.js";
 import { pickTargetActor } from "../helpers/target-picker.js";
+import { autoSnapshot } from "../world/auto-snapshot.js";
 import { rollOptionsFromEvent } from "../apps/roll-options-dialog.js";
 import { traitContext, changeTrait, pickActorTraits } from "../helpers/traits-ui.js";
 import { describeShieldPools } from "../combat/shield-pools.js";
@@ -70,6 +71,7 @@ import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
 import { openSkillEditorDialog } from "../apps/skill-editor-dialog.js";
 import { editPortraitFrameAction, CLEAR_PORTRAIT_FRAME } from "../helpers/portrait-frame.js";
 import { pickImageFile } from "../helpers/foundry-compat.js";
+import { canUploadImages, uploadDocumentImage, wireUploadButton } from "../helpers/image-upload.js";
 
 import { handleItemDrop, splitStack, toggleEquipped, inventoryContext } from "../economy/inventory.js";
 import { EffectsListApp } from "../apps/effects-list.js";
@@ -254,6 +256,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       creationEnter: NihilityActorSheet.#onCreationEnter,
       creationRelease: NihilityActorSheet.#onCreationRelease,
       creationAdjust: NihilityActorSheet.#onCreationAdjust,
+      snapshotSave: NihilityActorSheet.#onSnapshotSave,
+      snapshotList: NihilityActorSheet.#onSnapshotList,
       originPick: NihilityActorSheet.#onOriginPick,
       originPickLineage: NihilityActorSheet.#onOriginPickLineage,
       originApply: NihilityActorSheet.#onOriginApply,
@@ -287,7 +291,10 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     controls.push(
       { icon: "fas fa-user-pen", label: "Pôr em modo criação", action: "creationEnter", visible: () => gmCharacter() && !inCreation(this.actor) },
       { icon: "fas fa-user-check", label: "Liberar personagem…", action: "creationRelease", visible: () => gmCharacter() && inCreation(this.actor) },
-      { icon: "fas fa-comment", label: "Pedir ajuste…", action: "creationAdjust", visible: () => gmCharacter() && inCreation(this.actor) }
+      { icon: "fas fa-comment", label: "Pedir ajuste…", action: "creationAdjust", visible: () => gmCharacter() && inCreation(this.actor) },
+      // Pontos de restauração (H13): o Mestre guarda e devolve a ficha inteira.
+      { icon: "fas fa-floppy-disk", label: "Salvar estado", action: "snapshotSave", visible: () => game.user.isGM },
+      { icon: "fas fa-clock-rotate-left", label: "Pontos de restauração…", action: "snapshotList", visible: () => game.user.isGM }
     );
     return controls;
   }
@@ -533,6 +540,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     );
     // Modo criação (J10): faixa "Criando", grade de Espécies na Origem, "Confirmar" guardado.
     context.creation = inCreation(actor) ? await this.#creationContext() : null;
+    context.canUpload = canUploadImages();
     // "Ao confirmar" (prancha 2 B): Vida/Mana/iniciativa com os pendentes, dentro e fora da criação.
     context.vitalPreview = context.attributePoolEnabled && (context.creation || context.attributePointsPending) ? vitalPreviewFor(actor) : null;
     // "Começar de um jeito" (prancha 2 D): só enquanto nenhum ponto foi confirmado.
@@ -759,6 +767,20 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     await releaseCharacter(this.actor);
   }
 
+  /** Mestre: guarda o estado atual da ficha como ponto de restauração. */
+  static async #onSnapshotSave(event) {
+    event?.preventDefault?.();
+    const { saveSnapshot } = await import("../world/actor-snapshots.js");
+    if (await saveSnapshot(this.actor, "Salvo à mão")) ui.notifications.info(`Estado de ${this.actor.name} salvo.`);
+  }
+
+  /** Mestre: lista dos pontos de restauração (restaurar/apagar). */
+  static async #onSnapshotList(event) {
+    event?.preventDefault?.();
+    const { openRestorePoints } = await import("../world/actor-snapshots.js");
+    openRestorePoints(this.actor);
+  }
+
   static async #onCreationAdjust(event) {
     event?.preventDefault?.();
     await requestAdjustment(this.actor);
@@ -877,6 +899,15 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
     this.element.querySelector(".species-select")?.addEventListener("change", this._onSpeciesChange.bind(this));
     this._onRenderOriginGrid();
+    // Ficha em criação: "Enviar imagem…" (retrato e Token), sem navegador de arquivos (H5).
+    wireUploadButton(this.element, "portrait", async file => {
+      const path = await uploadDocumentImage(this.actor, file);
+      if (path) await this.actor.update({ img: path });
+    });
+    wireUploadButton(this.element, "token", async file => {
+      const path = await uploadDocumentImage(this.actor, file);
+      if (path) await this.actor.update({ "prototypeToken.texture.src": path });
+    });
     this.element.querySelector(".lineage-select")?.addEventListener("change", this._onLineageChange.bind(this));
     // Arrastando um implante: verde onde cabe, vermelho onde não cabe (o motivo aparece na linha).
     this.element.querySelectorAll("[data-part-id]").forEach(row => {
@@ -958,6 +989,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
   static async #onLevelUpActor(event, target) {
     event.preventDefault();
     const newLevel = this.actor.system.attributes.level + 1;
+    await autoSnapshot(this.actor, `Antes de subir para o nível ${newLevel}`);
     await this.actor.update({ "system.attributes.level": newLevel });
   }
 
@@ -1201,6 +1233,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     });
     if (!confirmed) return;
 
+    await autoSnapshot(this.actor, "Antes de zerar os pontos de atributo");
     const updates = {};
     for (const key of MEU_SISTEMA.COMBAT_ATTRIBUTES) {
       updates[`system.attributes.combat.${key}.points`] = 0;

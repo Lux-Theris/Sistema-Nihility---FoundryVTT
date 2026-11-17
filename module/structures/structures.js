@@ -58,6 +58,7 @@ import {
   areaTouchesStructure
 } from "./structure-geometry.js";
 import { normalizeArea, tokenDocCenter } from "../combat/area-geometry.js";
+import { closedShapesOverlap } from "../environment/trap-rules.js";
 import { pointReach, viaMarkFrom } from "../combat/range.js";
 import { outOfRangeMessage } from "../combat/range-rules.js";
 import { hitAffinityFactor } from "../combat/damage-rules.js";
@@ -653,6 +654,26 @@ export function antimagicFieldLevelAtToken(tokenDoc, position = null, kind = "ma
   return { level, sources: [...new Set(inside.filter(f => f.info[key] === level).map(f => structureSkillUuid(f.instance)).filter(Boolean))] };
 }
 
+/**
+ * Maior nível de campo fechado de cada tipo que TOCA uma forma fechada (por exemplo a Região de uma
+ * armadilha): um vértice de uma dentro da outra, ou lados que se cruzam. Só documentos, sem canvas.
+ * @param {Scene} scene
+ * @param {Array<[number,number,number,number]>} segments - os lados da forma
+ * @returns {{magic:number, tech:number}}
+ */
+export function fieldLevelsTouching(scene, segments) {
+  const out = { magic: 0, tech: 0 };
+  if (!scene || !segments?.length) return out;
+  for (const kind of activeFieldKinds()) {
+    const key = FIELD_KINDS[kind].levelKey;
+    for (const f of antimagicFields(scene, kind)) {
+      if (!f.info.closed) continue;
+      if (closedShapesOverlap(segments, f.segments)) out[kind] = Math.max(out[kind], f.info[key]);
+    }
+  }
+  return out;
+}
+
 /** Natureza `{magic, tech}` de uma Estrutura que segura ataques (campos e muralhas de fogo não contam). */
 function protectiveNature(info) {
   return { magic: info.magic, tech: info.tech };
@@ -883,6 +904,9 @@ export async function antimagicStructuresAsGm(payload, skill) {
       if (line) lines.push(line);
     }
   }
+  // Armadilhas de Região (I1) que a área toca: a Antimagia/PEM em área as desarma (alcance ≥ nível).
+  const { disarmTrapsInArea } = await import("../environment/traps.js");
+  lines.push(...(await disarmTrapsInArea(scene, area, kinds, reach)));
   return { ok: true, value: { lines } };
 }
 

@@ -130,7 +130,7 @@ const notified = new Set();
 const pending = new Map();
 
 /** Confere (com um respiro, para uma rajada de mudanças virar uma conta só) quem está fora do chão sem poder. */
-function scheduleGroundCheck(actor) {
+export function scheduleGroundCheck(actor) {
   if (!actor || actor.documentName !== "Actor" || !isDesignatedGm() || !isElevationEnabled() || isShipLike(actor)) return;
   clearTimeout(pending.get(actor.uuid));
   pending.set(

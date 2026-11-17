@@ -14,6 +14,7 @@ import { reportError } from "../helpers/report.js";
 import { reachContext, resolveTargetReach, confirmMarkCost } from "../combat/range.js";
 import { shapeIsFree } from "../combat/range-rules.js";
 import { isWeaponMasteryEnabled } from "../combat/weapon-mastery.js";
+import { formUseBlock, formUseCheck } from "./forms.js";
 
 /**
  * "Usar Habilidade" — o MESMO caminho para a ficha de Personagem, a de Nave/Veículo e a hotbar.
@@ -57,7 +58,7 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget } =
   }
 
   // Recarga ou Preparo em andamento (H3): avisa antes de pedir alvo, área ou rolagem.
-  const blocked = useBlockReason(actor, skill, subSkillIndex) ?? strikeBlockReason(actor, skill, subSkillIndex);
+  const blocked = formUseBlock(actor, skill, subSkillIndex) ?? useBlockReason(actor, skill, subSkillIndex) ?? strikeBlockReason(actor, skill, subSkillIndex);
   if (blocked) {
     ui.notifications.warn(blocked);
     return;
@@ -89,6 +90,21 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget } =
       await warnInsufficientEnergy(actor, subSkillIndex != null ? `${skill.name} — ${mech.name}` : skill.name, needed);
       return;
     }
+  }
+
+  // Forma (H5): liga a Skill e o Mestre troca a ficha. Confere o molde antes de pagar o Custo.
+  if (mode === "form") {
+    const reason = formUseCheck(actor, mech);
+    if (reason) {
+      ui.notifications.warn(reason);
+      return;
+    }
+    try {
+      await useSkillEffect(actor, itemId, { subSkillIndex, manaInvested });
+    } catch (err) {
+      reportError("Falha ao assumir a forma.", err);
+    }
+    return;
   }
 
   // Estrutura: posiciona (ou desenha) no mapa e o Mestre ergue — ver structures.js. Sem mapa, a

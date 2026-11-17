@@ -51,6 +51,7 @@ function describeMechanic(mech, ctx) {
     const shown = effects.slice(0, 2).join(" e ");
     return effects.length > 2 ? `${shown} +${effects.length - 2}` : shown;
   }
+  if (mech.effectType === "form") return `Forma: ${ctx.formName?.(mech.formActorUuid) ?? "(sem ficha)"}`;
   if (mech.effectType === "structure" || mech.targetType === "structure") {
     const regen = Number(mech.structureRegen) || 0;
     const regenCost = Number(mech.structureRegenCost) || 0;
@@ -101,7 +102,7 @@ function describeRange(mech) {
  * As partes da frase, na ordem em que se lê: o que faz → onde → quanto custa → manutenção.
  * @param {object} mech - `skill.system`
  * @param {{elements?:object, conditions?:object, targets?:object, structures?:object,
- *   energyLabel?:string, cost?:number, upkeep?:number, resistance?:string, mastery?:string, weaponTypes?:object}} ctx
+ *   energyLabel?:string, cost?:number, upkeep?:number, resistance?:string, mastery?:string, weaponTypes?:object, formName?:(uuid:string)=>string|null}} ctx
  *   `cost`/`upkeep` já com o desconto do nível; `resistance` = "Resistência a Fogo 30%" pronto.
  * @returns {string[]}
  */
@@ -117,7 +118,7 @@ export function skillSummaryParts(mech, ctx = {}) {
     const mechanic = describeMechanic(mech, ctx);
     if (mechanic) {
       parts.push(mechanic);
-      if (mech.effectType !== "structure" && mech.targetType !== "structure") parts.push(describeReach(mech));
+      if (mech.effectType !== "structure" && mech.targetType !== "structure" && mech.effectType !== "form") parts.push(describeReach(mech));
       if (ctx.skillRange !== false) parts.push(...describeRange(mech));
       // Golpe de arma (H6): "golpe desarmado" / "golpe de Lâminas".
       if (mech.effectType === "damage" && mech.weaponStrike && ctx.strikesOn) parts.push(strikeSentence(mech.weaponStrike, ctx.weaponTypes?.[mech.weaponStrike]) + (mech.weaponStrike !== "unarmed" && mech.strikeRequiresWeapon !== false ? " (com a arma)" : ""));

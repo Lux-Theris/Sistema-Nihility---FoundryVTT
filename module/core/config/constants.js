@@ -87,6 +87,12 @@ export const MEU_SISTEMA = {
     antimagicReach: "antimagicReach",
     technomagicPower: "technomagicPower",
     manaDensityDefault: "manaDensityDefault",
+    clockSunrise: "clockSunrise",
+    clockSunset: "clockSunset",
+    clockNightDarkness: "clockNightDarkness",
+    clockDarkThreshold: "clockDarkThreshold",
+    clockShortRestHours: "clockShortRestHours",
+    clockLongRestHours: "clockLongRestHours",
     shipFocusBoost: "shipFocusBoost",
     shipFocusCut: "shipFocusCut",
     skillPowerPerLevel: "skillPowerPerLevel",
@@ -429,13 +435,14 @@ export const MEU_SISTEMA = {
     { id: "p5", label: "Mínima" }
   ],
 
-  SKILL_EFFECT_TYPES: ["none", "damage", "temporary", "structure"],
+  SKILL_EFFECT_TYPES: ["none", "damage", "temporary", "structure", "form"],
 
   SKILL_EFFECT_TYPE_LABELS: {
     none: "Descritiva (sem mecânica)",
     damage: "Dano",
     temporary: "Efeito Temporário (buff/debuff/escudo)",
-    structure: "Estrutura (parede, bloco, barreira no mapa)"
+    structure: "Estrutura (parede, bloco, barreira no mapa)",
+    form: "Forma (ficha temporária de outro corpo)"
   },
 
   /** Rótulos curtos, pro controle segmentado da ficha de Item. */
@@ -443,7 +450,8 @@ export const MEU_SISTEMA = {
     none: "Descritiva",
     damage: "Dano",
     temporary: "Efeito Temporário",
-    structure: "Estrutura"
+    structure: "Estrutura",
+    form: "Forma"
   },
 
   /**

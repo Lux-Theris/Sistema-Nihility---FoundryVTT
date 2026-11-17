@@ -14,6 +14,7 @@ import {
   getEffectTargetGroups,
   getStructures,
   isStructuresEnabled,
+  isFormsEnabled,
   isStructureMechanic,
   isMagicUse,
   isTechUse,
@@ -24,6 +25,8 @@ import { pickerFieldHtml, readPickerField, wireElementPickerField, wireTraitPick
 import { openLightConfigDialog, describeLight } from "../combat/lights.js";
 import { advancedFold } from "../helpers/advanced-fold.js";
 import { escapeHtml } from "../helpers/html.js";
+import { getDragEventData } from "../helpers/foundry-compat.js";
+import { formTemplateOf } from "../skills/forms.js";
 import { AREA_AFFECTS_OPTIONS } from "../combat/area-geometry.js";
 import { getCompendiumForItemType } from "../core/compendium.js";
 import { isWeaponMasteryEnabled, weaponTypeChoices } from "../combat/weapon-mastery.js";
@@ -142,6 +145,7 @@ export function mechanicSummaryFor(mech) {
     const count = (mech.effects ?? []).length;
     return `Efeito Temporário: ${count} efeito${count === 1 ? "" : "s"}`;
   }
+  if (mech.effectType === "form") return `Forma: ${formTemplateOf(mech)?.name ?? "(sem ficha)"}`;
   if (isStructureMechanic(mech)) {
     return `Estrutura: ${getStructures().find(st => st.id === mech.structureId)?.label ?? "(nenhuma escolhida)"}`;
   }
@@ -216,6 +220,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     structureId: initialData.structureId ?? "",
     structureRegen: Number(initialData.structureRegen) || 0,
     structureRegenCost: Number(initialData.structureRegenCost) || 0,
+    formActorUuid: initialData.formActorUuid ?? "",
     areaShape: initialData.areaShape ?? "",
     areaDistance: initialData.areaDistance ?? 0,
     areaAngle: initialData.areaAngle ?? 53,
@@ -258,7 +263,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
       .map(a => `<option value="${a.key}" ${a.key === data.scalingAttribute ? "selected" : ""}>${escapeHtml(a.label)}</option>`)
       .join("");
 
-  const effectTypeOptions = MEU_SISTEMA.SKILL_EFFECT_TYPES.filter(t => t !== "structure" || isStructuresEnabled() || data.effectType === "structure").map(
+  const effectTypeOptions = MEU_SISTEMA.SKILL_EFFECT_TYPES.filter(t => (t !== "structure" || isStructuresEnabled() || data.effectType === "structure") && (t !== "form" || isFormsEnabled() || data.effectType === "form")).map(
     t => `<option value="${t}" ${t === data.effectType ? "selected" : ""}>${MEU_SISTEMA.SKILL_EFFECT_TYPE_LABELS[t]}</option>`
   ).join("");
 
@@ -461,6 +466,12 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
             <div class="form-group"><label>Distância <span class="hint-inline" style="display:inline;">(unidades de grid)</span></label><input type="number" name="areaDistance" value="${data.areaDistance}" min="0"/></div>
             <div class="form-group se-area-angle-field"><label>Ângulo <span class="hint-inline" style="display:inline;">(graus)</span></label><input type="number" name="areaAngle" value="${data.areaAngle}" min="1" max="360"/></div>
           </div>
+        </div>
+      </div>
+
+      <div class="mechanic-panel se-form-panel">
+        <div class="form-group"><label>Ficha da forma</label><input type="text" name="formActorUuid" value="${escapeHtml(data.formActorUuid)}" placeholder="Arraste a ficha-molde para cá">
+          <span class="hint-inline">Um Personagem marcado como "Molde de forma". Precisa ser Habilidade Ativa: desligar volta ao normal.</span>
         </div>
       </div>
 
@@ -667,12 +678,23 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
   const levelInput = root.querySelector('[name="level"]');
 
   const structurePanel = root.querySelector(".se-structure-panel");
+  const formPanel = root.querySelector(".se-form-panel");
+  const formInput = root.querySelector('[name="formActorUuid"]');
+  if (formInput) {
+    formInput.addEventListener("dragover", event => event.preventDefault());
+    formInput.addEventListener("drop", event => {
+      event.preventDefault();
+      const dropped = getDragEventData(event);
+      if (dropped?.uuid) formInput.value = dropped.uuid;
+    });
+  }
   function applyMechanic() {
     const value = mechanicSelect.value;
     // Tipo de Alvo só existe pra quem acerta alguém: Dano e Efeito. Descritiva não usa alvo, e
     // Estrutura tira o formato do catálogo.
     rangeSection.style.display = value === "damage" || value === "temporary" ? "flex" : "none";
     structurePanel.style.display = value === "structure" ? "flex" : "none";
+    if (formPanel) formPanel.style.display = value === "form" ? "flex" : "none";
     damagePanel.style.display = value === "damage" ? "flex" : "none";
     tempPanel.style.display = value === "temporary" ? "flex" : "none";
   }
@@ -994,6 +1016,7 @@ function readSkillEditorForm(root, lockTier) {
     effectType,
     targetType,
     structureId: effectType === "structure" ? root.querySelector('[name="structureId"]').value : "",
+    formActorUuid: effectType === "form" ? (root.querySelector('[name="formActorUuid"]')?.value ?? "").trim() : "",
     structureRegen: effectType === "structure" && hasUpkeep ? Math.max(0, Number(root.querySelector('[name="structureRegen"]')?.value) || 0) : 0,
     structureRegenCost: effectType === "structure" && hasUpkeep ? Math.max(0, Number(root.querySelector('[name="structureRegenCost"]')?.value) || 0) : 0,
     areaShape: isEmission ? root.querySelector('[name="areaShape"]').value : "",

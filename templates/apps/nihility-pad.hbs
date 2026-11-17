@@ -2,6 +2,7 @@
 
   <div class="pad-statusbar">
     <span class="pad-signal"><span class="pad-signal-bars"><i></i><i></i><i></i><i></i></span>{{actor.name}}</span>
+    {{#if padClock}}<span class="pad-clock" title="Hora do mundo"><i class="fa-regular fa-clock"></i> {{padClock}}</span>{{/if}}
     <span class="pad-battery"><span class="pad-battery-icon"><span class="pad-battery-fill"></span></span></span>
   </div>
 

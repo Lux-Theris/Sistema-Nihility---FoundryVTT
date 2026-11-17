@@ -4,6 +4,7 @@
   <span class="item-name">{{row.name}}</span>
   <span class="item-qty" title="{{row.stacks}} slot(s) — pilhas de {{row.stackSize}}">x{{row.quantity}}{{#if row.isContainer}} · contêiner{{/if}}{{#if row.isAmmo}} · munição{{#if row.ammoRounds}} aberta ({{row.ammoRounds}}){{/if}}{{/if}}</span>
   <span class="inv-weight" title="Peso total da pilha">{{row.weight}} kg</span>
+  {{#if row.clock}}<span class="inv-clock" title="Hora do mundo"><i class="fa-regular fa-clock"></i> {{row.clock}}</span>{{/if}}
   {{#if row.isWeapon}}{{#if row.augmentsUnarmed}}{{#if row.equipped}}<span class="hint-inline" title="Equipado: a fórmula soma ao ataque desarmado">reforça o desarmado</span>{{/if}}{{else}}{{#if row.equipped}}<button type="button" class="skill-use-button" data-action="attackWithWeapon" title="Atacar com {{row.name}}">⚔</button><button type="button" class="skill-use-button" data-action="weaponAttackRoll" title="Rolar o ataque (atributo de escala + Maestria)">🎲</button>{{/if}}{{/if}}{{/if}}
   {{#if row.magazine.uses}}<span class="inv-mag {{#if row.magazine.empty}}is-empty{{/if}}" title="Disparos no carregador">🔋 {{row.magazine.loaded}}/{{row.magazine.max}}</span><button type="button" class="skill-use-button" data-action="reloadWeapon" title="Recarregar / trocar munição (o que estava dentro volta para o inventário)">⟳</button>{{/if}}
   {{#if row.isConsumable}}{{#if row.chargesText}}<span class="inv-charges" title="Cargas da unidade aberta">{{row.chargesText}}</span>{{/if}}<button type="button" class="skill-use-button" data-action="useConsumable" title="Usar {{row.name}}">Usar</button>{{/if}}
@@ -29,6 +30,12 @@
       <label class="creation-concept"><span>Conceito · uma frase</span>
         <input type="text" class="creation-concept-input" name="system.concept" value="{{system.concept}}" placeholder="Quem você quer jogar? Ex.: Dragoide exilado que quer reconquistar a ilha do pai"/>
       </label>
+      <div class="creation-upload">
+        <button type="button" data-upload-button="portrait" {{#unless canUpload}}disabled title="Peça ao Mestre a permissão 'Enviar arquivos'"{{/unless}}>Enviar imagem…</button>
+        <button type="button" data-upload-button="token" {{#unless canUpload}}disabled title="Peça ao Mestre a permissão 'Enviar arquivos'"{{/unless}}>Enviar imagem do Token…</button>
+        <input type="file" accept="image/*" data-upload-input="portrait" hidden/>
+        <input type="file" accept="image/*" data-upload-input="token" hidden/>
+      </div>
       {{/if}}
 
       <div class="header-row">
@@ -70,6 +77,11 @@
         {{#if isGM}}
         <label class="pc-toggle" title="Desmarcado = NPC. Decide o grupo da ficha (Fichas, contatos do PAD, alvos) e a regra da Vida 0: NPC — ou ficha sem jogador dono — morre direto em 0, se a opção estiver ligada.">
           <input type="checkbox" name="system.isPlayerCharacter" {{#if system.isPlayerCharacter}}checked{{/if}}/> PJ
+        </label>
+        {{/if}}
+        {{#if isGM}}
+        <label class="pc-toggle" title="Molde de forma: esta ficha é o corpo de uma Habilidade de Forma (um personagem se transforma em uma cópia dela). Fica fora das listas dos jogadores e do Simulador de encontro.">
+          <input type="checkbox" name="system.formTemplate" {{#if system.formTemplate}}checked{{/if}}/> Molde de forma
         </label>
         {{/if}}
         {{#if npcTierOptions}}

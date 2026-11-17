@@ -199,6 +199,16 @@ const HANDLERS = {
     return createCharacterAsGm(payload, user);
   },
 
+  /**
+   * Forma (H5): o Mestre cria a ficha temporária e troca os Tokens. Quem pede tem de ser dono do
+   * personagem; molde, Skill e estado são lidos da ficha (ver transformActorAsGm).
+   */
+  async transformActor(payload, user) {
+    if (!(await mayActFor(user, payload?.sourceActorUuid))) return refuse(RELAY_REASONS.permission);
+    const { transformActorAsGm } = await import("../skills/forms.js");
+    return transformActorAsGm(payload ?? {}, user);
+  },
+
   /** Ergue uma Estrutura (Paredes + Desenho). Validação e catálogo ficam em structures.js. */
   async createStructure(payload, user) {
     if (!(await mayActFor(user, payload?.sourceActorUuid))) return refuse(RELAY_REASONS.permission);

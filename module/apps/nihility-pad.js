@@ -1,4 +1,5 @@
-import { SYSTEM_ID, isPadShipEnabled, isPadLibraryEnabled, isPadMessagingEnabled } from "../core/config.js";
+import { SYSTEM_ID, isPadShipEnabled, isPadLibraryEnabled, isPadMessagingEnabled, isWorldClockEnabled } from "../core/config.js";
+import { clockText, deviceHour } from "../core/world-clock.js";
 import { findCrewedShipsForActor } from "../pad/pad-crew.js";
 import {
   getPersonalLibrary,
@@ -292,6 +293,9 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
     context.padShipEnabled = isPadShipEnabled();
     context.padLibraryEnabled = isPadLibraryEnabled();
     context.padMessagingEnabled = isPadMessagingEnabled();
+    // J9: a hora aparece aqui (e em itens "Marca o tempo"), nunca pela interface do Foundry. O Mestre
+    // vê dia e hora; o jogador só a hora, ou "--:--" com o aparelho suprimido (PEM/campo).
+    context.padClock = isWorldClockEnabled() ? (game.user.isGM ? clockText() : deviceHour(actor)) : "";
 
     const crewedShips = context.padShipEnabled ? findCrewedShipsForActor(actor) : [];
     context.crewedShips = crewedShips;
@@ -430,6 +434,10 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
       if (involvesActor) this.render();
     };
     Hooks.on("createChatMessage", this._messageHook);
+
+    // A hora na barra de status acompanha o relógio do mundo (J9).
+    this._timeHook = () => this.render();
+    Hooks.on("updateWorldTime", this._timeHook);
   }
 
   /** @override */
@@ -441,6 +449,10 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if (this._messageHook) {
       Hooks.off("createChatMessage", this._messageHook);
       this._messageHook = null;
+    }
+    if (this._timeHook) {
+      Hooks.off("updateWorldTime", this._timeHook);
+      this._timeHook = null;
     }
     return super.close(options);
   }

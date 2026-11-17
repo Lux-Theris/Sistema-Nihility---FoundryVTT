@@ -5,6 +5,7 @@ import { isStructureMechanic } from "../core/config.js";
  * testada; quem pergunta ao usuário e chama `useSkillEffect` é `useSkillFlow` (skill-use-flow.js).
  *
  * - `deactivate`: Habilidade Ativa já ligada — o clique só desliga, sem alvo nem rolagem.
+ * - `form`: liga a Forma (ficha temporária — ver forms.js).
  * - `structure`: ergue uma Estrutura (posiciona no mapa, se houver).
  * - `plain`: Descritiva ou sem mecânica de alvo — só usa.
  * - `zone` / `emission`: área no mapa (só com o bloco de área ligado; Zona também precisa do mapa).
@@ -14,11 +15,12 @@ import { isStructureMechanic } from "../core/config.js";
  *
  * @param {object} mech
  * @param {{areaEnabled?: boolean, areaSupported?: boolean}} [env]
- * @returns {"deactivate"|"structure"|"plain"|"zone"|"emission"|"emissionNoCanvas"|"self"|"targeted"}
+ * @returns {"deactivate"|"form"|"structure"|"plain"|"zone"|"emission"|"emissionNoCanvas"|"self"|"targeted"}
  */
 export function skillUseMode(mech, { areaEnabled = false, areaSupported = false } = {}) {
   if (!mech) return "plain";
   if (mech.hasUpkeep && mech.active) return "deactivate";
+  if (mech.effectType === "form") return "form";
   if (isStructureMechanic(mech)) return "structure";
   if (mech.effectType !== "temporary" && mech.effectType !== "damage") return "plain";
   if (mech.targetType === "zone" && areaEnabled && areaSupported) return "zone";

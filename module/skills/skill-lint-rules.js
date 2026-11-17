@@ -31,6 +31,7 @@ const groupTargets = actor => new Set(MEU_SISTEMA.EFFECT_TARGET_GROUPS.filter(g 
  * @param {number|null} [ctx.energyMax] - Mana/Bateria máxima de quem tem a Skill
  * @param {(formula: string) => boolean} [ctx.validFormula]
  * @param {string} [ctx.energyLabel]
+ * @param {(uuid: string) => boolean} [ctx.formTemplateOk] - o molde da forma existe e está marcado
  * @returns {Array<{code: string, level: "hard"|"soft", tab: string, effect: number|null, text: string}>}
  */
 export function lintSkill(mech, ctx = {}) {
@@ -90,6 +91,12 @@ export function lintSkill(mech, ctx = {}) {
     if (!m.structureId) push("noStructure", "hard", "mechanic", "Mecânica Estrutura sem Estrutura escolhida: usar não ergue nada.");
     else if (ctx.structures && !has(ctx.structures, m.structureId)) push("unknownStructure", "hard", "mechanic", `Estrutura "${m.structureId}" não existe mais no catálogo.`);
     if ((Number(m.structureRegen) > 0 || Number(m.structureRegenCost) > 0) && !active) push("structureRegenNotActive", "hard", "mechanic", "Regeneração da Estrutura só vale em Habilidade Ativa.");
+  }
+
+  if (effectType === "form") {
+    if (!active) push("formNotActive", "hard", "mechanic", "Mecânica Forma só vale em Habilidade Ativa: sem manutenção a forma nunca desliga e a Skill não liga.");
+    if (!m.formActorUuid) push("noFormActor", "hard", "mechanic", "Mecânica Forma sem ficha da forma: arraste a ficha-molde para o campo.");
+    else if (typeof ctx.formTemplateOk === "function" && !ctx.formTemplateOk(m.formActorUuid)) push("missingFormTemplate", "hard", "mechanic", "A ficha da forma sumiu ou não está marcada como molde de forma.");
   }
 
   if (effectType === "temporary") {

@@ -23,6 +23,7 @@ import { SYSTEM_ID } from "../core/config.js";
 import { absorbLayer, consumeShieldPools, hitAffinityFactor, shieldBlockCredits } from "./damage-rules.js";
 import { getElementAffinityMatrix, getAffinityConfig } from "../core/config.js";
 import { damageBodyPart, restoreBodyPart } from "../species/anatomy.js";
+import { formCarryUpdate, FORM_CARRY_PATH } from "../skills/forms.js";
 
 const SHIELD_PATH = "system.attributes.shield.value";
 const POOLS_PATH = "system.attributes.shield.pools";
@@ -327,6 +328,9 @@ async function applyHit(state, factor) {
   }
 
   const update = { [path]: Math.max(0, previousHp - toHp) };
+  // Forma (H5): o que passa do 0 da forma fica guardado (na MESMA gravação) para entrar na Vida do personagem.
+  const formCarry = formCarryUpdate(actor, previousHp, toHp);
+  if (formCarry != null) update[FORM_CARRY_PATH] = formCarry;
   if (toShield) {
     update[SHIELD_PATH] = Math.max(0, previousShield - toShield);
     update[POOLS_PATH] = pools;

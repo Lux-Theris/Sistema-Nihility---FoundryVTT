@@ -125,5 +125,7 @@ export const DEFAULT_STATUS_CONDITIONS = [
     effect: { kind: "tick", tickTarget: "hp", tickSign: "damage", valueMode: "maxPercent", value: 3, durationRounds: 5, tickUnit: "combatRound" },
     spread: { chance: 25, radius: 2, immuneTraits: ["mechanical"] } },
   { id: "fallen", label: "Caído", icon: "icons/svg/skull.svg", incapacitates: true, explanation: "Vida 0: o contador de morte corre até alguém estabilizar ou curar." },
-  { id: "unconscious", label: "Inconsciente", icon: "icons/svg/unconscious.svg", incapacitates: true, explanation: "Desacordado por algumas rodadas depois de sair do 0 de Vida." }
+  { id: "unconscious", label: "Inconsciente", icon: "icons/svg/unconscious.svg", incapacitates: true, explanation: "Desacordado por algumas rodadas depois de sair do 0 de Vida." },
+  // Descanso fora de combate (J9, core/world-clock.js): dorme até o relógio do mundo passar da hora de acordar.
+  { id: "sleeping", label: "Dormindo", icon: "icons/svg/sleep.svg", incapacitates: true, explanation: "Descansando: acorda com o descanso feito quando o tempo passar. Levar dano acorda sem o descanso." }
 ];

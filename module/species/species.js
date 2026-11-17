@@ -19,6 +19,7 @@ import { getActiveBodyFunctions } from "../core/config.js";
 const functionsOf = p => legacyFunctionsFor(p.tags ?? [], p.slot, getActiveBodyFunctions().map(f => f.id));
 import { registerItemInCompendium } from "../core/compendium.js";
 import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
+import { autoSnapshot } from "../world/auto-snapshot.js";
 
 const ARCHIVE_LIMIT = 60;
 
@@ -115,6 +116,12 @@ const grantFlag = (source, key, hash = null) => ({ [`flags.${SYSTEM_ID}.speciesG
 export async function applySpeciesPreview(preview, { announce = false, reason = "change", note = "" } = {}) {
   const { actor, diff, target, entry } = preview;
   const speciesId = target.species;
+
+  // Ponto de restauração (H13) antes da troca/Evolução/Herança. Não na sincronização em massa nem
+  // na ficha recém-criada (ainda sem Espécie): aí não há o que perder.
+  if (reason !== "sync" && actor?.system?.species) {
+    await autoSnapshot(actor, `Antes de ${reason === "evolution" ? "evoluir a Espécie" : reason === "heritage" ? "ganhar uma Herança" : reason === "heritage-lost" ? "perder uma Herança" : "trocar a Espécie"}`);
+  }
 
   // ---- Partes
   const partUpdates = diff.parts.update

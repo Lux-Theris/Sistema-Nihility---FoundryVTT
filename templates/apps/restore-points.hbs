@@ -1,0 +1,26 @@
+<div class="rp-root">
+  <p class="rp-note">
+    Guarda a ficha inteira de <strong>{{actorName}}</strong> (Itens, efeitos, Skills, XP, pontos e flags) e a devolve com os mesmos ids.
+    Ficam os {{max}} últimos; o sistema também guarda um ponto sozinho antes de evoluir ou fundir Skill, trocar Espécie ou Herança, subir de nível, liberar personagem e zerar pontos.
+  </p>
+  <p><button type="button" data-action="saveNow"><i class="fa-solid fa-floppy-disk"></i> Salvar estado agora</button></p>
+  <div class="rp-body">
+    {{#if points.length}}
+    <ul class="rp-list">
+      {{#each points as |p|}}
+      <li class="rp-row">
+        <div class="rp-what">
+          <span class="rp-label">{{p.label}}</span>
+          {{#if p.auto}}<span class="rp-auto">automático</span>{{/if}}
+          <span class="rp-summary">{{p.summary}}</span>
+        </div>
+        <button type="button" data-action="restore" data-id="{{p.id}}" title="Devolver a ficha a este ponto"><i class="fa-solid fa-rotate-left"></i> Restaurar</button>
+        <button type="button" data-action="remove" data-id="{{p.id}}" title="Apagar este ponto"><i class="fa-solid fa-trash"></i></button>
+      </li>
+      {{/each}}
+    </ul>
+    {{else}}
+    <p class="rp-empty">Nenhum ponto guardado para esta ficha ainda.</p>
+    {{/if}}
+  </div>
+</div>

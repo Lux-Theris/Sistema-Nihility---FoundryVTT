@@ -25,7 +25,8 @@ export class CombatPanelApp extends HandlebarsApplicationMixin(ApplicationV2) {
     actions: {
       openSheet: CombatPanelApp.#onOpenSheet,
       focusToken: CombatPanelApp.#onFocusToken,
-      openEffects: CombatPanelApp.#onOpenEffects
+      openEffects: CombatPanelApp.#onOpenEffects,
+      openClock: CombatPanelApp.#onOpenClock
     }
   };
 
@@ -44,6 +45,7 @@ export class CombatPanelApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const context = await super._prepareContext(options);
     const combat = this.combat;
     context.hasCombat = Boolean(combat?.combatants?.size);
+    context.clockEnabled = isFeatureEnabled("worldClock");
     if (!context.hasCombat) return context;
     const current = combat.combatant?.id;
     const movementOn = isFeatureEnabled("movement");
@@ -132,6 +134,12 @@ export class CombatPanelApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if (!token) return;
     token.control({ releaseOthers: true });
     canvas.animatePan({ x: token.center.x, y: token.center.y });
+  }
+
+  static async #onOpenClock(event) {
+    event.stopPropagation();
+    const { openWorldClock } = await import("./world-clock-app.js");
+    openWorldClock();
   }
 
   static async #onOpenEffects(event, target) {

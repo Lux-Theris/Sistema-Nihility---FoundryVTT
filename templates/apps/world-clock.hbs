@@ -1,0 +1,41 @@
+<div class="wc-root">
+  <div class="wc-now">
+    <i class="fa-solid {{phaseIcon}}"></i>
+    <span class="wc-time">{{hour}}:{{minute}}</span>
+    <span class="wc-day">Dia {{day}} · {{phase}}</span>
+  </div>
+  <p class="wc-note">Escuridão das cenas marcadas "Escurece com o relógio": {{darkness}}%.</p>
+
+  <section class="wc-sec">
+    <h4>Passar o tempo</h4>
+    <div class="wc-row">
+      <button type="button" data-action="advance" data-hours="0.1667">+10 min</button>
+      <button type="button" data-action="advance" data-hours="1">+1 h</button>
+      <button type="button" data-action="advance" data-hours="8">+8 h</button>
+    </div>
+  </section>
+
+  <section class="wc-sec">
+    <h4>Definir a hora</h4>
+    <div class="wc-row">
+      <label>Dia <input type="number" name="day" min="1" step="1" value="{{day}}"/></label>
+      <label>Hora <input type="number" name="hour" min="0" max="23" step="1" value="{{hour}}"/></label>
+      <label>Min <input type="number" name="minute" min="0" max="59" step="1" value="{{minute}}"/></label>
+      <button type="button" data-action="setTime">Definir</button>
+    </div>
+  </section>
+
+  <section class="wc-sec">
+    <h4>Descanso do grupo</h4>
+    <p class="wc-note">Põe todos os PJs com jogador online para dormir e passa o tempo de uma vez: todos acordam com o descanso feito.</p>
+    <div class="wc-row">
+      <button type="button" data-action="groupRest" data-kind="short">Curto ({{shortHours}} h)</button>
+      <button type="button" data-action="groupRest" data-kind="long">Completo ({{longHours}} h)</button>
+    </div>
+    {{#if sleepers.length}}
+    <ul class="wc-sleepers">
+      {{#each sleepers as |s|}}<li><i class="fa-solid fa-bed"></i> {{s.name}} <em>(descanso {{s.rest}})</em></li>{{/each}}
+    </ul>
+    {{/if}}
+  </section>
+</div>

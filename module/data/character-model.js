@@ -582,6 +582,9 @@ function deriveVitalStats(dataModel) {
 
   const baseEnergyMax = Math.max(formula.floor, Math.round(product(formula.energy) * formula.multiplier));
   energy.max = Math.max(0, baseEnergyMax + sumPermanentStatModifier(actor, "energy") + (energy.buffDelta || 0));
+  // Forma (H5): a cópia temporária usa a Mana máxima do personagem (a Mana é da mente, não do corpo).
+  const formOf = actor?.flags?.["nihility-rpg-system"]?.formOf;
+  if (formOf && Number.isFinite(Number(formOf.energyMax)) && Number(formOf.energyMax) >= 0) energy.max = Math.round(Number(formOf.energyMax));
   energy.value = Math.clamp(energy.value, 0, energy.max);
 }
 
@@ -593,7 +596,9 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
       /** Nível de NPC (M6): só vale com `isPlayerCharacter` false e o bloco "Níveis de NPC" ligado. */
       npcTier: new fields.StringField({ required: false, initial: "normal", choices: NPC_TIERS }),
       /** Arquétipo do Gerador de NPC que fez esta ficha (só informação). */
-      npcArchetype: new fields.StringField({ required: false, initial: "", blank: true })
+      npcArchetype: new fields.StringField({ required: false, initial: "", blank: true }),
+      /** Forma (H5): marca esta ficha como molde de forma (fora das listas dos jogadores e do Simulador). */
+      formTemplate: new fields.BooleanField({ required: false, initial: false })
     };
   }
 

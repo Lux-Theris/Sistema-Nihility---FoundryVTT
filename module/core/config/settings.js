@@ -197,6 +197,16 @@ export function registerSystemSettings() {
     default: 1
   });
 
+  // Relógio do mundo (J9, core/world-clock.js).
+  const clockSetting = (key, name, hint, value) =>
+    game.settings.register(SYSTEM_ID, S[key], { name, hint, scope: "world", config: true, type: Number, default: value });
+  clockSetting("clockSunrise", "Relógio — nascer do sol (hora)", "Hora em que o dia começa (0–24). Padrão 6.", 6);
+  clockSetting("clockSunset", "Relógio — pôr do sol (hora)", "Hora em que a noite começa (0–24). Padrão 18. Dia = entre o nascer e o pôr do sol; o crepúsculo leva 1 hora.", 18);
+  clockSetting("clockNightDarkness", "Relógio — escuridão da noite", "Escuridão (0 a 1) que uma cena marcada \"Escurece com o relógio\" tem de noite. Padrão 0,8.", 0.8);
+  clockSetting("clockDarkThreshold", "Relógio — limite de \"escuro\" (%)", "A condição \"Está escuro\" do Quando → Então vale quando a Escuridão da cena do Token (ou da Região de escuridão onde ele está) chega a este %. Padrão 50.", 50);
+  clockSetting("clockShortRestHours", "Relógio — horas do Descanso Curto", "Quanto tempo o Descanso Curto leva (o personagem fica Dormindo até passar). Padrão 1.", 1);
+  clockSetting("clockLongRestHours", "Relógio — horas do Descanso Completo", "Quanto tempo o Descanso Completo leva. Padrão 8.", 8);
+
   game.settings.register(SYSTEM_ID, S.antimagicReach, {
     name: "Antimagia — alcance (× o nível)",
     hint: "A Skill de Antimagia corta efeitos mágicos, desliga Habilidades Ativas e suprime (passivos, itens mágicos, Skills usadas no alvo) até o nível dela vezes isto. Padrão 1,5 (nível 10 alcança até 15); 2 = o dobro.",

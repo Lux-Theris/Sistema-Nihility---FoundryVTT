@@ -37,6 +37,8 @@ export const COST_WEIGHTS = {
   // Sentido (J4b): valor fixo por sentido (+ um pouco pela duração); o alcance em metros não pesa.
   senseFlat: 3,
   structureHpPerPoint: 5,
+  // Forma (H5): peso fixo da transformação; a manutenção entra pelo upkeepShare como nas outras Ativas.
+  formFlat: 8,
   upkeepShare: 0.25,
   percentTarget: 0.1
 };
@@ -164,6 +166,9 @@ export function suggestSkillCost(mech, ctx = {}) {
       }
     }
     if (!(m.effects ?? []).length) rows.push({ label: "Nenhum Efeito", value: "—" });
+  } else if (effectType === "form") {
+    points = w.formFlat;
+    rows.push({ label: "Transformação em outra forma", value: fmt(points) });
   } else if (effectType === "structure" || m.targetType === "structure") {
     const hp = Number(ctx.structureHp?.(m.structureId)) || 0;
     points = hp / w.structureHpPerPoint;

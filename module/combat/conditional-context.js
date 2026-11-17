@@ -11,6 +11,7 @@ import { SYSTEM_ID, actorTraits, combatantIsActor } from "../core/config.js";
 import { sourceSuppressed, suppressionState } from "../core/suppression.js";
 import { sumConditionalModifiers } from "./conditional-modifiers.js";
 import { originConditionalSources } from "../species/species-rules.js";
+import { worldClockContext } from "../core/world-clock.js";
 
 /** Todas as regras das fontes ativas do Ator. */
 export function collectConditionalModifiers(actor) {
@@ -68,6 +69,7 @@ export function buildModifierContext(self, other = null, { elements = [], hpPerc
     selfHpPercent,
     selfConditions: conditionIds(self),
     inCombat: isInCombat(self),
+    ...worldClockContext(self),
     otherTraits: new Set(other ? actorTraits(other) : []),
     otherIsShip: ["starship", "vehicle"].includes(other?.type),
     otherConditions: conditionIds(other),

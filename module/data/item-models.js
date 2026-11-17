@@ -316,6 +316,8 @@ function skillMechanicsFields() {
     structureId: new fields.StringField({ required: false, initial: "", blank: true }),
     structureRegen: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
     structureRegenCost: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+    /** Mecânica "form" (H5): uuid da ficha-molde da forma. */
+    formActorUuid: new fields.StringField({ required: false, initial: "", blank: true }),
     // `blank: true` é obrigatório aqui: um StringField com `choices` some com o `blank: true`
     // implícito que todo StringField normal tem — sem isso, o próprio "" inicial falha a
     // validação ("may not be a blank string") assim que o campo não é setado explicitamente.
@@ -490,6 +492,7 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
       structureId: new fields.StringField({ required: false, initial: "", blank: true }),
       structureRegen: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
       structureRegenCost: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+      formActorUuid: new fields.StringField({ required: false, initial: "", blank: true }),
 
       /** Só relevante quando targetType === "emission". "" = ainda não configurada. */
       // `blank: true` é obrigatório aqui: um StringField com `choices` some com o `blank: true`
@@ -916,6 +919,12 @@ export class GenericItemDataModel extends foundry.abstract.TypeDataModel {
        * ao PAD independente desta flag (ferramenta de Mestre, não posse física).
        */
       isPadDevice: new fields.BooleanField({ required: false, initial: false }),
+
+      /**
+       * "Marca o tempo" (J9, relógio do mundo): a linha do inventário mostra a hora do mundo. É a
+       * única forma, além do PAD, de um jogador ver a hora. Tecnológico suprimido mostra "--:--".
+       */
+      marksTime: new fields.BooleanField({ required: false, initial: false }),
 
       /** Até quanto empilha num slot (inventário). Quantidade acima disso ocupa mais slots. */
       stackSize: new fields.NumberField({ required: false, integer: true, initial: 20, min: 1 }),

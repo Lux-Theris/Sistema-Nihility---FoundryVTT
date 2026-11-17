@@ -18,7 +18,7 @@
  * (Resistência), quem atacou.
  */
 
-export const WHEN_KINDS = ["always", "otherTrait", "otherIsShip", "otherCondition", "element", "selfHpBelow", "selfCondition", "selfInCombat"];
+export const WHEN_KINDS = ["always", "otherTrait", "otherIsShip", "otherCondition", "element", "selfHpBelow", "selfCondition", "selfInCombat", "selfDark", "isDay", "isNight"];
 export const WHEN_LABELS = {
   always: "Sempre",
   otherTrait: "Oponente tem o Traço",
@@ -27,10 +27,13 @@ export const WHEN_LABELS = {
   element: "O dano é do elemento",
   selfHpBelow: "Minha Vida abaixo de (%)",
   selfCondition: "Eu tenho a Condição",
-  selfInCombat: "Estou em combate"
+  selfInCombat: "Estou em combate",
+  selfDark: "Está escuro onde estou",
+  isDay: "É dia",
+  isNight: "É noite"
 };
 /** Condições que só olham quem tem a regra — as únicas aceitas por regra contínua (`attributeFlat`). */
-export const SELF_WHEN_KINDS = ["always", "selfHpBelow", "selfCondition", "selfInCombat"];
+export const SELF_WHEN_KINDS = ["always", "selfHpBelow", "selfCondition", "selfInCombat", "selfDark", "isDay", "isNight"];
 
 export const THEN_KINDS = ["damagePercent", "rollFlat", "resistancePercent", "attributeFlat"];
 export const THEN_LABELS = {
@@ -67,6 +70,13 @@ export function matchesWhen(when, ctx = {}) {
       return Boolean(when.value) && Boolean(ctx.selfConditions?.has?.(when.value));
     case "selfInCombat":
       return Boolean(ctx.inCombat);
+    // Relógio do mundo (J9): o contexto vem de world-clock.js (tudo falso com o bloco desligado).
+    case "selfDark":
+      return Boolean(ctx.isDark);
+    case "isDay":
+      return Boolean(ctx.isDay);
+    case "isNight":
+      return Boolean(ctx.isNight);
     default:
       return false;
   }

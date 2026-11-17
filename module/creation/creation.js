@@ -31,6 +31,7 @@ import { showVoiceBanner } from "../core/voice-banner.js";
 import { renderSystemTemplate } from "../helpers/foundry-compat.js";
 import { escapeHtml } from "../helpers/html.js";
 import { reportError } from "../helpers/report.js";
+import { autoSnapshot } from "../world/auto-snapshot.js";
 import {
   creationSteps,
   creationStatusRow,
@@ -327,6 +328,7 @@ export async function releaseCharacter(actor) {
   });
   if (!Array.isArray(chosen)) return;
 
+  await autoSnapshot(actor, "Antes de liberar o personagem");
   const updates = {
     "system.speciesState.lockedAt": actor.system.speciesState?.lockedAt ?? Date.now(),
     "system.speciesState.unlocked": false,

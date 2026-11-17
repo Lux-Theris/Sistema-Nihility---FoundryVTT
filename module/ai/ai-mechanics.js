@@ -108,6 +108,9 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
     out.structureRegenCost = out.hasUpkeep ? clampInt(m.structureRegenCost, 0, 9999, 0) : 0;
   }
 
+  // Forma (H5): a ficha-molde é do Mestre; a IA não inventa uma. Mecânica Forma vira Descritiva.
+  if (effectType === "form") effectType = "none";
+
   const targetType = ["targeted", "self", "emission", "zone"].includes(m.targetType) ? m.targetType : "targeted";
   out.targetType = targetType;
   if (targetType === "emission" || targetType === "zone") {

@@ -29,6 +29,13 @@ export function skillSummariesFor(actor) {
     conditions: byId(getActiveStatusConditions()),
     targets: getEffectTargetLabels(),
     structures: byId(getStructures()),
+    formName: uuid => {
+      try {
+        return uuid ? fromUuidSync(uuid)?.name ?? null : null;
+      } catch {
+        return null;
+      }
+    },
     weaponTypes: byId(getActiveWeaponTypes()),
     strikesOn: isWeaponMasteryEnabled(),
     skillRange: isSkillRangeEnabled(),

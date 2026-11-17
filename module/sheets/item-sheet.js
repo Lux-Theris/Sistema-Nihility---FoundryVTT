@@ -28,6 +28,7 @@ import { getAntimagicReach,
   getStructures,
   isStructuresEnabled,
   isStructureMechanic,
+  isFormsEnabled,
   debugLog,
   getVesselSizes,
   vesselKind,
@@ -45,6 +46,9 @@ import { getAntimagicReach,
   isFeatureEnabled,
 } from "../core/config.js";
 import { skillAssist, costChipHtml } from "../skills/skill-assist.js";
+import { getDragEventData } from "../helpers/foundry-compat.js";
+import { formTemplateOf } from "../skills/forms.js";
+import { requestForm } from "../skills/form-request.js";
 import {
   WHEN_KINDS,
   WHEN_LABELS,
@@ -138,6 +142,7 @@ function headerChipsFor(item) {
       else if (chipTech) add("Tecnológica", "Sofre PEM", "violet");
       const target = MEU_SISTEMA.SKILL_TARGET_TYPE_SHORT_LABELS[sys.targetType] ?? "";
       if (isStructureMechanic(sys)) add("Estrutura", "Mecânica ao usar");
+      else if (sys.effectType === "form") add("Forma", "Mecânica ao usar");
       else if (sys.effectType === "damage") add(`Dano · ${target}`, "Mecânica ao usar", "hp");
       else if (sys.effectType === "temporary") add(`Efeito · ${target}`, "Mecânica ao usar");
       if (sys.resistanceTarget) {
@@ -219,6 +224,8 @@ function tabsFor(item) {
     case "skill": {
       const mechanic = isStructureMechanic(sys)
         ? "estrutura"
+        : sys.effectType === "form"
+        ? "forma"
         : { damage: "dano", temporary: `${(sys.effects ?? []).length} ef.` }[sys.effectType] ?? "";
       const passives =
         (sys.resistanceTarget ? 1 : 0) +
@@ -363,6 +370,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       deleteModAttrBonus: NihilityItemSheet.#onModAttrBonusDelete,
       selectTab: NihilityItemSheet.#onSelectTab,
       levelUpSkill: NihilityItemSheet.#onLevelUpSkill,
+      requestForm: NihilityItemSheet.#onRequestForm,
       spendPointLevelUp: NihilityItemSheet.#onSpendPointLevelUp,
       addTitleResistance: NihilityItemSheet.#onTitleResistanceAdd,
       deleteTitleResistance: NihilityItemSheet.#onTitleResistanceDelete,
@@ -543,7 +551,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const mechanicType = isStructureMechanic(sys) ? "structure" : sys.effectType;
     context.skillMechanicType = mechanicType;
     context.skillEffectTypeSeg = seg(
-      MEU_SISTEMA.SKILL_EFFECT_TYPES.filter(t => t !== "structure" || isStructuresEnabled() || mechanicType === "structure").map(t => [
+      MEU_SISTEMA.SKILL_EFFECT_TYPES.filter(t => (t !== "structure" || isStructuresEnabled() || mechanicType === "structure") && (t !== "form" || isFormsEnabled() || mechanicType === "form")).map(t => [
         t,
         MEU_SISTEMA.SKILL_EFFECT_TYPE_SHORT_LABELS[t],
         MEU_SISTEMA.SKILL_EFFECT_TYPE_LABELS[t]
@@ -575,6 +583,14 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       MEU_SISTEMA.SKILL_AREA_SHAPES.filter(Boolean).map(s => [s, MEU_SISTEMA.SKILL_AREA_SHAPE_LABELS[s]]),
       sys.areaShape
     );
+
+    // Forma (H5): a ficha-molde da mecânica (nome e se ainda existe).
+    if (mechanicType === "form") {
+      const template = formTemplateOf(sys);
+      context.skillFormName = template?.name ?? "";
+      context.skillFormMissing = Boolean(sys.formActorUuid) && !template;
+      context.skillFormCanRequest = !game.user.isGM && isFormsEnabled();
+    }
 
     const structures = getStructures();
     context.skillStructureOptions = structures.map(st => ({ value: st.id, label: st.label, selected: st.id === sys.structureId }));
@@ -1062,6 +1078,19 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       });
     });
     if (!this.isEditable) return;
+    // Forma (H5): arrastar a ficha-molde para o campo.
+    const formDrop = this.element.querySelector("[data-form-drop]");
+    if (formDrop) {
+      formDrop.addEventListener("dragover", event => event.preventDefault());
+      formDrop.addEventListener("drop", async event => {
+        event.preventDefault();
+        const data = getDragEventData(event);
+        const doc = data?.uuid ? await fromUuid(data.uuid) : null;
+        if (doc?.documentName !== "Actor" || doc.type !== "character") return ui.notifications.warn("Arraste uma ficha de Personagem marcada como molde de forma.");
+        if (!doc.system.formTemplate) ui.notifications.warn(`${doc.name} não está marcada como "Molde de forma" (caixa no cabeçalho da ficha).`);
+        await this.document.update({ "system.formActorUuid": doc.uuid });
+      });
+    }
     // "usar" do custo sugerido (L9): copia o número para o campo e salva como uma edição comum.
     this.element.querySelectorAll("[data-sa-use]").forEach(link =>
       link.addEventListener("click", event => {
@@ -1536,6 +1565,13 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   /* -------------------------------------------- */
   /*  Level Up de Skill (só GM — campo Nível é readonly pro jogador)  */
   /* -------------------------------------------- */
+
+  /** "Pedir forma…" (jogador): abre o editor de pedido e manda ao Mestre. */
+  static async #onRequestForm() {
+    const actor = this.document.parent;
+    if (!actor) return;
+    await requestForm(actor, this.document, null);
+  }
 
   static async #onLevelUpSkill(event, target) {
     event.preventDefault();

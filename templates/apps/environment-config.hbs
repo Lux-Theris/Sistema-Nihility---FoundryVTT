@@ -24,6 +24,16 @@
     </section>
     {{/if}}
 
+    {{#if clockEnabled}}
+    <section class="env-sec">
+      <h3><i class="fas fa-sun"></i> Relógio do mundo</h3>
+      <label class="env-density">
+        <input type="checkbox" name="clockDarkness" {{#if clockDarkness}}checked{{/if}}/>
+        <span class="env-note"><strong>Escurece com o relógio.</strong> A escuridão desta cena é posta pelo Mestre conforme a hora (dia claro, noite escura, crepúsculo de 1 h). Deixe desmarcado em lugar fechado com lâmpadas: a escuridão desta cena nunca muda sozinha.</span>
+      </label>
+    </section>
+    {{/if}}
+
     <section class="env-sec">
       <h3>Perigos</h3>
       <p class="env-note">Cada perigo é uma Condição mantida em todo Personagem na cena, com o efeito padrão dela, enquanto ele estiver aqui. Quem tem um Traço imune escapa.</p>

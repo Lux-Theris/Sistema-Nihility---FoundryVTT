@@ -40,7 +40,9 @@ export function buildCatalogIndex(catalogs = {}) {
     vehicleSizes: ids(catalogs.vehicleSizes),
     shipClasses: catalogs.shipClasses ?? [],
     vehicleClasses: catalogs.vehicleClasses ?? [],
-    sizeLists: { starship: catalogs.shipSizes ?? [], vehicle: catalogs.vehicleSizes ?? [] }
+    sizeLists: { starship: catalogs.shipSizes ?? [], vehicle: catalogs.vehicleSizes ?? [] },
+    // Forma (H5): (uuid) => o molde existe e está marcado; ausente = não confere.
+    formTemplateOk: typeof catalogs.formTemplateOk === "function" ? catalogs.formTemplateOk : null
   };
 }
 
@@ -110,6 +112,10 @@ export function checkMechanic(mech, idx, prefix = "") {
   checkRefs(issues, idx, at(prefix, "Elementos de dano"), "elements", mech.damageElements);
   if (mech.effectType === "structure" || mech.targetType === "structure" || mech.structureId) {
     checkRef(issues, idx, at(prefix, "Estrutura"), "structures", mech.structureId);
+  }
+  if (mech.effectType === "form") {
+    if (!mech.formActorUuid) issues.push({ where: at(prefix, "Forma"), catalog: "forms", ref: "", message: "a Mecânica Forma não tem ficha de forma" });
+    else if (idx.formTemplateOk && !idx.formTemplateOk(mech.formActorUuid)) issues.push({ where: at(prefix, "Forma"), catalog: "forms", ref: mech.formActorUuid, message: "a ficha da forma sumiu ou não está marcada como molde de forma" });
   }
   checkRef(issues, idx, at(prefix, "Escala do dano"), "scales", mech.damageScale);
   checkRef(issues, idx, at(prefix, "Atributo de escala"), "attributes", mech.scalingAttribute);
@@ -261,6 +267,19 @@ export function validateActor(actor, idx, { uuidExists = () => true, catalogs = 
   for (const item of items) {
     for (const issue of validateItem(item, idx)) issues.push({ ...issue, where: at(item.name, issue.where), itemId: item._id });
   }
+  return issues;
+}
+
+/**
+ * Comportamento de Região "Armadilha (Nihility)" (I1): Condição, elemento ou Traço imune que não
+ * existe mais. Recebe os campos do comportamento (`behavior.system`, já como objeto simples).
+ * @returns {Array<{where:string, catalog:string, ref:string, message:string}>}
+ */
+export function validateTrap(system, idx) {
+  const issues = [];
+  checkRef(issues, idx, "Condição", "conditions", system?.conditionId);
+  checkRefs(issues, idx, "Elemento", "elements", [...(system?.damageElements ?? [])]);
+  checkRefs(issues, idx, "Imune com", "traits", [...(system?.immuneTraits ?? [])]);
   return issues;
 }
 

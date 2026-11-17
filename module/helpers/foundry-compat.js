@@ -216,3 +216,20 @@ export function deleteKeyUpdate(path) {
 export function wallSenseTypes() {
   return CONST.EDGE_SENSE_TYPES ?? CONST.WALL_SENSE_TYPES;
 }
+
+/* -------------------------------------------- */
+/*  Escuridão da cena (J9)                       */
+/* -------------------------------------------- */
+
+/** Escuridão da cena (0 a 1). V14: `environment.darknessLevel`; V13: `darkness`. */
+export function sceneDarkness(scene, generation = foundryGeneration()) {
+  const value = generation >= 14 ? scene?.environment?.darknessLevel : scene?.darkness;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Pedaço de `scene.update()` que põe a escuridão da cena em `level` (0 a 1). */
+export function sceneDarknessUpdate(level, generation = foundryGeneration()) {
+  const value = Math.min(1, Math.max(0, Number(level) || 0));
+  return generation >= 14 ? { "environment.darknessLevel": value } : { darkness: value };
+}

@@ -155,6 +155,9 @@ async function onUpdateActor(actor, changed, options) {
   if (!isDesignatedGm() || actor.type !== "character" || !isIncapacitationEnabled()) return;
   if (foundry.utils.getProperty(changed, HP_PATH) === undefined) return;
   const hp = Number(actor.system.attributes?.hp?.value) || 0;
+  // A ficha de uma Forma (H5) em Vida 0 não cai nem morre: ela volta ao personagem (forms.js) e o dano
+  // que passou do 0 vai para ele. Sem isto, a cópia recebia Caído/morte e o combatente voltava derrotado.
+  if (hp <= 0 && actor.flags?.[SYSTEM_ID]?.formOf) return;
   if (hp <= 0) {
     const npcDies = getFeatureOption("incapacitation", "npcDiesAtZero") !== false;
     if (zeroHpOutcome({ isPlayerCharacter: !countsAsNpc(actor), npcDies }) === "die") await die(actor);

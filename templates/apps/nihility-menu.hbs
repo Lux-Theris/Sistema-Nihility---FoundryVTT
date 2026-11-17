@@ -167,6 +167,14 @@
           <p>Todos do combate numa tabela: Vida, Escudo, Mana, Condições, Skills Ativas e Deslocamento, atualizando sozinho.</p>
           <button class="nm-card-button" data-action="runAction" data-menu-action="combat-panel">Abrir</button>
         </div>
+        {{#if worldClockEnabled}}
+        <div class="nm-feature-card">
+          <div class="nm-icon-badge gold"><i class="fas fa-clock"></i></div>
+          <h4>Relógio do mundo</h4>
+          <p>Hora e dia do mundo: passar 10 min, 1 h ou 8 h, definir a hora e dar o Descanso do grupo. O dia e a noite mudam a escuridão das cenas marcadas.</p>
+          <button class="nm-card-button" data-action="runAction" data-menu-action="world-clock">Abrir</button>
+        </div>
+        {{/if}}
         {{#if encounterSimEnabled}}
         <div class="nm-feature-card">
           <div class="nm-icon-badge gold"><i class="fas fa-scale-unbalanced"></i></div>

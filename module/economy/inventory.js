@@ -7,6 +7,7 @@
 import { chargesLeft, magazineState } from "./consumable-rules.js";
 import { MEU_SISTEMA, stackCount, isInventoryEnabled } from "../core/config.js";
 import { itemNature } from "../core/magic-rules.js";
+import { itemClockText } from "../core/world-clock.js";
 import { createGrantedSkill, removeGrantedSkill } from "../skills/skill-economy.js";
 
 const { DialogV2 } = foundry.applications.api;
@@ -162,6 +163,8 @@ function itemRow(item, containers) {
     // Arma com carregador: disparos e Recarregar.
     magazine: sys.weapon?.enabled ? magazineState({ size: sys.weapon.magazineSize, loaded: sys.weapon.loaded, capacity: sys.weapon.loadedAmmo?.capacity }) : null,
     canSplit: quantity > 1,
+    // "Marca o tempo" (J9): a hora do mundo na própria linha ("--:--" com o aparelho suprimido).
+    clock: itemClockText(item),
     hasContainers: containers.some(c => c.id !== item.id),
     containerId: sys.containerId ?? "",
     containerOptions: [{ id: "", label: "— solto —" }, ...containers.filter(c => c.id !== item.id)].map(c => ({

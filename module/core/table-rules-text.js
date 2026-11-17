@@ -110,6 +110,10 @@ export function buildTableRulesPages(d) {
       parts.push("<h2>Voo, altura e escavação</h2>");
       parts.push("<p>Quem pode voar (Traço Voador ou o efeito Voando) sobe e desce um quadrado por vez pelo menu do Token; quem pode cavar desce abaixo do chão. A <b>altura conta nas distâncias</b> e as áreas são esferas: um círculo de 5 m não pega quem está 6 m acima. <b>Debaixo da terra</b> ninguém na superfície ou no ar alcança você. Quem perde o voo no ar <b>cai</b>: o Mestre calcula o dano (cada metro acima de 3 m vale uma parte da Vida máxima, Contundente).</p>");
     }
+    if (d.features.forms) {
+      parts.push("<h2>Formas</h2>");
+      parts.push("<p>Uma Habilidade de <b>Forma</b> (sempre Ativa) transforma você: enquanto estiver ligada você joga com uma <b>ficha temporária</b> — os <b>atributos, a Vida, a Espécie, as partes do corpo, as armas naturais, a imagem e o tamanho vêm da forma</b>; o <b>nível, o XP, a Mana, os Títulos e as suas Habilidades vão com você</b>. Os itens que você carrega não vão. A forma tem Vida própria: se ela chegar a 0, você volta ao normal e <b>o dano que sobrou passa para você</b>. Desligar a Habilidade, ficar sem Mana ou sofrer Antimagia também fazem você voltar. Ao voltar, a Mana gasta não volta; o XP ganho e as Condições voltam com você. Você pode <b>pedir uma forma</b> ao Mestre: escolhe a Espécie, a imagem e reparte os mesmos pontos de atributo que o seu personagem tem.</p>");
+    }
     if (d.features.senses) {
       parts.push("<h2>Sentidos e visibilidade</h2>");
       parts.push("<p>Quem está <b>debaixo da terra</b> ou <b>Invisível</b> não aparece no mapa nem na lista de iniciativa para quem não tem o sentido certo, e não aparece na escolha de alvo. Quem está debaixo da terra também não enxerga: só percebe os outros com <b>Sentido sísmico</b> ou <b>Sentir tudo</b>. <b>Ver o invisível</b>, <b>Visão verdadeira</b> e <b>Sentir tudo</b> revelam o Invisível. Esses sentidos vêm de Habilidades ou da Espécie, com um alcance em metros.</p>");

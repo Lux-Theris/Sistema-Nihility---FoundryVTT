@@ -32,6 +32,8 @@ export function sceneEnvironment(scene) {
     manaDensity: normalizeDensity(raw.manaDensity),
     // Nível de radiação da cena inteira (radiation.js); 0 = sem radiação.
     radiation: Math.max(0, Number(raw.radiation) || 0),
+    // J9: a escuridão da cena segue o relógio do mundo (world-clock.js).
+    clockDarkness: Boolean(raw.clockDarkness),
     fxPlaying: Array.isArray(raw.fxPlaying) ? raw.fxPlaying : []
   };
 }
@@ -83,13 +85,13 @@ export function manaDensityFor(actor, tokenDoc = null) {
 }
 
 /** Aplica a Condição com o efeito padrão dela (ou só a marca) e devolve os efeitos criados. */
-async function applyCondition(actor, condition) {
+export async function applyCondition(actor, condition, hitDamage = 0) {
   const before = new Set(actor.effects.map(e => e.id));
   if (condition.effect?.kind) {
     const { applyManualCondition } = await import("../skills/effects-apply.js");
     await applyManualCondition(actor, condition.id, {
       target: "hp", amount: 0, durationRounds: 0, periodic: false, tickUnit: "combatRound",
-      damageElements: [], modifierType: "flat", icon: "", hitDamage: 0
+      damageElements: [], modifierType: "flat", icon: "", hitDamage: Number(hitDamage) || 0
     });
   } else {
     await actor.createEmbeddedDocuments(

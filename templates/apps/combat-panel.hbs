@@ -1,7 +1,7 @@
 <div class="cp-root">
   <div class="cp-body">
     {{#if hasCombat}}
-    <p class="cp-head">Rodada {{round}}{{#if turnName}} · vez de <b>{{turnName}}</b>{{/if}}</p>
+    <p class="cp-head">Rodada {{round}}{{#if turnName}} · vez de <b>{{turnName}}</b>{{/if}}{{#if clockEnabled}} <button type="button" data-action="openClock" title="Relógio do mundo"><i class="fa-solid fa-clock"></i> Relógio</button>{{/if}}</p>
     <table class="cp-table">
       <thead><tr><th>Init.</th><th>Quem</th><th>Vida</th><th>Escudo</th><th>Mana</th><th>Condições</th><th>Skills Ativas</th><th>Desloc.</th><th></th></tr></thead>
       <tbody>

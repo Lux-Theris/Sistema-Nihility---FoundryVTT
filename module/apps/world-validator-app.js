@@ -23,7 +23,7 @@ import {
   getVesselSizes,
   getVesselClasses
 } from "../core/config.js";
-import { buildCatalogIndex, validateActor, validateItem, validateCatalogs, CATALOG_LABELS } from "../world/world-validator.js";
+import { buildCatalogIndex, validateActor, validateItem, validateCatalogs, validateTrap, CATALOG_LABELS } from "../world/world-validator.js";
 import { syncPreviewFor } from "../species/species.js";
 // Atores do Diretório + sintéticos dos Tokens não vinculados (cada Drone é um Ator diferente).
 import { worldActors } from "../helpers/world-actors.js";
@@ -51,7 +51,15 @@ function readCatalogs() {
     shipSizes: getVesselSizes("starship"),
     vehicleSizes: getVesselSizes("vehicle"),
     shipClasses: getVesselClasses("starship"),
-    vehicleClasses: getVesselClasses("vehicle")
+    vehicleClasses: getVesselClasses("vehicle"),
+    formTemplateOk: uuid => {
+      try {
+        const doc = fromUuidSync(uuid);
+        return doc?.documentName === "Actor" && Boolean(doc.system?.formTemplate);
+      } catch {
+        return false;
+      }
+    }
   };
 }
 
@@ -138,6 +146,24 @@ export class WorldValidatorApp extends HandlebarsApplicationMixin(ApplicationV2)
     for (const item of game.items) {
       const issues = validateItem(item.toObject(), idx);
       if (issues.length) documents.push(this.#documentRow(item, issues));
+    }
+
+    // Armadilhas de Região (I1): Condição, elemento ou Traço que sumiu do catálogo.
+    for (const scene of game.scenes) {
+      for (const region of scene.regions ?? []) {
+        for (const behavior of region.behaviors ?? []) {
+          if (behavior.type !== "nihilityTrap") continue;
+          const issues = validateTrap(behavior.system, idx);
+          if (!issues.length) continue;
+          documents.push({
+            uuid: region.uuid,
+            img: "icons/svg/hazard.svg",
+            name: `${scene.name} › ${region.name}`,
+            type: "Região (Armadilha)",
+            issues: issues.map(issue => ({ where: issue.where, message: issue.message, itemUuid: "" }))
+          });
+        }
+      }
     }
 
     let packCount = 0;

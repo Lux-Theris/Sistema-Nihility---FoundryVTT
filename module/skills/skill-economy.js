@@ -13,6 +13,7 @@ import { renderSystemTemplate } from "../helpers/foundry-compat.js";
 import { escapeHtml } from "../helpers/html.js";
 import { requestSkillSystem, isOpenRequest } from "../creation/creation-rules.js";
 import { evolvedMasteryRank } from "../combat/weapon-mastery-rules.js";
+import { autoSnapshot } from "../world/auto-snapshot.js";
 
 /* -------------------------------------------- */
 /*  Habilidades concedidas por Item/Módulo       */
@@ -172,6 +173,7 @@ export async function fuseSkills(actor, sourceItemIds, options = {}) {
     throw new Error(`Regra violada: tier "${tier}" não pode consumir tier "${invalidSource.system.tier}".`);
   }
 
+  await autoSnapshot(actor, `Antes de fundir ${sources.map(s => s.name).join(" + ")}`);
   await ensureSystemCompendiums();
   const skillsPack = getCompendiumForItemType("skill");
 
@@ -246,6 +248,7 @@ export async function evolveSkill(actor, sourceItemId, newSkillData) {
     throw new Error("Regra violada: skill concedida por item não pode Evoluir.");
   }
 
+  await autoSnapshot(actor, `Antes de evoluir ${source.name}`);
   await ensureSystemCompendiums();
   await registerItemInCompendium(source.toObject());
 
@@ -283,6 +286,7 @@ export async function evolveSkill(actor, sourceItemId, newSkillData) {
       structureId: newSkillData.structureId,
       structureRegen: newSkillData.structureRegen,
       structureRegenCost: newSkillData.structureRegenCost,
+      formActorUuid: newSkillData.formActorUuid,
       areaShape: newSkillData.areaShape,
       areaDistance: newSkillData.areaDistance,
       areaAngle: newSkillData.areaAngle,

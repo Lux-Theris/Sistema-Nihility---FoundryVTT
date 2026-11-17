@@ -283,6 +283,24 @@ export const FEATURES = {
     hint: "Quem está debaixo da terra (elevação abaixo de 0) some do mapa para os outros e não enxerga: só o Sentido sísmico ou o Sentir tudo percebem. Skills e a Espécie podem dar Sentido sísmico, Ver o invisível, Visão verdadeira e Sentir tudo (valor = alcance em metros, 0 = sem limite); Condições podem marcar Invisível ou Cego no mapa. O seletor de alvo e a lista de iniciativa mostram aos jogadores só quem o personagem percebe. Só vale em cena com Visão de Token ligada e com a visão ativa nos Tokens (V14). Desligar só esconde e para de conferir; nada salvo se perde.",
     default: true
   },
+  traps: {
+    setting: "trapsEnabled",
+    name: "Armadilhas",
+    hint: "O Mestre desenha uma Região e acrescenta o comportamento \"Armadilha (Nihility)\": quem entra (andando, empurrado ou teleportado) leva dano com elementos (pelas defesas do alvo, com Aplicar no chat) e/ou uma Condição com o efeito padrão. Dispara uma vez ou toda vez, só em quem está no chão ou em qualquer altura, com Traços imunes. Armadilha mágica ou tecnológica é desarmada por um campo de Antimagia/Interferência ou por uma Antimagia/PEM em área. Desligar só deixa de disparar; nada salvo se perde.",
+    default: true
+  },
+  forms: {
+    setting: "formsEnabled",
+    name: "Formas",
+    hint: "Uma Habilidade Ativa de Forma dá ao personagem uma ficha temporária (a ficha-molde da forma) e ele passa a jogar com ela: atributos, Vida, Espécie e Traços, partes do corpo, Skills Raciais, armas naturais, imagem e tamanho vêm da forma; nível, XP, Mana, Títulos e as Skills dele vão junto. Itens equipados não vão. A forma tem Vida própria: em 0 o personagem volta e o dano que sobrou passa para ele. Ao voltar, a Mana gasta não volta; o XP ganho e as Condições voltam. O jogador pode pedir uma forma ao Mestre. Desligar esconde a Mecânica Forma e impede ligar; quem já está transformado continua até desligar; nada salvo se perde.",
+    default: true
+  },
+  worldClock: {
+    setting: "worldClockEnabled",
+    name: "Relógio do mundo, dia/noite e escuro",
+    hint: "O Mestre tem uma janela para passar o tempo do mundo (hora e dia). O \"Quando → Então\" ganha \"É dia\", \"É noite\" e \"Está escuro\"; cenas marcadas \"Escurece com o relógio\" ficam claras ou escuras pela hora; o Descanso fora de combate deixa o personagem Dormindo até o tempo passar, e o Mestre é avisado quando todos dormem. O jogador nunca vê a hora pela interface do Foundry: só no PAD e em itens que marcam o tempo. Desligar volta o Descanso a ser na hora; nada salvo se perde.",
+    default: true
+  },
   skillUndo: {
     setting: "skillUndoEnabled",
     name: "Desfazer uso de Skill",
@@ -459,6 +477,9 @@ const FEATURE_LAYOUT = {
   economy: ["world", "Moedas, conversão e transferência entre personagens."],
   environment: ["world", "Perigos da cena ou de uma área, e a densidade de mana."],
   radiation: ["world", "Lugares irradiam; ficar ali acumula e machuca.", true],
+  traps: ["world", "Regiões com armadilha: dano e Condição a quem pisa."],
+  forms: ["character", "Skill de Forma: o personagem joga com a ficha temporária de outro corpo."],
+  worldClock: ["world", "Relógio do mundo: dia/noite, escuro e o Descanso que passa o tempo."],
   vessels: ["world", "Naves e Veículos com Módulos, Grid de Energia e tripulação."],
   shipManeuver: ["world", "Naves se movem por casas e esquivam pela Rotação.", true],
   pad: ["world", "O \"celular\" do personagem: Nave, Biblioteca e Mensagens."],

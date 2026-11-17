@@ -14,7 +14,7 @@
  *    pela Resistência ao elemento "Radiação", se ele existir no catálogo de Tipos de Dano.
  *  - Só o Mestre designado escreve.
  */
-import { SYSTEM_ID, isFeatureEnabled, getFeatureOption, getDamageElement, RADIATION_ELEMENT } from "../core/config.js";
+import { SYSTEM_ID, isWorldClockEnabled, isFeatureEnabled, getFeatureOption, getDamageElement, RADIATION_ELEMENT } from "../core/config.js";
 import { isDesignatedGm } from "../helpers/gm-relay.js";
 import { sceneScale } from "../combat/area-effects.js";
 import { tokenDocCenter } from "../combat/area-geometry.js";
@@ -143,6 +143,11 @@ export async function passRadiationTime(scene, rounds) {
   const config = radiationConfig();
   const seen = new Set();
   const rows = [];
+  // J9: o tempo que passou também anda no relógio do mundo.
+  if (isWorldClockEnabled()) {
+    const { advanceWorldClock } = await import("../core/world-clock.js");
+    await advanceWorldClock(n * (Number(CONFIG.time?.roundTime) || 6));
+  }
   for (const token of scene.tokens) {
     const actor = token.actor;
     if (!actor || actor.type !== "character" || seen.has(actor.uuid)) continue;

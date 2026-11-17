@@ -85,3 +85,27 @@
   .nihility-glossary .gl-body { flex-direction: column; }
   .nihility-glossary .gl-list { width: auto; max-height: 40%; border-right: none; border-bottom: 1px solid #2c3250; }
 }
+
+/* Relógio do mundo (J9), pontos de restauração (H13) e hora no PAD / itens que marcam o tempo. */
+.nihility-world-clock .wc-root, .nihility-restore-points .rp-root { padding: 10px 12px; color: var(--nihility-text); }
+.nihility-world-clock .wc-now { display: flex; align-items: baseline; gap: 10px; color: var(--nihility-gold); }
+.nihility-world-clock .wc-now i { font-size: 20px; }
+.nihility-world-clock .wc-time { font: 600 34px var(--nihility-font-data); }
+.nihility-world-clock .wc-day { color: var(--nihility-text-dim); }
+.nihility-world-clock .wc-note, .nihility-restore-points .rp-note { color: var(--nihility-text-dim); font-size: 12px; margin: 4px 0 8px; }
+.nihility-world-clock .wc-sec { margin-top: 10px; }
+.nihility-world-clock .wc-sec h4 { margin: 0 0 4px; color: var(--nihility-gold); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+.nihility-world-clock .wc-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: end; }
+.nihility-world-clock .wc-row label { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--nihility-text-dim); }
+.nihility-world-clock .wc-row input[type=number] { width: 64px; }
+.nihility-world-clock .wc-row button, .nihility-restore-points button { height: auto; min-height: 0; line-height: normal; padding: 4px 10px; }
+.nihility-world-clock .wc-sleepers { list-style: none; margin: 6px 0 0; padding: 0; color: var(--nihility-text-dim); font-size: 12px; }
+.nihility-restore-points .rp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.nihility-restore-points .rp-row { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid var(--nihility-border-soft); border-radius: 6px; background: var(--nihility-bg-panel-alt); }
+.nihility-restore-points .rp-what { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }
+.nihility-restore-points .rp-label { color: var(--nihility-text); font-weight: 600; }
+.nihility-restore-points .rp-summary { color: var(--nihility-text-faint); font-size: 11px; }
+.nihility-restore-points .rp-auto { color: var(--nihility-gold); font-size: 10px; text-transform: uppercase; }
+.nihility-restore-points .rp-empty { color: var(--nihility-text-dim); }
+.pad-clock { font: 600 11px var(--nihility-font-data); opacity: 0.9; }
+.inv-clock { font: 600 11px var(--nihility-font-data); color: var(--nihility-gold); white-space: nowrap; }

@@ -3,6 +3,7 @@ import { pickerFieldHtml, readPickerField, wireTraitPickerField } from "./checkl
 import { sceneEnvironment, availableFxPresets, availableFxParticles, availableFxFilters, syncSceneFx } from "../environment/environment.js";
 import { normalizeHazard, normalizeDensity } from "../environment/environment-rules.js";
 import { isRadiationEnabled, passRadiationTime } from "../environment/radiation.js";
+import { isWorldClockEnabled } from "../core/config.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -64,7 +65,7 @@ export class EnvironmentConfigApp extends HandlebarsApplicationMixin(Application
 
   #loadDraft() {
     const env = sceneEnvironment(this.scene);
-    this.draft = { hazards: env.hazards.map(h => ({ ...h })), manaDensity: env.manaDensity ?? "", radiation: env.radiation || 0 };
+    this.draft = { hazards: env.hazards.map(h => ({ ...h })), manaDensity: env.manaDensity ?? "", radiation: env.radiation || 0, clockDarkness: Boolean(env.clockDarkness) };
   }
 
   /** Lê o que está na tela para a cópia (antes de redesenhar, para não perder o que foi digitado). */
@@ -75,6 +76,8 @@ export class EnvironmentConfigApp extends HandlebarsApplicationMixin(Application
     if (density) this.draft.manaDensity = density.value;
     const radiation = root.querySelector("[name=radiation]");
     if (radiation) this.draft.radiation = Math.max(0, Number(radiation.value) || 0);
+    const clockDark = root.querySelector("[name=clockDarkness]");
+    if (clockDark) this.draft.clockDarkness = clockDark.checked;
     this.draft.hazards = [...root.querySelectorAll(".env-hazard")].map(row => ({
       conditionId: row.querySelector("[name=conditionId]")?.value ?? "",
       immuneTraits: readPickerField(row.querySelector(".env-immune")),
@@ -109,6 +112,8 @@ export class EnvironmentConfigApp extends HandlebarsApplicationMixin(Application
       manaDensity: this.draft.manaDensity,
       radiationEnabled: isRadiationEnabled(),
       radiation: this.draft.radiation,
+      clockEnabled: isWorldClockEnabled(),
+      clockDarkness: Boolean(this.draft.clockDarkness),
       worldDensity,
       fxActive,
       hazards: this.draft.hazards.map((h, index) => ({
@@ -184,7 +189,7 @@ export class EnvironmentConfigApp extends HandlebarsApplicationMixin(Application
     const previous = sceneEnvironment(scene).fxPlaying;
     const fxPlaying = await syncSceneFx(scene, hazards, previous);
     // A troca da flag dispara a sincronização de todos os Tokens da cena (environment.js).
-    await scene.setFlag(SYSTEM_ID, "environment", { hazards, manaDensity, radiation: this.draft.radiation || 0, fxPlaying });
+    await scene.setFlag(SYSTEM_ID, "environment", { hazards, manaDensity, radiation: this.draft.radiation || 0, clockDarkness: Boolean(this.draft.clockDarkness), fxPlaying });
     ui.notifications.info(`Ambiente de "${scene.name}" salvo.`);
     this.#loadDraft();
     this.render();

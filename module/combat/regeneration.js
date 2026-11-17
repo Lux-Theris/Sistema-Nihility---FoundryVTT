@@ -11,11 +11,12 @@
  * Descanso (botão "Descansar…" da ficha): Curto ou Completo, com prévia. Partes a 0% seguram o %
  * delas na Vida; o que a Vida subiu vai para as partes feridas, proporcional ao que falta.
  */
-import { SYSTEM_ID, getHealingRules, getFeatureOption, isFeatureEnabled, isEnergyPoolEnabled, isBodyInjuryEnabled, isAnatomyEnabled, getCharacterEnergyLabel, skillLevelBonuses } from "../core/config.js";
+import { SYSTEM_ID, isWorldClockEnabled, getHealingRules, getFeatureOption, isFeatureEnabled, isEnergyPoolEnabled, isBodyInjuryEnabled, isAnatomyEnabled, getCharacterEnergyLabel, skillLevelBonuses } from "../core/config.js";
 import { normalizeRegen, sumRegen, regenAmount } from "../core/regen-rules.js";
 import { sourceSuppressed, suppressionState } from "../core/suppression.js";
 import { restOutcome } from "../species/anatomy-rules.js";
 import { manaDensityFor } from "../environment/environment.js";
+import { isInCombat } from "./conditional-context.js";
 import { healPlan, healBodyParts, partsSnapshot, partWrite } from "../species/anatomy.js";
 
 /**
@@ -152,6 +153,13 @@ export async function applyShortRest(actor) {
   await applyRest(actor, "short", restPreview(actor).short);
 }
 
+/** Descanso do tipo escolhido, calculado agora (o relógio chegou na hora de acordar; J9). */
+export async function applyRestKind(actor, kind) {
+  if (actor?.type !== "character") return;
+  const k = kind === "long" ? "long" : "short";
+  await applyRest(actor, k, restPreview(actor)[k]);
+}
+
 /** "Descansar…": Curto ou Completo, com o resultado de cada um para esta ficha. */
 export async function openRestDialog(actor) {
   if (!actor?.isOwner) return;
@@ -206,6 +214,14 @@ export async function openRestDialog(actor) {
     rejectClose: false
   });
   if (kind !== "short" && kind !== "long") return;
+  // J9: fora de combate, com o relógio ligado, descansar é DORMIR até o tempo passar (o Mestre pula
+  // o tempo, ou o descanso do grupo); o descanso em si só é aplicado ao acordar.
+  if (isWorldClockEnabled() && !isInCombat(actor)) {
+    const { startSleeping, sleepingEffect } = await import("../core/world-clock.js");
+    if (sleepingEffect(actor)) return ui.notifications?.info(`${actor.name} já está dormindo.`);
+    await startSleeping(actor, kind);
+    return;
+  }
   // Recalcula na hora de gravar (algo pode ter mudado com o diálogo aberto).
   const fresh = restPreview(actor);
   await applyRest(actor, kind, fresh[kind]);

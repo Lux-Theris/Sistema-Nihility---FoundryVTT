@@ -1,4 +1,4 @@
-import { SYSTEM_ID, getFeatureOption, isFeatureEnabled, getXpForNextLevel, getHealingRules, isEnergyPoolEnabled, getCharacterEnergyLabel } from "../core/config.js";
+import { SYSTEM_ID, isWorldClockEnabled, getFeatureOption, isFeatureEnabled, getXpForNextLevel, getHealingRules, isEnergyPoolEnabled, getCharacterEnergyLabel } from "../core/config.js";
 import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
 import { badgeFor } from "../combat/effect-badges.js";
 import { countsAsNpc, isDead } from "../combat/incapacitation.js";
@@ -92,6 +92,12 @@ export class EndCombatApp extends HandlebarsApplicationMixin(ApplicationV2) {
       for (const pc of this.summary.pcs) {
         const actor = fromUuidSync(pc.uuid);
         if (actor) await applyShortRest(actor);
+      }
+      // J9: o Descanso curto do grupo também gasta o tempo dele no relógio do mundo.
+      if (this.summary.pcs.length && isWorldClockEnabled()) {
+        const { clockConfig } = await import("../core/world-clock.js");
+        const { advanceWorldClock } = await import("../core/world-clock.js");
+        await advanceWorldClock(clockConfig().shortRestHours * 3600);
       }
     }
     this.close();

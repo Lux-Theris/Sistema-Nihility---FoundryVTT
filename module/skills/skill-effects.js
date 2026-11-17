@@ -37,6 +37,7 @@ import { escapeHtml } from "../helpers/html.js";
 import { runAsGm } from "../helpers/gm-relay.js";
 import { RELAY_REASONS, refuse, relayFailureMessage } from "../helpers/gm-relay-rules.js";
 import { applyEffectChoices, normalizeEffectRequest, splitByWriteAccess } from "./effect-relay-rules.js";
+import { requestTransform } from "./forms.js";
 
 /**
  * Ponto de entrada único de "Usar Habilidade".
@@ -292,6 +293,18 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
   // (a animação para na parede) e se sobrou dano pra seguir até o alvo.
   const damagesOneTarget = mech.effectType === "damage" && mech.targetType !== "emission" && mech.targetType !== "zone" && !isStructureMechanic(mech);
   if (!damagesOneTarget) playSkillAnimation(sourceActor, mech, { targetActor: options.targetActor ?? options.targetActors?.[0] ?? null });
+
+  if (mech.effectType === "form") {
+    // Forma (H5): a Skill já ficou ligada acima; o Mestre cria a ficha temporária e troca os Tokens.
+    const outcome = await requestTransform(sourceActor, skillId, options.subSkillIndex ?? null);
+    if (!outcome.ok) {
+      // Não transformou: desliga a Skill (o Custo pago não volta; o uso deu errado, não foi desfeito).
+      await skill.update(skillStateUpdate(skill, options.subSkillIndex, { active: false }));
+      return false;
+    }
+    await grantSkillUseXp(skill, [{ flat: true }]);
+    return true;
+  }
 
   if (isStructureMechanic(mech)) {
     // Estrutura: a Skill ergue parede/bloco no mapa (ver structures.js). Sem mapa, só o cartão.

@@ -71,7 +71,11 @@ import { registerIncapacitation, tickIncapacitation, isDead } from "./combat/inc
 import { tickContagion } from "./combat/contagion.js";
 import { registerEnvironment, syncTokenEnvironment } from "./environment/environment.js";
 import { registerRadiation, tickRadiation } from "./environment/radiation.js";
+import { registerTraps } from "./environment/traps.js";
+import { registerWorldClock } from "./core/world-clock.js";
 import { registerElevation } from "./combat/elevation.js";
+import { registerForms } from "./skills/forms.js";
+import { renderFormRequestControls } from "./skills/form-request.js";
 import { registerSenses } from "./combat/senses.js";
 import { registerEnvironmentSceneMenu } from "./apps/environment-config.js";
 import { registerShieldLightHooks } from "./combat/lights.js";
@@ -127,6 +131,9 @@ Hooks.once("init", () => {
     // Ferramentas da mesa (L6, H10).
     tableRules: async () => (await import("./core/table-rules-journal.js")).generateTableRulesJournal(),
     combatPanel: async () => (await import("./apps/combat-panel.js")).openCombatPanel(),
+    // Relógio do mundo (J9, só o Mestre) e pontos de restauração de ficha (H13, só o Mestre).
+    clock: async () => (await import("./apps/world-clock-app.js")).openWorldClock(),
+    restorePoints: async actorUuid => (await import("./world/actor-snapshots.js")).openRestorePoints(await fromUuid(actorUuid)),
     // Glossário do mundo (1.85.0), opcionalmente já num verbete: game.nihility.glossary("penetration").
     glossary: async key => (await import("./glossary/glossary.js")).openGlossary(key),
     // Ficha em modo criação (J10): jogador pede ao Mestre; Mestre cria direto.
@@ -219,8 +226,12 @@ Hooks.once("init", () => {
   registerEnvironment();
   registerEnvironmentSceneMenu();
   registerRadiation();
+  // Armadilhas de Região (I1) e Relógio do mundo (J9).
+  registerTraps();
+  registerWorldClock();
   // Voo, altura e escavação (J4): botões ↑/↓ no Token HUD, queda, aviso de elevação à mão.
   registerElevation();
+  registerForms();
   registerSenses();
 
   // Partials reaproveitados entre templates (hoje só a Habilidade Concedida, usada 3x na ficha
@@ -323,6 +334,7 @@ Hooks.once("ready", async () => {
   await runMigrationIfNeeded("systemEffectIcons", migrateSystemEffectIcons);
   await runMigrationIfNeeded("markCondition", migrateMarkCondition);
   await runMigrationIfNeeded("senseConditions", migrateSenseConditions);
+  await runMigrationIfNeeded("sleepingCondition", migrateSleepingCondition);
   console.log(`${SYSTEM_ID} | Sistema pronto.`);
 });
 
@@ -426,6 +438,27 @@ async function migrateMarkCondition() {
   const mark = MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS.find(c => c.id === "marked");
   if (!mark) return;
   list.push(foundry.utils.deepClone(mark));
+  await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData, JSON.stringify(list, null, 2));
+  registerStatusConditions();
+}
+
+/**
+ * Migração única (J9): catálogo de Condições já salvo ganha "Dormindo", a Condição do Descanso
+ * fora de combate. Quem nunca salvou o catálogo já a recebe pelo padrão.
+ */
+async function migrateSleepingCondition() {
+  const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData);
+  if (!raw) return;
+  let list;
+  try {
+    list = typeof raw === "string" ? JSON.parse(raw) : raw;
+  } catch (err) {
+    return;
+  }
+  if (!Array.isArray(list) || list.some(e => e?.id === "sleeping")) return;
+  const sleeping = MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS.find(c => c.id === "sleeping");
+  if (!sleeping) return;
+  list.push(foundry.utils.deepClone(sleeping));
   await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData, JSON.stringify(list, null, 2));
   registerStatusConditions();
 }
@@ -971,6 +1004,7 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
 
   // Pedido de Skill (Aprovar / Ajustar e aprovar / Pedir mudança / Rejeitar; Editar para quem pediu).
   renderSkillRequestControls(message, html);
+  renderFormRequestControls(message, html);
   // Card "está pronto" da ficha em modo criação (Abrir ficha / Pedir ajuste / Liberar, só o Mestre).
   renderCreationReadyControls(message, html);
   // Sugestão de Maestria de arma (aprender pela prática): botão "Dar Maestria de X", só o Mestre.

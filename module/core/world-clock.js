@@ -1,0 +1,417 @@
+/**
+ * Relógio do mundo (J9): o lado Foundry. Regras puras em world-clock-rules.js. Bloco
+ * `FEATURES.worldClock`.
+ *
+ *  - Tempo = `game.time.worldTime` (o combate já soma a rodada; o Mestre passa o resto pela janela
+ *    "Relógio do mundo", pelo "Passar tempo" da Radiação e pelo Descanso).
+ *  - **O jogador nunca vê a hora pela interface do Foundry.** O core só a mostra na janela de um
+ *    Active Effect ("começou há…"), escondida aqui para quem não é Mestre. O jogador vê a hora no PAD
+ *    e em Item Geral "Marca o tempo"; aparelho tecnológico suprimido (PEM, campo) mostra "--:--".
+ *  - "Quando → Então": `selfDark`, `isDay`, `isNight` (contexto em `worldClockContext`). São
+ *    condições de si, lidas na preparação da ficha: quando dia/noite vira, a escuridão da cena muda
+ *    ou o Token entra/sai de uma Região de escuridão, os Atores com essas regras são repreparados
+ *    (`actor.reset()`, nunca `prepareData()` sozinho).
+ *  - Cena marcada "Escurece com o relógio" (flag `environment.clockDarkness`) tem a escuridão posta
+ *    pelo Mestre designado conforme a hora; cena não marcada nunca muda.
+ *  - Descanso fora de combate = Condição **Dormindo** (`sleeping`, incapacita) com `rest: {kind,
+ *    until}`: acorda COM o descanso quando o relógio chega em `until`; dano na Vida ou o Mestre
+ *    tirando à mão acordam SEM o descanso. Quando todos os PJs com jogador online dormem, o Mestre
+ *    recebe o aviso "Passar o tempo (N h)".
+ */
+import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions, isWorldClockEnabled } from "./config.js";
+import { isDesignatedGm } from "../helpers/gm-relay.js";
+import { sceneDarkness, sceneDarknessUpdate } from "../helpers/foundry-compat.js";
+import { suppressionState, sourceSuppressed } from "./suppression.js";
+import { showVoiceBanner } from "./voice-banner.js";
+import {
+  normalizeClockConfig, isDayAt, darknessFor, isDarkLevel, darknessNeedsUpdate, adjustedDarkness,
+  sleepUntil, shouldWake, groupSleepState, skipLabel, restHours, visibleHour, formatClock, SECONDS_PER_HOUR
+} from "./world-clock-rules.js";
+
+const SLEEP_ID = "sleeping";
+const CLOCK_WHEN = new Set(["selfDark", "isDay", "isNight"]);
+
+/* ------------------------------------------------------------------ Leitura */
+
+/** O ajuste do relógio (Regras da Mesa), com padrões se as settings ainda não existem. */
+export function clockConfig() {
+  const S = MEU_SISTEMA.SETTINGS;
+  const read = key => {
+    try {
+      return game.settings.get(SYSTEM_ID, S[key]);
+    } catch (err) {
+      return undefined;
+    }
+  };
+  return normalizeClockConfig({
+    sunrise: read("clockSunrise"),
+    sunset: read("clockSunset"),
+    nightDarkness: read("clockNightDarkness"),
+    darkThreshold: read("clockDarkThreshold"),
+    shortRestHours: read("clockShortRestHours"),
+    longRestHours: read("clockLongRestHours")
+  });
+}
+
+/** O instante atual do mundo, em segundos. */
+export function worldNow() {
+  return Number(game.time?.worldTime) || 0;
+}
+
+/** "Dia 3 · 14:05" (só para o Mestre e para o PAD). */
+export function clockText(worldTime = worldNow()) {
+  return formatClock(worldTime);
+}
+
+/** Token (documento) de um Ator, se tiver um. */
+function tokenDocFor(actor) {
+  try {
+    if (actor?.isToken) return actor.token ?? null;
+    return actor?.getActiveTokens?.(false, true)?.[0] ?? null;
+  } catch (err) {
+    return null;
+  }
+}
+
+/** Escuridão (0–1) onde o Token está: a da cena ajustada pelas Regiões de escuridão do core. */
+export function tokenDarkness(tokenDoc, scene = tokenDoc?.parent ?? null) {
+  const base = sceneDarkness(scene);
+  const adjusts = [];
+  for (const region of tokenDoc?.regions ?? []) {
+    for (const behavior of region.behaviors ?? []) {
+      if (behavior.type !== "adjustDarknessLevel" || behavior.disabled) continue;
+      adjusts.push({ mode: behavior.system?.mode, modifier: behavior.system?.modifier });
+    }
+  }
+  return adjustedDarkness(base, adjusts);
+}
+
+/**
+ * O que o "Quando → Então" lê do relógio e da escuridão para este Ator. Bloco desligado: tudo falso
+ * (uma regra "É noite" nunca vale).
+ */
+export function worldClockContext(actor) {
+  if (!isWorldClockEnabled()) return { isDay: false, isNight: false, isDark: false };
+  const config = clockConfig();
+  const day = isDayAt(worldNow(), config);
+  let dark = false;
+  try {
+    const token = tokenDocFor(actor);
+    const scene = token?.parent ?? canvas?.scene ?? null;
+    if (scene) dark = isDarkLevel(token ? tokenDarkness(token, scene) : sceneDarkness(scene), config.darkThreshold);
+  } catch (err) {
+    dark = false;
+  }
+  return { isDay: day, isNight: !day, isDark: dark };
+}
+
+/** O aparelho de tempo deste Ator está suprimido por PEM/campo (tecnológico)? */
+function techSuppressed(actor) {
+  try {
+    return suppressionState(actor).tech !== null;
+  } catch (err) {
+    return false;
+  }
+}
+
+/** A hora para quem olha pelo aparelho do Ator (PAD, item): "14:05" ou "--:--" sem energia. */
+export function deviceHour(actor) {
+  return visibleHour(worldNow(), { techSuppressed: techSuppressed(actor) });
+}
+
+/**
+ * A hora que uma linha do inventário mostra para um Item Geral "Marca o tempo" (relógio, pulseira):
+ * "14:05", "--:--" se o item é tecnológico e está suprimido (PEM/campo), ou "" se não marca o tempo.
+ */
+export function itemClockText(item) {
+  if (!item?.system?.marksTime || !isWorldClockEnabled()) return "";
+  const actor = item.actor;
+  if (!actor) return "";
+  let suppressed = false;
+  try {
+    suppressed = sourceSuppressed(actor, item);
+  } catch (err) {
+    suppressed = false;
+  }
+  return visibleHour(worldNow(), { techSuppressed: suppressed });
+}
+
+/* ------------------------------------------------------------------ Passar o tempo (Mestre) */
+
+/** Soma `seconds` ao tempo do mundo (qualquer Mestre; o core grava). */
+export async function advanceWorldClock(seconds) {
+  const s = Math.floor(Number(seconds) || 0);
+  if (!game.user.isGM || s <= 0 || !isWorldClockEnabled()) return false;
+  await game.time.advance(s);
+  return true;
+}
+
+/** Define a hora do dia mantendo o dia (ou, se `day` vier, naquele dia). */
+export async function setWorldClock(worldTime) {
+  const t = Math.floor(Number(worldTime));
+  if (!game.user.isGM || !Number.isFinite(t) || t < 0 || !isWorldClockEnabled()) return false;
+  await game.time.advance(t - worldNow());
+  return true;
+}
+
+/* ------------------------------------------------------------------ Escuridão das cenas */
+
+function clockScenes() {
+  return game.scenes.filter(scene => scene.getFlag(SYSTEM_ID, "environment")?.clockDarkness);
+}
+
+/** Põe a escuridão das cenas marcadas conforme a hora. Só o Mestre designado. */
+export async function applySceneDarkness() {
+  if (!isDesignatedGm() || !isWorldClockEnabled()) return;
+  const target = darknessFor(worldNow(), clockConfig());
+  for (const scene of clockScenes()) {
+    if (!darknessNeedsUpdate(sceneDarkness(scene), target)) continue;
+    try {
+      await scene.update(sceneDarknessUpdate(target), { animateDarkness: 2000 });
+    } catch (err) {
+      console.warn(`${SYSTEM_ID} | Relógio: não consegui mudar a escuridão de "${scene.name}".`, err);
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ Repreparar quem depende de dia/escuro */
+
+const lastKeys = new Map();
+let refreshTimer = null;
+
+/** Os Atores (Diretório e Tokens da cena aberta) que têm regra "Quando" de relógio/escuro. */
+function clockAwareActors() {
+  const seen = new Set();
+  const out = [];
+  const push = actor => {
+    if (!actor || seen.has(actor.uuid)) return;
+    seen.add(actor.uuid);
+    out.push(actor);
+  };
+  for (const actor of game.actors) push(actor);
+  for (const token of canvas?.scene?.tokens ?? []) if (!token.actorLink) push(token.actor);
+  return out.filter(actor => (actor.items ?? []).some(item => (item.system?.conditionalModifiers ?? []).some(m => CLOCK_WHEN.has(m?.when?.kind))) ||
+    (actor.system?.originLayers ?? []).some(layer => (layer.entry?.passives?.conditionalModifiers ?? []).some(m => CLOCK_WHEN.has(m?.when?.kind))));
+}
+
+/** Reprepara os Atores cujo "dia/noite/escuro" mudou desde a última conferência (neste cliente). */
+export function refreshClockActors() {
+  if (!isWorldClockEnabled()) return;
+  for (const actor of clockAwareActors()) {
+    const ctx = worldClockContext(actor);
+    const key = `${ctx.isDay}|${ctx.isDark}`;
+    const previous = lastKeys.get(actor.uuid);
+    lastKeys.set(actor.uuid, key);
+    if (previous === undefined || previous === key) continue;
+    // reset(), não prepareData(): este reaplicava os Active Effects por cima do já preparado.
+    actor.reset();
+    if (actor.sheet?.rendered) actor.sheet.render();
+  }
+}
+
+function scheduleRefresh() {
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(() => {
+    try {
+      refreshClockActors();
+    } catch (err) {
+      console.warn(`${SYSTEM_ID} | Relógio: falha ao repreparar os Atores.`, err);
+    }
+  }, 150);
+}
+
+/* ------------------------------------------------------------------ Dormir */
+
+function sleepCondition() {
+  const condition = getActiveStatusConditions().find(c => c.id === SLEEP_ID);
+  return { label: condition?.label ?? "Dormindo", icon: condition?.icon || "icons/svg/sleep.svg" };
+}
+
+/** O efeito "Dormindo" do Ator, se houver. */
+export function sleepingEffect(actor) {
+  return actor?.effects?.find(e => e.statuses?.has?.(SLEEP_ID)) ?? null;
+}
+
+/** Os dados do descanso que o Ator está fazendo: `{kind, until}` ou null. */
+export function sleepState(actor) {
+  const rest = sleepingEffect(actor)?.getFlag(SYSTEM_ID, "rest");
+  return rest ? { kind: rest.kind === "long" ? "long" : "short", until: Number(rest.until) || 0 } : null;
+}
+
+/**
+ * Põe o Ator para dormir (o "Descansar…" fora de combate): Condição Dormindo com `rest`. Devolve
+ * false se já dorme. Quem chama é o dono da ficha ou o Mestre.
+ */
+export async function startSleeping(actor, kind) {
+  if (!actor || sleepingEffect(actor)) return false;
+  const rest = { kind: kind === "long" ? "long" : "short", until: sleepUntil(worldNow(), kind, clockConfig()) };
+  const { label, icon } = sleepCondition();
+  await actor.createEmbeddedDocuments(
+    "ActiveEffect",
+    [{ name: label, img: icon, statuses: [SLEEP_ID], flags: { [SYSTEM_ID]: { skillEffect: true, conditionId: SLEEP_ID, rest } } }],
+    { nihilityConfigured: true }
+  );
+  await ChatMessage.create({
+    speaker: ChatMessage.getSpeaker({ actor }),
+    content: `<p><strong>${foundry.utils.escapeHTML(actor.name)}</strong> foi dormir (Descanso ${rest.kind === "long" ? "Completo" : "Curto"}, ${restHours(rest.kind, clockConfig())} h).</p>`
+  });
+  return true;
+}
+
+/**
+ * Acorda o Ator. `rested` = o tempo passou: o Descanso do tipo escolhido é aplicado agora. Sem ele
+ * (dano, ou o Mestre tirou), só acorda. Só o Mestre designado.
+ */
+export async function wakeSleeper(actor, { rested = false } = {}) {
+  const effect = sleepingEffect(actor);
+  if (!effect) return false;
+  const kind = sleepState(actor)?.kind ?? "short";
+  await effect.delete();
+  if (rested) {
+    const { applyRestKind } = await import("../combat/regeneration.js");
+    await applyRestKind(actor, kind);
+  } else {
+    await ChatMessage.create({
+      speaker: ChatMessage.getSpeaker({ actor }),
+      content: `<p><strong>${foundry.utils.escapeHTML(actor.name)}</strong> acordou sem terminar o descanso.</p>`
+    });
+  }
+  return true;
+}
+
+/** Atores que o relógio confere para o sono: Diretório e Tokens não vinculados da cena aberta. */
+function sleepScanActors() {
+  const list = [...game.actors];
+  for (const token of canvas?.scene?.tokens ?? []) if (!token.actorLink && token.actor) list.push(token.actor);
+  return list.filter(actor => actor.type === "character");
+}
+
+/** Quem acorda agora com o descanso feito (o relógio passou de `until`). Só o Mestre designado. */
+export async function wakeDueSleepers() {
+  if (!isDesignatedGm() || !isWorldClockEnabled()) return;
+  const now = worldNow();
+  for (const actor of sleepScanActors()) {
+    const state = sleepState(actor);
+    if (state && shouldWake(state.until, now)) await wakeSleeper(actor, { rested: true });
+  }
+}
+
+/** Os PJs: ficha de Personagem com jogador dono online. */
+export function partyMembers() {
+  return game.actors.filter(actor => actor.type === "character" && actor.system?.isPlayerCharacter !== false &&
+    game.users.some(u => u.active && !u.isGM && actor.testUserPermission(u, "OWNER")));
+}
+
+let lastGroupKey = "";
+
+/**
+ * Todos os PJs dormindo: o Mestre (designado) recebe o cartão da Voz do Mundo com "Passar o tempo
+ * (N h)". Um aviso por estado (não repete a cada rodada).
+ */
+export function checkGroupSleep() {
+  if (!isDesignatedGm() || !isWorldClockEnabled()) return;
+  const members = partyMembers().map(actor => ({ id: actor.id, sleeping: Boolean(sleepingEffect(actor)), until: sleepState(actor)?.until ?? 0 }));
+  const state = groupSleepState(members, worldNow());
+  if (!state.all || state.skipSeconds <= 0) {
+    lastGroupKey = "";
+    return;
+  }
+  const key = members.map(m => `${m.id}:${m.until}`).sort().join(",");
+  if (key === lastGroupKey) return;
+  lastGroupKey = key;
+  showVoiceBanner({
+    label: "Relógio do mundo",
+    title: "Todos os personagens estão dormindo",
+    body: "Passe o tempo para todos acordarem com o descanso feito.",
+    actions: [{ label: skipLabel(state.skipSeconds), primary: true, onClick: () => advanceWorldClock(state.skipSeconds) }]
+  });
+}
+
+/**
+ * "Descanso do grupo" (Mestre): põe todos os PJs que ainda não dormem para dormir e passa o tempo de
+ * uma vez; todos acordam com o descanso. Devolve quantos descansaram.
+ */
+export async function groupRest(kind) {
+  if (!game.user.isGM || !isWorldClockEnabled()) return 0;
+  const members = partyMembers();
+  let count = 0;
+  for (const actor of members) {
+    if (await startSleeping(actor, kind)) count += 1;
+  }
+  if (!members.length) return 0;
+  const hours = restHours(kind, clockConfig());
+  await advanceWorldClock(hours * SECONDS_PER_HOUR);
+  return count;
+}
+
+/* ------------------------------------------------------------------ Registro */
+
+export function registerWorldClock() {
+  Hooks.on("updateWorldTime", async () => {
+    if (!isWorldClockEnabled()) return;
+    scheduleRefresh();
+    // Fichas abertas com um item "Marca o tempo" mostram a hora nova.
+    for (const actor of game.actors) {
+      if (actor.sheet?.rendered && actor.items.some(i => i.system?.marksTime)) actor.sheet.render();
+    }
+    if (!isDesignatedGm()) return;
+    try {
+      await applySceneDarkness();
+      await wakeDueSleepers();
+      checkGroupSleep();
+    } catch (err) {
+      console.warn(`${SYSTEM_ID} | Relógio: falha ao atualizar o tempo.`, err);
+    }
+  });
+
+  Hooks.once("ready", () => {
+    if (!isWorldClockEnabled()) return;
+    lastKeys.clear();
+    refreshClockActors();
+    applySceneDarkness();
+  });
+  Hooks.on("canvasReady", () => {
+    lastKeys.clear();
+    scheduleRefresh();
+  });
+
+  // A cena mudou de escuridão ou de marca; Token andou/subiu; Região de escuridão mudou.
+  Hooks.on("updateScene", (scene, changed) => {
+    const darkChanged = foundry.utils.hasProperty(changed, "environment.darknessLevel") || "darkness" in changed;
+    if (darkChanged) scheduleRefresh();
+    if (foundry.utils.hasProperty(changed, `flags.${SYSTEM_ID}.environment`)) applySceneDarkness();
+  });
+  Hooks.on("updateToken", (token, changed) => {
+    if ("x" in changed || "y" in changed || "elevation" in changed || "level" in changed) scheduleRefresh();
+  });
+  const regionChanged = behavior => {
+    if (behavior.type === "adjustDarknessLevel") scheduleRefresh();
+  };
+  Hooks.on("createRegionBehavior", regionChanged);
+  Hooks.on("updateRegionBehavior", regionChanged);
+  Hooks.on("deleteRegionBehavior", regionChanged);
+
+  // Dormindo: dano na Vida acorda sem o descanso; o efeito sair (ou entrar) reavalia o grupo.
+  Hooks.on("preUpdateActor", (actor, changed, options) => {
+    const next = foundry.utils.getProperty(changed, "system.attributes.hp.value");
+    if (next === undefined || !sleepingEffect(actor)) return;
+    if (Number(next) < Number(actor.system?.attributes?.hp?.value)) options.nihilityWakeByDamage = true;
+  });
+  Hooks.on("updateActor", async (actor, changed, options) => {
+    if (!options?.nihilityWakeByDamage || !isDesignatedGm() || !isWorldClockEnabled()) return;
+    await wakeSleeper(actor, { rested: false });
+  });
+  const sleepEffectChanged = effect => {
+    if (!effect.statuses?.has?.(SLEEP_ID) || !isWorldClockEnabled()) return;
+    setTimeout(() => checkGroupSleep(), 100);
+  };
+  Hooks.on("createActiveEffect", sleepEffectChanged);
+  Hooks.on("deleteActiveEffect", sleepEffectChanged);
+
+  // O core mostra "começou há…" na janela do efeito; o jogador não vê o tempo.
+  Hooks.on("renderActiveEffectConfig", (app, html) => {
+    if (game.user.isGM) return;
+    const root = html instanceof HTMLElement ? html : app?.element;
+    root?.querySelectorAll?.("fieldset.start-data")?.forEach(el => el.remove());
+  });
+}

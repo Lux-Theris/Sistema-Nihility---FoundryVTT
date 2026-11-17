@@ -78,6 +78,14 @@ export function skillAssist(mech, { actor = null } = {}) {
     actorType: actorKind(actor),
     energyMax,
     validFormula,
+    formTemplateOk: uuid => {
+      try {
+        const doc = fromUuidSync(uuid);
+        return doc?.documentName === "Actor" && Boolean(doc.system?.formTemplate);
+      } catch {
+        return false;
+      }
+    },
     energyLabel,
     skillRange: isSkillRangeEnabled()
   });

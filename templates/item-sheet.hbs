@@ -226,6 +226,20 @@
       </div>
       {{/if}}
 
+      {{#if (eq skillMechanicType "form")}}
+      <div class="sec">
+        <div class="sec-head">Forma<span class="sp"></span><span class="depends">Mecânica = Forma</span></div>
+        <div class="sec-body">
+          <label class="fld" data-form-drop><span class="fld-label">Ficha da forma <span class="help" title="Arraste para cá a ficha-molde (um Personagem marcado como 'Molde de forma'). Ao ligar a Skill, o personagem joga com uma cópia dela: atributos, Vida, Espécie, partes do corpo, Skills Raciais, armas naturais, imagem e tamanho vêm da forma; nível, XP, Mana, Títulos e as Skills dele vão junto. Itens não vão. Precisa ser Habilidade Ativa: desligar volta ao normal.">?</span></span>
+            <input type="text" name="system.formActorUuid" value="{{system.formActorUuid}}" placeholder="Arraste a ficha da forma para cá"/>
+          </label>
+          {{#if skillFormName}}<div class="strip dim">Forma: {{skillFormName}}</div>{{/if}}
+          {{#if skillFormMissing}}<div class="strip">A ficha da forma sumiu ou não está marcada como molde de forma.</div>{{/if}}
+          {{#if skillFormCanRequest}}<button type="button" data-action="requestForm">Pedir forma…</button>{{/if}}
+        </div>
+      </div>
+      {{/if}}
+
       {{#if (eq skillMechanicType "damage")}}
       <div class="sec">
         <div class="sec-head">Dano<span class="sp"></span><span class="depends">Mecânica = Dano</span></div>
@@ -662,6 +676,7 @@
         <div class="sec-head"><i class="fas fa-lock"></i> Mestre<span class="sp"></span><span class="sec-head-note">só o Mestre vê</span></div>
         <div class="sec-body">
           <label class="toggle"><input type="checkbox" name="system.isPadDevice" {{#if system.isPadDevice}}checked{{/if}}/><span class="toggle-track"></span><span>Dispositivo PAD</span><span class="help" title="Quem tiver ao menos um Item PAD ganha o botão Abrir PAD na própria ficha. Não precisa estar equipado.">?</span></label>
+          <label class="toggle"><input type="checkbox" name="system.marksTime" {{#if system.marksTime}}checked{{/if}}/><span class="toggle-track"></span><span>Marca o tempo</span><span class="help" title="Relógio do mundo: a linha deste Item no inventário mostra a hora (o jogador só vê a hora no PAD e em itens assim). Se for tecnológico e estiver suprimido (PEM, campo), mostra --:--.">?</span></label>
         </div>
       </div>
       {{/if}}

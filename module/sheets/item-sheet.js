@@ -29,6 +29,8 @@ import { getAntimagicReach,
   isStructuresEnabled,
   isStructureMechanic,
   isFormsEnabled,
+  isAnalysisEnabled,
+  isPredationEnabled,
   debugLog,
   getVesselSizes,
   vesselKind,
@@ -143,6 +145,8 @@ function headerChipsFor(item) {
       const target = MEU_SISTEMA.SKILL_TARGET_TYPE_SHORT_LABELS[sys.targetType] ?? "";
       if (isStructureMechanic(sys)) add("Estrutura", "Mecânica ao usar");
       else if (sys.effectType === "form") add("Forma", "Mecânica ao usar");
+      else if (sys.effectType === "analysis") add("Análise", "Mecânica ao usar");
+      else if (sys.effectType === "predation") add("Predação", "Mecânica ao usar");
       else if (sys.effectType === "damage") add(`Dano · ${target}`, "Mecânica ao usar", "hp");
       else if (sys.effectType === "temporary") add(`Efeito · ${target}`, "Mecânica ao usar");
       if (sys.resistanceTarget) {
@@ -226,6 +230,10 @@ function tabsFor(item) {
         ? "estrutura"
         : sys.effectType === "form"
         ? "forma"
+        : sys.effectType === "analysis"
+        ? "análise"
+        : sys.effectType === "predation"
+        ? "predação"
         : { damage: "dano", temporary: `${(sys.effects ?? []).length} ef.` }[sys.effectType] ?? "";
       const passives =
         (sys.resistanceTarget ? 1 : 0) +
@@ -551,14 +559,16 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const mechanicType = isStructureMechanic(sys) ? "structure" : sys.effectType;
     context.skillMechanicType = mechanicType;
     context.skillEffectTypeSeg = seg(
-      MEU_SISTEMA.SKILL_EFFECT_TYPES.filter(t => (t !== "structure" || isStructuresEnabled() || mechanicType === "structure") && (t !== "form" || isFormsEnabled() || mechanicType === "form")).map(t => [
+      MEU_SISTEMA.SKILL_EFFECT_TYPES.filter(t => (t !== "structure" || isStructuresEnabled() || mechanicType === "structure") && (t !== "form" || isFormsEnabled() || mechanicType === "form") && (t !== "analysis" || isAnalysisEnabled() || mechanicType === "analysis") && (t !== "predation" || isPredationEnabled() || mechanicType === "predation")).map(t => [
         t,
         MEU_SISTEMA.SKILL_EFFECT_TYPE_SHORT_LABELS[t],
         MEU_SISTEMA.SKILL_EFFECT_TYPE_LABELS[t]
       ]),
       mechanicType
     );
-    context.skillShowsTarget = mechanicType === "damage" || mechanicType === "temporary";
+    // Análise e Predação (7b) têm sempre alvo único: só o Alcance aparece, sem o Tipo de Alvo.
+    context.skillTargetIsFixed = mechanicType === "analysis" || mechanicType === "predation";
+    context.skillShowsTarget = mechanicType === "damage" || mechanicType === "temporary" || context.skillTargetIsFixed;
     const areaOn = isAreaEffectsEnabled();
     context.skillTargetTypeSeg = seg(
       MEU_SISTEMA.SKILL_TARGET_TYPES.filter(t => areaOn || !["emission", "zone"].includes(t) || t === sys.targetType).map(t => [
@@ -568,9 +578,9 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       ]),
       sys.targetType
     );
-    context.skillIsArea = sys.targetType === "emission" || sys.targetType === "zone";
+    context.skillIsArea = !context.skillTargetIsFixed && (sys.targetType === "emission" || sys.targetType === "zone");
     // Alcance não faz diferença numa Skill "Si mesmo". Origem da forma: sem valor salvo vale "livre".
-    context.skillRangeShown = context.skillRangeOn && sys.targetType !== "self";
+    context.skillRangeShown = context.skillRangeOn && (context.skillTargetIsFixed || sys.targetType !== "self");
     context.skillAreaOriginSeg = seg(
       [
         ["caster", "Sai de quem lança", "A forma sai do Token de quem lança (ou da Marca): o círculo fica em volta dele, o cone e a linha só giram."],

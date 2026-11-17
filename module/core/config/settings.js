@@ -589,6 +589,33 @@ export function registerSystemSettings() {
     default: 10
   });
 
+  // Análise e Predação (7b): Regras da Mesa, grupo "Análise e Predação".
+  game.settings.register(SYSTEM_ID, S.analysisAttrStep, {
+    name: "Análise — pontos de Percepção × Furtividade por degrau",
+    hint: "A cada tantos pontos de diferença entre a Percepção de quem analisa e a Furtividade do alvo, a margem da Análise sobe ou desce 1. Padrão 10.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 10
+  });
+  game.settings.register(SYSTEM_ID, S.predationAttrPercent, {
+    name: "Predação — % dos atributos do alvo que viram pontos",
+    hint: "Na 1ª, 5ª, 10ª, 20ª, 40ª… criatura da mesma Espécie predada, cada atributo ganha esta porcentagem do atributo da criatura (arredondada para baixo) como pontos permanentes. Padrão 5; 0 desliga os pontos.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 5
+  });
+
+  game.settings.register(SYSTEM_ID, S.predationLevelStep, {
+    name: "Predação — pontos de chance por nível de diferença",
+    hint: "A chance de absorver uma Skill começa em 50% no mesmo Tier e no mesmo nível. Cada nível que a Skill alvo está acima da Predação tira estes pontos; cada nível abaixo soma. Padrão 5.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 5
+  });
+
   // Arquétipos do Gerador de NPC (vazio = os de fábrica, MEU_SISTEMA.DEFAULT_NPC_ARCHETYPES).
   game.settings.register(SYSTEM_ID, S.npcArchetypesData, {
     scope: "world",

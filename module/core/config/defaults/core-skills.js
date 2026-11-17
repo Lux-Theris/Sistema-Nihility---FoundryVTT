@@ -13,6 +13,12 @@ export const CORE_SKILL_DEFS = {
       "diante do campo, menos o campo atrapalha — primeiro a magia passa pagando {E} a mais, depois passa de graça. " +
       "Usar a Skill contra a Antimagia a faz evoluir.</p>"
   },
+  concealment: {
+    name: "Ocultação",
+    description:
+      "<p>Esconder o que você é e o que sabe fazer de quem tenta enxergar. Esta Skill é <strong>passiva</strong>: não se usa. " +
+      "Quanto maior o nível, mais <strong>dificulta a Análise</strong>: o nível soma ao seu nível contra a margem de quem analisa.</p>"
+  },
   manaDetection: {
     name: "Detecção de {E}",
     description:

@@ -106,7 +106,7 @@ export function protectedFromKind({ kind = "magic", shieldKinds = [], structureK
 export const NATURE_KINDS = ["magic", "tech"];
 
 /** Chaves das Skills pré-feitas do sistema (`system.coreSkill`). */
-export const CORE_SKILLS = { manipulation: "manaManipulation", detection: "manaDetection" };
+export const CORE_SKILLS = { manipulation: "manaManipulation", detection: "manaDetection", concealment: "concealment" };
 
 /**
  * Nível de Manipulação de quem tem estas Skills (a mais alta com `coreSkill` de Manipulação;

@@ -19,7 +19,7 @@ import { regenExplainRows } from "../combat/regeneration.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
-const KIND_LABELS = { points: "Pontos", title: "Título", species: "Espécie", lineage: "Linhagem", heritage: "Herança", skill: "Skill", item: "Item", mod: "Modificação", effect: "Efeito", conditional: "Quando → Então" };
+const KIND_LABELS = { points: "Pontos", title: "Título", species: "Espécie", lineage: "Linhagem", heritage: "Herança", skill: "Skill", item: "Item", mod: "Modificação", effect: "Efeito", conditional: "Quando → Então", predation: "Predação" };
 
 function appId(actor, stat) {
   return `nihility-breakdown-${stat}-${actor.uuid.replace(/[^a-zA-Z0-9]/g, "-")}`;
@@ -130,7 +130,11 @@ export class StatBreakdownApp extends HandlebarsApplicationMixin(ApplicationV2) 
     const ex = explainAttribute({
       points: attr.points,
       pending: attr.pendingPoints,
-      titles: [...titleBonusSources(actor, key), ...originBonusSources(actor, key)],
+      titles: [
+        ...titleBonusSources(actor, key),
+        ...originBonusSources(actor, key),
+        ...(Number(attr.predationPoints) > 0 ? [{ label: "Criaturas predadas", value: Number(attr.predationPoints), kind: "predation" }] : [])
+      ],
       buffs: effectSources(actor, `system.attributes.combat.${key}.buffDelta`),
       buffActual: attr.buffDelta || 0,
       conditionals: conditionalSources(actor, key),

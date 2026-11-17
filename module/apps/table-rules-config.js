@@ -19,6 +19,7 @@ const GROUPS = [
   { id: "ships", label: "Naves", test: key => /^ship/.test(key) },
   { id: "combat", label: "Combate", test: key => /(initiative|damage|OffScene|Scaling|antimagic|technomagic|affinity|unarmed)/i.test(key) },
   { id: "naming", label: "Nomeação", test: key => /^naming/.test(key) },
+  { id: "analysis", label: "Análise e Predação", test: key => /^(analysis|predation)/.test(key) },
   { id: "clock", label: "Relógio e descanso", test: key => /^clock/.test(key) },
   { id: "other", label: "Outras", test: () => true }
 ];

@@ -51,6 +51,8 @@ function describeMechanic(mech, ctx) {
     const shown = effects.slice(0, 2).join(" e ");
     return effects.length > 2 ? `${shown} +${effects.length - 2}` : shown;
   }
+  if (mech.effectType === "analysis") return "analisa um alvo";
+  if (mech.effectType === "predation") return "preda um alvo derrotado";
   if (mech.effectType === "form") return `Forma: ${ctx.formName?.(mech.formActorUuid) ?? "(sem ficha)"}`;
   if (mech.effectType === "structure" || mech.targetType === "structure") {
     const regen = Number(mech.structureRegen) || 0;
@@ -129,6 +131,7 @@ export function skillSummaryParts(mech, ctx = {}) {
   if (ctx.mastery) parts.push(ctx.mastery);
   // Skill pré-feita de Manipulação: o que ela faz é resistir ao campo de Antimagia.
   if (mech.coreSkill === "manaManipulation") parts.push("resiste à Antimagia");
+  if (mech.coreSkill === "concealment") parts.push("dificulta a Análise");
 
   const cost = Number(ctx.cost ?? mech.cost) || 0;
   if (mech.variableMana) parts.push(`${energy} variável${cost ? ` (base ${cost})` : ""}`);

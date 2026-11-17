@@ -326,6 +326,36 @@ export function getNamingConfig() {
   return { manaFactor: read("namingManaFactor", 1, 0), xpFactor: read("namingXpFactor", 10, 0), sharePercent: read("namingShareXpPercent", 10, 0) };
 }
 
+/** Análise (7b): de quantos pontos de diferença entre Percepção e Furtividade vale 1 degrau (Regras da Mesa, padrão 10). */
+export function getAnalysisAttrStep() {
+  try {
+    const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.analysisAttrStep));
+    return Number.isFinite(value) ? Math.max(1, Math.floor(value)) : 10;
+  } catch (err) {
+    return 10;
+  }
+}
+
+/** Predação (7b): % dos atributos do alvo que viram pontos permanentes (Regras da Mesa, padrão 5). */
+export function getPredationAttrPercent() {
+  try {
+    const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.predationAttrPercent));
+    return Number.isFinite(value) ? Math.max(0, value) : 5;
+  } catch (err) {
+    return 5;
+  }
+}
+
+/** Predação: quanto cada nível de diferença entre a Skill alvo e a Predação muda a chance (Regras da Mesa, padrão 5). */
+export function getPredationLevelStep() {
+  try {
+    const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.predationLevelStep));
+    return Number.isFinite(value) ? Math.max(0, value) : 5;
+  } catch (err) {
+    return 5;
+  }
+}
+
 /** Lista de arquétipos (de fábrica, se nada vier) normalizada. */
 export function defaultNpcArchetypes(list = MEU_SISTEMA.DEFAULT_NPC_ARCHETYPES) {
   return list.map(a => normalizeArchetype(a, MEU_SISTEMA.COMBAT_ATTRIBUTES));

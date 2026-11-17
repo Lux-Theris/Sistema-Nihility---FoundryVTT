@@ -46,6 +46,10 @@ export const MEU_SISTEMA = {
     namingManaFactor: "namingManaFactor",
     namingXpFactor: "namingXpFactor",
     namingShareXpPercent: "namingShareXpPercent",
+    // Análise e Predação (7b).
+    analysisAttrStep: "analysisAttrStep",
+    predationAttrPercent: "predationAttrPercent",
+    predationLevelStep: "predationLevelStep",
     bodyFunctionsData: "bodyFunctionsData",
     attributePointsStarting: "attributePointsStarting",
     attributePointsPerLevel: "attributePointsPerLevel",
@@ -439,14 +443,16 @@ export const MEU_SISTEMA = {
     { id: "p5", label: "Mínima" }
   ],
 
-  SKILL_EFFECT_TYPES: ["none", "damage", "temporary", "structure", "form"],
+  SKILL_EFFECT_TYPES: ["none", "damage", "temporary", "structure", "form", "analysis", "predation"],
 
   SKILL_EFFECT_TYPE_LABELS: {
     none: "Descritiva (sem mecânica)",
     damage: "Dano",
     temporary: "Efeito Temporário (buff/debuff/escudo)",
     structure: "Estrutura (parede, bloco, barreira no mapa)",
-    form: "Forma (ficha temporária de outro corpo)"
+    form: "Forma (ficha temporária de outro corpo)",
+    analysis: "Análise (revela a ficha de um alvo)",
+    predation: "Predação (absorve Skills e pontos de um alvo derrotado)"
   },
 
   /** Rótulos curtos, pro controle segmentado da ficha de Item. */
@@ -455,7 +461,9 @@ export const MEU_SISTEMA = {
     damage: "Dano",
     temporary: "Efeito Temporário",
     structure: "Estrutura",
-    form: "Forma"
+    form: "Forma",
+    analysis: "Análise",
+    predation: "Predação"
   },
 
   /**

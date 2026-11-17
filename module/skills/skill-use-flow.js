@@ -15,6 +15,8 @@ import { reachContext, resolveTargetReach, confirmMarkCost } from "../combat/ran
 import { shapeIsFree } from "../combat/range-rules.js";
 import { isWeaponMasteryEnabled } from "../combat/weapon-mastery.js";
 import { formUseBlock, formUseCheck } from "./forms.js";
+import { analysisBlockReason } from "./analysis.js";
+import { predationBlockReason } from "./predation.js";
 
 /**
  * "Usar Habilidade" — o MESMO caminho para a ficha de Personagem, a de Nave/Veículo e a hotbar.
@@ -36,6 +38,12 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget, bo
   // Maestria de arma (H6): passiva, só dá o bônus nos ataques com armas do tipo (e vale pela hotbar também).
   if (skill.system.weaponMastery && isWeaponMasteryEnabled()) {
     ui.notifications.info(`${skill.name} é passiva: o bônus vale sozinho nos ataques com armas do tipo.`);
+    return;
+  }
+
+  // Ocultação (7b): Skill de base passiva, vale sozinha contra a Análise.
+  if (skill.system.coreSkill === "concealment") {
+    ui.notifications.info(`${skill.name} é passiva: dificulta a Análise sozinha.`);
     return;
   }
 
@@ -175,11 +183,39 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget, bo
       // Alcance (H4): fora dele, só pela Marca (ou o Mestre ignora).
       const reach = await resolveTargetReach(actor, targetActor, mech, { label: skill.name, baseCost: baseCostOf(actor, mech) });
       if (!reach.ok) return;
-      await useSkill({ targetActor, subSkillIndex, rollOptions, manaInvested, viaMark: reach.viaMark });
+      // Análise e Predação (7b): confere o alvo ANTES de pagar o Custo.
+      const gate = await targetedMechanicGate(actor, mech, targetActor);
+      if (!gate) return;
+      await useSkill({ targetActor, subSkillIndex, rollOptions, manaInvested, viaMark: reach.viaMark, ...gate });
     }
   } catch (err) {
     reportError("Falha ao usar a Habilidade.", err);
   }
+}
+
+/**
+ * Análise e Predação (7b): o alvo serve? Devolve `{}` (segue), `{predationBypass: true}` (o Mestre passou
+ * por cima de "ainda de pé") ou null (recusado, com o aviso já dado). Outras mecânicas passam direto.
+ */
+async function targetedMechanicGate(actor, mech, targetActor) {
+  if (mech.effectType === "analysis") {
+    const reason = analysisBlockReason(targetActor);
+    if (reason) ui.notifications?.warn(reason);
+    return reason ? null : {};
+  }
+  if (mech.effectType !== "predation") return {};
+  const block = predationBlockReason(actor, targetActor);
+  if (!block) return {};
+  if (!(block.soft && game.user.isGM)) {
+    ui.notifications?.warn(block.text);
+    return null;
+  }
+  const go = await foundry.applications.api.DialogV2.confirm({
+    window: { title: "Predar mesmo assim?" },
+    content: `<div class="nihility-predation-confirm"><p>${escapeHtml(block.text)}</p><p>Você é o Mestre: pode predar mesmo assim.</p></div>`,
+    rejectClose: false
+  });
+  return go ? { predationBypass: true } : null;
 }
 
 /** O contexto de alcance de uma forma de área: presa em quem lança, ou livre (a partir do nível). */

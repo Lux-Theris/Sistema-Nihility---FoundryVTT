@@ -90,6 +90,16 @@ export function isNamingEnabled() {
   return isFeatureEnabled("naming");
 }
 
+/** Análise (7b): Mecânica de Skill que revela a ficha de um alvo. */
+export function isAnalysisEnabled() {
+  return isFeatureEnabled("analysis");
+}
+
+/** Predação (7b): Mecânica de Skill que absorve Skills, pontos e forma de um alvo derrotado. */
+export function isPredationEnabled() {
+  return isFeatureEnabled("predation");
+}
+
 /** Pacto (7a): Skills emprestadas pelo patrono ao bruxo. */
 export function isPactEnabled() {
   return isFeatureEnabled("pact");

@@ -205,7 +205,7 @@ export async function requestForm(actor, skill, subSkillIndex = null) {
 
 /* ------------------------------------------------------------------ Mestre */
 
-async function ensureFolder(name) {
+export async function ensureFolder(name) {
   let folder = game.folders.find(f => f.type === "Actor" && f.name === name);
   if (!folder) folder = await Folder.create({ name, type: "Actor" });
   return folder?.id ?? null;
@@ -251,6 +251,18 @@ async function linkTemplateToSkill(actor, req, template) {
   subs.push(subFor(mech ?? skill.system, `Forma: ${template.name}`, template.uuid));
   await skill.update({ "system.subSkills": subs });
   return true;
+}
+
+/**
+ * Liga uma ficha-molde já criada a uma Skill de Forma de `actor` (campo vazio ou uma Sub-Skill "Forma: X"),
+ * pela mesma lógica do pedido de forma aprovado. Usada também pela Predação (7b).
+ * @param {Actor} actor - quem tem a Skill de Forma
+ * @param {string} skillId
+ * @param {Actor} template - a ficha-molde
+ * @param {number|null} [subSkillIndex]
+ */
+export async function attachFormTemplate(actor, skillId, template, subSkillIndex = null) {
+  return linkTemplateToSkill(actor, { skillId, subSkillIndex }, template);
 }
 
 function subFor(base, name, uuid) {

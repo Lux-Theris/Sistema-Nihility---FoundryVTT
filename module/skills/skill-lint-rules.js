@@ -93,6 +93,13 @@ export function lintSkill(mech, ctx = {}) {
     if ((Number(m.structureRegen) > 0 || Number(m.structureRegenCost) > 0) && !active) push("structureRegenNotActive", "hard", "mechanic", "Regeneração da Estrutura só vale em Habilidade Ativa.");
   }
 
+  // Análise e Predação (7b): uso na hora, sempre num alvo único.
+  if (effectType === "analysis" || effectType === "predation") {
+    const name = effectType === "analysis" ? "Análise" : "Predação";
+    if (active) push("analysisPredationActive", "hard", "mechanic", `Mecânica ${name} é de uso na hora: numa Habilidade Ativa ela liga e desliga em vez de agir.`);
+    if (m.targetType && m.targetType !== "targeted") push("analysisPredationTarget", "soft", "mechanic", `Mecânica ${name} sempre pede um alvo único: o Tipo de Alvo "${m.targetType}" é ignorado.`);
+  }
+
   if (effectType === "form") {
     if (!active) push("formNotActive", "hard", "mechanic", "Mecânica Forma só vale em Habilidade Ativa: sem manutenção a forma nunca desliga e a Skill não liga.");
     if (!m.formActorUuid) push("noFormActor", "hard", "mechanic", "Mecânica Forma sem ficha da forma: arraste a ficha-molde para o campo.");

@@ -21,6 +21,8 @@ export function skillUseMode(mech, { areaEnabled = false, areaSupported = false 
   if (!mech) return "plain";
   if (mech.hasUpkeep && mech.active) return "deactivate";
   if (mech.effectType === "form") return "form";
+  // Análise e Predação (7b): sempre um alvo único, seja qual for o Tipo de Alvo escrito.
+  if (mech.effectType === "analysis" || mech.effectType === "predation") return "targeted";
   if (isStructureMechanic(mech)) return "structure";
   if (mech.effectType !== "temporary" && mech.effectType !== "damage") return "plain";
   if (mech.targetType === "zone" && areaEnabled && areaSupported) return "zone";

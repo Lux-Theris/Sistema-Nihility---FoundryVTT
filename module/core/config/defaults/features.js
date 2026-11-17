@@ -307,6 +307,18 @@ export const FEATURES = {
     hint: "O Mestre cria um Pacto entre um patrono e um bruxo: o patrono marca quais Skills libera, e o bruxo as usa com a própria Mana (no nível do patrono; alcance, Antimagia e Supressão contam do bruxo). Todo o XP de uso vai para o patrono. Qualquer um dos dois, ou o Mestre, corta o Pacto, e o patrono pode parar de aceitar pedidos. Passam só Skills de uso na hora (sem Ativa, Preparo, Resistência, Maestria nem Forma). Desligar esconde a seção e impede usar; nada salvo se perde.",
     default: true
   },
+  analysis: {
+    setting: "analysisEnabled",
+    name: "Análise",
+    hint: "Mecânica de Skill \"Analisar\": quem analisa compara o nível da Skill com o nível do alvo (mais a Ocultação dele), a Percepção de quem analisa com a Furtividade do alvo e, se a Análise é mágica, a Defesa Mágica do alvo. A margem decide o que o card (só para quem analisou e o Mestre) revela: Espécie, Traços e elementos; Vida/Mana e Condições; Resistências e fraquezas; a lista de Skills; a frase de cada Skill e os atributos. Desligar esconde a Mecânica e impede usar; nada salvo se perde.",
+    default: true
+  },
+  predation: {
+    setting: "predationEnabled",
+    name: "Predação",
+    hint: "Mecânica de Skill \"Predação\": sobre um alvo derrotado (morto, Caído ou Inconsciente), quem preda rola um d100 por Skill do alvo (a chance depende do Tier da Predação contra o da Skill) e, se o Mestre confirmar, absorve as que ganhou no nível 1. Também pode ganhar pontos permanentes de atributo (uma parte dos do alvo, só na 1ª, 5ª, 10ª, 20ª… criatura da mesma Espécie), a forma do corpo (se tiver uma Skill de Forma) e remover o Token. Desligar esconde a Mecânica e impede usar; nada salvo se perde.",
+    default: true
+  },
   worldClock: {
     setting: "worldClockEnabled",
     name: "Relógio do mundo, dia/noite e escuro",
@@ -492,6 +504,8 @@ const FEATURE_LAYOUT = {
   traps: ["world", "Regiões com armadilha: dano e Condição a quem pisa."],
   forms: ["character", "Skill de Forma: o personagem joga com a ficha temporária de outro corpo."],
   naming: ["character", "Nomear uma criatura a liga a você: Corredor de alma, XP e Mana máxima perdida."],
+  analysis: ["character", "Skill Analisar: revela a ficha de um alvo conforme a margem de nível."],
+  predation: ["character", "Skill Predação: absorve Skills, pontos e forma de um alvo derrotado."],
   pact: ["character", "Pacto entre patrono e bruxo: o bruxo usa as Skills liberadas com a própria Mana."],
   worldClock: ["world", "Relógio do mundo: dia/noite, escuro e o Descanso que passa o tempo."],
   vessels: ["world", "Naves e Veículos com Módulos, Grid de Energia e tripulação."],

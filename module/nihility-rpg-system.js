@@ -78,6 +78,7 @@ import { registerForms } from "./skills/forms.js";
 import { renderFormRequestControls } from "./skills/form-request.js";
 import { registerSenses } from "./combat/senses.js";
 import { registerNaming } from "./species/naming.js";
+import { registerPredation } from "./skills/predation.js";
 import { registerEnvironmentSceneMenu } from "./apps/environment-config.js";
 import { registerShieldLightHooks } from "./combat/lights.js";
 import { registerShieldPoolReconcile } from "./combat/shield-pools.js";
@@ -242,6 +243,8 @@ Hooks.once("init", () => {
   registerSenses();
   // Nomeação e Corredor de alma (7a): botão "Nomear" no Token HUD, card do pedido e XP compartilhado.
   registerNaming();
+  // Predação (7b): o card do Mestre com Confirmar/Cancelar.
+  registerPredation();
 
   // Partials reaproveitados entre templates (hoje só a Habilidade Concedida, usada 3x na ficha
   // de Item). Precisa estar registrado antes da primeira ficha abrir.

@@ -39,6 +39,9 @@ export const COST_WEIGHTS = {
   structureHpPerPoint: 5,
   // Forma (H5): peso fixo da transformação; a manutenção entra pelo upkeepShare como nas outras Ativas.
   formFlat: 8,
+  // Análise e Predação (7b): peso fixo (a Predação vale mais: dá Skills e pontos de graça).
+  analysisFlat: 4,
+  predationFlat: 10,
   upkeepShare: 0.25,
   percentTarget: 0.1
 };
@@ -169,6 +172,12 @@ export function suggestSkillCost(mech, ctx = {}) {
   } else if (effectType === "form") {
     points = w.formFlat;
     rows.push({ label: "Transformação em outra forma", value: fmt(points) });
+  } else if (effectType === "analysis") {
+    points = w.analysisFlat;
+    rows.push({ label: "Análise de um alvo", value: fmt(points) });
+  } else if (effectType === "predation") {
+    points = w.predationFlat;
+    rows.push({ label: "Predação de um alvo derrotado", value: fmt(points) });
   } else if (effectType === "structure" || m.targetType === "structure") {
     const hp = Number(ctx.structureHp?.(m.structureId)) || 0;
     points = hp / w.structureHpPerPoint;

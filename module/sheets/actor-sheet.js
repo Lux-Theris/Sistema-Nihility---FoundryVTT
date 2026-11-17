@@ -712,6 +712,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.skillTimers = skillTimersFor(actor);
     // Maestria de arma (H6): a Skill é passiva (sem Usar). E o ataque desarmado, sempre à mão (Personagem).
     context.masterySkills = Object.fromEntries(actorMasteries(actor).map(m => [m.skill.id, true]));
+    // Ocultação (7b): passiva como a Maestria, não se usa.
+    for (const item of actor.items) if (item.type === "skill" && item.system.coreSkill === "concealment") context.masterySkills[item.id] = true;
     context.unarmed = actor.type === "character" ? unarmedSummary(actor) : null;
     context.fusableTiers = FUSABLE_TARGET_TIERS.filter(t => t !== "ultimate" || ultimateVisible);
     context.hasUltimateSkill = actor.system.hasUltimateSkill;

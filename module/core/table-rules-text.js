@@ -119,6 +119,14 @@ export function buildTableRulesPages(d) {
       parts.push(`<p>No menu do Token, <b>Nomear</b> dá um nome a uma criatura. Quem nomeia <b>perde ${energy} máxima para sempre</b> (a soma dos atributos da criatura); a criatura ganha ficha própria, a Herança <b>Nomeado</b> e <b>XP nas Habilidades</b>, que podem subir vários níveis de uma vez. Se a ${energy} máxima não chega, a Nomeação falha: a ${energy} vai a 0 e quem nomeava desmaia. O jogador pede e o Mestre aprova.</p>`);
       parts.push(`<p>Os dois ficam ligados pelo <b>Corredor de alma</b>: o nomeado pode usar as Habilidades de quem o nomeou (de uso na hora), com a própria ${energy}, no nível de quem nomeou; o <b>XP de uso vai para quem nomeou</b>, que pode parar de aceitar pedidos. Quem nomeou também recebe uma parte de todo XP que o nomeado ganhar.</p>`);
     }
+    if (d.features.analysis) {
+      parts.push("<h2>Análise</h2>");
+      parts.push("<p>Uma Habilidade de <b>Análise</b> revela a ficha de um alvo. A margem é o <b>nível da Habilidade</b> menos o <b>nível do alvo</b> e a <b>Ocultação</b> dele, mais um degrau a cada 10 pontos que a sua <b>Percepção</b> passa a <b>Furtividade</b> dele. Uma Análise <b>mágica</b> perde nível pela <b>Defesa Mágica</b> do alvo; a tecnológica não. Quanto maior a margem, mais você vê: origem, Traços e elementos; Vida, energia e Condições; Resistências e fraquezas; as Habilidades; e por fim a frase de cada uma e os atributos. Margem negativa: o alvo resistiu e você não vê nada.</p>");
+    }
+    if (d.features.predation) {
+      parts.push("<h2>Predação</h2>");
+      parts.push("<p>Uma Habilidade de <b>Predação</b>, usada num alvo <b>derrotado</b> (morto, Caído ou Inconsciente), rola um d100 por Habilidade dele: a chance é <b>50%</b> no mesmo Tier e no mesmo nível, mais 25% por Tier da Predação acima do da Habilidade e menos 25% por Tier abaixo; cada nível que a Habilidade está acima da Predação tira pontos (e cada nível abaixo soma), então uma Predação de nível baixo não pega Habilidades de nível alto. O Mestre confirma. As Habilidades ganhas entram <b>inteiras, no nível 1</b> (a Racial vira Normal). Na <b>1ª, 5ª, 10ª, 20ª, 40ª…</b> criatura da mesma Espécie, uma parte dos atributos dela vira <b>pontos permanentes</b>. Quem tem uma Habilidade de Forma pode ganhar a <b>forma</b> do corpo. O corpo é consumido e o Token some. Não se absorve o que veio de Item, Habilidades de base, Maestrias, Formas nem o que você já tem.</p>");
+    }
     if (d.features.pact) {
       parts.push("<h2>Pacto</h2>");
       parts.push(`<p>Num <b>Pacto</b> (criado pelo Mestre), o bruxo usa as Habilidades que o patrono <b>liberou</b>, com a própria ${energy}, no nível do patrono. Alcance, Antimagia e Supressão contam do bruxo; o XP de uso vai para o patrono. O patrono ou o bruxo podem cortar o Pacto, e o patrono pode parar de aceitar pedidos.</p>`);

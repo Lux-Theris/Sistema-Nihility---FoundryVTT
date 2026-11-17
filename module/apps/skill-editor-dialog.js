@@ -15,6 +15,8 @@ import {
   getStructures,
   isStructuresEnabled,
   isFormsEnabled,
+  isAnalysisEnabled,
+  isPredationEnabled,
   isStructureMechanic,
   isMagicUse,
   isTechUse,
@@ -146,6 +148,8 @@ export function mechanicSummaryFor(mech) {
     return `Efeito Temporário: ${count} efeito${count === 1 ? "" : "s"}`;
   }
   if (mech.effectType === "form") return `Forma: ${formTemplateOf(mech)?.name ?? "(sem ficha)"}`;
+  if (mech.effectType === "analysis") return "Análise: revela a ficha de um alvo";
+  if (mech.effectType === "predation") return "Predação: absorve de um alvo derrotado";
   if (isStructureMechanic(mech)) {
     return `Estrutura: ${getStructures().find(st => st.id === mech.structureId)?.label ?? "(nenhuma escolhida)"}`;
   }
@@ -263,7 +267,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
       .map(a => `<option value="${a.key}" ${a.key === data.scalingAttribute ? "selected" : ""}>${escapeHtml(a.label)}</option>`)
       .join("");
 
-  const effectTypeOptions = MEU_SISTEMA.SKILL_EFFECT_TYPES.filter(t => (t !== "structure" || isStructuresEnabled() || data.effectType === "structure") && (t !== "form" || isFormsEnabled() || data.effectType === "form")).map(
+  const effectTypeOptions = MEU_SISTEMA.SKILL_EFFECT_TYPES.filter(t => (t !== "structure" || isStructuresEnabled() || data.effectType === "structure") && (t !== "form" || isFormsEnabled() || data.effectType === "form") && (t !== "analysis" || isAnalysisEnabled() || data.effectType === "analysis") && (t !== "predation" || isPredationEnabled() || data.effectType === "predation")).map(
     t => `<option value="${t}" ${t === data.effectType ? "selected" : ""}>${MEU_SISTEMA.SKILL_EFFECT_TYPE_LABELS[t]}</option>`
   ).join("");
 
@@ -452,7 +456,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
       <div class="form-group"><label>Mecânica ao Usar</label><select name="effectType">${effectTypeOptions}</select></div>
 
       <div class="se-range-section">
-        <div class="form-group"><label>Tipo de Alvo</label><select name="targetType">${targetTypeOptions}</select></div>
+        <div class="form-group se-target-type-field"><label>Tipo de Alvo</label><select name="targetType">${targetTypeOptions}</select></div>
         ${rangeOn ? `<div class="form-group se-reach-field" title="Até onde a Skill chega, em metros (0 = sem limite). Fora dele só pela Marca de quem usa (custo × (distância ÷ alcance)²)."><label>Alcance <span class="hint-inline" style="display:inline;">(metros, 0 = sem limite)</span></label><input type="number" name="range" value="${data.range}" min="0" step="0.5"/></div>` : `<input type="hidden" name="range" value="${data.range}"/>`}
         <div class="mechanic-panel se-emission-panel">
           ${rangeOn ? `<div class="row-2">
@@ -692,7 +696,11 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
     const value = mechanicSelect.value;
     // Tipo de Alvo só existe pra quem acerta alguém: Dano e Efeito. Descritiva não usa alvo, e
     // Estrutura tira o formato do catálogo.
-    rangeSection.style.display = value === "damage" || value === "temporary" ? "flex" : "none";
+    // Análise e Predação (7b): alvo único sempre; só o Alcance aparece.
+    const fixedTarget = value === "analysis" || value === "predation";
+    rangeSection.style.display = value === "damage" || value === "temporary" || fixedTarget ? "flex" : "none";
+    const targetTypeField = rangeSection.querySelector(".se-target-type-field");
+    if (targetTypeField) targetTypeField.style.display = fixedTarget ? "none" : "";
     structurePanel.style.display = value === "structure" ? "flex" : "none";
     if (formPanel) formPanel.style.display = value === "form" ? "flex" : "none";
     damagePanel.style.display = value === "damage" ? "flex" : "none";
@@ -707,10 +715,12 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
   const angleField = root.querySelector(".se-area-angle-field");
 
   function applyTargetType() {
-    const isArea = targetTypeSelect.value === "emission" || targetTypeSelect.value === "zone";
+    // Análise e Predação (7b): alvo único sempre, com Alcance, sem área.
+    const fixedTarget = mechanicSelect.value === "analysis" || mechanicSelect.value === "predation";
+    const isArea = !fixedTarget && (targetTypeSelect.value === "emission" || targetTypeSelect.value === "zone");
     emissionPanel.style.display = isArea ? "flex" : "none";
     const reachField = root.querySelector(".se-reach-field");
-    if (reachField) reachField.style.display = targetTypeSelect.value === "self" ? "none" : "flex";
+    if (reachField) reachField.style.display = !fixedTarget && targetTypeSelect.value === "self" ? "none" : "flex";
     const originSelect = root.querySelector('select[name="areaOrigin"]');
     const freeLevel = root.querySelector(".se-free-level-field");
     if (originSelect && freeLevel) freeLevel.style.display = originSelect.value === "caster" ? "flex" : "none";
@@ -720,6 +730,7 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
     angleField.style.display = areaShapeSelect.value === "cone" ? "flex" : "none";
   }
   targetTypeSelect.addEventListener("change", applyTargetType);
+  mechanicSelect.addEventListener("change", applyTargetType);
   root.querySelector('select[name="areaOrigin"]')?.addEventListener("change", applyTargetType);
   areaShapeSelect.addEventListener("change", applyAreaShape);
   applyTargetType();

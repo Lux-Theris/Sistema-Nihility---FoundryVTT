@@ -110,6 +110,8 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
 
   // Forma (H5): a ficha-molde é do Mestre; a IA não inventa uma. Mecânica Forma vira Descritiva.
   if (effectType === "form") effectType = "none";
+  // Análise e Predação (7b): mecânicas do Mestre; a IA não as inventa (vira Descritiva).
+  if (effectType === "analysis" || effectType === "predation") effectType = "none";
 
   const targetType = ["targeted", "self", "emission", "zone"].includes(m.targetType) ? m.targetType : "targeted";
   out.targetType = targetType;

@@ -22,6 +22,19 @@ export function actorManipulation(actor) {
 }
 
 /**
+ * A Skill de Ocultação de mais alto nível do Ator (a pré-feita `coreSkill: "concealment"`, inclusive a
+ * concedida por Item) e o nível dela. Soma ao nível do alvo contra a Análise. Sem ela, `{skill: null, level: 0}`.
+ */
+export function actorConcealment(actor) {
+  let skill = null;
+  for (const item of actor?.items ?? []) {
+    if (item.type !== "skill" || item.system?.coreSkill !== CORE_SKILLS.concealment) continue;
+    if (!skill || (Number(item.system.level) || 0) > (Number(skill.system.level) || 0)) skill = item;
+  }
+  return { skill, level: skill ? Number(skill.system.level) || 0 : 0 };
+}
+
+/**
  * Elementos que um Ator É agora (pra vantagem entre elementos): os da Espécie, os dos efeitos
  * "Elemento do corpo" de Skill (flag `bodyElement`) e os das Condições ativas que têm elemento.
  */

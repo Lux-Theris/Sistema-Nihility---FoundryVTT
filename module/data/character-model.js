@@ -48,7 +48,9 @@ function baseActorSchema() {
        */
       pendingPoints: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
       /** Alvo de Active Effects de Skills "temporary" (buff/debuff). NUNCA conta pra HP/Mana. */
-      buffDelta: new fields.NumberField({ required: true, integer: true, initial: 0 })
+      buffDelta: new fields.NumberField({ required: true, integer: true, initial: 0 }),
+      /** Predação (7b): pontos permanentes ganhos ao predar criaturas; somam no `total` como o bônus de Título (logo Vida/Mana também). */
+      predationPoints: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 })
     });
   }
 
@@ -497,7 +499,7 @@ function deriveCombatAttributes(dataModel) {
   for (const key of MEU_SISTEMA.COMBAT_ATTRIBUTES) {
     const attr = combat[key];
     const titleBonus = sumTitleBonuses(dataModel.parent, key) + sumSources(originAttributeRows(dataModel.originLayers, key));
-    attr.total = attr.points + titleBonus;
+    attr.total = attr.points + titleBonus + (Number(attr.predationPoints) || 0);
     attr.itemBonus = sumItemAttributeBonus(dataModel.parent, key);
     attr.effectiveTotal = attr.total + (attr.buffDelta || 0);
     attr.bonus = Math.floor(attr.effectiveTotal / 3);

@@ -38,6 +38,8 @@ import { runAsGm } from "../helpers/gm-relay.js";
 import { RELAY_REASONS, refuse, relayFailureMessage } from "../helpers/gm-relay-rules.js";
 import { applyEffectChoices, normalizeEffectRequest, splitByWriteAccess } from "./effect-relay-rules.js";
 import { requestTransform } from "./forms.js";
+import { useAnalysis } from "./analysis.js";
+import { usePredation } from "./predation.js";
 import { applyBorrowedCooldown, isBorrowedUseAllowed, borrowedVia } from "./borrowed-skills.js";
 
 /**
@@ -319,6 +321,21 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
     }
     await grantSkillUseXp(skill, [{ flat: true }]);
     return true;
+  }
+
+  if (mech.effectType === "analysis" || mech.effectType === "predation") {
+    // Análise e Predação (7b): sempre num alvo único. Antimagia (mágica) e PEM (tecnológica) cobram ou anulam como num Efeito.
+    const target = options.targetActor ?? null;
+    if (!target) {
+      ui.notifications?.warn(`${label} precisa de um alvo.`);
+      return false;
+    }
+    const am = await chargeAntimagic(sourceActor, mech, [target], { origin: viaMark?.origin ?? null });
+    if (am.nulled.has(target.uuid)) return postAntimagicNulled(sourceActor, label, am.note);
+    await postAntimagicPaid(sourceActor, label, am.note);
+    return mech.effectType === "analysis"
+      ? useAnalysis(sourceActor, skill, mech, label, target)
+      : usePredation(sourceActor, skill, mech, label, target, { bypass: Boolean(options.predationBypass) });
   }
 
   if (isStructureMechanic(mech)) {

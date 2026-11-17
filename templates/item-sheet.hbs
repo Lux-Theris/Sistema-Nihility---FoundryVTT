@@ -150,11 +150,15 @@
       <div class="sec">
         <div class="sec-head">Alvo<span class="sp"></span><span class="depends">some se Descritiva ou Estrutura</span></div>
         <div class="sec-body">
+          {{#if skillTargetIsFixed}}
+          <div class="strip dim">Sempre um alvo só, escolhido ao usar.</div>
+          {{else}}
           <div class="seg" role="radiogroup" aria-label="Tipo de Alvo">
             {{#each skillTargetTypeSeg as |opt|}}
             <label class="seg-opt {{#if opt.checked}}on{{/if}}" title="{{opt.title}}"><input type="radio" name="system.targetType" value="{{opt.value}}" {{#if opt.checked}}checked{{/if}}/>{{opt.label}}</label>
             {{/each}}
           </div>
+          {{/if}}
           {{#if skillRangeShown}}
           <label class="fld"><span class="fld-label">Alcance <span class="help" title="Até onde a Skill chega, em metros (0 = sem limite). Fora dele o uso é recusado, a não ser pela Marca de quem usa (o custo sobe: custo × (distância ÷ alcance)²). Sem mapa ou sem Token, não é conferido.">?</span></span><span class="suffix"><input type="number" name="system.range" value="{{system.range}}" min="0" step="0.5" aria-label="Alcance"/><span>m</span></span></label>
           {{/if}}
@@ -238,6 +242,13 @@
           {{#if skillFormCanRequest}}<button type="button" data-action="requestForm">Pedir forma…</button>{{/if}}
         </div>
       </div>
+      {{/if}}
+
+      {{#if (eq skillMechanicType "analysis")}}
+      <div class="strip dim">Análise: ao usar, pede um alvo (Personagem). A margem = nível da Skill − (nível do alvo + a Ocultação dele) + a diferença de Percepção × Furtividade ÷ o degrau. Quanto maior, mais da ficha do alvo o card revela (só para quem analisou e o Mestre). Skill mágica perde nível pela Defesa Mágica do alvo; tecnológica não.</div>
+      {{/if}}
+      {{#if (eq skillMechanicType "predation")}}
+      <div class="strip dim">Predação: ao usar, pede um alvo derrotado (morto, Caído ou Inconsciente). Rola um d100 por Skill do alvo (chance = 50% + 25% por Tier de vantagem do Tier desta Skill) e o Mestre confirma. Quem preda ganha as Skills no nível 1, pontos de atributo (uma parte dos do alvo, só na 1ª, 5ª, 10ª, 20ª… criatura da mesma Espécie) e, se tiver uma Skill de Forma, a forma do corpo.</div>
       {{/if}}
 
       {{#if (eq skillMechanicType "damage")}}

@@ -406,7 +406,7 @@
                   {{#if skill.system.active}}
                   <button type="button" class="skill-use-button active" data-action="useSkill" title="Desativar (drenando {{skill.system.upkeepCost}} de {{../../energyLabel}} por rodada)">🔥 Desativar</button>
                   {{else if (lookup ../../masterySkills skill.id)}}
-                  <span class="hint-inline skill-passive-tag" title="Maestria de arma: passiva — o bônus vale sozinho nos ataques com armas do tipo">passiva</span>
+                  <span class="hint-inline skill-passive-tag" title="Passiva: vale sozinha (Maestria de arma: nos ataques com armas do tipo; Ocultação: contra a Análise)">passiva</span>
                   {{else if (lookup ../../skillTimers skill.id)}}
                   <button type="button" class="skill-use-button" disabled title="{{skill.name}}: {{lookup ../../skillTimers skill.id}} — não dá para usar agora">⏳ {{lookup ../../skillTimers skill.id}}</button>
                   {{else if skill.system.subSkills.length}}

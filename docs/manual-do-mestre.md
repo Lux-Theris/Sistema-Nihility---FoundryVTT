@@ -101,7 +101,8 @@ Escolha as ferramentas a partir da campanha. Um módulo vale a pena quando produ
 
 O sistema é modular: cada bloco liga e desliga por mundo, permitindo adaptar suas ferramentas a diferentes propostas, como fantasia, histórias contemporâneas, ficção científica ou campanhas que combinem gêneros. Os presets abaixo são pontos de partida disponíveis na interface, não os limites do que Nihility pode representar.
 
-> **Regra de ouro: desligar um bloco nunca apaga nada.** O bloco some da interface e o sistema para de aceitar conteúdo novo daquele tipo. Atores, Itens e Compêndios que já existem continuam intactos e abríveis. Religar devolve o mundo exatamente como estava — inclusive trocando de preset no meio da campanha.
+> **Interruptor de módulo.** Desligar um bloco oculta seus controles e preserva Atores, Itens, Compêndios e configurações salvas. Ao religá-lo, o sistema volta a usar os dados que estão salvos naquele momento.
+> **Preset de campanha.** Aplicar um preset ajusta vários interruptores. **Sci-Fi Arcano** e **Misto** também substituem os catálogos de Tipos de Dano e Categorias de Módulo. Antes de aplicar, abra **Ferramentas de Admin** no **Menu Principal** e use **Exportar Configurações** para guardar os catálogos e módulos atuais. Use **Importar Configurações** para recuperar os dados exportados.
 
 Mudar um interruptor pede recarga do mundo. Os campos numéricos dentro de um bloco (Deslocamento, Escala, Movimento de naves) valem sem recarregar.
 
@@ -1169,13 +1170,33 @@ A pesquisadora oferece acesso às suas descobertas e uma recompensa a combinar. 
 
 ### Cena 2: a travessia
 
-Uma ponte danificada separa o grupo da entrada. Há um caminho inferior mais demorado e um mecanismo que pode estender uma plataforma. Peça aos jogadores que escolham a abordagem e exponha o risco antes dos testes. Ensine rolagens de Atributo, leitura da ficha e resolução de consequências. Não é necessário ativar dano ambiental para representar o vento ou a instabilidade.
+Uma passarela danificada separa o grupo da entrada. Há um caminho inferior seguro e um mecanismo que estende uma plataforma. O console do outro lado também abre a passagem de serviço.
+
+> **Travessia com corda.** Se alguém prender a corda ao cabo e ao corrimão, peça Destreza. Anuncie antes de rolar: com 12 ou mais, a pessoa chega ao console e abre a passagem. Abaixo de 12, a corda a segura, o grupo a puxa de volta e o contador avança um pulso. Lia, com Destreza 6, rola 1d20+2. Se o dado mostrar 11, o total 13 abre o caminho. Se mostrar 9, o total 11 custa um pulso.
+
+Se procurarem o mecanismo do lado de cá, mostre a trava presa por detritos. Com uma ferramenta adequada, o grupo solta a trava e estende a plataforma ao custo de um pulso. O caminho inferior custa dois pulsos e leva todos à entrada sem teste. Depois de uma tentativa frustrada, apresente essas duas opções novamente.
+
+#### Contagem de pulsos
+
+Comece em zero e anuncie o efeito do terceiro pulso. Avance pelos custos acima e acrescente um pulso se o grupo perder tempo com uma busca demorada, insistir numa tentativa sem mudar a abordagem ou engajar a sentinela em combate. No segundo pulso, o vidro do farol vibra. No terceiro, uma descarga queima a alavanca externa de desligamento. O grupo ainda pode desligar o núcleo, mas alguém terá de entrar na câmara e sustentar manualmente o corte enquanto outra pessoa abre a saída. Estabilizar e transportar o núcleo continuam possíveis. Aplique essa consequência uma vez.
 
 ### Cena 3: a sentinela
 
-Uma guardiã impede a entrada. Ela reage ao sinal e busca manter estranhos longe do núcleo, mas pode ser distraída ou convencida de que o grupo veio reparar o farol. Se houver combate, comece com poucas fichas e habilidades simples. Crie as estatísticas depois de avaliar as fichas dos jogadores; não há um bloco universal de inimigo equilibrado para qualquer grupo.
+Uma guardiã impede a entrada. Mostre que ela reconhece sinais de manutenção: interrompe o avanço ao ouvir o grupo repetir o intervalo correto dos pulsos. Se alguém explicar o plano de reparo nesse momento, ela deixa o grupo entrar. Também é possível atraí-la para longe da entrada com o som do console da passarela.
 
-Use esta cena para apresentar iniciativa, seleção de alvo, dano confirmado no chat e recursos. Se desejar ensinar Resistência, inclua uma só e descreva indícios perceptíveis da proteção. Evite combinar a primeira demonstração com imunidade, regeneração, Anatomia e Antimagia ao mesmo tempo.
+#### Sentinela do farol para um grupo de nível 1
+
+Crie uma ficha do tipo **Personagem**, nível 1, com **PJ** desmarcado e nível de NPC **Normal**. Para este exemplo, use uma origem sem bônus de Atributo.
+
+| Atributos | Valores |
+|---|---|
+| Força, Defesa, Magia, Defesa Mágica | 5, 6, 3, 3 |
+| Destreza, Furtividade, Percepção, Precisão | 6, 3, 5, 4 |
+| Vida e Mana | 300 e 90 pelas fórmulas padrão |
+| Golpe de haste | Arma equipada com fórmula `1d20+30`, dano físico, alcance narrativo de corpo a corpo |
+| Outros recursos | Sem Escudo, Resistências ou Skills ativas |
+
+Se o grupo atacar, role iniciativa. Na vez da sentinela, ela golpeia um alvo ao alcance. Se a mesa pedir um teste para acertar, use Precisão **1d20+1** e combine o critério antes da rolagem. Resolva o dano pelo fluxo de personagem. Com **150 de Vida ou menos**, a sentinela recua e aceita conversar. Antes da sessão, estime o dano que o grupo realmente causa por ação e ajuste a Vida se a cena for se arrastar.
 
 ![Examinar o mecanismo do farol.](img/farol-interior.png)
 
@@ -1183,7 +1204,7 @@ Use esta cena para apresentar iniciativa, seleção de alvo, dano confirmado no 
 
 O grupo pode estabilizar o núcleo, desligá-lo ou levá-lo. A pesquisadora e o vigia discordam das consequências. Faça a escolha alterar algo concreto: a região ganha uma rota segura, perde um ponto de orientação ou passa a atrair viajantes de outros lugares.
 
-Uma contagem de pulsos pode dar urgência, se você anunciar como ela funciona. Ela é uma ferramenta narrativa desta aventura; não constitui uma regra nova de rodada, de ação ou de manutenção.
+Se a descarga queimou a alavanca, peça ao grupo que diga quem entra na câmara para sustentar o corte e quem abre a saída. Se preferirem estabilizar o núcleo, permita usar os intervalos dos pulsos observados na chegada para sincronizar o mecanismo.
 
 ### Encerramento e recompensas
 

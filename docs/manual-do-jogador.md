@@ -46,9 +46,11 @@ O Mestre descreve o que está ao alcance dos personagens. Você declara uma inte
 > Lia: Consigo alcançar um dos cabos com a corda?
 > Mestre: Consegue lançar a corda até ele. O cabo parece preso à estrutura.
 > Lia: Quero usá-lo para atravessar. Primeiro amarro a outra ponta no corrimão.
-> Mestre: Certo. O vapor dificulta enxergar onde pisar. Role Destreza para a travessia.
+> Mestre: Role Destreza. Com 12 ou mais, você chega ao console. Abaixo de 12, a corda segura você, mas seus companheiros precisam puxá-la de volta.
+> Lia: Tenho Destreza 6 e nenhum modificador. Rolo 1d20+2. Saiu 11 no dado, então o total é 13.
+> Mestre: Você chega ao console e consegue abrir a passagem de serviço para o grupo.
 
-A corda, o vapor e a posição dos companheiros importam porque mudam as opções e as consequências da cena. Diga o que faz; use a ficha para resolver a parte da tentativa que pede uma regra.
+O Mestre escolheu 12 para essa travessia e anunciou a consequência antes da rolagem. A corda mudou o risco da tentativa: se Lia tirasse 9 no dado, o total 11 faria o grupo perder tempo para resgatá-la.
 
 ### Antes da primeira sessão
 
@@ -76,7 +78,7 @@ Os exemplos acompanham cinco personagens. Seus hábitos e equipamentos ajudam a 
 
 ### Por onde começar
 
-Leia **Criar um personagem**, **Atributos e testes** e **Habilidades e poderes**. Depois consulte equipamento, recursos e combate. Os capítulos de Anatomia, ambiente, Naves e PAD acompanham as opções da sua campanha. Os blocos **No Foundry** e os apêndices explicam os controles da ficha.
+Para a primeira sessão, siga o roteiro curto junto ao sumário. Consulte Habilidades, equipamento e combate conforme as escolhas da mesa.
 
 ## 2. Criar um personagem
 
@@ -99,6 +101,7 @@ Escolha quem você quer interpretar, o que essa pessoa procura e por que vai aco
 
 Bônus de Atributo da origem entram no Total permanente e podem participar das fórmulas de Vida e Mana. Uma evolução de Espécie é uma transformação conduzida pelo Mestre; ela acrescenta possibilidades sem apagar os níveis das Skills Raciais que o personagem conservou.
 
+<!-- MANTER JUNTOS -->
 ### Exemplo de criação — Lia
 
 Lia é uma exploradora humana que recupera artefatos antigos e procura uma expedição desaparecida. Sem Títulos, Heranças ou bônus adicionais, ela distribui seus 35 pontos assim:
@@ -115,6 +118,7 @@ Lia é uma exploradora humana que recupera artefatos antigos e procura uma exped
 | Precisão | 4 | 1d20+1 |
 
 A soma é 35. Com as fórmulas padrão, Lia tem **300 de Vida** (6 × 5 × 10) e **90 de Mana** (3 × 3 × 10). Esses valores permitem acompanhar os cálculos do capítulo; você pode distribuí-los de outra maneira.
+<!-- FIM MANTER JUNTOS -->
 
 ### No Foundry — Criar e liberar a ficha
 
@@ -903,7 +907,10 @@ Neste exemplo, a Habilidade de Neris causa **100 de dano mágico de Fogo**, já 
 | Resistência a Fogo | Passa 50% | 32 |
 | Escudo pessoal | Absorve 12 | 20 chegam à Vida |
 
-O jogador vê o resultado final destinado ao alvo, sem uma exposição pública de suas defesas. O Mestre pode consultar o rastro e confirma o acerto pelo botão **Aplicar**. Se houver uma Condição disparada pelo elemento, ela entra nessa confirmação. Para naves, a aplicação usa outra lógica e é automática; consulte o capítulo próprio.
+O jogador vê o resultado final e o Mestre pode consultar o rastro do dano. A aplicação depende do alvo.
+
+- **Personagem ou criatura:** o Mestre confirma o dano e as Condições do elemento no botão **Aplicar**.
+- **Nave ou veículo:** o sistema aplica o dano ao resolver a rolagem. Consulte [Naves, veículos e tripulação](#12-naves-veículos-e-tripulação).
 
 > **As reduções são sucessivas.** Resistência Geral de 20% e Resistência a Fogo de 50% não viram 70%. Sobre 100 de dano sem outras defesas, deixam passar 100 × 0,8 × 0,5 = 40.
 
@@ -961,7 +968,7 @@ No mapa, em combate:
 #### Confirmar o dano no chat
 
 
-Os três jeitos de causar dano — **Usar** uma Skill de Dano, **Atacar** com uma arma equipada e **Disparar** uma arma de nave — seguem o mesmo caminho:
+**Usar** uma Skill de Dano, **Atacar** com uma arma equipada e **Disparar** uma arma de nave enviam o resultado ao chat. O tipo de alvo determina como o dano entra na ficha.
 
 O que você vê no chat:
 
@@ -970,7 +977,8 @@ O que você vê no chat:
 
 O chat **nunca mostra quanto foi reduzido nem por quê**. As defesas do alvo são segredo dele — você só vê o resultado.
 
-O dano **não sai da Vida sozinho**: o Mestre clica **Aplicar** (ou **Metade**/**Dobro**) no card. O Escudo pessoal absorve primeiro, e as Condições do elemento só entram nesse clique. Se ele errar, há **Desfazer**, que volta os valores exatos.
+- **Alvo é um personagem ou criatura.** O Mestre clica **Aplicar**, **Metade** ou **Dobro** no card. O Escudo pessoal absorve primeiro, e as Condições do elemento entram nesse clique. **Desfazer** restaura os valores anteriores.
+- **Alvo é uma nave ou veículo.** O sistema aplica o dano ao resolver o ataque e mostra quanto atingiu Escudo, Casco e Integridade Estrutural.
 
 
 #### Rolar Iniciativa no aplicativo

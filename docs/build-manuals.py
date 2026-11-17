@@ -29,7 +29,7 @@ styles.add(ParagraphStyle(name='CellN',parent=styles['Text'],fontName='UI',fontS
 styles.add(ParagraphStyle(name='QuoteN',parent=styles['Text'],fontSize=9.5,leading=14,leftIndent=12,rightIndent=8,borderColor=GOLD,borderWidth=0,borderPadding=7,backColor=colors.HexColor('#f2eee6')))
 styles.add(ParagraphStyle(name='SmallN',parent=styles['Text'],fontName='UI',fontSize=7.4,leading=10,textColor=PURPLE))
 styles.add(ParagraphStyle(name='CodeN',parent=styles['Text'],fontName='Body',fontSize=7.2,leading=10,backColor=colors.HexColor('#f4f1eb'),borderPadding=6,wordWrap='CJK'))
-styles.add(ParagraphStyle(name='TOCN',parent=styles['Text'],fontSize=9,leading=12,leftIndent=0,firstLineIndent=0,spaceBefore=3))
+styles.add(ParagraphStyle(name='TOCN',parent=styles['Text'],fontSize=9,leading=12,leftIndent=0,firstLineIndent=0,spaceBefore=1,spaceAfter=2))
 ANCHORS=set()
 
 def slug(s):
@@ -148,6 +148,10 @@ def content(src):
     while i<len(lines):
         l=lines[i].strip()
         if not l or l=='---': i+=1;continue
+        if l=='<!-- MANTER JUNTOS -->':
+            end=lines.index('<!-- FIM MANTER JUNTOS -->',i+1)
+            flow.append(KeepTogether(content('\n'.join(lines[i+1:end]))))
+            i=end+1;continue
         if l.startswith('# ') and not started: started=True;i+=1;continue
         if l=='## Sumário':
             while i<len(lines) and not (lines[i].startswith('## ') and lines[i].strip()!='## Sumário'): i+=1
@@ -214,7 +218,7 @@ def content(src):
             prefix='•' if bullet[2] in '-*' else bullet[2]
             flow.append(Paragraph(prefix+' '+fmt(bullet[3]),st));i+=1;continue
         para=[l];i+=1
-        while i<len(lines) and lines[i].strip() and not re.match(r'^(#|>|\||!\[|```|---|\s*[-*] |\s*\d+\. )',lines[i]):para.append(lines[i].strip());i+=1
+        while i<len(lines) and lines[i].strip() and not re.match(r'^(#|>|\||!\[|<!--|```|---|\s*[-*] |\s*\d+\. )',lines[i]):para.append(lines[i].strip());i+=1
         flow.append(Paragraph(fmt(' '.join(para)),styles['Text']))
     return flow
 
@@ -225,13 +229,27 @@ def build(kind,label):
     doc.spots=json.loads((ROOT/'docs/vinhetas-editoriais.json').read_text(encoding='utf-8'))
     cover=CACHE/f'capa-{kind}-elenco.jpg'
     audience='Para jogadores: regras, exemplos e controles da própria ficha.' if kind=='jogador' else 'Reservado ao Mestre: inclui os bastidores do mundo e as ferramentas de condução.'
+    if kind=='jogador':
+        consultation='Use o sumário, os marcadores do PDF e o glossário para localizar uma regra. Os blocos No Foundry explicam as operações na ficha.'
+        starting_steps=[
+            '[Entenda a dinâmica da mesa](#a-conversa-na-mesa) (pp. 4–5).',
+            '[Monte sua ficha](#2-criar-um-personagem) (pp. 7–12).',
+            '[Aprenda a rolar um teste](#como-um-atributo-vira-dados) (pp. 17–18).',
+        ]
+    else:
+        consultation='Use os apêndices para preparar o mundo, administrar a mesa, resolver problemas e consultar os números das regras. Os blocos No Foundry detalham as operações no aplicativo.'
+        starting_steps=[
+            '[Configure o mundo no Foundry](#apêndice-a-preparar-o-mundo-no-foundry).',
+            '[Gere o diário Regras desta mesa](#ferramentas-de-admin) na aba Ferramentas de Admin do Menu Principal.',
+            '[Narre O farol entre mundos](#11-aventura--o-farol-entre-mundos).',
+        ]
     story=[Cover(cover,label),PageBreak(),
         Paragraph('Créditos e consulta',styles['H1N']),
         Paragraph('Nihility — '+label,styles['H2N']),
-        Paragraph('Criação do sistema: Lux.<br/>Edição editorial de 5 de novembro de 2026.<br/>Regras de referência: 1.84. Foundry VTT 13 e 14.',styles['Text']),
+        Paragraph('Criação do sistema: Lux.<br/>Edição editorial revista em 16 de novembro de 2026.<br/>Regras de referência: 1.84. Foundry VTT 13 e 14.',styles['Text']),
         Paragraph(audience,styles['Text']),
         Paragraph('Como consultar',styles['H2N']),
-        Paragraph('Leia os capítulos iniciais para aprender a jogar. Durante a sessão, use o sumário, os marcadores do PDF e o glossário para localizar uma regra. Os blocos No Foundry explicam como executar as operações na ficha.',styles['Text']),
+        Paragraph(consultation,styles['Text']),
         Paragraph('Os valores apresentados seguem a configuração inicial do sistema. Consulte as Regras desta mesa para as escolhas da sua campanha. Anatomia, Naves, PAD e outros módulos são usados conforme a proposta do grupo.',styles['Text']),
         Paragraph('Ilustrações',styles['H2N']),
         Paragraph('Artes geradas com a ImageGen integrada. Diagramas vetoriais do projeto. Neris, Cora, Ícaro, Lia e Doran formam o elenco dos exemplos. Suas cenas e objetos ajudam a acompanhar as decisões descritas no texto.',styles['SmallN']),
@@ -240,6 +258,8 @@ def build(kind,label):
     toc=TableOfContents();toc.levelStyles=[styles['TOCN']];story.append(toc)
     source=p.read_text(encoding='utf-8')
     ANCHORS.clear();ANCHORS.update(slug(plain(x)) for x in re.findall(r'^#{1,6}\s+(.+)$',source,re.M))
+    story.append(Paragraph('Primeira sessão',styles['H2N']))
+    story.extend(Paragraph(fmt(f'{i}. {step}'),styles['Text']) for i,step in enumerate(starting_steps,1))
     source=source.split('<!-- LIVRO -->',1)[1] if '<!-- LIVRO -->' in source else source[source.index('## Guia'):]
     story+=content(source)
     doc.multiBuild(story)

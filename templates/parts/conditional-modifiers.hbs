@@ -32,6 +32,11 @@
     <select name="system.conditionalModifiers.{{row.index}}.perEach" title="Multiplica o valor pela contagem">
       {{#each row.perEachOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
     </select>
+    {{#if row.activeStateOptions}}
+    <select name="system.conditionalModifiers.{{row.index}}.activeState" title="Em que estado da Skill Ativa esta regra vale. &quot;Só desligada&quot; é o debuff que some quando a Skill liga.">
+      {{#each row.activeStateOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+    </select>
+    {{/if}}
     {{#if ../editable}}<a data-action="deleteConditionalModifier" data-index="{{row.index}}" title="Remover"><i class="fas fa-trash"></i></a>{{/if}}
     {{#if row.warning}}<span class="conditional-warning">{{row.warning}}</span>{{/if}}
   </div>

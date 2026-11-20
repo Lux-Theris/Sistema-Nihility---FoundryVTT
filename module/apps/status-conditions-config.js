@@ -112,6 +112,7 @@ function renderCard(values) {
         ${fld("Selo antimagia (nível)", `<input type="number" data-field="antimagicLevel" min="0" value="${values.antimagicLevel ?? 0}"/>`, { help: "Quem tem esta Condição paga Mana extra em toda magia (maior quanto maior o nível), ou ela é anulada. 0 = não é selo." })}
       </div>
       ${fld("No mapa", `<select data-field="mapStatus">${optionsHtml(MAP_STATUSES, values.mapStatus ?? "")}</select>`, { help: "Põe o status do Foundry no Token: Invisível (só quem tem Ver o invisível, Visão verdadeira ou Sentir tudo o percebe) ou Cego (a visão dele falha). Vale com o bloco Sentidos e visibilidade ligado." })}
+      ${check("isMark", values.isMark, "É uma marca", "Conta como marca: Skills que pedem \"qualquer marca\" no alvo (ou \"qualquer marca posta por mim\") reconhecem esta Condição. Marcar outra pessoa com ela é só pôr a Condição nela (efeito de Skill ou ao acertar).")}
       ${check("suppressesTech", values.suppressesTech, "Suprime tecnologia", "Quem tem esta Condição não sente passivos, Resistências, itens, implantes e próteses tecnológicos, nem Skills tecnológicas usadas nele, de nível até o da Condição (o PEM). Corpo mecânico fica Inconsciente enquanto durar.")}
       ${check("suppressesMagic", values.suppressesMagic, "Suprime magia", "Quem tem esta Condição não sente passivos, Resistências, itens e implantes mágicos, nem Skills mágicas usadas nele, de nível até o da Condição.")}
     </section>
@@ -226,6 +227,8 @@ function readCard(card) {
   if (antimagicLevel) row.antimagicLevel = antimagicLevel;
   const interferenceLevel = Math.max(0, Math.round(Number(get("interferenceLevel")) || 0));
   if (interferenceLevel) row.interferenceLevel = interferenceLevel;
+  // Sempre gravado (como a explicação): desmarcar de propósito não volta a ser o de fábrica.
+  row.isMark = Boolean(card.querySelector('[data-field="isMark"]')?.checked);
   if (card.querySelector('[data-field="suppressesTech"]')?.checked) row.suppressesTech = true;
   const elements = readPickerField(card.querySelector(".condition-elements"));
   if (elements.length) row.elements = elements;

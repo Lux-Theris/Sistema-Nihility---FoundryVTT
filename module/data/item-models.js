@@ -34,6 +34,7 @@ function grantedSkillSchema() {
  *  - `then.kind`: THEN_KINDS; `then.target`: atributo ("any" = qualquer) ou alvo de Resistência
  *    ("general"/id de elemento); `then.value`: número
  *  - `perEach`: multiplica pelo número de Condições no oponente/em si mesmo
+ *  - `activeState`: só numa Skill Ativa — "on" (ligada, o padrão), "off" (desligada) ou "always"
  */
 function conditionalModifiersSchema() {
   return new fields.ArrayField(
@@ -48,7 +49,9 @@ function conditionalModifiersSchema() {
         target: new fields.StringField({ required: false, initial: "any", blank: true }),
         value: new fields.NumberField({ required: false, initial: 10 })
       }),
-      perEach: new fields.StringField({ required: false, initial: "", blank: true })
+      perEach: new fields.StringField({ required: false, initial: "", blank: true }),
+      /** Skill Ativa (8c.1): "on" só ligada, "off" só desligada, "always"; vazio = "on" (como sempre foi). */
+      activeState: new fields.StringField({ required: false, initial: "", blank: true })
     }),
     { required: false, initial: [] }
   );
@@ -166,6 +169,16 @@ function usageFields() {
      * Morto nunca é atingido por área. Ver `areaAffectsTarget` (area-geometry.js).
      */
     areaAffects: new fields.StringField({ required: false, initial: "all", choices: ["all", "notCaster", "allies", "enemies"] }),
+    /**
+     * "Só se…" da Skill inteira (8c.1): conferido depois de escolher o alvo e ANTES de pagar o Custo
+     * (ex.: "só se o alvo tem a Marca do Duelo posta por mim"). `kind` vazio = sempre. Desligar uma
+     * Ativa nunca é barrado. Mesma forma do `onlyIf` de um Efeito; ver skills/only-if-rules.js.
+     */
+    onlyIf: new fields.SchemaField({
+      kind: new fields.StringField({ required: false, initial: "", blank: true }),
+      value: new fields.StringField({ required: false, initial: "", blank: true }),
+      threshold: new fields.NumberField({ required: false, initial: 50 })
+    }),
     /** Estado: fator do custo de ter ligado esta Ativa pela Marca (1 = normal). Nunca copiado. */
     markFactor: new fields.NumberField({ required: false, initial: 1, min: 1 }),
     /** Estado: turnos do dono até poder usar de novo (ver cooldown-rules.js). Nunca copiado ao clonar/fundir. */
@@ -434,6 +447,18 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
       }),
 
       conditionalModifiers: conditionalModifiersSchema(),
+
+      /**
+       * "Ao acertar" (8c.1, passivo): todo golpe de dano de quem tem esta Skill põe a Condição no alvo
+       * (no Aplicar do card, como as Condições de elemento). `when`: "always", "on" (só ligada) ou "off"
+       * (só desligada); os dois últimos só fazem sentido numa Skill Ativa. `conditionId` vazio = nada.
+       */
+      onHit: new fields.SchemaField({
+        conditionId: new fields.StringField({ required: false, initial: "", blank: true }),
+        chance: new fields.NumberField({ required: false, initial: 100, min: 0, max: 100 }),
+        rounds: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+        when: new fields.StringField({ required: false, initial: "always", blank: true })
+      }),
 
       /**
        * Mecânica ao "Usar" a skill — ver MEU_SISTEMA.SKILL_EFFECT_TYPES:

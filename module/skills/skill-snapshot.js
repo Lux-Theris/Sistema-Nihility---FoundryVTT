@@ -58,7 +58,8 @@ export function buildSubSkillsFromSources(sources) {
         areaFreeLevel: source.system.areaFreeLevel ?? 0,
         areaAffects: source.system.areaAffects ?? "all",
         weaponStrike: source.system.weaponStrike ?? "",
-        strikeRequiresWeapon: source.system.strikeRequiresWeapon ?? true
+        strikeRequiresWeapon: source.system.strikeRequiresWeapon ?? true,
+        onlyIf: foundry.utils.deepClone(source.system.onlyIf ?? { kind: "", value: "", threshold: 50 })
       }
     ];
   });
@@ -68,7 +69,7 @@ export function buildSubSkillsFromSources(sources) {
 const GRANTED_MECHANIC_FIELDS = [
   "level", "cost", "hasUpkeep", "upkeepCost", "variableMana", "cooldown", "prepTurns", "magicTag", "isMagic", "isTech", "animationPath", "description", "resistanceTarget",
   "effectType", "damageFormula", "scalingAttribute", "isMagicDamage", "isAbsoluteDamage", "damageScale", "damageElements", "effects",
-  "targetType", "structureId", "structureRegen", "structureRegenCost", "formActorUuid", "areaShape", "areaDistance", "areaAngle", "zoneRounds", "range", "areaOrigin", "areaFreeLevel", "areaAffects", "weaponStrike", "strikeRequiresWeapon", "subSkills"
+  "targetType", "structureId", "structureRegen", "structureRegenCost", "formActorUuid", "areaShape", "areaDistance", "areaAngle", "zoneRounds", "range", "areaOrigin", "areaFreeLevel", "areaAffects", "weaponStrike", "strikeRequiresWeapon", "onlyIf", "subSkills"
 ];
 
 /**

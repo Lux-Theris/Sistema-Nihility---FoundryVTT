@@ -5,12 +5,14 @@
  * Fontes ativas:
  *  - Título: sempre;
  *  - Item Geral: só equipado (mesma regra de bônus de atributo e Habilidade Concedida);
- *  - Skill: sempre, a menos que seja Habilidade Ativa — aí só enquanto ligada.
+ *  - Skill: sempre; numa Habilidade Ativa cada regra vale ligada (o padrão), desligada ou sempre
+ *    (`activeState`, item 8c.1).
  */
-import { SYSTEM_ID, actorTraits, combatantIsActor } from "../core/config.js";
+import { SYSTEM_ID, actorTraits, combatantIsActor, getActiveStatusConditions } from "../core/config.js";
 import { sourceSuppressed, suppressionState } from "../core/suppression.js";
-import { sumConditionalModifiers } from "./conditional-modifiers.js";
+import { sumConditionalModifiers, ruleActiveStateAllows } from "./conditional-modifiers.js";
 import { originConditionalSources } from "../species/species-rules.js";
+import { conditionIdsPostedBy } from "../skills/marks-rules.js";
 import { worldClockContext } from "../core/world-clock.js";
 
 /** Todas as regras das fontes ativas do Ator. */
@@ -26,11 +28,15 @@ export function conditionalModifierSources(actor) {
     const list = item.system?.conditionalModifiers;
     if (!list?.length) continue;
     if (item.type === "item" && !item.system.equipped) continue;
-    if (item.type === "skill" && item.system.hasUpkeep && !item.system.active) continue;
     if (!["title", "item", "skill"].includes(item.type)) continue;
+    // Skill Ativa: cada regra vale ligada ("on", o padrão), desligada ("off") ou sempre (item 8c.1).
+    const mods = item.type === "skill"
+      ? list.filter(mod => ruleActiveStateAllows(mod.activeState, { hasUpkeep: item.system.hasUpkeep, active: item.system.active }))
+      : list;
+    if (!mods.length) continue;
     // Antimagia: Skill/Item mágico suprimido não conta.
     if (sourceSuppressed(actor, item, null, suppression)) continue;
-    sources.push({ item, mods: list });
+    sources.push({ item, mods });
   }
   // "Quando → Então" da Espécie/Linhagem/Heranças (passivos ao vivo).
   sources.push(...originConditionalSources(actor?.system?.originLayers ?? []));
@@ -47,6 +53,20 @@ function conditionIds(actor) {
     if (id) ids.add(id);
   }
   return ids;
+}
+
+/**
+ * Ids das Condições de `actor` que foram postas por `byUuid` (flag `appliedBy` do efeito, item 8c.1):
+ * a base do "o alvo tem a Condição posta por mim". Vazio sem `byUuid`.
+ */
+function conditionIdsBy(actor, byUuid) {
+  return conditionIdsPostedBy(actor?.effects, byUuid, SYSTEM_ID);
+}
+
+/** Só os ids que o catálogo de Condições marca como "É uma marca" (`isMark`). */
+function markIdsOf(ids) {
+  const marks = new Set(getActiveStatusConditions().filter(c => c.isMark).map(c => c.id));
+  return new Set([...ids].filter(id => marks.has(id)));
 }
 
 /** O Ator está num combate iniciado? */
@@ -75,6 +95,10 @@ export function buildModifierContext(self, other = null, { elements = [], hpPerc
     otherTraits: new Set(other ? actorTraits(other) : []),
     otherIsShip: ["starship", "vehicle"].includes(other?.type),
     otherConditions: conditionIds(other),
+    otherConditionsMine: conditionIdsBy(other, self?.uuid),
+    // Marcas (8c.1): Condições do catálogo marcadas "É uma marca" que o alvo tem (qualquer uma / postas por mim).
+    otherMarks: markIdsOf(conditionIds(other)),
+    otherMarksMine: markIdsOf(conditionIdsBy(other, self?.uuid)),
     elements: new Set(elements ?? [])
   };
 }

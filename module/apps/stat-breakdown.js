@@ -13,7 +13,7 @@ import { NPC_TIER_LABELS } from "../npc/npc-generator-rules.js";
 import { readEffectChanges, effectModes } from "../helpers/foundry-compat.js";
 import { titleBonusSources, itemAttributeSources, statModifierSources, originBonusSources } from "../data/character-model.js";
 import { conditionalModifierSources, buildModifierContext } from "../combat/conditional-context.js";
-import { sumConditionalModifiers } from "../combat/conditional-modifiers.js";
+import { sumConditionalModifiers, percentOfTotal } from "../combat/conditional-modifiers.js";
 import { explainAttribute, explainVital } from "../combat/stat-explain.js";
 import { regenExplainRows } from "../combat/regeneration.js";
 
@@ -55,7 +55,9 @@ function conditionalSources(actor, key) {
   const ctx = buildModifierContext(actor, null, { hpPercent: hp.max > 0 ? (hp.value / hp.max) * 100 : 0 });
   const list = [];
   for (const { item, mods } of conditionalModifierSources(actor)) {
-    const value = sumConditionalModifiers(mods, "attributeFlat", ctx, { attribute: key });
+    const total = actor.system.attributes.combat?.[key]?.total ?? 0;
+    const value = sumConditionalModifiers(mods, "attributeFlat", ctx, { attribute: key })
+      + percentOfTotal(sumConditionalModifiers(mods, "attributePercent", ctx, { attribute: key }), total);
     if (value) list.push({ label: item.name, value, uuid: item.uuid, kind: "conditional" });
   }
   return list;

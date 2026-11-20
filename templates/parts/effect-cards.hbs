@@ -45,9 +45,9 @@
               {{#if eff.isPush}}<span class="effect-note">m</span>{{/if}}
               {{#if eff.isSense}}<span class="effect-note">m (0 = sem limite)</span>{{/if}}
               {{#if eff.acceptsPercent}}
-              <select class="skill-effect-input effect-amount-mode" data-effect-field="amountMode" aria-label="Pontos ou % do máximo" title="% do máximo: do alvo (Vida máxima para Vida e Escudo, Mana máxima para Mana). Vale igual em qualquer nível.">
+              <select class="skill-effect-input effect-amount-mode" data-effect-field="amountMode" aria-label="Pontos ou %" title="% do máximo: do alvo (Vida máxima para Vida e Escudo, Mana máxima para Mana). % total: do total do atributo do alvo (−100% tira o total inteiro). O Poder do nível escala o percentual.">
                 <option value="flat" {{#unless eff.isPercent}}selected{{/unless}}>pts</option>
-                <option value="percentMax" {{#if eff.isPercent}}selected{{/if}}>% máx.</option>
+                <option value="percentMax" {{#if eff.isPercent}}selected{{/if}}>{{eff.percentLabel}}</option>
               </select>
               {{/if}}
               {{/if}}

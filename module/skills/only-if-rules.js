@@ -9,10 +9,13 @@
 import { matchesWhen } from "../combat/conditional-modifiers.js";
 
 /** Tipos oferecidos no menu "Só se…" (os do Quando que fazem sentido para um efeito). */
-export const ONLY_IF_KINDS = ["otherCondition", "otherTrait", "otherIsShip", "otherHpBelow", "selfCondition", "selfHpBelow", "selfInCombat"];
+export const ONLY_IF_KINDS = ["otherCondition", "otherConditionMine", "otherAnyMark", "otherAnyMarkMine", "otherTrait", "otherIsShip", "otherHpBelow", "selfCondition", "selfHpBelow", "selfInCombat"];
 
 export const ONLY_IF_LABELS = {
   otherCondition: "O alvo tem a Condição",
+  otherConditionMine: "O alvo tem a Condição posta por mim",
+  otherAnyMark: "O alvo tem qualquer marca",
+  otherAnyMarkMine: "O alvo tem qualquer marca posta por mim",
   otherTrait: "O alvo tem o Traço",
   otherIsShip: "O alvo é Nave/Veículo",
   otherHpBelow: "A Vida do alvo está abaixo de (%)",
@@ -23,7 +26,7 @@ export const ONLY_IF_LABELS = {
 
 /** O que cada tipo precisa escolher: Condição, Traço ou um limite em %. */
 export function onlyIfNeeds(kind) {
-  if (kind === "otherCondition" || kind === "selfCondition") return "condition";
+  if (kind === "otherCondition" || kind === "otherConditionMine" || kind === "selfCondition") return "condition";
   if (kind === "otherTrait") return "trait";
   if (kind === "otherHpBelow" || kind === "selfHpBelow") return "threshold";
   return "";
@@ -52,6 +55,9 @@ function phrases(onlyIf, labelOf) {
   const pct = Math.round(onlyIf.threshold);
   switch (onlyIf.kind) {
     case "otherCondition": return [`o alvo estiver ${name}`, `o alvo não está ${name}`];
+    case "otherConditionMine": return [`o alvo tiver a Condição ${name} posta por mim`, `o alvo não tem a Condição ${name} posta por mim`];
+    case "otherAnyMark": return ["o alvo tiver qualquer marca", "o alvo não tem nenhuma marca"];
+    case "otherAnyMarkMine": return ["o alvo tiver qualquer marca posta por mim", "o alvo não tem nenhuma marca posta por mim"];
     case "otherTrait": return [`o alvo tiver o Traço ${name}`, `o alvo não tem o Traço ${name}`];
     case "otherIsShip": return ["o alvo for Nave ou Veículo", "o alvo não é Nave nem Veículo"];
     case "otherHpBelow": return [`a Vida do alvo estiver abaixo de ${pct}%`, `a Vida do alvo não está abaixo de ${pct}%`];

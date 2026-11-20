@@ -17,11 +17,13 @@ import {
   getEnergyLabelForActor,
   getCharacterEnergyLabel,
   getSkillCostManaPerPoint,
+  getComplexityCaps,
   getActiveSkillTemplates,
   isSkillRangeEnabled
 } from "../core/config.js";
 import { lintSkill, lintIndex } from "./skill-lint-rules.js";
 import { isMagicUse, isTechUse, technomagicFactor, getTechnomagicPower } from "../core/config.js";
+import { complexityVerdict } from "./skill-complexity-rules.js";
 import { suggestSkillCost, costCloseEnough, holderLine } from "./skill-cost-rules.js";
 import { templateSkillData } from "./skill-template-rules.js";
 import { skillSummary } from "./skill-summary.js";
@@ -92,7 +94,8 @@ export function skillAssist(mech, { actor = null } = {}) {
       }
     },
     energyLabel,
-    skillRange: isSkillRangeEnabled()
+    skillRange: isSkillRangeEnabled(),
+    complexityCaps: getComplexityCaps()
   });
   const { byTab, byEffect } = lintIndex(warnings);
   const conditions = getActiveStatusConditions();
@@ -111,7 +114,8 @@ export function skillAssist(mech, { actor = null } = {}) {
       ? { suggested: suggestion.cost, close: costCloseEnough(mech?.cost, suggestion.cost), rows: suggestion.rows, holder, holderName: actor?.name ?? "", holderMax: energyMax, energyLabel }
       : null;
   const upkeep = mech?.hasUpkeep && suggestion.upkeep ? { suggested: suggestion.upkeep, close: costCloseEnough(mech?.upkeepCost, suggestion.upkeep) } : null;
-  return { enabled: true, warnings, byTab, byEffect, cost, upkeep, energyLabel };
+  const complexity = complexityVerdict(mech, mech?.tier, getComplexityCaps());
+  return { enabled: true, warnings, byTab, byEffect, cost, upkeep, energyLabel, complexity };
 }
 
 /* ------------------------------------------------------------------ HTML (editor rápido) */
@@ -159,6 +163,7 @@ export function skillSentence(skill) {
   return skillSummary(skill, {
     elements: byId(getActiveDamageElements()),
     conditions: byId(getActiveStatusConditions()),
+    traits: byId(getActiveTraits()),
     targets: getEffectTargetLabels(),
     structures: byId(getStructures()),
     weaponTypes: byId(getActiveWeaponTypes()),

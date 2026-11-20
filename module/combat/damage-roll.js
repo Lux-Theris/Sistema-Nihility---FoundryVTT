@@ -18,7 +18,9 @@ import { checkFlatRange } from "./range.js";
 import { applyEffectsToActor } from "../skills/effects-apply.js";
 import { promptTargetBodyPart } from "../species/anatomy.js";
 import { suppressionLevel, techSuppressionLevel } from "../skills/dispel.js";
-import { itemIsTech } from "../core/magic-rules.js";
+import { itemIsTech, skillIsMagic } from "../core/magic-rules.js";
+import { sourceSuppressed, suppressionState } from "../core/suppression.js";
+import { onHitPicks } from "../skills/marks-rules.js";
 import { magicDefenseReduction, resistanceSourceFor, grantResistanceXp, registerResistanceExposure } from "./resistance.js";
 import { isShipLike, applyShipWeaponBonus, applyStarshipDamageCascade } from "../starship/ship-damage.js";
 import { escapeHtml } from "../helpers/html.js";
@@ -172,6 +174,12 @@ export function applyDamageReductions(rawTotal, mech, targetActor, options = {})
     }
   });
 
+  // "Ao acertar" (8c.1): as Skills de quem atacou com a Condição passiva. Só golpes de Skill/arma/consumível
+  // de um Personagem (opção `onHit`); tick, contato de Estrutura, Armadilha e Nave não passam por aqui.
+  if (options.onHit && options.attacker && options.triggerConditions !== false && result.final > 0) {
+    triggeredConditions.push(...onHitConditionsFor(options.attacker, result.final));
+  }
+
   // "Dano por camada" de Escudo contra o Escudo pessoal: média pesada pelo dano de cada parte.
   const weight = result.parts.reduce((sum, part) => sum + (part.final || 0), 0);
   const shieldMultiplier =
@@ -208,6 +216,31 @@ export function applyDamageReductions(rawTotal, mech, targetActor, options = {})
       .map((part, index) => (parts[index].picked && !part.immune ? reactionRecord(parts[index].picked, part) : null))
       .filter(Boolean)
   };
+}
+
+/**
+ * As Condições que os golpes de `attacker` disparam pelo "ao acertar" das Skills dele (8c.1): uma entrada
+ * por Skill que vale agora (ligada/desligada conforme `when`) e passou na chance, no formato de
+ * `triggeredConditions` — aplicada no Aplicar do card, com `appliedBy` = quem atacou. Nave não ataca assim.
+ */
+export function onHitConditionsFor(attacker, hitDamage) {
+  if (!attacker || attacker.type !== "character") return [];
+  const suppression = suppressionState(attacker);
+  const skills = [];
+  for (const item of attacker.items ?? []) {
+    if (item.type !== "skill" || !item.system.onHit?.conditionId) continue;
+    if (sourceSuppressed(attacker, item, null, suppression)) continue;
+    skills.push({ name: item.name, level: item.system.level, hasUpkeep: item.system.hasUpkeep, active: item.system.active, onHit: item.system.onHit, magic: skillIsMagic({ ...item.system, tier: item.system.tier }) });
+  }
+  return onHitPicks(skills, rollChance).map(pick => ({
+    conditionId: pick.conditionId,
+    elementId: "",
+    hitDamage,
+    level: pick.level,
+    magic: pick.magic,
+    rounds: pick.rounds,
+    appliedBy: attacker.uuid
+  }));
 }
 
 /**
@@ -307,7 +340,7 @@ export async function applyTriggeredConditions(targetActor, triggered, { label =
       // Condição com "Impede cura" na parte atingida: prende-se à parte que levou o golpe.
       healBlockPartId: partId || ""
     };
-    summary.push(...(await applyEffectsToActor({ effects: [entry], level: 1, hasUpkeep: false, sourceLevel: hit.level ?? 1, sourceMagic: Boolean(hit.magic) }, label, null, targetActor)));
+    summary.push(...(await applyEffectsToActor({ effects: [entry], level: 1, hasUpkeep: false, sourceLevel: hit.level ?? 1, sourceMagic: Boolean(hit.magic), appliedBy: hit.appliedBy ?? "" }, label, null, targetActor)));
   }
   const createdIds = targetActor.effects.filter(e => !before.has(e.id)).map(e => e.id);
   return { summary, createdIds };
@@ -521,7 +554,7 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
     // Nunca revela NO CHAT que/quanto de Resistência ou Defesa Mágica foi aplicada — só o
     // número final. A redução em si continua acontecendo (applyDamageReductions), só não
     // aparece na mensagem (nem a existência dela, mesmo quando reduz a 0).
-    reduction = applyDamageReductions(scaledDamage, mech, targetActor, { attacker: actor });
+    reduction = applyDamageReductions(scaledDamage, mech, targetActor, { attacker: actor, onHit: true });
     finalDamage = reduction.finalDamage;
     // Defender é o que faz uma Skill de Resistência evoluir — ela aprende apanhando. E levar
     // golpes de um tipo que ainda não se resiste é o que faz a Skill poder nascer.
@@ -756,7 +789,7 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
         `<li><strong>${escapeHtml(targetActor.name)}</strong>: Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}${detalhe}</li>`
       );
     } else {
-      const reduction = applyDamageReductions(targetDamage, mech, targetActor, { attacker: actor });
+      const reduction = applyDamageReductions(targetDamage, mech, targetActor, { attacker: actor, onHit: true });
       await grantResistanceXp(reduction.defenders, targetActor);
       await registerResistanceExposure(targetActor, mech.damageElements, reduction.finalDamage);
       // Botões por alvo no card (Aplicar / em todos / aos selecionados — ver damage-apply.js): o

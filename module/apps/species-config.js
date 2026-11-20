@@ -192,7 +192,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
       rules: (entry.passives.conditionalModifiers ?? []).map((r, i) => {
         const whenKind = r.when?.kind || "always";
         const thenKind = r.then?.kind || "attributeFlat";
-        const valueSource = { otherTrait: getActiveTraits(), otherCondition: getActiveStatusConditions(), selfCondition: getActiveStatusConditions(), element: elements }[whenKind];
+        const valueSource = { otherTrait: getActiveTraits(), otherCondition: getActiveStatusConditions(), otherConditionMine: getActiveStatusConditions(), selfCondition: getActiveStatusConditions(), element: elements }[whenKind];
         const targetSource =
           thenKind === "resistancePercent" ? [{ id: "general", label: "Geral" }, ...elements.map(e => ({ id: e.id, label: e.label }))]
           : thenKind === "damagePercent" ? [{ id: "any", label: "—" }]

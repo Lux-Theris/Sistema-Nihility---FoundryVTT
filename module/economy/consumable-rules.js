@@ -66,6 +66,21 @@ export function resolveEffectAmount(amount, mode, max) {
   return raw > 0 ? Math.max(1, Math.round(raw)) : Math.min(-1, Math.round(raw));
 }
 
+/** Alvos de Efeito de atributo que aceitam "% do total" (item 8c.1). */
+export const ATTRIBUTE_PERCENT_TARGETS = ["strength", "defense", "magic", "magicalDefense", "dexterity", "stealth", "perception", "precision"];
+
+/** Alvos de Efeito que aceitam % (Vida, Mana, Escudo, cura/Mana na hora: % do máximo; atributos: % do total). */
+export const PERCENT_AMOUNT_TARGETS = ["hp", "energy", "shield", "heal", "restoreEnergy", ...ATTRIBUTE_PERCENT_TARGETS];
+
+/**
+ * "% do total" de um atributo: `round(total × % ÷ 100)`. Nunca tira mais que o total (−100% = o total
+ * inteiro). Diferente de `resolveEffectAmount`, não força 1 ponto: 0 de total dá 0. Pura.
+ */
+export function resolveAttributePercent(percent, total) {
+  const pct = Math.max(-100, Number(percent) || 0);
+  return Math.round((Number(total) || 0) * pct / 100) || 0;
+}
+
 /**
  * Trocar/recarregar: o que entra e o que volta. A munição escolhida enche até a Carga DELA
  * (`capacity`; 0 = o carregador da arma, `size`) — ou, se for uma unidade aberta (`ammoRounds` > 0),

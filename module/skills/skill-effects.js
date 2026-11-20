@@ -18,6 +18,7 @@ import { grantSkillUseXp, vitalBase } from "./skill-xp.js";
 import { afterSkillStrike, strikeBlockReason } from "../combat/weapon-mastery.js";
 import { resolveWeaponStrike } from "../combat/weapon-mastery-rules.js";
 import { blockIfIncapacitated, knockUnconscious } from "../combat/incapacitation.js";
+import { skillOnlyIfBlock } from "./skill-only-if.js";
 import { useBlockReason, startPreparation, applyCooldownAfterUse, inStartedCombat } from "./preparation.js";
 import { packUseOptions, preparationPayments, overdrawInfo, investCeiling } from "./cooldown-rules.js";
 import { playSkillAnimation } from "../core/vfx.js";
@@ -143,6 +144,15 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
     const blocked = useBlockReason(sourceActor, skill, options.subSkillIndex ?? null) ?? strikeBlockReason(sourceActor, skill, options.subSkillIndex ?? null);
     if (blocked) {
       ui.notifications?.warn(blocked);
+      return null;
+    }
+  }
+
+  // "Só se…" da Skill inteira (8c.1): de novo aqui, para quem chega por outro caminho (hotbar, Preparo disparado).
+  if (!options.prepaid) {
+    const onlyIfMessage = skillOnlyIfBlock(sourceActor, mech, options.targetActor ?? null);
+    if (onlyIfMessage) {
+      ui.notifications?.warn(`${label}: ${onlyIfMessage}.`);
       return null;
     }
   }

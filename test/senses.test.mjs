@@ -133,7 +133,8 @@ test("lista de iniciativa: só some quem está escondido por sentido e o jogador
   assert.equal(combatantVisibleFor({ ...base, isOwner: true }), true);
   assert.equal(combatantVisibleFor({ ...base, onCanvasScene: false }), true);
   assert.equal(combatantVisibleFor({ ...base, tokenVision: false }), true);
-  assert.equal(combatantVisibleFor({ ...base, hiddenBySense: false }), true, "fora da linha de visão comum continua aparecendo");
+  assert.equal(combatantVisibleFor({ ...base, hiddenBySense: false }), false, "fora da linha de visão também some (dono, 20/11)");
+  assert.equal(combatantVisibleFor({ ...base, hiddenBySense: false, tokenVisible: true }), true, "quem o vê ou sente continua vendo");
   assert.equal(combatantVisibleFor({ ...base, base: false }), false, "o que o core já esconde continua escondido");
   assert.equal(combatantVisibleFor({ ...base, tokenVisible: undefined }), true, "sem Token desenhado, fica o do core");
 });

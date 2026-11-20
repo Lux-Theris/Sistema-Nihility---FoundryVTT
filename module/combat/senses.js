@@ -124,8 +124,8 @@ export function actorPerceivedByUser(actor, { self = null } = {}) {
 }
 
 /**
- * `Combatant#visible` para quem não é dono: some só quem está escondido por sentido (debaixo da terra ou
- * Invisível) e o jogador não percebe; fora da linha de visão comum continua aparecendo.
+ * `Combatant#visible` para quem não é dono: some quem o jogador não vê nem sente agora (Token não
+ * visível no último refresh: fora da linha de visão, debaixo da terra, Invisível…). Dono, 20/11.
  * @param {Combatant} combatant
  * @param {boolean} base - o `visible` do core (já composto com outros módulos)
  */

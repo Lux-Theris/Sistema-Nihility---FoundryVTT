@@ -41,7 +41,7 @@ function curseChanges(curse, targetActor, factor) {
  * @param {{level?:number, label?:string, onUnpaid?:string, partId?:string, caster?:string}} [options]
  * @returns {Promise<string>} linha do resumo
  */
-export async function applyCurse(target, condition, { level = 0, label = "", onUnpaid = "", partId = "", caster = "" } = {}) {
+export async function applyCurse(target, condition, { level = 0, label = "", onUnpaid = "", partId = "", caster = "", appliedBy = "" } = {}) {
   const curse = normalizeCurse(condition.curse);
   const mode = CURSE_UNPAID.includes(onUnpaid) ? onUnpaid : curse.onUnpaid;
   const existing = target.effects.find(e => e.flags?.[SYSTEM_ID]?.[CURSE_FLAG]?.conditionId === condition.id);
@@ -51,7 +51,8 @@ export async function applyCurse(target, condition, { level = 0, label = "", onU
     await existing.update({
       name: `${condition.label} · nv ${nextLevel}`,
       [`flags.${SYSTEM_ID}.sourceLevel`]: nextLevel,
-      [`flags.${SYSTEM_ID}.${CURSE_FLAG}.onUnpaid`]: mode
+      [`flags.${SYSTEM_ID}.${CURSE_FLAG}.onUnpaid`]: mode,
+      ...(appliedBy ? { [`flags.${SYSTEM_ID}.appliedBy`]: appliedBy } : {})
     });
     return `${condition.label}: renovada (nv ${nextLevel})`;
   }
@@ -69,6 +70,7 @@ export async function applyCurse(target, condition, { level = 0, label = "", onU
           sourceLevel: lvl,
           magic: true,
           healBlockPartId: partId || "",
+          appliedBy: appliedBy || "",
           [CURSE_FLAG]: { conditionId: condition.id, onUnpaid: mode, factor: 1, sleeping: false, caster, label }
         }
       }

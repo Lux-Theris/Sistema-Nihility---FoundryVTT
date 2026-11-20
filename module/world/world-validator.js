@@ -104,11 +104,15 @@ export function checkMechanic(mech, idx, prefix = "") {
     // Empurrar/Puxar: os Traços que não saem do lugar.
     checkRefs(issues, idx, at(where, "Traços imunes"), "traits", entry?.immuneTraits);
     // "Só se…" (8.1a): a Condição ou o Traço escolhido precisa existir.
-    if (entry?.onlyIf?.kind === "otherCondition" || entry?.onlyIf?.kind === "selfCondition") checkRef(issues, idx, at(where, "Só se… › Condição"), "conditions", entry.onlyIf.value);
+    if (entry?.onlyIf?.kind === "otherCondition" || entry?.onlyIf?.kind === "otherConditionMine" || entry?.onlyIf?.kind === "selfCondition") checkRef(issues, idx, at(where, "Só se… › Condição"), "conditions", entry.onlyIf.value);
     if (entry?.onlyIf?.kind === "otherTrait") checkRef(issues, idx, at(where, "Só se… › Traço"), "traits", entry.onlyIf.value);
     // Desarmado vira tipo de arma.
     if (entry?.target === "unarmedType") checkRef(issues, idx, at(where, "Tipo de arma"), "weaponTypes", entry?.weaponTypeId);
   });
+  // "Só se…" da Skill inteira e "ao acertar" (8c.1).
+  if (mech.onlyIf?.kind === "otherCondition" || mech.onlyIf?.kind === "otherConditionMine" || mech.onlyIf?.kind === "selfCondition") checkRef(issues, idx, at(prefix, "Só se… da Skill › Condição"), "conditions", mech.onlyIf.value);
+  if (mech.onlyIf?.kind === "otherTrait") checkRef(issues, idx, at(prefix, "Só se… da Skill › Traço"), "traits", mech.onlyIf.value);
+  if (mech.onHit?.conditionId) checkRef(issues, idx, at(prefix, "Ao acertar › Condição"), "conditions", mech.onHit.conditionId);
   // Maestria de arma e golpe de arma (H6): o tipo precisa existir no catálogo.
   checkRef(issues, idx, at(prefix, "Maestria de arma"), "weaponTypes", mech.weaponMastery);
   checkRef(issues, idx, at(prefix, "Golpe de arma"), "weaponTypes", mech.weaponStrike);
@@ -134,11 +138,11 @@ export function checkConditionals(modifiers, idx, prefix = "") {
     const where = at(prefix, `Quando → Então ${i + 1}`);
     const kind = mod?.when?.kind;
     if (kind === "otherTrait") checkRef(issues, idx, at(where, "Traço"), "traits", mod.when.value);
-    if (kind === "otherCondition" || kind === "selfCondition") checkRef(issues, idx, at(where, "Condição"), "conditions", mod.when.value);
+    if (kind === "otherCondition" || kind === "otherConditionMine" || kind === "selfCondition") checkRef(issues, idx, at(where, "Condição"), "conditions", mod.when.value);
     if (kind === "element") checkRef(issues, idx, at(where, "Elemento"), "elements", mod.when.value);
     const then = mod?.then ?? {};
     if (then.kind === "resistancePercent") checkResistanceTarget(issues, idx, at(where, "Resistência"), then.target);
-    if ((then.kind === "rollFlat" || then.kind === "attributeFlat") && then.target !== "any") {
+    if ((then.kind === "rollFlat" || then.kind === "attributeFlat" || then.kind === "attributePercent") && then.target !== "any") {
       checkRef(issues, idx, at(where, "Atributo"), "attributes", then.target);
     }
   });

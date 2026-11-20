@@ -50,6 +50,9 @@ export function templateSkillData(template, overrides = {}, catalogs = {}) {
   // Tipo de arma (H6): só se existe neste mundo; senão a Maestria/golpe fica sem tipo.
   if (skill.weaponMastery && !known(catalogs.weaponTypes, skill.weaponMastery)) skill.weaponMastery = "";
   if (skill.weaponStrike && !known(catalogs.weaponTypes, skill.weaponStrike)) skill.weaponStrike = "";
+  // "Só se…" da Skill e "ao acertar" (8c.1): Condição/Traço que o mundo não tem saem.
+  if (skill.onlyIf?.value && !known(catalogs.conditions, skill.onlyIf.value) && !known(catalogs.traits, skill.onlyIf.value)) skill.onlyIf = { kind: "", value: "", threshold: 50 };
+  if (skill.onHit?.conditionId && !known(catalogs.conditions, skill.onHit.conditionId)) skill.onHit = { conditionId: "", chance: 100, rounds: 0, when: "always" };
   if (skill.effectType === "structure" && Array.isArray(catalogs.structures) && !catalogs.structures.includes(skill.structureId)) {
     skill.structureId = catalogs.structures[0] ?? "";
   }

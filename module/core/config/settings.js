@@ -563,6 +563,32 @@ export function registerSystemSettings() {
     default: 0.9
   });
 
+  // Complexidade por Tier (8c.1): só avisa no editor; nunca trava. Ultimate e Racial não têm teto.
+  game.settings.register(SYSTEM_ID, S.complexityCapExtra, {
+    name: "Complexidade — teto de uma Skill Extra",
+    hint: "Pontuação de complexidade (1 por efeito, +1 Condição, +2 \"Só se…\", +2 área, +3 Estrutura…) acima da qual o editor avisa que a Skill é complexa demais para o Tier. Padrão 3. Só avisa: nunca impede de salvar nem de usar.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 3
+  });
+  game.settings.register(SYSTEM_ID, S.complexityCapNormal, {
+    name: "Complexidade — teto de uma Skill Normal",
+    hint: "Padrão 6. Skills Racial e Ultimate não têm teto.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 6
+  });
+  game.settings.register(SYSTEM_ID, S.complexityCapUnique, {
+    name: "Complexidade — teto de uma Skill Única",
+    hint: "Padrão 12. Skills Racial e Ultimate não têm teto.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 12
+  });
+
   // Nomeação (7a): Regras da Mesa, grupo "Nomeação".
   game.settings.register(SYSTEM_ID, S.namingManaFactor, {
     name: "Nomeação — fator da Mana máxima perdida",

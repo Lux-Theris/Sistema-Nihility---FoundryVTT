@@ -17,6 +17,7 @@ import { isWeaponMasteryEnabled } from "../combat/weapon-mastery.js";
 import { formUseBlock, formUseCheck } from "./forms.js";
 import { analysisBlockReason } from "./analysis.js";
 import { predationBlockReason } from "./predation.js";
+import { skillOnlyIfBlock } from "./skill-only-if.js";
 
 /**
  * "Usar Habilidade" — o MESMO caminho para a ficha de Personagem, a de Nave/Veículo e a hotbar.
@@ -75,6 +76,15 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget, bo
   }
 
   const mode = skillUseMode(mech, { areaEnabled: isAreaEffectsEnabled(), areaSupported: areaEffectsSupported() });
+
+  // "Só se…" da Skill (8c.1): antes de pagar. Sem alvo único (área, Estrutura, Zona, Forma) só vale o que é sobre
+  // quem usa; com alvo (único ou "Si mesmo") é conferido logo depois de escolhê-lo. Desligar nunca é barrado.
+  const refuseOnlyIf = target => {
+    const message = skillOnlyIfBlock(actor, mech, target);
+    if (message) ui.notifications.warn(`${skill.name}: ${message}.`);
+    return Boolean(message);
+  };
+  if (!["deactivate", "plain", "self", "targeted"].includes(mode) && refuseOnlyIf(null)) return;
 
   // Shift+clique: modificadores de rolagem (só quando há dano a rolar) e "Investir Mana" (C2, em toda
   // Skill com Custo que não seja Descritiva). Antes de Estrutura, Zona, área ou alvo.
@@ -174,6 +184,7 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget, bo
       if (viaMark && !(await confirmMarkCost({ title: `Marca — ${skill.name}`, via: viaMark, baseCost: baseCostOf(actor, mech), actor }))) return;
       await useSkill({ targetActors, subSkillIndex, rollOptions, manaInvested, viaMark });
     } else if (mode === "self") {
+      if (refuseOnlyIf(actor)) return;
       await useSkill({ targetActor: actor, subSkillIndex, rollOptions, manaInvested });
     } else {
       // Alvo único. Todo dano pode ser reduzido pelo alvo, então dano e efeito temporário pedem
@@ -183,6 +194,7 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget, bo
       // Alcance (H4): fora dele, só pela Marca (ou o Mestre ignora).
       const reach = await resolveTargetReach(actor, targetActor, mech, { label: skill.name, baseCost: baseCostOf(actor, mech) });
       if (!reach.ok) return;
+      if (refuseOnlyIf(targetActor)) return;
       // Análise e Predação (7b): confere o alvo ANTES de pagar o Custo.
       const gate = await targetedMechanicGate(actor, mech, targetActor);
       if (!gate) return;

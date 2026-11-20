@@ -8,6 +8,7 @@
  * `tab`: "general" | "mechanic" — onde o campo mora na ficha. `effect`: índice do card, ou null.
  */
 import { MEU_SISTEMA } from "../core/config/constants.js";
+import { complexityVerdict } from "./skill-complexity-rules.js";
 
 /** Alvos em que "Periódico" funciona (o mesmo do editor). */
 export const PERIODIC_TARGETS = ["hp", "energy", "shipCasco", "shipHull"];
@@ -32,6 +33,7 @@ const groupTargets = actor => new Set(MEU_SISTEMA.EFFECT_TARGET_GROUPS.filter(g 
  * @param {number|null} [ctx.energyMax] - Mana/Bateria máxima de quem tem a Skill
  * @param {(formula: string) => boolean} [ctx.validFormula]
  * @param {string} [ctx.energyLabel]
+ * @param {{extra?:number, normal?:number, unique?:number}} [ctx.complexityCaps] - tetos de complexidade por Tier (sem ele, sem aviso)
  * @param {(uuid: string) => boolean} [ctx.formTemplateOk] - o molde da forma existe e está marcado
  * @returns {Array<{code: string, level: "hard"|"soft", tab: string, effect: number|null, text: string}>}
  */
@@ -57,6 +59,26 @@ export function lintSkill(mech, ctx = {}) {
   if (active && !(Number(m.upkeepCost) > 0)) push("activeFree", "soft", "general", "Habilidade Ativa sem Custo por rodada: fica ligada de graça para sempre.");
   if (ctx.energyMax != null && Number(m.cost) > 0 && Number(m.cost) > Number(ctx.energyMax)) {
     push("costOverPool", "hard", "general", `Custa ${m.cost} e quem tem a Skill só tem ${ctx.energyMax} de ${energy} máxima: nunca dá para usar.`);
+  }
+
+  // --- "Só se…" da Skill inteira e "ao acertar" (8c.1): a Condição ou o Traço escolhido sumiu → a Skill nunca sai / nunca pega.
+  const skillOnly = m.onlyIf;
+  if (skillOnly?.kind === "otherCondition" || skillOnly?.kind === "otherConditionMine" || skillOnly?.kind === "selfCondition") {
+    if (!skillOnly.value) push("skillOnlyIfEmpty", "hard", "general", `"Só se…" da Skill sem Condição escolhida — ela nunca pode ser usada.`);
+    else if (ctx.conditions && !has(ctx.conditions, skillOnly.value)) push("skillOnlyIfUnknown", "hard", "general", `O "Só se…" da Skill usa a Condição "${skillOnly.value}", que não existe mais no catálogo — ela nunca pode ser usada.`);
+  }
+  if (skillOnly?.kind === "otherTrait") {
+    if (!skillOnly.value) push("skillOnlyIfEmpty", "hard", "general", `"Só se…" da Skill sem Traço escolhido — ela nunca pode ser usada.`);
+    else if (ctx.traits && !has(ctx.traits, skillOnly.value)) push("skillOnlyIfUnknown", "hard", "general", `O "Só se…" da Skill usa o Traço "${skillOnly.value}", que não existe mais no catálogo — ela nunca pode ser usada.`);
+  }
+  if (m.onHit?.conditionId) {
+    if (ctx.conditions && !has(ctx.conditions, m.onHit.conditionId)) push("onHitUnknown", "hard", "general", `"Ao acertar" usa a Condição "${m.onHit.conditionId}", que não existe mais no catálogo — não põe nada.`);
+    if ((m.onHit.when === "on" || m.onHit.when === "off") && !active) push("onHitWhenNotActive", "soft", "general", `"Ao acertar" só ligada/só desligada numa Skill que não é Ativa: o estado não conta, ela vale sempre.`);
+  }
+  // Complexidade por Tier (8c.1): só avisa.
+  if (ctx.complexityCaps && m.tier) {
+    const verdict = complexityVerdict(m, m.tier, ctx.complexityCaps);
+    if (verdict.over) push("complexity", "soft", "general", `Complexa demais para ${MEU_SISTEMA.SKILL_TIER_LABELS[m.tier] ?? m.tier}: ${verdict.score} de ${verdict.cap}. Dá para salvar assim; o Mestre decide.`);
   }
 
   // --- Alcance (H4): só avisos "confira"; nada trava.
@@ -126,7 +148,7 @@ export function lintSkill(mech, ctx = {}) {
       }
       // "Só se…" (8.1a): a Condição ou o Traço escolhido sumiu do catálogo → o efeito nunca pega.
       const only = e?.onlyIf;
-      if (only?.kind === "otherCondition" || only?.kind === "selfCondition") {
+      if (only?.kind === "otherCondition" || only?.kind === "otherConditionMine" || only?.kind === "selfCondition") {
         if (!only.value) push("onlyIfEmpty", "hard", "mechanic", `${n}: "Só se…" sem Condição escolhida — o efeito nunca pega.`, i);
         else if (ctx.conditions && !has(ctx.conditions, only.value)) push("onlyIfUnknown", "hard", "mechanic", `${n}: o "Só se…" usa a Condição "${only.value}", que não existe mais no catálogo — o efeito nunca pega.`, i);
       }

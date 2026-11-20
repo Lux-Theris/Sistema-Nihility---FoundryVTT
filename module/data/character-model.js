@@ -24,7 +24,7 @@ import { collectConditionalModifiers, buildModifierContext } from "../combat/con
 import { actorOriginLayers } from "../species/origin.js";
 import { bodyFunctionState, injuredMovement, legacyFunctionsFor, resolvePartVitals } from "../species/anatomy-rules.js";
 import { originAttributeRows, originStatRows, originMovement, originScale } from "../species/species-rules.js";
-import { sumConditionalModifiers } from "../combat/conditional-modifiers.js";
+import { sumConditionalModifiers, percentOfTotal } from "../combat/conditional-modifiers.js";
 import { sourceSuppressed, suppressionState } from "../core/suppression.js";
 import { npcTierHp, NPC_TIERS } from "../npc/npc-generator-rules.js";
 import { getNpcTierConfig } from "../core/config.js";
@@ -472,7 +472,9 @@ function deriveConditionalAttributes(dataModel) {
   const ctx = buildModifierContext(actor, null, { hpPercent: hp.max > 0 ? (hp.value / hp.max) * 100 : 0 });
   for (const key of MEU_SISTEMA.COMBAT_ATTRIBUTES) {
     const attr = dataModel.attributes.combat[key];
-    const bonus = sumConditionalModifiers(mods, "attributeFlat", ctx, { attribute: key });
+    // Pontos fixos + % do total do atributo (item 8c.1; −100% tira o total inteiro). Nunca em `total`.
+    const bonus = sumConditionalModifiers(mods, "attributeFlat", ctx, { attribute: key })
+      + percentOfTotal(sumConditionalModifiers(mods, "attributePercent", ctx, { attribute: key }), attr.total);
     attr.conditionalBonus = bonus;
     if (!bonus) continue;
     attr.effectiveTotal += bonus;

@@ -192,7 +192,8 @@ export function getActiveStatusConditions() {
             if (!c) return c;
             const withText = c.explanation === undefined && defaults[c.id]?.explanation ? { ...c, explanation: defaults[c.id].explanation } : c;
             // "No mapa" (J4b): só preenche quando o campo falta; o que o Mestre limpou de propósito fica limpo.
-            return fillMapStatus(withText, defaults);
+            const withMark = withText.isMark === undefined && defaults[withText.id]?.isMark ? { ...withText, isMark: true } : withText;
+            return fillMapStatus(withMark, defaults);
           });
         }
       }
@@ -317,6 +318,19 @@ export function getSkillCostManaPerPoint() {
   } catch (err) {
     return 0.9;
   }
+}
+
+/** Tetos de complexidade por Tier (Regras da Mesa, grupo "Complexidade"): `{extra, normal, unique}`. */
+export function getComplexityCaps() {
+  const read = (key, fallback) => {
+    try {
+      const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[key]));
+      return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
+    } catch (err) {
+      return fallback;
+    }
+  };
+  return { extra: read("complexityCapExtra", 3), normal: read("complexityCapNormal", 6), unique: read("complexityCapUnique", 12) };
 }
 
 /** Nomeação (7a): os três números das Regras da Mesa. */

@@ -23,7 +23,7 @@ import { applyAntimagic, applyEmp, suppressionLevel, techSuppressionLevel } from
 import { protectingStructureKinds } from "../structures/structures.js";
 import { applyCurse } from "./curses.js";
 import { effectMeasuresFor, vitalBase, grantSkillUseXp } from "./skill-xp.js";
-import { resolveEffectAmount } from "../economy/consumable-rules.js";
+import { resolveEffectAmount, resolveAttributePercent, ATTRIBUTE_PERCENT_TARGETS } from "../economy/consumable-rules.js";
 import { hasOnlyIf, onlyIfOutcome } from "./only-if-rules.js";
 import { buildModifierContext } from "../combat/conditional-context.js";
 
@@ -156,6 +156,9 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
   const sourceLevel = Math.max(0, Number(mech.sourceLevel ?? (originSkill?.parent ? mech.level : 0)) || 0);
   const sourceMagic = mech.sourceMagic ?? (originSkill?.parent ? skillIsMagic({ ...mech, tier: mech.tier ?? originSkill.system?.tier }) : false);
   const sourceTech = mech.sourceTech ?? (originSkill?.parent ? skillIsTech({ ...mech }, originSkill.parent) : false);
+  // Quem pôs o efeito (8c.1): base do "o alvo tem a Condição posta por mim". Marcar à mão no Token
+  // (sem Skill de origem) não guarda ninguém; uma Condição ao acertar traz o atacante em `mech.appliedBy`.
+  const appliedBy = mech.appliedBy ?? originSkill?.parent?.uuid ?? "";
   // Quem está Suprimido (Antimagia) não sente Skill mágica nem cura de nível ≤ a supressão; quem
   // está Suprimido (Tecnologia, PEM) não sente Skill tecnológica de nível ≤ a supressão.
   const suppressed = targetActor.type === "character" ? suppressionLevel(targetActor) : null;
@@ -173,6 +176,12 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
     if (entry.amountMode === "percentMax" && PERCENT_TARGETS.includes(entry.target)) {
       const max = ["energy", "restoreEnergy"].includes(entry.target) ? targetActor.system?.attributes?.energy?.max : targetActor.system?.attributes?.hp?.max;
       entry = { ...entry, amount: resolveEffectAmount(entry.amount, "percentMax", max), amountMode: "flat" };
+    }
+    // "% do total" de um atributo (8c.1): vira pontos agora, sobre o total DESTE alvo (o Poder do nível já
+    // escalou o percentual, como nos vitais; −100% é o teto do que se tira).
+    if (entry.amountMode === "percentMax" && ATTRIBUTE_PERCENT_TARGETS.includes(entry.target)) {
+      const total = targetActor.system?.attributes?.combat?.[entry.target]?.total;
+      if (total !== undefined) entry = { ...entry, amount: resolveAttributePercent(entry.amount, total), amountMode: "flat" };
     }
     // Empurrar/Puxar (J1) não é um efeito que fica no alvo: quem usa a Skill (applySkillEffects*) move o
     // Token pelo Mestre (forced-movement.js). Chegando aqui por outro caminho, nada acontece.
@@ -224,7 +233,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
         summary.push(`${condition.label}: não se aplica a ${targetActor.name}`);
         continue;
       }
-      summary.push(await applyCurse(targetActor, condition, { level: sourceLevel, label, onUnpaid: entry.curseOnUnpaid || "", partId: entry.healBlockPartId || "", caster: originSkill?.parent?.name ?? "" }));
+      summary.push(await applyCurse(targetActor, condition, { level: sourceLevel, label, onUnpaid: entry.curseOnUnpaid || "", partId: entry.healBlockPartId || "", caster: originSkill?.parent?.name ?? "", appliedBy }));
       xp.push({ flat: true });
       continue;
     }
@@ -359,6 +368,8 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
 
     if (existing) {
       const existingFlags = existing.flags[SYSTEM_ID];
+      // Reaplicar passa a Condição para quem aplicou por último (a Marca "posta por mim" segue o mais recente).
+      if (appliedBy && existingFlags.appliedBy !== appliedBy) await existing.update({ [`flags.${SYSTEM_ID}.appliedBy`]: appliedBy });
       // Reaplicar com nível maior sobe o nível guardado (a Antimagia e o bloqueio de cura leem ele).
       if (sourceLevel > (Number(existingFlags.sourceLevel) || 0)) {
         await existing.update({ [`flags.${SYSTEM_ID}.sourceLevel`]: sourceLevel, [`flags.${SYSTEM_ID}.magic`]: Boolean(sourceMagic || existingFlags.magic), [`flags.${SYSTEM_ID}.tech`]: Boolean(sourceTech || existingFlags.tech) });
@@ -455,6 +466,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
               sourceLevel,
               magic: sourceMagic,
               tech: sourceTech,
+              appliedBy,
               healBlockPartId: entry.healBlockPartId || "",
               // Cura nas partes do corpo (Ferimentos por parte): o tipo e, numa Regeneração de Skill
               // Única ou Ultimate, se ela também conserta próteses.
@@ -495,6 +507,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
             sourceLevel,
             magic: sourceMagic,
             tech: sourceTech,
+            appliedBy,
             healBlockPartId: entry.healBlockPartId || ""
           }
         }
@@ -547,6 +560,7 @@ async function applyMark(targetActor, caster, { rounds = 0, level = 0, tech = fa
           skillEffect: true,
           conditionId: "marked",
           markedBy: caster.uuid,
+          appliedBy: caster.uuid,
           tiedToActive: false,
           activeAnchors: [],
           sourceSkillId: origin.id ?? null,

@@ -14,7 +14,7 @@ import { resolveSpeciesTemplate } from "../species/species-rules.js";
 export const REQUEST_MECHANIC_FIELDS = [
   "cost", "hasUpkeep", "upkeepCost", "variableMana", "cooldown", "prepTurns", "magicTag", "isMagic", "isTech", "animationPath", "description", "resistanceTarget", "weaponMastery",
   "effectType", "damageFormula", "scalingAttribute", "isMagicDamage", "isAbsoluteDamage", "damageScale", "damageElements", "effects",
-  "targetType", "structureId", "structureRegen", "structureRegenCost", "formActorUuid", "areaShape", "areaDistance", "areaAngle", "zoneRounds", "range", "areaOrigin", "areaFreeLevel", "areaAffects", "weaponStrike", "strikeRequiresWeapon"
+  "targetType", "structureId", "structureRegen", "structureRegenCost", "formActorUuid", "areaShape", "areaDistance", "areaAngle", "zoneRounds", "range", "areaOrigin", "areaFreeLevel", "areaAffects", "weaponStrike", "strikeRequiresWeapon", "onlyIf", "onHit"
 ];
 
 /** Pedido que ainda pode mudar: aguardando o Mestre, ou devolvido para ajustar. */

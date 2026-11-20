@@ -4,7 +4,8 @@
  * refactor) — nada aqui fala com IA diretamente, exceto `fuseSkills` no modo "auto" (Skill
  * Única/Ultimate), que delega pra `requestAISpecialSkill` em ai-generation.js.
  */
-import { SYSTEM_ID, MEU_SISTEMA } from "../core/config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getComplexityCaps } from "../core/config.js";
+import { complexityVerdict } from "./skill-complexity-rules.js";
 import { ensureSystemCompendiums, getCompendiumForItemType, registerItemInCompendium } from "../core/compendium.js";
 import { buildSubSkillsFromSources, buildGrantedSkillData } from "./skill-snapshot.js";
 import { requestAISpecialSkill } from "../ai/ai-generation.js";
@@ -297,6 +298,9 @@ export async function evolveSkill(actor, sourceItemId, newSkillData) {
       areaAffects: newSkillData.areaAffects ?? "all",
       weaponStrike: newSkillData.weaponStrike ?? "",
       strikeRequiresWeapon: newSkillData.strikeRequiresWeapon ?? true,
+      onlyIf: newSkillData.onlyIf ?? source.system.onlyIf ?? { kind: "", value: "", threshold: 50 },
+      // "Ao acertar" (8c.1): o editor rápido não o muda; a Evolução leva o da Skill antiga.
+      onHit: newSkillData.onHit ?? foundry.utils.deepClone(source.system.onHit ?? { conditionId: "", chance: 100, rounds: 0, when: "always" }),
       evolvedFrom: source.name
     }
   };
@@ -476,6 +480,7 @@ async function requestCardContent(actor, req) {
   const mech = requestMechanics(req);
   const assist = actor ? skillAssist(mech, { actor }) : { enabled: false, warnings: [] };
   const hard = (assist.warnings ?? []).filter(w => w.level === "hard").length;
+  const complexity = complexityVerdict(mech, req.tier, getComplexityCaps());
   const owner = actor ? game.users.find(u => !u.isGM && actor.testUserPermission(u, "OWNER")) : null;
   return renderSystemTemplate(REQUEST_TEMPLATE, {
     actorName: actor?.name ?? "?",
@@ -492,6 +497,9 @@ async function requestCardContent(actor, req) {
     costClose: Boolean(assist.cost?.close),
     warnings: (assist.warnings ?? []).length,
     hardWarnings: hard,
+    // Complexidade por Tier (8c.1): só informa o Mestre; ele pode aprovar assim mesmo.
+    complexityText: complexity.text,
+    complexityOver: complexity.over,
     gmNote: req.gmNote ?? ""
   });
 }

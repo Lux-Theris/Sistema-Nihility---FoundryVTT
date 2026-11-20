@@ -7,6 +7,7 @@
  * As funções `sanitize*` e `mechanicsGuide` são PURAS (testadas): recebem os catálogos como
  * argumento. `currentAICatalogs()` é a ponte com o mundo.
  */
+import { ATTRIBUTE_PERCENT_TARGETS } from "../economy/consumable-rules.js";
 import {
   MEU_SISTEMA,
   getActiveTraits,
@@ -54,7 +55,7 @@ export function mechanicsGuide(catalogs = {}) {
     '  "effects": [{"target": alvo, "amount": número (negativo = debuff/dano), "durationRounds": rodadas (0 = sem prazo),',
     '               "conditionId": id de Condição ou "", "periodic": boolean (só hp/energy: aplica a cada rodada),',
     '               "damageElements": [ids] (tick de dano), "elementId": id (só weaponElement/bodyElement/createSurface)}],',
-    '  "Só se…" num efeito (opcional): "onlyIf": {"kind":"otherCondition","value": id de Condição} (só pega se o alvo a tem) | {"kind":"otherTrait","value": id de Traço} | {"kind":"otherIsShip"} | {"kind":"otherHpBelow","threshold": % de Vida do alvo}.',
+    '  "Só se…" num efeito (opcional): "onlyIf": {"kind":"otherCondition","value": id de Condição} (só pega se o alvo a tem) | {"kind":"otherTrait","value": id de Traço} | {"kind":"otherIsShip"} | {"kind":"otherHpBelow","threshold": % de Vida do alvo} | {"kind":"otherConditionMine","value": id de Condição} (o alvo tem a Condição posta por quem usa) | {"kind":"otherAnyMark"} (o alvo tem qualquer Condição marcada como marca) | {"kind":"otherAnyMarkMine"}. O mesmo "onlyIf" na própria Skill (fora dos efeitos) barra o uso inteiro antes de pagar. "% do total": {"target": atributo,"amountMode":"percentMax","amount":% do total do alvo} (−100 tira o total inteiro). "Ao acertar" (passivo, só Skill de dano ou Ativa): "onHit": {"conditionId": id de Condição,"chance": 1-100,"rounds": 0-99,"when":"always"|"on"|"off"}.',
     '  Efeitos de movimento (grupo "Movimento"): {"target":"push","amount": metros,"pushDirection":"push"|"pull"|"choose","immuneTraits":[ids de Traço]} empurra/puxa o alvo em linha reta; {"target":"flight"} e {"target":"burrow"} dão voo/escavação pela "durationRounds" (amount 0).',
     '  Terreno: {"target":"createSurface","elementId": id de elemento que deixa superfície no chão (só vale se o bloco Superfícies estiver ligado),"amount": raio em metros (0 = o do elemento),"durationRounds": rodadas (0 = as do elemento)}.',
     '  Efeitos de sentido (grupo "Sentidos", só Personagem): {"target":"senseTremor"|"senseInvisible"|"senseTrue"|"senseAll","amount": alcance em metros (0 = sem limite),"durationRounds": rodadas} — Sentido sísmico, Ver o invisível, Visão verdadeira, Sentir tudo.',
@@ -182,6 +183,8 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
       // "Só se…": só tipos de alvo, com ids que existem neste mundo; o resto é descartado.
       const onlyIf = e.target !== "push" ? sanitizeOnlyIf(e.onlyIf, { conditions, traits }) : null;
       if (onlyIf) entry.onlyIf = onlyIf;
+      // "% do total" de um atributo (8c.1).
+      if (e.amountMode === "percentMax" && ATTRIBUTE_PERCENT_TARGETS.includes(e.target)) entry.amountMode = "percentMax";
       // Cura periódica: Cura (padrão), Regeneração (refaz partes perdidas) ou Reparo (próteses).
       if (periodic && e.target === "hp" && amount > 0) entry.healKind = ["regeneracao", "reparo"].includes(e.healKind) ? e.healKind : "cura";
       effects.push(entry);
@@ -200,6 +203,17 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
     out.magicTag = "mundane";
     effectType = "none";
   }
+  // "Só se…" da Skill inteira e "ao acertar" (8c.1): só ids que existem neste mundo.
+  const skillOnlyIf = sanitizeOnlyIf(m.onlyIf, { conditions, traits });
+  if (skillOnlyIf) out.onlyIf = skillOnlyIf;
+  if (m.onHit && conditions.has(m.onHit.conditionId)) {
+    out.onHit = {
+      conditionId: m.onHit.conditionId,
+      chance: clampInt(m.onHit.chance, 1, 100, 100),
+      rounds: clampInt(m.onHit.rounds, 0, 99, 0),
+      when: out.hasUpkeep && ["on", "off"].includes(m.onHit.when) ? m.onHit.when : "always"
+    };
+  }
   out.effectType = effectType;
   return out;
 }
@@ -209,6 +223,9 @@ export function sanitizeOnlyIf(raw, { conditions = new Set(), traits = new Set()
   if (!raw || typeof raw !== "object") return null;
   switch (raw.kind) {
     case "otherCondition": return conditions.has(raw.value) ? { kind: "otherCondition", value: raw.value, threshold: 50 } : null;
+    case "otherConditionMine": return conditions.has(raw.value) ? { kind: "otherConditionMine", value: raw.value, threshold: 50 } : null;
+    case "otherAnyMark": return { kind: "otherAnyMark", value: "", threshold: 50 };
+    case "otherAnyMarkMine": return { kind: "otherAnyMarkMine", value: "", threshold: 50 };
     case "otherTrait": return traits.has(raw.value) ? { kind: "otherTrait", value: raw.value, threshold: 50 } : null;
     case "otherIsShip": return { kind: "otherIsShip", value: "", threshold: 50 };
     case "otherHpBelow": return { kind: "otherHpBelow", value: "", threshold: clampInt(raw.threshold, 1, 100, 50) };

@@ -27,6 +27,7 @@ import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } f
 import { pickerFieldHtml, readPickerField, wireElementPickerField, wireTraitPickerField } from "./checklist-picker.js";
 import { openLightConfigDialog, describeLight } from "../combat/lights.js";
 import { advancedFold } from "../helpers/advanced-fold.js";
+import { ATTRIBUTE_PERCENT_TARGETS, PERCENT_AMOUNT_TARGETS } from "../economy/consumable-rules.js";
 import { ONLY_IF_KINDS, ONLY_IF_LABELS, onlyIfNeeds, normalizeOnlyIf } from "../skills/only-if-rules.js";
 import { escapeHtml } from "../helpers/html.js";
 import { getDragEventData } from "../helpers/foundry-compat.js";
@@ -95,6 +96,7 @@ function buildEffectRowHtml(entry) {
       <select class="se-effect-element-id" title="Elemento (das armas, ou que o alvo passa a ser)" style="display:${["weaponElement", "bodyElement", "createSurface"].includes(entry.target) ? "inline-block" : "none"};">${elementIdOptions}</select>
       <select class="se-effect-weapon-type" title="O ataque desarmado passa a contar como este tipo de arma (Maestria, XP e aprendizado)" style="display:${entry.target === "unarmedType" ? "inline-block" : "none"};">${weaponTypeIdOptions}</select>
       <input type="number" class="se-effect-amount" value="${entry.amount}" placeholder="${entry.target === "push" ? "Metros" : entry.target === "createSurface" ? "Raio m (0 = o do elemento)" : String(entry.target).startsWith("sense") ? "Alcance m (0 = sem limite)" : "Qtd."}" style="display:${["antimagic", "emp", "mark", "flight", "burrow", "unarmedType"].includes(entry.target) ? "none" : ""};"/>
+      <select class="se-effect-amount-mode" title="Pontos, ou % do máximo do alvo (Vida, Mana, Escudo) / % do total do atributo (−100% tira o total inteiro)" style="display:${PERCENT_AMOUNT_TARGETS.includes(entry.target) ? "inline-block" : "none"};"><option value="flat" ${entry.amountMode === "percentMax" ? "" : "selected"}>pts</option><option value="percentMax" ${entry.amountMode === "percentMax" ? "selected" : ""}>${ATTRIBUTE_PERCENT_TARGETS.includes(entry.target) ? "% total" : "% máx."}</option></select>
       <input type="number" class="se-effect-duration" value="${entry.durationRounds}" min="0" placeholder="Rounds/Ticks"/>
       <a class="se-effect-delete" title="Remover"><i class="fas fa-trash"></i></a>
     </div>
@@ -205,6 +207,9 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     hasUpkeep: Boolean(initialData.hasUpkeep),
     variableMana: Boolean(initialData.variableMana),
     magicTag: initialData.magicTag || "auto",
+    onlyIf: normalizeOnlyIf(initialData.onlyIf) ?? { kind: "", value: "", threshold: 50 },
+    // "Ao acertar" não tem campo aqui (mora na ficha da Skill): passa intacto até o Salvar.
+    onHit: initialData.onHit ?? null,
     isMagic: initialData.isMagic ?? null,
     isTech: initialData.isTech ?? null,
     upkeepCost: initialData.upkeepCost ?? 0,
@@ -380,6 +385,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
   const energyLabel = getCharacterEnergyLabel();
   // "Avançado ▸" (K1): abre sozinho quando algum campo de dentro tem valor.
   const advTop = advancedFold([
+    { label: "Só se… (a Skill inteira)", used: Boolean(data.onlyIf.kind) },
     { label: `Variar a ${energyLabel}`, used: Boolean(data.variableMana) },
     { label: "Mágico / Tecnológico", used: Boolean(data.isTech) || data.isMagic === false || data.magicTag === "mundane" },
     { label: "Animação", used: Boolean(data.animationPath) }
@@ -413,6 +419,8 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
       ${templateField}
       <div class="form-group"><label>Nome</label><input type="text" name="name" value="${escapeHtml(data.name)}"/></div>
       ${tierField}
+      <p class="hint-inline se-complexity" style="margin:0 0 .4em;"></p>
+      <input type="hidden" name="onHitJson" value="${escapeHtml(JSON.stringify(data.onHit ?? null))}"/>
       ${evolvedField}
       <div class="row-2">
         ${request
@@ -435,6 +443,13 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
       <details class="adv" ${advTop.open ? "open" : ""}>
       ${advSummaryHtml(advTop)}
       <div class="adv-body">
+      <div class="form-group se-skill-onlyif" title="Conferido depois de escolher o alvo e ANTES de pagar o Custo: se não vale, a Skill nem sai. Desligar uma Ativa nunca é barrado.">
+        <label>Só se… (a Skill inteira)</label>
+        <select name="skillOnlyIfKind"><option value="">— sempre —</option>${ONLY_IF_KINDS.map(k => `<option value="${k}" ${k === data.onlyIf.kind ? "selected" : ""}>${escapeHtml(ONLY_IF_LABELS[k])}</option>`).join("")}</select>
+        <select name="skillOnlyIfCondition" style="display:${onlyIfNeeds(data.onlyIf.kind) === "condition" ? "inline-block" : "none"};">${getActiveStatusConditions().map(c => `<option value="${escapeHtml(c.id)}" ${c.id === data.onlyIf.value ? "selected" : ""}>${escapeHtml(c.label)}</option>`).join("")}</select>
+        <select name="skillOnlyIfTrait" style="display:${onlyIfNeeds(data.onlyIf.kind) === "trait" ? "inline-block" : "none"};">${getActiveTraits().map(t => `<option value="${escapeHtml(t.id)}" ${t.id === data.onlyIf.value ? "selected" : ""}>${escapeHtml(t.label)}</option>`).join("")}</select>
+        <input type="number" name="skillOnlyIfThreshold" min="0" max="100" value="${data.onlyIf.threshold}" style="width:4.5em;display:${onlyIfNeeds(data.onlyIf.kind) === "threshold" ? "inline-block" : "none"};"/>
+      </div>
       <label class="checkbox-line" title="Ao usar, escolhe quanta ${energyLabel} investir: menos enfraquece na mesma proporção; mais fortalece sem teto, rendendo cada vez menos por ${energyLabel}.">
         <input type="checkbox" name="variableMana" ${data.variableMana ? "checked" : ""}/>
         Aceita variar a ${energyLabel}
@@ -852,6 +867,14 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
       li.querySelector(".se-effect-amount").style.display = ["antimagic", "emp", "mark", "flight", "burrow", "unarmedType"].includes(targetSelect.value) ? "none" : "";
     });
     targetSelect.addEventListener("change", applyModifierTypeVisibility);
+    // "% do máximo / do total": só nos alvos que aceitam; fora deles volta para pontos.
+    targetSelect.addEventListener("change", () => {
+      const modeSelect = li.querySelector(".se-effect-amount-mode");
+      const accepts = PERCENT_AMOUNT_TARGETS.includes(targetSelect.value);
+      modeSelect.style.display = accepts ? "inline-block" : "none";
+      if (!accepts) modeSelect.value = "flat";
+      modeSelect.options[1].textContent = ATTRIBUTE_PERCENT_TARGETS.includes(targetSelect.value) ? "% total" : "% máx.";
+    });
     // Luz do Escudo pessoal: só pro alvo Escudo; a luz fica em `data-light` (JSON) até salvar.
     const lightRow = li.querySelector(".effect-row-light");
     const shieldRow = li.querySelector(".effect-row-shield");
@@ -962,6 +985,19 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
     });
   });
 
+  // "Só se…" da Skill: mostra só o campo que o tipo pede.
+  const syncSkillOnlyIf = () => {
+    const needs = onlyIfNeeds(root.querySelector('[name="skillOnlyIfKind"]')?.value ?? "");
+    const show = (name, on) => {
+      const el = root.querySelector(`[name="${name}"]`);
+      if (el) el.style.display = on ? "inline-block" : "none";
+    };
+    show("skillOnlyIfCondition", needs === "condition");
+    show("skillOnlyIfTrait", needs === "trait");
+    show("skillOnlyIfThreshold", needs === "threshold");
+  };
+  root.querySelector('[name="skillOnlyIfKind"]')?.addEventListener("change", syncSkillOnlyIf);
+
   // Avisos (L8) e custo sugerido (L9), recalculados a cada mudança. Nunca bloqueiam o Salvar.
   const assistBox = root.querySelector(".se-assist");
   let timer = null;
@@ -977,6 +1013,8 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
       const assist = skillAssist(mech, { actor });
       if (!assist.enabled) return;
       if (assistBox) assistBox.innerHTML = warningsBoxHtml(assist.warnings);
+      const complexitySlot = root.querySelector(".se-complexity");
+      if (complexitySlot) complexitySlot.textContent = assist.complexity ? `${assist.complexity.text}${assist.complexity.over ? " — complexa demais para este Tier" : ""}` : "";
       const costSlot = root.querySelector('[data-sug="cost"]');
       if (costSlot) costSlot.innerHTML = costChipHtml(assist.cost, "cost");
       const upkeepSlot = root.querySelector('[data-sug="upkeepCost"]');
@@ -1030,6 +1068,20 @@ function readSkillEditorForm(root, lockTier) {
     magicTag: weaponMastery ? "mundane" : "auto",
     isMagic: weaponMastery ? false : root.querySelector('[name="isMagic"]')?.checked ?? null,
     isTech: root.querySelector('[name="isTech"]')?.checked ?? null,
+    onlyIf: (() => {
+      const kind = root.querySelector('[name="skillOnlyIfKind"]')?.value ?? "";
+      const needs = onlyIfNeeds(kind);
+      const value = needs === "condition" ? root.querySelector('[name="skillOnlyIfCondition"]')?.value ?? "" : needs === "trait" ? root.querySelector('[name="skillOnlyIfTrait"]')?.value ?? "" : "";
+      return normalizeOnlyIf({ kind, value, threshold: root.querySelector('[name="skillOnlyIfThreshold"]')?.value }) ?? { kind: "", value: "", threshold: 50 };
+    })(),
+    ...(() => {
+      try {
+        const onHit = JSON.parse(root.querySelector('[name="onHitJson"]')?.value || "null");
+        return onHit ? { onHit } : {};
+      } catch (err) {
+        return {};
+      }
+    })(),
     upkeepCost: hasUpkeep ? Number(root.querySelector('[name="upkeepCost"]').value) || 0 : 0,
     cooldown: Math.max(0, Math.floor(Number(root.querySelector('[name="cooldown"]')?.value)) || 0),
     prepTurns: Math.max(0, Math.floor(Number(root.querySelector('[name="prepTurns"]')?.value)) || 0),
@@ -1073,6 +1125,7 @@ function readSkillEditorForm(root, lockTier) {
             weaponTypeId: row.querySelector(".se-effect-target").value === "unarmedType" ? row.querySelector(".se-effect-weapon-type")?.value ?? "" : "",
             amount: Number(row.querySelector(".se-effect-amount").value) || 0,
             modifierType: row.querySelector(".se-effect-modifier-type").value,
+            amountMode: PERCENT_AMOUNT_TARGETS.includes(row.querySelector(".se-effect-target").value) && row.querySelector(".se-effect-amount-mode")?.value === "percentMax" ? "percentMax" : "flat",
             durationRounds: Number(row.querySelector(".se-effect-duration").value) || 0,
             conditionId: row.querySelector(".se-effect-condition").value || "",
             icon: row.querySelector(".se-effect-icon")?.value.trim() || "",

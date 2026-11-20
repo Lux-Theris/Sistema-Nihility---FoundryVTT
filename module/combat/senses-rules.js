@@ -155,7 +155,9 @@ export function mapStatusesToAdd(statuses, catalog) {
  * @param {boolean|undefined} input.tokenVisible - o `visible` do Token no mapa
  */
 export function combatantVisibleFor({ base, isGM, enabled, isOwner, onCanvasScene, tokenVision, hiddenBySense, tokenVisible }) {
-  if (isGM || !enabled || !base || isOwner || !onCanvasScene || !tokenVision || !hiddenBySense) return base;
+  // Dono, 20/11: some da lista quem o jogador não vê nem sente (fora da linha de visão também), não só
+  // quem se esconde por sentido. `hiddenBySense` fica no contrato (quem chama ainda manda), mas não decide mais.
+  if (isGM || !enabled || !base || isOwner || !onCanvasScene || !tokenVision) return base;
   return tokenVisible ?? base;
 }
 

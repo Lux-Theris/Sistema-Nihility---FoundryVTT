@@ -42,6 +42,10 @@ export const MEU_SISTEMA = {
     unarmedAttribute: "unarmedAttribute",
     unarmedElement: "unarmedElement",
     skillCostManaPerPoint: "skillCostManaPerPoint",
+    // Complexidade por Tier (8c.1): tetos do aviso "complexa demais para o Tier".
+    complexityCapExtra: "complexityCapExtra",
+    complexityCapNormal: "complexityCapNormal",
+    complexityCapUnique: "complexityCapUnique",
     // Nomeação (7a): custo, XP e parte do XP que passa a quem nomeou.
     namingManaFactor: "namingManaFactor",
     namingXpFactor: "namingXpFactor",

@@ -10,6 +10,7 @@
   <p class="sr-check">
     <span class="sr-lab">Custo</span> {{cost}}
     {{#if suggested}} · <span class="{{#if costClose}}sr-ok{{else}}sr-far{{/if}}">sugerido {{suggested}}</span>{{/if}}
+    · <span class="{{#if complexityOver}}sr-far{{else}}sr-ok{{/if}}" title="Pontuação de complexidade do pedido contra o teto do Tier. Só informa: o Mestre pode aprovar assim mesmo.">{{complexityText}}</span>
     · {{#if warnings}}<span class="{{#if hardWarnings}}sr-far{{else}}sr-soft{{/if}}">{{warnings}} aviso(s)</span>{{else}}<span class="sr-ok">sem avisos</span>{{/if}}
   </p>
   {{else}}{{#if cost}}<p class="sr-cost">Custo de energia para usar: {{cost}}</p>{{/if}}{{/if}}

@@ -22,6 +22,7 @@ import { getAntimagicReach,
   getScaleConfig,
   isScaleEnabled,
   getActiveTraits,
+  getComplexityCaps,
   getAttributeLabels,
   getEffectTargetGroups,
   getModuleCategories,
@@ -49,6 +50,9 @@ import { getAntimagicReach,
   isFeatureEnabled,
 } from "../core/config.js";
 import { skillAssist, costChipHtml } from "../skills/skill-assist.js";
+import { ATTRIBUTE_PERCENT_TARGETS, PERCENT_AMOUNT_TARGETS } from "../economy/consumable-rules.js";
+import { normalizeOnHit, ON_HIT_WHEN, ON_HIT_WHEN_LABELS } from "../skills/marks-rules.js";
+import { complexityVerdict } from "../skills/skill-complexity-rules.js";
 import { getDragEventData } from "../helpers/foundry-compat.js";
 import { formTemplateOf } from "../skills/forms.js";
 import { requestForm } from "../skills/form-request.js";
@@ -242,7 +246,8 @@ function tabsFor(item) {
         (sys.statModifiers?.hp ? 1 : 0) +
         (sys.statModifiers?.energy ? 1 : 0) +
         (sys.attributeBonuses ?? []).length +
-        (sys.conditionalModifiers ?? []).length;
+        (sys.conditionalModifiers ?? []).length +
+        (sys.onHit?.conditionId ? 1 : 0);
       return [
         { id: "general", label: "Geral" },
         { id: "mechanic", label: "Mecânica", count: mechanic },
@@ -288,7 +293,7 @@ function tabsFor(item) {
 }
 
 /** Linhas prontas do editor de Bônus Condicionais (opções já com `selected`). */
-function conditionalModifierRows(list) {
+function conditionalModifierRows(list, { activeSkill = false } = {}) {
   const pickList = (pairs, current) => pairs.map(([value, label]) => ({ value, label, selected: String(value) === String(current ?? "") }));
   const traits = getActiveTraits().map(t => [t.id, t.label]);
   const conditions = getActiveStatusConditions().map(c => [c.id, c.label]);
@@ -299,10 +304,10 @@ function conditionalModifierRows(list) {
   return list.map((mod, index) => {
     const whenKind = mod.when?.kind || "always";
     const thenKind = mod.then?.kind || "damagePercent";
-    const valueSource = { otherTrait: traits, otherCondition: conditions, selfCondition: conditions, element: elements }[whenKind];
+    const valueSource = { otherTrait: traits, otherCondition: conditions, otherConditionMine: conditions, selfCondition: conditions, element: elements }[whenKind];
     let targetOptions = null;
     if (thenKind === "rollFlat") targetOptions = pickList([["any", "qualquer atributo"], ...attributes], mod.then?.target);
-    else if (thenKind === "attributeFlat") targetOptions = pickList(attributes, mod.then?.target);
+    else if (thenKind === "attributeFlat" || thenKind === "attributePercent") targetOptions = pickList(attributes, mod.then?.target);
     else if (thenKind === "resistancePercent") targetOptions = pickList([["general", "Geral"], ...elements], mod.then?.target);
     return {
       index,
@@ -314,8 +319,10 @@ function conditionalModifierRows(list) {
       targetOptions,
       value: mod.then?.value ?? 0,
       perEachOptions: pickList(PER_EACH_KINDS.map(k => [k, PER_EACH_LABELS[k]]), mod.perEach ?? ""),
+      // Só numa Skill Ativa (8c.1): vale ligada (o padrão), desligada ou sempre.
+      activeStateOptions: activeSkill ? pickList([["on", "só ligada"], ["off", "só desligada"], ["always", "sempre"]], mod.activeState || "on") : null,
       // Bônus contínuo de atributo não sabe quem é o oponente nem qual o elemento.
-      warning: thenKind === "attributeFlat" && !SELF_WHEN_KINDS.includes(whenKind) ? "Bônus no atributo só vale com condição sobre você mesmo." : ""
+      warning: (thenKind === "attributeFlat" || thenKind === "attributePercent") && !SELF_WHEN_KINDS.includes(whenKind) ? "Bônus no atributo só vale com condição sobre você mesmo." : ""
     };
   });
 }
@@ -524,7 +531,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       );
     }
     if (["title", "skill", "item"].includes(item.type)) {
-      context.conditionalRows = conditionalModifierRows(sys.conditionalModifiers ?? []);
+      context.conditionalRows = conditionalModifierRows(sys.conditionalModifiers ?? [], { activeSkill: item.type === "skill" && Boolean(sys.hasUpkeep) });
     }
 
     context.headerChips = headerChipsFor(item);
@@ -647,7 +654,33 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
     // "Avançado ▸" das seções (K1): os campos raros, cada um dizendo se está em uso.
     const adv = (key, fields) => advancedFold(fields, this.#advOpen.get(key));
+    // "Só se…" da Skill inteira (8c.1): antes de pagar o Custo, depois de escolher o alvo.
+    const skillOnlyIf = normalizeOnlyIf(sys.onlyIf) ?? { kind: "", value: "", threshold: 50 };
+    const onlyIfWants = onlyIfNeeds(skillOnlyIf.kind);
+    const skillConditions = getActiveStatusConditions();
+    context.skillOnlyIf = {
+      kindOptions: [{ value: "", label: "— sempre —", selected: !skillOnlyIf.kind }].concat(ONLY_IF_KINDS.map(k => ({ value: k, label: ONLY_IF_LABELS[k], selected: k === skillOnlyIf.kind }))),
+      needsCondition: onlyIfWants === "condition",
+      needsTrait: onlyIfWants === "trait",
+      needsThreshold: onlyIfWants === "threshold",
+      conditionOptions: skillConditions.map(c => ({ value: c.id, label: c.label, selected: c.id === skillOnlyIf.value })),
+      traitOptions: getActiveTraits().map(t => ({ value: t.id, label: t.label, selected: t.id === skillOnlyIf.value })),
+      threshold: skillOnlyIf.threshold
+    };
+    // "Ao acertar" (8c.1): a Condição que todo golpe seu põe no alvo.
+    const onHit = normalizeOnHit(sys.onHit) ?? { conditionId: "", chance: 100, rounds: 0, when: "always" };
+    context.skillOnHit = {
+      set: Boolean(onHit.conditionId),
+      conditionOptions: [{ value: "", label: "— nenhuma —", selected: !onHit.conditionId }].concat(skillConditions.map(c => ({ value: c.id, label: c.label, selected: c.id === onHit.conditionId }))),
+      chance: sys.onHit?.chance ?? 100,
+      rounds: onHit.rounds,
+      whenSeg: seg(ON_HIT_WHEN.map(w => [w, ON_HIT_WHEN_LABELS[w]]), onHit.when),
+      showWhen: Boolean(sys.hasUpkeep)
+    };
+    // Complexidade por Tier (8c.1): só informa; nunca trava.
+    context.skillComplexity = complexityVerdict(sys, sys.tier, getComplexityCaps());
     context.advCost = adv("cost", [
+      { label: "Só se… (a Skill inteira)", used: hasOnlyIf(sys.onlyIf) },
       { label: `Variar a ${context.energyLabel}`, used: Boolean(sys.variableMana) },
       { label: "Mágico / Tecnológico", used: Boolean(sys.isTech) || sys.isMagic === false || sys.magicTag === "mundane" }
     ]);
@@ -715,7 +748,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       else if (["flight", "burrow"].includes(entry.target)) summary = targetLabel;
       else if (isSenseTarget(entry.target)) summary = `${SENSE_LABELS[entry.target]} ${describeSenseRange(senseRangeValue(amount))}`;
       else if (isShipTarget && entry.modifierType === "multiplier") summary = `${targetLabel} ×${(1 + amount / 100).toFixed(2).replace(".", ",")}`;
-      else summary = `${targetLabel} ${signed(amount)}${entry.amountMode === "percentMax" && ["hp", "energy", "shield", "heal", "restoreEnergy"].includes(entry.target) ? "% do máx." : ""}${periodic ? " por tick" : ""}`;
+      else summary = `${targetLabel} ${signed(amount)}${entry.amountMode === "percentMax" && PERCENT_AMOUNT_TARGETS.includes(entry.target) ? (ATTRIBUTE_PERCENT_TARGETS.includes(entry.target) ? "% do total" : "% do máx.") : ""}${periodic ? " por tick" : ""}`;
       const extra = [];
       if (entry.target === "push") extra.push("na hora");
       else if (sys.hasUpkeep) extra.push("enquanto ativa");
@@ -824,7 +857,8 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         elementField: selectedElementChips(entry.damageElements),
         elementPath: `${effectsPath}.${index}.damageElements`,
         // Vida, Mana e Escudo aceitam "% do máximo do alvo" (Poção de 25%).
-        acceptsPercent: ["hp", "energy", "shield", "heal", "restoreEnergy"].includes(entry.target),
+        acceptsPercent: PERCENT_AMOUNT_TARGETS.includes(entry.target),
+        percentLabel: ATTRIBUTE_PERCENT_TARGETS.includes(entry.target) ? "% total" : "% máx.",
         isPercent: entry.amountMode === "percentMax"
       };
     });
@@ -1071,7 +1105,15 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
    */
   _processFormData(event, form, formData) {
     const data = super._processFormData(event, form, formData);
-    return mergeSubmittedArrays(data, this.item);
+    const merged = mergeSubmittedArrays(data, this.item);
+    // "Só se…" da Skill (8c.1): trocar o tipo não deixa o valor do tipo anterior para trás.
+    const onlyIf = merged?.system?.onlyIf;
+    if (onlyIf) {
+      const needs = onlyIfNeeds(onlyIf.kind);
+      const ids = needs === "condition" ? getActiveStatusConditions().map(c => c.id) : needs === "trait" ? getActiveTraits().map(t => t.id) : null;
+      onlyIf.value = ids ? (ids.includes(onlyIf.value) ? onlyIf.value : ids[0] ?? "") : "";
+    }
+    return merged;
   }
 
   /**
@@ -1224,7 +1266,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     if (field === "target") {
       if (!["hp", "energy", "shipCasco", "shipHull"].includes(entry.target)) entry.periodic = false;
       if (!MEU_SISTEMA.SHIP_EFFECT_TARGETS.includes(entry.target)) entry.modifierType = "flat";
-      if (!["hp", "energy", "shield", "heal", "restoreEnergy"].includes(entry.target)) entry.amountMode = "flat";
+      if (!PERCENT_AMOUNT_TARGETS.includes(entry.target)) entry.amountMode = "flat";
     }
     await this.item.update({ [this.#effectsPath()]: effects });
   }

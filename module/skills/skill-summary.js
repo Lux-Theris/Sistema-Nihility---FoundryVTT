@@ -7,6 +7,7 @@
  * leitores de config.js por `skillSummariesFor` (skill-summary-ui.js).
  */
 import { onlyIfClause } from "./only-if-rules.js";
+import { normalizeOnHit } from "./marks-rules.js";
 import { strikeSentence } from "../combat/weapon-mastery-rules.js";
 import { isSenseTarget, SENSE_LABELS, describeSenseRange, senseRangeValue } from "../combat/senses-rules.js";
 
@@ -138,6 +139,16 @@ export function skillSummaryParts(mech, ctx = {}) {
       // Golpe de arma (H6): "golpe desarmado" / "golpe de Lâminas".
       if (mech.effectType === "damage" && mech.weaponStrike && ctx.strikesOn) parts.push(strikeSentence(mech.weaponStrike, ctx.weaponTypes?.[mech.weaponStrike]) + (mech.weaponStrike !== "unarmed" && mech.strikeRequiresWeapon !== false ? " (com a arma)" : ""));
     }
+  }
+  // "Só se…" da Skill inteira (8c.1): "só se o alvo tiver a Marca do Duelo posta por mim".
+  const skillOnlyIf = onlyIfClause(mech.onlyIf, (kind, value) => ctx.conditions?.[value] ?? ctx.traits?.[value] ?? value);
+  if (skillOnlyIf) parts.push(`só se ${skillOnlyIf}`);
+  // "Ao acertar" (8c.1): "seus golpes põem Marca do Duelo (50%)".
+  const onHit = normalizeOnHit(mech.onHit);
+  if (onHit) {
+    const name = ctx.conditions?.[onHit.conditionId] ?? onHit.conditionId;
+    const when = onHit.when === "on" ? " enquanto ligada" : onHit.when === "off" ? " enquanto desligada" : "";
+    parts.push(`seus golpes põem ${name}${onHit.chance < 100 ? ` (${onHit.chance}%)` : ""}${when}`);
   }
   if (ctx.resistance) parts.push(ctx.resistance);
   // Maestria de arma (H6): a frase pronta ("Maestria: Lâminas · +15% de dano") vem de fora.

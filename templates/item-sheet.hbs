@@ -55,6 +55,7 @@
 
       <div class="sec">
         <div class="sec-head">Progressão</div>
+        <div class="strip {{#if skillComplexity.over}}gold{{else}}dim{{/if}}" title="Pontuação de complexidade: 1 por efeito, +1 Condição, +2 &quot;Só se…&quot;, +2 área ou Zona, +3 Estrutura, +2 empurrão, +1 Ativa, +1 &quot;ao acertar&quot;, +1 por Sub-Skill. O teto de cada Tier está em Regras da Mesa. Só informa: nunca impede nada.">{{skillComplexity.text}}{{#if skillComplexity.over}} — complexa demais para este Tier{{/if}}</div>
         <div class="sec-body g2">
           <div class="fld">
             <span class="fld-label">Tier {{#unless isRacialSkill}}<span class="help" title="Ultimate só aparece para o jogador se o Ator já possuir uma Skill Ultimate. O Mestre sempre vê.">?</span>{{/unless}}</span>
@@ -97,6 +98,27 @@
         <details class="adv" data-adv-key="cost" {{#if advCost.open}}open{{/if}}>
           {{> nihility.advSummary fold=advCost}}
           <div class="adv-body g2">
+            <div class="fld span-all">
+              <span class="fld-label">Só se… (a Skill inteira) <span class="help" title="Conferido depois de escolher o alvo e ANTES de pagar o Custo: se não vale, a Skill nem sai (e nada se gasta). Desligar uma Skill Ativa nunca é barrado. Sem alvo único (área, Estrutura), só valem as condições sobre quem usa.">?</span></span>
+              <span class="fld-row">
+                <select name="system.onlyIf.kind" aria-label="Só se (a Skill inteira)">
+                  {{#each skillOnlyIf.kindOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+                </select>
+                {{#if skillOnlyIf.needsCondition}}
+                <select name="system.onlyIf.value" aria-label="Condição">
+                  {{#each skillOnlyIf.conditionOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+                </select>
+                {{/if}}
+                {{#if skillOnlyIf.needsTrait}}
+                <select name="system.onlyIf.value" aria-label="Traço">
+                  {{#each skillOnlyIf.traitOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+                </select>
+                {{/if}}
+                {{#if skillOnlyIf.needsThreshold}}
+                <input class="num narrow" type="number" name="system.onlyIf.threshold" value="{{skillOnlyIf.threshold}}" min="0" max="100" aria-label="Limite em %"/>
+                {{/if}}
+              </span>
+            </div>
             <div class="fld span-all">
               <label class="toggle"><input type="checkbox" name="system.variableMana" {{#if system.variableMana}}checked{{/if}}/><span class="toggle-track"></span><span>Aceita variar a {{energyLabel}}</span><span class="help" title="Ao usar, escolhe quanta {{energyLabel}} investir. Menos que o Custo enfraquece na mesma proporção; mais fortalece sem teto, mas cada {{energyLabel}} a mais rende menos que a anterior (curva e mínimo em Regras da Mesa). Numa Habilidade Ativa, o custo por rodada acompanha o investimento.">?</span></label>
             </div>
@@ -312,6 +334,31 @@
         </div>
       </div>
       {{/if}}
+
+      <div class="sec">
+        <div class="sec-head">Ao acertar (qualquer golpe seu)</div>
+        <div class="sec-body g3">
+          <label class="fld span-all"><span class="fld-label">Condição que o golpe põe <span class="help" title="Todo golpe de dano seu (soco, arma, Skill de dano, consumível; não ticks nem Estruturas) põe esta Condição no alvo, junto do dano: ela entra quando o dano é aplicado no card e o Desfazer a tira. É como se pode marcar alguém ao bater.">?</span></span>
+            <select name="system.onHit.conditionId">
+              {{#each skillOnHit.conditionOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+            </select>
+          </label>
+          {{#if skillOnHit.set}}
+          <label class="fld"><span class="fld-label">Chance</span><span class="suffix"><input type="number" name="system.onHit.chance" value="{{skillOnHit.chance}}" min="0" max="100" aria-label="Chance"/><span>%</span></span></label>
+          <label class="fld"><span class="fld-label">Rodadas <span class="help" title="0 = a duração que a própria Condição tem.">?</span></span><input class="num" type="number" name="system.onHit.rounds" value="{{skillOnHit.rounds}}" min="0" aria-label="Rodadas"/></label>
+          {{#if skillOnHit.showWhen}}
+          <div class="fld">
+            <span class="fld-label">Vale</span>
+            <div class="seg" role="radiogroup" aria-label="Quando vale">
+              {{#each skillOnHit.whenSeg as |opt|}}
+              <label class="seg-opt {{#if opt.checked}}on{{/if}}"><input type="radio" name="system.onHit.when" value="{{opt.value}}" {{#if opt.checked}}checked{{/if}}/>{{opt.label}}</label>
+              {{/each}}
+            </div>
+          </div>
+          {{/if}}
+          {{/if}}
+        </div>
+      </div>
 
       {{#if resistancesEnabled}}
       <div class="sec">

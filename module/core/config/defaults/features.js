@@ -289,6 +289,18 @@ export const FEATURES = {
     hint: "O Mestre desenha uma Região e acrescenta o comportamento \"Armadilha (Nihility)\": quem entra (andando, empurrado ou teleportado) leva dano com elementos (pelas defesas do alvo, com Aplicar no chat) e/ou uma Condição com o efeito padrão. Dispara uma vez ou toda vez, só em quem está no chão ou em qualquer altura, com Traços imunes. Armadilha mágica ou tecnológica é desarmada por um campo de Antimagia/Interferência ou por uma Antimagia/PEM em área. Desligar só deixa de disparar; nada salvo se perde.",
     default: true
   },
+  reactions: {
+    setting: "reactionsEnabled",
+    name: "Reações elementais",
+    hint: "Um golpe de um elemento contra alguém que carrega outro (uma Condição com \"Elemento do corpo\", como Molhado) reage: o dano da parte sobe ou cai, a marca é consumida, a reação pode espalhar para quem está perto, aplicar ou tirar uma Condição. A tabela fica em Tipos de Dano › Tabela de reações; o nome da reação sobe do Token ao Aplicar. O corpo da Espécie só conduz (não multiplica nem é consumido), Dano Absoluto não reage e Nave só sofre no Escudo. Desligar só para de reagir; nada salvo se perde.",
+    default: true
+  },
+  surfaces: {
+    setting: "surfacesEnabled",
+    name: "Superfícies elementais",
+    hint: "Um elemento pode deixar uma superfície no chão (poça de água, óleo, chamas, gelo): um círculo na cena, sem dono, que dura rodadas em combate e minutos de relógio do mundo fora dele. Quem pisa (andando, empurrado ou teleportado) e quem começa o turno em cima leva o dano e a Condição dela, a menos que esteja acima da altura que ela alcança ou tenha um Traço imune; e carrega o elemento dela para as Reações. Um golpe cujo alvo está na superfície reage com ela pela Tabela de reações (Fogo no óleo vira Chamas; Gelo apaga o fogo). A natureza (Matéria, Mágica, Da origem) diz se a Antimagia a desfaz. Cada elemento escolhe o que deixa no cartão dele (Tipos de Dano › Deixa no chão). Desligar só esconde e para de agir; nada salvo se perde.",
+    default: false
+  },
   forms: {
     setting: "formsEnabled",
     name: "Formas",
@@ -502,6 +514,8 @@ const FEATURE_LAYOUT = {
   environment: ["world", "Perigos da cena ou de uma área, e a densidade de mana."],
   radiation: ["world", "Lugares irradiam; ficar ali acumula e machuca.", true],
   traps: ["world", "Regiões com armadilha: dano e Condição a quem pisa."],
+  reactions: ["combat", "Fogo em quem está Molhado, raio na poça: o golpe reage com o que o alvo carrega."],
+  surfaces: ["combat", "Poças e chamas no chão: quem pisa sofre, e o golpe reage com a superfície.", true],
   forms: ["character", "Skill de Forma: o personagem joga com a ficha temporária de outro corpo."],
   naming: ["character", "Nomear uma criatura a liga a você: Corredor de alma, XP e Mana máxima perdida."],
   analysis: ["character", "Skill Analisar: revela a ficha de um alvo conforme a margem de nível."],

@@ -389,6 +389,11 @@ export async function createStructureAsGm(payload) {
   await scene.setFlag(SYSTEM_ID, `${FLAG}.${id}`, instance);
   // Nasceu dentro (ou encostada) de um campo antimagia: já vale na hora, também fora de combate.
   await enforceAntimagicOnStructures(scene, { charge: false });
+  // Um campo de Antimagia recém-erguido também desfaz as superfícies mágicas que toca (8.2).
+  if (structure.antimagicLevel > 0) {
+    const { enforceAntimagicOnSurfaces } = await import("../environment/surfaces.js");
+    await enforceAntimagicOnSurfaces(scene);
+  }
 
   // O card sai do cliente de quem pediu (requestStructure), com esta referência.
   return { ok: true, value: { sceneId: scene.id, instanceId: id } };
@@ -907,6 +912,9 @@ export async function antimagicStructuresAsGm(payload, skill) {
   // Armadilhas de Região (I1) que a área toca: a Antimagia/PEM em área as desarma (alcance ≥ nível).
   const { disarmTrapsInArea } = await import("../environment/traps.js");
   lines.push(...(await disarmTrapsInArea(scene, area, kinds, reach)));
+  // Superfícies mágicas (8.2) que a área toca: a Antimagia as desfaz (matéria nunca).
+  const { dispelSurfacesInArea } = await import("../environment/surfaces.js");
+  lines.push(...(await dispelSurfacesInArea(scene, area, kinds)));
   return { ok: true, value: { lines } };
 }
 

@@ -90,14 +90,16 @@ async function dealTrapDamage(trap, behavior, tokenDocument) {
   }
   const { applyDamageReductions, triggeredLabel, personalTraceTail } = await import("../combat/damage-roll.js");
   const { damageApplyFlags, withDamageTrace } = await import("../combat/damage-apply.js");
+  const { cardReactions, reactionLabel } = await import("../combat/reactions.js");
   const mech = { damageElements: trap.elements, isMagicDamage: trap.magicDamage, isAbsoluteDamage: false };
   const reduction = applyDamageReductions(roll.total, mech, target, { attacker: null });
   const label = trapName(behavior);
   await roll.toMessage({
     speaker: { alias: label },
-    flavor: `${label} — ${tokenDocument.name}: ${reduction.finalDamage}${triggeredLabel(reduction.triggeredConditions)}`,
+    flavor: `${label} — ${tokenDocument.name}: ${reduction.finalDamage}${reactionLabel(reduction.reactions)}${triggeredLabel(reduction.triggeredConditions)}`,
     flags: withDamageTrace(
       damageApplyFlags(target, reduction.finalDamage, {
+        reactions: cardReactions(reduction.reactions),
         shieldBase: reduction.shieldBase,
         elementIds: reduction.elementIds,
         shieldExtra: reduction.shieldExtra ?? 0,

@@ -40,6 +40,24 @@ export function actorConcealment(actor) {
  */
 export function actorElements(actor) {
   if (!actor) return [];
+  const out = new Set(actorBodyElements(actor));
+  const conditions = getActiveStatusConditions().filter(c => Array.isArray(c.elements) && c.elements.length);
+  for (const effect of actor.effects ?? []) {
+    if (effect.disabled) continue;
+    for (const status of effect.statuses ?? []) {
+      for (const id of conditions.find(c => c.id === status)?.elements ?? []) out.add(id);
+    }
+  }
+  return [...out].filter(Boolean);
+}
+
+/**
+ * Só o CORPO: os elementos da Espécie/camadas de origem e os do efeito "Elemento do corpo" (flag
+ * `bodyElement`), sem as Condições-marca. É o que uma Reação elemental só conduz (nunca multiplica
+ * nem consome); ver combat/reactions.js.
+ */
+export function actorBodyElements(actor) {
+  if (!actor) return [];
   const out = new Set();
   // Personagem: elementos de todas as camadas de origem (Espécie, Linhagem, Heranças).
   const layers = actor.type === "character" ? actor.system?.originLayers : null;
@@ -48,14 +66,10 @@ export function actorElements(actor) {
     const preset = actor.type === "character" ? getActiveSpeciesPresets()?.[actor.system?.species] : null;
     for (const id of preset?.elements ?? []) out.add(id);
   }
-  const conditions = getActiveStatusConditions().filter(c => Array.isArray(c.elements) && c.elements.length);
   for (const effect of actor.effects ?? []) {
     if (effect.disabled) continue;
     const flagged = effect.flags?.[SYSTEM_ID]?.bodyElement;
     if (flagged) out.add(flagged);
-    for (const status of effect.statuses ?? []) {
-      for (const id of conditions.find(c => c.id === status)?.elements ?? []) out.add(id);
-    }
   }
   return [...out].filter(Boolean);
 }

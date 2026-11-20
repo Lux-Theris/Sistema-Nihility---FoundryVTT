@@ -2,7 +2,7 @@
  * Efeitos Temporários: criar/renovar Active Effects e Condições num alvo, e os ticks periódicos (Veneno, cura).
  * (Separado de skill-effects.js na reorganização de pastas — mesma lógica de antes.)
  */
-import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions, getEffectTargetLabels, skillLevelBonuses, getDamageElement, getWeaponType, isInterferenceEnabled, isSkillRangeEnabled, sameActor } from "../core/config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions, getActiveTraits, getEffectTargetLabels, skillLevelBonuses, getDamageElement, getWeaponType, isInterferenceEnabled, isSkillRangeEnabled, sameActor } from "../core/config.js";
 import { makeAnchor, addAnchor, effectAnchors, finiteRemaining, serializeFinite, durationRemaining, refreshFiniteRounds, PERMANENT, ANCHORED_TARGETS_FLAG, recordAnchoredTarget } from "../combat/effect-anchors.js";
 import { escapeHtml } from "../helpers/html.js";
 import { applyStructuralDamage, damageCasco, repairModules } from "../starship/starship-power.js";
@@ -24,6 +24,8 @@ import { protectingStructureKinds } from "../structures/structures.js";
 import { applyCurse } from "./curses.js";
 import { effectMeasuresFor, vitalBase, grantSkillUseXp } from "./skill-xp.js";
 import { resolveEffectAmount } from "../economy/consumable-rules.js";
+import { hasOnlyIf, onlyIfOutcome } from "./only-if-rules.js";
+import { buildModifierContext } from "../combat/conditional-context.js";
 
 /** Nome curto dos efeitos de movimento (J4), para o Active Effect e o resumo. */
 const MOVEMENT_MODE_NAMES = { flight: "Voando", burrow: "Escavando" };
@@ -109,6 +111,12 @@ function findStackableEffect(targetActor, conditionId, periodic, damageElements 
  *    saindo do lugar no canvas depois — a área só serviu pra ESCOLHER quem foi afetado no
  *    momento de usar, o efeito em si vive no Ator, não no espaço.
  */
+/** Nome da Condição/Traço escolhido num "Só se…" (cai no id se sumiu do catálogo). */
+export function onlyIfLabelOf(kind, value) {
+  if (kind === "otherTrait") return getActiveTraits().find(t => t.id === value)?.label ?? value;
+  return getActiveStatusConditions().find(c => c.id === value)?.label ?? value;
+}
+
 /** Alvos de Efeito que aceitam "% do máximo do alvo". */
 const PERCENT_TARGETS = ["hp", "energy", "shield", "heal", "restoreEnergy"];
 
@@ -169,6 +177,16 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
     // Empurrar/Puxar (J1) não é um efeito que fica no alvo: quem usa a Skill (applySkillEffects*) move o
     // Token pelo Mestre (forced-movement.js). Chegando aqui por outro caminho, nada acontece.
     if (entry.target === "push") continue;
+    // "Cria superfície" (8.2) também não fica no alvo: quem usa a Skill pede ao Mestre (environment/surfaces.js).
+    if (entry.target === "createSurface") continue;
+    // "Só se…" (8.1a): o efeito só pega se o alvo (ou quem usou) está como a condição pede.
+    if (hasOnlyIf(entry.onlyIf)) {
+      const gate = onlyIfOutcome(entry.onlyIf, buildModifierContext(originSkill?.parent ?? null, targetActor), onlyIfLabelOf);
+      if (!gate.ok) {
+        summary.push(`${getEffectTargetLabels()[entry.target] ?? entry.target}: ${gate.reason}`);
+        continue;
+      }
+    }
     if (shielded(entry)) {
       summary.push(`${getEffectTargetLabels()[entry.target] ?? entry.target}: sem efeito (${targetActor.name} está Suprimido)`);
       continue;

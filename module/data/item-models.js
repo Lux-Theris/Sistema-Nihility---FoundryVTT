@@ -269,7 +269,16 @@ function effectEntrySchema() {
      * quem não sai do lugar. Ver forced-movement-rules.js.
      */
     pushDirection: new fields.StringField({ required: false, initial: "push", blank: true, choices: ["push", "pull", "choose"] }),
-    immuneTraits: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] })
+    immuneTraits: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
+    /**
+     * "Só se…" (8.1a): o efeito só pega quando isto vale no alvo (ou em quem usou). `kind` vazio =
+     * sempre. Mesma linguagem do "Quando" do "Quando → Então"; ver skills/only-if-rules.js.
+     */
+    onlyIf: new fields.SchemaField({
+      kind: new fields.StringField({ required: false, initial: "", blank: true }),
+      value: new fields.StringField({ required: false, initial: "", blank: true }),
+      threshold: new fields.NumberField({ required: false, initial: 50 })
+    })
   });
 }
 

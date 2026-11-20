@@ -2,6 +2,7 @@ import {
   MEU_SISTEMA,
   getActiveDamageElements,
   getActiveStatusConditions,
+  getActiveTraits,
   getResistanceTargetOptions,
   getCharacterEnergyLabel,
   isResistancesEnabled,
@@ -26,6 +27,7 @@ import { computeResistanceName, computeResistancePercent, resistanceMaxLevel } f
 import { pickerFieldHtml, readPickerField, wireElementPickerField, wireTraitPickerField } from "./checklist-picker.js";
 import { openLightConfigDialog, describeLight } from "../combat/lights.js";
 import { advancedFold } from "../helpers/advanced-fold.js";
+import { ONLY_IF_KINDS, ONLY_IF_LABELS, onlyIfNeeds, normalizeOnlyIf } from "../skills/only-if-rules.js";
 import { escapeHtml } from "../helpers/html.js";
 import { getDragEventData } from "../helpers/foundry-compat.js";
 import { formTemplateOf } from "../skills/forms.js";
@@ -85,13 +87,14 @@ function buildEffectRowHtml(entry) {
   ).join("");
   const modifierTypeVisible = MEU_SISTEMA.SHIP_EFFECT_TARGETS.includes(entry.target);
   const entryElements = Array.isArray(entry.damageElements) ? entry.damageElements : [];
+  const onlyIfNow = normalizeOnlyIf(entry.onlyIf) ?? { kind: "", value: "", threshold: 50 };
 
   return `
     <div class="effect-row-main">
       <select class="se-effect-target">${options}</select>
-      <select class="se-effect-element-id" title="Elemento (das armas, ou que o alvo passa a ser)" style="display:${["weaponElement", "bodyElement"].includes(entry.target) ? "inline-block" : "none"};">${elementIdOptions}</select>
+      <select class="se-effect-element-id" title="Elemento (das armas, ou que o alvo passa a ser)" style="display:${["weaponElement", "bodyElement", "createSurface"].includes(entry.target) ? "inline-block" : "none"};">${elementIdOptions}</select>
       <select class="se-effect-weapon-type" title="O ataque desarmado passa a contar como este tipo de arma (Maestria, XP e aprendizado)" style="display:${entry.target === "unarmedType" ? "inline-block" : "none"};">${weaponTypeIdOptions}</select>
-      <input type="number" class="se-effect-amount" value="${entry.amount}" placeholder="${entry.target === "push" ? "Metros" : String(entry.target).startsWith("sense") ? "Alcance m (0 = sem limite)" : "Qtd."}" style="display:${["antimagic", "emp", "mark", "flight", "burrow", "unarmedType"].includes(entry.target) ? "none" : ""};"/>
+      <input type="number" class="se-effect-amount" value="${entry.amount}" placeholder="${entry.target === "push" ? "Metros" : entry.target === "createSurface" ? "Raio m (0 = o do elemento)" : String(entry.target).startsWith("sense") ? "Alcance m (0 = sem limite)" : "Qtd."}" style="display:${["antimagic", "emp", "mark", "flight", "burrow", "unarmedType"].includes(entry.target) ? "none" : ""};"/>
       <input type="number" class="se-effect-duration" value="${entry.durationRounds}" min="0" placeholder="Rounds/Ticks"/>
       <a class="se-effect-delete" title="Remover"><i class="fas fa-trash"></i></a>
     </div>
@@ -113,6 +116,13 @@ function buildEffectRowHtml(entry) {
     <div class="effect-row-adv-selects">
       <select class="se-effect-curse-unpaid" title="Maldição: quando a vítima não tem Mana para pagar (só para esta Skill)" style="display:${getActiveStatusConditions().find(c => c.id === entry.conditionId)?.curse?.enabled ? "inline-block" : "none"};">${[["", "Como na maldição"], ["hp", "Paga com Vida"], ["sleep", "Dorme"], ["worsen", "Piora"], ["continue", "Continua igual"]].map(([v, l]) => `<option value="${v}" ${v === (entry.curseOnUnpaid ?? "") ? "selected" : ""}>Sem Mana: ${l}</option>`).join("")}</select>
       <select class="se-effect-heal-kind" title="Se o tick for cura (valor positivo): o que ela faz nas Partes do Corpo" style="display:${periodicVisible && entry.periodic && entry.target === "hp" ? "inline-block" : "none"};">${healKindOptions}</select>
+    </div>
+    <div class="effect-row-only-if" style="display:${entry.target === "push" ? "none" : "flex"};">
+      <span class="hint-inline" style="display:inline;" title="O efeito só pega se isto vale no alvo (ou em quem usou). Falhou: o resumo diz &quot;não aplicado&quot;.">Só se…</span>
+      <select class="se-effect-onlyif-kind"><option value="">— sempre —</option>${ONLY_IF_KINDS.map(k => `<option value="${k}" ${k === onlyIfNow.kind ? "selected" : ""}>${escapeHtml(ONLY_IF_LABELS[k])}</option>`).join("")}</select>
+      <select class="se-effect-onlyif-condition" style="display:${onlyIfNeeds(onlyIfNow.kind) === "condition" ? "inline-block" : "none"};">${getActiveStatusConditions().map(c => `<option value="${escapeHtml(c.id)}" ${c.id === onlyIfNow.value ? "selected" : ""}>${escapeHtml(c.label)}</option>`).join("")}</select>
+      <select class="se-effect-onlyif-trait" style="display:${onlyIfNeeds(onlyIfNow.kind) === "trait" ? "inline-block" : "none"};">${getActiveTraits().map(t => `<option value="${escapeHtml(t.id)}" ${t.id === onlyIfNow.value ? "selected" : ""}>${escapeHtml(t.label)}</option>`).join("")}</select>
+      <input type="number" class="se-effect-onlyif-threshold" min="0" max="100" value="${onlyIfNow.threshold}" style="width:4.5em;display:${onlyIfNeeds(onlyIfNow.kind) === "threshold" ? "inline-block" : "none"};"/>
     </div>
     <div class="effect-row-periodic-extra" style="display:${(periodicVisible && entry.periodic) || entry.target === "shield" || entry.target === "push" ? "flex" : "none"};">
       <span class="hint-inline se-elements-label" style="display:inline;">${entry.target === "push" ? "Elemento do empurrão (vazio = só a Defesa Mágica):" : entry.target === "shield" ? "Elemento do escudo (vazio = neutro):" : "Elemento do tick (ignorado se o tick for cura):"}</span>
@@ -864,7 +874,7 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
       lightRow.querySelector(".se-light-text").textContent = describeLight(stored);
     });
     targetSelect.addEventListener("change", () => {
-      li.querySelector(".se-effect-element-id").style.display = ["weaponElement", "bodyElement"].includes(targetSelect.value) ? "inline-block" : "none";
+      li.querySelector(".se-effect-element-id").style.display = ["weaponElement", "bodyElement", "createSurface"].includes(targetSelect.value) ? "inline-block" : "none";
       li.querySelector(".se-effect-weapon-type").style.display = targetSelect.value === "unarmedType" ? "inline-block" : "none";
     });
     periodicCheckbox.addEventListener("change", applyPeriodicVisibility);
@@ -897,8 +907,16 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
       const isHeal = periodicOn && target === "hp" && Number(li.querySelector(".se-effect-amount")?.value) > 0;
       const active = Boolean(root.querySelector('[name="hasUpkeep"]')?.checked);
       healSelect.style.display = isHeal ? "inline-block" : "none";
+      // "Só se…" (8.1a): mostra só o campo que o tipo escolhido pede; não vale para Empurrar.
+      const onlyIfKind = li.querySelector(".se-effect-onlyif-kind").value;
+      const needs = onlyIfNeeds(onlyIfKind);
+      li.querySelector(".effect-row-only-if").style.display = target === "push" ? "none" : "flex";
+      li.querySelector(".se-effect-onlyif-condition").style.display = needs === "condition" ? "inline-block" : "none";
+      li.querySelector(".se-effect-onlyif-trait").style.display = needs === "trait" ? "inline-block" : "none";
+      li.querySelector(".se-effect-onlyif-threshold").style.display = needs === "threshold" ? "inline-block" : "none";
       li.querySelector(".effect-row-shield").style.display = isShield && active ? "flex" : "none";
       const fold = advancedFold([
+        target !== "push" ? { label: "Só se…", used: Boolean(onlyIfKind) } : null,
         periodicOn ? { label: "Elemento do tick", used: elements } : null,
         isHeal ? { label: "Tipo de cura", used: healSelect.value !== "cura" } : null,
         isShield ? { label: "Elemento do escudo", used: elements } : null,
@@ -1062,6 +1080,13 @@ function readSkillEditorForm(root, lockTier) {
             tickUnit: row.querySelector(".se-effect-tick-unit").value,
             healKind: row.querySelector(".se-effect-heal-kind")?.value || "cura",
             curseOnUnpaid: row.querySelector(".se-effect-curse-unpaid")?.value || "",
+            onlyIf: (() => {
+              if (row.querySelector(".se-effect-target").value === "push") return { kind: "", value: "", threshold: 50 };
+              const kind = row.querySelector(".se-effect-onlyif-kind")?.value ?? "";
+              const needs = onlyIfNeeds(kind);
+              const value = needs === "condition" ? row.querySelector(".se-effect-onlyif-condition")?.value ?? "" : needs === "trait" ? row.querySelector(".se-effect-onlyif-trait")?.value ?? "" : "";
+              return normalizeOnlyIf({ kind, value, threshold: row.querySelector(".se-effect-onlyif-threshold")?.value }) ?? { kind: "", value: "", threshold: 50 };
+            })(),
             damageElements: readPickerField(row.querySelector(".se-effect-elements")),
             pushDirection: row.querySelector(".se-effect-push-direction")?.value || "push",
             immuneTraits: row.querySelector(".se-effect-target").value === "push" ? readPickerField(row.querySelector(".se-effect-immune-traits")) : [],

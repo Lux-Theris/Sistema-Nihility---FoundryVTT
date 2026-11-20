@@ -5,6 +5,7 @@
 import { SYSTEM_ID } from "../core/config.js";
 import { damageApplyFlags, withDamageTrace } from "../combat/damage-apply.js";
 import { applyDamageReductions, triggeredLabel, personalTraceTail } from "../combat/damage-roll.js";
+import { cardReactions, reactionLabel } from "../combat/reactions.js";
 import { grantSkillUseXp, vitalBase } from "../skills/skill-xp.js";
 import { isShipLike } from "../starship/ship-damage.js";
 
@@ -28,9 +29,10 @@ export async function applyStructureContactAsGm(tokenDocument, instance, info) {
   const reduction = applyDamageReductions(roll.total, mech, target, { attacker: caster });
   await roll.toMessage({
     speaker: { alias: instance.label },
-    flavor: `${instance.label} — contato — ${tokenDocument.name}: ${reduction.finalDamage}${triggeredLabel(reduction.triggeredConditions)}`,
+    flavor: `${instance.label} — contato — ${tokenDocument.name}: ${reduction.finalDamage}${reactionLabel(reduction.reactions)}${triggeredLabel(reduction.triggeredConditions)}`,
     flags: withDamageTrace(
       damageApplyFlags(target, reduction.finalDamage, {
+        reactions: cardReactions(reduction.reactions),
         shieldBase: reduction.shieldBase,
         elementIds: reduction.elementIds,
         shieldExtra: reduction.shieldExtra ?? 0,

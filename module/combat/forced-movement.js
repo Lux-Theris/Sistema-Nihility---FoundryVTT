@@ -37,6 +37,7 @@ import { chainedResistance } from "./damage-rules.js";
 import { magicDefenseReduction, resistanceSourceFor } from "./resistance.js";
 import { applyDamageReductions, personalTraceTail } from "./damage-roll.js";
 import { damageApplyFlags, withDamageTrace } from "./damage-apply.js";
+import { cardReactions } from "./reactions.js";
 import { tokenDocCenter } from "./area-geometry.js";
 import { gravityWeaponMeters } from "./weapon-mastery.js";
 import { blockIfIncapacitated } from "./incapacitation.js";
@@ -369,6 +370,7 @@ export async function postBluntDamageCard({ tokenDoc, actor, source = null, raw,
   const reduction = applyDamageReductions(raw, mech, actor, { attacker: source });
   const flags = withDamageTrace(
     damageApplyFlags(actor, reduction.finalDamage, {
+      reactions: cardReactions(reduction.reactions),
       shieldBase: reduction.shieldBase,
       elementIds: reduction.elementIds,
       shieldExtra: reduction.shieldExtra ?? 0,

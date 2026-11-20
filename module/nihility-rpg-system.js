@@ -7,6 +7,10 @@ import {
   SYSTEM_ID,
   MEU_SISTEMA,
   PHYSICAL_SUBTYPES,
+  DEFAULT_ELEMENT_REACTIONS,
+  DEFAULT_ELEMENT_SURFACES,
+  REACTION_ELEMENTS,
+  REACTION_CONDITIONS,
   RADIATION_ELEMENT,
   registerSystemSettings,
   getSkillPointsPerLevel,
@@ -55,6 +59,7 @@ import { registerFieldAntimagic, endMagicInsideFields } from "./combat/antimagic
 import { advanceStructures, collapseStructuresOfCaster, renderStructureControls, registerStructureContact, tickStructureContact } from "./structures/structures.js";
 import { registerStructureRendering } from "./structures/structure-render.js";
 import { registerFloatingNumbers } from "./combat/floating-numbers.js";
+import { registerReactionFloats } from "./combat/reactions.js";
 import { registerEffectBadges, registerSystemEffectIcons, migrateSystemEffectIcons } from "./combat/effect-badges.js";
 import { registerVoiceBanner } from "./core/voice-banner.js";
 import { registerEndCombat } from "./apps/end-combat.js";
@@ -83,6 +88,9 @@ import { registerEnvironmentSceneMenu } from "./apps/environment-config.js";
 import { registerShieldLightHooks } from "./combat/lights.js";
 import { registerShieldPoolReconcile } from "./combat/shield-pools.js";
 import { registerStatusConditions, interceptManualCondition } from "./combat/conditions.js";
+import { mergeReactionDefaults } from "./combat/reaction-rules.js";
+import { mergeSurfaceDefaults } from "./environment/surface-rules.js";
+import { registerSurfaces, tickSurfacesForCombatant, advanceSurfaces } from "./environment/surfaces.js";
 import { renderDamageControls, renderDamageTrace } from "./combat/damage-apply.js";
 import { isSpeciesLocked, normalizeSpeciesCatalog } from "./species/species-rules.js";
 import { notifyIncomingPadMessage } from "./pad/pad-messaging.js";
@@ -216,6 +224,7 @@ Hooks.once("init", () => {
   registerStructureContact();
   registerFieldAntimagic();
   registerFloatingNumbers();
+  registerReactionFloats();
   registerVoiceBanner();
   registerEndCombat();
   registerSkillUndo();
@@ -236,6 +245,8 @@ Hooks.once("init", () => {
   registerRadiation();
   // Armadilhas de Região (I1) e Relógio do mundo (J9).
   registerTraps();
+  // Superfícies (8.2): entrada por movimento, validade pelo relógio do mundo.
+  registerSurfaces();
   registerWorldClock();
   // Voo, altura e escavação (J4): botões ↑/↓ no Token HUD, queda, aviso de elevação à mão.
   registerElevation();
@@ -347,6 +358,8 @@ Hooks.once("ready", async () => {
   await runMigrationIfNeeded("markCondition", migrateMarkCondition);
   await runMigrationIfNeeded("senseConditions", migrateSenseConditions);
   await runMigrationIfNeeded("sleepingCondition", migrateSleepingCondition);
+  await runMigrationIfNeeded("reactionsDefaults", migrateReactionsDefaults);
+  await runMigrationIfNeeded("surfaceDefaults", migrateSurfaceDefaults);
   console.log(`${SYSTEM_ID} | Sistema pronto.`);
 });
 
@@ -473,6 +486,59 @@ async function migrateSleepingCondition() {
   list.push(foundry.utils.deepClone(sleeping));
   await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData, JSON.stringify(list, null, 2));
   registerStatusConditions();
+}
+
+/**
+ * Migração única (item 8.1): os catálogos de Tipos de Dano e de Condições já salvos ganham, SÓ no que
+ * falta, Água/Óleo, Molhado/Oleado, o "Elemento do corpo" de Queimadura/Lentidão e as reações de
+ * fábrica dos elementos que nunca tiveram o campo. Nada editado é sobrescrito (mergeReactionDefaults).
+ */
+async function migrateReactionsDefaults() {
+  const read = key => {
+    const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[key]);
+    if (!raw) return null;
+    try {
+      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+      return Array.isArray(parsed) ? parsed : null;
+    } catch (err) {
+      return null;
+    }
+  };
+  const elementList = read("damageElementsData");
+  const conditionList = read("statusConditionsData");
+  if (!elementList && !conditionList) return;
+  const conditionDefaults = MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS;
+  const merged = mergeReactionDefaults(elementList ?? [], conditionList ?? [], {
+    reactions: DEFAULT_ELEMENT_REACTIONS,
+    elements: elementList ? REACTION_ELEMENTS : [],
+    conditions: [
+      ...REACTION_CONDITIONS.map(c => ({ ...c, addIfMissing: true })),
+      ...["burn", "slow"].map(id => conditionDefaults.find(c => c.id === id)).filter(Boolean)
+    ]
+  });
+  if (elementList && merged.elementsChanged) await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.damageElementsData, JSON.stringify(merged.elements, null, 2));
+  if (conditionList && merged.conditionsChanged) {
+    await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData, JSON.stringify(merged.conditions, null, 2));
+    registerStatusConditions();
+  }
+}
+
+/**
+ * Migração única (8.2): um catálogo de elementos já salvo ganha a seção "Deixa no chão" de fábrica
+ * (Água, Óleo, Fogo, Gelo) só onde o elemento nunca teve o campo `surface`. Nada editado é sobrescrito.
+ */
+async function migrateSurfaceDefaults() {
+  const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.damageElementsData);
+  if (!raw) return;
+  let list;
+  try {
+    list = typeof raw === "string" ? JSON.parse(raw) : raw;
+  } catch (err) {
+    return;
+  }
+  if (!Array.isArray(list)) return;
+  const merged = mergeSurfaceDefaults(list, DEFAULT_ELEMENT_SURFACES);
+  if (merged.changed) await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.damageElementsData, JSON.stringify(merged.elements, null, 2));
 }
 
 /**
@@ -955,6 +1021,9 @@ Hooks.on("updateCombat", async (combat, changed, options) => {
       if (roundChanged) await advanceStructures(scene);
     }
     if (!dead) await tickZonesForCombatant(combatant);
+    // Superfícies (8.2): sem dono, contam pela virada da rodada; quem começa o turno em cima sofre.
+    if (roundChanged) for (const scene of combatScenes(combat)) await advanceSurfaces(scene);
+    if (!dead) await tickSurfacesForCombatant(combatant);
   } catch (err) {
     reportError("Falha ao processar Zonas no início do turno.", err, { gmOnly: true });
   }

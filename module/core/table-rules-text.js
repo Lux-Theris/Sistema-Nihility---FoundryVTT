@@ -135,6 +135,17 @@ export function buildTableRulesPages(d) {
       parts.push("<h2>Sentidos e visibilidade</h2>");
       parts.push("<p>Quem está <b>debaixo da terra</b> ou <b>Invisível</b> não aparece no mapa nem na lista de iniciativa para quem não tem o sentido certo, e não aparece na escolha de alvo. Quem está debaixo da terra também não enxerga: só percebe os outros com <b>Sentido sísmico</b> ou <b>Sentir tudo</b>. <b>Ver o invisível</b>, <b>Visão verdadeira</b> e <b>Sentir tudo</b> revelam o Invisível. Esses sentidos vêm de Habilidades ou da Espécie, com um alcance em metros.</p>");
     }
+    if (d.features.reactions) {
+      parts.push("<h2>Reações elementais</h2>");
+      parts.push("<p>Um golpe de um elemento <b>reage</b> com o que o alvo carrega: uma <b>marca</b> (uma Condição como Molhado ou Queimadura). Na parte do golpe daquele elemento o dano sobe ou cai, a marca é gasta, e a reação pode espalhar para quem está perto, aplicar ou tirar uma Condição. O nome da reação sobe do Token ao Aplicar. O elemento do corpo (a Espécie) só <b>conduz</b>: nunca multiplica nem é gasto. Dano Absoluto não reage.</p>");
+      if (d.reactions?.length) parts.push(`<ul>${d.reactions.map(r => `<li>${esc(r)}</li>`).join("")}</ul>`);
+    }
+    if (d.features.surfaces) {
+      parts.push("<h2>Superfícies</h2>");
+      parts.push("<p>Alguns elementos deixam uma <b>superfície no chão</b>: uma poça, chamas, gelo. Quem pisa nela (andando, empurrado ou teleportado) e quem <b>começa o turno</b> em cima leva o que ela faz, a menos que esteja <b>acima da altura</b> que ela alcança ou seja imune. Quem está de pé numa superfície <b>carrega o elemento dela</b>: um golpe de Fogo em quem está numa poça de óleo reage, e a superfície muda (vira Chamas) ou some (Gelo apaga o fogo). Dura rodadas em combate e minutos fora dele. A de matéria a Antimagia não toca; a mágica ela desfaz.</p>");
+      if (d.surfaces?.length) parts.push(`<ul>${d.surfaces.map(r => `<li>${esc(r)}</li>`).join("")}</ul>`);
+    }
+    parts.push("<p>Alguns efeitos de Habilidade têm um <b>\"Só se…\"</b>: só pegam se o alvo (ou quem usou) estiver como pedido, por exemplo só se o alvo estiver Molhado. Quando não vale, o uso diz \"não aplicado\" e o porquê.</p>");
     parts.push("<h2>Campo de Antimagia</h2>");
     parts.push(`<p>Magia que vem <b>de fora</b> e cruza um campo de Antimagia gasta a ${energy} e <b>some</b>, se o campo vencer. <b>De dentro</b> do campo, ou sob um Selo de Antimagia, a magia <b>nem sai</b> e não gasta nada. A Habilidade <b>Manipulação de ${energy}</b> muda isso: quanto maior o nível dela diante do campo, menos ele atrapalha — primeiro a magia passa pagando ${energy} a mais, depois passa de graça. Sem a Manipulação, o campo sempre vence. Usá-la contra a Antimagia a faz evoluir.</p>`);
     if (d.features.interference) parts.push("<p>O Campo de Interferência faz o mesmo com a tecnologia, mas não há Habilidade que o vença: o uso tecnológico de fora some, e de dentro nem sai.</p>");

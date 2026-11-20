@@ -103,6 +103,9 @@ export function checkMechanic(mech, idx, prefix = "") {
     checkRefs(issues, idx, at(where, "Elementos"), "elements", entry?.damageElements);
     // Empurrar/Puxar: os Traços que não saem do lugar.
     checkRefs(issues, idx, at(where, "Traços imunes"), "traits", entry?.immuneTraits);
+    // "Só se…" (8.1a): a Condição ou o Traço escolhido precisa existir.
+    if (entry?.onlyIf?.kind === "otherCondition" || entry?.onlyIf?.kind === "selfCondition") checkRef(issues, idx, at(where, "Só se… › Condição"), "conditions", entry.onlyIf.value);
+    if (entry?.onlyIf?.kind === "otherTrait") checkRef(issues, idx, at(where, "Só se… › Traço"), "traits", entry.onlyIf.value);
     // Desarmado vira tipo de arma.
     if (entry?.target === "unarmedType") checkRef(issues, idx, at(where, "Tipo de arma"), "weaponTypes", entry?.weaponTypeId);
   });
@@ -326,6 +329,19 @@ export function validateCatalogs(catalogs, idx = buildCatalogIndex(catalogs)) {
       if (effect?.type === "traitBonus") checkRef(list, idx, `Efeito ${i + 1} › Traço`, "traits", effect.trait);
     });
     checkRefs(list, idx, "Tabela de vantagens", "elements", Object.keys(element.affinity ?? {}));
+    // Reações elementais (8.1): o elemento carregado, a Condição que aplica/tira e a superfície que deixa.
+    for (const [carriedId, reaction] of Object.entries(element.reactions ?? {})) {
+      const where = `Reação contra ${carriedId}`;
+      checkRef(list, idx, `${where} › elemento carregado`, "elements", carriedId);
+      checkRef(list, idx, `${where} › aplica Condição`, "conditions", reaction?.applyCondition?.conditionId);
+      checkRef(list, idx, `${where} › tira Condição`, "conditions", reaction?.removeCondition);
+      checkRef(list, idx, `${where} › deixa no chão`, "elements", reaction?.leaveSurface);
+    }
+    // Superfícies (8.2): "Deixa no chão" — a Condição que aplica e os Traços imunes.
+    if (element.surface) {
+      checkRef(list, idx, "Deixa no chão › Condição", "conditions", element.surface.conditionId);
+      checkRefs(list, idx, "Deixa no chão › Traços imunes", "traits", element.surface.immuneTraits);
+    }
     if (element.parent) {
       if (element.parent === element.id) list.push({ where: "Subtipo de", catalog: "elements", ref: element.parent, message: "o elemento é subtipo de si mesmo" });
       else checkRef(list, idx, "Subtipo de", "elements", element.parent);

@@ -18,13 +18,14 @@
  * (Resistência), quem atacou.
  */
 
-export const WHEN_KINDS = ["always", "otherTrait", "otherIsShip", "otherCondition", "element", "selfHpBelow", "selfCondition", "selfInCombat", "selfDark", "isDay", "isNight"];
+export const WHEN_KINDS = ["always", "otherTrait", "otherIsShip", "otherCondition", "element", "otherHpBelow", "selfHpBelow", "selfCondition", "selfInCombat", "selfDark", "isDay", "isNight"];
 export const WHEN_LABELS = {
   always: "Sempre",
   otherTrait: "Oponente tem o Traço",
   otherIsShip: "Oponente é Nave/Veículo",
   otherCondition: "Oponente tem a Condição",
   element: "O dano é do elemento",
+  otherHpBelow: "Vida do oponente abaixo de (%)",
   selfHpBelow: "Minha Vida abaixo de (%)",
   selfCondition: "Eu tenho a Condição",
   selfInCombat: "Estou em combate",
@@ -64,6 +65,8 @@ export function matchesWhen(when, ctx = {}) {
       return Boolean(when.value) && Boolean(ctx.otherConditions?.has?.(when.value));
     case "element":
       return Boolean(when.value) && Boolean(ctx.elements?.has?.(when.value));
+    case "otherHpBelow":
+      return Number.isFinite(ctx.otherHpPercent) && ctx.otherHpPercent < (Number(when.threshold) || 0);
     case "selfHpBelow":
       return Number.isFinite(ctx.selfHpPercent) && ctx.selfHpPercent < (Number(when.threshold) || 0);
     case "selfCondition":

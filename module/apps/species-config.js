@@ -206,7 +206,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
           amount: r.then?.value ?? 0,
           target: r.then?.target ?? "any",
           valueOptions: valueSource ? valueSource.map(o => ({ id: o.id, label: o.label, selected: o.id === r.when?.value })) : null,
-          needsThreshold: whenKind === "selfHpBelow",
+          needsThreshold: whenKind === "selfHpBelow" || whenKind === "otherHpBelow",
           targetOptions: targetSource.map(o => ({ ...o, selected: o.id === (r.then?.target ?? "any") }))
         };
       }),

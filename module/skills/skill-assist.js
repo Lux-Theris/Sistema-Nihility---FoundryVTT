@@ -8,6 +8,7 @@ import {
   MEU_SISTEMA,
   isFeatureEnabled,
   getActiveStatusConditions,
+  getActiveTraits,
   getActiveDamageElements,
   getStructures,
   getActiveWeaponTypes,
@@ -54,8 +55,10 @@ export function worldCatalogs() {
   return {
     conditions: getActiveStatusConditions().map(c => c.id),
     elements: getActiveDamageElements().map(e => e.id),
+    surfaces: Object.fromEntries(getActiveDamageElements().map(e => [e.id, { enabled: Boolean(e.surface?.enabled), radius: Number(e.surface?.radius) || 0 }])),
     structures: getStructures().map(s => s.id),
-    weaponTypes: getActiveWeaponTypes().map(t => t.id)
+    weaponTypes: getActiveWeaponTypes().map(t => t.id),
+    traits: getActiveTraits().map(t => t.id)
   };
 }
 
@@ -73,8 +76,10 @@ export function skillAssist(mech, { actor = null } = {}) {
   const warnings = lintSkill(mech, {
     conditions: catalogs.conditions,
     elements: catalogs.elements,
+    surfaces: catalogs.surfaces,
     structures: catalogs.structures,
     weaponTypes: catalogs.weaponTypes,
+    traits: catalogs.traits,
     actorType: actorKind(actor),
     energyMax,
     validFormula,

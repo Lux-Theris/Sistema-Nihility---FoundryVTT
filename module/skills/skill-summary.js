@@ -6,6 +6,7 @@
  * resolvidos (custo efetivo pelo nível, rótulo da energia) chegam em `ctx`, montado com os
  * leitores de config.js por `skillSummariesFor` (skill-summary-ui.js).
  */
+import { onlyIfClause } from "./only-if-rules.js";
 import { strikeSentence } from "../combat/weapon-mastery-rules.js";
 import { isSenseTarget, SENSE_LABELS, describeSenseRange, senseRangeValue } from "../combat/senses-rules.js";
 
@@ -15,11 +16,23 @@ const signed = n => (n > 0 ? `+${n}` : `−${Math.abs(n)}`);
 
 /** "Força +3", "Vida −5/rodada", "Envenenado", "Escudo +20". */
 function describeEffect(entry, ctx) {
+  const text = describeEffectCore(entry, ctx);
+  // "Só se…" (8.1a): "Atordoa, só se o alvo estiver Molhado".
+  const clause = text ? onlyIfClause(entry.onlyIf, (kind, value) => ctx.conditions?.[value] ?? ctx.traits?.[value] ?? value) : "";
+  return clause ? `${text}, só se ${clause}` : text;
+}
+
+function describeEffectCore(entry, ctx) {
   // Movimento (J1/J4): "empurra 5 m", "puxa 5 m", "empurra ou puxa 5 m", "voo", "escava".
   if (entry.target === "push") {
     const meters = Math.round((Number(entry.amount) || 0) * 10) / 10;
     const verb = entry.pushDirection === "pull" ? "puxa" : entry.pushDirection === "choose" ? "empurra ou puxa" : "empurra";
     return `${verb} ${String(meters).replace(".", ",")} m`;
+  }
+  if (entry.target === "createSurface") {
+    const label = ctx.elements?.[entry.elementId] ?? entry.elementId ?? "?";
+    const meters = Math.round((Number(entry.amount) || 0) * 10) / 10;
+    return `deixa ${label} no chão${meters > 0 ? ` (raio ${String(meters).replace(".", ",")} m)` : ""}`;
   }
   if (entry.target === "flight") return "voo";
   if (entry.target === "burrow") return "escava";

@@ -5,6 +5,7 @@
 import {
   getActiveDamageElements,
   getActiveStatusConditions,
+  getActiveTraits,
   getEffectTargetLabels,
   getStructures,
   getActiveWeaponTypes,
@@ -27,6 +28,7 @@ export function skillSummariesFor(actor) {
   const base = {
     elements,
     conditions: byId(getActiveStatusConditions()),
+    traits: byId(getActiveTraits()),
     targets: getEffectTargetLabels(),
     structures: byId(getStructures()),
     formName: uuid => {

@@ -2,13 +2,15 @@
  * Rolar dano de Skill/arma: escala, bônus, Shift, Estruturas no caminho, reduções do alvo por elemento e o card de dano.
  * (Separado de skill-effects.js na reorganização de pastas — mesma lógica de antes.)
  */
-import { SYSTEM_ID, isMagicUse, isTechUse, damageElementChain, getActiveDamageElements, getActiveStatusConditions, getEnergyLabelForActor, getAttributeLabel, damageScalingMultiplier, skillLevelBonuses, getDamageElement, actorTraits, isScaleEnabled, getFeatureOption, actorScaleIndex, scaleIndexOf, actorElements, getElementAffinityMatrix, getAffinityConfig } from "../core/config.js";
+import { SYSTEM_ID, isMagicUse, isTechUse, damageElementChain, getActiveDamageElements, getActiveStatusConditions, getEnergyLabelForActor, getAttributeLabel, damageScalingMultiplier, skillLevelBonuses, getDamageElement, actorTraits, isScaleEnabled, getFeatureOption, actorScaleIndex, scaleIndexOf, actorElements, getElementAffinityMatrix, getAffinityConfig, isSurfacesEnabled } from "../core/config.js";
 import { playSkillAnimation } from "../core/vfx.js";
 import { damageApplyFlags, withDamageTrace } from "./damage-apply.js";
 import { magazineState } from "../economy/consumable-rules.js";
 import { blockIfIncapacitated } from "./incapacitation.js";
 import { applyAdvantageToFormula, applyRollModifiers, describeRollOptions, normalizeRollOptions } from "../core/roll-modifiers.js";
 import { splitDamageParts, resolveDamageParts, describeDamageParts, scaleMultiplier, rollChance, elementVsDefender, chainedResistance, inheritedElementEffects } from "./damage-rules.js";
+import { affinityElementsExcluding } from "./reaction-rules.js";
+import { reactionState, reactionForPart, pickedFactor, reactionRecord, cardReactions, reactionLabel, conductReactions, conductionLabel } from "./reactions.js";
 import { conditionalBonus } from "./conditional-context.js";
 import { interceptingStructure, hitStructure } from "../structures/structures.js";
 import { chargeAntimagic, fieldGate, creditManipulation } from "./antimagic.js";
@@ -20,6 +22,7 @@ import { itemIsTech } from "../core/magic-rules.js";
 import { magicDefenseReduction, resistanceSourceFor, grantResistanceXp, registerResistanceExposure } from "./resistance.js";
 import { isShipLike, applyShipWeaponBonus, applyStarshipDamageCascade } from "../starship/ship-damage.js";
 import { escapeHtml } from "../helpers/html.js";
+import { currentSkillUseId } from "../skills/skill-use-context.js";
 import { weaponMasteryHit, afterWeaponAttack, strikeMasteryBonus } from "./weapon-mastery.js";
 import { masteryFactor, masteryTraceRow, formatMasteryPercent } from "./weapon-mastery-rules.js";
 
@@ -88,10 +91,19 @@ export function applyDamageReductions(rawTotal, mech, targetActor, options = {})
   const bodyElements = actorElements(targetActor);
   const matrix = bodyElements.length ? getElementAffinityMatrix() : {};
   const affinityConfig = getAffinityConfig();
+  // Reações elementais (8.1): o que o alvo carrega (marcas) e o corpo. Dano Absoluto, tick periódico
+  // e Simulador (triggerConditions: false) não reagem.
+  const reacting = !mech.isAbsoluteDamage && !options.noReactions && options.triggerConditions !== false;
+  const reactionCtx = reacting && targetActor ? reactionState(targetActor) : null;
   const parts = splitDamageParts(rawTotal, mech.damageElements).map(part => {
     const ctx = elementContext(part.elementId, targetActor);
-    const affinity = bodyElements.length ? elementVsDefender(part.elementId, bodyElements, matrix, affinityConfig) : 1;
-    return { ...part, penetration: ctx.penetration, bonus: ctx.bonus, affinity, ctx };
+    const picked = reactionCtx ? reactionForPart(part.elementId, reactionCtx) : null;
+    // A vantagem da Tabela que viria da PRÓPRIA marca que reagiu não conta (senão Fogo em Gelo valia
+    // Derretimento e Super efetivo juntos); a do corpo e a das outras marcas continuam.
+    const defenderElements = picked?.source === "mark" || picked?.source === "surface" ? affinityElementsExcluding(reactionCtx.bodyIds, reactionCtx.marks, picked.mark) : bodyElements;
+    const affinity = defenderElements.length ? elementVsDefender(part.elementId, defenderElements, matrix, affinityConfig) : 1;
+    const factor = pickedFactor(picked);
+    return { ...part, penetration: ctx.penetration, bonus: ctx.bonus, affinity, ctx, picked, reaction: picked && factor !== 1 ? { factor, label: picked.reaction.label } : null };
   });
 
   const magicDefense = mech.isMagicDamage && targetActor && !options.skipMagicDefense ? magicDefenseReduction(targetActor) : 0;
@@ -147,9 +159,12 @@ export function applyDamageReductions(rawTotal, mech, targetActor, options = {})
     const ctx = parts[index].ctx;
     if (part.immune || !(part.final > 0)) return;
     shieldExtra += part.final * ctx.shieldDrain;
+    // Reação com "dano extra só no Escudo" (a marca ou o chão, nunca o corpo).
+    const reactionPick = parts[index].picked;
+    if (reactionPick && reactionPick.source !== "body") shieldExtra += (part.final * reactionPick.reaction.shieldDrain) / 100;
     if (options.triggerConditions === false) return;
     for (const effect of ctx.conditions) {
-      if (rollChance(effect.chance)) triggeredConditions.push({ conditionId: effect.conditionId, elementId: part.elementId, hitDamage: part.final, level: hitLevel, magic: hitMagic });
+      if (rollChance(effect.chance)) triggeredConditions.push({ conditionId: effect.conditionId, elementId: part.elementId, hitDamage: part.final, level: hitLevel, magic: hitMagic, rounds: effect.rounds });
     }
     for (const chance of ctx.sever) if (rollChance(chance)) sever = true;
     for (const effect of ctx.blockRegen) {
@@ -187,7 +202,11 @@ export function applyDamageReductions(rawTotal, mech, targetActor, options = {})
     shieldMultiplier,
     shieldPenetration,
     triggeredConditions,
-    sever
+    sever,
+    // Reações que dispararam (JSON simples): nome, o que consumir e o que aplicar no Aplicar.
+    reactions: result.parts
+      .map((part, index) => (parts[index].picked && !part.immune ? reactionRecord(parts[index].picked, part) : null))
+      .filter(Boolean)
   };
 }
 
@@ -208,7 +227,7 @@ function elementContext(elementId, targetActor) {
     else if (effect.type === "shieldDrain") ctx.shieldDrain += percent;
     // "Dano por camada": pode ser negativo (fraqueza) — ver resolveShipCascade/absorbLayer.
     else if (effect.type === "layer" && effect.layer in ctx.layers) ctx.layers[effect.layer] += percent;
-    else if (effect.type === "condition" && effect.conditionId) ctx.conditions.push({ conditionId: effect.conditionId, chance: Number(effect.chance) || 0 });
+    else if (effect.type === "condition" && effect.conditionId) ctx.conditions.push({ conditionId: effect.conditionId, chance: Number(effect.chance) || 0, rounds: Math.max(0, Math.round(Number(effect.rounds) || 0)) });
     // Ferimentos por parte: Decepar (a parte atingida que chega no 0 vira Perdida) e Impede
     // regeneração (Condição marcada "Impede regeneração"; 0 rodadas = até ser removida).
     else if (effect.type === "sever") ctx.sever.push(Number(effect.chance) || 0);
@@ -280,7 +299,8 @@ export async function applyTriggeredConditions(targetActor, triggered, { label =
     const entry = {
       target: "hp",
       amount: 0,
-      durationRounds: 0,
+      // Duração do efeito de elemento ("Molhado por 2 rodadas"); 0 = a que a própria Condição tem.
+      durationRounds: Math.max(0, Math.round(Number(hit.rounds) || 0)),
       conditionId: hit.conditionId,
       damageElements: hit.elementId ? [hit.elementId] : [],
       hitDamage: Math.max(0, (Number(hit.hitDamage) || 0) * factor),
@@ -330,6 +350,37 @@ export function triggeredLabel(triggered) {
   if (!triggered?.length) return "";
   const names = [...new Set(triggered.map(t => getActiveStatusConditions().find(c => c.id === t.conditionId)?.label ?? (t.blockRegen ? "Regeneração bloqueada" : t.conditionId)))];
   return ` — causa ${names.map(escapeHtml).join(", ")}`;
+}
+
+/**
+ * A entrada de card (`damageApply`) de um alvo a partir do resultado de `applyDamageReductions`, ou
+ * `null` se não há nada a aplicar. Compartilhada pelo alvo único, pela área e por quem a reação conduz.
+ */
+/**
+ * De quem é a superfície que o golpe pode deixar no Aplicar (8.2): `{magic, useId}`, ou `null` com o bloco
+ * desligado ou sem quem atacou. A natureza "da origem" olha se o golpe é mágico (`isMagicUse`).
+ */
+export function surfaceOrigin(mech, attacker) {
+  if (!isSurfacesEnabled()) return null;
+  return { magic: isMagicUse(mech, attacker), useId: currentSkillUseId() };
+}
+
+export function damageEntryFrom(actor, reduction, mech, label, extra = {}) {
+  return (
+    damageApplyFlags(actor, reduction.finalDamage, {
+      shieldBase: reduction.shieldBase,
+      elementIds: reduction.elementIds ?? [],
+      absolute: Boolean(mech.isAbsoluteDamage),
+      shieldExtra: reduction.shieldExtra ?? 0,
+      shieldMultiplier: reduction.shieldMultiplier ?? 1,
+      shieldPenetration: reduction.shieldPenetration ?? 0,
+      triggeredConditions: reduction.triggeredConditions ?? [],
+      sever: Boolean(reduction.sever),
+      reactions: cardReactions(reduction.reactions),
+      label,
+      ...extra
+    })[SYSTEM_ID]?.damageApply ?? null
+  );
 }
 
 /** "100", "0.01" — escala sem casas decimais inúteis. */
@@ -447,6 +498,7 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
   let finalDamage;
   let reduction = null;
   let aimedPart = null;
+  let conducted = { entries: [], trace: [], notes: [] };
   if (isShipLike(targetActor)) {
     const ctx = averageElementContext(mech.damageElements, targetActor);
     const cascade = await applyStarshipDamageCascade(scaledDamage, actor, targetActor, null, {
@@ -463,7 +515,7 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
     const { toShield, toCasco, toHull, structuralHits } = cascade;
     traceRows.push(...cascade.traceRows);
     finalDamage = toShield + toCasco + toHull;
-    flavor += ` — Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}`;
+    flavor += ` — Escudo -${toShield} · Casco -${toCasco} · Integridade Estrutural -${toHull}${reactionLabel((cascade.reactionLabels ?? []).map(name => ({ label: name })))}`;
     if (structuralHits?.length) flavor += ` (${structuralHits.map(h => (h.damage == null ? escapeHtml(h.name) : `${escapeHtml(h.name)} -${h.damage}`)).join(", ")})`;
   } else {
     // Nunca revela NO CHAT que/quanto de Resistência ou Defesa Mágica foi aplicada — só o
@@ -479,33 +531,49 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
     // final (já reduzido) nunca chegava ao chat, e o Mestre acabava aplicando o bruto: na
     // prática, Resistência e Defesa Mágica não valiam nada contra alvo único. Mesmo formato
     // "Alvo: número" que a versão em área (`rollSkillDamageArea`) já usava.
-    if (targetActor) flavor += ` — ${escapeHtml(targetActor.name)}: ${finalDamage}${triggeredLabel(reduction.triggeredConditions)}`;
+    if (targetActor) flavor += ` — ${escapeHtml(targetActor.name)}: ${finalDamage}${reactionLabel(reduction.reactions)}${triggeredLabel(reduction.triggeredConditions)}`;
     if (targetActor) traceRows.push(...personalTraceTail(reduction, targetActor));
+    // O que a reação espalha (raio no molhado conduz para quem está perto): cada um vira uma linha do card.
+    if (targetActor && reduction.reactions?.some(r => r.spread)) {
+      conducted = await conductReactions(reduction.reactions, targetActor, mech, {
+        attacker: actor,
+        reduce: applyDamageReductions,
+        makeEntry: (who, red, lbl) => damageEntryFrom(who, red, mech, lbl, { noBodyPart: true }),
+        label
+      });
+      flavor += conductionLabel(conducted.notes);
+    }
     // Ferimentos por parte: quem ataca pode mirar numa parte (senão o Aplicar sorteia uma).
     if (aim && targetActor && finalDamage > 0) aimedPart = await promptTargetBodyPart(targetActor);
     if (aimedPart) flavor += ` (mirando: ${escapeHtml(aimedPart.name)})`;
   }
 
+  const baseFlags = damageApplyFlags(targetActor, finalDamage, {
+    shieldBase: reduction?.shieldBase,
+    elementIds: reduction?.elementIds ?? [],
+    absolute: Boolean(mech.isAbsoluteDamage),
+    shieldExtra: reduction?.shieldExtra ?? 0,
+    shieldMultiplier: reduction?.shieldMultiplier ?? 1,
+    shieldPenetration: reduction?.shieldPenetration ?? 0,
+    triggeredConditions: reduction?.triggeredConditions ?? [],
+    sever: Boolean(reduction?.sever),
+    reactions: cardReactions(reduction?.reactions),
+    surface: surfaceOrigin(mech, actor),
+    bodyPart: aimedPart,
+    label
+  });
+  // Com quem a reação conduziu: o card vira um card de vários alvos (o principal e os conduzidos).
+  let applyFlags = baseFlags;
+  if (conducted.entries.length) {
+    const main = baseFlags[SYSTEM_ID]?.damageApply;
+    applyFlags = { [SYSTEM_ID]: { damageApplyMany: { entries: [...(main ? [{ ...main, name: targetActor.name }] : []), ...conducted.entries] } } };
+  }
   await roll.toMessage({
     speaker: ChatMessage.getSpeaker({ actor }),
     flavor,
     // Dados dos botões de Aplicar/Desfazer (ver module/damage-apply.js). Ficam em `flags` e não
     // no conteúdo: quem abrir o chat depois vê o mesmo estado de quem estava online.
-    flags: withDamageTrace(
-      damageApplyFlags(targetActor, finalDamage, {
-        shieldBase: reduction?.shieldBase,
-        elementIds: reduction?.elementIds ?? [],
-        absolute: Boolean(mech.isAbsoluteDamage),
-        shieldExtra: reduction?.shieldExtra ?? 0,
-        shieldMultiplier: reduction?.shieldMultiplier ?? 1,
-        shieldPenetration: reduction?.shieldPenetration ?? 0,
-        triggeredConditions: reduction?.triggeredConditions ?? [],
-        sever: Boolean(reduction?.sever),
-        bodyPart: aimedPart,
-        label
-      }),
-      targetActor ? [{ name: targetActor.name, rows: traceRows }] : []
-    )
+    flags: withDamageTrace(applyFlags, targetActor ? [{ name: targetActor.name, rows: traceRows }, ...conducted.trace] : [])
   });
   return { roll, finalDamage };
 }
@@ -694,21 +762,23 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
       // Botões por alvo no card (Aplicar / em todos / aos selecionados — ver damage-apply.js): o
       // número de cada um já sai com as defesas dele, e as Condições disparadas só valem quando o
       // Mestre aplica, como no alvo único. Área não cai em parte do corpo (`noBodyPart`).
-      const hit = damageApplyFlags(targetActor, reduction.finalDamage, {
-        shieldBase: reduction.shieldBase,
-        elementIds: reduction.elementIds ?? [],
-        absolute: Boolean(mech.isAbsoluteDamage),
-        shieldExtra: reduction.shieldExtra ?? 0,
-        shieldMultiplier: reduction.shieldMultiplier ?? 1,
-        shieldPenetration: reduction.shieldPenetration ?? 0,
-        triggeredConditions: reduction.triggeredConditions ?? [],
-        sever: Boolean(reduction.sever),
-        noBodyPart: true,
-        label
-      })[SYSTEM_ID]?.damageApply;
+      const hit = damageEntryFrom(targetActor, reduction, mech, label, { noBodyPart: true, surface: surfaceOrigin(mech, actor) });
       if (hit) applyEntries.push({ ...hit, name: targetActor.name });
       hits.push({ actor: targetActor, damage: reduction.finalDamage });
-      rows.push(`<li><strong>${escapeHtml(targetActor.name)}</strong>: ${reduction.finalDamage}${triggeredLabel(reduction.triggeredConditions)}</li>`);
+      rows.push(`<li><strong>${escapeHtml(targetActor.name)}</strong>: ${reduction.finalDamage}${reactionLabel(reduction.reactions)}${triggeredLabel(reduction.triggeredConditions)}</li>`);
+      // Reação que espalha: quem está perto e carrega o mesmo elemento (fora quem já é alvo da área).
+      if (reduction.reactions?.some(r => r.spread)) {
+        const conducted = await conductReactions(reduction.reactions, targetActor, mech, {
+          attacker: actor,
+          reduce: applyDamageReductions,
+          makeEntry: (who, red, lbl) => damageEntryFrom(who, red, mech, lbl, { noBodyPart: true }),
+          label,
+          exclude: targetActors.map(t => t.uuid)
+        });
+        applyEntries.push(...conducted.entries);
+        traces.push(...conducted.trace);
+        if (conducted.notes.length) rows.push(`<li>↳ conduzido: ${conducted.notes.map(escapeHtml).join(", ")}</li>`);
+      }
       traceRows.push(...personalTraceTail(reduction, targetActor));
     }
   }

@@ -27,6 +27,7 @@ import { rollSkillDamage, rollSkillDamageArea } from "../combat/damage-roll.js";
 import { markedCost } from "../combat/range-rules.js";
 import { rangeChecksActive } from "../combat/range.js";
 import { runSkillPushes, pushOriginFor } from "../combat/forced-movement.js";
+import { runSkillSurfaces, surfaceEffectsOf } from "../environment/surfaces.js";
 import { applyEffectsToActor } from "./effects-apply.js";
 import { isShipLike } from "../starship/ship-damage.js";
 import { publicRollModeOption } from "../helpers/foundry-compat.js";
@@ -538,6 +539,10 @@ export async function applySkillEffects(sourceActor, skill, mech, label, targetA
   const push = await runSkillPushes({ sourceActor, item: skill, mech: effective, label, subSkillIndex, targets: [targetActor], origin: pushOriginFor(sourceActor, effective) });
   summary.push(...push.lines);
   summary.xp = [...(summary.xp ?? []), ...Array.from({ length: Math.min(push.moved, 5) }, () => ({ flat: true }))];
+  // Cria superfície (8.2): no ponto do alvo, pelo Mestre; a XP é a fixa de um efeito de terreno.
+  const surfaces = await runSkillSurfaces({ sourceActor, mech: effective, targets: [targetActor] });
+  summary.push(...surfaces.lines);
+  summary.xp.push(...Array.from({ length: Math.min(surfaces.created, 5) }, () => ({ flat: true })));
   await grantSkillUseXp(skill, summary.xp);
 
   await ChatMessage.create({
@@ -613,7 +618,9 @@ export async function applySkillEffectsArea(sourceActor, skill, mech, label, tar
   // Antimagia em Emissão também desfaz as Estruturas que a área toca, mesmo sem ninguém dentro.
   const area = targetActors.area ?? null;
   const dispelsStructures = Boolean(area) && (mech.effects ?? []).some(e => e.target === "antimagic" || (e.target === "emp" && isInterferenceEnabled()));
-  if (!targetActors.length && !dispelsStructures) {
+  // "Cria superfície" (8.2) também vale numa área vazia: o ponto onde a Emissão foi colocada.
+  const placesSurface = Boolean(area) && surfaceEffectsOf(mech).length > 0;
+  if (!targetActors.length && !dispelsStructures && !placesSurface) {
     ui.notifications?.warn("Nenhum alvo encontrado na área.");
     return null;
   }
@@ -637,6 +644,12 @@ export async function applySkillEffectsArea(sourceActor, skill, mech, label, tar
     const push = await runSkillPushes({ sourceActor, item: skill, mech, label, subSkillIndex, targets: live, origin: pushOriginFor(sourceActor, mech, targetActors.origin ?? null) });
     for (const line of push.lines) rows.push(`<li>${escapeHtml(line)}</li>`);
     xp.push(...Array.from({ length: Math.min(push.moved, 5) }, () => ({ flat: true })));
+  }
+  // Cria superfície (8.2): uma vez, no centro da área (o ponto onde a Emissão foi colocada).
+  if (live.length || targetActors.origin) {
+    const surfaces = await runSkillSurfaces({ sourceActor, mech, targets: live, origin: targetActors.origin ?? null, area: Boolean(targetActors.origin) });
+    for (const line of surfaces.lines) rows.push(`<li>${escapeHtml(line)}</li>`);
+    xp.push(...Array.from({ length: Math.min(surfaces.created, 5) }, () => ({ flat: true })));
   }
   if (dispelsStructures) {
     const lines = await dispelStructuresInArea(skill, subSkillIndex, area);

@@ -65,8 +65,10 @@ export function isInCombat(actor) {
 export function buildModifierContext(self, other = null, { elements = [], hpPercent = null } = {}) {
   const hp = self?.system?.attributes?.hp;
   const selfHpPercent = hpPercent ?? (hp?.max > 0 ? (hp.value / hp.max) * 100 : NaN);
+  const otherHp = other?.system?.attributes?.hp;
   return {
     selfHpPercent,
+    otherHpPercent: otherHp?.max > 0 ? (otherHp.value / otherHp.max) * 100 : NaN,
     selfConditions: conditionIds(self),
     inCombat: isInCombat(self),
     ...worldClockContext(self),

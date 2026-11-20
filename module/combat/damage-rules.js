@@ -49,7 +49,10 @@ export function resolveDamageParts({ parts, magicDefense = 0, general = 0, resis
     // Vantagem do elemento da parte contra o elemento do corpo do alvo (Fogo contra quem virou Gelo).
     const affinity = Math.max(0, Number(part.affinity ?? 1));
     const bonus = Math.max(0, Number(part.bonus) || 0);
-    const raw = base * (1 + bonus);
+    // Reação elemental (8.1): multiplica a parte depois da Escala/Maestria/Shift (já em `base`) e antes
+    // de Defesa Mágica, Resistência e Imunidade — quem é imune ao elemento continua imune.
+    const reactionFactor = part.reaction ? Math.max(0, Number(part.reaction.factor)) : 1;
+    const raw = base * (1 + bonus) * (Number.isFinite(reactionFactor) ? reactionFactor : 1);
 
     const penetration = Math.min(1, Math.max(0, Number(part.penetration) || 0));
     const elementResist = part.elementId ? Math.max(0, Number(resistanceFor(part.elementId)) || 0) : 0;
@@ -69,6 +72,7 @@ export function resolveDamageParts({ parts, magicDefense = 0, general = 0, resis
     // `applied`: o quanto cada defesa valeu de fato (já suavizada pela Penetração) — insumo do
     // rastro de dano que só o Mestre vê (describeDamageParts).
     const applied = { bonus, penetration, magicDefense: soften(magicDefense), general: soften(general), element: soften(elementResist), affinity };
+    if (part.reaction && reactionFactor !== 1) applied.reaction = { factor: reactionFactor, label: String(part.reaction.label ?? "Reação") };
     return { elementId: part.elementId, base, raw, final: remaining * affinity, beforeAffinity: remaining, blockedGeneral, blockedElement, applied };
   });
 
@@ -99,6 +103,7 @@ export function describeDamageParts(parts, { elementLabel = id => id, generalLab
       rows.push({ label: "Dano Absoluto: ignora defesas e vantagem", value: "—" });
     } else {
       if (a.bonus > 0) rows.push({ label: "Bônus contra Traço do alvo", value: `+${percent(a.bonus)}` });
+      if (a.reaction) rows.push({ label: `Reação: ${a.reaction.label}`, value: `×${shortNumber(a.reaction.factor)}` });
       if (a.immune) {
         rows.push({ label: `Imunidade a ${name}${elementSourceLabel(part.elementId) ? ` (${elementSourceLabel(part.elementId)})` : ""}`, value: "zera" });
       } else {

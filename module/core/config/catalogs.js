@@ -4,6 +4,8 @@
  * `core/config.js`, que reexporta tudo.)
  */
 import { buildAffinityMatrix, elementAncestors } from "../../combat/damage-rules.js";
+import { normalizeReactions } from "../../combat/reaction-rules.js";
+import { normalizeSurface } from "../../environment/surface-rules.js";
 import { fillMapStatus } from "../../combat/senses-rules.js";
 import { MEU_SISTEMA, SYSTEM_ID } from "./constants.js";
 import { getFeatureOption, isFeatureEnabled } from "./features.js";
@@ -94,6 +96,10 @@ function buildDamageElements(raw) {
     group: el.group || knownGroups.get(el.id) || "Outros",
     // O antigo "Dano extra contra elemento" vira nível na tabela (buildAffinityMatrix) e sai da lista.
     affinity: buildAffinityMatrix([el])[el.id] ?? {},
+    // Reações elementais (8.1): `{elementoCarregado: reação}`, só as válidas.
+    reactions: normalizeReactions(el.reactions),
+    // Superfícies (8.2): "Deixa no chão" do elemento; `null` = nunca teve a seção.
+    surface: normalizeSurface(el.surface),
     effects: Array.isArray(el.effects) ? el.effects.filter(e => e?.type !== "vsElement") : []
   }));
 }
@@ -826,12 +832,14 @@ export function getEffectTargetGroups(current) {
   const elevation = isFeatureEnabled("elevation");
   const senses = isFeatureEnabled("senses");
   const mastery = isFeatureEnabled("weaponMastery");
+  const surfaces = isFeatureEnabled("surfaces");
   return MEU_SISTEMA.EFFECT_TARGET_GROUPS.map(group => ({
     label: group.label,
     options: group.targets
       .filter(t => t !== "emp" || emp || t === current)
       .filter(t => t !== "unarmedType" || mastery || t === current)
       .filter(t => t !== "push" || push || t === current)
+      .filter(t => t !== "createSurface" || surfaces || t === current)
       .filter(t => !["flight", "burrow"].includes(t) || elevation || t === current)
       .filter(t => !t.startsWith("sense") || senses || t === current)
       .filter(t => !MEU_SISTEMA.COMBAT_ATTRIBUTES.includes(t) || visible.has(t) || t === current)

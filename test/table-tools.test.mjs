@@ -108,6 +108,6 @@ test("Módulos do Sistema: todo bloco tem grupo e frase; 'Deixar leve' só desli
   assert.equal(light.content, undefined);
   assert.ok(Object.values(light.features).every(v => v === false));
   assert.deepEqual(Object.keys(light.features).sort(), Object.entries(MEU_SISTEMA.FEATURES).filter(([, f]) => f.heavy).map(([k]) => k).sort());
-  // naturalRegen, bodyPartInjury, movement, radiation, encumbrance, scale, shipManeuver e elevation (J4).
-  assert.equal(Object.keys(light.features).length, 8);
+  // naturalRegen, bodyPartInjury, movement, radiation, encumbrance, scale, shipManeuver, elevation (J4) e surfaces (8.2).
+  assert.equal(Object.keys(light.features).length, 9);
 });

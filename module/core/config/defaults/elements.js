@@ -14,6 +14,56 @@ export const PHYSICAL_SUBTYPES = [
   { id: "blunt", label: "Contundente", color: "#8c93ad", group: "Físico", parent: "physical", effects: [{ type: "traitBonus", trait: "mechanical", percent: 20 }, { type: "condition", conditionId: "stun", chance: 10 }] }
 ];
 
+/**
+ * Reações elementais de fábrica (item 8.1), por elemento do GOLPE: `{elementoCarregado: reação}`.
+ * `damagePercent` +50 = ×1,5. Fora do objeto porque a migração `reactionsDefaults` acrescenta estas
+ * a um catálogo já salvo (só onde o elemento não tem o campo `reactions`). "Sobrecarga" (Plasma contra
+ * escudo de energia) ficou de fora: os elementos de Escudo (`shieldElements`) são escolhidos pelo
+ * Mestre e não há um id de "escudo de energia" padrão para a regra apontar.
+ */
+export const DEFAULT_ELEMENT_REACTIONS = {
+  fire: {
+    ice: { label: "Derretimento", damagePercent: 50, consume: true, bodyConducts: true, leaveSurface: "water" },
+    water: { label: "Vapor", damagePercent: -50, consume: true, bodyConducts: true, applyCondition: { conditionId: "blindness", rounds: 1 }, spread: { radius: 2, sameElement: false } },
+    oil: { label: "Explosão", damagePercent: 100, consume: true, leaveSurface: "fire" }
+  },
+  ice: {
+    fire: { label: "Apagar", damagePercent: 0, consume: true, removeCondition: "burn" },
+    water: { label: "Congelar", damagePercent: 0, consume: true, applyCondition: { conditionId: "slow", rounds: 1 } }
+  },
+  lightning: {
+    water: { label: "Eletrocutado", damagePercent: 50, consume: true, bodyConducts: true, spread: { radius: 2, sameElement: true } }
+  },
+  water: {
+    fire: { label: "Vapor", damagePercent: 0, consume: true, removeCondition: "burn" }
+  }
+};
+
+/**
+ * Superfícies de fábrica (item 8.2, `FEATURES.surfaces`, desligado por padrão), por elemento. Fora do objeto
+ * porque a migração `surfaceDefaults` acrescenta estas a um catálogo já salvo (só onde o elemento nunca
+ * teve o campo `surface`). Mesmo formato de `normalizeSurface` (environment/surface-rules.js).
+ */
+export const DEFAULT_ELEMENT_SURFACES = {
+  water: { enabled: true, label: "Poça d'água", chance: 100, radius: 2, damageFormula: "", conditionId: "wet", conditionRounds: 2, height: 0, nature: "matter", rounds: 3, minutes: 10, immuneTraits: [] },
+  oil: { enabled: true, label: "Poça de óleo", chance: 100, radius: 2, damageFormula: "", conditionId: "oiled", conditionRounds: 3, height: 0, nature: "matter", rounds: 3, minutes: 10, immuneTraits: [] },
+  fire: { enabled: true, label: "Chamas", chance: 50, radius: 2, damageFormula: "1d6", conditionId: "burn", conditionRounds: 2, height: 2, nature: "origin", rounds: 2, minutes: 5, immuneTraits: [] },
+  ice: { enabled: true, label: "Gelo no chão", chance: 50, radius: 2, damageFormula: "", conditionId: "slow", conditionRounds: 1, height: 0, nature: "origin", rounds: 3, minutes: 10, immuneTraits: [] }
+};
+
+/** Água e Óleo: os elementos novos da 1.97.0 (a marca vem da Condição que o golpe aplica). */
+export const REACTION_ELEMENTS = [
+  { id: "water", label: "Água", color: "#5aa9ff", group: "Fantasia", effects: [{ type: "condition", conditionId: "wet", chance: 100, rounds: 2 }], reactions: DEFAULT_ELEMENT_REACTIONS.water, surface: DEFAULT_ELEMENT_SURFACES.water },
+  // Óleo: quase sem uso como dano — existe para ser marca e superfície.
+  { id: "oil", label: "Óleo", color: "#b8955a", group: "Fantasia", effects: [{ type: "condition", conditionId: "oiled", chance: 100, rounds: 3 }], surface: DEFAULT_ELEMENT_SURFACES.oil }
+];
+
+/** Molhado e Oleado: as marcas de Água e Óleo (só o ícone e o "Elemento do corpo"). */
+export const REACTION_CONDITIONS = [
+  { id: "wet", label: "Molhado", icon: "icons/svg/waterfall.svg", elements: ["water"], explanation: "Encharcado: reage a golpes de Fogo, Gelo e Elétrico (a tabela de reações da mesa diz como). A reação gasta a marca." },
+  { id: "oiled", label: "Oleado", icon: "icons/svg/hazard.svg", elements: ["oil"], explanation: "Coberto de óleo: pega fogo com facilidade (a tabela de reações da mesa diz como). A reação gasta a marca." }
+];
+
 /** Tipos de dano elemental padrão, sobrescritos pela setting `damageElementsData` (editor visual). */
 export const DEFAULT_DAMAGE_ELEMENTS = [
   { id: "physical", label: "Físico", color: "#9aa1c2", group: "Físico", effects: [] },
@@ -22,12 +72,14 @@ export const DEFAULT_DAMAGE_ELEMENTS = [
   ...PHYSICAL_SUBTYPES,
   // `affinity`: vantagem contra outros elementos (−2 Imune … 2 Super efetivo) — ver a tabela no editor.
   // Fogo e Ácido cauterizam: a Regeneração não age por 2 rodadas (o troll só morre assim).
-  { id: "fire", label: "Fogo", color: "#ff7043", group: "Fantasia", effects: [{ type: "condition", conditionId: "burn", chance: 25 }, { type: "blockRegen", chance: 100, rounds: 2 }], affinity: { ice: 1 } },
-  { id: "ice", label: "Gelo", color: "#6ee7ff", group: "Fantasia", effects: [{ type: "condition", conditionId: "slow", chance: 25 }], affinity: { fire: -1 } },
-  { id: "lightning", label: "Elétrico", color: "#ffe066", group: "Fantasia", effects: [] },
+  { id: "fire", label: "Fogo", color: "#ff7043", group: "Fantasia", effects: [{ type: "condition", conditionId: "burn", chance: 25 }, { type: "blockRegen", chance: 100, rounds: 2 }], affinity: { ice: 1 }, reactions: DEFAULT_ELEMENT_REACTIONS.fire, surface: DEFAULT_ELEMENT_SURFACES.fire },
+  { id: "ice", label: "Gelo", color: "#6ee7ff", group: "Fantasia", effects: [{ type: "condition", conditionId: "slow", chance: 25 }], affinity: { fire: -1 }, reactions: DEFAULT_ELEMENT_REACTIONS.ice, surface: DEFAULT_ELEMENT_SURFACES.ice },
+  { id: "lightning", label: "Elétrico", color: "#ffe066", group: "Fantasia", effects: [], reactions: DEFAULT_ELEMENT_REACTIONS.lightning },
   { id: "acid", label: "Ácido", color: "#8bc34a", group: "Fantasia", effects: [{ type: "blockRegen", chance: 100, rounds: 2 }] },
   { id: "dark", label: "Sombrio", color: "#7b5ea7", group: "Fantasia", effects: [], affinity: { holy: 1 } },
-  { id: "holy", label: "Sagrado", color: "#e8c170", group: "Fantasia", effects: [], affinity: { dark: 1 } }
+  { id: "holy", label: "Sagrado", color: "#e8c170", group: "Fantasia", effects: [], affinity: { dark: 1 } },
+  // Água e Óleo (8.1): o golpe deixa a marca Molhado/Oleado; as reações do Fogo/Gelo/Elétrico a leem.
+  ...REACTION_ELEMENTS
 ];
 
 /** Elemento do dano de radiação do Ambiente (environment/radiation.js). */
@@ -81,10 +133,12 @@ export const DEFAULT_STATUS_CONDITIONS = [
   { id: "interference-seal", label: "Selo de Interferência", icon: "icons/svg/lightning.svg", interferenceLevel: 1, explanation: "Toda tecnologia dele custa mais energia; num selo forte, ela nem funciona." },
   { id: "poison", label: "Veneno", icon: "icons/svg/poison.svg",
     effect: { kind: "tick", tickTarget: "hp", tickSign: "damage", valueMode: "hitPercent", value: 5, durationRounds: 3, tickUnit: "combatRound" } },
-  { id: "burn", label: "Queimadura", icon: "icons/svg/fire.svg",
+  { id: "burn", label: "Queimadura", icon: "icons/svg/fire.svg", elements: ["fire"],
     effect: { kind: "tick", tickTarget: "hp", tickSign: "damage", valueMode: "hitPercent", value: 10, durationRounds: 2, tickUnit: "combatRound" } },
-  { id: "slow", label: "Lentidão", icon: "icons/svg/frozen.svg",
+  { id: "slow", label: "Lentidão", icon: "icons/svg/frozen.svg", elements: ["ice"],
     effect: { kind: "modifier", modTarget: "movement", modMode: "percent", value: -50, durationRounds: 2 } },
+  // Marcas de Água e Óleo (item 8.1): o "Elemento do corpo" delas é o que as reações leem.
+  ...REACTION_CONDITIONS,
   { id: "stun", label: "Atordoamento", icon: "icons/svg/daze.svg", explanation: "Zonzo: costuma perder a próxima ação, a critério do Mestre." },
   { id: "silence", label: "Silêncio", icon: "icons/svg/silenced.svg", explanation: "Não consegue falar: o que pede voz (palavras de poder, gritar um aviso) não sai, a critério do Mestre." },
   { id: "paralysis", label: "Paralisia", icon: "icons/svg/paralysis.svg", explanation: "Não se mexe. O Mestre decide se ainda dá para fazer algo que não pede movimento." },

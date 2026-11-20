@@ -53,8 +53,10 @@ export function mechanicsGuide(catalogs = {}) {
     '  "scalingAttribute": id de atributo ou "" (multiplica o dano pelo atributo ao quadrado; use em Skills de dano do personagem),',
     '  "effects": [{"target": alvo, "amount": número (negativo = debuff/dano), "durationRounds": rodadas (0 = sem prazo),',
     '               "conditionId": id de Condição ou "", "periodic": boolean (só hp/energy: aplica a cada rodada),',
-    '               "damageElements": [ids] (tick de dano), "elementId": id (só weaponElement/bodyElement)}],',
+    '               "damageElements": [ids] (tick de dano), "elementId": id (só weaponElement/bodyElement/createSurface)}],',
+    '  "Só se…" num efeito (opcional): "onlyIf": {"kind":"otherCondition","value": id de Condição} (só pega se o alvo a tem) | {"kind":"otherTrait","value": id de Traço} | {"kind":"otherIsShip"} | {"kind":"otherHpBelow","threshold": % de Vida do alvo}.',
     '  Efeitos de movimento (grupo "Movimento"): {"target":"push","amount": metros,"pushDirection":"push"|"pull"|"choose","immuneTraits":[ids de Traço]} empurra/puxa o alvo em linha reta; {"target":"flight"} e {"target":"burrow"} dão voo/escavação pela "durationRounds" (amount 0).',
+    '  Terreno: {"target":"createSurface","elementId": id de elemento que deixa superfície no chão (só vale se o bloco Superfícies estiver ligado),"amount": raio em metros (0 = o do elemento),"durationRounds": rodadas (0 = as do elemento)}.',
     '  Efeitos de sentido (grupo "Sentidos", só Personagem): {"target":"senseTremor"|"senseInvisible"|"senseTrue"|"senseAll","amount": alcance em metros (0 = sem limite),"durationRounds": rodadas} — Sentido sísmico, Ver o invisível, Visão verdadeira, Sentir tudo.',
     '  "resistanceTarget": "" | "general" | id de elemento (Skill passiva de Resistência; 10% por nível),',
     '  "weaponStrike": "" | id de Tipo de arma (só Skill de dano: arte marcial/golpe de arma conta como ataque do tipo; "unarmed" = golpe desarmado),',
@@ -145,10 +147,11 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
       if (!e || !MEU_SISTEMA.EFFECT_TARGETS.includes(e.target) || String(e.target).startsWith("ship")) continue;
       const conditionId = conditions.has(e.conditionId) ? e.conditionId : "";
       const movementOnly = ["flight", "burrow", "unarmedType"].includes(e.target);
+      const surfaceEntry = e.target === "createSurface";
       const senseOnly = String(e.target).startsWith("sense");
       // Empurrar/Puxar: metros, sempre positivos (a direção é o campo pushDirection).
-      const amount = e.target === "push" ? clampInt(e.amount, 0, 200, 0) : movementOnly ? 0 : senseOnly ? clampInt(e.amount, 0, 1000, 0) : clampInt(e.amount, -999, 999, 0);
-      if (!amount && !conditionId && !movementOnly && !senseOnly) continue;
+      const amount = surfaceEntry ? clampInt(e.amount, 0, 30, 0) : e.target === "push" ? clampInt(e.amount, 0, 200, 0) : movementOnly ? 0 : senseOnly ? clampInt(e.amount, 0, 1000, 0) : clampInt(e.amount, -999, 999, 0);
+      if (!amount && !conditionId && !movementOnly && !senseOnly && !surfaceEntry) continue;
       const periodic = Boolean(e.periodic) && ["hp", "energy"].includes(e.target);
       const entry = {
         target: e.target,
@@ -160,7 +163,7 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
         damageElements: periodic && amount < 0 ? pickIds(e.damageElements, elements) : [],
         modifierType: "flat"
       };
-      if (["weaponElement", "bodyElement"].includes(e.target)) {
+      if (["weaponElement", "bodyElement", "createSurface"].includes(e.target)) {
         entry.elementId = elements.has(e.elementId) ? e.elementId : "";
         if (!entry.elementId) continue;
       }
@@ -176,6 +179,9 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
         entry.durationRounds = 0;
       }
       if (periodic && entry.durationRounds === 0) entry.durationRounds = 3;
+      // "Só se…": só tipos de alvo, com ids que existem neste mundo; o resto é descartado.
+      const onlyIf = e.target !== "push" ? sanitizeOnlyIf(e.onlyIf, { conditions, traits }) : null;
+      if (onlyIf) entry.onlyIf = onlyIf;
       // Cura periódica: Cura (padrão), Regeneração (refaz partes perdidas) ou Reparo (próteses).
       if (periodic && e.target === "hp" && amount > 0) entry.healKind = ["regeneracao", "reparo"].includes(e.healKind) ? e.healKind : "cura";
       effects.push(entry);
@@ -196,6 +202,18 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
   }
   out.effectType = effectType;
   return out;
+}
+
+/** "Só se…" vindo da IA: só os tipos sobre o alvo e só ids do catálogo. Nulo = sem condição. */
+export function sanitizeOnlyIf(raw, { conditions = new Set(), traits = new Set() } = {}) {
+  if (!raw || typeof raw !== "object") return null;
+  switch (raw.kind) {
+    case "otherCondition": return conditions.has(raw.value) ? { kind: "otherCondition", value: raw.value, threshold: 50 } : null;
+    case "otherTrait": return traits.has(raw.value) ? { kind: "otherTrait", value: raw.value, threshold: 50 } : null;
+    case "otherIsShip": return { kind: "otherIsShip", value: "", threshold: 50 };
+    case "otherHpBelow": return { kind: "otherHpBelow", value: "", threshold: clampInt(raw.threshold, 1, 100, 50) };
+    default: return null;
+  }
 }
 
 /** Bloco `weapon` de um Item Geral vindo da IA (null = não é arma). */

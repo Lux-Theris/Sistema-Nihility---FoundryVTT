@@ -16,7 +16,7 @@ export const PERIODIC_TARGETS = ["hp", "energy", "shipCasco", "shipHull"];
 const INSTANT_TARGETS = ["heal", "restoreEnergy", "shield", "antimagic", "emp", "mark", "push", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"];
 
 /** Alvos em que o valor não importa (liga/desliga, troca de elemento, Antimagia pelo nível). */
-const VALUELESS_TARGETS = ["weaponElement", "bodyElement", "weaponMagic", "weaponAbsolute", "unarmedType", "antimagic", "emp", "mark", "flight", "burrow", "senseTremor", "senseInvisible", "senseTrue", "senseAll"];
+const VALUELESS_TARGETS = ["weaponElement", "bodyElement", "weaponMagic", "weaponAbsolute", "unarmedType", "antimagic", "emp", "mark", "flight", "burrow", "createSurface", "senseTremor", "senseInvisible", "senseTrue", "senseAll"];
 
 const groupTargets = actor => new Set(MEU_SISTEMA.EFFECT_TARGET_GROUPS.filter(g => g.actor === actor).flatMap(g => g.targets));
 
@@ -25,6 +25,7 @@ const groupTargets = actor => new Set(MEU_SISTEMA.EFFECT_TARGET_GROUPS.filter(g 
  * @param {object} [ctx]
  * @param {Set<string>|string[]} [ctx.conditions] - ids do catálogo de Condições
  * @param {Set<string>|string[]} [ctx.elements] - ids dos Tipos de Dano
+ * @param {Set<string>|string[]} [ctx.traits] - ids do catálogo de Traços (para o "Só se…")
  * @param {Set<string>|string[]} [ctx.weaponTypes] - ids do catálogo de Tipos de arma
  * @param {Set<string>|string[]} [ctx.structures] - ids do catálogo de Estruturas
  * @param {"character"|"ship"|null} [ctx.actorType] - quem tem a Skill (null = sem ficha)
@@ -123,8 +124,28 @@ export function lintSkill(mech, ctx = {}) {
       for (const id of e?.damageElements ?? []) {
         if (ctx.elements && !has(ctx.elements, id)) push("unknownElement", "hard", "mechanic", `${n}: elemento "${id}" não existe mais no catálogo.`, i);
       }
+      // "Só se…" (8.1a): a Condição ou o Traço escolhido sumiu do catálogo → o efeito nunca pega.
+      const only = e?.onlyIf;
+      if (only?.kind === "otherCondition" || only?.kind === "selfCondition") {
+        if (!only.value) push("onlyIfEmpty", "hard", "mechanic", `${n}: "Só se…" sem Condição escolhida — o efeito nunca pega.`, i);
+        else if (ctx.conditions && !has(ctx.conditions, only.value)) push("onlyIfUnknown", "hard", "mechanic", `${n}: o "Só se…" usa a Condição "${only.value}", que não existe mais no catálogo — o efeito nunca pega.`, i);
+      }
+      if (only?.kind === "otherTrait") {
+        if (!only.value) push("onlyIfEmpty", "hard", "mechanic", `${n}: "Só se…" sem Traço escolhido — o efeito nunca pega.`, i);
+        else if (ctx.traits && !has(ctx.traits, only.value)) push("onlyIfUnknown", "hard", "mechanic", `${n}: o "Só se…" usa o Traço "${only.value}", que não existe mais no catálogo — o efeito nunca pega.`, i);
+      }
       if (target === "unarmedType" && !e?.weaponTypeId) push("unarmedTypeMissing", "hard", "mechanic", `${n}: "Desarmado vira tipo" sem escolher o tipo — não faz nada.`, i);
       if (target === "unarmedType" && e?.weaponTypeId && ctx.weaponTypes && !has(ctx.weaponTypes, e.weaponTypeId)) push("unknownWeaponType", "hard", "mechanic", `${n}: o tipo de arma "${e.weaponTypeId}" não existe mais no catálogo.`, i);
+      // Cria superfície (8.2): o elemento tem de deixar algo no chão e o raio (o dele ou o do efeito) não pode ser 0.
+      if (target === "createSurface") {
+        if (!e?.elementId) push("surfaceNoElement", "hard", "mechanic", `${n}: "Cria superfície" sem elemento escolhido — não cria nada.`, i);
+        else if (ctx.elements && !has(ctx.elements, e.elementId)) push("unknownElement", "hard", "mechanic", `${n}: elemento "${e.elementId}" não existe mais no catálogo.`, i);
+        else if (ctx.surfaces) {
+          const def = ctx.surfaces[e.elementId];
+          if (!def?.enabled) push("surfaceNotLeft", "hard", "mechanic", `${n}: esse elemento não deixa nada no chão — ligue "Deixa no chão" no cartão dele (Tipos de Dano).`, i);
+          else if (!(Number(e?.amount) > 0) && !(Number(def.radius) > 0)) push("surfaceRadiusZero", "hard", "mechanic", `${n}: raio 0 — a superfície não tem tamanho.`, i);
+        }
+      }
       if (["weaponElement", "bodyElement"].includes(target) && e?.elementId && ctx.elements && !has(ctx.elements, e.elementId)) push("unknownElement", "hard", "mechanic", `${n}: elemento "${e.elementId}" não existe mais no catálogo.`, i);
       // Um tripulante pode mirar a Nave com efeito de Nave; só "Si mesmo" é certeza de que não pega.
       if (m.targetType === "self" && ctx.actorType === "character" && shipOnly.has(target)) push("shipOnSelf", "hard", "mechanic", `${n}: efeito de Nave numa Skill "Si mesmo" de Personagem — cai no próprio personagem e não faz nada.`, i);

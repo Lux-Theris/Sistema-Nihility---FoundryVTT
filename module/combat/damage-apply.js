@@ -62,7 +62,7 @@ function hpPath(actor) {
  * @param {{absolute?: boolean, shieldExtra?: number, triggeredConditions?: object[], label?: string}} [options]
  *   - Dano Absoluto não passa pelo Escudo pessoal
  */
-export function damageApplyFlags(targetActor, finalDamage, { absolute = false, shieldExtra = 0, shieldMultiplier = 1, shieldPenetration = 0, triggeredConditions = [], label = "", shieldBase = null, elementIds = [], sever = false, bodyPart = null, noBodyPart = false } = {}) {
+export function damageApplyFlags(targetActor, finalDamage, { absolute = false, shieldExtra = 0, shieldMultiplier = 1, shieldPenetration = 0, triggeredConditions = [], label = "", shieldBase = null, elementIds = [], sever = false, bodyPart = null, noBodyPart = false, reactions = [], surface = null } = {}) {
   if (!targetActor || !hpPath(targetActor)) return {};
   // Corpo imune ao elemento (vantagem ×0) ainda pode gastar um Escudo de outro elemento: o card vale
   // se sobrar dano pro Escudo.
@@ -94,6 +94,12 @@ export function damageApplyFlags(targetActor, finalDamage, { absolute = false, s
         // Dano em área não cai em parte do corpo (regra de sempre; ver CLAUDE.md, Anatomia).
         noBodyPart: Boolean(noBodyPart),
         label: String(label || ""),
+        // Reações elementais que dispararam (8.1): consumir a marca e aplicar/tirar Condição só no Aplicar.
+        reactions: Array.isArray(reactions) ? reactions : [],
+        // Superfícies (8.2): só um golpe de Skill/arma deixa a superfície do elemento no Aplicar
+        // ({magic: veio de uma Skill mágica, useId: o uso, para o Desfazer uso}). Contato, Armadilha e
+        // a própria superfície não passam isto e não deixam nada (a reação ainda pode, pelo `leaveSurface`).
+        ...(surface ? { surface: { magic: Boolean(surface.magic), useId: String(surface.useId ?? "").slice(0, 32) } } : {}),
         applied: null
       }
     }
@@ -164,6 +170,7 @@ function describeApplied(applied) {
   if (applied.toHp || !applied.toShield) parts.push(`${applied.toHp} na Vida`);
   const hit = applied.bodyPart;
   if (hit) parts.push(`${hit.name} ${hit.from} → ${hit.to}${hit.lost ? " (perdida)" : hit.to === 0 ? " (inutilizada)" : ""}`);
+  if (applied.reactionNames?.length) parts.push(applied.reactionNames.join(", "));
   return parts.join(" · ");
 }
 
@@ -263,7 +270,7 @@ function buildManyControls(entries) {
     const row = document.createElement("li");
     const name = document.createElement("span");
     name.className = "damage-many-name";
-    name.textContent = entry.name ?? "?";
+    name.textContent = entry.conducted ? `${entry.name ?? "?"} (conduzido: ${entry.conducted})` : entry.name ?? "?";
     row.append(name);
     if (entry.applied) {
       const done = document.createElement("span");
@@ -349,9 +356,36 @@ async function applyHit(state, factor) {
     ({ createdIds: createdEffectIds } = await applyTriggeredConditions(actor, state.triggeredConditions, { label: state.label, factor, partId: bodyPart?.id ?? null }));
   }
 
+  // Reações elementais (8.1): a marca é consumida e a Condição da reação entra/sai SÓ agora, com o
+  // acerto confirmado. O Desfazer devolve o que foi apagado (`reactionConsumed`/`reactionRemoved`).
+  let reaction = null;
+  if (state.reactions?.length) {
+    const { applyReactionOutcome } = await import("./reactions.js");
+    reaction = await applyReactionOutcome(actor, state.reactions, { label: state.label, hitDamage: amount });
+    createdEffectIds = [...createdEffectIds, ...reaction.createdIds];
+  }
+
+  // Superfícies (8.2): o golpe transforma/cria superfícies no chão do alvo (e o Desfazer as desfaz).
+  let surfaces = null;
+  if (state.reactions?.length || state.surface) {
+    const { applyHitSurfaces } = await import("../environment/surfaces.js");
+    surfaces = await applyHitSurfaces(actor, state);
+  }
+
   // Guarda os valores ANTERIORES, não o aplicado: desfazer restaura o estado exato, sem depender
   // de nada mais ter mexido no HP/Escudo nesse meio-tempo.
-  return { amount, toShield, toHp, previousValue: previousHp, previousShield, previousPools, createdEffectIds, bodyPart };
+  return {
+    amount,
+    toShield,
+    toHp,
+    previousValue: previousHp,
+    previousShield,
+    previousPools,
+    createdEffectIds,
+    bodyPart,
+    ...(surfaces && (surfaces.created.length || surfaces.removed.length) ? { surfacesCreated: surfaces.created, surfacesRemoved: surfaces.removed } : {}),
+    ...(reaction ? { reactionNames: reaction.names, reactionConsumed: reaction.consumed, reactionRemoved: reaction.removed, at: Date.now() } : {})
+  };
 }
 
 /**
@@ -395,6 +429,16 @@ async function undoHit(state) {
   // fica como está — não há como saber a duração de antes.
   const created = (state.applied.createdEffectIds ?? []).filter(id => actor.effects.has(id));
   if (created.length) await actor.deleteEmbeddedDocuments("ActiveEffect", created);
+  // A marca que a reação consumiu e a Condição que ela tirou voltam.
+  if (state.applied.reactionConsumed?.length || state.applied.reactionRemoved?.length) {
+    const { undoReactionOutcome } = await import("./reactions.js");
+    await undoReactionOutcome(actor, state.applied);
+  }
+  // As superfícies que este Aplicar criou saem, e as que ele tirou voltam.
+  if (state.applied.surfacesCreated?.length || state.applied.surfacesRemoved?.length) {
+    const { undoHitSurfaces } = await import("../environment/surfaces.js");
+    await undoHitSurfaces(state.applied);
+  }
   return true;
 }
 

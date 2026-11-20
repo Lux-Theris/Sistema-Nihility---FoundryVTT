@@ -13,6 +13,7 @@ import { chargeAntimagic, fieldGate } from "../combat/antimagic.js";
 import { checkFlatRange } from "../combat/range.js";
 import { shipRangeUnits } from "../combat/range-rules.js";
 import { escapeHtml } from "../helpers/html.js";
+import { shipReactionFor, cardReactions, reactionLabel } from "../combat/reactions.js";
 
 /** Nave OU Veículo — os dois compartilham o mesmo `ShipSystemsDataModel` desde o overhaul de Porte. */
 export function isShipLike(actor) {
@@ -65,6 +66,10 @@ export async function applyStarshipDamageCascade(rawDamage, sourceActor, targetA
   const shieldAffinity = hitAffinityFactor(elementIds, sys.shieldElements ?? [], matrix, affinityConfig);
   const bodyAffinity = hitAffinityFactor(elementIds, actorElements(targetActor), matrix, affinityConfig);
 
+  // Reações elementais (8.1): o elemento do golpe contra o que o Escudo (e as marcas da Nave) carrega. Vale
+  // na camada do Escudo (fator no multiplicador, dreno como dano extra só nele), sem consumo.
+  const reaction = shipReactionFor(targetActor, elementIds, { shieldUp: sys.shields.value > 0, absolute: Boolean(extras.absolute) });
+
   // A conta inteira é pura e testada (resolveShipCascade em damage-rules.js); aqui só se grava.
   const { toShield, toCasco, toHull, adapted } = resolveShipCascade({
     damage: rawDamage,
@@ -78,7 +83,7 @@ export async function applyStarshipDamageCascade(rawDamage, sourceActor, targetA
       penResist: sys.shieldPenetrationResist ?? 0,
       adaptation,
       // O "Dano extra em Escudo" antigo (Táquion) entra como % de Escudo também.
-      multiplier: Math.max(0, 1 + (layers.shield || 0) + (extras.shieldDrain || 0)) * shieldAffinity
+      multiplier: Math.max(0, 1 + (layers.shield || 0) + (extras.shieldDrain || 0) + reaction.drain) * shieldAffinity * reaction.factor
     },
     casco: {
       value: cascoValue,
@@ -111,6 +116,7 @@ export async function applyStarshipDamageCascade(rawDamage, sourceActor, targetA
     if (penetration > 0) traceRows.push({ label: "Penetração da arma", value: pct(penetration) });
     if (sys.shieldPenetrationResist > 0) traceRows.push({ label: "Resistência à Penetração do Escudo", value: `−${pct(sys.shieldPenetrationResist)}` });
     if (shieldAffinity !== 1) traceRows.push({ label: "Vantagem contra o elemento do Escudo", value: `×${Math.round(shieldAffinity * 100) / 100}` });
+    if (reaction.labels.length) traceRows.push({ label: `Reação no Escudo: ${reaction.labels.join(", ")}`, value: `×${Math.round(reaction.factor * 100) / 100}${reaction.drain ? ` · +${Math.round(reaction.drain * 100)}% de dreno` : ""}` });
     if (armorReduction > 0) traceRows.push({ label: "Redução do Casco", value: `−${pct(armorReduction)}` });
     if (sys.cascoPenetrationResist > 0 && cascoValue > 0) traceRows.push({ label: "Resistência à Penetração do Casco", value: `−${pct(sys.cascoPenetrationResist)}` });
     if (bodyAffinity !== 1) traceRows.push({ label: "Vantagem contra o elemento da Nave", value: `×${Math.round(bodyAffinity * 100) / 100}` });
@@ -162,7 +168,7 @@ export async function applyStarshipDamageCascade(rawDamage, sourceActor, targetA
   if ((toCasco + toHull) > 0) {
     const triggered = (extras.conditions ?? [])
       .filter(c => rollChance(c.chance))
-      .map(c => ({ conditionId: c.conditionId, hitDamage: toCasco + toHull }));
+      .map(c => ({ conditionId: c.conditionId, hitDamage: toCasco + toHull, rounds: c.rounds }));
     if (triggered.length) {
       await applyTriggeredConditions(targetActor, triggered, { label: sourceActor?.name ?? "" });
       systemEffects.push(triggeredLabel(triggered).replace(/^ — /, ""));
@@ -170,7 +176,7 @@ export async function applyStarshipDamageCascade(rawDamage, sourceActor, targetA
   }
   if (systemEffects.length) structuralHits.push(...systemEffects.map(text => ({ name: text, damage: null })));
 
-  return { toShield, toCasco, toHull, structuralHits, appliedReductions, traceRows, targetModuleId };
+  return { toShield, toCasco, toHull, structuralHits, appliedReductions, traceRows, targetModuleId, reactionLabels: reaction.labels };
 }
 
 /** Cada Escudo adaptativo ligado aprende o golpe (elemento + frequência), até o teto dele. */
@@ -322,8 +328,9 @@ export async function fireStarshipWeapon(sourceActor, weaponModule, targetActor 
       finalDamage = reduction.finalDamage;
       await grantResistanceXp(reduction.defenders, targetActor);
       await registerResistanceExposure(targetActor, mech.damageElements, finalDamage);
-      flavor += ` — ${escapeHtml(targetActor.name)}: ${finalDamage}${triggeredLabel(reduction.triggeredConditions)}`;
+      flavor += ` — ${escapeHtml(targetActor.name)}: ${finalDamage}${reactionLabel(reduction.reactions)}${triggeredLabel(reduction.triggeredConditions)}`;
       messageFlags = damageApplyFlags(targetActor, finalDamage, {
+        reactions: cardReactions(reduction.reactions),
         shieldBase: reduction.shieldBase,
         elementIds: reduction.elementIds,
         absolute: mech.isAbsoluteDamage,

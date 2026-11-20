@@ -14,9 +14,12 @@ import {
   getVisibleAttributes,
   getCharacterEnergyLabel,
   getActiveStatusConditions,
-  getActiveDamageElements
+  getActiveDamageElements,
+  getActiveTraits
 } from "./config.js";
 import { buildTableRulesPages, conditionSentence } from "./table-rules-text.js";
+import { reactionSentence } from "../combat/reaction-rules.js";
+import { surfaceSentence } from "../environment/surface-rules.js";
 
 const setting = (key, fallback) => {
   try {
@@ -74,6 +77,20 @@ export function gatherTableRules() {
         }
       : null,
     features,
+    // Reações elementais (8.1): uma frase por reação do catálogo, no que o jogador lê.
+    reactions: features.reactions
+      ? elements.flatMap(e =>
+          Object.entries(e.reactions ?? {}).map(([carriedId, reaction]) =>
+            reactionSentence(e.id, carriedId, reaction, { element: id => byId[id] ?? id, condition: id => getActiveStatusConditions().find(c => c.id === id)?.label ?? id })
+          )
+        )
+      : [],
+    // Superfícies (8.2): uma frase por elemento que deixa algo no chão.
+    surfaces: features.surfaces
+      ? elements
+          .filter(e => e.surface?.enabled)
+          .map(e => surfaceSentence(e.label, e.surface, { condition: id => getActiveStatusConditions().find(c => c.id === id)?.label ?? id, trait: id => getActiveTraits().find(t => t.id === id)?.label ?? id }))
+      : [],
     conditions: getActiveStatusConditions().map(c => ({ label: c.label, sentence: conditionSentence(c, { attributeLabel: getAttributeLabel, energyLabel: getCharacterEnergyLabel() }), explanation: c.explanation ?? "" })),
     elements: elements.map(e => ({ label: e.label, parent: e.parent ? byId[e.parent] ?? "" : "" })),
     // Só os blocos de cima (um sub-bloco desligado com o pai desligado não repete).

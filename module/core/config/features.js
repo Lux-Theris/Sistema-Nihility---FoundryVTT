@@ -65,6 +65,16 @@ export function isForcedMovementEnabled() {
   return isFeatureEnabled("forcedMovement");
 }
 
+/** Reações elementais (item 8.1): o golpe reage com as marcas do alvo. Desligado: nada reage. */
+export function isReactionsEnabled() {
+  return isFeatureEnabled("reactions");
+}
+
+/** Superfícies elementais (item 8.2): o elemento deixa uma superfície no chão. Desligado: nada nasce nem age. */
+export function isSurfacesEnabled() {
+  return isFeatureEnabled("surfaces");
+}
+
 /** Voo, altura e escavação (J4): a elevação do Token entra nas distâncias e áreas. */
 export function isElevationEnabled() {
   return isFeatureEnabled("elevation");

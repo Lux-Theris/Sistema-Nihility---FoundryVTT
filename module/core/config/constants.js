@@ -13,7 +13,7 @@ import { DEFAULT_NPC_ARCHETYPES, NPC_NAME_TABLES, NPC_ARCHETYPE_GROUP_LABELS } f
 import { DEFAULT_SKILL_TEMPLATES, SKILL_TEMPLATE_GROUP_LABELS } from "./defaults/skill-templates.js";
 import { CORE_SKILL_DEFS } from "./defaults/core-skills.js";
 import { DEFAULT_WEAPON_TYPES } from "./defaults/weapons.js";
-export { PHYSICAL_SUBTYPES, RADIATION_ELEMENT } from "./defaults/elements.js";
+export { PHYSICAL_SUBTYPES, RADIATION_ELEMENT, DEFAULT_ELEMENT_REACTIONS, DEFAULT_ELEMENT_SURFACES, REACTION_ELEMENTS, REACTION_CONDITIONS } from "./defaults/elements.js";
 
 export const SYSTEM_ID = "nihility-rpg-system";
 
@@ -540,6 +540,7 @@ export const MEU_SISTEMA = {
     "push",
     "flight",
     "burrow",
+    "createSurface",
     "senseTremor",
     "senseInvisible",
     "senseTrue",
@@ -554,6 +555,7 @@ export const MEU_SISTEMA = {
     push: "Empurrar/Puxar (metros)",
     flight: "Voando (pode subir no mapa)",
     burrow: "Escavando (pode descer abaixo do chão)",
+    createSurface: "Cria superfície (elemento + raio em m)",
     senseTremor: "Sentido sísmico (alcance em m)",
     senseInvisible: "Ver o invisível (alcance em m)",
     senseTrue: "Visão verdadeira (alcance em m)",
@@ -602,6 +604,7 @@ export const MEU_SISTEMA = {
     { label: "Elemento", actor: "any", targets: ["bodyElement"] },
     { label: "Magia", actor: "character", targets: ["antimagic", "mark"] },
     { label: "Movimento", actor: "character", targets: ["push", "flight", "burrow"] },
+    { label: "Terreno", actor: "any", targets: ["createSurface"] },
     { label: "Sentidos", actor: "character", targets: ["senseTremor", "senseInvisible", "senseTrue", "senseAll"] },
     { label: "Tecnologia", actor: "any", targets: ["emp"] },
     { label: "Nave", actor: "ship", targets: ["shipWeaponDamage", "shipWeaponPenetration", "shipShieldCapacity", "shipShieldRegen", "shipReactorOutput", "shipPropulsion", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"] }

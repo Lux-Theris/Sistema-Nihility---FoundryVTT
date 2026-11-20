@@ -1,4 +1,5 @@
 import { advancedFold } from "../helpers/advanced-fold.js";
+import { ONLY_IF_KINDS, ONLY_IF_LABELS, onlyIfNeeds, normalizeOnlyIf, hasOnlyIf, onlyIfClause } from "../skills/only-if-rules.js";
 import { getAntimagicReach,
   SYSTEM_ID,
   MEU_SISTEMA,
@@ -307,7 +308,7 @@ function conditionalModifierRows(list) {
       index,
       whenOptions: pickList(WHEN_KINDS.map(k => [k, WHEN_LABELS[k]]), whenKind),
       whenValueOptions: valueSource ? pickList(valueSource, mod.when?.value) : null,
-      needsThreshold: whenKind === "selfHpBelow",
+      needsThreshold: whenKind === "selfHpBelow" || whenKind === "otherHpBelow",
       threshold: mod.when?.threshold ?? 50,
       thenOptions: pickList(THEN_KINDS.map(k => [k, THEN_LABELS[k]]), thenKind),
       targetOptions,
@@ -708,6 +709,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
       let summary;
       if (["weaponElement", "bodyElement"].includes(entry.target)) summary = `${targetLabel} → ${elements.find(el => el.id === entry.elementId)?.label ?? "?"}`;
+      else if (entry.target === "createSurface") summary = `Cria ${elements.find(el => el.id === entry.elementId)?.surface?.label || elements.find(el => el.id === entry.elementId)?.label || "?"}${amount > 0 ? ` (raio ${amount} m)` : ""}`;
       else if (entry.target === "unarmedType") summary = `${targetLabel} → ${entry.weaponTypeId ? weaponTypeDisplay(entry.weaponTypeId) : "?"}`;
       else if (entry.target === "push") summary = `${{ pull: "Puxa", choose: "Empurra ou puxa" }[entry.pushDirection] ?? "Empurra"} ${amount} m`;
       else if (["flight", "burrow"].includes(entry.target)) summary = targetLabel;
@@ -720,6 +722,8 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       else if (entry.target === "shield") extra.push("até absorver");
       else extra.push(`${entry.durationRounds} ${periodic ? "tick(s)" : "rodada(s)"}`);
       if (condition) extra.push(condition.label);
+      const onlyIfNow = normalizeOnlyIf(entry.onlyIf) ?? { kind: "", value: "", threshold: 50 };
+      if (hasOnlyIf(entry.onlyIf) && entry.target !== "push") extra.push(`só se ${onlyIfClause(entry.onlyIf, (kind, value) => (kind === "otherTrait" ? getActiveTraits().find(t => t.id === value)?.label : conditions.find(c => c.id === value)?.label) ?? value)}`);
       if (periodic && entry.target === "hp" && Number(entry.amount) > 0 && entry.healKind && entry.healKind !== "cura") extra.push(MEU_SISTEMA.HEAL_KIND_LABELS[entry.healKind] ?? entry.healKind);
       if (entry.target === "shield" && entry.damageElements?.length) {
         extra.push(`Escudo de ${entry.damageElements.map(id => elements.find(el => el.id === id)?.label ?? id).join(" + ")}`);
@@ -742,6 +746,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       // vai para dentro só o que poucos Efeitos usam.
       const advFold = advancedFold(
         [
+          !isPush ? { label: "Só se…", used: hasOnlyIf(entry.onlyIf) } : null,
           periodic ? { label: "Elemento do tick", used: hasElements } : null,
           isPush ? { label: "Elemento do empurrão", used: hasElements } : null,
           isPush ? { label: "Traços que não saem do lugar", used: Boolean(entry.immuneTraits?.length) } : null,
@@ -756,10 +761,19 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       return {
         adv: advFold,
         advKey: `eff-${index}`,
+        // "Só se…" (8.1a): tipo + o que ele pede (Condição, Traço ou limite em %).
+        onlyIfShown: !isPush,
+        onlyIfKindOptions: [{ value: "", label: "— sempre —", selected: !onlyIfNow.kind }].concat(ONLY_IF_KINDS.map(k => ({ value: k, label: ONLY_IF_LABELS[k], selected: k === onlyIfNow.kind }))),
+        onlyIfCondition: onlyIfNeeds(onlyIfNow.kind) === "condition",
+        onlyIfTrait: onlyIfNeeds(onlyIfNow.kind) === "trait",
+        onlyIfThreshold: onlyIfNeeds(onlyIfNow.kind) === "threshold",
+        onlyIfThresholdValue: onlyIfNow.threshold,
+        onlyIfConditionOptions: conditions.map(c => ({ value: c.id, label: c.label, selected: c.id === onlyIfNow.value })),
+        onlyIfTraitOptions: getActiveTraits().map(t => ({ value: t.id, label: t.label, selected: t.id === onlyIfNow.value })),
         index,
         amount,
         durationRounds: entry.durationRounds,
-        durationUnit: entry.target === "push" ? "" : ["flight", "burrow"].includes(entry.target) ? (sys.hasUpkeep ? "ativa" : "rod. (0 = até desfeito)") : isSenseTarget(entry.target) ? (sys.hasUpkeep ? "ativa" : "rod. (0 = até desfeito)") : entry.target === "mark" ? "rod. (0 = até desfeita)" : ["antimagic", "emp"].includes(entry.target) ? "rod. de supressão (0 = até tirar)" : sys.hasUpkeep ? "ativa" : periodic ? "ticks" : "rod.",
+        durationUnit: entry.target === "push" ? "" : entry.target === "createSurface" ? "rod. (0 = a do elemento)" : ["flight", "burrow"].includes(entry.target) ? (sys.hasUpkeep ? "ativa" : "rod. (0 = até desfeito)") : isSenseTarget(entry.target) ? (sys.hasUpkeep ? "ativa" : "rod. (0 = até desfeito)") : entry.target === "mark" ? "rod. (0 = até desfeita)" : ["antimagic", "emp"].includes(entry.target) ? "rod. de supressão (0 = até tirar)" : sys.hasUpkeep ? "ativa" : periodic ? "ticks" : "rod.",
         isAntimagic: ["antimagic", "emp"].includes(entry.target),
         isMark: entry.target === "mark",
         isPush,
@@ -777,7 +791,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         targetGroups,
         isUnarmedType: entry.target === "unarmedType",
         weaponTypeIdOptions: entry.target === "unarmedType" ? weaponTypeChoices(entry.weaponTypeId ?? "").map(o => ({ ...o, selected: o.value === (entry.weaponTypeId ?? "") })) : [],
-        isElementTarget: ["weaponElement", "bodyElement"].includes(entry.target),
+        isElementTarget: ["weaponElement", "bodyElement", "createSurface"].includes(entry.target),
         elementIdOptions: elements.map(el => ({ value: el.id, label: el.label, selected: el.id === entry.elementId })),
         acceptsPeriodic,
         periodic,
@@ -1188,6 +1202,21 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     if (!entry) return;
 
     const field = input.dataset.effectField;
+    // "Só se…": três campos de tela viram um objeto só (`onlyIf`), sempre normalizado.
+    if (field.startsWith("onlyIf")) {
+      const current = normalizeOnlyIf(entry.onlyIf) ?? { kind: "", value: "", threshold: 50 };
+      if (field === "onlyIfKind") {
+        current.kind = input.value;
+        // Trocar o tipo limpa o valor escolhido (ele era de outro menu).
+        current.value = "";
+        if (onlyIfNeeds(current.kind) === "condition") current.value = getActiveStatusConditions()[0]?.id ?? "";
+        if (onlyIfNeeds(current.kind) === "trait") current.value = getActiveTraits()[0]?.id ?? "";
+      } else if (field === "onlyIfValue") current.value = input.value;
+      else current.threshold = Number(input.value) || 0;
+      entry.onlyIf = normalizeOnlyIf(current) ?? { kind: "", value: "", threshold: 50 };
+      await this.item.update({ [this.#effectsPath()]: effects });
+      return;
+    }
     if (input.type === "checkbox") entry[field] = input.checked;
     else if (input.type === "number") entry[field] = Number(input.value) || 0;
     else entry[field] = input.value.trim();

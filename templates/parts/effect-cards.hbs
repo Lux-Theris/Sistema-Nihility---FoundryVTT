@@ -99,6 +99,27 @@
             <details class="adv adv-card" data-adv-key="{{eff.advKey}}" {{#if eff.adv.open}}open{{/if}}>
               {{> nihility.advSummary fold=eff.adv}}
               <div class="adv-body effect-card-extra">
+                {{#if eff.onlyIfShown}}
+                <div class="fld-row span-all only-if-row">
+                  <span class="fld-label">Só se… <span class="help" title="O efeito só pega se isto vale no alvo (ou em quem usou): por exemplo, só se o alvo estiver Molhado. Falhou: o resumo do uso diz &quot;não aplicado&quot;. Vazio = sempre.">?</span></span>
+                  <select class="skill-effect-input" data-effect-field="onlyIfKind" aria-label="Só se">
+                    {{#each eff.onlyIfKindOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+                  </select>
+                  {{#if eff.onlyIfCondition}}
+                  <select class="skill-effect-input" data-effect-field="onlyIfValue" aria-label="Condição">
+                    {{#each eff.onlyIfConditionOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+                  </select>
+                  {{/if}}
+                  {{#if eff.onlyIfTrait}}
+                  <select class="skill-effect-input" data-effect-field="onlyIfValue" aria-label="Traço">
+                    {{#each eff.onlyIfTraitOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+                  </select>
+                  {{/if}}
+                  {{#if eff.onlyIfThreshold}}
+                  <input class="num skill-effect-input" type="number" data-effect-field="onlyIfThreshold" value="{{eff.onlyIfThresholdValue}}" min="0" max="100" aria-label="Limite em %"/>
+                  {{/if}}
+                </div>
+                {{/if}}
                 {{#if eff.periodic}}
                 <div class="fld span-all"><span class="fld-label">Elemento do tick <span class="help" title="Ignorado se o tick for cura.">?</span></span>{{> nihility.elementChips field=eff.elementField path=eff.elementPath editable=../editable}}</div>
                 {{/if}}

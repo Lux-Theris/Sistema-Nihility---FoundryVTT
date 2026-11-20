@@ -16,6 +16,7 @@
  * todos); ela só aparece numa linha à parte (`holderLine`).
  */
 import { isSenseTarget } from "../combat/senses-rules.js";
+import { hasOnlyIf, ONLY_IF_COST_FACTOR } from "./only-if-rules.js";
 
 /** Pesos da conta. Ficam aqui (e não em settings) para a conta ser legível linha a linha. */
 export const COST_WEIGHTS = {
@@ -39,6 +40,8 @@ export const COST_WEIGHTS = {
   structureHpPerPoint: 5,
   // Forma (H5): peso fixo da transformação; a manutenção entra pelo upkeepShare como nas outras Ativas.
   formFlat: 8,
+  // Cria superfície (8.2): peso fixo do terreno (o dano e a Condição dela são do elemento, não da Skill).
+  surfaceFlat: 3,
   // Análise e Predação (7b): peso fixo (a Predação vale mais: dá Skills e pontos de graça).
   analysisFlat: 4,
   predationFlat: 10,
@@ -120,6 +123,7 @@ export function suggestSkillCost(mech, ctx = {}) {
     }
   } else if (effectType === "temporary") {
     for (const e of m.effects ?? []) {
+      const pointsBefore = points;
       const target = e?.target ?? "";
       const raw = Math.abs(Number(e?.amount) || 0);
       const amount = e?.amountMode === "percentMax" ? raw * w.percentMaxAsPoints : PERCENT_VALUE_TARGETS.includes(target) ? raw * w.percentTarget : raw;
@@ -129,6 +133,9 @@ export function suggestSkillCost(mech, ctx = {}) {
       if (target === "antimagic" || target === "emp" || target === "mark") {
         p = w.antimagic;
         text = target === "emp" ? "PEM" : target === "mark" ? "Marca" : "Antimagia";
+      } else if (target === "createSurface") {
+        p = w.surfaceFlat;
+        text = "Cria superfície";
       } else if (target === "push") {
         p = Math.max(0, Number(e?.amount) || 0) * w.pushPerMeter;
         text = `Empurrar/Puxar ${raw} m`;
@@ -166,6 +173,11 @@ export function suggestSkillCost(mech, ctx = {}) {
       if (e?.conditionId) {
         points += w.condition;
         rows.push({ label: `Condição ${label(ctx.conditionLabel, e.conditionId)}`, value: `+ ${w.condition}` });
+      }
+      // "Só se…" (8.1a): um efeito condicional pesa menos (só pega em quem está na condição).
+      if (hasOnlyIf(e?.onlyIf) && target !== "push" && points > pointsBefore) {
+        points = pointsBefore + (points - pointsBefore) * ONLY_IF_COST_FACTOR;
+        rows.push({ label: `"Só se…" em ${name}: pesa menos`, value: `× ${fmt(ONLY_IF_COST_FACTOR)}` });
       }
     }
     if (!(m.effects ?? []).length) rows.push({ label: "Nenhum Efeito", value: "—" });

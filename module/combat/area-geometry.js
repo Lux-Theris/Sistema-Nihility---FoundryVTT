@@ -249,14 +249,15 @@ export function zoneDocumentData(area, { generation, pxPerUnit, color, name, fla
 /* -------------------------------------------- */
 
 /** Valores de `areaAffects`. "all" (ou vazio, Skill salva antes) = todo mundo dentro, como sempre foi. */
-export const AREA_AFFECTS = ["all", "notCaster", "allies", "enemies"];
+export const AREA_AFFECTS = ["all", "notCaster", "allies", "enemies", "othersExceptTarget"];
 
 /** [valor, rótulo, dica] para os editores. */
 export const AREA_AFFECTS_OPTIONS = [
   ["all", "Todos", "Todo mundo dentro da área, inclusive quem lançou (uma Bola de Fogo nos pés queima você)."],
   ["notCaster", "Menos quem lançou", "Todo mundo dentro, menos quem lançou."],
   ["allies", "Só aliados", "Quem lançou e quem está do mesmo lado (mesma disposição do Token: amigo, neutro ou hostil). Para curas e auras de apoio."],
-  ["enemies", "Só inimigos", "Só quem está do outro lado (disposição do Token diferente da de quem lançou)."]
+  ["enemies", "Só inimigos", "Só quem está do outro lado (disposição do Token diferente da de quem lançou)."],
+  ["othersExceptTarget", "Todos menos quem usa e o alvo", "Todo mundo dentro, menos quem lançou e o alvo escolhido da Skill (numa Combinada, o alvo é o mesmo de todas as partes). Para empurrar os curiosos e poupar os dois do duelo."]
 ];
 
 /**
@@ -269,8 +270,10 @@ export const AREA_AFFECTS_OPTIONS = [
  * caem em "todos menos quem lançou" — melhor atingir a mais que sumir com o efeito.
  * @param {{affects?: string, isCaster: boolean, dead?: boolean, casterDisposition?: number|null, disposition?: number|null}} p
  */
-export function areaAffectsTarget({ affects = "all", isCaster, dead = false, casterDisposition = null, disposition = null }) {
+export function areaAffectsTarget({ affects = "all", isCaster, isTarget = false, dead = false, casterDisposition = null, disposition = null }) {
   if (dead) return false;
+  // "Todos menos quem usa e o alvo da Skill" (8c.2): o alvo escolhido fica de fora junto de quem lançou.
+  if (affects === "othersExceptTarget") return !isCaster && !isTarget;
   const mode = AREA_AFFECTS.includes(affects) ? affects : "all";
   if (mode === "all") return true;
   if (isCaster) return mode === "allies";

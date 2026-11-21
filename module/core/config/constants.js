@@ -311,7 +311,10 @@ export const MEU_SISTEMA = {
     // Campo Antimagia: ataque mágico que o atravessa (ou sai de dentro) paga Mana extra ou é anulado.
     { id: "antimagic-field", label: "Campo Antimagia", img: "", color: "#9aa1c2", shape: "circle", size: 4, blocksMove: false, blocksSight: false, blocksAttacks: false, hp: 0, durationRounds: 3, antimagicLevel: 1, material: "ethereal", manaPowered: false },
     // Campo de Interferência: o mesmo para a tecnologia (uso tecnológico paga energia extra ou é anulado).
-    { id: "interference-field", label: "Campo de Interferência", img: "", color: "#5eead4", shape: "circle", size: 4, blocksMove: false, blocksSight: false, blocksAttacks: false, hp: 0, durationRounds: 3, interferenceLevel: 1, material: "ethereal", manaPowered: false }
+    { id: "interference-field", label: "Campo de Interferência", img: "", color: "#5eead4", shape: "circle", size: 4, blocksMove: false, blocksSight: false, blocksAttacks: false, hp: 0, durationRounds: 3, interferenceLevel: 1, material: "ethereal", manaPowered: false },
+    // A bolha do duelo (8c.2): prende quem está dentro e segura quem tenta entrar. Apanha pouco de fora e muito de
+    // dentro; some quando a Skill que a sustenta desliga e, destruída, desliga a Skill.
+    { id: "duel-bubble", label: "Bolha do duelo", img: "", color: "#f59e0b", shape: "circle", size: 8, blocksMove: true, blocksSight: false, blocksAttacks: true, hp: 2000, durationRounds: 0, material: "physical", manaPowered: false, outsideDamagePercent: 25, insideDamagePercent: 200, vanishWithSkill: true, endsSkillOnDestroy: true }
   ],
   STRUCTURE_SHAPES: ["line", "free", "circle", "rect"],
 
@@ -447,7 +450,7 @@ export const MEU_SISTEMA = {
     { id: "p5", label: "Mínima" }
   ],
 
-  SKILL_EFFECT_TYPES: ["none", "damage", "temporary", "structure", "form", "analysis", "predation"],
+  SKILL_EFFECT_TYPES: ["none", "damage", "temporary", "structure", "form", "analysis", "predation", "reroll"],
 
   SKILL_EFFECT_TYPE_LABELS: {
     none: "Descritiva (sem mecânica)",
@@ -456,7 +459,8 @@ export const MEU_SISTEMA = {
     structure: "Estrutura (parede, bloco, barreira no mapa)",
     form: "Forma (ficha temporária de outro corpo)",
     analysis: "Análise (revela a ficha de um alvo)",
-    predation: "Predação (absorve Skills e pontos de um alvo derrotado)"
+    predation: "Predação (absorve Skills e pontos de um alvo derrotado)",
+    reroll: "Rerrolar (reage a uma rolagem no chat)"
   },
 
   /** Rótulos curtos, pro controle segmentado da ficha de Item. */
@@ -467,7 +471,8 @@ export const MEU_SISTEMA = {
     structure: "Estrutura",
     form: "Forma",
     analysis: "Análise",
-    predation: "Predação"
+    predation: "Predação",
+    reroll: "Rerrolar"
   },
 
   /**
@@ -541,6 +546,9 @@ export const MEU_SISTEMA = {
     "antimagic",
     "emp",
     "mark",
+    "dispelMagic",
+    "magicDampen",
+    "luck",
     "push",
     "flight",
     "burrow",
@@ -556,6 +564,9 @@ export const MEU_SISTEMA = {
     antimagic: "Antimagia (corta efeitos mágicos e suprime)",
     emp: "PEM (corta efeitos tecnológicos e suprime)",
     mark: "Marcar (lançar Skills a partir do alvo)",
+    dispelMagic: "Dissipar (termina efeitos mágicos do alvo)",
+    magicDampen: "Magia enfraquecida (chance % × força %)",
+    luck: "Sorte (% nos dados; negativo = azar)",
     push: "Empurrar/Puxar (metros)",
     flight: "Voando (pode subir no mapa)",
     burrow: "Escavando (pode descer abaixo do chão)",
@@ -606,7 +617,8 @@ export const MEU_SISTEMA = {
     { label: "Vitais", actor: "character", targets: ["heal", "restoreEnergy", "hp", "energy", "shield", "movement"] },
     { label: "Arma", actor: "any", targets: ["weaponDamage", "weaponElement", "weaponMagic", "weaponAbsolute", "unarmedType"] },
     { label: "Elemento", actor: "any", targets: ["bodyElement"] },
-    { label: "Magia", actor: "character", targets: ["antimagic", "mark"] },
+    { label: "Magia", actor: "character", targets: ["antimagic", "dispelMagic", "mark", "magicDampen"] },
+    { label: "Sorte", actor: "character", targets: ["luck"] },
     { label: "Movimento", actor: "character", targets: ["push", "flight", "burrow"] },
     { label: "Terreno", actor: "any", targets: ["createSurface"] },
     { label: "Sentidos", actor: "character", targets: ["senseTremor", "senseInvisible", "senseTrue", "senseAll"] },

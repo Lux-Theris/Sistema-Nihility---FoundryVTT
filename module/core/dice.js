@@ -4,10 +4,11 @@
  * ganha +1d20 — todos os dados são somados (2d20, 3d20...). Bônus de
  * arma/equipamento NUNCA entram nessa conta: somam por fora, como número fixo.
  */
-import { MEU_SISTEMA, getAttributeLabel } from "./config.js";
+import { MEU_SISTEMA, SYSTEM_ID, getAttributeLabel } from "./config.js";
 import { buildModifiedFormula, describeRollOptions } from "./roll-modifiers.js";
 import { conditionalBonus } from "../combat/conditional-context.js";
 import { escapeHtml } from "../helpers/html.js";
+import { applyLuckToFormula, luckOf } from "../combat/luck-rules.js";
 
 /** @returns {{diceCount:number, flat:number}} */
 export function computeAttributeDicePool(bonus) {
@@ -18,11 +19,13 @@ export function computeAttributeDicePool(bonus) {
 }
 
 /** Monta a fórmula de rolagem (ex: "2d20+3") a partir do Bônus do atributo e de um bônus fixo extra (arma/equipamento, opcional). */
-export function buildAttributeRollFormula(bonus, extraFlat = 0) {
+export function buildAttributeRollFormula(bonus, extraFlat = 0, luck = 0) {
   const { diceCount, flat } = computeAttributeDicePool(bonus);
   const total = flat + Number(extraFlat || 0);
-  if (total === 0) return `${diceCount}d20`;
-  return `${diceCount}d20${total > 0 ? "+" : "-"}${Math.abs(total)}`;
+  // Sorte (8d.1): o modificador `lu<n>`/`ul<n>` vai no termo de dado; sem sorte a fórmula é a de sempre.
+  const dice = applyLuckToFormula(`${diceCount}d20`, luck);
+  if (total === 0) return dice;
+  return `${dice}${total > 0 ? "+" : "-"}${Math.abs(total)}`;
 }
 
 /**
@@ -43,7 +46,7 @@ export async function rollAttribute(actor, attributeKey, options = {}) {
 
   // Vantagem e modificadores do shift+clique entram na própria fórmula, pra o card mostrar o
   // resultado final (ver roll-modifiers.js).
-  const formula = buildModifiedFormula(buildAttributeRollFormula(attr.bonus, extraFlat + situational), rollOptions);
+  const formula = buildModifiedFormula(buildAttributeRollFormula(attr.bonus, extraFlat + situational, luckOf(actor, "attributes")), rollOptions);
   const label = getAttributeLabel(attributeKey);
   const modifiersText = describeRollOptions(rollOptions);
 
@@ -51,6 +54,8 @@ export async function rollAttribute(actor, attributeKey, options = {}) {
   await roll.evaluate();
   await roll.toMessage({
     speaker: ChatMessage.getSpeaker({ actor }),
+    // Rerrolar (8d.2): o que é preciso para refazer esta rolagem a partir do chat.
+    flags: { [SYSTEM_ID]: { nihilityRoll: { kind: "attribute", actorUuid: actor.uuid, formula: roll.formula, total: roll.total, key: attributeKey } } },
     // `flavor` vem pronto (HTML) de quem chama; o rótulo e o motivo digitado no Shift+clique, não.
     flavor: `${flavor || escapeHtml(label)}${modifiersText ? ` — ${escapeHtml(modifiersText)}` : ""}`
   });

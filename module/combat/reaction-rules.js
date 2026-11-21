@@ -143,7 +143,13 @@ export function bodyCarried(bodyIds, elements = []) {
 export function pickReaction({ chain, marks = [], body = [], kind = "character" }) {
   for (const mark of marks) {
     const found = findReaction(chain, mark.ids);
-    if (found && found.reaction.against?.[kind]) return { source: mark.surface ? "surface" : "mark", ...found, mark };
+    if (found && found.reaction.against?.[kind]) {
+      // Achado do teste de 20/11: quem está Molhado E pisa na poça reagia pelo chão e o Molhado ficava.
+      // A reação continua pelo chão (é ela que transforma a superfície), mas a marca do mesmo elemento
+      // que o alvo também carrega é consumida junto.
+      const alsoMark = mark.surface ? marks.find(m => !m.surface && m.elementId === mark.elementId) ?? null : null;
+      return { source: mark.surface ? "surface" : "mark", ...found, mark, ...(alsoMark ? { alsoMark } : {}) };
+    }
   }
   for (const carried of body) {
     const found = findReaction(chain, carried.ids);

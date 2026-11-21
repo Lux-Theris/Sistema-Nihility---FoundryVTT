@@ -295,3 +295,26 @@ test("Validar Mundo: Traço imune de empurrão que não existe", () => {
   assert.equal(issues.length, 1);
   assert.equal(issues[0].catalog, "traits");
 });
+
+test("empurrão: a folga até a parede desconta o corpo, também na diagonal (achado de 21/11)", () => {
+  // Centro a 1,5 m (100 px, 1 m = 66,7 px) de uma parede perpendicular, meia largura 50 px: anda 50 px = 0,75 m e sobram 5,25 m de 6.
+  const scale = 100 / 1.5;
+  const stop = pathStop({ x: 0, y: 0 }, { x: 6 * scale, y: 0 }, [{ segment: [100, -200, 100, 200] }], 50);
+  assert.equal(stop.traveledPx, 50);
+  assert.equal(leftoverMeters(6, stop.traveledPx / scale), 5.25);
+  // Já encostado (centro a meia largura da parede): não anda e sobram os 6 m inteiros.
+  const touching = pathStop({ x: 0, y: 0 }, { x: 6 * scale, y: 0 }, [{ segment: [50, -200, 50, 200] }], 50);
+  assert.equal(touching.traveledPx, 0);
+  // Diagonal a 45º numa parede vertical: o corpo encosta antes (retrocede mais que a meia largura).
+  const diag = pathStop({ x: 0, y: 0 }, { x: 300, y: 300 }, [{ segment: [200, -500, 200, 500] }], 50);
+  assert.ok(diag.point.x < 150 + 1e-6);
+});
+
+test("aviso de Deslocamento gasto: texto e intervalo", async () => {
+  const { movementSpentText, shouldNotifyAgain } = await import("../module/combat/forced-movement-rules.js");
+  assert.equal(movementSpentText(6, 7), "Deslocamento desta rodada gasto: 6 de 7 m");
+  assert.equal(movementSpentText(6.04, 7.5), "Deslocamento desta rodada gasto: 6 de 7,5 m");
+  assert.equal(shouldNotifyAgain(1000, undefined), true);
+  assert.equal(shouldNotifyAgain(2000, 1000), false);
+  assert.equal(shouldNotifyAgain(6000, 1000), true);
+});

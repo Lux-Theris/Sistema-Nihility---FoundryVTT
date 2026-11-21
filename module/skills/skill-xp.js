@@ -10,7 +10,7 @@
 import { isFeatureEnabled, getFeatureOption } from "../core/config.js";
 import { SHIP_PERCENT_PATHS } from "./effect-targets.js";
 import { runAsGm } from "../helpers/gm-relay.js";
-import { skillUseXp, effectEntryMeasures } from "./skill-xp-rules.js";
+import { skillUseXp, effectEntryMeasures, largestXpMeasures } from "./skill-xp-rules.js";
 import { masteryXpFromConfig, masteryEarnsXp } from "../combat/weapon-mastery-rules.js";
 
 export function skillXpConfig() {
@@ -50,12 +50,37 @@ export function effectMeasuresFor(entry, targetActor, { hasCondition = false } =
 }
 
 /**
+ * Lotes de uma Skill Combinada: dentro de `withXpBatch`, o XP de cada parte é guardado em vez de creditado, e no fim
+ * credita-se só a parte que mais rende (a Skill-mãe ganha XP uma vez por uso).
+ */
+const xpBatches = new Map();
+export async function withXpBatch(skill, run) {
+  const uuid = typeof skill === "string" ? skill : skill?.uuid;
+  if (!uuid || xpBatches.has(uuid)) return run(() => {});
+  const batch = { parts: [], current: 0 };
+  xpBatches.set(uuid, batch);
+  try {
+    return await run(index => { batch.current = index; });
+  } finally {
+    xpBatches.delete(uuid);
+    const best = largestXpMeasures(batch.parts.filter(Boolean), skillXpConfig());
+    if (best.length) await grantSkillUseXp(uuid, best);
+  }
+}
+
+/**
  * Credita na Skill a XP das medidas. `skill` pode ser o Item ou o uuid dele. Nunca lança: XP é
  * um extra, e uma falha aqui não pode derrubar o uso da Skill.
  */
 export async function grantSkillUseXp(skill, measures) {
   try {
     if (!measures?.length || !isFeatureEnabled("skillUseXp")) return;
+    const batch = xpBatches.get(typeof skill === "string" ? skill : skill?.uuid);
+    if (batch) {
+      // Parte de uma Combinada: junta as medidas da parte; quem credita é o fim do lote.
+      batch.parts[batch.current] = [...(batch.parts[batch.current] ?? []), ...measures];
+      return;
+    }
     const item = typeof skill === "string" ? await fromUuid(skill) : skill;
     if (!item || item.type !== "skill" || item.system.isItemGranted) return;
     if (!item.isOwner) {

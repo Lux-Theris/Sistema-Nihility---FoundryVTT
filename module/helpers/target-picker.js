@@ -16,6 +16,7 @@
  */
 import { SYSTEM_ID, MEU_SISTEMA, sceneActorCandidates, sameActor, actorDisplayName } from "../core/config.js";
 import { escapeHtml } from "./html.js";
+import { tokenElevation } from "./foundry-compat.js";
 import { actorPerceivedByUser } from "../combat/senses.js";
 
 const { DialogV2 } = foundry.applications.api;
@@ -45,7 +46,9 @@ function buildGroups(self, types) {
   // o Mestre vê tudo). Vale para quem tem Token na cena aberta — o resto do mundo segue como antes.
   const matchesType = actor => (!types || types.includes(actor.type)) && actorPerceivedByUser(actor, { self });
 
-  const scene = sceneActorCandidates({ types }).filter(actor => actorPerceivedByUser(actor, { self }));
+  // "Na cena" = quem tem Token aqui, não só quem o usuário observa (achado de 21/11: NPCs visíveis sumiam da lista,
+  // porque o padrão exige Observador). O Token escondido do Mestre continua fora.
+  const scene = sceneActorCandidates({ types, permission: "NONE", skipHidden: true }).filter(actor => actorPerceivedByUser(actor, { self }));
   const mine = game.actors.filter(a => matchesType(a) && a.isOwner && !sameActor(a, self));
   const pcs = game.actors.filter(
     a => matchesType(a) && a.type === "character" && a.system?.isPlayerCharacter === true && a.testUserPermission(game.user, "LIMITED")
@@ -85,7 +88,7 @@ function tokenAtPoint(point, types) {
   const hits = (canvas.tokens?.placeables ?? []).filter(
     token => token.actor && token.visible && token.bounds.contains(point.x, point.y)
   );
-  hits.sort((a, b) => (a.document.elevation - b.document.elevation) || (a.document.sort - b.document.sort));
+  hits.sort((a, b) => (tokenElevation(a) - tokenElevation(b)) || (a.document.sort - b.document.sort));
   const top = hits.at(-1);
   if (!top) return null;
   if (types && !types.includes(top.actor.type)) return null;

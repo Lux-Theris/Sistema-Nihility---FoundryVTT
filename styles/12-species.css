@@ -13,7 +13,8 @@
 .nihility-stat-breakdown .sb-label a { color: var(--nihility-text); text-decoration: underline dotted; cursor: pointer; }
 .nihility-stat-breakdown .sb-kind { margin-left: 6px; font-size: 0.7rem; color: var(--nihility-text-dim); border: 1px solid var(--nihility-border); border-radius: 3px; padding: 0 4px; }
 .nihility-stat-breakdown .sb-detail { margin-left: 6px; font-size: 0.75rem; color: var(--nihility-text-dim); }
-.nihility-stat-breakdown .sb-value { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--nihility-text); }
+.nihility-stat-breakdown .sb-label { flex: 1 1 55%; min-width: 0; overflow-wrap: anywhere; }
+.nihility-stat-breakdown .sb-value { flex: 0 1 auto; max-width: 45%; text-align: right; font-variant-numeric: tabular-nums; white-space: normal; overflow-wrap: anywhere; color: var(--nihility-text); }
 .nihility-stat-breakdown .sb-result { display: flex; justify-content: space-between; padding: 4px 6px; margin-top: 2px; border-top: 1px solid var(--nihility-border); color: var(--nihility-text); }
 .nihility-stat-breakdown .sb-result strong { color: var(--nihility-accent); }
 

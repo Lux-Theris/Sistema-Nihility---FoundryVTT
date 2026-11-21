@@ -118,6 +118,15 @@ function renderCard(values) {
     </section>
 
     <section class="cond-sec">
+      <div class="cond-sec-title">Sorte <span class="help" title="Quem tem esta Condição ganha (ou perde, se negativo) sorte nos dados, em % de inclinação, em cada escopo. Vale em qualquer efeito que traga a Condição. 0 = nada.">?</span></div>
+      <div class="cond-grid">
+        ${fld("Atributos e iniciativa (%)", `<input type="number" step="any" data-field="luckAttributes" value="${values.luck?.attributes ?? 0}"/>`)}
+        ${fld("Dano (%)", `<input type="number" step="any" data-field="luckDamage" value="${values.luck?.damage ?? 0}"/>`)}
+        ${fld("Chances d100 (%)", `<input type="number" step="any" data-field="luckChances" value="${values.luck?.chances ?? 0}"/>`)}
+      </div>
+    </section>
+
+    <section class="cond-sec">
       <div class="cond-sec-title">Cura e corpo</div>
       <div class="cond-grid">
         ${fld("Impede cura", `<select data-field="healBlockKinds">${optionsHtml(HEAL_BLOCK_KINDS, blockKinds)}</select>`, { help: "Enquanto esta Condição estiver no alvo, a cura é bloqueada — totalmente até o nível de quem aplicou + 1/3, depois cada vez menos. Ex.: Fogo/Ácido cauterizando, uma Maldição." })}
@@ -240,6 +249,8 @@ function readCard(card) {
   if (spreadChance && spreadRadius) {
     row.spread = { chance: spreadChance, radius: spreadRadius, immuneTraits: readPickerField(card.querySelector(".condition-spread-traits")) };
   }
+  const luck = { attributes: Number(get("luckAttributes")) || 0, damage: Number(get("luckDamage")) || 0, chances: Number(get("luckChances")) || 0 };
+  if (luck.attributes || luck.damage || luck.chances) row.luck = luck;
   const curse = readCurse(card, get);
   if (curse) row.curse = curse;
 

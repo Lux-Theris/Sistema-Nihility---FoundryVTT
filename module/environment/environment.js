@@ -16,6 +16,7 @@
  *    senão a do mundo (Regras da Mesa). Multiplica a potência das Skills mágicas (skill-effects.js)
  *    e a regeneração de Mana (regeneration.js); 0 = magia não funciona ali.
  */
+import { effectRoundsUpdate } from "../helpers/foundry-compat.js";
 import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions, getActiveTraits, actorTraits, isEnvironmentEnabled } from "../core/config.js";
 import { isDesignatedGm } from "../helpers/gm-relay.js";
 import { desiredEnvironmentConditions, environmentDiff, resolveManaDensity, normalizeHazard, normalizeDensity, wantedSceneFx, sceneFxPlan, fxPresetLabel } from "./environment-rules.js";
@@ -143,7 +144,7 @@ async function syncNow(tokenDoc, actor) {
     const created = await applyCondition(actor, condition);
     for (const effect of created) {
       // Enquanto estiver no lugar: sem prazo, e o periódico ancorado (não acaba sozinho).
-      const update = { "duration.rounds": null, [`flags.${SYSTEM_ID}.${FLAG}`]: { sceneId } };
+      const update = { ...effectRoundsUpdate(0), [`flags.${SYSTEM_ID}.${FLAG}`]: { sceneId } };
       if (effect.getFlag(SYSTEM_ID, "periodic")) {
         update[`flags.${SYSTEM_ID}.activeAnchors`] = [{ skillUuid: `environment:${sceneId}`, sourceSkillId: "environment", sourceSubSkillIndex: null }];
         update[`flags.${SYSTEM_ID}.ticksRemaining`] = 0;

@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   buildFormSystem, itemsFromOriginal, copiedSkillState, mergeBackPlan, conditionsToCarry, carryDamage, hpAfterCarry,
-  accumulateCarry, shouldRevert, formActorName, tokenOriginalSnapshot, formTokenUpdate, tokenRestoreUpdate, normalizeFormRequest, isImageFile, mapCopiedId
+  accumulateCarry, shouldRevert, formActorName, tokenOriginalSnapshot, formTokenUpdate, tokenRestoreUpdate, normalizeFormRequest, isImageFile, mapCopiedId, itemMapFromStamps
 } from "../module/skills/form-rules.js";
 
 test("a cópia pega nível, XP e Mana do personagem e o resto do molde", () => {
@@ -127,4 +127,9 @@ test("a frase diz 'Forma: Lobo' e o molde fica fora do Simulador", () => {
 test("custo sugerido de uma Forma: peso fixo", () => {
   const out = suggestSkillCost({ effectType: "form", hasUpkeep: true, upkeepCost: 0 }, {});
   assert.ok(out.cost > 0 || out.suggested > 0 || out.rows?.length);
+});
+
+test("itemMapFromStamps mapeia pelo carimbo, não pela ordem devolvida", () => {
+  const created = [{ id: "c2", stamp: "o2" }, { id: "c1", stamp: "o1" }, { id: "x", stamp: null }];
+  assert.deepEqual(itemMapFromStamps(created), { o2: "c2", o1: "c1" });
 });

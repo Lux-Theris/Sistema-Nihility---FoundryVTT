@@ -10,10 +10,10 @@
  * DONO (e não no de quem usa) porque é o dono quem o escreve.
  */
 
-const MECH_BLOCKING_TYPES = new Set(["form", "none", "analysis", "predation", "structure"]);
+const MECH_BLOCKING_TYPES = new Set(["form", "none", "analysis", "predation", "structure", "reroll"]);
 
 /** Alvos de Efeito que o Mestre refaz da ficha do DONO da Skill (empurrar, Antimagia/PEM em Estruturas, Marca): não passam. */
-const OWNER_BOUND_EFFECT_TARGETS = new Set(["push", "antimagic", "emp", "mark"]);
+const OWNER_BOUND_EFFECT_TARGETS = new Set(["push", "antimagic", "emp", "mark", "dispelMagic"]);
 
 /** Por que uma mecânica (Skill ou Sub-Skill) não pode ser emprestada, ou null. */
 function mechBlock(mech) {

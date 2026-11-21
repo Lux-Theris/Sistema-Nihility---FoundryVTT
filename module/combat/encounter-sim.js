@@ -7,6 +7,7 @@
  *
  * Nada é rolado nem gravado. NPCs de Arquétipo entram como Atores TEMPORÁRIOS (não salvos).
  */
+import { luckOf, luckPercentText } from "./luck-rules.js";
 import {
   MEU_SISTEMA,
   damageScalingMultiplier,
@@ -26,6 +27,7 @@ import { applyDamageReductions, damageScaleFor, situationalDamageFactor } from "
 import { unitHp, cadenceFactor } from "./encounter-rules.js";
 import { weaponMasteryHit, strikeMasteryBonus, unarmedWeaponItem } from "./weapon-mastery.js";
 import { resolveWeaponStrike, masteryFactor, formatMasteryPercent } from "./weapon-mastery-rules.js";
+import { isCombinedSkill, combinedPartMech } from "../skills/combined-rules.js";
 
 /** Alvos que um ataque em área acerta, por padrão (o canvas: "até 3"). */
 export const DEFAULT_AREA_TARGETS = 3;
@@ -46,6 +48,24 @@ export function attackOptions(actor) {
   for (const item of actor?.items ?? []) {
     if (item.type === "skill") {
       const s = item.system;
+      // Combinada (8c.2): um uso dispara todas as partes, então o golpe médio é a SOMA das partes de dano.
+      if (isCombinedSkill(s)) {
+        const nature = { magic: isMagicUse(s, actor), tech: isTechUse(s, actor) };
+        const parts = s.subSkills.filter(sub => sub.effectType === "damage" && String(sub.damageFormula ?? "").trim()).map(sub => combinedPartMech(s, sub, nature));
+        if (parts.length) {
+          out.push({
+            mastery: null,
+            id: item.id,
+            label: `${item.name} (Combinada)`,
+            mech: { ...parts[0], cooldown: s.cooldown, prepTurns: 0 },
+            parts,
+            kind: "skill",
+            cost: charges ? effectiveSkillCost(s.cost, s.level) : 0,
+            area: parts.some(p => p.targetType === "emission" || p.targetType === "zone")
+          });
+        }
+        continue;
+      }
       const list = [{ id: item.id, label: item.name, mech: s }, ...(s.subSkills ?? []).map((sub, i) => ({ id: `${item.id}:${i}`, label: `${item.name} — ${sub.name}`, mech: sub }))];
       for (const entry of list) {
         const m = entry.mech;
@@ -106,13 +126,14 @@ export function attackOptions(actor) {
 
 /** O golpe antes das defesas do alvo: média × Escala por Atributo × Poder do nível. */
 function rawAverage(actor, option) {
-  const avg = averageRoll(option.mech.damageFormula);
+  const luck = luckOf(actor, "damage");
+  const avg = averageRoll(option.mech.damageFormula, luck);
   const scaling = damageScalingMultiplier(actor, option.mech.scalingAttribute);
   const power = option.kind === "skill" ? skillLevelBonuses(option.mech.level).power : 1;
   // Tecnomágico (mágico E tecnológico) sai mais forte, como em useSkillEffect.
   const technomagic = option.kind === "skill" ? technomagicFactor(isMagicUse(option.mech, actor), isTechUse(option.mech, actor), getTechnomagicPower()) : 1;
   const mastery = option.mastery ? masteryFactor(option.mastery.percent) : 1;
-  return { avg, scaling, power, technomagic, mastery, raw: avg * scaling * power * technomagic * mastery };
+  return { avg, luck, scaling, power, technomagic, mastery, raw: avg * scaling * power * technomagic * mastery };
 }
 
 /**
@@ -120,14 +141,27 @@ function rawAverage(actor, option) {
  * @returns {{damage: number, rows: Array<{label: string, value: string}>}}
  */
 export function averageHit(attacker, option, target) {
+  // Combinada: soma o golpe médio de cada parte de dano, cada uma pelo mesmo caminho de um golpe comum.
+  if (Array.isArray(option.parts)) {
+    const rows = [];
+    let damage = 0;
+    for (const part of option.parts) {
+      const one = averageHit(attacker, { mech: part, kind: "skill", mastery: strikeMasteryBonus(attacker, { weaponStrike: part.weaponStrike }) }, target);
+      damage += one.damage;
+      rows.push({ label: `Parte: ${part.name}`, value: "" }, ...one.rows.filter(r => r.kind !== "total"), { label: `${part.name} em ${target.name}`, value: String(one.damage) });
+    }
+    rows.push({ label: `Golpe médio em ${target.name}`, value: String(damage), kind: "total" });
+    return { damage, rows };
+  }
   const fmt = n => (Math.round(n * 100) / 100).toString().replace(".", ",");
-  const { avg, scaling, power, technomagic, mastery, raw } = rawAverage(attacker, option);
+  const { avg, luck, scaling, power, technomagic, mastery, raw } = rawAverage(attacker, option);
   const scale = damageScaleFor(attacker, option.mech, target);
   const situational = situationalDamageFactor(attacker, target, option.mech);
   const reduction = applyDamageReductions(raw * scale * situational, option.mech, target, { attacker, triggerConditions: false });
   const elements = getActiveDamageElements();
   const elementNames = (option.mech.damageElements ?? []).map(id => elements.find(e => e.id === id)?.label ?? id).join(" + ") || "sem elemento";
   const rows = [{ label: `Dano médio de ${option.mech.damageFormula}`, value: fmt(avg) }];
+  if (luck) rows.push({ label: "Sorte nos dados", value: luckPercentText(luck) });
   if (scaling !== 1) rows.push({ label: `Escala por ${getAttributeLabel(option.mech.scalingAttribute)}`, value: `× ${fmt(scaling)}` });
   if (power !== 1) rows.push({ label: `Nível ${option.mech.level} da Skill`, value: `× ${fmt(power)}` });
   if (technomagic !== 1) rows.push({ label: "Tecnomágico", value: `× ${fmt(technomagic)}` });

@@ -121,6 +121,51 @@ export function publicRollModeOption(generation = foundryGeneration()) {
   return { rollMode: globalThis.CONFIG?.ChatMessage?.modes?.public ? "public" : "publicroll" };
 }
 
+/**
+ * Prazo de um Active Effect em rodadas, nos dois formatos (achado do teste de 20/11): a V14 guarda
+ * `duration: {value, units}` e `start: {round, turn, combat}`; a V13 `duration.rounds` e
+ * `duration.startRound`. Na V14, gravar `"duration.rounds": null` NÃO apaga o prazo (a migração do core
+ * só converte número) e `duration.startRound` numa atualização não chega ao `start` — por isso toda
+ * gravação de prazo passa por `effectRoundsUpdate`, e toda leitura por `effectDurationRounds`/`effectStartRound`.
+ */
+export function effectDurationRounds(effect) {
+  const d = effect?.duration ?? {};
+  if (typeof d.value === "number" && d.units === "rounds") return d.value;
+  const legacy = Object.getOwnPropertyDescriptor(d, "rounds")?.get ? null : d.rounds;
+  return Number(legacy) > 0 ? Number(legacy) : 0;
+}
+
+/** A rodada em que o prazo começou a contar (V14 `start.round`, V13 `duration.startRound`), ou null. */
+export function effectStartRound(effect) {
+  const v14 = effect?.start?.round;
+  if (typeof v14 === "number") return v14;
+  const v13 = Object.getOwnPropertyDescriptor(effect?.duration ?? {}, "startRound")?.get ? null : effect?.duration?.startRound;
+  return typeof v13 === "number" ? v13 : null;
+}
+
+/**
+ * A atualização que põe (rounds > 0) ou tira (0/null) o prazo em rodadas de um Active Effect. Com
+ * `combat`, o prazo recomeça a contar agora. Pura (a geração é parâmetro).
+ */
+export function effectRoundsUpdate(rounds, { combat = null, generation = foundryGeneration(), worldTime = globalThis.game?.time?.worldTime } = {}) {
+  const n = Number(rounds) > 0 ? Math.round(Number(rounds)) : null;
+  if (generation >= 14) {
+    const update = { "duration.value": n, "duration.units": n ? "rounds" : "seconds", "duration.expiry": n ? "turnStart" : null };
+    if (n) {
+      // Renovar um efeito que já tinha vencido (achado de 21/11): sem zerar o carimbo de início e o `expired`,
+      // ele continuava suspenso mesmo com o prazo novo. `start` espelha `ActiveEffect.getEffectStart` do core.
+      update["duration.expired"] = false;
+      if (Number.isFinite(Number(worldTime))) update["start.time"] = Math.trunc(Number(worldTime));
+      const live = combat?.started === false ? null : combat;
+      Object.assign(update, { "start.round": live ? live.round ?? 0 : null, "start.turn": live ? live.turn ?? 0 : null, "start.combat": live ? live.id ?? null : null });
+    }
+    return update;
+  }
+  const update = { "duration.rounds": n };
+  if (n && combat) Object.assign(update, { "duration.startRound": combat.round ?? 0, "duration.startTurn": combat.turn ?? 0 });
+  return update;
+}
+
 /** Geração do Foundry em uso (13, 14…). */
 export function foundryGeneration() {
   return Number(globalThis.game?.release?.generation) || 13;
@@ -232,4 +277,15 @@ export function sceneDarkness(scene, generation = foundryGeneration()) {
 export function sceneDarknessUpdate(level, generation = foundryGeneration()) {
   const value = Math.min(1, Math.max(0, Number(level) || 0));
   return generation >= 14 ? { "environment.darknessLevel": value } : { darkness: value };
+}
+
+/**
+ * A elevação REAL de um Token (placeable ou documento), em unidades da cena. Lê `_source.elevation`, nunca
+ * `document.elevation`: o documento recebe os quadros da animação do movimento (o core faz `mergeObject(document,
+ * animationData)` a cada frame; com a aba do Mestre em segundo plano o valor ficava velho — a 6 depois do ↓) e, na
+ * V14 com Níveis, o valor preparado pode não refletir o gravado. `_source` é o que foi salvo. Pura.
+ */
+export function tokenElevation(token) {
+  const doc = token?.document ?? token;
+  return Number(doc?._source?.elevation ?? doc?.elevation) || 0;
 }

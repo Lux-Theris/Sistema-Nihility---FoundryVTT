@@ -200,6 +200,14 @@
         </div>
       </div>
       <div class="se-sec">
+        <div class="se-sh">Sorte <span class="se-badge live">ao vivo</span></div>
+        <div class="se-grid g3">
+          <label class="se-f"><span class="se-l">Atributos e iniciativa (%)</span><input type="number" step="any" data-path="passives.luck.attributes" data-kind="number" value="{{sel.luck.attributes}}"/></label>
+          <label class="se-f"><span class="se-l">Dano (%)</span><input type="number" step="any" data-path="passives.luck.damage" data-kind="number" value="{{sel.luck.damage}}"/></label>
+          <label class="se-f"><span class="se-l">Chances d100 (%)</span><input type="number" step="any" data-path="passives.luck.chances" data-kind="number" value="{{sel.luck.chances}}"/></label>
+        </div>
+      </div>
+      <div class="se-sec">
         <div class="se-sh">Resistências <span class="se-sp"></span><a class="se-add" data-action="addRow" data-list="passives.resistances" data-template="resistance">+ Resistência</a></div>
         <div class="se-table">
           {{#each sel.resistances as |r|}}

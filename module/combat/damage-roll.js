@@ -2,12 +2,14 @@
  * Rolar dano de Skill/arma: escala, bônus, Shift, Estruturas no caminho, reduções do alvo por elemento e o card de dano.
  * (Separado de skill-effects.js na reorganização de pastas — mesma lógica de antes.)
  */
+import { effectRoundsUpdate } from "../helpers/foundry-compat.js";
 import { SYSTEM_ID, isMagicUse, isTechUse, damageElementChain, getActiveDamageElements, getActiveStatusConditions, getEnergyLabelForActor, getAttributeLabel, damageScalingMultiplier, skillLevelBonuses, getDamageElement, actorTraits, isScaleEnabled, getFeatureOption, actorScaleIndex, scaleIndexOf, actorElements, getElementAffinityMatrix, getAffinityConfig, isSurfacesEnabled } from "../core/config.js";
 import { playSkillAnimation } from "../core/vfx.js";
 import { damageApplyFlags, withDamageTrace } from "./damage-apply.js";
 import { magazineState } from "../economy/consumable-rules.js";
 import { blockIfIncapacitated } from "./incapacitation.js";
 import { applyAdvantageToFormula, applyRollModifiers, describeRollOptions, normalizeRollOptions } from "../core/roll-modifiers.js";
+import { applyLuckToFormula, luckOf } from "./luck-rules.js";
 import { splitDamageParts, resolveDamageParts, describeDamageParts, scaleMultiplier, rollChance, elementVsDefender, chainedResistance, inheritedElementEffects } from "./damage-rules.js";
 import { affinityElementsExcluding } from "./reaction-rules.js";
 import { reactionState, reactionForPart, pickedFactor, reactionRecord, cardReactions, reactionLabel, conductReactions, conductionLabel } from "./reactions.js";
@@ -153,6 +155,8 @@ export function applyDamageReductions(rawTotal, mech, targetActor, options = {})
   // Condição nova (senão uma Queimadura geraria outra Queimadura a cada rodada).
   let shieldExtra = 0;
   let sever = false;
+  // Sorte (8d.1): quem se beneficia das chances de efeito ao acertar é quem atacou.
+  const chancesLuck = luckOf(options.attacker, "chances");
   const triggeredConditions = [];
   // Nível e magia do golpe vão junto com o que ele dispara (prancha 8: Antimagia e bloqueio de cura).
   const hitLevel = Math.max(1, Number(mech.level) || 1);
@@ -166,11 +170,11 @@ export function applyDamageReductions(rawTotal, mech, targetActor, options = {})
     if (reactionPick && reactionPick.source !== "body") shieldExtra += (part.final * reactionPick.reaction.shieldDrain) / 100;
     if (options.triggerConditions === false) return;
     for (const effect of ctx.conditions) {
-      if (rollChance(effect.chance)) triggeredConditions.push({ conditionId: effect.conditionId, elementId: part.elementId, hitDamage: part.final, level: hitLevel, magic: hitMagic, rounds: effect.rounds });
+      if (rollChance(effect.chance, Math.random, chancesLuck)) triggeredConditions.push({ conditionId: effect.conditionId, elementId: part.elementId, hitDamage: part.final, level: hitLevel, magic: hitMagic, rounds: effect.rounds });
     }
-    for (const chance of ctx.sever) if (rollChance(chance)) sever = true;
+    for (const chance of ctx.sever) if (rollChance(chance, Math.random, chancesLuck)) sever = true;
     for (const effect of ctx.blockRegen) {
-      if (rollChance(effect.chance)) triggeredConditions.push({ conditionId: effect.conditionId || "regen-blocked", elementId: part.elementId, blockRegen: true, rounds: effect.rounds, level: hitLevel, magic: hitMagic });
+      if (rollChance(effect.chance, Math.random, chancesLuck)) triggeredConditions.push({ conditionId: effect.conditionId || "regen-blocked", elementId: part.elementId, blockRegen: true, rounds: effect.rounds, level: hitLevel, magic: hitMagic });
     }
   });
 
@@ -232,7 +236,8 @@ export function onHitConditionsFor(attacker, hitDamage) {
     if (sourceSuppressed(attacker, item, null, suppression)) continue;
     skills.push({ name: item.name, level: item.system.level, hasUpkeep: item.system.hasUpkeep, active: item.system.active, onHit: item.system.onHit, magic: skillIsMagic({ ...item.system, tier: item.system.tier }) });
   }
-  return onHitPicks(skills, rollChance).map(pick => ({
+  const chancesLuck = luckOf(attacker, "chances");
+  return onHitPicks(skills, chance => rollChance(chance, Math.random, chancesLuck)).map(pick => ({
     conditionId: pick.conditionId,
     elementId: "",
     hitDamage,
@@ -364,7 +369,7 @@ async function applyRegenBlock(targetActor, hit, label, partId = null) {
   const existing = targetActor.effects.find(e => e.getFlag(SYSTEM_ID, "regenBlocked"));
   const rounds = Number(hit.rounds) || 0;
   if (existing) {
-    await existing.update({ "duration.rounds": rounds > 0 ? Math.max(rounds, existing.duration?.remaining ?? 0) : null });
+    await existing.update(effectRoundsUpdate(rounds > 0 ? Math.max(rounds, existing.duration?.remaining ?? 0) : 0, { combat: game.combat }));
   } else {
     await targetActor.createEmbeddedDocuments("ActiveEffect", [
       {
@@ -461,7 +466,7 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
   }
 
   const options = normalizeRollOptions(rollOptions);
-  const roll = new Roll(applyAdvantageToFormula(formula, options.advantage));
+  const roll = new Roll(applyAdvantageToFormula(applyLuckToFormula(formula, luckOf(actor, "damage")), options.advantage));
   await roll.evaluate();
 
   // Escala por Atributo (ver damageScalingMultiplier em config.js) — 1 quando a Skill não tem
@@ -577,7 +582,7 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
       flavor += conductionLabel(conducted.notes);
     }
     // Ferimentos por parte: quem ataca pode mirar numa parte (senão o Aplicar sorteia uma).
-    if (aim && targetActor && finalDamage > 0) aimedPart = await promptTargetBodyPart(targetActor);
+    if (aim && targetActor && finalDamage > 0) aimedPart = await promptTargetBodyPart(targetActor, mech.weaponShot ? { used: "O ataque já foi feito" } : undefined);
     if (aimedPart) flavor += ` (mirando: ${escapeHtml(aimedPart.name)})`;
   }
 
@@ -708,7 +713,7 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
   }
 
   const options = normalizeRollOptions(rollOptions);
-  const roll = new Roll(applyAdvantageToFormula(formula, options.advantage));
+  const roll = new Roll(applyAdvantageToFormula(applyLuckToFormula(formula, luckOf(actor, "damage")), options.advantage));
   await roll.evaluate();
 
   // Mesma escala por Atributo do caminho de alvo único — aplicada UMA vez, sobre a rolagem que

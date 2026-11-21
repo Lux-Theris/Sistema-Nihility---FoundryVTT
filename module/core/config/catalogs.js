@@ -648,6 +648,12 @@ export function getStructures() {
     tech: Boolean(s.tech),
     interferenceLevel: Math.max(0, Math.round(Number(s.interferenceLevel) || 0)),
     contactDamage: typeof s.contactDamage === "string" ? s.contactDamage.trim() : "",
+    // O duelo (8c.2): some junto com a Skill que a sustenta (mesmo física), leva dano diferente de fora e de
+    // dentro da forma fechada (100 = normal) e, destruída, desliga essa Skill.
+    vanishWithSkill: Boolean(s.vanishWithSkill),
+    endsSkillOnDestroy: Boolean(s.endsSkillOnDestroy),
+    outsideDamagePercent: Number.isFinite(Number(s.outsideDamagePercent)) && Number(s.outsideDamagePercent) >= 0 ? Math.round(Number(s.outsideDamagePercent)) : 100,
+    insideDamagePercent: Number.isFinite(Number(s.insideDamagePercent)) && Number(s.insideDamagePercent) >= 0 ? Math.round(Number(s.insideDamagePercent)) : 100,
     // Física × Etérea (Dano Absoluto quebra a etérea) e "a Vida é a Mana de quem ergueu"; catálogos
     // antigos sem os campos caem na regra pela Vida (ver structure-geometry.js).
     material: structureMaterial(s.material, Math.max(0, Math.round(Number(s.hp) || 0))),
@@ -853,6 +859,7 @@ export function getEffectTargetGroups(current) {
       .filter(t => t !== "emp" || emp || t === current)
       .filter(t => t !== "unarmedType" || mastery || t === current)
       .filter(t => t !== "push" || push || t === current)
+      .filter(t => t !== "luck" || isFeatureEnabled("luck") || t === current)
       .filter(t => t !== "createSurface" || surfaces || t === current)
       .filter(t => !["flight", "burrow"].includes(t) || elevation || t === current)
       .filter(t => !t.startsWith("sense") || senses || t === current)

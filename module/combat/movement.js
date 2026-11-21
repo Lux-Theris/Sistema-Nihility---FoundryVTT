@@ -26,6 +26,7 @@
 import { SYSTEM_ID, isMovementEnabled, isShipManeuverEnabled, getMovementConfig, combatantIsActor } from "../core/config.js";
 import { isDesignatedGm, runAsGm } from "../helpers/gm-relay.js";
 import { relayFailureMessage } from "../helpers/gm-relay-rules.js";
+import { movementSpentText, shouldNotifyAgain } from "./forced-movement-rules.js";
 
 const USED_FLAG = "movementUsed";
 /** Correr: dobra o deslocamento do turno. Zera junto com o gasto. */
@@ -81,6 +82,24 @@ function budgetFor(tokenDocument) {
   return { allowance, used, remaining: Math.max(0, allowance - used) };
 }
 
+let lastSpentNotice;
+/** Um único aviso (com intervalo) de que o Deslocamento da rodada acabou, só no cliente de quem move. */
+export function notifyMovementSpent(budget) {
+  const now = Date.now();
+  if (!budget || !shouldNotifyAgain(now, lastSpentNotice)) return;
+  lastSpentNotice = now;
+  ui.notifications?.warn(movementSpentText(budget.used, budget.allowance));
+}
+
+/** O Deslocamento que sobra a este Token para o usuário atual (null = sem limite). Usado pelos botões ↑/↓. */
+export function movementRemainingFor(tokenDocument) {
+  try {
+    return budgetFor(tokenDocument);
+  } catch (err) {
+    return null;
+  }
+}
+
 /** Custo de um movimento já definido, somando o que já andou e o que falta (movimento retomado). */
 function movementCost(movement) {
   return (Number(movement?.passed?.cost) || 0) + (Number(movement?.pending?.cost) || 0);
@@ -127,7 +146,11 @@ export function registerMovementLimit() {
       if (options?.nihilityForced) return result;
       try {
         const budget = budgetFor(this.document);
-        return budget ? truncateToBudget(this, result, budget.remaining) : result;
+        if (!budget) return result;
+        const cut = truncateToBudget(this, result, budget.remaining);
+        // O arrasto foi cortado a zero: sem aviso o jogador não sabe por que o Token não anda (achado de 21/11).
+        if (cut !== result && cut[0].length <= 1 && budget.remaining <= EPSILON && result[0].length > 1) notifyMovementSpent(budget);
+        return cut;
       } catch (err) {
         console.error(`${SYSTEM_ID} | Falha ao limitar o deslocamento.`, err);
         return result;
@@ -161,7 +184,8 @@ export function registerMovementLimit() {
     const budget = budgetFor(document);
     if (!budget) return undefined;
     if (movementCost(movement) > budget.remaining + EPSILON) {
-      ui.notifications.warn("Deslocamento do turno esgotado.");
+      if (budget.remaining <= EPSILON) notifyMovementSpent(budget);
+      else ui.notifications.warn("Deslocamento do turno esgotado.");
       return false;
     }
     return undefined;

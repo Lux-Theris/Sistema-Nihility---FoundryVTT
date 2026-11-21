@@ -240,3 +240,44 @@ details.adv > .adv-body > .span-all { grid-column: 1 / -1; }
 .origin-layer.links .origin-link { margin: 6px 0; padding: 6px 0; border-top: 1px solid var(--nihility-border-soft); }
 .origin-layer.links .origin-pact-skills { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; color: var(--nihility-text); }
 .origin-layer.links .origin-pact-skills label { color: var(--nihility-text); }
+
+/* Rerrolar (8d.2): botões no card da rolagem e a rolagem substituída riscada. */
+.chat-message .nihility-reroll-controls { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chat-message .nihility-reroll-controls button {
+  height: auto;
+  min-height: 0;
+  line-height: normal;
+  padding: 4px 10px;
+  background: var(--nihility-gold);
+  border: 1px solid #b8913f;
+  border-radius: 4px;
+  color: #2a1f08;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.chat-message .nihility-reroll-controls button:hover { background: #f0cf86; }
+.chat-message .nihility-reroll-controls button:disabled { opacity: 0.5; cursor: default; }
+.chat-message.nihility-rerolled .message-content { text-decoration: line-through; opacity: 0.6; }
+.chat-message .nihility-rerolled-strip {
+  margin-top: 8px;
+  padding: 4px 10px;
+  background: #f6e7bf;
+  border: 1px solid #b8913f;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4a3a12;
+  text-decoration: none;
+  opacity: 1;
+}
+.nihility-reroll-choose { color: var(--nihility-text, #e6e9f5); text-align: left; }
+
+/* Cabeçalho da ficha com muitos chips de efeito (achado de 21/11, 8 efeitos): os itens da coluna não encolhem
+   (o botão do core tem altura fixa e era espremido por cima do vizinho) e a faixa de efeitos quebra linha. */
+.nihility-sheet .sheet-header { align-items: flex-start; }
+.nihility-sheet .header-fields > * { flex-shrink: 0; }
+.nihility-sheet .header-fields .rest-button,
+.nihility-sheet .header-fields .initiative-button { height: auto; min-height: 0; line-height: normal; }
+.nihility-sheet .header-fields .active-conditions { width: 100%; row-gap: 4px; }
+.nihility-sheet .header-fields .header-row { row-gap: 6px; }

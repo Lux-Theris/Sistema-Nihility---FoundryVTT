@@ -7,7 +7,7 @@ import { deleteKeyUpdate } from "../helpers/foundry-compat.js";
 import { skillStateUpdate } from "./skill-state.js";
 import {
   buildFormSystem, itemsFromOriginal, copiedSkillState, mergeBackPlan, conditionsToCarry, hpAfterCarry, shouldRevert,
-  formActorName, tokenOriginalSnapshot, formTokenUpdate, tokenRestoreUpdate, carryDamage, accumulateCarry
+  formActorName, tokenOriginalSnapshot, formTokenUpdate, tokenRestoreUpdate, carryDamage, accumulateCarry, itemMapFromStamps
 } from "./form-rules.js";
 
 /**
@@ -128,6 +128,8 @@ export async function transformActorAsGm(payload, user) {
     const copy = copiedSkillState(item, { isFormSkill: item._id === skill.id });
     const originalId = copy._id;
     delete copy._id;
+    // A ordem devolvida por createEmbeddedDocuments pode ser outra (sort): o mapa sai deste carimbo, nunca do índice.
+    copy.flags = { ...(copy.flags ?? {}), [SYSTEM_ID]: { ...(copy.flags?.[SYSTEM_ID] ?? {}), formSourceId: originalId } };
     return { originalId, data: copy };
   });
 
@@ -173,10 +175,7 @@ export async function transformActorAsGm(payload, user) {
   if (!copy) return refuse("não deu para criar a ficha da forma");
   try {
     const created = itemsToCopy.length ? await copy.createEmbeddedDocuments("Item", itemsToCopy.map(i => i.data)) : [];
-    const itemMap = {};
-    itemsToCopy.forEach((entry, index) => {
-      if (created[index]) itemMap[entry.originalId] = created[index].id;
-    });
+    const itemMap = itemMapFromStamps(created.map(doc => ({ id: doc.id, stamp: doc.getFlag?.(SYSTEM_ID, "formSourceId") ?? null })));
     await copy.update({
       "system.attributes.hp.value": copy.system.attributes.hp.max,
       [`flags.${SYSTEM_ID}.formOf.itemMap`]: itemMap,
@@ -278,7 +277,9 @@ export async function revertFormAsGm(copy, { reason = "" } = {}) {
     await original.unsetFlag(SYSTEM_ID, "formActive");
 
     const copySkills = [];
-    for (const [originalId, copyId] of Object.entries(formOf.itemMap ?? {})) {
+    // O carimbo do Item vence o mapa gravado (fichas criadas antes da 1.102.1 podem ter o mapa trocado).
+    const stamped = itemMapFromStamps(copy.items.map(i => ({ id: i.id, stamp: i.getFlag(SYSTEM_ID, "formSourceId") ?? null })));
+    for (const [originalId, copyId] of Object.entries({ ...(formOf.itemMap ?? {}), ...stamped })) {
       const copyItem = copy.items.get(copyId);
       if (copyItem?.type !== "skill") continue;
       copySkills.push({
@@ -343,7 +344,7 @@ async function onItemChanged(item) {
   const actor = item.parent;
   if (actor?.documentName !== "Actor") return;
   const formOf = actor.getFlag(SYSTEM_ID, "formOf");
-  if (formOf && item.id === formOf.copySkillId) {
+  if (formOf && (item.id === formOf.copySkillId || (formOf.skillId && item.getFlag(SYSTEM_ID, "formSourceId") === formOf.skillId))) {
     const mech = mechOf(item, formOf.subSkillIndex ?? null);
     if (shouldRevert({ formSkillActive: Boolean(mech?.active), hp: actor.system.attributes.hp.value })) await revertFormAsGm(actor, { reason: "a Forma foi desligada" });
     return;

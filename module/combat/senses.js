@@ -13,7 +13,7 @@
  * Desligado (`FEATURES.senses`): nada disso age; nada salvo se perde.
  */
 import { SYSTEM_ID, getActiveStatusConditions, isElevationEnabled, isSensesEnabled, isStatusConditionsEnabled, sameActor } from "../core/config.js";
-import { foundryGeneration } from "../helpers/foundry-compat.js";
+import { foundryGeneration, tokenElevation } from "../helpers/foundry-compat.js";
 import { groundStatuses, originSenses, mapStatusesToAdd, isHiddenBySense, combatantVisibleFor, visibleSetChanged } from "./senses-rules.js";
 
 /** Há Visão de Token na cena aberta? (sem ela todo mundo vê tudo e nada disto vale) */
@@ -33,7 +33,7 @@ function registerTokenDocument() {
       if (statusId && (statusId === special.BURROW || statusId === special.FLY)) {
         let ground = null;
         try {
-          ground = groundStatuses({ elevation: this.elevation, elevationOn: isElevationEnabled(), sensesOn: isSensesEnabled() });
+          ground = groundStatuses({ elevation: tokenElevation(this), elevationOn: isElevationEnabled(), sensesOn: isSensesEnabled() });
         } catch (err) {
           ground = null; // configurações ainda não registradas
         }
@@ -81,7 +81,7 @@ const lastSign = new Map(); // uuid do Token → sinal da elevação (−1, 0, 1
 
 function onUpdateToken(tokenDoc, changes) {
   if (!foundry.utils.hasProperty(changes, "elevation")) return;
-  const sign = Math.sign(Number(tokenDoc.elevation) || 0);
+  const sign = Math.sign(tokenElevation(tokenDoc));
   const previous = lastSign.get(tokenDoc.uuid);
   lastSign.set(tokenDoc.uuid, sign);
   if (!isSensesEnabled() || !isElevationEnabled() || tokenDoc.parent !== canvas?.scene) return;

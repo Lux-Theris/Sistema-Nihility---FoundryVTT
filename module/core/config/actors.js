@@ -175,7 +175,7 @@ export function actorToken(actor, preferred = []) {
  * chave é o `uuid`). `types` (opcional) filtra por `actor.type`; `exclude` tira um Ator (por
  * `uuid`); `permission` (padrão "OBSERVER") é o nível mínimo exigido.
  */
-export function sceneActorCandidates({ types = null, exclude = null, permission = "OBSERVER" } = {}) {
+export function sceneActorCandidates({ types = null, exclude = null, permission = "OBSERVER", skipHidden = false } = {}) {
   const scene = canvas?.scene;
   if (!scene) return [];
   const seen = new Set();
@@ -183,6 +183,7 @@ export function sceneActorCandidates({ types = null, exclude = null, permission 
   for (const token of scene.tokens) {
     const actor = token.actor;
     if (!actor || seen.has(actor.uuid)) continue;
+    if (skipHidden && token.hidden && !game.user.isGM) continue;
     if (exclude && sameActor(actor, exclude)) continue;
     if (types && !types.includes(actor.type)) continue;
     if (!actor.testUserPermission(game.user, permission)) continue;

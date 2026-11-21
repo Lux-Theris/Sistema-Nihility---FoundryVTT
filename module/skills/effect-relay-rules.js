@@ -35,6 +35,8 @@ export function normalizeEffectRequest(payload) {
   return {
     sourceUuid,
     subSkillIndex: Number.isInteger(index) && index >= 0 ? index : null,
+    // Parte de uma Combinada (8c.2): o Mestre refaz a mecânica da parte, ancorada à Skill-mãe.
+    partIndex: Number.isInteger(payload?.partIndex) && payload.partIndex >= 0 ? payload.partIndex : null,
     targetUuids,
     investPower: cleanPower(payload?.investPower),
     focusPartId: cleanId(payload?.focusPartId),

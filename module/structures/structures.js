@@ -57,6 +57,7 @@ import {
   antimagicStructureOutcome,
   areaTouchesStructure
 } from "./structure-geometry.js";
+import { structureSideFactor, centeredStructurePoints } from "../skills/combined-rules.js";
 import { normalizeArea, tokenDocCenter } from "../combat/area-geometry.js";
 import { closedShapesOverlap } from "../environment/trap-rules.js";
 import { pointReach, viaMarkFrom } from "../combat/range.js";
@@ -245,6 +246,18 @@ export async function pickStructurePlacement(structure, reach = null) {
   return result;
 }
 
+/**
+ * A colocação de uma Estrutura SEM clique (8c.2): centrada num ponto (quem usa ou o alvo), com a forma e o
+ * tamanho do catálogo. Mesmo formato de `pickStructurePlacement`. Sem cena aberta, null.
+ * @param {object} structure - do catálogo
+ * @param {{x: number, y: number}|null} center - em pixels da cena
+ */
+export function structurePlacementAround(structure, center) {
+  const scene = canvas?.scene;
+  if (!canvas?.ready || !scene || !center) return null;
+  return { sceneId: scene.id, shape: structure.shape, points: centeredStructurePoints(structure.shape, center, metersToPx(scene, structure.size)), viaMark: null };
+}
+
 /* ------------------------------------------------------------------ Criar (Mestre) */
 
 /**
@@ -381,6 +394,11 @@ export async function createStructureAsGm(payload) {
     antimagicLevel: structure.antimagicLevel,
     interferenceLevel: structure.interferenceLevel,
     contactDamage: structure.contactDamage,
+    // O duelo (8c.2): copiados na criacao como o resto.
+    vanishWithSkill: structure.vanishWithSkill,
+    endsSkillOnDestroy: structure.endsSkillOnDestroy,
+    outsideDamagePercent: structure.outsideDamagePercent,
+    insideDamagePercent: structure.insideDamagePercent,
     sourceActorUuid: source.uuid,
     skillId: String(payload.skillId ?? ""),
     subSkillIndex: Number.isInteger(payload.subSkillIndex) ? payload.subSkillIndex : null,
@@ -494,9 +512,11 @@ export function interceptingStructure(attacker, target, { origin = null } = {}) 
   const instance = hit ? instances.find(i => i.id === hit.id) : null;
   if (!instance) return null;
   const to = targetToken.center;
+  // Quem ataca está DENTRO da forma fechada (o duelo)? O dano que a Estrutura leva muda (insideDamagePercent).
+  const attackerInside = instanceInfo(instance).closed && pointInSegments([from.x, from.y], structureSegmentsOf(scene, instance));
   // Ponto de impacto na parede: é até ali que a animação da Skill vai (ver vfx.js).
   const point = { x: from.x + (to.x - from.x) * hit.t, y: from.y + (to.y - from.y) * hit.t };
-  return { scene, instance, capacity: structureCapacity(instance), point, attackerUuid: attacker?.uuid ?? null };
+  return { scene, instance, capacity: structureCapacity(instance), point, attackerUuid: attacker?.uuid ?? null, attackerInside };
 }
 
 /**
@@ -512,7 +532,9 @@ export async function hitStructure(block, amount, elementIds = [], protectedActo
     return { absorbed: 0, passed: amount, label: block.instance.label, point: block.point, broken: true };
   }
   // Vantagem entre elementos: Fogo contra Parede de Gelo bate mais forte NELA (o que passa volta à escala do golpe).
-  const factor = hitAffinityFactor(elementIds, instanceInfo(block.instance).elements, getElementAffinityMatrix(), getAffinityConfig());
+  const info = instanceInfo(block.instance);
+  const side = structureSideFactor({ inside: Boolean(block.attackerInside), outsidePercent: info.outsideDamagePercent, insidePercent: info.insideDamagePercent });
+  const factor = hitAffinityFactor(elementIds, info.elements, getElementAffinityMatrix(), getAffinityConfig()) * side;
   const { absorbed, passed } = splitStructureHit(amount * factor, block.capacity);
   if (absorbed > 0) {
     await runAsGm("damageStructure", { sceneId: block.scene.id, instanceId: block.instance.id, amount: absorbed, attackerUuid: block.attackerUuid });
@@ -541,6 +563,10 @@ export function instanceInfo(instance) {
     antimagicLevel: Number(pick("antimagicLevel", 0)) || 0,
     interferenceLevel: Number(pick("interferenceLevel", 0)) || 0,
     contactDamage: pick("contactDamage", "") ?? "",
+    vanishWithSkill: Boolean(pick("vanishWithSkill", false)),
+    endsSkillOnDestroy: Boolean(pick("endsSkillOnDestroy", false)),
+    outsideDamagePercent: Number(pick("outsideDamagePercent", 100)),
+    insideDamagePercent: Number(pick("insideDamagePercent", 100)),
     // Registro antigo sem material: Vida 0 = etérea.
     material: instance?.material ?? structureMaterial(undefined, instance?.manaBarrier ? 0 : instance?.hpMax),
     manaPowered: Boolean(instance?.manaBarrier),
@@ -1033,6 +1059,11 @@ export async function removeStructureInstance(scene, instanceId, reason = "dismi
   }
   await scene.update(update);
   refreshStructureCards(scene.id, instanceId);
+  // A bolha do duelo destruída desliga a Skill que a sustentava (8c.2); o debuff "só desligada" volta sozinho.
+  if (reason === "destroyed" && instanceInfo(instance).endsSkillOnDestroy) {
+    const { switchOffSkillOfStructure } = await import("../skills/duel.js");
+    await switchOffSkillOfStructure(instance, `${instance.label} foi destruída`);
+  }
   // Caiu um campo antimagia: quem estava suprimido por ele e já não está em campo nenhum se solta.
   if (isAnyField(instanceInfo(instance))) {
     const { endMagicInsideFields } = await import("../combat/antimagic.js");
@@ -1130,7 +1161,10 @@ export async function removeStructuresForAsGm({ sourceUuid, skillId, subSkillInd
         // Mestre tirar); a etérea e a movida a Mana somem. Quem já era solta (prazo, ou de um uso
         // anterior) não é tocada.
         const info = instanceInfo(instance);
-        if (info.material === "physical" && !instance.manaBarrier) {
+        // O duelo (8c.2): a bolha some com a Skill, mesmo sendo física.
+        if (info.vanishWithSkill && instance.untilDeactivated) {
+          await removeStructureInstance(scene, instance.id, "dismissed");
+        } else if (info.material === "physical" && !instance.manaBarrier) {
           if (!instance.untilDeactivated) continue;
           await unsupportStructure(scene, instance);
         } else {

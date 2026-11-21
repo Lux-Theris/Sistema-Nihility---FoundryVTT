@@ -8,6 +8,7 @@
  * inclusive a parte de Gelo. Agora o dano é dividido em partes iguais entre os elementos do
  * ataque, e cada parte sofre só as defesas que valem pra ela.
  */
+import { luckUnit } from "./luck-rules.js";
 
 /**
  * Divide um total em partes iguais, uma por elemento. Sem elemento, uma parte só (`null`).
@@ -209,11 +210,16 @@ export function refreshReapplication(current, incoming) {
   return { rounds, amount: Math.abs(b) > Math.abs(a) ? b : a };
 }
 
-/** Rola uma chance em %: 100 ou mais sempre acontece, 0 ou menos nunca. `random` é injetável pra teste. */
-export function rollChance(percent, random = Math.random) {
+/**
+ * Rola uma chance em %: 100 ou mais sempre acontece, 0 ou menos nunca. `random` é injetável pra teste.
+ * `luck` (% de sorte de quem se beneficia, item 8d.1): sorte positiva puxa o sorteio para o resultado
+ * baixo (= sucesso), azar para o alto. Sem sorte é exatamente o sorteio de sempre.
+ */
+export function rollChance(percent, random = Math.random, luck = 0) {
   const p = Number(percent);
   if (!(p > 0)) return false;
   if (p >= 100) return true;
+  if (Number(luck)) return luckUnit(luck, random) * 100 < p;
   return random() * 100 < p;
 }
 

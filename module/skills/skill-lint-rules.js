@@ -9,15 +9,17 @@
  */
 import { MEU_SISTEMA } from "../core/config/constants.js";
 import { complexityVerdict } from "./skill-complexity-rules.js";
+import { combinedIssues } from "./combined-rules.js";
+import { rerollLint } from "./reroll-rules.js";
 
 /** Alvos em que "Periódico" funciona (o mesmo do editor). */
 export const PERIODIC_TARGETS = ["hp", "energy", "shipCasco", "shipHull"];
 
 /** Alvos que agem na hora e não ficam "para sempre" sem duração. */
-const INSTANT_TARGETS = ["heal", "restoreEnergy", "shield", "antimagic", "emp", "mark", "push", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"];
+const INSTANT_TARGETS = ["heal", "restoreEnergy", "shield", "antimagic", "emp", "mark", "dispelMagic", "push", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"];
 
 /** Alvos em que o valor não importa (liga/desliga, troca de elemento, Antimagia pelo nível). */
-const VALUELESS_TARGETS = ["weaponElement", "bodyElement", "weaponMagic", "weaponAbsolute", "unarmedType", "antimagic", "emp", "mark", "flight", "burrow", "createSurface", "senseTremor", "senseInvisible", "senseTrue", "senseAll"];
+const VALUELESS_TARGETS = ["weaponElement", "bodyElement", "weaponMagic", "weaponAbsolute", "unarmedType", "antimagic", "emp", "mark", "dispelMagic", "magicDampen", "luck", "flight", "burrow", "createSurface", "senseTremor", "senseInvisible", "senseTrue", "senseAll"];
 
 const groupTargets = actor => new Set(MEU_SISTEMA.EFFECT_TARGET_GROUPS.filter(g => g.actor === actor).flatMap(g => g.targets));
 
@@ -96,6 +98,17 @@ export function lintSkill(mech, ctx = {}) {
   // Golpe de arma (H6): só vale numa Skill de dano.
   if (m.weaponStrike && effectType !== "damage") push("strikeNotDamage", "soft", "mechanic", "Golpe de arma numa Skill que não é de dano: o tipo de arma só vale quando a Skill causa dano. Era isso?");
 
+  // Combinada (8c.2) e o duelo: sem Sub-Skills não faz nada; "desliga se o alvo cair" e a regra de intruso só valem ligada.
+  for (const issue of combinedIssues(m)) push(issue.code, issue.level, "mechanic", issue.text);
+  if (!active && (m.endsWhenTargetFalls || m.intruderRule)) push("duelNotActive", "soft", "mechanic", "\"Desliga se o alvo cair\" e a regra de quem entra na Estrutura só valem numa Habilidade Ativa: esta não é, então nada disso acontece.");
+  effects.forEach((e, i) => {
+    if (e?.target === "luck") {
+      if (!Object.values(e.luckScopes ?? {}).some(Boolean)) push("luckNoScope", "hard", "mechanic", "Sorte sem nenhum escopo marcado (atributos, dano, chances): não faz nada.", i);
+      else if (!(Number(e.amount) || 0)) push("luckZero", "hard", "mechanic", "Sorte de 0%: não faz nada.", i);
+    }
+    if (e?.target === "magicDampen" && Number(e.chance ?? 100) <= 0) push("magicDampenNever", "hard", "mechanic", "Magia enfraquecida com chance 0%: nunca pega.", i);
+  });
+
   // --- Mecânica
   if (usesTarget && isArea && !(Number(m.areaDistance) > 0)) push("areaZero", "hard", "mechanic", `${m.targetType === "zone" ? "Zona" : "Área"} com distância 0: ninguém fica dentro.`);
   if (usesTarget && m.targetType === "zone" && !active && !(Number(m.zoneRounds) > 0)) push("zoneRounds", "hard", "mechanic", "Zona sem rodadas: some antes de bater em alguém.");
@@ -123,6 +136,9 @@ export function lintSkill(mech, ctx = {}) {
     if (m.targetType && m.targetType !== "targeted") push("analysisPredationTarget", "soft", "mechanic", `Mecânica ${name} sempre pede um alvo único: o Tipo de Alvo "${m.targetType}" é ignorado.`);
   }
 
+  // Rerrolar (8d.2): usada no chat, sem alvo; avisos do próprio módulo de regras.
+  if (effectType === "reroll") for (const w of rerollLint(m)) out.push(w);
+
   if (effectType === "form") {
     if (!active) push("formNotActive", "hard", "mechanic", "Mecânica Forma só vale em Habilidade Ativa: sem manutenção a forma nunca desliga e a Skill não liga.");
     if (!m.formActorUuid) push("noFormActor", "hard", "mechanic", "Mecânica Forma sem ficha da forma: arraste a ficha-molde para o campo.");
@@ -142,6 +158,7 @@ export function lintSkill(mech, ctx = {}) {
       if (target === "push" && !(Number(e?.amount) > 0)) push("pushZero", "hard", "mechanic", `${n}: Empurrar/Puxar com 0 metros — não move ninguém.`, i);
       if (target === "push" && Number(e?.amount) > 0 && m.targetType === "self") push("pushSelf", "soft", "mechanic", `${n}: Empurrar/Puxar numa Skill "Si mesmo" — quem usa é a origem, então ninguém se move.`, i);
       if (!Number(e?.amount) && !e?.conditionId && !VALUELESS_TARGETS.includes(target) && target !== "push") push("zeroEffect", "hard", "mechanic", `${n}: valor 0 e sem Condição — não muda nada.`, i);
+      if (target === "dispelMagic" && e?.dispelScope === "condition" && !e?.conditionId) push("dispelNoCondition", "hard", "mechanic", `${n}: Dissipar "só uma Condição" sem Condição escolhida: não desfaz nada.`, i);
       if (e?.conditionId && ctx.conditions && !has(ctx.conditions, e.conditionId)) push("unknownCondition", "hard", "mechanic", `${n}: a Condição "${e.conditionId}" não existe mais no catálogo.`, i);
       for (const id of e?.damageElements ?? []) {
         if (ctx.elements && !has(ctx.elements, id)) push("unknownElement", "hard", "mechanic", `${n}: elemento "${id}" não existe mais no catálogo.`, i);

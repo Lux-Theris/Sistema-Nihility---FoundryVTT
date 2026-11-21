@@ -318,3 +318,13 @@ test("Vantagem: fórmula sem dado fica como está", () => {
   assert.equal(applyAdvantageToFormula("2d6+3", "advantage"), "{2d6+3, 2d6+3}kh");
   assert.equal(applyAdvantageToFormula("1d20", "disadvantage"), "{1d20, 1d20}kl");
 });
+
+test("Combinada: a XP por uso é a da melhor parte, não a soma (achado de 21/11)", async () => {
+  const { largestXpMeasures, skillUseXp } = await import("../module/skills/skill-xp-rules.js");
+  const cfg = { factor: 100, flatPercent: 10 };
+  const parts = [[{ flat: true }], [{ value: 50, base: 100 }], [{ flat: true }], []];
+  const best = largestXpMeasures(parts, cfg);
+  assert.deepEqual(best, [{ value: 50, base: 100 }]);
+  assert.ok(skillUseXp(best, cfg) < parts.slice(0, 3).reduce((sum, m) => sum + skillUseXp(m, cfg), 0) + 1);
+  assert.deepEqual(largestXpMeasures([], cfg), []);
+});

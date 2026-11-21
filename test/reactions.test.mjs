@@ -457,3 +457,17 @@ test("Só se…: Validar Mundo aponta a Condição/Traço que sumiu", () => {
   assert.match(issues[0].message, /"burn"/);
   assert.match(issues[1].message, /"ghost"/);
 });
+
+test("reação pelo chão também consome a marca do mesmo elemento (achado de 20/11)", async () => {
+  const R = await import("../module/combat/reaction-rules.js");
+  const reaction = { label: "Eletrocutado", consume: true, against: { character: true } };
+  const chain = [{ id: "lightning", reactions: { water: reaction } }];
+  const marks = [
+    { elementId: "water", ids: ["water"], effectId: "", surface: true, order: 999 },
+    { elementId: "water", ids: ["water"], effectId: "wet-1", surface: false, order: 3 }
+  ];
+  const picked = R.pickReaction({ chain, marks });
+  assert.equal(picked?.source, "surface");
+  assert.equal(picked?.alsoMark?.effectId, "wet-1");
+  assert.equal(R.pickReaction({ chain, marks: [marks[0]] })?.alsoMark, undefined);
+});

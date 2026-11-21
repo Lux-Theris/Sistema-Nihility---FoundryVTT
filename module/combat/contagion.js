@@ -12,6 +12,7 @@
  *    escondido, o card vai só para o Mestre.
  *  - Só o Mestre designado executa (o hook de combate roda em todo cliente de Mestre).
  */
+import { applyLuckToFormula, luckOf } from "./luck-rules.js";
 import { SYSTEM_ID, getActiveStatusConditions, isStatusConditionsEnabled, actorTraits, damageElementChain } from "../core/config.js";
 import { isDesignatedGm } from "../helpers/gm-relay.js";
 import { combatantScene } from "../helpers/foundry-compat.js";
@@ -89,7 +90,8 @@ export async function tickContagion(combatant) {
         rows.push(`<li>${esc(token.name)}: imune</li>`);
         continue;
       }
-      const roll = await new Roll("1d100").evaluate();
+      // Sorte (8d.1): a VÍTIMA se beneficia — a sorte dela empurra o d100 para cima (= não pega).
+      const roll = await new Roll(applyLuckToFormula("1d100", luckOf(actor, "chances"))).evaluate();
       const caught = roll.total <= chance;
       if (caught) await infect(actor, condition);
       rows.push(`<li>${esc(token.name)}: ${caught ? "<strong>pegou</strong>" : "resistiu"} (${roll.total} ${caught ? "≤" : ">"} ${chance}%)</li>`);

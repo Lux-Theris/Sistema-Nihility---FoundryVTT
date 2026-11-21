@@ -20,11 +20,11 @@ import { reportError } from "../helpers/report.js";
 import { isShipLike } from "../starship/ship-damage.js";
 import { groundState, stepElevation, manualElevationWarning, fallDamage, hiddenUnderground, meleeOutOfVerticalReach } from "./forced-movement-rules.js";
 import { moveTokenForced, postBluntDamageCard } from "./forced-movement.js";
+import { movementRemainingFor, notifyMovementSpent } from "./movement.js";
+import { tokenElevation } from "../helpers/foundry-compat.js";
 
 /** Elevação (metros) de um Token ou documento de Token. */
-export function tokenElevation(token) {
-  return Number(token?.document?.elevation ?? token?.elevation) || 0;
-}
+export { tokenElevation };
 
 /** O Ator tem um efeito ativo "Voando"/"Escavando"? */
 export function hasMovementMode(actor, mode) {
@@ -75,7 +75,7 @@ async function stepToken(tokenDoc, direction) {
   const gm = game.user.isGM;
   const step = Number(tokenDoc.parent?.grid?.distance) || 1;
   const next = stepElevation({
-    current: Number(tokenDoc.elevation) || 0,
+    current: tokenElevation(tokenDoc),
     direction,
     step,
     canFly: gm || canFly(actor),
@@ -83,6 +83,12 @@ async function stepToken(tokenDoc, direction) {
   });
   if (next === null) {
     ui.notifications.warn(`${tokenDoc.name} não pode ${direction === "up" ? "subir" : "descer"} mais.`);
+    return;
+  }
+  // Deslocamento da rodada gasto: o movimento nativo cortaria o passo em silêncio (achado de 21/11).
+  const budget = gm ? null : movementRemainingFor(tokenDoc);
+  if (budget && budget.remaining + 1e-6 < step) {
+    notifyMovementSpent(budget);
     return;
   }
   if (typeof tokenDoc.move === "function") await tokenDoc.move({ elevation: next }, { method: "api", showRuler: false });
@@ -145,7 +151,7 @@ export function scheduleGroundCheck(actor) {
 async function checkGround(actor) {
   if (!isElevationEnabled()) return;
   for (const tokenDoc of tokensOf(actor)) {
-    const elevation = Number(tokenDoc.elevation) || 0;
+    const elevation = tokenElevation(tokenDoc);
     const state = groundState({ elevation, canFly: canFly(actor), canBurrow: canBurrow(actor) });
     const kind = state.falling ? "fall" : state.buried ? "buried" : null;
     for (const k of ["fall", "buried"]) if (k !== kind) for (const key of [...notified]) if (key.startsWith(`${tokenDoc.uuid}|${k}|`)) notified.delete(key);
@@ -170,7 +176,7 @@ async function resolveFall(message) {
   if (!card || card.resolved) return;
   const tokenDoc = await fromUuid(card.tokenUuid);
   const actor = tokenDoc?.actor;
-  const meters = Number(tokenDoc?.elevation) || 0;
+  const meters = tokenElevation(tokenDoc);
   await message.update({ [`flags.${SYSTEM_ID}.groundCard.resolved`]: true });
   if (!actor || meters <= 0) {
     ui.notifications.info("Ele já não está no ar.");
@@ -239,12 +245,12 @@ export function registerElevation() {
   // Elevação mudou: o aviso já dado vale só para aquela altura; posta à mão por quem não pode, só avisa.
   Hooks.on("updateToken", (tokenDoc, changes, options, userId) => {
     if (!isElevationEnabled() || !foundry.utils.hasProperty(changes, "elevation")) return;
-    for (const key of [...notified]) if (key.startsWith(`${tokenDoc.uuid}|`) && !key.endsWith(`|${tokenDoc.elevation}`)) notified.delete(key);
+    for (const key of [...notified]) if (key.startsWith(`${tokenDoc.uuid}|`) && !key.endsWith(`|${tokenElevation(tokenDoc)}`)) notified.delete(key);
     const actor = tokenDoc.actor;
     if (userId !== game.user.id || options?.nihilityForced || !actor || isShipLike(actor)) return;
     const text = manualElevationWarning({
       name: tokenDoc.name || actor.name,
-      elevation: Number(tokenDoc.elevation) || 0,
+      elevation: tokenElevation(tokenDoc),
       canFly: canFly(actor),
       canBurrow: canBurrow(actor)
     });

@@ -53,6 +53,18 @@ export function templateSkillData(template, overrides = {}, catalogs = {}) {
   // "Só se…" da Skill e "ao acertar" (8c.1): Condição/Traço que o mundo não tem saem.
   if (skill.onlyIf?.value && !known(catalogs.conditions, skill.onlyIf.value) && !known(catalogs.traits, skill.onlyIf.value)) skill.onlyIf = { kind: "", value: "", threshold: 50 };
   if (skill.onHit?.conditionId && !known(catalogs.conditions, skill.onHit.conditionId)) skill.onHit = { conditionId: "", chance: 100, rounds: 0, when: "always" };
+  // Combinada (8c.2): cada parte também troca o que o mundo não tem (elemento, Condição, Estrutura).
+  if (Array.isArray(skill.subSkills)) {
+    skill.subSkills = skill.subSkills.map(sub => {
+      const part = { ...sub };
+      if (Array.isArray(part.damageElements)) part.damageElements = part.damageElements.filter(id => known(catalogs.elements, id));
+      if (Array.isArray(part.effects)) {
+        part.effects = part.effects.map(e => ({ ...e, conditionId: e.conditionId && known(catalogs.conditions, e.conditionId) ? e.conditionId : "", damageElements: (e.damageElements ?? []).filter(id => known(catalogs.elements, id)) }));
+      }
+      if (part.effectType === "structure" && Array.isArray(catalogs.structures) && !catalogs.structures.includes(part.structureId)) part.structureId = catalogs.structures[0] ?? "";
+      return part;
+    });
+  }
   if (skill.effectType === "structure" && Array.isArray(catalogs.structures) && !catalogs.structures.includes(skill.structureId)) {
     skill.structureId = catalogs.structures[0] ?? "";
   }
@@ -68,7 +80,9 @@ export function templateSkillData(template, overrides = {}, catalogs = {}) {
 
 /** Uma Skill pronta → entrada de modelo ("Salvar como modelo"). */
 export function templateFromSkill(name, system, existingIds = []) {
-  const { xp, active, investRatio, markFactor, isItemGranted, fusionSources, evolvedFrom, subSkills, xpMax, xpReady, xpPercent, ...skill } = structuredClone(system ?? {});
+  const { xp, active, investRatio, markFactor, activeTargetUuid, isItemGranted, fusionSources, evolvedFrom, subSkills, xpMax, xpReady, xpPercent, ...skill } = structuredClone(system ?? {});
+  // Uma Combinada leva as partes junto; uma Skill fundida não (as Sub-Skills dela são a história de fontes).
+  if (skill.combined && Array.isArray(subSkills)) skill.subSkills = subSkills.map(({ active: _on, investRatio: _ratio, markFactor: _mark, activeTargetUuid: _target, cooldownRemaining: _cd, ...part }) => part);
   let id = archetypeSlug(name) || "modelo";
   for (let n = 2; existingIds.includes(id); n++) id = `${archetypeSlug(name) || "modelo"}_${n}`;
   return normalizeSkillTemplate({ id, label: name, hint: "", group: skill.effectType === "damage" ? "dano" : skill.effectType === "structure" ? "controle" : "ajuda", skill: { ...skill, level: 1 } });

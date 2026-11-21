@@ -40,6 +40,12 @@ function renderStructure(values) {
       <label title="Física (pedra, gelo, ferro): segura o golpe, inclusive Dano Absoluto. Etérea (mana, fogo, água): o Dano Absoluto a desfaz e passa inteiro">Material <select data-field="material">${optionsHtml([["physical", "Física"], ["ethereal", "Etérea"]], values.material ?? "physical")}</select></label>
       <label title="Marcado: o dano que ela leva sai da Mana de quem ergueu, e ela cai quando essa Mana chega a 0 (Barreira de Mana). Desmarcado: usa a Vida acima"><input type="checkbox" data-field="manaPowered" ${values.manaPowered ? "checked" : ""}/> A Vida é a Mana de quem ergueu</label>
     </div>
+    <div class="card-config-row">
+      <label title="Dano que ela leva de golpes que vêm de FORA da forma fechada, em % (100 = normal, 25 = só um quarto)">Dano de fora (%) <input type="number" min="0" data-field="outsideDamagePercent" value="${values.outsideDamagePercent ?? 100}"/></label>
+      <label title="Dano que ela leva de golpes de quem está DENTRO da forma fechada (círculo/quadrado), em % (200 = o dobro)">Dano de dentro (%) <input type="number" min="0" data-field="insideDamagePercent" value="${values.insideDamagePercent ?? 100}"/></label>
+      <label title="Quando a Skill Ativa que a sustenta desliga, ela some junto, mesmo sendo física (em vez de ficar de pé com Vida 1)"><input type="checkbox" data-field="vanishWithSkill" ${values.vanishWithSkill ? "checked" : ""}/> Some com a Skill</label>
+      <label title="Se for destruída, a Skill Ativa que a sustentava desliga (e o debuff 'só desligada' volta)"><input type="checkbox" data-field="endsSkillOnDestroy" ${values.endsSkillOnDestroy ? "checked" : ""}/> Destruída, desliga a Skill</label>
+    </div>
     <div class="card-config-row structure-elements-row">
       <span class="hint-inline" title="Golpes contra ela seguem 'Dano extra contra elemento' (Fogo +50% contra Gelo), e o dano ao contato é destes elementos">Elementos:</span>
       ${pickerFieldHtml(values.elements ?? [], "structure-elements")}
@@ -101,6 +107,10 @@ function readStructure(card) {
     manaPowered: el("manaPowered").checked,
     antimagicLevel: Math.max(0, Math.round(Number(el("antimagicLevel").value) || 0)),
     contactDamage: el("contactDamage").value.trim(),
+    outsideDamagePercent: Math.max(0, Math.round(Number(el("outsideDamagePercent").value))) || (el("outsideDamagePercent").value === "0" ? 0 : 100),
+    insideDamagePercent: Math.max(0, Math.round(Number(el("insideDamagePercent").value))) || (el("insideDamagePercent").value === "0" ? 0 : 100),
+    vanishWithSkill: el("vanishWithSkill").checked,
+    endsSkillOnDestroy: el("endsSkillOnDestroy").checked,
     elements: readPickerField(card.querySelector(".structure-elements")),
     light: (() => {
       try {

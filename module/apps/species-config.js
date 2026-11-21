@@ -186,6 +186,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
       bonuses: (entry.passives.attributeBonuses ?? []).map((b, i) => ({ ...b, index: i })),
       hpMod: entry.passives.statModifiers?.hp ?? 0,
       regen: { energyPercent: 0, hpPercent: 0, hpKind: "cura", ...(entry.passives.regen ?? {}) },
+      luck: { attributes: 0, damage: 0, chances: 0, ...(entry.passives.luck ?? {}) },
       energyMod: entry.passives.statModifiers?.energy ?? 0,
       resistances: (entry.passives.resistances ?? []).map((r, i) => ({ ...r, index: i })),
       senses: (entry.passives.senses ?? []).map((s, i) => ({ ...s, index: i })),

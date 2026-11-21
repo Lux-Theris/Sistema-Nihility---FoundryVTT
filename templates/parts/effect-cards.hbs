@@ -34,6 +34,27 @@
                 <option value="">— tipo de arma —</option>
                 {{#each eff.weaponTypeIdOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
               </select>
+              {{else if eff.isLuck}}
+              <input class="num skill-effect-input" type="number" data-effect-field="amount" value="{{eff.amount}}" aria-label="Sorte (%)" title="% de sorte nos dados (negativo = azar). Sem teto: +100% leva o d20 à média 13,8."/>
+              <span class="effect-note">% de sorte em</span>
+              <label class="effect-note" title="Pool de d20 dos atributos e a iniciativa"><input type="checkbox" class="skill-effect-input" data-effect-field="luckScope:attributes" {{#if eff.luckScopeAttributes}}checked{{/if}}/> atributos</label>
+              <label class="effect-note" title="Os dados do dano de quem tem o efeito"><input type="checkbox" class="skill-effect-input" data-effect-field="luckScope:damage" {{#if eff.luckScopeDamage}}checked{{/if}}/> dano</label>
+              <label class="effect-note" title="Os d100 de chance (Condição ao acertar, Predação…)"><input type="checkbox" class="skill-effect-input" data-effect-field="luckScope:chances" {{#if eff.luckScopeChances}}checked{{/if}}/> chances</label>
+              {{else if eff.isDampen}}
+              <input class="num skill-effect-input" type="number" data-effect-field="amount" value="{{eff.amount}}" min="0" aria-label="Força que sobra (%)" title="A magia sai com esta % da força (50 = metade)."/>
+              <span class="effect-note">% da força em</span>
+              <input class="num skill-effect-input" type="number" data-effect-field="chance" value="{{eff.dampenChance}}" min="0" max="100" aria-label="Chance (%)" title="Chance de cada uso mágico de quem tem o efeito ser enfraquecido."/>
+              <span class="effect-note">% das magias</span>
+              {{else if eff.isDispel}}
+              <select class="skill-effect-input" data-effect-field="dispelScope" aria-label="O que termina" title="Todo efeito mágico do alvo, só marcas, ou só uma Condição escolhida. Só alcança o que tem nível até o desta Skill (sem o ×1,5 da Antimagia); não suprime, não desliga Skills Ativas e não toca Escudo nem Estruturas.">
+                {{#each eff.dispelScopeOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+              </select>
+              {{#if eff.dispelNeedsCondition}}
+              <select class="skill-effect-input" data-effect-field="conditionId" aria-label="Condição">
+                {{#each eff.conditionOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+              </select>
+              {{/if}}
+              <span class="effect-note">alcança nível {{eff.dispelLevel}}</span>
               {{else if eff.isMark}}
               <span class="effect-note" title="Quem usa a Skill passa a poder lançar Skills a partir do alvo, pagando mais quanto mais longe estiver (custo × (distância ÷ alcance)²). A Antimagia desfaz a Marca.">Marca de quem usa</span>
               {{else if eff.isMovementMode}}

@@ -224,8 +224,19 @@ async function placeArea(mech, reach = null, { caster = null } = {}) {
  * @param {{system: object}} skill - objeto com `.system` = `skill.system` ou snapshot de Sub-Skill
  * @returns {Promise<Actor[]>}
  */
-export async function pickAreaTargets(skill, reach = null, { caster = null } = {}) {
+export async function pickAreaTargets(skill, reach = null, { caster = null, target = null } = {}) {
   const placed = await placeArea(skill.system, reach, { caster });
+  if (!placed?.area) return [];
+  return resolveAreaTargets(skill.system, placed, reach, { caster, target });
+}
+
+/**
+ * Quem a área já posicionada atinge (a mesma conta de `pickAreaTargets`, sem pedir clique). `placed` =
+ * `{area, via}` de `placeArea`/`casterAreaPlacement`. `target` = o alvo escolhido da Skill ("Todos menos quem
+ * usa e o alvo"). `reach` só importa para cone/linha livres e para a Marca.
+ * @returns {Actor[]} com `.viaMark`, `.origin` e `.area` pendurados, como `pickAreaTargets`
+ */
+export function resolveAreaTargets(mech, placed, reach = null, { caster = null, target = null } = {}) {
   const area = placed?.area;
   if (!area) return [];
 
@@ -233,28 +244,58 @@ export async function pickAreaTargets(skill, reach = null, { caster = null } = {
   const { pxPerUnit } = sceneScale(canvas.scene);
   const inside = canvas.tokens.placeables.filter(token => insideArea(area, token.center, tokenElevation(token), pxPerUnit));
   const limited =
-    reach && reach.free && reach.rangePx > 0 && (skill.system.areaShape === "cone" || skill.system.areaShape === "ray")
+    reach && reach.free && reach.rangePx > 0 && (mech.areaShape === "cone" || mech.areaShape === "ray")
       ? filterByReach(inside, placed.via?.point ?? reach.anchor, reach.rangePx, token => token.center)
       : inside;
-  // Quem a área atinge (todos / menos quem lançou / aliados / inimigos) e nunca os mortos.
+  // Quem a área atinge (todos / menos quem lançou / aliados / inimigos / menos quem lançou e o alvo) e nunca os mortos.
   const casterDisposition = caster ? casterTokenOf(caster)?.document?.disposition ?? null : null;
   const actors = limited
     .filter(token => token.actor && areaAffectsTarget({
-      affects: skill.system.areaAffects,
+      affects: mech.areaAffects,
       isCaster: Boolean(caster) && token.actor.uuid === caster.uuid,
+      isTarget: Boolean(target) && token.actor.uuid === target.uuid,
       dead: isDead(token.actor),
       casterDisposition,
       disposition: token.document?.disposition ?? null
     }))
     .map(token => token.actor);
   // Qual Marca serviu (a confirmação do custo e o fator vão em useSkillEffect).
-  actors.viaMark = viaMarkFrom(placed.via, reach);
+  actors.viaMark = viaMarkFrom(placed.via ?? null, reach);
   // A origem da área viaja junto (propriedade do array, então quem só lê a lista não muda): é
   // dela que se traça a linha até cada alvo pra ver se uma Estrutura está no caminho.
   actors.origin = { x: area.x, y: area.y };
   // A área inteira também (Antimagia em Emissão desfaz as Estruturas que ela toca).
   actors.area = area;
   return actors;
+}
+
+/** Posiciona a forma no mapa (com clique) e devolve `{area, via}`, ou null se cancelado. Para a Combinada, que põe uma vez. */
+export async function pickAreaPlacement(mech, reach = null, { caster = null } = {}) {
+  return placeArea(mech, reach, { caster });
+}
+
+/**
+ * A mesma posição (origem e direção) aplicada à forma de OUTRA parte: cada parte tem o seu tamanho, forma
+ * e "quem atinge", mas a Combinada põe a área uma vez só.
+ */
+export function reshapeAreaPlacement(mech, placed, { caster = null } = {}) {
+  if (!placed?.area) return null;
+  const scale = sceneScale(canvas.scene);
+  const origin = { x: placed.area.x, y: placed.area.y };
+  const elevation = Number(placed.area.elevation) || 0;
+  return { area: areaFromSkill(mech, origin, { ...scale, direction: placed.area.direction ?? 0, elevation }), via: placed.via ?? null };
+}
+
+/**
+ * Forma presa em quem lança, sem clique (círculo com o centro em quem usa): a Combinada usa nas partes de
+ * área "sai de quem lança". Devolve `{area, via: null}` ou null sem cena/Token de quem lança.
+ */
+export function casterAreaPlacement(mech, caster) {
+  const token = caster ? casterTokenOf(caster) : null;
+  if (!areaEffectsSupported() || !token?.center) return null;
+  const scale = sceneScale(canvas.scene);
+  const elevation = isElevationEnabled() ? tokenElevation(token) : 0;
+  return { area: areaFromSkill(mech, { x: token.center.x, y: token.center.y }, { ...scale, direction: 0, elevation }), via: null };
 }
 
 /* -------------------------------------------- */
@@ -266,8 +307,12 @@ export async function pickAreaTargets(skill, reach = null, { caster = null } = {
  * ou null se o usuário cancelou. Nada é criado aqui.
  */
 export async function pickZonePlacement(skill, reach = null, { caster = null } = {}) {
-  const placed = await placeArea(skill.system, reach, { caster });
-  return placed?.area ? { area: placed.area, color: userColorCss(), viaMark: viaMarkFrom(placed.via, reach) } : null;
+  return zonePlacementFrom(await placeArea(skill.system, reach, { caster }), reach);
+}
+
+/** A colocação de Zona a partir de uma área já posicionada (a Combinada põe a área uma vez). */
+export function zonePlacementFrom(placed, reach = null) {
+  return placed?.area ? { area: placed.area, color: userColorCss(), viaMark: viaMarkFrom(placed.via ?? null, reach) } : null;
 }
 
 /**
@@ -339,5 +384,5 @@ export function zoneArea(zoneDoc) {
 export function zoneContainsToken(zoneDoc, tokenDoc) {
   const area = zoneArea(zoneDoc);
   if (!area || !tokenDoc) return false;
-  return insideArea(area, tokenDocCenter(tokenDoc, zoneDoc.parent?.grid?.size), Number(tokenDoc.elevation) || 0, sceneScale(zoneDoc.parent).pxPerUnit);
+  return insideArea(area, tokenDocCenter(tokenDoc, zoneDoc.parent?.grid?.size), tokenElevation(tokenDoc), sceneScale(zoneDoc.parent).pxPerUnit);
 }

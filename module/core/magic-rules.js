@@ -150,6 +150,30 @@ export function dispelledEffects(effects = [], level = 0, kind = "magic") {
   return effects.filter(e => e[kind] && (Number(e.level) || 0) <= lvl).map(e => e.id);
 }
 
+/** Escopos do efeito Dissipar: tudo o que é mágico, só marcas, ou uma Condição escolhida. */
+export const DISPEL_SCOPES = ["all", "marks", "condition"];
+export const DISPEL_SCOPE_LABELS = { all: "todo efeito mágico", marks: "só marcas", condition: "só uma Condição" };
+
+/**
+ * Dissipar (8d.2): quais efeitos do alvo acabam. Só os MÁGICOS de nível ≤ o da Skill (alcance = o nível,
+ * sem o ×1,5 da Antimagia). `scope`: "all" = qualquer um deles; "marks" = só os de Condição marcada como
+ * marca (`markIds`); "condition" = só os da Condição `conditionId`. Pura.
+ * @param {Array<{id:string, level?:number, magic?:boolean, conditionId?:string}>} effects
+ * @returns {string[]} ids
+ */
+export function dissipatedEffects(effects = [], { level = 0, scope = "all", conditionId = "", markIds = [] } = {}) {
+  const lvl = Math.max(0, Number(level) || 0);
+  const marks = new Set(markIds);
+  return effects
+    .filter(e => {
+      if (!e.magic || (Number(e.level) || 0) > lvl) return false;
+      if (scope === "marks") return Boolean(e.conditionId) && marks.has(e.conditionId);
+      if (scope === "condition") return Boolean(conditionId) && e.conditionId === conditionId;
+      return true;
+    })
+    .map(e => e.id);
+}
+
 /** Uma fonte mágica de nível `level` está suprimida por uma supressão de nível `suppression`? */
 export function isSuppressedBy(level, suppression) {
   if (suppression === null || suppression === undefined) return false;

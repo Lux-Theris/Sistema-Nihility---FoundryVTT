@@ -27,6 +27,7 @@ import { isDesignatedGm } from "../helpers/gm-relay.js";
 import { reportError } from "../helpers/report.js";
 import { escapeHtml } from "../helpers/html.js";
 import { areaTouchesStructure } from "../structures/structure-geometry.js";
+import { tokenElevation } from "../helpers/foundry-compat.js";
 import {
   normalizeTrap, trapShouldFire, trapImmune, trapDisarmedByField, trapDisarmedByEmission, polygonSegments
 } from "./trap-rules.js";
@@ -140,7 +141,7 @@ export async function handleTrapEnter(behavior, tokenDocument) {
 
   if (trap.trigger === "once" && spent.has(behavior.uuid)) return "spent";
   const verdict = trapShouldFire(trap, {
-    elevation: tokenDocument.elevation,
+    elevation: tokenElevation(tokenDocument),
     immune: trapImmune(trap, actorTraits(actor)),
     elevationOn: isElevationEnabled()
   });

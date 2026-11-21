@@ -8,6 +8,8 @@
  * Só lê. As contas vêm de stat-explain.js (puro) sobre as mesmas listas que a preparação da ficha
  * soma (titleBonusSources/itemAttributeSources/statModifierSources em character-model.js).
  */
+import { collectLuckSources } from "../combat/luck-sources.js";
+import { LUCK_SCOPES, LUCK_SCOPE_LABELS, luckPercentText } from "../combat/luck-rules.js";
 import { SYSTEM_ID, MEU_SISTEMA, getAttributeLabel, getVitalFormula, getEnergyLabelForActor, isMovementEnabled, describeMovement, getNpcTierConfig } from "../core/config.js";
 import { NPC_TIER_LABELS } from "../npc/npc-generator-rules.js";
 import { readEffectChanges, effectModes } from "../helpers/foundry-compat.js";
@@ -113,6 +115,7 @@ export class StatBreakdownApp extends HandlebarsApplicationMixin(ApplicationV2) 
   }
 
   #statLabel() {
+    if (this.stat === "luck") return "Sorte";
     if (this.stat === "hp") return "Vida máxima";
     if (this.stat === "energy") return `${getEnergyLabelForActor(this.actor)} máxima`;
     return getAttributeLabel(this.stat);
@@ -121,8 +124,18 @@ export class StatBreakdownApp extends HandlebarsApplicationMixin(ApplicationV2) 
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
     context.statLabel = this.#statLabel();
-    context.sections = this.stat === "hp" || this.stat === "energy" ? this.#vitalSections() : this.#attributeSections();
+    context.sections = this.stat === "luck" ? this.#luckSections() : this.stat === "hp" || this.stat === "energy" ? this.#vitalSections() : this.#attributeSections();
     return context;
+  }
+
+  /** Sorte (8d.1): cada fonte e o que ela dá em cada escopo, e o total (já com o teto da mesa, se houver). */
+  #luckSections() {
+    const sources = collectLuckSources(this.actor);
+    const total = this.actor.system.luck ?? {};
+    const rows = sources.map(s => ({ label: s.label, value: LUCK_SCOPES.filter(k => s[k]).map(k => `${luckPercentText(s[k])} ${LUCK_SCOPE_LABELS[k].toLowerCase()}`).join(" · ") }));
+    const sections = [{ title: "Fontes", hint: "Tudo soma. Sorte inclina cada dado: positiva puxa para as faces altas (nas chances d100, para o resultado baixo, que é o sucesso); negativa é azar.", rows: rows.length ? rows : [{ label: "Nenhuma fonte", value: "—" }] }];
+    sections.push({ title: "Total", rows: LUCK_SCOPES.map(k => ({ label: LUCK_SCOPE_LABELS[k], value: luckPercentText(total[k] ?? 0) })) });
+    return sections;
   }
 
   #attributeSections() {

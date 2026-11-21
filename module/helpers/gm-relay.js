@@ -251,6 +251,16 @@ const HANDLERS = {
     return soulXpAsGm(payload ?? {});
   },
 
+  /**
+   * Rerrolar (8d.2): marca a rolagem antiga, troca a iniciativa, refaz o card de dano ou o d100 da Predação.
+   * Quem pede é dono da Skill de Rerrolar; o Mestre confere a Skill e se ela alcança a rolagem.
+   */
+  async rerollApply(payload, user) {
+    if (!(await mayActFor(user, payload?.skillUuid))) return refuse(RELAY_REASONS.permission);
+    const { rerollApplyAsGm } = await import("../skills/reroll.js");
+    return rerollApplyAsGm(payload ?? {}, user);
+  },
+
   /** Ergue uma Estrutura (Paredes + Desenho). Validação e catálogo ficam em structures.js. */
   async createStructure(payload, user) {
     if (!(await mayActFor(user, payload?.sourceActorUuid))) return refuse(RELAY_REASONS.permission);

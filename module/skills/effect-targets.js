@@ -107,6 +107,15 @@ export function resolveEffectChange(entry, targetActor) {
         isMultiplier: false
       };
     }
+    case "luck": {
+      // Sorte (8d.1): não mexe em campo; o efeito só carrega o flag `luck` ({value, scopes}), somado em system.luck.
+      const scopes = { attributes: Boolean(entry.luckScopes?.attributes), damage: Boolean(entry.luckScopes?.damage), chances: Boolean(entry.luckScopes?.chances) };
+      return ship ? null : { key: null, luck: { value: Number(amount) || 0, scopes }, isMultiplier: false };
+    }
+    case "magicDampen":
+      // Magia enfraquecida (8c.2): não mexe em campo; o efeito só carrega o flag `magicDampen` ({chance, percent}),
+      // lido em cada uso mágico de quem o tem (useSkillEffect).
+      return ship ? null : { key: null, magicDampen: { chance: Math.min(100, Math.max(0, Number(entry.chance ?? 100))), percent: Math.max(0, amount) }, isMultiplier: false };
     case "bodyElement":
       // Não mexe em campo: o efeito só carrega o flag `bodyElement`, lido por actorElements.
       return entry.elementId ? { key: null, bodyElement: entry.elementId, isMultiplier: false } : null;

@@ -20,6 +20,8 @@ export function buildFormSystem(templateSystem = {}, originalSystem = {}) {
   system.attributes.level = Math.max(1, Number(from.level) || 1);
   system.attributes.xp = Math.max(0, Number(from.xp) || 0);
   system.attributes.energy = { ...(system.attributes.energy ?? {}), value: Math.max(0, Number(from.energy?.value) || 0) };
+  // Pontos de Skill são da mente, não do corpo (achado do teste de 20/11: a cópia mostrava os do molde).
+  if (originalSystem?.skillPoints) system.skillPoints = structuredClone(originalSystem.skillPoints);
   system.isPlayerCharacter = originalSystem?.isPlayerCharacter ?? true;
   system.formTemplate = false;
   system.creation = { ...(system.creation ?? {}), active: false };
@@ -186,4 +188,15 @@ export function isImageFile(file) {
   const type = String(file?.type ?? "");
   if (type) return type.startsWith("image/");
   return /\.(png|jpe?g|webp|gif|avif|svg)$/i.test(String(file?.name ?? ""));
+}
+
+/**
+ * O mapa `{idOriginal: idCópia}` a partir do que `createEmbeddedDocuments` devolveu: cada Item copiado leva o
+ * carimbo `formSourceId` (id do original). Nunca pelo índice: o Foundry devolve na ordem do `sort`, não na de envio.
+ * @param {Array<{id: string, stamp: ?string}>} created
+ */
+export function itemMapFromStamps(created = []) {
+  const map = {};
+  for (const doc of created) if (doc?.stamp && doc.id) map[doc.stamp] = doc.id;
+  return map;
 }

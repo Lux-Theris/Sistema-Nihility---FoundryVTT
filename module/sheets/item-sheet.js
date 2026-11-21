@@ -1,4 +1,5 @@
 import { advancedFold } from "../helpers/advanced-fold.js";
+import { describeLuck, luckFromScopes } from "../combat/luck-rules.js";
 import { ONLY_IF_KINDS, ONLY_IF_LABELS, onlyIfNeeds, normalizeOnlyIf, hasOnlyIf, onlyIfClause } from "../skills/only-if-rules.js";
 import { getAntimagicReach,
   SYSTEM_ID,
@@ -18,6 +19,7 @@ import { getAntimagicReach,
   isStatusConditionsEnabled,
   isAreaEffectsEnabled,
   isSkillRangeEnabled,
+  isLuckEnabled,
   isForcedMovementEnabled,
   getScaleConfig,
   isScaleEnabled,
@@ -33,6 +35,7 @@ import { getAntimagicReach,
   isFormsEnabled,
   isAnalysisEnabled,
   isPredationEnabled,
+  isRerollEnabled,
   debugLog,
   getVesselSizes,
   vesselKind,
@@ -53,6 +56,9 @@ import { skillAssist, costChipHtml } from "../skills/skill-assist.js";
 import { ATTRIBUTE_PERCENT_TARGETS, PERCENT_AMOUNT_TARGETS } from "../economy/consumable-rules.js";
 import { normalizeOnHit, ON_HIT_WHEN, ON_HIT_WHEN_LABELS } from "../skills/marks-rules.js";
 import { complexityVerdict } from "../skills/skill-complexity-rules.js";
+import { REROLL_WHO, REROLL_WHO_LABELS, REROLL_KEEP_LABELS, REROLL_KIND_KEYS, REROLL_KIND_LABELS, normalizeRerollKinds, rerollKeepOptions } from "../skills/reroll-rules.js";
+import { DISPEL_SCOPES, DISPEL_SCOPE_LABELS } from "../core/magic-rules.js";
+import { isCombinedSkill, combinedHint, STRUCTURE_PLACE_OPTIONS, INTRUDER_RULE_OPTIONS } from "../skills/combined-rules.js";
 import { getDragEventData } from "../helpers/foundry-compat.js";
 import { formTemplateOf } from "../skills/forms.js";
 import { requestForm } from "../skills/form-request.js";
@@ -152,6 +158,7 @@ function headerChipsFor(item) {
       else if (sys.effectType === "form") add("Forma", "Mecânica ao usar");
       else if (sys.effectType === "analysis") add("Análise", "Mecânica ao usar");
       else if (sys.effectType === "predation") add("Predação", "Mecânica ao usar");
+      else if (sys.effectType === "reroll") add("Rerrolar", "Mecânica ao usar: usada no chat");
       else if (sys.effectType === "damage") add(`Dano · ${target}`, "Mecânica ao usar", "hp");
       else if (sys.effectType === "temporary") add(`Efeito · ${target}`, "Mecânica ao usar");
       if (sys.resistanceTarget) {
@@ -239,6 +246,8 @@ function tabsFor(item) {
         ? "análise"
         : sys.effectType === "predation"
         ? "predação"
+        : sys.effectType === "reroll"
+        ? "rerrolar"
         : { damage: "dano", temporary: `${(sys.effects ?? []).length} ef.` }[sys.effectType] ?? "";
       const passives =
         (sys.resistanceTarget ? 1 : 0) +
@@ -485,6 +494,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.inventoryEnabled = isInventoryEnabled();
     // Alcance e Marcas (H4): desligado, os campos somem da ficha (o que está salvo fica).
     context.skillRangeOn = isSkillRangeEnabled();
+    context.luckEnabled = isLuckEnabled();
     context.currencies = getActiveCurrencies();
     context.item = item;
     context.owner = item.isOwner;
@@ -567,7 +577,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const mechanicType = isStructureMechanic(sys) ? "structure" : sys.effectType;
     context.skillMechanicType = mechanicType;
     context.skillEffectTypeSeg = seg(
-      MEU_SISTEMA.SKILL_EFFECT_TYPES.filter(t => (t !== "structure" || isStructuresEnabled() || mechanicType === "structure") && (t !== "form" || isFormsEnabled() || mechanicType === "form") && (t !== "analysis" || isAnalysisEnabled() || mechanicType === "analysis") && (t !== "predation" || isPredationEnabled() || mechanicType === "predation")).map(t => [
+      MEU_SISTEMA.SKILL_EFFECT_TYPES.filter(t => (t !== "structure" || isStructuresEnabled() || mechanicType === "structure") && (t !== "form" || isFormsEnabled() || mechanicType === "form") && (t !== "analysis" || isAnalysisEnabled() || mechanicType === "analysis") && (t !== "predation" || isPredationEnabled() || mechanicType === "predation") && (t !== "reroll" || isRerollEnabled() || mechanicType === "reroll")).map(t => [
         t,
         MEU_SISTEMA.SKILL_EFFECT_TYPE_SHORT_LABELS[t],
         MEU_SISTEMA.SKILL_EFFECT_TYPE_LABELS[t]
@@ -597,6 +607,28 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       sys.areaOrigin ?? "free"
     );
     context.skillAreaAffectsSeg = seg(AREA_AFFECTS_OPTIONS, sys.areaAffects ?? "all");
+    // Combinada (8c.2): "Ao usar" só aparece numa Skill com Sub-Skills; o resto da aba some enquanto ela vale.
+    const subCount = (sys.subSkills ?? []).length;
+    context.skillHasSubSkills = subCount > 0;
+    context.skillCombined = isCombinedSkill(sys);
+    context.skillCombinedSeg = seg(
+      [
+        ["false", "Escolher uma Sub-Skill", "Usar pergunta qual Sub-Skill disparar."],
+        ["true", "Combinada · todas juntas", "Usar dispara todas as Sub-Skills em ordem, nos mesmos alvos. O Custo é pago uma vez."]
+      ],
+      String(Boolean(sys.combined))
+    );
+    context.skillCombinedHint = combinedHint(subCount);
+    context.skillStructurePlaceSeg = seg(STRUCTURE_PLACE_OPTIONS, sys.structurePlace ?? "click");
+    context.skillIntruderSeg = seg(INTRUDER_RULE_OPTIONS, sys.intruderRule ?? "");
+    // Rerrolar (8d.2): usada no chat; só aparecem as três escolhas dela.
+    context.skillIsReroll = mechanicType === "reroll";
+    if (context.skillIsReroll) {
+      context.rerollWhoSeg = seg(REROLL_WHO.map(w => [w, REROLL_WHO_LABELS[w]]), sys.rerollWho ?? "own");
+      context.rerollKeepSeg = seg(rerollKeepOptions(sys.tier).concat(sys.rerollKeep === "choose" && sys.tier !== "ultimate" ? ["choose"] : []).map(k => [k, REROLL_KEEP_LABELS[k]]), sys.rerollKeep ?? "new");
+      const kinds = normalizeRerollKinds(sys.rerollKinds);
+      context.rerollKindRows = REROLL_KIND_KEYS.map(k => ({ key: k, label: REROLL_KIND_LABELS[k], checked: kinds[k] }));
+    }
     context.skillAreaShapeSeg = seg(
       MEU_SISTEMA.SKILL_AREA_SHAPES.filter(Boolean).map(s => [s, MEU_SISTEMA.SKILL_AREA_SHAPE_LABELS[s]]),
       sys.areaShape
@@ -746,6 +778,9 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       else if (entry.target === "unarmedType") summary = `${targetLabel} → ${entry.weaponTypeId ? weaponTypeDisplay(entry.weaponTypeId) : "?"}`;
       else if (entry.target === "push") summary = `${{ pull: "Puxa", choose: "Empurra ou puxa" }[entry.pushDirection] ?? "Empurra"} ${amount} m`;
       else if (["flight", "burrow"].includes(entry.target)) summary = targetLabel;
+      else if (entry.target === "luck") summary = `Sorte ${describeLuck(luckFromScopes(amount, entry.luckScopes)) || "(sem escopo)"}`;
+      else if (entry.target === "dispelMagic") summary = `Dissipar: ${entry.dispelScope === "condition" ? `só ${condition?.label ?? "uma Condição"}` : entry.dispelScope === "marks" ? "só marcas" : "todo efeito mágico"} (nv ≤ ${Number(sys.level) || 0})`;
+      else if (entry.target === "magicDampen") summary = `Magia enfraquecida: ${Number(entry.chance ?? 100)}% das magias saem com ${amount}% da força`;
       else if (isSenseTarget(entry.target)) summary = `${SENSE_LABELS[entry.target]} ${describeSenseRange(senseRangeValue(amount))}`;
       else if (isShipTarget && entry.modifierType === "multiplier") summary = `${targetLabel} ×${(1 + amount / 100).toFixed(2).replace(".", ",")}`;
       else summary = `${targetLabel} ${signed(amount)}${entry.amountMode === "percentMax" && PERCENT_AMOUNT_TARGETS.includes(entry.target) ? (ATTRIBUTE_PERCENT_TARGETS.includes(entry.target) ? "% do total" : "% do máx.") : ""}${periodic ? " por tick" : ""}`;
@@ -769,7 +804,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       let targetGroups = getEffectTargetGroups(entry.target);
       if (onShip) targetGroups = [...targetGroups.filter(g => g.label === "Nave"), ...targetGroups.filter(g => g.label !== "Nave")];
 
-      const showCondition = context.conditionsEnabled && Boolean(entry.conditionId || entry.icon || this.#openConditionRows.has(index));
+      const showCondition = context.conditionsEnabled && entry.target !== "dispelMagic" && Boolean(entry.conditionId || entry.icon || this.#openConditionRows.has(index));
       const isCurse = Boolean(condition?.curse?.enabled);
       const isHeal = periodic && entry.target === "hp" && Number(entry.amount) > 0;
       const isShield = entry.target === "shield";
@@ -809,6 +844,16 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         durationUnit: entry.target === "push" ? "" : entry.target === "createSurface" ? "rod. (0 = a do elemento)" : ["flight", "burrow"].includes(entry.target) ? (sys.hasUpkeep ? "ativa" : "rod. (0 = até desfeito)") : isSenseTarget(entry.target) ? (sys.hasUpkeep ? "ativa" : "rod. (0 = até desfeito)") : entry.target === "mark" ? "rod. (0 = até desfeita)" : ["antimagic", "emp"].includes(entry.target) ? "rod. de supressão (0 = até tirar)" : sys.hasUpkeep ? "ativa" : periodic ? "ticks" : "rod.",
         isAntimagic: ["antimagic", "emp"].includes(entry.target),
         isMark: entry.target === "mark",
+        isDispel: entry.target === "dispelMagic",
+        dispelScopeOptions: DISPEL_SCOPES.map(sc => ({ value: sc, label: DISPEL_SCOPE_LABELS[sc], selected: sc === (entry.dispelScope || "all") })),
+        dispelNeedsCondition: entry.dispelScope === "condition",
+        dispelLevel: Number(sys.level) || 0,
+        isLuck: entry.target === "luck",
+        luckScopeAttributes: Boolean(entry.luckScopes?.attributes),
+        luckScopeDamage: Boolean(entry.luckScopes?.damage),
+        luckScopeChances: Boolean(entry.luckScopes?.chances),
+        isDampen: entry.target === "magicDampen",
+        dampenChance: Number(entry.chance ?? 100),
         isPush,
         isSense: isSenseTarget(entry.target),
         isMovementMode: ["flight", "burrow"].includes(entry.target),
@@ -1259,11 +1304,19 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       await this.item.update({ [this.#effectsPath()]: effects });
       return;
     }
+    // Sorte (8d.1): as três caixas de escopo viram um objeto só (`luckScopes`).
+    if (field.startsWith("luckScope:")) {
+      entry.luckScopes = { attributes: false, damage: false, chances: false, ...(entry.luckScopes ?? {}), [field.slice(10)]: input.checked };
+      await this.item.update({ [this.#effectsPath()]: effects });
+      return;
+    }
     if (input.type === "checkbox") entry[field] = input.checked;
     else if (input.type === "number") entry[field] = Number(input.value) || 0;
     else entry[field] = input.value.trim();
 
     if (field === "target") {
+      // Sorte: ao escolher o alvo sem escopo nenhum marcado, começa valendo em tudo.
+      if (entry.target === "luck" && !Object.values(entry.luckScopes ?? {}).some(Boolean)) entry.luckScopes = { attributes: true, damage: true, chances: true };
       if (!["hp", "energy", "shipCasco", "shipHull"].includes(entry.target)) entry.periodic = false;
       if (!MEU_SISTEMA.SHIP_EFFECT_TARGETS.includes(entry.target)) entry.modifierType = "flat";
       if (!PERCENT_AMOUNT_TARGETS.includes(entry.target)) entry.amountMode = "flat";

@@ -17,8 +17,9 @@
  * tecnológica durar (incapacitation.js). PEM em Nave/Veículo derruba Módulos e drena a Bateria
  * (starship-power.js). Skills Raciais e passivos de origem não são suprimidos pelo PEM.
  */
+import { effectRoundsUpdate, effectDurationRounds } from "../helpers/foundry-compat.js";
 import { SYSTEM_ID, getActiveStatusConditions, getAntimagicReach } from "../core/config.js";
-import { dispelledEffects, skillNature, fieldSuppressionPlan, protectedFromKind } from "../core/magic-rules.js";
+import { dispelledEffects, dissipatedEffects, skillNature, fieldSuppressionPlan, protectedFromKind } from "../core/magic-rules.js";
 import { removeShieldPool, shieldPoolsOf } from "../combat/shield-pools.js";
 import { collectActiveUpkeepSources, removeUpkeepLinkedEffects } from "./upkeep.js";
 import { skillStateUpdate } from "./skill-state.js";
@@ -194,6 +195,45 @@ async function applyDispel(target, kind, { level = 0, rounds = 0, reach: fixedRe
   return summary;
 }
 
+/**
+ * Dissipar (8d.2): o mesmo motor da Antimagia com outro modo. Termina só os Active Effects MÁGICOS do alvo
+ * de nível ≤ o da Skill (alcance = o nível, sem o ×1,5), sem aplicar "Suprimido", sem desligar Skills Ativas
+ * e sem tocar Escudos nem Estruturas. `scope`: "all" | "marks" | "condition" (+ `conditionId`).
+ * O resumo traz `xp` (o fixo por efeito terminado) e `changed`.
+ */
+export async function applyDissipate(target, { level = 0, scope = "all", conditionId = "" } = {}) {
+  const summary = [];
+  const xp = [];
+  summary.xp = xp;
+  summary.changed = 0;
+  const markIds = getActiveStatusConditions().filter(c => c.isMark).map(c => c.id);
+  const effects = target.effects.map(e => {
+    const flags = e.flags?.[SYSTEM_ID] ?? {};
+    return {
+      id: e.id,
+      name: e.name,
+      level: Number(flags.sourceLevel) || 0,
+      magic: Boolean(flags.magic),
+      conditionId: flags.conditionId || "",
+      keep: flags[SUPPRESSION_FLAG] !== undefined || flags[TECH_SUPPRESSION_FLAG] !== undefined || flags.empShutdown !== undefined || Boolean(flags.bodyInjury)
+    };
+  });
+  const candidates = effects.filter(e => !e.keep);
+  const cut = dissipatedEffects(candidates, { level, scope, conditionId, markIds });
+  if (cut.length) {
+    await target.deleteEmbeddedDocuments("ActiveEffect", cut);
+    for (let i = 0; i < cut.length; i++) xp.push({ flat: true });
+    summary.push(`${effects.filter(e => cut.includes(e.id)).map(e => e.name).join(", ")} dissipado(s)`);
+    summary.changed = cut.length;
+  }
+  // O que o escopo pegaria se o nível bastasse: resistiu.
+  const reachable = new Set(dissipatedEffects(candidates, { level: Number.MAX_SAFE_INTEGER, scope, conditionId, markIds }));
+  const resisted = candidates.filter(e => reachable.has(e.id) && !cut.includes(e.id));
+  if (resisted.length) summary.push(`${resisted.map(e => `${e.name} (nv ${e.level})`).join(", ")} resistiu(ram): nível maior que ${Math.max(0, Math.floor(Number(level) || 0))}`);
+  if (!cut.length && !resisted.length) summary.push(`nada mágico para dissipar em ${target.name}`);
+  return summary;
+}
+
 /** Marca da Supressão que veio de um campo antimagia (e não de uma Skill). */
 export const FIELD_SUPPRESSION_FLAG = "antimagicField";
 /** O mesmo para um campo de interferência. */
@@ -246,9 +286,9 @@ async function applySuppression(target, kind, reach, rounds, { field = null } = 
     const level = Math.max(Number(existing.flags[SYSTEM_ID][config.flag]) || 0, reach);
     const remaining = existing.duration?.remaining ?? null;
     const update = { [`flags.${SYSTEM_ID}.${config.flag}`]: level, name: `${condition?.label ?? config.defaultLabel} · nv ${level}` };
-    if (duration === 0) update["duration.rounds"] = null;
-    else if (existing.duration?.rounds && (remaining === null || duration > remaining)) {
-      Object.assign(update, { "duration.rounds": duration, "duration.startRound": game.combat?.round ?? 0, "duration.startTurn": game.combat?.turn ?? 0 });
+    if (duration === 0) Object.assign(update, effectRoundsUpdate(0));
+    else if (effectDurationRounds(existing) && (remaining === null || duration > remaining)) {
+      Object.assign(update, effectRoundsUpdate(duration, { combat: game.combat }));
     }
     await existing.update(update);
     return `Suprimido renovado (nv ${level})`;

@@ -160,6 +160,12 @@ export const DEFAULT_STATUS_CONDITIONS = [
   // marcou pode lançar Skills a partir do Marcado (alcance, custo × (distância ÷ alcance)²). É mágica:
   // Antimagia desfaz, e dentro de um campo ela acaba.
   { id: "marked", label: "Marcado", icon: "icons/svg/target.svg", isMark: true, explanation: "Alguém pôs uma Marca nele. Quem marcou pode lançar Skills como se estivesse onde o Marcado está, pagando mais quanto mais longe estiver. A Antimagia desfaz a Marca." },
+  // Marca do Duelo (8c.2): uma Marca de outro tipo, posta ao acertar ou direto por uma Skill. Só o ícone: o que ela
+  // permite é decidido pelas Skills ("Só se o alvo tem a Marca do Duelo posta por mim").
+  { id: "duel-mark", label: "Marca do Duelo", icon: "icons/svg/sword.svg", isMark: true, explanation: "Foi escolhido para um duelo por alguém. As Skills dessa pessoa que pedem a Marca do Duelo só funcionam contra ele." },
+  // Sorte (8d.1): exemplos de Condição com sorte/azar em tudo (o que a Sorte faz: ver combat/luck-rules.js).
+  { id: "blessed", label: "Abençoado", icon: "icons/svg/angel.svg", luck: { attributes: 30, damage: 30, chances: 30 }, explanation: "A sorte está com ele: seus dados caem melhor (+30% de sorte nos atributos, no dano e nas chances)." },
+  { id: "jinxed", label: "Azarado", icon: "icons/svg/skull.svg", luck: { attributes: -30, damage: -30, chances: -30 }, explanation: "O azar o persegue: seus dados caem pior (−30% de sorte nos atributos, no dano e nas chances)." },
   // Exemplo de Maldição (prancha 6): vários efeitos, sem prazo, paga pela Mana da vítima.
   { id: "curse-blood", label: "Maldição de Sangue", icon: "icons/svg/blood.svg", healBlock: { kinds: "regen", scope: "body" },
     curse: { enabled: true, costPercent: 5, onUnpaid: "hp", worsenStep: 25, worsenCap: 3, effects: [

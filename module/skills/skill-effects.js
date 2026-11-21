@@ -7,14 +7,14 @@
  *    HP/Mana Máximo mesmo quando o alvo é um atributo); "shield" é somado
  *    direto, sem duração, gasto na mão pelo jogador conforme absorve dano.
  */
-import { getActiveStatusConditions, getEnergyLabelForActor, isEnergyPoolEnabled, effectiveSkillCost, isStructureMechanic, manaInvestmentPower, getManaInvestConfig, isMagicUse, isTechUse, technomagicFactor, getTechnomagicPower, isInterferenceEnabled } from "../core/config.js";
+import { SYSTEM_ID, getActiveStatusConditions, getEnergyLabelForActor, isEnergyPoolEnabled, effectiveSkillCost, isStructureMechanic, manaInvestmentPower, getManaInvestConfig, isMagicUse, isTechUse, technomagicFactor, getTechnomagicPower, isInterferenceEnabled } from "../core/config.js";
 import { manaDensityFor } from "../environment/environment.js";
 import { castPowerFromDensity, densitySustainsMagic } from "../environment/environment-rules.js";
 import { chargeAntimagic, placementTargets, fieldGate, creditManipulation } from "../combat/antimagic.js";
 import { suppressionLevel, techSuppressionLevel } from "../core/suppression.js";
 import { skillIsMagic, skillIsTech } from "../core/magic-rules.js";
 import { createZone } from "../combat/area-effects.js";
-import { grantSkillUseXp, vitalBase } from "./skill-xp.js";
+import { grantSkillUseXp, vitalBase, withXpBatch } from "./skill-xp.js";
 import { afterSkillStrike, strikeBlockReason } from "../combat/weapon-mastery.js";
 import { resolveWeaponStrike } from "../combat/weapon-mastery-rules.js";
 import { blockIfIncapacitated, knockUnconscious } from "../combat/incapacitation.js";
@@ -42,7 +42,10 @@ import { applyEffectChoices, normalizeEffectRequest, splitByWriteAccess } from "
 import { requestTransform } from "./forms.js";
 import { useAnalysis } from "./analysis.js";
 import { usePredation } from "./predation.js";
+import { performReroll } from "./reroll.js";
 import { applyBorrowedCooldown, isBorrowedUseAllowed, borrowedVia } from "./borrowed-skills.js";
+import { isCombinedSkill, combinedPartMech, combinedSentence, resolveMagicDampen, dampenLine } from "./combined-rules.js";
+import { reportError } from "../helpers/report.js";
 
 /**
  * Ponto de entrada único de "Usar Habilidade".
@@ -95,6 +98,7 @@ async function resolveOverdraw(sourceActor, skillId, options, info) {
   await roll.toMessage(
     {
       speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
+      flags: { [SYSTEM_ID]: { nihilityRoll: { kind: "overdraw", actorUuid: sourceActor.uuid, formula: roll.formula, total: roll.total } } },
       flavor: `<strong>${escapeHtml(sourceActor.name)}</strong> foi além do que tinha de ${energy} em <strong>${escapeHtml(label)}</strong>: investiu ${info.invested} tendo ${Math.floor(info.current)} — <strong>+${info.percent}% além</strong>. O Mestre diz o que o d100 significa; ${energy} vai a 0 e a pessoa cai Inconsciente.`
     },
     publicRollModeOption()
@@ -125,9 +129,12 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
     }
   }
 
+  // Combinada (8c.2): um uso dispara todas as Sub-Skills. A mecânica de Custo, Ativa e nível é a da Skill-mãe.
+  const combined = Boolean(options.combined) && options.subSkillIndex == null && isCombinedSkill(skill.system);
+
   if (mech.hasUpkeep && mech.active) {
     timers.skip = true;
-    await skill.update(skillStateUpdate(skill, options.subSkillIndex, { active: false, markFactor: 1 }));
+    await skill.update(skillStateUpdate(skill, options.subSkillIndex, { active: false, markFactor: 1, activeTargetUuid: "" }));
     await removeUpkeepLinkedEffects(skill, options.subSkillIndex ?? null);
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
@@ -138,6 +145,12 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
 
   // Caído/Inconsciente (incapacitation.js): não usa Habilidade nenhuma.
   if (blockIfIncapacitated(sourceActor, "usar Habilidades")) return null;
+
+  // Rerrolar (8d.2): só se usa pelo botão do card da rolagem, no chat — nunca da ficha nem da hotbar.
+  if (mech.effectType === "reroll" && !options.reroll) {
+    ui.notifications?.info(`${label} é usada no chat: clique em "Rerrolar" no card da rolagem que ela alcança.`);
+    return null;
+  }
 
   // Recarga ou Preparo em andamento (H3). O disparo de um Preparo (`prepaid`) já passou por aqui.
   if (!options.prepaid) {
@@ -210,7 +223,7 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
   let overdraw = null;
   const investConfig = getManaInvestConfig();
   const canInvest = cost > 0 && !isShipLike(sourceActor);
-  const preparing = Number(mech.prepTurns) > 0 && !options.prepaid && inStartedCombat(sourceActor);
+  const preparing = Number(mech.prepTurns) > 0 && !options.prepaid && !combined && inStartedCombat(sourceActor);
   if (options.prepaid) {
     // Disparo de um Preparo (H3): o Custo já foi pago, parte por turno; só a força do investimento vale.
     paid = 0;
@@ -296,7 +309,9 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
   }
   if (mech.hasUpkeep) {
     // A razão investida fica guardada: o Custo por rodada é cobrado vezes ela enquanto ligada.
-    await skill.update(skillStateUpdate(skill, options.subSkillIndex, { active: true, investRatio: investRatio, markFactor }));
+    // O alvo escolhido fica guardado (desliga se ele cair; quem entra na bolha é comparado com ele).
+    const activeTargetUuid = mech.endsWhenTargetFalls || mech.intruderRule ? options.targetActor?.uuid ?? "" : "";
+    await skill.update(skillStateUpdate(skill, options.subSkillIndex, { active: true, investRatio: investRatio, markFactor, activeTargetUuid }));
   }
   // Skill emprestada (7a): uma linha diz de quem é a Skill (o card do uso, para o Desfazer, é o mesmo).
   if (options.borrowedSkill) {
@@ -308,7 +323,15 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
   // Daqui pra frente a Skill carrega a força do investimento (dano, Efeitos, Vida de Estrutura).
   // Tecnomágico (mágico E tecnológico) sai mais forte (Regras da Mesa).
   const technomagic = technomagicFactor(isMagicUse(mech, sourceActor), isTechUse(mech, sourceActor), getTechnomagicPower());
-  const investPower = manaInvestmentPower(investRatio, investConfig.exponent) * manaDensity * technomagic;
+  let investPower = manaInvestmentPower(investRatio, investConfig.exponent) * manaDensity * technomagic;
+  // Magia enfraquecida (8c.2): efeitos no próprio usuário sorteiam, a cada uso mágico, se a força sai menor.
+  if (isMagicUse(mech, sourceActor) && !isShipLike(sourceActor)) {
+    const dampened = await rollMagicDampen(sourceActor);
+    if (dampened.factor !== 1) {
+      investPower *= dampened.factor;
+      await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor: sourceActor }), content: `<p><strong>${escapeHtml(sourceActor.name)}</strong>: <strong>${escapeHtml(label)}</strong> ${escapeHtml(dampenLine(dampened))}.</p>` });
+    }
+  }
   if (manaDensity > 1) ui.notifications?.info(`Mana densa aqui (×${manaDensity}): ${label} sai com essa força.`);
   // `paidCost`: o Custo realmente pago (com o investimento), base do extra de Antimagia. `fieldGated`:
   // o portão do campo já foi passado (chargeAntimagic não cobra de novo quem usa de dentro).
@@ -316,9 +339,21 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
   // `viaMark`: de onde o uso sai (Estruturas no caminho e campos de antimagia contam a partir do Marcado).
   mech = { ...(typeof mech.toObject === "function" ? mech.toObject() : mech), investPower, paidCost, fieldGated: true, viaMark };
 
+  if (combined) return runCombinedParts({ sourceActor, skill, skillId, parentMech: mech, label, options, viaMark, investPower });
+  return dispatchMechanic({ sourceActor, skill, skillId, mech, label, options, viaMark });
+}
+
+/**
+ * A mecânica já paga e com a força resolvida (`mech.investPower`): dispara o que ela faz. Fica à parte para a
+ * Combinada rodar o mesmo caminho em cada parte, com a Skill-mãe como dona (`options.subSkillIndex` nulo).
+ */
+async function dispatchMechanic({ sourceActor, skill, skillId, mech, label, options, viaMark }) {
   // Dispara e esquece — nunca aguardado, a animação não deve atrasar a mecânica/chat. Dano em alvo
   // único toca a animação dentro de `rollSkillDamage`, que sabe se uma Estrutura segurou o golpe
   // (a animação para na parede) e se sobrou dano pra seguir até o alvo.
+  // Rerrolar (8d.2): a Skill já foi paga; refaz a rolagem do card escolhido.
+  if (mech.effectType === "reroll") return performReroll(sourceActor, skill, mech, label, options);
+
   const damagesOneTarget = mech.effectType === "damage" && mech.targetType !== "emission" && mech.targetType !== "zone" && !isStructureMechanic(mech);
   if (!damagesOneTarget) playSkillAnimation(sourceActor, mech, { targetActor: options.targetActor ?? options.targetActors?.[0] ?? null });
 
@@ -426,6 +461,60 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
 }
 
 /**
+ * Magia enfraquecida (8c.2): os efeitos "magicDampen" ativos em quem usa (postos por qualquer um) sorteiam, a
+ * cada uso mágico, se a força sai menor. Devolve o fator (1 = nada pegou) e o que pegou, para a linha do chat.
+ */
+async function rollMagicDampen(actor) {
+  const dampens = (actor?.effects ?? [])
+    .filter(e => !e.disabled && e.flags?.[SYSTEM_ID]?.magicDampen)
+    .map(e => e.flags[SYSTEM_ID].magicDampen);
+  if (!dampens.length) return { factor: 1, applied: [], missed: 0 };
+  const rolls = [];
+  for (const d of dampens) rolls.push(Number(d.chance) >= 100 ? 1 : (await new Roll("1d100").evaluate()).total);
+  let next = 0;
+  return resolveMagicDampen(dampens, () => rolls[next++] ?? 100);
+}
+
+/**
+ * Combinada (8c.2): a Skill-mãe já pagou (Custo, Ativa, investimento) e já está ligada; agora cada Sub-Skill
+ * dispara em ordem, nos mesmos alvos escolhidos uma vez (`options.combined.parts[i]`: a área já resolvida, a
+ * colocação da Zona ou da Estrutura). As partes rodam com `subSkillIndex` nulo: o que elas prendem fica
+ * ancorado à Skill-mãe, e desligá-la solta tudo.
+ */
+async function runCombinedParts({ sourceActor, skill, skillId, parentMech, label, options, viaMark, investPower }) {
+  const parts = skill.system.subSkills ?? [];
+  const nature = { magic: isMagicUse(parentMech, sourceActor), tech: isTechUse(parentMech, sourceActor) };
+  const plan = options.combined?.parts ?? {};
+  await ChatMessage.create({
+    speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
+    content: `<p><strong>${escapeHtml(sourceActor.name)}</strong> usou <strong>${escapeHtml(label)}</strong> (${escapeHtml(combinedSentence(skill.system))}).</p>`
+  });
+  let any = false;
+  // A XP por uso é uma só para a Skill-mãe (a da parte que mais rende), não uma por parte.
+  await withXpBatch(skill, async setPart => {
+  for (const [index, part] of parts.entries()) {
+    setPart(index);
+    const partMech = { ...combinedPartMech(skill.system, part, nature), investPower, paidCost: 0, fieldGated: true, viaMark, combinedPartIndex: index };
+    const chosen = plan[index] ?? {};
+    const { combined: _combined, ...baseOptions } = options;
+    const partOptions = { ...baseOptions, subSkillIndex: null };
+    if (isStructureMechanic(partMech)) partOptions.structurePlacement = chosen.structurePlacement ?? null;
+    else if (partMech.targetType === "zone") partOptions.zonePlacement = chosen.zonePlacement ?? null;
+    else if (partMech.targetType === "emission") partOptions.targetActors = chosen.targetActors ?? [];
+    else if (partMech.targetType === "self") partOptions.targetActor = sourceActor;
+    const partLabel = `${label} — ${part.name}`;
+    try {
+      const result = await dispatchMechanic({ sourceActor, skill, skillId, mech: partMech, label: partLabel, options: partOptions, viaMark });
+      if (result) any = true;
+    } catch (err) {
+      reportError(`Falha na parte "${part.name}" de ${label}.`, err);
+    }
+  }
+  });
+  return any;
+}
+
+/**
  * Uso anulado pelo campo (nada foi aplicado): um aviso no chat. Devolve true: o uso já foi PAGO e
  * "saiu" (gasta o consumível e começa a Recarga) — só não chegou a ninguém.
  */
@@ -499,6 +588,7 @@ async function applyEffectsToTargets(skill, mech, label, targets, subSkillIndex,
       {
         sourceUuid: skill.uuid,
         subSkillIndex,
+        ...(Number.isInteger(mech.combinedPartIndex) ? { partIndex: mech.combinedPartIndex } : {}),
         targetUuids: remote.map(t => t.uuid),
         investPower: mech.investPower ?? 1,
         // Skill emprestada (7a): quem usa não é dono da Skill; o Mestre confere o vínculo.
@@ -591,6 +681,12 @@ export async function applySkillEffectsAsGm(payload, user) {
       if (!sub) return refuse(RELAY_REASONS.invalid);
       mech = sub;
       label = `${origin.name} — ${sub.name}`;
+    } else if (request.partIndex != null) {
+      // Parte de uma Combinada (8c.2): a mecânica da parte, ancorada à Skill-mãe (sem índice de Sub-Skill).
+      const part = isCombinedSkill(origin.system) ? origin.system.subSkills[request.partIndex] : null;
+      if (!part) return refuse(RELAY_REASONS.invalid);
+      mech = combinedPartMech(origin.system, part, { magic: isMagicUse(origin.system, origin.parent), tech: isTechUse(origin.system, origin.parent) });
+      label = `${origin.name} — ${part.name}`;
     }
   } else if (origin.system?.consumable?.enabled) {
     const { consumableMech } = await import("../economy/consumables.js");

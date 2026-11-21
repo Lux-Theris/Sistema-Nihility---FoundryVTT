@@ -250,7 +250,7 @@ export async function damageBodyPart(actor, amount, { partId = null, sever = fal
  * Naves). Devolve `{id, name}` ou `null` (o Aplicar sorteia a parte). Desligável nas opções do
  * bloco Ferimentos por parte; fechar = não mirar.
  */
-export async function promptTargetBodyPart(targetActor) {
+export async function promptTargetBodyPart(targetActor, { used = "A Habilidade já foi usada" } = {}) {
   if (targetActor?.type !== "character" || !isBodyInjuryEnabled() || !isAnatomyEnabled()) return null;
   if (!getFeatureOption("bodyPartInjury", "aimBodyPart")) return null;
   const parts = partsSnapshot(targetActor).filter(p => p.state !== "lost");
@@ -263,7 +263,7 @@ export async function promptTargetBodyPart(targetActor) {
     content: `
       <div class="nihility-target-module">
         <p>O dano que chegar na Vida também cai na parte escolhida. Sem mirar, cai numa parte sorteada (as maiores têm mais chance).</p>
-        <p><em>A Habilidade já foi usada — fechar esta janela é o mesmo que Sem mirar.</em></p>
+        <p><em>${used} — fechar esta janela é o mesmo que Sem mirar.</em></p>
         <select name="targetPart"><option value="">Nenhuma · golpe no corpo</option>${options}</select>
       </div>`,
     buttons: [

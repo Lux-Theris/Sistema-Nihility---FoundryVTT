@@ -299,6 +299,12 @@ export async function evolveSkill(actor, sourceItemId, newSkillData) {
       weaponStrike: newSkillData.weaponStrike ?? "",
       strikeRequiresWeapon: newSkillData.strikeRequiresWeapon ?? true,
       onlyIf: newSkillData.onlyIf ?? source.system.onlyIf ?? { kind: "", value: "", threshold: 50 },
+      structurePlace: newSkillData.structurePlace ?? "click",
+      endsWhenTargetFalls: Boolean(newSkillData.endsWhenTargetFalls),
+      intruderRule: newSkillData.intruderRule ?? "",
+      rerollWho: newSkillData.rerollWho ?? "own",
+      rerollKeep: newSkillData.rerollKeep ?? "new",
+      rerollKinds: newSkillData.rerollKinds ?? { attribute: true, initiative: true, damage: true, chances: true },
       // "Ao acertar" (8c.1): o editor rápido não o muda; a Evolução leva o da Skill antiga.
       onHit: newSkillData.onHit ?? foundry.utils.deepClone(source.system.onHit ?? { conditionId: "", chance: 100, rounds: 0, when: "always" }),
       evolvedFrom: source.name

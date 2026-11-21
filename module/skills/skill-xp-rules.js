@@ -61,3 +61,23 @@ export function effectEntryMeasures(entry, { attributeTotal = null, vitalMax = n
   else if (!hasCondition) out.push({ flat: true });
   return out;
 }
+
+/**
+ * Combinada (achado de 21/11): um uso de uma Skill Combinada rende a XP de UMA parte, a que mais rende, e não a soma
+ * das partes (4 partes enchiam a barra no 1º uso). Recebe as medidas de cada parte e devolve as da melhor.
+ * @param {Array<Array<object>>} partsMeasures
+ * @param {object} cfg - o mesmo de `skillUseXp`
+ */
+export function largestXpMeasures(partsMeasures, cfg = {}) {
+  let best = [];
+  let bestGain = -1;
+  for (const measures of partsMeasures ?? []) {
+    if (!measures?.length) continue;
+    const gain = skillUseXp(measures, cfg);
+    if (gain > bestGain) {
+      bestGain = gain;
+      best = measures;
+    }
+  }
+  return best;
+}

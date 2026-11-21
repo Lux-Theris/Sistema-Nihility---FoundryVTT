@@ -6,8 +6,11 @@
  * resolvidos (custo efetivo pelo nível, rótulo da energia) chegam em `ctx`, montado com os
  * leitores de config.js por `skillSummariesFor` (skill-summary-ui.js).
  */
+import { LUCK_SCOPES, LUCK_SCOPE_LABELS, luckPercentText } from "../combat/luck-rules.js";
 import { onlyIfClause } from "./only-if-rules.js";
 import { normalizeOnHit } from "./marks-rules.js";
+import { combinedSentence } from "./combined-rules.js";
+import { rerollSentence } from "./reroll-rules.js";
 import { strikeSentence } from "../combat/weapon-mastery-rules.js";
 import { isSenseTarget, SENSE_LABELS, describeSenseRange, senseRangeValue } from "../combat/senses-rules.js";
 
@@ -36,7 +39,13 @@ function describeEffectCore(entry, ctx) {
     return `deixa ${label} no chão${meters > 0 ? ` (raio ${String(meters).replace(".", ",")} m)` : ""}`;
   }
   if (entry.target === "flight") return "voo";
+  // Sorte (8d.1): "sorte +30% nos dados (atributos, dano)".
+  if (entry.target === "luck") return `sorte ${luckPercentText(Number(entry.amount) || 0)} nos dados (${LUCK_SCOPES.filter(k => entry.luckScopes?.[k]).map(k => LUCK_SCOPE_LABELS[k].toLowerCase()).join(", ") || "sem escopo"})`;
+  // Magia enfraquecida (8c.2): "50% das magias do alvo saem com 50% da força".
+  if (entry.target === "magicDampen") return `${Math.round(Number(entry.chance ?? 100))}% das magias do alvo saem com ${Math.round(Number(entry.amount) || 0)}% da força`;
   if (entry.target === "burrow") return "escava";
+  // Dissipar (8d.2): "dissipa efeitos mágicos (só marcas)".
+  if (entry.target === "dispelMagic") return `dissipa ${entry.dispelScope === "marks" ? "marcas" : entry.dispelScope === "condition" ? `${ctx.conditions?.[entry.conditionId] ?? entry.conditionId ?? "uma Condição"} mágica` : "efeitos mágicos"}`;
   if (entry.target === "unarmedType") return `desarmado vira ${ctx.weaponTypes?.[entry.weaponTypeId] ?? entry.weaponTypeId ?? "?"}`;
   // Sentidos (J4b): "sentido sísmico 10 m", "ver o invisível (sem limite)".
   if (isSenseTarget(entry.target)) {
@@ -67,6 +76,7 @@ function describeMechanic(mech, ctx) {
   }
   if (mech.effectType === "analysis") return "analisa um alvo";
   if (mech.effectType === "predation") return "preda um alvo derrotado";
+  if (mech.effectType === "reroll") return rerollSentence(mech);
   if (mech.effectType === "form") return `Forma: ${ctx.formName?.(mech.formActorUuid) ?? "(sem ficha)"}`;
   if (mech.effectType === "structure" || mech.targetType === "structure") {
     const regen = Number(mech.structureRegen) || 0;
@@ -108,7 +118,7 @@ function describeRange(mech) {
     }
   }
   if (area) {
-    const who = { notCaster: "poupa você", allies: "só aliados", enemies: "só inimigos" }[mech.areaAffects];
+    const who = { notCaster: "poupa você", allies: "só aliados", enemies: "só inimigos", othersExceptTarget: "poupa você e o alvo" }[mech.areaAffects];
     if (who) out.push(who);
   }
   return out;
@@ -129,12 +139,13 @@ export function skillSummaryParts(mech, ctx = {}) {
   const subSkills = mech.subSkills?.length ?? 0;
 
   if (subSkills) {
-    parts.push(`${subSkills} Sub-Skill${subSkills === 1 ? "" : "s"}`);
+    // Combinada (8c.2): "Combinada: A + B + C"; uma Skill fundida só diz quantas Sub-Skills tem.
+    parts.push(mech.combined ? combinedSentence(mech) : `${subSkills} Sub-Skill${subSkills === 1 ? "" : "s"}`);
   } else {
     const mechanic = describeMechanic(mech, ctx);
     if (mechanic) {
       parts.push(mechanic);
-      if (mech.effectType !== "structure" && mech.targetType !== "structure" && mech.effectType !== "form") parts.push(describeReach(mech));
+      if (mech.effectType !== "structure" && mech.targetType !== "structure" && mech.effectType !== "form" && mech.effectType !== "reroll") parts.push(describeReach(mech));
       if (ctx.skillRange !== false) parts.push(...describeRange(mech));
       // Golpe de arma (H6): "golpe desarmado" / "golpe de Lâminas".
       if (mech.effectType === "damage" && mech.weaponStrike && ctx.strikesOn) parts.push(strikeSentence(mech.weaponStrike, ctx.weaponTypes?.[mech.weaponStrike]) + (mech.weaponStrike !== "unarmed" && mech.strikeRequiresWeapon !== false ? " (com a arma)" : ""));
@@ -150,6 +161,10 @@ export function skillSummaryParts(mech, ctx = {}) {
     const when = onHit.when === "on" ? " enquanto ligada" : onHit.when === "off" ? " enquanto desligada" : "";
     parts.push(`seus golpes põem ${name}${onHit.chance < 100 ? ` (${onHit.chance}%)` : ""}${when}`);
   }
+  // O duelo (8c.2): quando a Skill Ativa desliga sozinha.
+  if (mech.hasUpkeep && mech.endsWhenTargetFalls) parts.push("desliga se o alvo cair");
+  if (mech.hasUpkeep && mech.intruderRule === "break") parts.push("desliga se alguém entrar na Estrutura");
+  if (mech.hasUpkeep && mech.intruderRule === "include") parts.push("quem entrar na Estrutura recebe o efeito no alvo");
   if (ctx.resistance) parts.push(ctx.resistance);
   // Maestria de arma (H6): a frase pronta ("Maestria: Lâminas · +15% de dano") vem de fora.
   if (ctx.mastery) parts.push(ctx.mastery);

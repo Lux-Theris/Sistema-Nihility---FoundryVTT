@@ -65,6 +65,11 @@ export function isForcedMovementEnabled() {
   return isFeatureEnabled("forcedMovement");
 }
 
+/** Sorte e azar (item 8d.1): inclinação dos dados. Desligado: nenhuma sorte conta e os campos somem. */
+export function isLuckEnabled() {
+  return isFeatureEnabled("luck");
+}
+
 /** Reações elementais (item 8.1): o golpe reage com as marcas do alvo. Desligado: nada reage. */
 export function isReactionsEnabled() {
   return isFeatureEnabled("reactions");
@@ -108,6 +113,11 @@ export function isAnalysisEnabled() {
 /** Predação (7b): Mecânica de Skill que absorve Skills, pontos e forma de um alvo derrotado. */
 export function isPredationEnabled() {
   return isFeatureEnabled("predation");
+}
+
+/** Rerrolar (8d.2): Mecânica de Skill usada no chat para refazer uma rolagem. */
+export function isRerollEnabled() {
+  return isFeatureEnabled("reroll");
 }
 
 /** Pacto (7a): Skills emprestadas pelo patrono ao bruxo. */

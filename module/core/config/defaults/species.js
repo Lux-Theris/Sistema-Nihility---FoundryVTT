@@ -535,7 +535,10 @@ export const DEFAULT_TRAITS = [
   { id: "burrowing", label: "Escavador" },
   { id: "wingless", label: "Sem Asas" },
   { id: "undead", label: "Morto-vivo" },
-  { id: "beast", label: "Besta" }
+  { id: "beast", label: "Besta" },
+  // Sorte (8d.1): Traços que carregam sorte própria (campos luck* do catálogo de Traços).
+  { id: "lucky", label: "Sortudo", luckChances: 20 },
+  { id: "unlucky", label: "Azarado", luckAttributes: -20, luckDamage: -20, luckChances: -20 }
 ];
 
 /**

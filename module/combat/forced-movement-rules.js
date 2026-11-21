@@ -126,7 +126,16 @@ export function pathStop(from, to, walls = [], radiusPx = 0) {
     if (t !== null && (!best || t < best.t)) best = { t, wall };
   }
   if (!best || length < 1e-9) return { point: { x: num(to?.x), y: num(to?.y) }, traveledPx: length, hit: null };
-  const traveledPx = Math.max(0, best.t * length - Math.max(0, num(radiusPx)));
+  // O corpo (quadrado de meia largura `radiusPx`) encosta na parede antes do centro chegar nela: a folga ao longo do
+  // caminho é a meia largura projetada na normal da parede ÷ o cosseno do ângulo (reta perpendicular: só a meia largura).
+  const [wx1, wy1, wx2, wy2] = best.wall.segment.map(Number);
+  const wallLen = Math.hypot(wx2 - wx1, wy2 - wy1) || 1;
+  const nx = -(wy2 - wy1) / wallLen;
+  const ny = (wx2 - wx1) / wallLen;
+  const cos = Math.max(0.2, Math.abs(((num(to.x) - num(from.x)) / length) * nx + ((num(to.y) - num(from.y)) / length) * ny));
+  const r = Math.max(0, num(radiusPx));
+  const retreat = (r * (Math.abs(nx) + Math.abs(ny))) / cos;
+  const traveledPx = Math.max(0, best.t * length - retreat);
   const k = traveledPx / length;
   return {
     point: { x: num(from.x) + (num(to.x) - num(from.x)) * k, y: num(from.y) + (num(to.y) - num(from.y)) * k },
@@ -235,4 +244,15 @@ export function areaReaches3d({ shape, radiusUnits, planarUnits, areaElevation =
 
 function trim(value) {
   return String(Math.round(num(value) * 10) / 10).replace(".", ",");
+}
+
+/** Aviso de Deslocamento gasto: "Deslocamento desta rodada gasto: 6 de 7 m". Pura. */
+export function movementSpentText(used, allowance) {
+  const fmt = value => String(Math.round(num(value) * 10) / 10).replace(".", ",");
+  return `Deslocamento desta rodada gasto: ${fmt(used)} de ${fmt(allowance)} m`;
+}
+
+/** Já passou o intervalo mínimo desde o último aviso? (agora/último em ms). Pura. */
+export function shouldNotifyAgain(now, last, minGapMs = 4000) {
+  return !Number.isFinite(last) || num(now) - num(last) >= minGapMs;
 }

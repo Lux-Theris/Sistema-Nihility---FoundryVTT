@@ -287,6 +287,10 @@
             <button type="button" class="btn-mini reset gm-attr-reset" data-action="gmResetAllAttributePoints" title="Devolve TODOS os pontos alocados (confirmados e pendentes) ao Pool livre, pro jogador redistribuir">↺ Zerar pontos (Mestre)</button>
             {{/if}}{{/if}}
 
+            {{#if luckLine}}
+            <div class="attr-luck" title="Sorte: inclina os dados a seu favor (ou contra, se negativa)"><span class="al-label">Sorte</span><span class="al-text">{{luckLine}}</span><a class="stat-explain" data-action="explainStat" data-stat="luck" title="De onde vem a Sorte"><i class="fas fa-circle-info"></i></a></div>
+            {{/if}}
+
             {{#if vitalPreview}}
             <div class="attr-preview" aria-label="Ao confirmar">
               <p class="ap-title">Ao confirmar</p>

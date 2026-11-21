@@ -1,4 +1,5 @@
 import { effectAnchors, finiteRemaining, anchorLifetime, PERMANENT } from "../combat/effect-anchors.js";
+import { describeLuck } from "../combat/luck-rules.js";
 import { borrowedSectionsFor, useBorrowedSkill, linkRowsFor, cutLink, toggleAcceptRequests, setPactReleased, createPactDialog } from "../skills/borrowed-skills.js";
 import { namingContext, openNamingBank } from "../species/naming.js";
 import { isPactEnabled } from "../core/config.js";
@@ -540,7 +541,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.anatomyEnabled = isAnatomyEnabled();
     context.skillFusionEnabled = isSkillFusionEnabled();
     context.skillPointsEnabled = isSkillPointsEnabled();
-    context.attributePoolEnabled = isAttributePoolEnabled();
+    // A cópia de uma Forma tem os atributos do molde: o orçamento de pontos do personagem não vale nela (mostrava "-20 livres").
+    context.attributePoolEnabled = isAttributePoolEnabled() && !actor.getFlag(SYSTEM_ID, "formOf");
     context.energyPoolEnabled = isEnergyPoolEnabled();
     context.isGM = game.user.isGM;
     // Nível de NPC (M6): select só do Mestre, só em NPC, só com o bloco ligado.
@@ -601,6 +603,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.canUpload = canUploadImages();
     context.canUseGallery = canUseGallery();
     // "Ao confirmar" (prancha 2 B): Vida/Mana/iniciativa com os pendentes, dentro e fora da criação.
+    // Sorte (8d.1): a linha só aparece quando há alguma (≠ 0).
+    context.luckLine = describeLuck(actor.system.luck);
     context.vitalPreview = context.attributePoolEnabled && (context.creation || context.attributePointsPending) ? vitalPreviewFor(actor) : null;
     // "Começar de um jeito" (prancha 2 D): só enquanto nenhum ponto foi confirmado.
     context.quickSpreads =

@@ -1,17 +1,18 @@
-import { isAreaEffectsEnabled, isEnergyPoolEnabled, effectiveSkillCost, getEnergyLabelForActor } from "../core/config.js";
+import { isAreaEffectsEnabled, isEnergyPoolEnabled, effectiveSkillCost, getEnergyLabelForActor, actorToken } from "../core/config.js";
 import { isShipLike } from "../starship/ship-damage.js";
 import { currentEnergyValue, warnInsufficientEnergy } from "./skill-state.js";
 import { useBlockReason } from "./preparation.js";
 import { strikeBlockReason } from "../combat/weapon-mastery.js";
 import { useSkillEffect } from "./skill-effects.js";
 import { skillUseMode } from "./skill-use-mode.js";
-import { getStructure, pickStructurePlacement } from "../structures/structures.js";
-import { areaEffectsSupported, pickAreaTargets, pickZonePlacement } from "../combat/area-effects.js";
+import { getStructure, pickStructurePlacement, structurePlacementAround } from "../structures/structures.js";
+import { areaEffectsSupported, pickAreaTargets, pickZonePlacement, pickAreaPlacement, reshapeAreaPlacement, casterAreaPlacement, resolveAreaTargets, zonePlacementFrom } from "../combat/area-effects.js";
+import { isCombinedSkill, combinedPlan, combinedPartMech, isCasterBoundCircle } from "./combined-rules.js";
 import { rollOptionsFromEvent } from "../apps/roll-options-dialog.js";
 import { blockIfIncapacitated } from "../combat/incapacitation.js";
 import { escapeHtml } from "../helpers/html.js";
 import { reportError } from "../helpers/report.js";
-import { reachContext, resolveTargetReach, confirmMarkCost } from "../combat/range.js";
+import { reachContext, resolveTargetReach, confirmMarkCost, casterTokenOf } from "../combat/range.js";
 import { shapeIsFree } from "../combat/range-rules.js";
 import { isWeaponMasteryEnabled } from "../combat/weapon-mastery.js";
 import { formUseBlock, formUseCheck } from "./forms.js";
@@ -51,6 +52,9 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget, bo
   // Caído/Inconsciente (só Personagem): avisa antes de pedir Sub-Skill ou alvo. Desligar uma Ativa
   // continua possível (ela já foi desligada ao cair, mas uma ligada à mão depois pode ser desligada).
   // Com Sub-Skills, a escolha abre se alguma estiver ligada; a escolhida é conferida depois.
+  // Combinada (8c.2): um uso dispara todas as Sub-Skills; as escolhas saem uma vez só.
+  if (isCombinedSkill(skill.system)) return useCombinedFlow(actor, skill, { event, pickTarget, useSkill });
+
   const subSkills = skill.system.subSkills ?? [];
   const isOnToggle = m => Boolean(m?.hasUpkeep && m.active);
   const incapacitatedCheck = actor.type === "character";
@@ -133,19 +137,41 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget, bo
     try {
       let structurePlacement = null;
       let viaMark = null;
+      let pickedTarget = null;
       if (canvas?.ready && canvas.scene) {
         const structure = getStructure(mech.structureId);
         if (!structure) {
           ui.notifications.warn(`${skill.name} não tem uma Estrutura escolhida.`);
           return;
         }
-        // Alcance (H4): os pontos têm de estar ao alcance de quem lança ou de uma Marca.
-        structurePlacement = await pickStructurePlacement(structure, reachContext(actor, { range: mech.range, free: true }));
-        if (!structurePlacement) return;
-        viaMark = structurePlacement.viaMark ?? null;
-        if (viaMark && !(await confirmMarkCost({ title: `Marca — ${skill.name}`, via: viaMark, baseCost: baseCostOf(actor, mech), actor }))) return;
+        const place = mech.structurePlace ?? "click";
+        if (place === "click") {
+          // Alcance (H4): os pontos têm de estar ao alcance de quem lança ou de uma Marca.
+          structurePlacement = await pickStructurePlacement(structure, reachContext(actor, { range: mech.range, free: true }));
+          if (!structurePlacement) return;
+          viaMark = structurePlacement.viaMark ?? null;
+          if (viaMark && !(await confirmMarkCost({ title: `Marca — ${skill.name}`, via: viaMark, baseCost: baseCostOf(actor, mech), actor }))) return;
+        } else {
+          // Sem clique (8c.2): centrada em quem usa, ou no alvo escolhido.
+          let center = null;
+          if (place === "target") {
+            pickedTarget = await pickTarget?.();
+            if (!pickedTarget) return;
+            const reach = await resolveTargetReach(actor, pickedTarget, mech, { label: skill.name, baseCost: baseCostOf(actor, mech) });
+            if (!reach.ok) return;
+            viaMark = reach.viaMark;
+            center = actorToken(pickedTarget, [...(game.user?.targets ?? [])])?.center ?? null;
+          } else {
+            center = casterTokenOf(actor)?.center ?? null;
+          }
+          structurePlacement = structurePlacementAround(structure, center);
+          if (!structurePlacement) {
+            ui.notifications.warn(`${skill.name}: não achei o Token ${place === "target" ? "do alvo" : "de quem usa"} nesta cena para centrar a Estrutura.`);
+            return;
+          }
+        }
       }
-      await useSkill({ structurePlacement, subSkillIndex, manaInvested, viaMark });
+      await useSkill({ structurePlacement, targetActor: pickedTarget ?? undefined, subSkillIndex, manaInvested, viaMark });
     } catch (err) {
       reportError("Falha ao erguer a Estrutura.", err);
     }
@@ -200,6 +226,145 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget, bo
       if (!gate) return;
       await useSkill({ targetActor, subSkillIndex, rollOptions, manaInvested, viaMark: reach.viaMark, ...gate });
     }
+  } catch (err) {
+    reportError("Falha ao usar a Habilidade.", err);
+  }
+}
+
+/**
+ * Skill Combinada (8c.2): o mesmo fluxo para a Skill-mãe inteira. As escolhas saem UMA vez e antes de pagar: o
+ * alvo único (se alguma parte mira alguém, ou a Skill desliga se ele cai), a posição da área (uma colocação
+ * serve a todas as partes de área que pedem clique; círculo preso em quem usa não pede nada) e a colocação de
+ * cada Estrutura que pede clique. Devolve sem fazer nada se qualquer escolha for cancelada.
+ */
+async function useCombinedFlow(actor, skill, { event, pickTarget, useSkill }) {
+  const system = skill.system;
+  const subs = system.subSkills ?? [];
+  const isOn = Boolean(system.hasUpkeep && system.active);
+  if (actor.type === "character" && !isOn && blockIfIncapacitated(actor, "usar Habilidades")) return;
+  const blocked = formUseBlock(actor, skill, null) ?? useBlockReason(actor, skill, null) ?? strikeBlockReason(actor, skill, null);
+  if (blocked) {
+    ui.notifications.warn(blocked);
+    return;
+  }
+  // Ativa já ligada: o clique só desliga (a Skill-mãe solta tudo o que as partes seguravam).
+  if (isOn) {
+    try {
+      await useSkill({ combined: true });
+    } catch (err) {
+      reportError("Falha ao desligar a Habilidade.", err);
+    }
+    return;
+  }
+
+  const env = { areaEnabled: isAreaEffectsEnabled(), areaSupported: areaEffectsSupported() };
+  const plan = combinedPlan(system, subs, env);
+  if (plan.modes.includes("emissionNoCanvas")) {
+    ui.notifications.warn("Skills de Emissão precisam de acesso ao canvas da cena ativa.");
+    return;
+  }
+
+  const refuseOnlyIf = target => {
+    const message = skillOnlyIfBlock(actor, system, target);
+    if (message) ui.notifications.warn(`${skill.name}: ${message}.`);
+    return Boolean(message);
+  };
+
+  // Shift+clique: modificadores de rolagem (se alguma parte rola dano) e "Investir Mana".
+  let rollOptions = null;
+  let manaInvested = null;
+  const anyDamage = subs.some(s => s.effectType === "damage");
+  const invest = investFor(actor, system);
+  if (event?.shiftKey && (anyDamage || invest)) {
+    const asked = await rollOptionsFromEvent(event, anyDamage ? `Dano — ${skill.name}` : `Usar — ${skill.name}`, { invest, modifiers: anyDamage });
+    if (asked.cancelled) return;
+    rollOptions = asked.options;
+    manaInvested = asked.invested;
+  }
+
+  // Sem energia para o Custo: avisa antes de pedir qualquer escolha.
+  if (!isShipLike(actor) && isEnergyPoolEnabled() && !system.variableMana && manaInvested == null) {
+    const needed = effectiveSkillCost(system.cost, system.level);
+    if (needed > 0 && currentEnergyValue(actor) < needed) {
+      await warnInsufficientEnergy(actor, skill.name, needed);
+      return;
+    }
+  }
+
+  try {
+    // O alvo único, escolhido uma vez para todas as partes.
+    let targetActor = null;
+    let viaMark = null;
+    if (plan.needsTarget) {
+      targetActor = await pickTarget?.();
+      if (!targetActor) return;
+      const reach = await resolveTargetReach(actor, targetActor, system, { label: skill.name, baseCost: baseCostOf(actor, system) });
+      if (!reach.ok) return;
+      viaMark = reach.viaMark ?? null;
+      if (refuseOnlyIf(targetActor)) return;
+    } else if (refuseOnlyIf(null)) {
+      return;
+    }
+
+    // Área, Zona e Estrutura de cada parte.
+    const parts = {};
+    let placed = null;
+    for (const [index, part] of subs.entries()) {
+      const mode = plan.modes[index];
+      const partMech = combinedPartMech(system, part, {});
+      if (mode === "emission" || mode === "zone") {
+        let placement;
+        let reach = null;
+        if (isCasterBoundCircle(part, system.level)) {
+          placement = casterAreaPlacement(partMech, actor);
+        } else {
+          reach = areaReach(actor, { ...partMech, range: partMech.range || system.range });
+          if (!placed) {
+            placed = await pickAreaPlacement(partMech, reach, { caster: actor });
+            if (!placed) return;
+          }
+          placement = reshapeAreaPlacement(partMech, placed, { caster: actor });
+        }
+        if (!placement) {
+          ui.notifications.warn(`${skill.name} — ${part.name}: não achei o Token de quem usa nesta cena para centrar a forma.`);
+          return;
+        }
+        if (mode === "emission") {
+          const targetActors = resolveAreaTargets(partMech, placement, reach, { caster: actor, target: targetActor });
+          parts[index] = { targetActors };
+          viaMark ??= targetActors.viaMark ?? null;
+        } else {
+          parts[index] = { zonePlacement: zonePlacementFrom(placement, reach) };
+        }
+      } else if (mode === "structure") {
+        if (!(canvas?.ready && canvas.scene)) {
+          parts[index] = { structurePlacement: null };
+          continue;
+        }
+        const structure = getStructure(part.structureId);
+        if (!structure) {
+          ui.notifications.warn(`${skill.name} — ${part.name} não tem uma Estrutura escolhida.`);
+          return;
+        }
+        let structurePlacement;
+        if (part.structurePlace === "caster") structurePlacement = structurePlacementAround(structure, casterTokenOf(actor)?.center ?? null);
+        else if (part.structurePlace === "target") structurePlacement = structurePlacementAround(structure, targetActor ? actorToken(targetActor, [...(game.user?.targets ?? [])])?.center ?? null : null);
+        else structurePlacement = await pickStructurePlacement(structure, reachContext(actor, { range: part.range || system.range, free: true }));
+        if (!structurePlacement) {
+          if (part.structurePlace === "click") return;
+          ui.notifications.warn(`${skill.name} — ${part.name}: não achei o Token para centrar a Estrutura.`);
+          return;
+        }
+        viaMark ??= structurePlacement.viaMark ?? null;
+        parts[index] = { structurePlacement };
+      }
+    }
+    if (viaMark && !(await confirmMarkCost({ title: `Marca — ${skill.name}`, via: viaMark, baseCost: baseCostOf(actor, system), actor }))) return;
+
+    // Quem foi atingido por alguma área entra na lista de alvos do uso (o Desfazer uso fotografa todos).
+    const seen = new Set();
+    const targetActors = Object.values(parts).flatMap(p => p.targetActors ?? []).filter(a => (seen.has(a.uuid) ? false : seen.add(a.uuid)));
+    await useSkill({ combined: { parts }, targetActor: targetActor ?? undefined, targetActors, rollOptions, manaInvested, viaMark });
   } catch (err) {
     reportError("Falha ao usar a Habilidade.", err);
   }

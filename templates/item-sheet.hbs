@@ -155,6 +155,23 @@
     {{!-- Mecânica --}}
     <div class="tab {{#unless (eq activeTab "mechanic")}}hidden{{/unless}}">
       {{> nihility.skillWarnings warnings=assistMechanic}}
+      {{#if skillHasSubSkills}}
+      <div class="sec">
+        <div class="sec-head">Ao usar<span class="sp"></span><span class="depends">Skill com Sub-Skills</span></div>
+        <div class="sec-body">
+          <div class="seg" role="radiogroup" aria-label="Ao usar">
+            {{#each skillCombinedSeg as |opt|}}
+            <label class="seg-opt {{#if opt.checked}}on{{/if}}" title="{{opt.title}}"><input type="radio" name="system.combined" value="{{opt.value}}" {{#if opt.checked}}checked{{/if}}/>{{opt.label}}</label>
+            {{/each}}
+          </div>
+          {{#if skillCombined}}
+          <div class="strip dim">{{skillCombinedHint}} A mecânica, o alvo e a área ficam em cada Sub-Skill (aba Sub-Skills); aqui só valem o Custo, o nível, o Alcance e o que a Skill faz ligada.</div>
+          <label class="fld"><span class="fld-label">Alcance <span class="help" title="Até onde o alvo escolhido pode estar, em metros (0 = sem limite). Pela Marca de quem usa o custo sobe: custo × (distância ÷ alcance)².">?</span></span><span class="suffix"><input type="number" name="system.range" value="{{system.range}}" min="0" step="0.5" aria-label="Alcance"/><span>m</span></span></label>
+          {{/if}}
+        </div>
+      </div>
+      {{/if}}
+      {{#unless skillCombined}}
       <div class="fld">
         <span class="fld-label">Mecânica ao Usar</span>
         <div class="seg" role="radiogroup" aria-label="Mecânica ao Usar">
@@ -166,6 +183,37 @@
 
       {{#if (eq skillMechanicType "none")}}
       <div class="strip dim">Descritiva: usar a Skill não rola nem aplica nada. Ela ainda pode ter Passivos (Resistência, bônus…).</div>
+      {{/if}}
+
+      {{#if skillIsReroll}}
+      <div class="sec">
+        <div class="sec-head">Rerrolar</div>
+        <div class="sec-body">
+          <div class="strip dim">Usada no chat, depois de ver uma rolagem: o botão "Rerrolar" aparece no card das rolagens que esta Skill alcança. Paga o Custo e a Recarga como qualquer Skill. Não é Ativa.</div>
+          <div class="fld">
+            <span class="fld-label">De quem</span>
+            <div class="seg" role="radiogroup" aria-label="De quem">
+              {{#each rerollWhoSeg as |opt|}}
+              <label class="seg-opt {{#if opt.checked}}on{{/if}}"><input type="radio" name="system.rerollWho" value="{{opt.value}}" {{#if opt.checked}}checked{{/if}}/>{{opt.label}}</label>
+              {{/each}}
+            </div>
+          </div>
+          <div class="fld">
+            <span class="fld-label">O que fica <span class="help" title="Novo: vale o resultado novo. Melhor/pior dos dois. Escolher na hora só existe numa Skill Ultimate.">?</span></span>
+            <div class="seg" role="radiogroup" aria-label="O que fica">
+              {{#each rerollKeepSeg as |opt|}}
+              <label class="seg-opt {{#if opt.checked}}on{{/if}}"><input type="radio" name="system.rerollKeep" value="{{opt.value}}" {{#if opt.checked}}checked{{/if}}/>{{opt.label}}</label>
+              {{/each}}
+            </div>
+          </div>
+          <div class="fld">
+            <span class="fld-label">Quais rolagens</span>
+            {{#each rerollKindRows as |row|}}
+            <label class="toggle"><input type="checkbox" name="system.rerollKinds.{{row.key}}" {{#if row.checked}}checked{{/if}}/><span class="toggle-track"></span><span>{{row.label}}</span></label>
+            {{/each}}
+          </div>
+        </div>
+      </div>
       {{/if}}
 
       {{#if skillShowsTarget}}
@@ -239,6 +287,14 @@
             </select>
           </label>
           {{#if skillStructureSummary}}<div class="strip dim">{{skillStructureSummary}}</div>{{/if}}
+          <div class="fld">
+            <span class="fld-label">De onde sai <span class="help" title="Clicar no mapa: quem usa desenha ou põe a Estrutura, como sempre. Em volta de quem usa ou do alvo: sem clique, o centro é ele (forma e tamanho do catálogo).">?</span></span>
+            <div class="seg" role="radiogroup" aria-label="De onde sai a Estrutura">
+              {{#each skillStructurePlaceSeg as |opt|}}
+              <label class="seg-opt {{#if opt.checked}}on{{/if}}" title="{{opt.title}}"><input type="radio" name="system.structurePlace" value="{{opt.value}}" {{#if opt.checked}}checked{{/if}}/>{{opt.label}}</label>
+              {{/each}}
+            </div>
+          </div>
           {{#if skillRangeOn}}
           <label class="fld"><span class="fld-label">Alcance <span class="help" title="Até onde a Estrutura pode ser posta, em metros (0 = sem limite). Fora dele, só pela Marca de quem usa (custo × (distância ÷ alcance)²).">?</span></span><span class="suffix"><input type="number" name="system.range" value="{{system.range}}" min="0" step="0.5" aria-label="Alcance"/><span>m</span></span></label>
           {{/if}}
@@ -314,6 +370,24 @@
 
       {{#if (eq skillMechanicType "temporary")}}
       {{> nihility.effectCards effects=skillEffects hasUpkeep=system.hasUpkeep}}
+      {{/if}}
+      {{/unless}}
+
+      {{#if system.hasUpkeep}}
+      <div class="sec">
+        <div class="sec-head">Enquanto ligada<span class="sp"></span><span class="depends">Habilidade Ativa</span></div>
+        <div class="sec-body">
+          <label class="toggle span-all"><input type="checkbox" name="system.endsWhenTargetFalls" {{#if system.endsWhenTargetFalls}}checked{{/if}}/><span class="toggle-track"></span><span>Desliga se o alvo cair</span><span class="help" title="Ao ligar, a Skill guarda o alvo escolhido; quando ele ficar Caído, Inconsciente ou morto, ela desliga sozinha. Quem usa cair já desliga sempre.">?</span></label>
+          <div class="fld">
+            <span class="fld-label">Se alguém entrar na Estrutura <span class="help" title="Para o duelo na bolha: quando alguém além de quem usa e do alvo termina um movimento dentro da Estrutura fechada que a Skill mantém. Entrar por teleporte ou empurrão também conta.">?</span></span>
+            <div class="seg" role="radiogroup" aria-label="Se alguém entrar na Estrutura">
+              {{#each skillIntruderSeg as |opt|}}
+              <label class="seg-opt {{#if opt.checked}}on{{/if}}" title="{{opt.title}}"><input type="radio" name="system.intruderRule" value="{{opt.value}}" {{#if opt.checked}}checked{{/if}}/>{{opt.label}}</label>
+              {{/each}}
+            </div>
+          </div>
+        </div>
+      </div>
       {{/if}}
     </div>
 
@@ -465,6 +539,16 @@
       </div>
 
       {{> nihility.regenBlock regen=system.regen energyLabel=energyLabel note="sempre ativo"}}
+      {{#if luckEnabled}}
+      <div class="sec">
+        <div class="sec-head">Sorte<span class="sp"></span><span class="sec-head-note">sempre ativa</span><span class="help" title="% de inclinação nos dados (negativo = azar), por escopo. Soma com as outras fontes de sorte. 0 = nada.">?</span></div>
+        <div class="sec-body g3">
+          <label class="fld"><span class="fld-label">Atributos e iniciativa (%)</span><input class="num" type="number" step="any" name="system.luck.attributes" value="{{system.luck.attributes}}"/></label>
+          <label class="fld"><span class="fld-label">Dano (%)</span><input class="num" type="number" step="any" name="system.luck.damage" value="{{system.luck.damage}}"/></label>
+          <label class="fld"><span class="fld-label">Chances d100 (%)</span><input class="num" type="number" step="any" name="system.luck.chances" value="{{system.luck.chances}}"/></label>
+        </div>
+      </div>
+      {{/if}}
       <div class="sec">
         <div class="sec-head">Bônus permanentes<span class="sp"></span><span class="sec-head-note">sempre ativos</span></div>
         <div class="sec-body tight">

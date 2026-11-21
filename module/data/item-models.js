@@ -168,7 +168,7 @@ function usageFields() {
      * lançou, "allies" quem lançou e o mesmo lado (disposição do Token), "enemies" só o outro lado.
      * Morto nunca é atingido por área. Ver `areaAffectsTarget` (area-geometry.js).
      */
-    areaAffects: new fields.StringField({ required: false, initial: "all", choices: ["all", "notCaster", "allies", "enemies"] }),
+    areaAffects: new fields.StringField({ required: false, initial: "all", choices: ["all", "notCaster", "allies", "enemies", "othersExceptTarget"] }),
     /**
      * "Só se…" da Skill inteira (8c.1): conferido depois de escolher o alvo e ANTES de pagar o Custo
      * (ex.: "só se o alvo tem a Marca do Duelo posta por mim"). `kind` vazio = sempre. Desligar uma
@@ -179,6 +179,33 @@ function usageFields() {
       value: new fields.StringField({ required: false, initial: "", blank: true }),
       threshold: new fields.NumberField({ required: false, initial: 50 })
     }),
+    /**
+     * Estrutura (Mecânica "structure"): de onde sai (8c.2). "click" = quem usa a põe no mapa (o de sempre);
+     * "caster" = sem clique, o centro é quem usa; "target" = sem clique, o centro é o alvo escolhido.
+     */
+    structurePlace: new fields.StringField({ required: false, initial: "click", choices: ["click", "caster", "target"] }),
+    /** Ativa: desliga quando o alvo escolhido ao ligar cai (Caído, Inconsciente, morto). Quem usa cair já desliga. */
+    endsWhenTargetFalls: new fields.BooleanField({ required: false, initial: false }),
+    /**
+     * Ativa com Estrutura fechada em volta (o duelo): o que acontece se alguém além de quem usa e do alvo
+     * termina um movimento dentro dela. "break" desliga a Skill; "include" aplica a ele as partes que miram o alvo.
+     */
+    intruderRule: new fields.StringField({ required: false, initial: "", blank: true, choices: ["", "break", "include"] }),
+    /**
+     * Mecânica "reroll" (8d.2): usada no chat DEPOIS de ver uma rolagem. `rerollWho`: de quem ("own" só as
+     * minhas, "allies", "any" inclui as do Mestre); `rerollKeep`: o que fica ("new", "best", "worst" e, só numa
+     * Skill Ultimate, "choose" = escolhe na hora); `rerollKinds`: que tipos de rolagem alcança. Ver reroll-rules.js.
+     */
+    rerollWho: new fields.StringField({ required: false, initial: "own", choices: ["own", "allies", "any"] }),
+    rerollKeep: new fields.StringField({ required: false, initial: "new", choices: ["new", "best", "worst", "choose"] }),
+    rerollKinds: new fields.SchemaField({
+      attribute: new fields.BooleanField({ required: false, initial: true }),
+      initiative: new fields.BooleanField({ required: false, initial: true }),
+      damage: new fields.BooleanField({ required: false, initial: true }),
+      chances: new fields.BooleanField({ required: false, initial: true })
+    }),
+    /** Estado: uuid do alvo escolhido ao ligar (`endsWhenTargetFalls`/`intruderRule`). Nunca copiado. */
+    activeTargetUuid: new fields.StringField({ required: false, initial: "", blank: true }),
     /** Estado: fator do custo de ter ligado esta Ativa pela Marca (1 = normal). Nunca copiado. */
     markFactor: new fields.NumberField({ required: false, initial: 1, min: 1 }),
     /** Estado: turnos do dono até poder usar de novo (ver cooldown-rules.js). Nunca copiado ao clonar/fundir. */
@@ -211,8 +238,23 @@ function usageFields() {
  *  NÃO cria um segundo Active Effect — soma `durationRounds`/ticks restantes no existente (ver
  *  `applyEffectsToActor` em effects-apply.js).
  */
+/** Sorte (8d.1): `{attributes, damage, chances}` em % (negativo = azar). Ver combat/luck-rules.js. */
+function luckSchema() {
+  return new fields.SchemaField({
+    attributes: new fields.NumberField({ required: false, initial: 0 }),
+    damage: new fields.NumberField({ required: false, initial: 0 }),
+    chances: new fields.NumberField({ required: false, initial: 0 })
+  });
+}
+
 function effectEntrySchema() {
   return new fields.SchemaField({
+    /** Só no alvo "luck" (Sorte, 8d.1): `amount` = % de sorte (negativo = azar); estes são os escopos onde vale. */
+    luckScopes: new fields.SchemaField({
+      attributes: new fields.BooleanField({ required: false, initial: false }),
+      damage: new fields.BooleanField({ required: false, initial: false }),
+      chances: new fields.BooleanField({ required: false, initial: false })
+    }),
     /** Alvos "weaponElement" e "bodyElement": o Elemento que as armas causam / que o alvo passa a ser. */
     elementId: new fields.StringField({ required: false, initial: "", blank: true }),
     /** Alvo "unarmedType": o Tipo de arma (id de getActiveWeaponTypes) em que o ataque desarmado se transforma. */
@@ -283,6 +325,16 @@ function effectEntrySchema() {
      */
     pushDirection: new fields.StringField({ required: false, initial: "push", blank: true, choices: ["push", "pull", "choose"] }),
     immuneTraits: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
+    /**
+     * Só no alvo "magicDampen" (Magia enfraquecida, 8c.2): a chance (%) de cada uso mágico de quem tem o
+     * efeito sair com a força em `amount` % (50 = metade). 100 = sempre.
+     */
+    chance: new fields.NumberField({ required: false, initial: 100, min: 0, max: 100 }),
+    /**
+     * Só no alvo "dispelMagic" (Dissipar, 8d.2): o que termina. "all" = todo efeito mágico do alvo de nível ≤
+     * o da Skill; "marks" = só as marcas; "condition" = só a Condição em `conditionId`.
+     */
+    dispelScope: new fields.StringField({ required: false, initial: "all", blank: true, choices: ["all", "marks", "condition"] }),
     /**
      * "Só se…" (8.1a): o efeito só pega quando isto vale no alvo (ou em quem usou). `kind` vazio =
      * sempre. Mesma linguagem do "Quando" do "Quando → Então"; ver skills/only-if-rules.js.
@@ -407,6 +459,12 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
 
       /** Sub-Skills — só existem em Skills Fundidas, ver `subSkillSchema()` acima. */
       subSkills: new fields.ArrayField(subSkillSchema(), { required: false, initial: [] }),
+
+      /**
+       * Combinada (8c.2): um uso dispara TODAS as Sub-Skills em ordem, nos mesmos alvos, com o Custo da
+       * Skill-mãe pago uma vez. Desligado (o padrão), "Usar" pergunta qual Sub-Skill disparar.
+       */
+      combined: new fields.BooleanField({ required: false, initial: false }),
 
       /** Nomes/uuids das skills consumidas em uma fusão (linhagem), para auditoria e regras de consumo. */
       fusionSources: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
@@ -703,6 +761,7 @@ export class TitleDataModel extends foundry.abstract.TypeDataModel {
       description: new fields.HTMLField({ required: false, initial: "" }),
       grantedBy: new fields.StringField({ required: false, initial: "" }),
       regen: regenSchema(),
+      luck: luckSchema(),
       rarity: new fields.StringField({ required: false, initial: "comum" }),
 
       /** Bônus permanentes concedidos: [{ attribute, amount }], attribute em MEU_SISTEMA.TITLE_BONUS_TARGETS (os atributos de combate + hp/energy diretos). */

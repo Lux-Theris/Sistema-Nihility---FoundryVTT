@@ -289,6 +289,15 @@ export const FEATURES = {
     hint: "O Mestre desenha uma Região e acrescenta o comportamento \"Armadilha (Nihility)\": quem entra (andando, empurrado ou teleportado) leva dano com elementos (pelas defesas do alvo, com Aplicar no chat) e/ou uma Condição com o efeito padrão. Dispara uma vez ou toda vez, só em quem está no chão ou em qualquer altura, com Traços imunes. Armadilha mágica ou tecnológica é desarmada por um campo de Antimagia/Interferência ou por uma Antimagia/PEM em área. Desligar só deixa de disparar; nada salvo se perde.",
     default: true
   },
+  luck: {
+    setting: "luckEnabled",
+    name: "Sorte e azar",
+    hint: "Sorte é uma inclinação em % sobre as faces dos dados (sem teto: +100% leva o d20 a média 13,8; +300% dá 27% de tirar 20). Vem de efeitos de Skill (Sorte), Condições do catálogo, Títulos, passivos de Espécie/Linhagem/Herança e Traços (Sortudo, Azarado), e vale em até três escopos: atributos e iniciativa, dano de quem ataca e chances (d100: Condição ao acertar, Predação…; no Contágio a sorte da vítima a protege). Negativo é azar. Desligar só para de contar e esconde os campos; nada salvo se perde.",
+    default: true,
+    options: {
+      luckCap: { label: "Teto da sorte (± %)", hint: "Limita a soma de cada escopo a ± este valor. 0 = sem teto.", type: "number", default: 0, min: 0 }
+    }
+  },
   reactions: {
     setting: "reactionsEnabled",
     name: "Reações elementais",
@@ -329,6 +338,12 @@ export const FEATURES = {
     setting: "predationEnabled",
     name: "Predação",
     hint: "Mecânica de Skill \"Predação\": sobre um alvo derrotado (morto, Caído ou Inconsciente), quem preda rola um d100 por Skill do alvo (a chance depende do Tier da Predação contra o da Skill) e, se o Mestre confirmar, absorve as que ganhou no nível 1. Também pode ganhar pontos permanentes de atributo (uma parte dos do alvo, só na 1ª, 5ª, 10ª, 20ª… criatura da mesma Espécie), a forma do corpo (se tiver uma Skill de Forma) e remover o Token. Desligar esconde a Mecânica e impede usar; nada salvo se perde.",
+    default: true
+  },
+  reroll: {
+    setting: "rerollEnabled",
+    name: "Rerrolar",
+    hint: "Mecânica de Skill \"Rerrolar\": usada no chat DEPOIS de ver uma rolagem (atributo, iniciativa, dano ainda não aplicado, ou os d100 de Predação e de passar da Mana). Quem tem uma Skill dessas vê \"Rerrolar\" no card das rolagens que ela alcança (as suas, as de aliados ou as de qualquer um, conforme a Skill); clicar paga o Custo e a Recarga como qualquer Skill e rola de novo. A Skill diz o que fica: o novo, o melhor ou o pior dos dois (uma Skill Ultimate pode escolher na hora). Desligar esconde a Mecânica e os botões; nada salvo se perde.",
     default: true
   },
   worldClock: {
@@ -514,6 +529,7 @@ const FEATURE_LAYOUT = {
   environment: ["world", "Perigos da cena ou de uma área, e a densidade de mana."],
   radiation: ["world", "Lugares irradiam; ficar ali acumula e machuca.", true],
   traps: ["world", "Regiões com armadilha: dano e Condição a quem pisa."],
+  luck: ["combat", "Sorte e azar: inclinam os dados (atributos, dano e chances) a favor ou contra."],
   reactions: ["combat", "Fogo em quem está Molhado, raio na poça: o golpe reage com o que o alvo carrega."],
   surfaces: ["combat", "Poças e chamas no chão: quem pisa sofre, e o golpe reage com a superfície.", true],
   forms: ["character", "Skill de Forma: o personagem joga com a ficha temporária de outro corpo."],
@@ -521,6 +537,7 @@ const FEATURE_LAYOUT = {
   analysis: ["character", "Skill Analisar: revela a ficha de um alvo conforme a margem de nível."],
   predation: ["character", "Skill Predação: absorve Skills, pontos e forma de um alvo derrotado."],
   pact: ["character", "Pacto entre patrono e bruxo: o bruxo usa as Skills liberadas com a própria Mana."],
+  reroll: ["combat", "Skill Rerrolar: refaz uma rolagem do chat (atributo, iniciativa, dano, d100)."],
   worldClock: ["world", "Relógio do mundo: dia/noite, escuro e o Descanso que passa o tempo."],
   vessels: ["world", "Naves e Veículos com Módulos, Grid de Energia e tripulação."],
   shipManeuver: ["world", "Naves se movem por casas e esquivam pela Rotação.", true],

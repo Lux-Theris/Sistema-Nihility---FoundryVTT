@@ -53,6 +53,8 @@ import { tickStarshipPower, registerShieldAdaptationReset } from "./starship/sta
 import { requestShipRepair, approveShipRepairRoll, restoreShipRepairTarget } from "./starship/starship-repair.js";
 import { registerGmRelay } from "./helpers/gm-relay.js";
 import { registerInitiative } from "./combat/combat.js";
+import { registerLuckDice } from "./combat/luck-dice.js";
+import { registerReroll, renderRerollControls } from "./skills/reroll.js";
 import { registerMovementLimit } from "./combat/movement.js";
 import { registerConditionalRefresh } from "./combat/conditional-context.js";
 import { registerFieldAntimagic, endMagicInsideFields } from "./combat/antimagic.js";
@@ -90,6 +92,8 @@ import { registerShieldPoolReconcile } from "./combat/shield-pools.js";
 import { registerStatusConditions, interceptManualCondition } from "./combat/conditions.js";
 import { mergeReactionDefaults } from "./combat/reaction-rules.js";
 import { mergeSurfaceDefaults } from "./environment/surface-rules.js";
+import { addMissingById } from "./skills/combined-rules.js";
+import { registerDuelRules } from "./skills/duel.js";
 import { registerSurfaces, tickSurfacesForCombatant, advanceSurfaces } from "./environment/surfaces.js";
 import { renderDamageControls, renderDamageTrace } from "./combat/damage-apply.js";
 import { isSpeciesLocked, normalizeSpeciesCatalog } from "./species/species-rules.js";
@@ -216,12 +220,17 @@ Hooks.once("init", () => {
   // Iniciativa pelo pool de dados do Ator (ver module/combat.js) — precisa rodar no `init`,
   // antes de qualquer Combate existir.
   registerInitiative();
+  // Sorte (8d.1): modificadores de dado `lu<n>`/`ul<n>`.
+  registerLuckDice();
+  // Rerrolar (8d.2): marca a iniciativa rolada pelo Combate com o que é preciso para refazê-la.
+  registerReroll();
   registerCompendiumCreateDefaults();
   registerStructureRendering();
   registerShieldLightHooks();
   registerShieldPoolReconcile();
   registerShieldAdaptationReset();
   registerStructureContact();
+  registerDuelRules();
   registerFieldAntimagic();
   registerFloatingNumbers();
   registerReactionFloats();
@@ -360,6 +369,8 @@ Hooks.once("ready", async () => {
   await runMigrationIfNeeded("sleepingCondition", migrateSleepingCondition);
   await runMigrationIfNeeded("reactionsDefaults", migrateReactionsDefaults);
   await runMigrationIfNeeded("surfaceDefaults", migrateSurfaceDefaults);
+  await runMigrationIfNeeded("duelDefaults", migrateDuelDefaults);
+  await runMigrationIfNeeded("luckDefaults", migrateLuckDefaults);
   console.log(`${SYSTEM_ID} | Sistema pronto.`);
 });
 
@@ -527,6 +538,57 @@ async function migrateReactionsDefaults() {
  * Migração única (8.2): um catálogo de elementos já salvo ganha a seção "Deixa no chão" de fábrica
  * (Água, Óleo, Fogo, Gelo) só onde o elemento nunca teve o campo `surface`. Nada editado é sobrescrito.
  */
+/**
+ * Migração única (8c.2): os catálogos já salvos ganham o que o duelo precisa — a Condição "Marca do Duelo", a
+ * Estrutura "Bolha do duelo" e o modelo de Skill "Duelo na bolha". Só acrescenta o que falta, pelo id.
+ */
+/**
+ * Migração única (8d.1): os catálogos já salvos ganham os Traços "Sortudo"/"Azarado" e as Condições "Abençoado"/"Azarado".
+ * Só acrescenta o que falta, pelo id; nada editado é sobrescrito.
+ */
+async function migrateLuckDefaults() {
+  const targets = [
+    [MEU_SISTEMA.SETTINGS.traitsData, MEU_SISTEMA.DEFAULT_TRAITS, ["lucky", "unlucky"]],
+    [MEU_SISTEMA.SETTINGS.statusConditionsData, MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS, ["blessed", "jinxed"]]
+  ];
+  for (const [key, defaults, wanted] of targets) {
+    const raw = game.settings.get(SYSTEM_ID, key);
+    if (!raw) continue;
+    let list;
+    try {
+      list = typeof raw === "string" ? JSON.parse(raw) : raw;
+    } catch (err) {
+      continue;
+    }
+    if (!Array.isArray(list)) continue;
+    const merged = addMissingById(list, defaults, wanted);
+    if (merged.changed) await game.settings.set(SYSTEM_ID, key, JSON.stringify(merged.list, null, 2));
+  }
+  registerStatusConditions();
+}
+
+async function migrateDuelDefaults() {
+  const targets = [
+    [MEU_SISTEMA.SETTINGS.statusConditionsData, MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS, ["duel-mark"]],
+    [MEU_SISTEMA.SETTINGS.structuresData, MEU_SISTEMA.DEFAULT_STRUCTURES, ["duel-bubble"]],
+    [MEU_SISTEMA.SETTINGS.skillTemplatesData, MEU_SISTEMA.DEFAULT_SKILL_TEMPLATES, ["duelo_bolha"]]
+  ];
+  for (const [key, defaults, wanted] of targets) {
+    const raw = game.settings.get(SYSTEM_ID, key);
+    if (!raw) continue;
+    let list;
+    try {
+      list = typeof raw === "string" ? JSON.parse(raw) : raw;
+    } catch (err) {
+      continue;
+    }
+    if (!Array.isArray(list)) continue;
+    const merged = addMissingById(list, defaults, wanted);
+    if (merged.changed) await game.settings.set(SYSTEM_ID, key, JSON.stringify(merged.list, null, 2));
+  }
+  registerStatusConditions();
+}
+
 async function migrateSurfaceDefaults() {
   const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.damageElementsData);
   if (!raw) return;
@@ -1106,6 +1168,8 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
   // Botões de aplicar dano (só Mestre) — ver module/damage-apply.js.
   renderDamageControls(message, html);
   renderDamageTrace(message, html);
+  // Rerrolar (8d.2): "🎲 Rerrolar (Skill)" nas rolagens que uma Skill do usuário alcança.
+  renderRerollControls(message, html);
   // Desfazer uso de Skill (só o Mestre, até o turno virar) — ver skills/skill-undo.js.
   renderSkillUndo(message, html);
 

@@ -8,6 +8,7 @@
  * argumento. `currentAICatalogs()` é a ponte com o mundo.
  */
 import { ATTRIBUTE_PERCENT_TARGETS } from "../economy/consumable-rules.js";
+import { sanitizeRerollFields } from "../skills/reroll-rules.js";
 import {
   MEU_SISTEMA,
   getActiveTraits,
@@ -47,7 +48,7 @@ export function mechanicsGuide(catalogs = {}) {
     '  "effectType": "none" (só descritiva) | "damage" | "temporary" (buffs/debuffs/Condições/cura/veneno),',
     '  "cost": número (Mana gasta ao usar), "hasUpkeep": boolean (liga/desliga), "upkeepCost": número por rodada,',
     '  "cooldown": rodadas de recarga depois de usar (0 = nenhuma), "prepTurns": rodadas de preparo antes de disparar (0 = na hora),',
-    '  "range": alcance em metros (0 = sem limite; projéteis 10–30, toque 1.5), "areaOrigin": "caster" (a forma sai de quem lança) | "free" (posta onde quiser), "areaFreeLevel": nível a partir do qual vira livre (0 = nunca), "areaAffects": quem a área/Zona atinge — "all" | "notCaster" | "allies" (quem lança e aliados; curas/buffs) | "enemies" (só inimigos),',
+    '  "range": alcance em metros (0 = sem limite; projéteis 10–30, toque 1.5), "areaOrigin": "caster" (a forma sai de quem lança) | "free" (posta onde quiser), "areaFreeLevel": nível a partir do qual vira livre (0 = nunca), "areaAffects": quem a área/Zona atinge — "all" | "notCaster" | "allies" (quem lança e aliados; curas/buffs) | "enemies" (só inimigos) | "othersExceptTarget" (todos menos quem lança e o alvo escolhido),',
     '  "targetType": "targeted" (um alvo) | "self" | "emission" (área na hora) | "zone" (área que fica),',
     '  "areaShape": "circle"|"cone"|"ray", "areaDistance": número (unidades do grid, 1–30), "areaAngle": graus (cone),',
     '  "damageFormula": fórmula de dados do Foundry ("2d6+3"), "isMagicDamage": boolean, "damageElements": [ids de elemento],',
@@ -57,6 +58,10 @@ export function mechanicsGuide(catalogs = {}) {
     '               "damageElements": [ids] (tick de dano), "elementId": id (só weaponElement/bodyElement/createSurface)}],',
     '  "Só se…" num efeito (opcional): "onlyIf": {"kind":"otherCondition","value": id de Condição} (só pega se o alvo a tem) | {"kind":"otherTrait","value": id de Traço} | {"kind":"otherIsShip"} | {"kind":"otherHpBelow","threshold": % de Vida do alvo} | {"kind":"otherConditionMine","value": id de Condição} (o alvo tem a Condição posta por quem usa) | {"kind":"otherAnyMark"} (o alvo tem qualquer Condição marcada como marca) | {"kind":"otherAnyMarkMine"}. O mesmo "onlyIf" na própria Skill (fora dos efeitos) barra o uso inteiro antes de pagar. "% do total": {"target": atributo,"amountMode":"percentMax","amount":% do total do alvo} (−100 tira o total inteiro). "Ao acertar" (passivo, só Skill de dano ou Ativa): "onHit": {"conditionId": id de Condição,"chance": 1-100,"rounds": 0-99,"when":"always"|"on"|"off"}.',
     '  Efeitos de movimento (grupo "Movimento"): {"target":"push","amount": metros,"pushDirection":"push"|"pull"|"choose","immuneTraits":[ids de Traço]} empurra/puxa o alvo em linha reta; {"target":"flight"} e {"target":"burrow"} dão voo/escavação pela "durationRounds" (amount 0).',
+    '  Sorte (grupo "Sorte", só Personagem): {"target":"luck","amount": % de sorte nos dados (negativo = azar; 100 = d20 de média 13,8),"luckScopes":{"attributes":true,"damage":true,"chances":true},"durationRounds": rodadas}.',
+    '  Dissipar (grupo "Magia"): {"target":"dispelMagic","dispelScope":"all"|"marks"|"condition","conditionId": id de Condição (só no escopo condition)} termina efeitos MÁGICOS do alvo de nível ≤ o da Skill (sem suprimir nem desligar nada).',
+    '  Mecânica "reroll" (usada no chat depois de ver uma rolagem; não é Ativa): "rerollWho": "own"|"allies"|"any", "rerollKeep": "new"|"best"|"worst" (|"choose" só em Skill Ultimate), "rerollKinds": {"attribute":bool,"initiative":bool,"damage":bool,"chances":bool}.',
+    '  Magia enfraquecida (grupo "Magia"): {"target":"magicDampen","amount": % da força que sobra (50 = metade),"chance": % de cada uso mágico do alvo ser enfraquecido,"durationRounds": rodadas}.',
     '  Terreno: {"target":"createSurface","elementId": id de elemento que deixa superfície no chão (só vale se o bloco Superfícies estiver ligado),"amount": raio em metros (0 = o do elemento),"durationRounds": rodadas (0 = as do elemento)}.',
     '  Efeitos de sentido (grupo "Sentidos", só Personagem): {"target":"senseTremor"|"senseInvisible"|"senseTrue"|"senseAll","amount": alcance em metros (0 = sem limite),"durationRounds": rodadas} — Sentido sísmico, Ver o invisível, Visão verdadeira, Sentir tudo.',
     '  "resistanceTarget": "" | "general" | id de elemento (Skill passiva de Resistência; 10% por nível),',
@@ -101,7 +106,12 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
   out.range = clampInt(m.range, 0, 10000, 0);
   out.areaOrigin = ["caster", "free"].includes(m.areaOrigin) ? m.areaOrigin : "free";
   out.areaFreeLevel = clampInt(m.areaFreeLevel, 0, 99, 0);
-  out.areaAffects = ["all", "notCaster", "allies", "enemies"].includes(m.areaAffects) ? m.areaAffects : "all";
+  out.areaAffects = ["all", "notCaster", "allies", "enemies", "othersExceptTarget"].includes(m.areaAffects) ? m.areaAffects : "all";
+  // Duelo (8c.2): só numa Skill Ativa; a IA não monta Combinadas (sem Sub-Skills).
+  if (out.hasUpkeep) {
+    out.endsWhenTargetFalls = Boolean(m.endsWhenTargetFalls);
+    out.intruderRule = ["break", "include"].includes(m.intruderRule) ? m.intruderRule : "";
+  }
 
   let effectType = MEU_SISTEMA.SKILL_EFFECT_TYPES.includes(m.effectType) ? m.effectType : "none";
   if (effectType === "structure") {
@@ -109,6 +119,14 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
     if (!out.structureId) effectType = "none";
     out.structureRegen = out.hasUpkeep ? clampInt(m.structureRegen, 0, 9999, 0) : 0;
     out.structureRegenCost = out.hasUpkeep ? clampInt(m.structureRegenCost, 0, 9999, 0) : 0;
+    out.structurePlace = ["click", "caster", "target"].includes(m.structurePlace) ? m.structurePlace : "click";
+  }
+
+  // Rerrolar (8d.2): usada no chat; não é Ativa nem tem Preparo.
+  if (effectType === "reroll") {
+    Object.assign(out, sanitizeRerollFields(m));
+    out.hasUpkeep = false;
+    out.prepTurns = 0;
   }
 
   // Forma (H5): a ficha-molde é do Mestre; a IA não inventa uma. Mecânica Forma vira Descritiva.
@@ -147,7 +165,7 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
     for (const e of Array.isArray(m.effects) ? m.effects.slice(0, 4) : []) {
       if (!e || !MEU_SISTEMA.EFFECT_TARGETS.includes(e.target) || String(e.target).startsWith("ship")) continue;
       const conditionId = conditions.has(e.conditionId) ? e.conditionId : "";
-      const movementOnly = ["flight", "burrow", "unarmedType"].includes(e.target);
+      const movementOnly = ["flight", "burrow", "unarmedType", "dispelMagic"].includes(e.target);
       const surfaceEntry = e.target === "createSurface";
       const senseOnly = String(e.target).startsWith("sense");
       // Empurrar/Puxar: metros, sempre positivos (a direção é o campo pushDirection).
@@ -172,6 +190,18 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
       if (e.target === "unarmedType") {
         entry.weaponTypeId = weaponTypes.has(e.weaponTypeId) ? e.weaponTypeId : "";
         if (!entry.weaponTypeId) continue;
+      }
+      // Magia enfraquecida (8c.2): a chance (%) de cada uso mágico de quem o tem sair com `amount` % da força.
+      // Sorte (8d.1): `amount` = % de sorte (negativo = azar); escopos onde vale (sem nenhum, vale em tudo).
+      if (e.target === "luck") {
+        const picked = { attributes: Boolean(e.luckScopes?.attributes), damage: Boolean(e.luckScopes?.damage), chances: Boolean(e.luckScopes?.chances) };
+        entry.luckScopes = Object.values(picked).some(Boolean) ? picked : { attributes: true, damage: true, chances: true };
+      }
+      if (e.target === "magicDampen") entry.chance = clampInt(e.chance, 0, 100, 100);
+      // Dissipar (8d.2): o que termina; uma Condição que não existe aqui derruba o efeito.
+      if (e.target === "dispelMagic") {
+        entry.dispelScope = ["all", "marks", "condition"].includes(e.dispelScope) ? e.dispelScope : "all";
+        if (entry.dispelScope === "condition" && !entry.conditionId) continue;
       }
       if (e.target === "push") {
         entry.pushDirection = ["push", "pull", "choose"].includes(e.pushDirection) ? e.pushDirection : "push";

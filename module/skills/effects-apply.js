@@ -9,7 +9,7 @@ import { applyStructuralDamage, damageCasco, repairModules } from "../starship/s
 import { resolveConditionEffect, refreshReapplication } from "../combat/damage-rules.js";
 import { requestShieldLight } from "../combat/lights.js";
 import { addShieldToPool } from "../combat/shield-pools.js";
-import { buildEffectChanges, createActiveEffects, foundryGeneration, readEffectChanges } from "../helpers/foundry-compat.js";
+import { buildEffectChanges, createActiveEffects, foundryGeneration, readEffectChanges, effectDurationRounds, effectStartRound, effectRoundsUpdate } from "../helpers/foundry-compat.js";
 import { isSenseTarget, SENSE_LABELS, describeSenseRange, senseRangeValue } from "../combat/senses-rules.js";
 import { applyDamageReductions, averageElementContext } from "../combat/damage-roll.js";
 import { SHIP_PERCENT_PATHS, resolveEffectChange } from "./effect-targets.js";
@@ -19,13 +19,14 @@ import { recordSustainedShield } from "./sustained-shields.js";
 import { combatNow } from "./upkeep.js";
 import { healBodyParts, healPlan } from "../species/anatomy.js";
 import { skillIsMagic, skillIsTech } from "../core/magic-rules.js";
-import { applyAntimagic, applyEmp, suppressionLevel, techSuppressionLevel } from "./dispel.js";
+import { applyAntimagic, applyEmp, applyDissipate, suppressionLevel, techSuppressionLevel } from "./dispel.js";
 import { protectingStructureKinds } from "../structures/structures.js";
 import { applyCurse } from "./curses.js";
 import { effectMeasuresFor, vitalBase, grantSkillUseXp } from "./skill-xp.js";
 import { resolveEffectAmount, resolveAttributePercent, ATTRIBUTE_PERCENT_TARGETS } from "../economy/consumable-rules.js";
 import { hasOnlyIf, onlyIfOutcome } from "./only-if-rules.js";
 import { buildModifierContext } from "../combat/conditional-context.js";
+import { describeLuck, luckFromScopes } from "../combat/luck-rules.js";
 
 /** Nome curto dos efeitos de movimento (J4), para o Active Effect e o resumo. */
 const MOVEMENT_MODE_NAMES = { flight: "Voando", burrow: "Escavando" };
@@ -71,13 +72,16 @@ function sameElementSet(a, b) {
  * Veneno+Fogo são efeitos independentes que coexistem (cada elemento reduzido pela Resistência
  * certa) — só duas aplicações com EXATAMENTE os mesmos elementos somam duração/ticks entre si.
  */
-function findStackableEffect(targetActor, conditionId, periodic, damageElements = []) {
+function findStackableEffect(targetActor, conditionId, periodic, damageElements = [], { onlyBy = null } = {}) {
   if (!conditionId) return null;
   return (
     targetActor.effects.find(e => {
       const flags = e.flags?.[SYSTEM_ID];
       if (!flags || flags.conditionId !== conditionId || Boolean(flags.periodic) !== periodic) return false;
       if (periodic && !sameElementSet(flags.tickDamageElements, damageElements)) return false;
+      // Marca (Condição "É uma marca"): cada um põe a SUA (dono, 20/11: um alvo pode ter várias marcas,
+      // de pessoas diferentes). Só renova a que a mesma pessoa pôs.
+      if (onlyBy !== null && (flags.appliedBy ?? "") !== onlyBy) return false;
       return true;
     }) ?? null
   );
@@ -137,7 +141,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
       ? rawEntries
       : rawEntries.map(entry =>
           // Sentido: o alcance em metros não cresce com o Poder do nível nem com o investimento.
-          entry.modifierType === "multiplier" || isSenseTarget(entry.target)
+          entry.modifierType === "multiplier" || isSenseTarget(entry.target) || entry.target === "magicDampen"
             ? entry
             : {
                 ...entry,
@@ -210,6 +214,17 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
         summary.push(await applyMark(targetActor, caster, { rounds: Math.max(0, Number(entry.durationRounds) || 0), level: sourceLevel, tech: sourceTech, origin }));
         xp.push({ flat: true });
       }
+      continue;
+    }
+    // Dissipar (8d.2): termina só efeitos mágicos do alvo de nível ≤ o da Skill; não suprime nem desliga nada.
+    if (entry.target === "dispelMagic") {
+      if (targetActor.type !== "character") {
+        summary.push(`Dissipar: não se aplica a ${targetActor.name}`);
+        continue;
+      }
+      const dissipated = await applyDissipate(targetActor, { level: sourceLevel, scope: entry.dispelScope || "all", conditionId: entry.conditionId || "" });
+      if (dissipated.length) summary.push(`Dissipar: ${dissipated.join("; ")}`);
+      xp.push(...(dissipated.xp ?? []));
       continue;
     }
     // Antimagia (prancha 8) e PEM: cortam, desligam e suprimem — com o nível desta Skill. Camada do
@@ -346,7 +361,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
       continue;
     }
     const isMultiplier = change.isMultiplier;
-    if (change.movementMode) xp.push({ flat: true });
+    if (change.movementMode || change.magicDampen || change.luck) xp.push({ flat: true });
 
     const periodic = isPeriodicEntry(entry);
     // Periódico conta a cada tick (tickPeriodicEffect); aqui só a Condição, se houver.
@@ -362,9 +377,14 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
     // e o efeito existisse, ele ficaria ancorado para sempre.
     if (tiedToActive) await rememberAnchoredTarget(originSkill?.parent, anchor, targetActor.uuid);
     // Voando/Escavando: um só efeito de cada por Ator — reaplicar renova (e soma a âncora), não duplica.
-    const existing = findStackableEffect(targetActor, entry.conditionId, periodic, entry.damageElements)
+    const isMarkCondition = Boolean(entry.conditionId && getActiveStatusConditions().find(c => c.id === entry.conditionId)?.isMark);
+    const existing = findStackableEffect(targetActor, entry.conditionId, periodic, entry.damageElements, { onlyBy: isMarkCondition ? appliedBy : null })
       ?? (change.movementMode ? targetActor.effects.find(e => e.flags?.[SYSTEM_ID]?.movementMode === change.movementMode) ?? null : null)
-      ?? (change.senseMode ? targetActor.effects.find(e => e.flags?.[SYSTEM_ID]?.senseMode === change.senseMode) ?? null : null);
+      ?? (change.senseMode ? targetActor.effects.find(e => e.flags?.[SYSTEM_ID]?.senseMode === change.senseMode) ?? null : null)
+      // Magia enfraquecida: um efeito por quem pôs (reaplicar renova com os valores novos, não duplica).
+      // Sorte: um efeito por quem pôs (reaplicar renova com os valores novos).
+      ?? (change.luck ? targetActor.effects.find(e => e.flags?.[SYSTEM_ID]?.luck && (e.flags[SYSTEM_ID].appliedBy ?? "") === appliedBy) ?? null : null)
+      ?? (change.magicDampen ? targetActor.effects.find(e => e.flags?.[SYSTEM_ID]?.magicDampen && (e.flags[SYSTEM_ID].appliedBy ?? "") === appliedBy) ?? null : null);
 
     if (existing) {
       const existingFlags = existing.flags[SYSTEM_ID];
@@ -374,6 +394,9 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
       if (sourceLevel > (Number(existingFlags.sourceLevel) || 0)) {
         await existing.update({ [`flags.${SYSTEM_ID}.sourceLevel`]: sourceLevel, [`flags.${SYSTEM_ID}.magic`]: Boolean(sourceMagic || existingFlags.magic), [`flags.${SYSTEM_ID}.tech`]: Boolean(sourceTech || existingFlags.tech) });
       }
+
+      if (change.magicDampen) await existing.update({ [`flags.${SYSTEM_ID}.magicDampen`]: change.magicDampen });
+      if (change.luck) await existing.update({ [`flags.${SYSTEM_ID}.luck`]: change.luck });
 
       // Sentido já ativo: fica o MAIOR alcance (sem limite vence), como o resto reaplicado só renova.
       if (change.senseMode) {
@@ -416,14 +439,14 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
         const combat = game.combat;
         const now = combatNow();
         const anchors = effectAnchors(existingFlags, existing.origin);
-        const current = anchors.length ? finiteRemaining(existingFlags.finite, now) : durationRemaining(existing.duration, combat ? combat.round ?? 0 : null);
+        const current = anchors.length ? finiteRemaining(existingFlags.finite, now) : durationRemaining({ rounds: effectDurationRounds(existing), startRound: effectStartRound(existing) }, combat ? combat.round ?? 0 : null);
         const nextAnchors = tiedToActive ? addAnchor(anchors, anchor) : anchors;
         const nextFinite = tiedToActive ? current : refreshFiniteRounds(current, entry.durationRounds);
         const name = condition?.label ?? targetLabel;
 
         if (nextAnchors.length) {
           await existing.update({
-            duration: { rounds: null },
+            ...effectRoundsUpdate(0),
             [`flags.${SYSTEM_ID}.activeAnchors`]: nextAnchors,
             [`flags.${SYSTEM_ID}.tiedToActive`]: true,
             [`flags.${SYSTEM_ID}.finite`]: serializeFinite(nextFinite, now)
@@ -431,8 +454,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
           const finiteText = nextFinite === PERMANENT ? "sem prazo" : nextFinite > 0 ? `${nextFinite} rodada(s)` : "";
           summary.push(tiedToActive ? `${name}: mantido ativo (até desativar)` : `${name}: renovado${finiteText ? ` (${finiteText})` : ""}, mantido por Skill Ativa`);
         } else {
-          const update = { "duration.rounds": nextFinite === PERMANENT ? null : nextFinite };
-          if (combat) Object.assign(update, { "duration.startRound": combat.round ?? 0, "duration.startTurn": combat.turn ?? 0 });
+          const update = effectRoundsUpdate(nextFinite === PERMANENT ? 0 : nextFinite, { combat });
           await existing.update(update);
           summary.push(`${name}: renovado (${nextFinite === PERMANENT ? "sem prazo" : `${nextFinite} rodada(s)`})`);
         }
@@ -486,7 +508,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
 
     await createActiveEffects(targetActor, [
       {
-        name: condition?.label ?? (change.senseMode ? `${label}: ${SENSE_LABELS[change.senseMode]}` : change.movementMode ? `${label}: ${MOVEMENT_MODE_NAMES[change.movementMode]}` : change.bodyElement ? `${label}: ${getDamageElement(change.bodyElement)?.label ?? change.bodyElement}` : `${label}: ${targetLabel} ${sign}${entry.amount}`),
+        name: condition?.label ?? (change.luck ? `${label}: ${describeLuck(luckFromScopes(change.luck.value, change.luck.scopes))}` : change.magicDampen ? `${label}: Magia enfraquecida` : change.senseMode ? `${label}: ${SENSE_LABELS[change.senseMode]}` : change.movementMode ? `${label}: ${MOVEMENT_MODE_NAMES[change.movementMode]}` : change.bodyElement ? `${label}: ${getDamageElement(change.bodyElement)?.label ?? change.bodyElement}` : `${label}: ${targetLabel} ${sign}${entry.amount}`),
         img: entry.icon || condition?.icon || origin.img || "icons/svg/aura.svg",
         origin: origin.uuid ?? undefined,
         statuses: entry.conditionId ? [entry.conditionId] : [],
@@ -504,6 +526,8 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
             bodyElement: change.bodyElement ?? "",
             movementMode: change.movementMode ?? "",
             senseMode: change.senseMode ?? "",
+            magicDampen: change.magicDampen ?? null,
+            luck: change.luck ?? null,
             sourceLevel,
             magic: sourceMagic,
             tech: sourceTech,
@@ -515,13 +539,15 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
     ]);
     const valueText =
       ["weaponElement", "bodyElement"].includes(entry.target) ? `→ ${getDamageElement(entry.elementId)?.label ?? entry.elementId}`
+      : change.luck ? describeLuck(luckFromScopes(change.luck.value, change.luck.scopes))
+      : change.magicDampen ? `${change.magicDampen.chance}% das magias saem com ${change.magicDampen.percent}% da força`
       : change.senseMode ? describeSenseRange(Number(change.value))
       : entry.target === "unarmedType" ? `→ ${getWeaponType(entry.weaponTypeId)?.label ?? entry.weaponTypeId}`
       : ["weaponMagic", "weaponAbsolute"].includes(entry.target) || change.movementMode ? ""
       : isMultiplier ? `×${(1 + entry.amount / 100).toFixed(2)}`
       : `${sign}${entry.amount}${SHIP_PERCENT_PATHS[entry.target] || entry.target === "movement" ? "%" : ""}`;
     // Só a Condição (valor 0): o texto é o nome dela, sem "Destreza +0".
-    const head = change.senseMode ? `${SENSE_LABELS[change.senseMode]} ${valueText}` : condition?.label && !Number(entry.amount) && !valueText.replace(/[+\-0%]/g, "").trim() ? condition.label : `${targetLabel} ${valueText}`;
+    const head = change.luck ? `Sorte: ${valueText}` : change.magicDampen ? `Magia enfraquecida: ${valueText}` : change.senseMode ? `${SENSE_LABELS[change.senseMode]} ${valueText}` : condition?.label && !Number(entry.amount) && !valueText.replace(/[+\-0%]/g, "").trim() ? condition.label : `${targetLabel} ${valueText}`;
     summary.push(
       tiedToActive
         ? `${head} (até desativar)`
@@ -542,8 +568,7 @@ async function applyMark(targetActor, caster, { rounds = 0, level = 0, tech = fa
   const duration = rounds > 0 ? { rounds } : {};
   const existing = targetActor.effects.find(e => e.getFlag(SYSTEM_ID, "markedBy") === caster.uuid);
   if (existing) {
-    const update = { "duration.rounds": rounds > 0 ? rounds : null, [`flags.${SYSTEM_ID}.sourceLevel`]: Math.max(level, Number(existing.getFlag(SYSTEM_ID, "sourceLevel")) || 0) };
-    if (rounds > 0 && game.combat) Object.assign(update, { "duration.startRound": game.combat.round ?? 0, "duration.startTurn": game.combat.turn ?? 0 });
+    const update = { ...effectRoundsUpdate(rounds, { combat: game.combat }), [`flags.${SYSTEM_ID}.sourceLevel`]: Math.max(level, Number(existing.getFlag(SYSTEM_ID, "sourceLevel")) || 0) };
     await existing.update(update);
     return `Marca de ${caster.name} renovada em ${targetActor.name}${rounds > 0 ? ` (${rounds} rodada(s))` : ""}`;
   }

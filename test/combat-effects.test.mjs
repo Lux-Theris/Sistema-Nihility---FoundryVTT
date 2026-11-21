@@ -405,3 +405,29 @@ test("publicRollModeOption: V14 usa messageMode, V13 rollMode", async () => {
   assert.deepEqual(publicRollModeOption(14), { messageMode: "public" });
   assert.deepEqual(publicRollModeOption(13), { rollMode: "publicroll" });
 });
+
+test("prazo de efeito em rodadas: V14 (value/units/start) e V13 (rounds/startRound) — achado de 20/11", async () => {
+  const C = await import("../module/helpers/foundry-compat.js");
+  assert.equal(C.effectDurationRounds({ duration: { value: 3, units: "rounds" } }), 3);
+  assert.equal(C.effectDurationRounds({ duration: { value: 60, units: "seconds" } }), 0);
+  assert.equal(C.effectDurationRounds({ duration: { rounds: 4 } }), 4);
+  assert.equal(C.effectDurationRounds({ duration: {} }), 0);
+  assert.equal(C.effectStartRound({ start: { round: 2 }, duration: {} }), 2);
+  assert.equal(C.effectStartRound({ duration: { startRound: 5 } }), 5);
+  const combat = { round: 2, turn: 1, id: "c1" };
+  assert.deepEqual(C.effectRoundsUpdate(0, { generation: 14 }), { "duration.value": null, "duration.units": "seconds", "duration.expiry": null });
+  assert.deepEqual(C.effectRoundsUpdate(3, { combat, generation: 14, worldTime: 388800 }), { "duration.value": 3, "duration.units": "rounds", "duration.expiry": "turnStart", "duration.expired": false, "start.time": 388800, "start.round": 2, "start.turn": 1, "start.combat": "c1" });
+  // fora de combate: renovar também zera o vencimento e o início (achado de 21/11)
+  assert.deepEqual(C.effectRoundsUpdate(3, { generation: 14, worldTime: 500 }), { "duration.value": 3, "duration.units": "rounds", "duration.expiry": "turnStart", "duration.expired": false, "start.time": 500, "start.round": null, "start.turn": null, "start.combat": null });
+  assert.deepEqual(C.effectRoundsUpdate(0, { generation: 13 }), { "duration.rounds": null });
+  assert.deepEqual(C.effectRoundsUpdate(3, { combat, generation: 13 }), { "duration.rounds": 3, "duration.startRound": 2, "duration.startTurn": 1 });
+});
+
+test("tokenElevation lê o valor gravado (_source), não o do documento animado/preparado — achado de 21/11", async () => {
+  const C = await import("../module/helpers/foundry-compat.js");
+  assert.equal(C.tokenElevation({ elevation: 6, _source: { elevation: 0 } }), 0);
+  assert.equal(C.tokenElevation({ elevation: 0, _source: { elevation: -3 } }), -3);
+  assert.equal(C.tokenElevation({ document: { elevation: 0, _source: { elevation: 6 } } }), 6);
+  assert.equal(C.tokenElevation({ elevation: 4 }), 4);
+  assert.equal(C.tokenElevation(null), 0);
+});

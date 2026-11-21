@@ -15,6 +15,7 @@
  * A Mana de quem tem a Skill NÃO entra na sugestão (o mesmo poder sugere o mesmo custo para
  * todos); ela só aparece numa linha à parte (`holderLine`).
  */
+import { luckMean } from "../combat/luck-rules.js";
 import { isSenseTarget } from "../combat/senses-rules.js";
 import { hasOnlyIf, ONLY_IF_COST_FACTOR } from "./only-if-rules.js";
 
@@ -37,6 +38,8 @@ export const COST_WEIGHTS = {
   movementMode: 5,
   // Sentido (J4b): valor fixo por sentido (+ um pouco pela duração); o alcance em metros não pesa.
   senseFlat: 3,
+  // Sorte (8d.1): pontos por (% de sorte × escopo × rodada).
+  luckPerPercentRound: 0.012,
   structureHpPerPoint: 5,
   // Forma (H5): peso fixo da transformação; a manutenção entra pelo upkeepShare como nas outras Ativas.
   formFlat: 8,
@@ -45,6 +48,8 @@ export const COST_WEIGHTS = {
   // Análise e Predação (7b): peso fixo (a Predação vale mais: dá Skills e pontos de graça).
   analysisFlat: 4,
   predationFlat: 10,
+  rerollFlat: 6,
+  dispelFlat: 6,
   upkeepShare: 0.25,
   percentTarget: 0.1
 };
@@ -57,7 +62,7 @@ const PERCENT_VALUE_TARGETS = ["movement", "shipShieldCapacity", "shipShieldRege
  * para calcular sem a ficha (`@força`, funções) contam 0. Modificadores de dado (`kh`, `r`, `x`)
  * são ignorados — é uma estimativa.
  */
-export function averageRoll(formula) {
+export function averageRoll(formula, luck = 0) {
   const text = String(formula ?? "").replace(/\s+/g, "").replace(/@[\w.]+/g, "0");
   if (!text) return 0;
   let total = 0;
@@ -67,7 +72,7 @@ export function averageRoll(formula) {
     if (match[3]) {
       const sign = match[1] === "-" ? -1 : 1;
       const n = match[2] ? Number(match[2]) : 1;
-      total += sign * n * ((Number(match[3]) + 1) / 2);
+      total += sign * n * (luck ? luckMean(Number(match[3]), luck) : (Number(match[3]) + 1) / 2);
     } else if (match[5]) {
       total += (match[4] === "-" ? -1 : 1) * Number(match[5]);
     }
@@ -130,9 +135,17 @@ export function suggestSkillCost(mech, ctx = {}) {
       const name = label(ctx.targetLabel, target);
       let p = 0;
       let text = "";
-      if (target === "antimagic" || target === "emp" || target === "mark") {
+      if (target === "dispelMagic") {
+        p = w.dispelFlat;
+        text = "Dissipar";
+      } else if (target === "antimagic" || target === "emp" || target === "mark") {
         p = w.antimagic;
         text = target === "emp" ? "PEM" : target === "mark" ? "Marca" : "Antimagia";
+      } else if (target === "luck") {
+        const scopes = Object.values(e?.luckScopes ?? {}).filter(Boolean).length;
+        const rounds = active ? w.activeTicks : Math.max(1, Math.min(w.maxRounds, Number(e?.durationRounds) || w.foreverRounds));
+        p = raw * scopes * rounds * w.luckPerPercentRound;
+        text = `Sorte ${Number(e?.amount) > 0 ? "+" : "−"}${raw}% em ${scopes} escopo(s) por ${active ? "rodada ativa" : `${rounds} rodada(s)`}`;
       } else if (target === "createSurface") {
         p = w.surfaceFlat;
         text = "Cria superfície";
@@ -187,6 +200,9 @@ export function suggestSkillCost(mech, ctx = {}) {
   } else if (effectType === "analysis") {
     points = w.analysisFlat;
     rows.push({ label: "Análise de um alvo", value: fmt(points) });
+  } else if (effectType === "reroll") {
+    points = w.rerollFlat;
+    rows.push({ label: "Rerrolar uma rolagem", value: fmt(points) });
   } else if (effectType === "predation") {
     points = w.predationFlat;
     rows.push({ label: "Predação de um alvo derrotado", value: fmt(points) });

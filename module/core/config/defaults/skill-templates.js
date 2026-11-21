@@ -111,6 +111,43 @@ export const DEFAULT_SKILL_TEMPLATES = [
     hint: "área que fica e bate todo turno",
     group: "controle",
     skill: { ...base, cost: 20, range: 20, areaOrigin: "free", effectType: "damage", targetType: "zone", areaShape: "circle", areaDistance: 3, areaAngle: 53, zoneRounds: 3, damageFormula: "2d6", damageElements: ["fire"], scalingAttribute: "magic", isMagicDamage: true }
+  },
+  {
+    // O exemplo do dono (19–20/11): uma Única, Ativa e Combinada. Desligada: Força −100% e Destreza −50%, e os golpes
+    // põem a Marca do Duelo. Com o marcado a até 10 m, liga: empurra os curiosos, ergue a bolha em volta de quem
+    // usa, dá o buff grande em si e enfraquece a magia do alvo. Desliga se o alvo cai ou a bolha é destruída.
+    id: "duelo_bolha",
+    label: "Duelo na bolha",
+    hint: "Única, Ativa e Combinada: marca ao acertar, liga a bolha com o marcado",
+    group: "controle",
+    skill: {
+      ...base,
+      tier: "unique",
+      cost: 40,
+      hasUpkeep: true,
+      upkeepCost: 6,
+      range: 10,
+      magicTag: "mundane",
+      isMagic: false,
+      isTech: false,
+      effectType: "none",
+      targetType: "targeted",
+      combined: true,
+      endsWhenTargetFalls: true,
+      intruderRule: "break",
+      onlyIf: { kind: "otherConditionMine", value: "duel-mark", threshold: 50 },
+      onHit: { conditionId: "duel-mark", chance: 100, rounds: 0, when: "off" },
+      conditionalModifiers: [
+        { when: { kind: "always", value: "", threshold: 50 }, then: { kind: "attributePercent", target: "strength", value: -100 }, perEach: "", activeState: "off" },
+        { when: { kind: "always", value: "", threshold: 50 }, then: { kind: "attributePercent", target: "dexterity", value: -50 }, perEach: "", activeState: "off" }
+      ],
+      subSkills: [
+        { name: "Empurrar os curiosos", tier: "unique", effectType: "temporary", targetType: "emission", areaOrigin: "caster", areaShape: "circle", areaDistance: 8, areaAffects: "othersExceptTarget", magicTag: "mundane", isMagic: false, effects: [effect("push", 8, 0, { pushDirection: "push" })] },
+        { name: "Erguer a bolha", tier: "unique", effectType: "structure", targetType: "targeted", structureId: "duel-bubble", structurePlace: "caster", magicTag: "mundane", isMagic: false },
+        { name: "Fúria do duelo", tier: "unique", effectType: "temporary", targetType: "self", magicTag: "mundane", isMagic: false, effects: [effect("strength", 150, 0, { amountMode: "percentMax" }), effect("dexterity", 100, 0, { amountMode: "percentMax" })] },
+        { name: "Magia enfraquecida", tier: "unique", effectType: "temporary", targetType: "targeted", magicTag: "mundane", isMagic: false, effects: [effect("magicDampen", 50, 0, { chance: 50 })] }
+      ]
+    }
   }
 ];
 

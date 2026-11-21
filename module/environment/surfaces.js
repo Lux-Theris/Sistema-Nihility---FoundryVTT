@@ -26,7 +26,7 @@ import {
   actorTraits, actorToken, isSurfacesEnabled, isElevationEnabled, isMagicUse
 } from "../core/config.js";
 import { areaContains, normalizeArea, areaPolygon, tokenDocCenter, zoneDocumentData } from "../combat/area-geometry.js";
-import { foundryGeneration, combatScenes } from "../helpers/foundry-compat.js";
+import { foundryGeneration, combatScenes, tokenElevation } from "../helpers/foundry-compat.js";
 import { isDesignatedGm, runAsGm } from "../helpers/gm-relay.js";
 import { refuse, relayFailureMessage } from "../helpers/gm-relay-rules.js";
 import { reportError } from "../helpers/report.js";
@@ -84,7 +84,7 @@ function surfaceReaches(doc, flag, tokenDoc, position = null, elevation = null) 
   const at = position ? { x: position.x, y: position.y, width: position.width ?? tokenDoc.width, height: position.height ?? tokenDoc.height } : tokenDoc;
   if (!areaContains(area, tokenDocCenter(at, scene.grid?.size))) return false;
   return surfaceReachesElevation({
-    elevation: elevation ?? tokenDoc.elevation,
+    elevation: elevation ?? tokenElevation(tokenDoc),
     base: flag.elevation,
     height: flag.height,
     elevationOn: isElevationEnabled()
@@ -552,9 +552,9 @@ export function registerSurfaces() {
     for (const doc of surfaces) {
       const flag = surfaceFlagOf(doc);
       if (!flag) continue;
-      const before = surfaceReaches(doc, flag, document, where(origin), origin.elevation ?? document.elevation);
-      const after = surfaceReaches(doc, flag, document, where(destination), destination.elevation ?? document.elevation);
-      if (surfaceEntered(before, after)) await triggerSurface(document, doc, { position: where(destination), elevation: destination.elevation ?? document.elevation });
+      const before = surfaceReaches(doc, flag, document, where(origin), origin.elevation ?? tokenElevation(document));
+      const after = surfaceReaches(doc, flag, document, where(destination), destination.elevation ?? tokenElevation(document));
+      if (surfaceEntered(before, after)) await triggerSurface(document, doc, { position: where(destination), elevation: destination.elevation ?? tokenElevation(document) });
     }
   });
 

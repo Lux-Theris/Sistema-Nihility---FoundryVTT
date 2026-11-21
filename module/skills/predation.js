@@ -1,6 +1,7 @@
 import {
   SYSTEM_ID, MEU_SISTEMA, isPredationEnabled, getPredationAttrPercent, getPredationLevelStep, getAttributeLabel, actorToken
 } from "../core/config.js";
+import { applyLuckToFormula, luckOf } from "../combat/luck-rules.js";
 import { escapeHtml } from "../helpers/html.js";
 import { reportError } from "../helpers/report.js";
 import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
@@ -115,7 +116,8 @@ export async function usePredation(sourceActor, skill, mech, label, targetActor,
 
   const results = [];
   for (const entry of eligible) {
-    const roll = await new Roll("1d100").evaluate();
+    // Sorte (8d.1): quem preda se beneficia; sucesso = resultado baixo, então a sorte entra invertida no d100.
+    const roll = await new Roll(applyLuckToFormula("1d100", -luckOf(sourceActor, "chances"))).evaluate();
     results.push({ skillId: entry.id, name: entry.name, tier: entry.tier, chance: entry.chance, roll: roll.total, won: predationWins(roll.total, entry.chance) });
   }
 
@@ -134,6 +136,7 @@ export async function usePredation(sourceActor, skill, mech, label, targetActor,
     results,
     skipped: skipped.map(s => ({ name: s.name, reason: s.reason })),
     formOptions: formSkillOptions(sourceActor),
+    label,
     status: "pending"
   };
   await ChatMessage.create({
@@ -144,6 +147,23 @@ export async function usePredation(sourceActor, skill, mech, label, targetActor,
   });
   await grantSkillUseXp(skill, [{ flat: true }]);
   return true;
+}
+
+/**
+ * O que gravar num card pendente da Predação quando um d100 foi refeito (Rerrolar, 8d.2): o HTML novo
+ * e o flag com os resultados novos. Quem escreve é o Mestre (relay `rerollApply`).
+ */
+export function predationCardUpdate(message, data) {
+  let predator = null;
+  try {
+    predator = data.predatorUuid ? fromUuidSync(data.predatorUuid) : null;
+  } catch (err) {
+    predator = null;
+  }
+  return {
+    content: cardHtml(data, predator ?? { name: message.alias ?? "?" }, data.label || "Predação"),
+    [`flags.${SYSTEM_ID}.${FLAG}`]: data
+  };
 }
 
 /* ------------------------------------------------------------------ Card */
@@ -157,7 +177,7 @@ function attrLine(attrGain) {
 
 function cardHtml(data, predator, label) {
   const rows = data.results
-    .map(r => `<li>${escapeHtml(r.name)} <em>(${escapeHtml(MEU_SISTEMA.SKILL_TIER_LABELS[r.tier] ?? r.tier)})</em> — chance ${r.chance}% · d100 = ${r.roll} · <strong>${r.won ? "ganhou" : "perdeu"}</strong></li>`)
+    .map(r => `<li><span class="pred-skill-name" data-won="${r.won ? 1 : 0}">${escapeHtml(r.name)}</span> <em>(${escapeHtml(MEU_SISTEMA.SKILL_TIER_LABELS[r.tier] ?? r.tier)})</em> — chance ${r.chance}% · d100 = ${r.roll} · <strong>${r.won ? "ganhou" : "perdeu"}</strong></li>`)
     .join("");
   const skipped = data.skipped.length ? `<p class="hint-inline">Não entram: ${data.skipped.map(s => `${escapeHtml(s.name)} (${escapeHtml(s.reason)})`).join(", ")}.</p>` : "";
   const points = Object.keys(data.attrGain).length
@@ -176,12 +196,19 @@ function renderPredationCard(message, html) {
   if (!data) return;
   const slot = html.querySelector(".predation-controls");
   if (!slot) return;
+  // Quem não é Mestre não fica sabendo as Skills do alvo pela Predação (achado do teste de 20/11): vê só
+  // o Tier; o nome de uma Skill ganha aparece depois que o Mestre confirma (ela entra na ficha).
+  if (!game.user.isGM) {
+    for (const el of html.querySelectorAll(".pred-skill-name")) {
+      if (!(data.status === "confirmed" && el.dataset.won === "1")) el.textContent = "Habilidade";
+    }
+  }
   if (data.status !== "pending") {
     slot.textContent = STATUS_TEXT[data.status] ?? data.status;
     return;
   }
   if (!game.user.isGM) {
-    slot.textContent = "Aguardando o Mestre.";
+    slot.textContent = "Aguardando o Mestre confirmar: nada é seu ainda.";
     return;
   }
   const target = actorByUuid(data.targetUuid);

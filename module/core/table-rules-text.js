@@ -92,6 +92,10 @@ export function buildTableRulesPages(d) {
       parts.push(`<p>Habilidades, armas e granadas têm um <b>alcance</b> em metros (0 = sem limite), medido do centro do seu Token ao do alvo. Fora dele o uso é recusado. Uma Habilidade de área pode sair do seu Token (o círculo em volta de você, o cone e a linha só giram) ou ser posta livre, dentro do alcance. Granadas vão até uma base mais a sua Força.</p>`);
       parts.push(`<p>Uma <b>Marca</b> é um efeito mágico que você põe em alguém: enquanto durar, você pode lançar Habilidades <i>como se estivesse onde o Marcado está</i> — o alvo, a área e as paredes no caminho contam a partir dele. Custa mais quanto mais longe: o custo vezes (distância ÷ alcance) ao quadrado. A Antimagia desfaz a Marca.</p>`);
     }
+    if (d.features.luck) {
+      parts.push("<h2>Sorte e azar</h2>");
+      parts.push("<p><b>Sorte</b> é uma inclinação, em %, sobre as faces dos dados: positiva puxa para as faces altas, negativa (azar) para as baixas. Não tem teto — +100% leva um d20 a uma média de 13,8 e +300% dá 27% de chance de tirar 20 —, mas nunca vira certeza. Ela vale nos <b>atributos e na iniciativa</b>, no <b>dano</b> de quem ataca e nas <b>chances</b> de %, onde a sorte favorece o sucesso (no Contágio, a sorte de quem pode pegar protege). Vem de Habilidades, Condições, Títulos, da Espécie e de Traços, e soma. Quando você tem sorte (ou azar), a ficha mostra a linha <i>Sorte</i>.</p>");
+    }
     if (d.features.weaponMastery && d.mastery) {
       const m = d.mastery;
       parts.push("<h2>Tipos de arma e Maestria</h2>");
@@ -127,6 +131,12 @@ export function buildTableRulesPages(d) {
       parts.push("<h2>Predação</h2>");
       parts.push("<p>Uma Habilidade de <b>Predação</b>, usada num alvo <b>derrotado</b> (morto, Caído ou Inconsciente), rola um d100 por Habilidade dele: a chance é <b>50%</b> no mesmo Tier e no mesmo nível, mais 25% por Tier da Predação acima do da Habilidade e menos 25% por Tier abaixo; cada nível que a Habilidade está acima da Predação tira pontos (e cada nível abaixo soma), então uma Predação de nível baixo não pega Habilidades de nível alto. O Mestre confirma. As Habilidades ganhas entram <b>inteiras, no nível 1</b> (a Racial vira Normal). Na <b>1ª, 5ª, 10ª, 20ª, 40ª…</b> criatura da mesma Espécie, uma parte dos atributos dela vira <b>pontos permanentes</b>. Quem tem uma Habilidade de Forma pode ganhar a <b>forma</b> do corpo. O corpo é consumido e o Token some. Não se absorve o que veio de Item, Habilidades de base, Maestrias, Formas nem o que você já tem.</p>");
     }
+    if (d.features.reroll) {
+      parts.push("<h2>Rerrolar</h2>");
+      parts.push("<p>Uma Habilidade de <b>Rerrolar</b> é usada <b>no chat</b>, depois de ver uma rolagem: o botão <b>Rerrolar</b> aparece no card de atributo, iniciativa, dano ainda não aplicado e dos d100 de Predação e de passar da Mana que ela alcança (as suas, as de aliados ou as de qualquer um, conforme a Habilidade). Usar paga o Custo e começa a Recarga como qualquer Habilidade. A Habilidade diz o que fica: o <b>novo</b>, o <b>melhor</b> ou o <b>pior</b> dos dois (uma Habilidade Ultimate pode <b>escolher na hora</b>). Um resultado rerrolado pode ser rerrolado de novo por outra Habilidade, pagando de novo.</p>");
+    }
+    parts.push("<h2>Dissipar</h2>");
+    parts.push("<p>O efeito <b>Dissipar</b> é uma magia para desfazer magia: termina só os efeitos <b>mágicos</b> do alvo (Condições, marcas, bênçãos e maldições) de nível até o <b>nível da Habilidade</b>. Diferente da Antimagia, não suprime o alvo, não desliga as Habilidades Ativas dele, não toca Escudos nem Estruturas e, por ser magia, um Campo de Antimagia o impede. Pode ser só marcas, ou só uma Condição escolhida.</p>");
     if (d.features.pact) {
       parts.push("<h2>Pacto</h2>");
       parts.push(`<p>Num <b>Pacto</b> (criado pelo Mestre), o bruxo usa as Habilidades que o patrono <b>liberou</b>, com a própria ${energy}, no nível do patrono. Alcance, Antimagia e Supressão contam do bruxo; o XP de uso vai para o patrono. O patrono ou o bruxo podem cortar o Pacto, e o patrono pode parar de aceitar pedidos.</p>`);
@@ -146,6 +156,7 @@ export function buildTableRulesPages(d) {
       if (d.surfaces?.length) parts.push(`<ul>${d.surfaces.map(r => `<li>${esc(r)}</li>`).join("")}</ul>`);
     }
     parts.push("<p>Alguns efeitos de Habilidade têm um <b>\"Só se…\"</b>: só pegam se o alvo (ou quem usou) estiver como pedido, por exemplo só se o alvo estiver Molhado. Quando não vale, o uso diz \"não aplicado\" e o porquê.</p>");
+    parts.push("<p>Uma Habilidade <b>Combinada</b> dispara todas as suas partes de uma vez, nos mesmos alvos, pagando o Custo uma vez só. Uma delas pode erguer uma <b>Estrutura em volta de quem usa</b> (ou do alvo), sem clique; a Estrutura pode apanhar menos de fora e mais de dentro, sumir quando a Habilidade desliga e, se for destruída, desligar a Habilidade. Uma Habilidade Ativa pode desligar sozinha se o alvo cair ou se alguém entrar na Estrutura. <b>Magia enfraquecida</b> é um efeito em alguém: cada magia que ele usar tem uma chance de sair com só parte da força.</p>");
     parts.push("<h2>Campo de Antimagia</h2>");
     parts.push(`<p>Magia que vem <b>de fora</b> e cruza um campo de Antimagia gasta a ${energy} e <b>some</b>, se o campo vencer. <b>De dentro</b> do campo, ou sob um Selo de Antimagia, a magia <b>nem sai</b> e não gasta nada. A Habilidade <b>Manipulação de ${energy}</b> muda isso: quanto maior o nível dela diante do campo, menos ele atrapalha — primeiro a magia passa pagando ${energy} a mais, depois passa de graça. Sem a Manipulação, o campo sempre vence. Usá-la contra a Antimagia a faz evoluir.</p>`);
     if (d.features.interference) parts.push("<p>O Campo de Interferência faz o mesmo com a tecnologia, mas não há Habilidade que o vença: o uso tecnológico de fora some, e de dentro nem sai.</p>");

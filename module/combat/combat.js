@@ -12,6 +12,7 @@
  */
 import { SYSTEM_ID, MEU_SISTEMA, getAttributeLabel, combatantIsActor, actorToken } from "../core/config.js";
 import { buildAttributeRollFormula } from "../core/dice.js";
+import { luckOf } from "./luck-rules.js";
 import { buildModifiedFormula, describeRollOptions, isNeutralRollOptions } from "../core/roll-modifiers.js";
 import { escapeHtml } from "../helpers/html.js";
 import { combatantVisibleByPerception } from "./senses.js";
@@ -61,7 +62,7 @@ export function registerInitiative() {
 
       // Bônus de Item entra como número fixo, nunca como dado a mais — a mesma regra de
       // `rollAttribute` em dice.js ("soma por fora, na hora da rolagem").
-      return buildAttributeRollFormula(attribute.bonus, attribute.itemBonus ?? 0);
+      return buildAttributeRollFormula(attribute.bonus, attribute.itemBonus ?? 0, luckOf(this.actor, "attributes"));
     }
   };
 }

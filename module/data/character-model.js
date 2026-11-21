@@ -26,6 +26,7 @@ import { bodyFunctionState, injuredMovement, legacyFunctionsFor, resolvePartVita
 import { originAttributeRows, originStatRows, originMovement, originScale } from "../species/species-rules.js";
 import { sumConditionalModifiers, percentOfTotal } from "../combat/conditional-modifiers.js";
 import { sourceSuppressed, suppressionState } from "../core/suppression.js";
+import { totalLuck } from "../combat/luck-sources.js";
 import { npcTierHp, NPC_TIERS } from "../npc/npc-generator-rules.js";
 import { getNpcTierConfig } from "../core/config.js";
 
@@ -647,6 +648,8 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
     deriveVitalStats(this);
     derivePartVitals(this);
     deriveBodyState(this);
+    // Sorte (8d.1): soma das fontes, por escopo; zero com o bloco desligado.
+    this.luck = totalLuck(this.parent);
     deriveConditionalAttributes(this);
     deriveExperience(this);
   }

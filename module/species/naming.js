@@ -1,4 +1,4 @@
-import { SYSTEM_ID, MEU_SISTEMA, isNamingEnabled, getNamingConfig, getXpForNextLevel, getFeatureOption, getEnergyLabelForActor } from "../core/config.js";
+import { SYSTEM_ID, MEU_SISTEMA, isNamingEnabled, getNamingConfig, getXpForNextLevel, getFeatureOption, getEnergyLabelForActor, getCharacterEnergyLabel } from "../core/config.js";
 import { runAsGm } from "../helpers/gm-relay.js";
 import { RELAY_REASONS, refuse } from "../helpers/gm-relay-rules.js";
 import { escapeHtml } from "../helpers/html.js";
@@ -84,11 +84,16 @@ export function namingPreview(namer, named) {
 function previewHtml(namer, named, preview) {
   const energy = escapeHtml(getEnergyLabelForActor(namer));
   if (!preview.outcome.ok) {
-    return `<p><strong>Vai falhar:</strong> ${escapeHtml(namer.name)} tem ${preview.namerMax} de ${energy} máxima e a Nomeação custa ${preview.cost}. A ${energy} atual vai a 0 e ${escapeHtml(namer.name)} cai Inconsciente; nada mais muda.</p>`;
+    return `<p><strong>Vai falhar:</strong> o máximo de ${energy} de ${escapeHtml(namer.name)} é ${preview.namerMax} e a Nomeação custa ${preview.cost}. ${escapeHtml(namer.name)} fica sem ${energy} e cai Inconsciente; nada mais muda.</p>`;
   }
   const rows = preview.lines.map(line => `<li>${escapeHtml(line)}</li>`).join("");
-  return `<p>${escapeHtml(namer.name)} perde <strong>${preview.cost}</strong> de ${energy} máxima para sempre.</p>
-    <p>${escapeHtml(named.name)} recebe <strong>${preview.totalXp}</strong> de XP nas Skills${preview.leftover ? ` (sobram ${preview.leftover}, guardados para Evoluir uma Skill)` : ""}.</p>${rows ? `<ul>${rows}</ul>` : ""}`;
+  const costLine = preview.cost > 0
+    ? `<p>${escapeHtml(namer.name)} perde <strong>${preview.cost}</strong> do máximo de ${energy} para sempre.</p>`
+    : `<p>Dar este nome não custa nada a ${escapeHtml(namer.name)}: ${escapeHtml(named.name)} não tem atributos de combate.</p>`;
+  const xpLine = preview.totalXp > 0
+    ? `<p>${escapeHtml(named.name)} recebe <strong>${preview.totalXp}</strong> de XP nas Skills${preview.leftover ? ` (sobram ${preview.leftover}, guardados para Evoluir uma Skill)` : ""}.</p>`
+    : `<p>${escapeHtml(named.name)} não recebe XP nas Skills.</p>`;
+  return `${costLine}${xpLine}${rows ? `<ul>${rows}</ul>` : ""}`;
 }
 
 /* ------------------------------------------------------------------ Pedido (Token HUD) */
@@ -113,7 +118,7 @@ async function promptNaming(target, candidates, defaultActor) {
     content: `<div class="nihility-naming-dialog">
       <div class="form-group"><label>Novo nome</label><input type="text" name="newName" maxlength="80" autofocus/></div>
       <div class="form-group"><label>Quem nomeia</label><select name="namer">${options}</select></div>
-      <p class="hint-inline">Quem nomeia perde Mana máxima para sempre. ${game.user.isGM ? "Você aplica direto, depois de ver a prévia." : "O Mestre precisa aprovar."}</p>
+      <p class="hint-inline">Quem nomeia perde parte do máximo de ${escapeHtml(getCharacterEnergyLabel())} para sempre. ${game.user.isGM ? "Você aplica direto, depois de ver a prévia." : "O Mestre precisa aprovar."}</p>
     </div>`,
     buttons: [
       {
@@ -195,11 +200,11 @@ function renderNamingRequest(message, html) {
   const slot = html.querySelector(".naming-status");
   if (!slot) return;
   if (req.status !== "pending") {
-    slot.textContent = { approved: "Aprovada.", rejected: "Rejeitada.", failed: "Falhou (Mana máxima insuficiente).", error: "Não foi possível aplicar." }[req.status] ?? req.status;
+    slot.textContent = { approved: "Aprovada.", rejected: "Rejeitada.", failed: `Falhou (faltou máximo de ${getCharacterEnergyLabel()}).`, error: "Não foi possível aplicar." }[req.status] ?? req.status;
     return;
   }
   if (!game.user.isGM) {
-    slot.textContent = "Aguardando o Mestre.";
+    slot.textContent = "Aguardando o Mestre aprovar: nada mudou ainda.";
     return;
   }
   const make = (label, action) => {
@@ -265,7 +270,7 @@ export async function performNaming(request) {
     await announceVoiceOfTheWorld(namer, {
       kind: "naming",
       title: "Nomeação falhou",
-      body: `${namer.name} não tinha Mana máxima para dar um nome a ${target.name} (${preview.cost} necessários). A Mana vai a 0 e ${namer.name} desmaia.`
+      body: `${namer.name} não tinha máximo de ${getEnergyLabelForActor(namer)} para dar um nome a ${target.name} (${preview.cost} necessários). ${namer.name} fica sem ${getEnergyLabelForActor(namer)} e desmaia.`
     });
     return "failed";
   }
@@ -298,10 +303,14 @@ export async function performNaming(request) {
   // O XP da Nomeação: dividido entre as Skills do nomeado; o que não cabe fica guardado.
   const applied = await applyXpToActor(named, preview.totalXp + namingBankOf(named), null);
 
+  // O nomeado nasce inteiro (achado do teste de 20/11: saía com a Vida/Mana que o Token tinha, sobre o máximo novo).
+  const vitals = named.system.attributes ?? {};
+  await named.update({ "system.attributes.hp.value": Number(vitals.hp?.max) || 0, "system.attributes.energy.value": Number(vitals.energy?.max) || 0 });
+
   await announceVoiceOfTheWorld(namer, {
     kind: "naming",
     title: "Nomeação",
-    body: `${namer.name} deu o nome ${name} a ${oldName} e perdeu ${preview.cost} de Mana máxima. Agora ${name} está ligado a ${namer.name} pelo Corredor de alma.`
+    body: `${namer.name} deu o nome ${name} a ${oldName} e perdeu ${preview.cost} do máximo de ${getEnergyLabelForActor(namer)}. Agora ${name} está ligado a ${namer.name} pelo Corredor de alma.`
   });
   await announceVoiceOfTheWorld(named, {
     kind: "naming",

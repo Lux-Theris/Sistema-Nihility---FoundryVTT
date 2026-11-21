@@ -24,10 +24,14 @@ import {
   getFeatureOption,
   getAttributeLabel,
   isForcedMovementEnabled,
+  isMagicUse,
+  isTechUse,
   sameActor
 } from "../core/config.js";
 import { skillIsMagic, itemIsTech } from "../core/magic-rules.js";
+import { isCombinedSkill, combinedPartMech } from "../skills/combined-rules.js";
 import { buildAttributeRollFormula } from "../core/dice.js";
+import { luckOf } from "./luck-rules.js";
 import { escapeHtml } from "../helpers/html.js";
 import { runAsGm } from "../helpers/gm-relay.js";
 import { RELAY_REASONS, refuse, relayFailureMessage } from "../helpers/gm-relay-rules.js";
@@ -184,6 +188,8 @@ export async function runSkillPushes({ sourceActor, item, mech, label, subSkillI
         kind: "effect",
         sourceUuid: item.uuid,
         subSkillIndex,
+        // Parte de uma Combinada (8c.2): o Mestre lê o efeito da parte, com o nível da Skill-mãe.
+        partIndex: Number.isInteger(mech.combinedPartIndex) ? mech.combinedPartIndex : null,
         entryIndex: index,
         direction: chosen,
         sceneId: canvas.scene.id,
@@ -297,7 +303,7 @@ function elementResistance(actor, elementId) {
 async function rollContestAttribute(actor, key) {
   const attr = actor?.system?.attributes?.combat?.[key];
   if (!attr) return { total: 0, key, missing: true };
-  const roll = await new Roll(buildAttributeRollFormula(attr.bonus, Number(attr.itemBonus) || 0)).evaluate();
+  const roll = await new Roll(buildAttributeRollFormula(attr.bonus, Number(attr.itemBonus) || 0, luckOf(actor, "attributes"))).evaluate();
   return { total: roll.total, key, roll };
 }
 
@@ -331,6 +337,11 @@ function resolvePushSpec(item, payload) {
       if (!sub) return { error: "a Sub-Skill não existe mais" };
       mech = sub;
       label = `${item.name} — ${sub.name}`;
+    } else if (Number.isInteger(payload.partIndex) && isCombinedSkill(item.system)) {
+      const part = item.system.subSkills[payload.partIndex];
+      if (!part) return { error: "a parte da Combinada não existe mais" };
+      mech = combinedPartMech(item.system, part, { magic: isMagicUse(item.system, item.parent), tech: isTechUse(item.system, item.parent) });
+      label = `${item.name} — ${part.name}`;
     }
     magical = skillIsMagic({ ...(typeof mech.toObject === "function" ? mech.toObject() : mech), tier: item.system.tier });
   } else if (item.system?.consumable?.enabled) {

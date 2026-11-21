@@ -18,6 +18,7 @@ import {
   isFormsEnabled,
   isAnalysisEnabled,
   isPredationEnabled,
+  isRerollEnabled,
   isStructureMechanic,
   isMagicUse,
   isTechUse,
@@ -33,8 +34,11 @@ import { escapeHtml } from "../helpers/html.js";
 import { getDragEventData } from "../helpers/foundry-compat.js";
 import { formTemplateOf } from "../skills/forms.js";
 import { AREA_AFFECTS_OPTIONS } from "../combat/area-geometry.js";
+import { STRUCTURE_PLACE_OPTIONS } from "../skills/combined-rules.js";
 import { getCompendiumForItemType } from "../core/compendium.js";
 import { isWeaponMasteryEnabled, weaponTypeChoices } from "../combat/weapon-mastery.js";
+import { REROLL_WHO, REROLL_WHO_LABELS, REROLL_KEEP, REROLL_KEEP_LABELS, REROLL_KIND_KEYS, REROLL_KIND_LABELS, normalizeRerollKinds, rerollKeepOptions } from "../skills/reroll-rules.js";
+import { DISPEL_SCOPES, DISPEL_SCOPE_LABELS } from "../core/magic-rules.js";
 import { skillAssist, warningsBoxHtml, costChipHtml, templateGroups, templateFillSentence, skillFromTemplate } from "../skills/skill-assist.js";
 
 const { DialogV2 } = foundry.applications.api;
@@ -95,8 +99,11 @@ function buildEffectRowHtml(entry) {
       <select class="se-effect-target">${options}</select>
       <select class="se-effect-element-id" title="Elemento (das armas, ou que o alvo passa a ser)" style="display:${["weaponElement", "bodyElement", "createSurface"].includes(entry.target) ? "inline-block" : "none"};">${elementIdOptions}</select>
       <select class="se-effect-weapon-type" title="O ataque desarmado passa a contar como este tipo de arma (Maestria, XP e aprendizado)" style="display:${entry.target === "unarmedType" ? "inline-block" : "none"};">${weaponTypeIdOptions}</select>
-      <input type="number" class="se-effect-amount" value="${entry.amount}" placeholder="${entry.target === "push" ? "Metros" : entry.target === "createSurface" ? "Raio m (0 = o do elemento)" : String(entry.target).startsWith("sense") ? "Alcance m (0 = sem limite)" : "Qtd."}" style="display:${["antimagic", "emp", "mark", "flight", "burrow", "unarmedType"].includes(entry.target) ? "none" : ""};"/>
+      <input type="number" class="se-effect-amount" value="${entry.amount}" placeholder="${entry.target === "push" ? "Metros" : entry.target === "createSurface" ? "Raio m (0 = o do elemento)" : String(entry.target).startsWith("sense") ? "Alcance m (0 = sem limite)" : "Qtd."}" style="display:${["antimagic", "emp", "mark", "dispelMagic", "flight", "burrow", "unarmedType"].includes(entry.target) ? "none" : ""};"/>
       <select class="se-effect-amount-mode" title="Pontos, ou % do máximo do alvo (Vida, Mana, Escudo) / % do total do atributo (−100% tira o total inteiro)" style="display:${PERCENT_AMOUNT_TARGETS.includes(entry.target) ? "inline-block" : "none"};"><option value="flat" ${entry.amountMode === "percentMax" ? "" : "selected"}>pts</option><option value="percentMax" ${entry.amountMode === "percentMax" ? "selected" : ""}>${ATTRIBUTE_PERCENT_TARGETS.includes(entry.target) ? "% total" : "% máx."}</option></select>
+      <input type="number" class="se-effect-chance" value="${Number(entry.chance ?? 100)}" min="0" max="100" title="Magia enfraquecida: chance (%) de cada uso mágico do alvo sair com a força indicada em Qtd. (% da força que sobra)" style="width:4.5em;display:${entry.target === "magicDampen" ? "inline-block" : "none"};"/>
+      <span class="se-effect-luck" title="Sorte: Qtd. = % de sorte (negativo = azar). Marque onde vale." style="display:${entry.target === "luck" ? "inline-flex" : "none"};gap:.4em;">${["attributes", "Atributos", "damage", "Dano", "chances", "Chances"].reduce((acc, v, i, a) => (i % 2 ? acc : acc + `<label class="checkbox-line small"><input type="checkbox" class="se-effect-luck-scope" data-scope="${v}" ${entry.luckScopes?.[v] ? "checked" : ""}/> ${a[i + 1]}</label>`), "")}</span>
+      <select class="se-effect-dispel-scope" title="Dissipar: o que termina (só efeitos mágicos do alvo de nível até o desta Skill). Em &quot;só uma Condição&quot;, escolha a Condição abaixo." style="display:${entry.target === "dispelMagic" ? "inline-block" : "none"};">${DISPEL_SCOPES.map(sc => `<option value="${sc}" ${sc === (entry.dispelScope || "all") ? "selected" : ""}>${escapeHtml(DISPEL_SCOPE_LABELS[sc])}</option>`).join("")}</select>
       <input type="number" class="se-effect-duration" value="${entry.durationRounds}" min="0" placeholder="Rounds/Ticks"/>
       <a class="se-effect-delete" title="Remover"><i class="fas fa-trash"></i></a>
     </div>
@@ -162,6 +169,7 @@ export function mechanicSummaryFor(mech) {
   if (mech.effectType === "form") return `Forma: ${formTemplateOf(mech)?.name ?? "(sem ficha)"}`;
   if (mech.effectType === "analysis") return "Análise: revela a ficha de um alvo";
   if (mech.effectType === "predation") return "Predação: absorve de um alvo derrotado";
+  if (mech.effectType === "reroll") return "Rerrolar: reage a uma rolagem no chat";
   if (isStructureMechanic(mech)) {
     return `Estrutura: ${getStructures().find(st => st.id === mech.structureId)?.label ?? "(nenhuma escolhida)"}`;
   }
@@ -210,6 +218,13 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     onlyIf: normalizeOnlyIf(initialData.onlyIf) ?? { kind: "", value: "", threshold: 50 },
     // "Ao acertar" não tem campo aqui (mora na ficha da Skill): passa intacto até o Salvar.
     onHit: initialData.onHit ?? null,
+    // Duelo (8c.2): a ficha da Skill edita; aqui passam intactos até o Salvar (a colocação da Estrutura é visível abaixo).
+    structurePlace: initialData.structurePlace ?? "click",
+    endsWhenTargetFalls: Boolean(initialData.endsWhenTargetFalls),
+    intruderRule: initialData.intruderRule ?? "",
+    rerollWho: REROLL_WHO.includes(initialData.rerollWho) ? initialData.rerollWho : "own",
+    rerollKeep: REROLL_KEEP.includes(initialData.rerollKeep) ? initialData.rerollKeep : "new",
+    rerollKinds: normalizeRerollKinds(initialData.rerollKinds),
     isMagic: initialData.isMagic ?? null,
     isTech: initialData.isTech ?? null,
     upkeepCost: initialData.upkeepCost ?? 0,
@@ -282,7 +297,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
       .map(a => `<option value="${a.key}" ${a.key === data.scalingAttribute ? "selected" : ""}>${escapeHtml(a.label)}</option>`)
       .join("");
 
-  const effectTypeOptions = MEU_SISTEMA.SKILL_EFFECT_TYPES.filter(t => (t !== "structure" || isStructuresEnabled() || data.effectType === "structure") && (t !== "form" || isFormsEnabled() || data.effectType === "form") && (t !== "analysis" || isAnalysisEnabled() || data.effectType === "analysis") && (t !== "predation" || isPredationEnabled() || data.effectType === "predation")).map(
+  const effectTypeOptions = MEU_SISTEMA.SKILL_EFFECT_TYPES.filter(t => (t !== "structure" || isStructuresEnabled() || data.effectType === "structure") && (t !== "form" || isFormsEnabled() || data.effectType === "form") && (t !== "analysis" || isAnalysisEnabled() || data.effectType === "analysis") && (t !== "predation" || isPredationEnabled() || data.effectType === "predation") && (t !== "reroll" || isRerollEnabled() || data.effectType === "reroll")).map(
     t => `<option value="${t}" ${t === data.effectType ? "selected" : ""}>${MEU_SISTEMA.SKILL_EFFECT_TYPE_LABELS[t]}</option>`
   ).join("");
 
@@ -421,6 +436,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
       ${tierField}
       <p class="hint-inline se-complexity" style="margin:0 0 .4em;"></p>
       <input type="hidden" name="onHitJson" value="${escapeHtml(JSON.stringify(data.onHit ?? null))}"/>
+      <input type="hidden" name="duelJson" value="${escapeHtml(JSON.stringify({ endsWhenTargetFalls: data.endsWhenTargetFalls, intruderRule: data.intruderRule }))}"/>
       ${evolvedField}
       <div class="row-2">
         ${request
@@ -498,6 +514,13 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
         </div>
       </div>
 
+      <div class="mechanic-panel se-reroll-panel">
+        <p class="hint-inline" style="display:block;">Rerrolar é usada no chat, depois de ver uma rolagem: o botão "Rerrolar" aparece no card das rolagens que ela alcança. Paga o Custo e a Recarga como qualquer Skill.</p>
+        <div class="form-group"><label>De quem</label><select name="rerollWho">${REROLL_WHO.map(w => `<option value="${w}" ${w === data.rerollWho ? "selected" : ""}>${escapeHtml(REROLL_WHO_LABELS[w])}</option>`).join("")}</select></div>
+        <div class="form-group"><label>O que fica</label><select name="rerollKeep">${rerollKeepOptions(data.tier === "ultimate" || data.rerollKeep === "choose" ? "ultimate" : data.tier).map(k => `<option value="${k}" ${k === data.rerollKeep ? "selected" : ""}>${escapeHtml(REROLL_KEEP_LABELS[k])}</option>`).join("")}</select></div>
+        <div class="form-group"><label>Quais rolagens</label>${REROLL_KIND_KEYS.map(k => `<label class="checkbox-line"><input type="checkbox" name="rerollKind_${k}" ${data.rerollKinds[k] ? "checked" : ""}/> ${escapeHtml(REROLL_KIND_LABELS[k])}</label>`).join("")}</div>
+      </div>
+
       <div class="mechanic-panel se-form-panel">
         <div class="form-group"><label>Ficha da forma</label><input type="text" name="formActorUuid" value="${escapeHtml(data.formActorUuid)}" placeholder="Arraste a ficha-molde para cá">
           <span class="hint-inline">Um Personagem marcado como "Molde de forma". Precisa ser Habilidade Ativa: desligar volta ao normal.</span>
@@ -508,6 +531,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
         <div class="form-group"><label>Estrutura</label><select name="structureId">${structureOptions}</select>
           <span class="hint-inline">Formato, tamanho e Vida vêm do catálogo (Configurações Gerais › Estruturas). Skill Ativa com Estrutura sem prazo: ela fica até a Skill ser desligada.</span>
         </div>
+        <div class="form-group" title="Clicar no mapa: você põe a Estrutura. Em volta de quem usa ou do alvo: sem clique, o centro é ele (forma e tamanho do catálogo)."><label>De onde sai</label><select name="structurePlace">${STRUCTURE_PLACE_OPTIONS.map(([v, l]) => `<option value="${v}" ${v === data.structurePlace ? "selected" : ""}>${l}</option>`).join("")}</select></div>
         ${rangeOn ? `<div class="form-group" title="Até onde a Estrutura pode ser posta, em metros (0 = sem limite)."><label>Alcance <span class="hint-inline" style="display:inline;">(metros, 0 = sem limite)</span></label><input type="number" name="structureRange" value="${data.range}" min="0" step="0.5"/></div>` : `<input type="hidden" name="structureRange" value="${data.range}"/>`}
         <div class="row-2 se-regen-field" style="display:${data.hasUpkeep ? "flex" : "none"};">
           <div class="form-group"><label title="No início do seu turno, depois da manutenção, a Estrutura ferida recupera esta Vida, sem passar do teto">Regenera (Vida/rodada)</label><input type="number" name="structureRegen" value="${data.structureRegen}" min="0"/></div>
@@ -708,6 +732,7 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
 
   const structurePanel = root.querySelector(".se-structure-panel");
   const formPanel = root.querySelector(".se-form-panel");
+  const rerollPanel = root.querySelector(".se-reroll-panel");
   const formInput = root.querySelector('[name="formActorUuid"]');
   if (formInput) {
     formInput.addEventListener("dragover", event => event.preventDefault());
@@ -728,6 +753,7 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
     if (targetTypeField) targetTypeField.style.display = fixedTarget ? "none" : "";
     structurePanel.style.display = value === "structure" ? "flex" : "none";
     if (formPanel) formPanel.style.display = value === "form" ? "flex" : "none";
+    if (rerollPanel) rerollPanel.style.display = value === "reroll" ? "flex" : "none";
     damagePanel.style.display = value === "damage" ? "flex" : "none";
     tempPanel.style.display = value === "temporary" ? "flex" : "none";
   }
@@ -864,7 +890,19 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
     targetSelect.addEventListener("change", applyPeriodicVisibility);
     // Antimagia não tem quantidade: a força é o nível da Skill; a duração é a da supressão.
     targetSelect.addEventListener("change", () => {
-      li.querySelector(".se-effect-amount").style.display = ["antimagic", "emp", "mark", "flight", "burrow", "unarmedType"].includes(targetSelect.value) ? "none" : "";
+      li.querySelector(".se-effect-amount").style.display = ["antimagic", "emp", "mark", "dispelMagic", "flight", "burrow", "unarmedType"].includes(targetSelect.value) ? "none" : "";
+    });
+    targetSelect.addEventListener("change", () => {
+      const luckBox = li.querySelector(".se-effect-luck");
+      luckBox.style.display = targetSelect.value === "luck" ? "inline-flex" : "none";
+      // Ao escolher Sorte sem escopo marcado, começa valendo em tudo.
+      if (targetSelect.value === "luck" && !luckBox.querySelector(".se-effect-luck-scope:checked")) luckBox.querySelectorAll(".se-effect-luck-scope").forEach(c => (c.checked = true));
+    });
+    targetSelect.addEventListener("change", () => {
+      li.querySelector(".se-effect-dispel-scope").style.display = targetSelect.value === "dispelMagic" ? "inline-block" : "none";
+    });
+    targetSelect.addEventListener("change", () => {
+      li.querySelector(".se-effect-chance").style.display = targetSelect.value === "magicDampen" ? "inline-block" : "none";
     });
     targetSelect.addEventListener("change", applyModifierTypeVisibility);
     // "% do máximo / do total": só nos alvos que aceitam; fora deles volta para pontos.
@@ -1097,6 +1135,18 @@ function readSkillEditorForm(root, lockTier) {
     effectType,
     targetType,
     structureId: effectType === "structure" ? root.querySelector('[name="structureId"]').value : "",
+    structurePlace: effectType === "structure" ? root.querySelector('[name="structurePlace"]')?.value || "click" : "click",
+    rerollWho: root.querySelector('[name="rerollWho"]')?.value || "own",
+    rerollKeep: root.querySelector('[name="rerollKeep"]')?.value || "new",
+    rerollKinds: Object.fromEntries(REROLL_KIND_KEYS.map(k => [k, root.querySelector(`[name="rerollKind_${k}"]`) ? Boolean(root.querySelector(`[name="rerollKind_${k}"]`).checked) : true])),
+    ...(() => {
+      try {
+        const duel = JSON.parse(root.querySelector('[name="duelJson"]')?.value || "null") ?? {};
+        return { endsWhenTargetFalls: hasUpkeep && Boolean(duel.endsWhenTargetFalls), intruderRule: hasUpkeep ? duel.intruderRule || "" : "" };
+      } catch (err) {
+        return { endsWhenTargetFalls: false, intruderRule: "" };
+      }
+    })(),
     formActorUuid: effectType === "form" ? (root.querySelector('[name="formActorUuid"]')?.value ?? "").trim() : "",
     structureRegen: effectType === "structure" && hasUpkeep ? Math.max(0, Number(root.querySelector('[name="structureRegen"]')?.value) || 0) : 0,
     structureRegenCost: effectType === "structure" && hasUpkeep ? Math.max(0, Number(root.querySelector('[name="structureRegenCost"]')?.value) || 0) : 0,
@@ -1142,6 +1192,9 @@ function readSkillEditorForm(root, lockTier) {
             })(),
             damageElements: readPickerField(row.querySelector(".se-effect-elements")),
             pushDirection: row.querySelector(".se-effect-push-direction")?.value || "push",
+            dispelScope: row.querySelector(".se-effect-target").value === "dispelMagic" ? row.querySelector(".se-effect-dispel-scope")?.value || "all" : "all",
+            luckScopes: Object.fromEntries(["attributes", "damage", "chances"].map(scope => [scope, Boolean(row.querySelector(`.se-effect-luck-scope[data-scope="${scope}"]`)?.checked)])),
+            chance: row.querySelector(".se-effect-target").value === "magicDampen" ? Math.min(100, Math.max(0, Number(row.querySelector(".se-effect-chance")?.value))) || (row.querySelector(".se-effect-chance")?.value === "0" ? 0 : 100) : 100,
             immuneTraits: row.querySelector(".se-effect-target").value === "push" ? readPickerField(row.querySelector(".se-effect-immune-traits")) : [],
             shieldRegen: row.querySelector(".se-effect-target").value === "shield" ? Math.max(0, Number(row.querySelector(".se-effect-shield-regen")?.value) || 0) : 0,
             shieldCap: row.querySelector(".se-effect-target").value === "shield" ? Math.max(0, Number(row.querySelector(".se-effect-shield-cap")?.value) || 0) : 0,

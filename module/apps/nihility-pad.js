@@ -419,10 +419,17 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if (bubbles) bubbles.scrollTop = bubbles.scrollHeight;
 
     if (this._updateHook) return;
-    this._updateHook = actor => {
-      if (actor.id === this.actor.id || actor.id === this.selectedShipId) this.render();
+    // A própria ficha, a Nave escolhida, ou qualquer Nave cuja tripulação mudou (a aba "Da Nave" aparece/some).
+    this._updateHook = (actor, changes) => {
+      if (actor.id === this.actor.id || actor.id === this.selectedShipId || changes?.system?.crewMembers !== undefined) this.render();
     };
     Hooks.on("updateActor", this._updateHook);
+
+    // Efeitos do próprio Ator (supressão tecnológica/PEM muda a hora para "--:--").
+    this._effectHook = effect => {
+      if (effect.parent?.uuid === this.actor.uuid) this.render();
+    };
+    for (const hook of ["createActiveEffect", "updateActiveEffect", "deleteActiveEffect"]) Hooks.on(hook, this._effectHook);
 
     // Mensagem nova envolvendo o Ator atual (ou a persona ativa, se o Mestre trocou) — atualiza
     // a lista de conversas/a conversa aberta em tempo real, sem precisar reabrir o PAD.
@@ -449,6 +456,10 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if (this._messageHook) {
       Hooks.off("createChatMessage", this._messageHook);
       this._messageHook = null;
+    }
+    if (this._effectHook) {
+      for (const hook of ["createActiveEffect", "updateActiveEffect", "deleteActiveEffect"]) Hooks.off(hook, this._effectHook);
+      this._effectHook = null;
     }
     if (this._timeHook) {
       Hooks.off("updateWorldTime", this._timeHook);

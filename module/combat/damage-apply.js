@@ -91,7 +91,7 @@ export function damageApplyFlags(targetActor, finalDamage, { absolute = false, s
         // Ferimentos por parte: a parte mirada (senão o Aplicar sorteia) e se o golpe decepa.
         bodyPartId: bodyPart?.id ?? "",
         sever: Boolean(sever),
-        // Dano em área não cai em parte do corpo (regra de sempre; ver CLAUDE.md, Anatomia).
+        // Dano em área não cai em parte do corpo (regra de sempre; ver docs/claude/especies.md, Anatomia).
         noBodyPart: Boolean(noBodyPart),
         label: String(label || ""),
         // Reações elementais que dispararam (8.1): consumir a marca e aplicar/tirar Condição só no Aplicar.

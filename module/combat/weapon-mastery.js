@@ -3,7 +3,7 @@
  * `weapon-mastery-rules.js` (pura, testada); aqui só se lê o mundo (catálogo, fichas, Regras da Mesa),
  * se grava XP/contagem e se desenha o card de sugestão.
  *
- * Regras de ligação (CLAUDE.md, "Tipos de arma, Maestria e ataque desarmado"):
+ * Regras de ligação (docs/claude/armas-maestria.md):
  *  - `FEATURES.weaponMastery` desligada: some o tipo, o bônus, a XP e a sugestão. O ataque desarmado
  *    continua existindo, como `unarmed` puro e sem bônus. Nada salvo é apagado.
  *  - Este arquivo NÃO importa `damage-roll.js` de forma estática (é ele que nos chama): o fluxo de

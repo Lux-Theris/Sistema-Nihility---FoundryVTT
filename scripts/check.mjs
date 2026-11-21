@@ -156,12 +156,27 @@ function checkEncoding() {
   if (!bad) console.log(`  ✓ ${files.length} arquivos de texto`);
 }
 
+// O CLAUDE.md da raiz é um índice: cada arquivo de docs/claude/ tem de estar nele, e todo link dele tem de existir.
+function checkGuideIndex() {
+  step("Guia do projeto (CLAUDE.md → docs/claude/)");
+  const dir = join(ROOT, "docs", "claude");
+  if (!existsSync(dir)) return console.log("  (sem docs/claude)");
+  const index = readFileSync(join(ROOT, "CLAUDE.md"), "utf8");
+  const linked = new Set([...index.matchAll(/\]\(docs\/claude\/([\w.-]+\.md)\)/g)].map(m => m[1]));
+  const files = walk(dir, f => f.endsWith(".md")).map(f => f.split(/[\\/]/).pop());
+  let bad = 0;
+  for (const f of files) if (!linked.has(f)) { bad++; fail(`docs/claude/${f} não está no índice do CLAUDE.md`); }
+  for (const f of linked) if (!files.includes(f)) { bad++; fail(`o CLAUDE.md cita docs/claude/${f}, que não existe`); }
+  if (!bad) console.log(`  ✓ ${files.length} arquivos, todos no índice`);
+}
+
 const started = Date.now();
 await checkSyntax();
 const manifest = checkManifest();
 checkStylesListed(manifest);
 checkTemplates();
 checkEncoding();
+checkGuideIndex();
 if (!args.has("--no-tests")) runTests();
 
 const secs = ((Date.now() - started) / 1000).toFixed(1);

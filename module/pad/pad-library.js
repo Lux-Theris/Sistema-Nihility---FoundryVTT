@@ -12,6 +12,8 @@
  *   add/remove-crew em starship-sheet.js) pra quem sai da tripulação perder o acesso.
  */
 import { SYSTEM_ID, MEU_SISTEMA } from "../core/config.js";
+import { runAsGm } from "../helpers/gm-relay.js";
+import { relayFailureMessage } from "../helpers/gm-relay-rules.js";
 
 const LIBRARY_PACK_COLLECTION = `world.${MEU_SISTEMA.COMPENDIUM.padLibrary.key}`;
 
@@ -89,7 +91,39 @@ export async function getShipLibrary(shipActor) {
   return doc?.getFlag(SYSTEM_ID, "library")?.entries ?? [];
 }
 
+/**
+ * Quem grava na Biblioteca da Nave: jogador não escreve em Compêndio (nem no documento de que é dono
+ * lá dentro — achado da sessão 3, 21/11), então o pedido vai ao Mestre designado (`shipLibrary` no
+ * relay), que confere se quem pede comanda a Nave ou um tripulante. Devolve `true` se gravou.
+ */
+async function writeShipLibrary(op, shipActor, data) {
+  if (game.user.isGM) {
+    if (op === "add") await addShipLibraryEntryAsGm(shipActor, data);
+    else await removeShipLibraryEntryAsGm(shipActor, data.entryId);
+    return true;
+  }
+  const outcome = await runAsGm("shipLibrary", { op, shipUuid: shipActor.uuid, ...data }, { reply: true });
+  if (!outcome.ok) ui.notifications.warn(`Biblioteca da Nave: ${relayFailureMessage(outcome.reason)}`);
+  return outcome.ok;
+}
+
+/** O jogador comanda esta Nave (dono dela ou de um tripulante)? */
+export function commandsShip(user, shipActor) {
+  if (!user || !shipActor) return false;
+  if (user.isGM || shipActor.testUserPermission?.(user, "OWNER")) return true;
+  return (shipActor.system?.crewActors ?? []).some(entry => entry.actor?.testUserPermission?.(user, "OWNER"));
+}
+
 export async function addShipLibraryEntry(shipActor, { label, uuid, note = "" }) {
+  return writeShipLibrary("add", shipActor, { label, uuid, note });
+}
+
+export async function removeShipLibraryEntry(shipActor, entryId) {
+  return writeShipLibrary("remove", shipActor, { entryId });
+}
+
+/** Só no Mestre (direto ou pelo relay). */
+export async function addShipLibraryEntryAsGm(shipActor, { label, uuid, note = "" }) {
   const doc = await ensureShipLibraryDocument(shipActor);
   if (!doc) return;
   const entries = [
@@ -99,7 +133,8 @@ export async function addShipLibraryEntry(shipActor, { label, uuid, note = "" })
   await doc.update({ [`flags.${SYSTEM_ID}.library.entries`]: entries });
 }
 
-export async function removeShipLibraryEntry(shipActor, entryId) {
+/** Só no Mestre (direto ou pelo relay). */
+export async function removeShipLibraryEntryAsGm(shipActor, entryId) {
   const doc = await findShipLibraryDocument(shipActor);
   if (!doc) return;
   const entries = (doc.getFlag(SYSTEM_ID, "library")?.entries ?? []).filter(e => e.id !== entryId);

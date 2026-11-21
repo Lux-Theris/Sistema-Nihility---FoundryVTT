@@ -66,6 +66,25 @@ function actorsOwnedBy(user) {
 /** Ações que o Mestre sabe executar em nome de outro cliente. Todas recebem `(payload, user)`. */
 const HANDLERS = {
   /**
+   * Biblioteca do PAD "Da Nave": o jogador não grava em Compêndio, então o Mestre grava por ele.
+   * Só quem comanda a Nave (dono dela ou de um tripulante); rótulo e nota limitados.
+   * @param {{op:"add"|"remove", shipUuid:string, label?:string, uuid?:string, note?:string, entryId?:string}} payload
+   */
+  async shipLibrary({ op, shipUuid, label, uuid, note, entryId }, user) {
+    const ship = typeof shipUuid === "string" ? await fromUuid(shipUuid) : null;
+    if (!ship || !["starship", "vehicle"].includes(ship.type)) return refuse(RELAY_REASONS.invalid);
+    const lib = await import("../pad/pad-library.js");
+    if (!lib.commandsShip(user, ship)) return refuse(RELAY_REASONS.permission);
+    if (op === "add") {
+      if (typeof uuid !== "string" || !uuid) return refuse(RELAY_REASONS.invalid);
+      await lib.addShipLibraryEntryAsGm(ship, { uuid: uuid.slice(0, 300), label: String(label ?? "").slice(0, 120), note: String(note ?? "").slice(0, 500) });
+    } else if (op === "remove") {
+      if (typeof entryId !== "string" || !entryId) return refuse(RELAY_REASONS.invalid);
+      await lib.removeShipLibraryEntryAsGm(ship, entryId);
+    } else return refuse(RELAY_REASONS.invalid);
+  },
+
+  /**
    * Credita XP em Skills de Resistência que acabaram de reduzir dano.
    *
    * Quem pede é quem atacou — quase nunca dono do alvo —, então aqui não dá para exigir posse.

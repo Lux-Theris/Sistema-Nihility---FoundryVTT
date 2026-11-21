@@ -177,7 +177,7 @@ function attrLine(attrGain) {
 
 function cardHtml(data, predator, label) {
   const rows = data.results
-    .map(r => `<li><span class="pred-skill-name" data-won="${r.won ? 1 : 0}">${escapeHtml(r.name)}</span> <em>(${escapeHtml(MEU_SISTEMA.SKILL_TIER_LABELS[r.tier] ?? r.tier)})</em> — chance ${r.chance}% · d100 = ${r.roll} · <strong>${r.won ? "ganhou" : "perdeu"}</strong></li>`)
+    .map(r => `<li><span class="pred-skill-name" data-won="${r.won ? 1 : 0}">${escapeHtml(r.name)}</span> <em>(${escapeHtml(MEU_SISTEMA.SKILL_TIER_LABELS[r.tier] ?? r.tier)})</em> — chance ${r.chance}% · d100 = ${r.roll} · <strong>${r.won ? "✓ absorvida" : "✗ não absorvida"}</strong></li>`)
     .join("");
   const skipped = data.skipped.length ? `<p class="hint-inline">Não entram: ${data.skipped.map(s => `${escapeHtml(s.name)} (${escapeHtml(s.reason)})`).join(", ")}.</p>` : "";
   const points = Object.keys(data.attrGain).length

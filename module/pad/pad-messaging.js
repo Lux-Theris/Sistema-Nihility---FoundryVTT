@@ -13,7 +13,7 @@
  *
  * Mestre é sempre incluído no whisper de toda mensagem, direta ou de grupo, independente de sua
  * persona atual constar como membro — "membro invisível" de qualquer conversa (mesma convenção de
- * privacidade já estabelecida em `voice-of-the-world.js`, ver CLAUDE.md).
+ * privacidade já estabelecida em `voice-of-the-world.js`, ver docs/claude/pad.md).
  */
 import { SYSTEM_ID, MEU_SISTEMA, sceneActorCandidates } from "../core/config.js";
 import { findCrewedShipsForActor } from "./pad-crew.js";

@@ -170,7 +170,7 @@ export function applyDamageReductions(rawTotal, mech, targetActor, options = {})
     if (reactionPick && reactionPick.source !== "body") shieldExtra += (part.final * reactionPick.reaction.shieldDrain) / 100;
     if (options.triggerConditions === false) return;
     for (const effect of ctx.conditions) {
-      if (rollChance(effect.chance, Math.random, chancesLuck)) triggeredConditions.push({ conditionId: effect.conditionId, elementId: part.elementId, hitDamage: part.final, level: hitLevel, magic: hitMagic, rounds: effect.rounds });
+      if (rollChance(effect.chance, Math.random, chancesLuck)) triggeredConditions.push({ conditionId: effect.conditionId, elementId: part.elementId, hitDamage: part.final, level: hitLevel, magic: hitMagic, rounds: effect.rounds, appliedBy: options.attacker?.uuid ?? "" });
     }
     for (const chance of ctx.sever) if (rollChance(chance, Math.random, chancesLuck)) sever = true;
     for (const effect of ctx.blockRegen) {
@@ -453,8 +453,14 @@ function damageFlavorPrefix(mech, label) {
 export async function throughStructures(attacker, targetActor, damage, { origin = null, elementIds = [], absolute = false } = {}) {
   const block = interceptingStructure(attacker, targetActor, { origin });
   if (!block) return { damage, note: "", impact: null };
-  const { absorbed, passed, label, point, broken } = await hitStructure(block, damage, elementIds, targetActor, { absolute });
-  const note = broken ? ` — ${escapeHtml(label)} se desfez com o golpe` : absorbed ? ` — ${escapeHtml(label)} bloqueou ${absorbed}` : "";
+  const { absorbed, passed, label, point, broken, side } = await hitStructure(block, damage, elementIds, targetActor, { absolute });
+  // Duas medidas diferentes (sessão 3, 21/11: "bloqueou 43" no card e "segurou 173" no rastro confundiam):
+  // quanto do golpe ela segurou (na moeda do golpe) e quanto de Vida ela perdeu (com o % de fora/dentro e a vantagem).
+  const held = Math.max(0, Math.round(damage - passed));
+  const lost = Math.round(absorbed);
+  const sideNote = side ? `, golpe de ${side.inside ? "dentro" : "fora"}: ${side.percent}%` : "";
+  const blockedNote = held === lost && !side ? `bloqueou ${held}` : `segurou ${held} do golpe (perdeu ${lost} de Vida${sideNote})`;
+  const note = broken ? ` — ${escapeHtml(label)} se desfez com o golpe` : absorbed ? ` — ${escapeHtml(label)} ${blockedNote}` : "";
   return { damage: passed, note, impact: point };
 }
 
@@ -765,10 +771,13 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
     const block = interceptingStructure(actor, targetActor, { origin });
     if (block) {
       if (!shielded.has(block.instance.id)) {
-        const { absorbed, passed, label: wall, broken } = await hitStructure(block, targetDamage, mech.damageElements, targetActor, { absolute: Boolean(mech.isAbsoluteDamage) });
+        const { absorbed, passed, label: wall, broken, side } = await hitStructure(block, targetDamage, mech.damageElements, targetActor, { absolute: Boolean(mech.isAbsoluteDamage) });
         shielded.set(block.instance.id, targetDamage > 0 ? passed / targetDamage : 1);
+        const held = Math.max(0, Math.round(targetDamage - passed));
+        const lost = Math.round(absorbed);
+        const sideNote = side ? `, golpe de ${side.inside ? "dentro" : "fora"}: ${side.percent}%` : "";
         if (broken) blockedNotes.push(`${escapeHtml(wall)} se desfez com o golpe`);
-        else if (absorbed) blockedNotes.push(`${escapeHtml(wall)} bloqueou ${absorbed}`);
+        else if (absorbed) blockedNotes.push(held === lost && !side ? `${escapeHtml(wall)} bloqueou ${held}` : `${escapeHtml(wall)} segurou ${held} do golpe (perdeu ${lost} de Vida${sideNote})`);
       }
       targetDamage = Math.round(targetDamage * shielded.get(block.instance.id));
     }

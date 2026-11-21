@@ -545,7 +545,9 @@ export async function hitStructure(block, amount, elementIds = [], protectedActo
     const maintained = block.instance.untilDeactivated || block.instance.manaBarrier;
     if (skillUuid && protectedActor && maintained) await grantSkillUseXp(skillUuid, [{ value: absorbed, base: vitalBase(protectedActor), block: true }]);
   }
-  return { absorbed, passed: factor > 0 ? Math.round(passed / factor) : passed, label: block.instance.label, point: block.point };
+  // O lado do golpe vai para o card (achado do teste de 20/11: "de fora 25%" não aparecia em lugar nenhum).
+  const sidePercent = side !== 1 ? Math.round(side * 100) : null;
+  return { absorbed, passed: factor > 0 ? Math.round(passed / factor) : passed, label: block.instance.label, point: block.point, side: sidePercent === null ? null : { inside: Boolean(block.attackerInside), percent: sidePercent } };
 }
 
 /**

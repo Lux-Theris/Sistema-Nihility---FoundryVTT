@@ -194,9 +194,11 @@ export async function transformActorAsGm(payload, user) {
         actorId: token.actorId,
         actorLink: token.actorLink,
         delta: token.actorLink ? null : token.delta?.toObject?.() ?? null,
-        texture: { src: token.texture?.src },
-        width: token.width,
-        height: token.height
+        // `_source`: o documento vivo recebe os quadros da animação (tamanho, imagem) e, com a janela em segundo
+        // plano, fica com o valor velho (achado da sessão 3, 21/11; mesmo caso da elevação).
+        texture: { src: token._source.texture?.src ?? token.texture?.src },
+        width: token._source.width ?? token.width,
+        height: token._source.height ?? token.height
       });
       await token.update({ ...formTokenUpdate(copy.id, templateToken), [`flags.${SYSTEM_ID}.formOriginal`]: snapshot });
     }

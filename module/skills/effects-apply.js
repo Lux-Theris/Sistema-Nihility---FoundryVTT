@@ -78,7 +78,11 @@ function findStackableEffect(targetActor, conditionId, periodic, damageElements 
     targetActor.effects.find(e => {
       const flags = e.flags?.[SYSTEM_ID];
       if (!flags || flags.conditionId !== conditionId || Boolean(flags.periodic) !== periodic) return false;
-      if (periodic && !sameElementSet(flags.tickDamageElements, damageElements)) return false;
+      // Elementos só separam quando os dois lados dizem quais são (Veneno de Fogo × Veneno de Gelo). Sem elemento
+      // = "a Condição", e renova a que existe (sessão 3, 21/11: "Ao acertar" + elemento Fogo davam duas Queimaduras).
+      const own = flags.tickDamageElements ?? [];
+      const theirs = damageElements ?? [];
+      if (periodic && own.length && theirs.length && !sameElementSet(own, theirs)) return false;
       // Marca (Condição "É uma marca"): cada um põe a SUA (dono, 20/11: um alvo pode ter várias marcas,
       // de pessoas diferentes). Só renova a que a mesma pessoa pôs.
       if (onlyBy !== null && (flags.appliedBy ?? "") !== onlyBy) return false;

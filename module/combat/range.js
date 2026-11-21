@@ -227,7 +227,7 @@ export async function resolveTargetReach(caster, target, mech, { label, baseCost
   const isGm = Boolean(game.user?.isGM);
   const intro = `${capitalize(outOfRangeMessage(distance, range))}.`;
   if (!options.length && !isGm) {
-    ui.notifications.warn(`${label ? `${label}: ` : ""}${outOfRangeMessage(distance, range)}.`);
+    ui.notifications.warn(`${label ? `${label}: ` : ""}${outOfRangeMessage(distance, range)}. Só o Mestre pode liberar.`);
     return { ok: false, viaMark: null };
   }
   const choice = await askMark({ title: label ? `Alcance — ${label}` : "Alcance", intro, options, baseCost, gmOverride: isGm });
@@ -257,7 +257,7 @@ export async function checkFlatRange(caster, target, range, { label = "" } = {})
   if (distance === null || inRange(distance, r)) return true;
   const text = `${label ? `${label}: ` : ""}${outOfRangeMessage(distance, r)}.`;
   if (!game.user?.isGM) {
-    ui.notifications.warn(text);
+    ui.notifications.warn(`${text} Só o Mestre pode liberar.`);
     return false;
   }
   const choice = await askMark({ title: label ? `Alcance — ${label}` : "Alcance", intro: `${capitalize(outOfRangeMessage(distance, r))}.`, options: [], baseCost: 0, gmOverride: true });

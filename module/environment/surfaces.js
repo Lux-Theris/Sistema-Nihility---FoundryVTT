@@ -534,12 +534,34 @@ export async function runSkillSurfaces({ sourceActor, mech, targets = [], origin
   return { lines, created };
 }
 
+/** O nome da superfície sobe do Token que entrou nela (depois da animação do movimento). Só quem vê o Token. */
+function floatSurfaceName(tokenDoc, flag) {
+  if (!canvas?.ready || tokenDoc.parent?.id !== canvas.scene?.id) return;
+  const element = getDamageElement(flag.elementId);
+  const fill = /^#[0-9a-f]{6}$/i.test(element?.color ?? "") ? element.color : "#7fb3ff";
+  const text = flag.label || "Superfície";
+  setTimeout(() => {
+    const token = tokenDoc.object;
+    if (!token || token.destroyed || !token.visible || tokenDoc.isSecret) return;
+    canvas.interface.createScrollingText(token.center, text, {
+      anchor: CONST.TEXT_ANCHOR_POINTS.TOP,
+      direction: CONST.TEXT_ANCHOR_POINTS.TOP,
+      distance: 2 * token.h,
+      fontSize: 28,
+      fill,
+      stroke: 0x000000,
+      strokeThickness: 5,
+      jitter: 0.2
+    });
+  }, 700);
+}
+
 /* ------------------------------------------------------------------ registro */
 
 export function registerSurfaces() {
   // Entrou numa superfície: o destino do movimento (no gancho o documento ainda está na posição ANTIGA).
   Hooks.on("moveToken", async (document, movement) => {
-    if (!isDesignatedGm() || !isSurfacesEnabled()) return;
+    if (!isSurfacesEnabled()) return;
     const scene = document.parent;
     const actor = document.actor;
     if (!scene || actor?.type !== "character") return;
@@ -554,7 +576,10 @@ export function registerSurfaces() {
       if (!flag) continue;
       const before = surfaceReaches(doc, flag, document, where(origin), origin.elevation ?? tokenElevation(document));
       const after = surfaceReaches(doc, flag, document, where(destination), destination.elevation ?? tokenElevation(document));
-      if (surfaceEntered(before, after)) await triggerSurface(document, doc, { position: where(destination), elevation: destination.elevation ?? tokenElevation(document) });
+      if (!surfaceEntered(before, after)) continue;
+      // Mesa narrada por voz: o nome da superfície sobe do Token em todo cliente que o vê (cor do elemento).
+      floatSurfaceName(document, flag);
+      if (isDesignatedGm()) await triggerSurface(document, doc, { position: where(destination), elevation: destination.elevation ?? tokenElevation(document) });
     }
   });
 

@@ -18,6 +18,16 @@ export function computeAttributeDicePool(bonus) {
   return { diceCount, flat };
 }
 
+/**
+ * Fórmula de iniciativa de quem não tem o atributo (Nave, NPC de teste sem atributos): a do núcleo, ou 0. O núcleo monta
+ * `String(CONFIG.Combat.initiative.formula || game.system.initiative)` e este sistema não declara nenhuma das duas, então
+ * saía a palavra "undefined" e o `Combat.rollAll()` falhava com "Unresolved StringTerm undefined" (sessão 4). Pura.
+ */
+export function safeInitiativeFormula(coreFormula) {
+  const text = String(coreFormula ?? "").trim();
+  return !text || text === "undefined" || text === "null" || text === "NaN" ? "0" : text;
+}
+
 /** Monta a fórmula de rolagem (ex: "2d20+3") a partir do Bônus do atributo e de um bônus fixo extra (arma/equipamento, opcional). */
 export function buildAttributeRollFormula(bonus, extraFlat = 0, luck = 0) {
   const { diceCount, flat } = computeAttributeDicePool(bonus);

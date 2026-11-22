@@ -8,7 +8,7 @@ import { autoSnapshot } from "../world/auto-snapshot.js";
 import { knockUnconscious } from "../combat/incapacitation.js";
 import { computeResistanceName, resistanceMaxLevel } from "../combat/resistance.js";
 import { isFormActor, isFormTemplate } from "../skills/forms.js";
-import { linkActors } from "../skills/borrowed-skills.js";
+import { linkActors, registerBorrowedSheetRefresh } from "../skills/borrowed-skills.js";
 import { getHeritageEntry } from "./origin.js";
 import { getSpeciesEntry, changeActorHeritage, openEvolution } from "./species.js";
 import {
@@ -524,6 +524,7 @@ function registerNamingRightClick() {
 /** Chamado uma vez, no `init`: tudo confere `isNamingEnabled()` ao agir. */
 export function registerNaming() {
   registerNamingRightClick();
+  registerBorrowedSheetRefresh();
   Hooks.on("renderTokenHUD", addHudButton);
   Hooks.on("renderChatMessageHTML", renderNamingRequest);
 

@@ -156,6 +156,16 @@ export function groupSleepState(members = [], worldTime = 0) {
   return { all, sleeping: sleeping.length, total: list.length, skipSeconds, skipHours: Math.ceil(skipSeconds / SECONDS_PER_HOUR) };
 }
 
+/**
+ * Quanto tempo DO MUNDO o "Descanso do grupo" tem de passar (C15, sessão 4): o maior entre as horas do descanso e o que
+ * falta (tempo pessoal ÷ ritmo) para cada PJ que dorme acordar. Uma linha lenta (ritmo 0,1) pede 10× mais. Pura.
+ */
+export function groupRestSeconds(members = [], baseSeconds = 0, worldTime = 0) {
+  const sleepers = (members ?? []).filter(m => m?.sleeping);
+  const { skipSeconds } = groupSleepState(sleepers, worldTime);
+  return Math.max(Math.floor(Number(baseSeconds) || 0), skipSeconds);
+}
+
 /** Texto do botão do aviso: "Passar o tempo (8 h)". */
 export function skipLabel(skipSeconds) {
   const hours = Math.ceil((Number(skipSeconds) || 0) / SECONDS_PER_HOUR);

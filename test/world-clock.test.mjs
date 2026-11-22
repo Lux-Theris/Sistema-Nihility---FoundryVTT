@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   clockParts, formatClock, formatHour, timeAt, normalizeClockConfig, isDayAt, darknessFor, isDarkLevel,
-  darknessNeedsUpdate, adjustedDarkness, restHours, sleepUntil, shouldWake, groupSleepState, skipLabel, visibleHour
+  darknessNeedsUpdate, adjustedDarkness, restHours, sleepUntil, shouldWake, groupSleepState, skipLabel, visibleHour, groupRestSeconds
 } from "../module/core/world-clock-rules.js";
 import { matchesWhen, sumConditionalModifiers, WHEN_KINDS, SELF_WHEN_KINDS } from "../module/combat/conditional-modifiers.js";
 import { MEU_SISTEMA, isWorldClockEnabled, isTrapsEnabled } from "../module/core/config.js";
@@ -165,4 +165,14 @@ test("J9b: groupSleepState usa o tempo pessoal e o ritmo de cada um", () => {
   assert.equal(two.skipSeconds, 1000);
   assert.equal(shouldWake(100, 99), false);
   assert.equal(shouldWake(100, -50), false, "se o tempo pessoal voltou, só dorme mais");
+});
+
+test("C15: groupRestSeconds passa o maior tempo de mundo entre os que dormem (linha lenta pede mais)", () => {
+  const base = 3600;
+  // linha normal: o próprio descanso
+  assert.equal(groupRestSeconds([{ sleeping: true, until: 3600, now: 0, rate: 1 }], base, 0), 3600);
+  // linha 0,1: 3240 s pessoais faltando = 32400 s do mundo (9 h)
+  assert.equal(groupRestSeconds([{ sleeping: true, until: 3240, now: 0, rate: 0.1 }, { sleeping: true, until: 3600, now: 0, rate: 1 }], base, 0), 32400);
+  // quem não dorme não conta; sem ninguém dormindo, só a base
+  assert.equal(groupRestSeconds([{ sleeping: false, until: 99999, now: 0, rate: 0.1 }], base, 0), base);
 });

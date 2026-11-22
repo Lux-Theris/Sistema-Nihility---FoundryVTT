@@ -138,6 +138,8 @@ export class CalendarEditorApp extends HandlebarsApplicationMixin(ApplicationV2)
     if (problems.length) return ui.notifications.warn(problems[0]);
     try {
       await saveCalendar(this.draft);
+      const clockWindow = foundry.applications.instances.get("nihility-world-clock");
+      if (clockWindow?.rendered) clockWindow.render();
       ui.notifications.info("Calendário salvo.");
       this.close();
     } catch (err) {

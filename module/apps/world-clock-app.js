@@ -143,7 +143,12 @@ export class WorldClockApp extends HandlebarsApplicationMixin(ApplicationV2) {
   _onFirstRender(context, options) {
     super._onFirstRender?.(context, options);
     this.#hookId = Hooks.on("updateWorldTime", () => this.render());
-    this.updateHooks = ["updateScene", "updateSetting", "createToken", "deleteToken"].map(name => [name, Hooks.on(name, () => this.render())]);
+    // D2 (sessão 4): `updateSetting` chega antes de a leitura da setting valer (a janela ficava com a data velha): re-pinta
+    // também um instante depois, e quem salva o calendário/linhas chama `refreshOpenWorldClock`.
+    this.updateHooks = ["updateScene", "updateSetting", "createToken", "deleteToken"].map(name => [name, Hooks.on(name, () => {
+      this.render();
+      if (name === "updateSetting") setTimeout(() => { if (this.rendered) this.render(); }, 120);
+    })]);
   }
 
   _onClose(options) {

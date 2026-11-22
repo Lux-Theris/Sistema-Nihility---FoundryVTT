@@ -26,6 +26,8 @@ export async function openItemClockDialog(item) {
       <label>Min <input type="number" name="minute" min="0" step="1" value="${f.minute}"/></label>
     </div>
   </div>`;
+  // O anel do HUD do Token (aberto com o Token selecionado) era desenhado por cima do diálogo e cobria Hora e Ano (sessão 4).
+  try { canvas?.hud?.token?.close?.(); } catch (err) { /* sem HUD: nada a fechar */ }
   const parts = await foundry.applications.api.DialogV2.wait({
     window: { title: `Acertar o ${item.name}`, icon: "fa-regular fa-clock" },
     content,

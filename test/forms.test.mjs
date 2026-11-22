@@ -3,8 +3,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   buildFormSystem, itemsFromOriginal, copiedSkillState, mergeBackPlan, conditionsToCarry, carryDamage, hpAfterCarry,
-  accumulateCarry, shouldRevert, formActorName, tokenOriginalSnapshot, formTokenUpdate, tokenRestoreUpdate, normalizeFormRequest, isImageFile, mapCopiedId, itemMapFromStamps
-} from "../module/skills/form-rules.js";
+  accumulateCarry, shouldRevert, formActorName, tokenOriginalSnapshot, formTokenUpdate, tokenRestoreUpdate, normalizeFormRequest, isImageFile, mapCopiedId, itemMapFromStamps, formVitalMax } from "../module/skills/form-rules.js";
+import { originLayers } from "../module/species/species-rules.js";
 
 test("a cópia pega nível, XP e Mana do personagem e o resto do molde", () => {
   const sys = buildFormSystem(
@@ -132,4 +132,15 @@ test("custo sugerido de uma Forma: peso fixo", () => {
 test("itemMapFromStamps mapeia pelo carimbo, não pela ordem devolvida", () => {
   const created = [{ id: "c2", stamp: "o2" }, { id: "c1", stamp: "o1" }, { id: "x", stamp: null }];
   assert.deepEqual(itemMapFromStamps(created), { o2: "c2", o1: "c1" });
+});
+
+test("C7: formVitalMax inclui os bônus da Espécie (a prévia do pedido bate com o molde criado)", () => {
+  const formula = { hp: ["strength", "defense"], multiplier: 10, floor: 50 };
+  const points = { strength: 10, defense: 10 };
+  assert.equal(formVitalMax({ points, layers: [], formula }), 1000);
+  const species = { label: "Mutante", passives: { attributeBonuses: [{ attribute: "strength", amount: 5 }], statModifiers: { hp: 20 } } };
+  const layers = originLayers({ species });
+  // (10+5) × 10 × 10 + 20
+  assert.equal(formVitalMax({ points, layers, formula }), 1520);
+  assert.equal(formVitalMax({ points: {}, layers: [], formula }), 50, "o piso vale");
 });

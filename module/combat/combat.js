@@ -11,7 +11,7 @@
  * com atributo nenhum do sistema.
  */
 import { SYSTEM_ID, MEU_SISTEMA, getAttributeLabel, combatantIsActor, actorToken } from "../core/config.js";
-import { buildAttributeRollFormula } from "../core/dice.js";
+import { buildAttributeRollFormula, safeInitiativeFormula } from "../core/dice.js";
 import { luckOf } from "./luck-rules.js";
 import { buildModifiedFormula, describeRollOptions, isNeutralRollOptions } from "../core/roll-modifiers.js";
 import { escapeHtml } from "../helpers/html.js";
@@ -58,7 +58,7 @@ export function registerInitiative() {
       const attribute = this.actor?.system?.attributes?.combat?.[attributeKey];
       // Nave/Veículo não tem Atributos de Combate — cai na fórmula padrão do core em vez de
       // inventar um pool que aquele tipo de Ator não tem.
-      if (!attribute) return super._getInitiativeFormula();
+      if (!attribute) return safeInitiativeFormula(super._getInitiativeFormula());
 
       // Bônus de Item entra como número fixo, nunca como dado a mais — a mesma regra de
       // `rollAttribute` em dice.js ("soma por fora, na hora da rolagem").

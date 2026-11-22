@@ -2,8 +2,9 @@ import { SYSTEM_ID, getVisibleAttributes, getVitalFormula, getSpeciesForCreation
 import { escapeHtml } from "../helpers/html.js";
 import { reportError } from "../helpers/report.js";
 import { canUploadImages, uploadDocumentImage, uploadButtonHtml, wireUploadButton, wireGalleryButton } from "../helpers/image-upload.js";
-import { normalizeFormRequest } from "./form-rules.js";
-import { attributePurpose, vitalPreview } from "../creation/creation-rules.js";
+import { normalizeFormRequest, formVitalMax } from "./form-rules.js";
+import { originLayers } from "../species/species-rules.js";
+import { attributePurpose } from "../creation/creation-rules.js";
 import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
 import { isOpenRequest } from "../creation/creation-rules.js";
 import { skillStateUpdate } from "./skill-state.js";
@@ -46,6 +47,7 @@ function requestActor(req) {
  */
 export async function openFormRequestEditor(actor, current = null, { title = "Pedir forma", saveLabel = "Enviar ao Mestre" } = {}) {
   const total = pointsTotal(actor);
+  const { getSpeciesEntry } = await import("../species/species.js");
   const attrs = getVisibleAttributes();
   const formula = getVitalFormula();
   const species = getSpeciesForCreation();
@@ -91,14 +93,17 @@ export async function openFormRequestEditor(actor, current = null, { title = "Pe
         sumEl.textContent = `Pontos: ${sum} / ${total}${left < 0 ? ` — passou ${-left}` : left > 0 ? ` — faltam ${left}` : ""}`;
         sumEl.style.color = left < 0 ? "#b00020" : "";
       }
-      const combat = Object.fromEntries(Object.entries(points).map(([key, value]) => [key, { total: 0, pending: value }]));
-      const preview = vitalPreview({ combat, formula, hpNow: 0, energyNow: 0 });
+      // Mesma conta da criação do molde: com os bônus da Espécie escolhida (C7, sessão 4).
+      const speciesId = root.querySelector('[name="speciesId"]')?.value ?? "";
+      const layers = speciesId ? originLayers({ species: getSpeciesEntry(speciesId) }) : [];
+      const hpMax = formVitalMax({ points, layers, formula });
       const previewEl = root.querySelector('[data-role="preview"]');
       if (previewEl) {
-        previewEl.textContent = `Vida da forma: ${preview.hp.next}` + (preview.energy ? ` · ${energyLabel} (a do personagem vale)` : "");
+        previewEl.textContent = `Vida da forma: ${hpMax}${speciesId ? "" : " (sem os bônus da Espécie: escolha uma)"}` + (formula.energyEnabled ? ` · ${energyLabel} (a do personagem vale)` : "");
       }
     };
     root.querySelectorAll("input[data-key]").forEach(input => input.addEventListener("input", update));
+    root.querySelector('[name="speciesId"]')?.addEventListener("change", update);
     wireUploadButton(root, "img", async file => {
       const path = await uploadDocumentImage(actor, file);
       if (path) root.querySelector('[name="img"]').value = path;
@@ -120,6 +125,14 @@ export async function openFormRequestEditor(actor, current = null, { title = "Pe
           const root = dialog.element;
           const points = {};
           for (const input of root.querySelectorAll("input[data-key]")) points[input.dataset.key] = Math.max(0, Math.floor(Number(input.value) || 0));
+          // Validar ANTES de fechar (C7, sessão 4): sem Espécie/nome a janela fechava e o pedido se perdia com um aviso só no console.
+          const problem = !root.querySelector('[name="name"]').value.trim() ? "Dê um nome à forma."
+            : !root.querySelector('[name="speciesId"]').value ? "Escolha a Espécie da forma."
+            : Object.values(points).reduce((s, v) => s + v, 0) > total ? "Os pontos passam do total do personagem." : "";
+          if (problem) {
+            ui.notifications?.warn(problem);
+            throw new Error(problem); // o DialogV2 não fecha quando o callback lança
+          }
           return {
             name: root.querySelector('[name="name"]').value,
             speciesId: root.querySelector('[name="speciesId"]').value,

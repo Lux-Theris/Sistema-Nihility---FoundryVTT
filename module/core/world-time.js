@@ -596,6 +596,9 @@ async function onCombatEnd(combat) {
 /* ------------------------------------------------------------------ Guarda de retrocesso */
 
 let undoingRewind = 0;
+/** O aviso de retrocesso que ainda está de pé: `previous` = o tempo de ANTES do primeiro retrocesso, `total` = quanto voltou no todo. */
+let rewindNotice = null;
+const REWIND_NOTICE_MS = 40000;
 
 function onWorldTimeBack(worldTime, dt, options) {
   if (!calendarOn() || !isDesignatedGm()) return;
@@ -610,16 +613,24 @@ function onWorldTimeBack(worldTime, dt, options) {
     combatants: Math.max(1, ...combats.map(c => c.combatants?.size ?? 1))
   });
   if (decision !== "warn") return;
-  const back = Math.abs(dt);
+  // Um aviso por vez: um segundo retrocesso logo depois SOMA ao primeiro e o aviso novo substitui o antigo; o Desfazer
+  // volta ao tempo de antes do primeiro, exatamente o total que o aviso mostra.
+  const fresh = rewindNotice && Date.now() - rewindNotice.at < REWIND_NOTICE_MS;
+  rewindNotice = fresh
+    ? { previous: rewindNotice.previous, total: rewindNotice.total + Math.abs(dt), at: Date.now() }
+    : { previous: worldTime - dt, total: Math.abs(dt), at: Date.now() };
+  const notice = rewindNotice;
+  const back = notice.total;
   const span = formatElapsed(getCalendar(), back);
   const text = "Algo (uma macro ou um módulo de calendário) voltou o relógio. No Nihility a época muda pela linha do tempo (Ajustar, no Relógio do mundo); voltar o tempo do mundo pode estragar sonos, superfícies e efeitos.";
   showVoiceBanner({
     label: "Relógio do mundo",
     title: `O tempo do mundo voltou ${span}`,
     body: text,
+    key: "world-rewind",
     actions: [
-      { label: "Desfazer", primary: true, onClick: () => undoRewind(worldTime - dt) },
-      { label: "Deixar assim" }
+      { label: "Desfazer", primary: true, onClick: () => { rewindNotice = null; undoRewind(notice.previous); } },
+      { label: "Deixar assim", onClick: () => { rewindNotice = null; } }
     ]
   });
   ChatMessage.create({

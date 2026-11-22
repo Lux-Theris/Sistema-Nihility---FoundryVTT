@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   MAX_SNAPSHOTS, snapshotsToPrune, snapshotsForActor, embeddedPlan, actorRestoreUpdate, snapshotLabel, snapshotSummary
-} from "../module/world/actor-snapshot-rules.js";
+  , itemRestoreData } from "../module/world/actor-snapshot-rules.js";
 
 const point = (id, when, actorUuid = "Actor.a") => ({ id, when, actorUuid });
 
@@ -72,4 +72,16 @@ test("J9b: restaurar nunca reescreve nem apaga o tempo pessoal", () => {
   assert.deepEqual(removeFlagKeys, []);
   const onlyCurrent = actorRestoreUpdate({ name: "A", system: {} }, current, "nihility");
   assert.deepEqual(onlyCurrent.removeFlagKeys, []);
+});
+
+test("D10 (sessão 4): restaurar também mantém a data do aparelho (timeSync) e o acerto do relógio analógico", () => {
+  const saved = { name: "A", system: {}, flags: { nihility: { timeSync: { local: 1, personalAt: 0 }, timeSyncStatus: { state: "pending" } } } };
+  const current = { name: "A", system: {}, flags: { nihility: { timeSync: { local: 99, personalAt: 500 } } } };
+  const { update, removeFlagKeys } = actorRestoreUpdate(saved, current, "nihility");
+  assert.equal(update.flags, undefined, "nada do tempo volta");
+  assert.deepEqual(removeFlagKeys, []);
+  const item = itemRestoreData({ _id: "i", flags: { nihility: { x: 1, clockSync: { local: 1, personalAt: 0 } } } }, { flags: { nihility: { clockSync: { local: 9, personalAt: 9 } } } }, "nihility");
+  assert.deepEqual(item.flags.nihility, { x: 1, clockSync: { local: 9, personalAt: 9 } });
+  const noSync = itemRestoreData({ _id: "i", flags: { nihility: { clockSync: { local: 1 } } } }, { flags: {} }, "nihility");
+  assert.equal("clockSync" in noSync.flags.nihility, false);
 });

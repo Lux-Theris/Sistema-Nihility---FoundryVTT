@@ -6,7 +6,7 @@ import "./setup.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { computeAttributeDicePool, buildAttributeRollFormula } from "../module/core/dice.js";
+import { computeAttributeDicePool, buildAttributeRollFormula, safeInitiativeFormula } from "../module/core/dice.js";
 import {
   MEU_SISTEMA,
   getVitalFormula,
@@ -327,4 +327,11 @@ test("Combinada: a XP por uso é a da melhor parte, não a soma (achado de 21/11
   assert.deepEqual(best, [{ value: 50, base: 100 }]);
   assert.ok(skillUseXp(best, cfg) < parts.slice(0, 3).reduce((sum, m) => sum + skillUseXp(m, cfg), 0) + 1);
   assert.deepEqual(largestXpMeasures([], cfg), []);
+});
+
+test("safeInitiativeFormula: sem fórmula do núcleo cai em 0, nunca no termo undefined", () => {
+  assert.equal(safeInitiativeFormula("undefined"), "0");
+  assert.equal(safeInitiativeFormula(undefined), "0");
+  assert.equal(safeInitiativeFormula(""), "0");
+  assert.equal(safeInitiativeFormula("1d20"), "1d20");
 });

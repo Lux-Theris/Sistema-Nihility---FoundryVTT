@@ -17,7 +17,7 @@
 import { SYSTEM_ID } from "../core/config.js";
 import { compendiumCollectionClass, deleteKeyUpdate } from "../helpers/foundry-compat.js";
 import { reportError } from "../helpers/report.js";
-import { MAX_SNAPSHOTS, snapshotsToPrune, snapshotsForActor, embeddedPlan, actorRestoreUpdate, snapshotLabel, snapshotSummary } from "./actor-snapshot-rules.js";
+import { MAX_SNAPSHOTS, snapshotsToPrune, snapshotsForActor, embeddedPlan, actorRestoreUpdate, itemRestoreData, snapshotLabel, snapshotSummary } from "./actor-snapshot-rules.js";
 
 const PACK_KEY = `${SYSTEM_ID}-restore-points`;
 const INDEX_FIELD = `flags.${SYSTEM_ID}.restorePoint`;
@@ -139,7 +139,7 @@ export async function restoreSnapshot(actor, id) {
     const goneItems = stillThere(actor.items, items.remove);
     if (goneItems.length) await actor.deleteEmbeddedDocuments("Item", goneItems, { nihilityRestore: true });
     if (items.create.length) await actor.createEmbeddedDocuments("Item", items.create.map(withoutStats), { keepId: true, nihilityRestore: true });
-    if (items.update.length) await actor.updateEmbeddedDocuments("Item", items.update.map(withoutStats), { recursive: false, diff: false, nihilityRestore: true });
+    if (items.update.length) await actor.updateEmbeddedDocuments("Item", items.update.map(d => itemRestoreData(withoutStats(d), actor.items.get(d._id)?.toObject(), SYSTEM_ID)), { recursive: false, diff: false, nihilityRestore: true });
 
     // A ficha: nome, imagem, dados de sistema e os flags do sistema (chave que sobrou sai).
     const { update, removeFlagKeys } = actorRestoreUpdate(data, actor.toObject(), SYSTEM_ID);

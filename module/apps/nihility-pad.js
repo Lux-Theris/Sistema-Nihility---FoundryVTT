@@ -199,9 +199,11 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if (this.libraryTab === "nave") {
       const ship = game.actors.get(this.selectedShipId);
       if (!ship) return;
-      await addShipLibraryEntry(ship, payload);
+      const saved = await addShipLibraryEntry(ship, payload);
+      if (saved !== false) ui.notifications.info(`"${doc.name}" salvo na Biblioteca da Nave (${ship.name}).`);
     } else {
       await addPersonalLibraryEntry(this.actor, payload);
+      ui.notifications.info(`"${doc.name}" salvo na Biblioteca Pessoal. Para guardar na Nave, abra a aba "Da Nave" antes de soltar.`);
     }
     this.render();
   }
@@ -314,7 +316,7 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
       const statusLine = {
         network: "na rede · acertado agora",
         fresh: "sem rede · acertado agora",
-        stale: `sem rede · acertado há ${view.ageText} (seu tempo)`,
+        stale: view.ageText === "agora" ? "sem rede · acertado agora" : `sem rede · acertado há ${view.ageText} (seu tempo)`,
         pending: "Procurando sinal… (aguardando o Mestre)",
         denied: "Sem sinal. Tente de novo mais tarde.",
         suppressed: "sem energia"
@@ -449,6 +451,11 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
       if (actor.id === this.actor.id || actor.id === this.selectedShipId || changes?.system?.crewMembers !== undefined) this.render();
     };
     Hooks.on("updateActor", this._updateHook);
+    // C4 (sessão 4): a Biblioteca da Nave é um documento de compêndio: repinta quando ele muda (a Nave também avisa pelo updateActor).
+    this._libraryHook = doc => {
+      if (doc?.flags?.[SYSTEM_ID]?.library || doc?.getFlag?.(SYSTEM_ID, "library")) this.render();
+    };
+    for (const hook of ["createJournalEntry", "updateJournalEntry", "deleteJournalEntry"]) Hooks.on(hook, this._libraryHook);
 
     // Efeitos do próprio Ator (supressão tecnológica/PEM muda a hora para "--:--").
     this._effectHook = effect => {
@@ -477,6 +484,10 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if (this._updateHook) {
       Hooks.off("updateActor", this._updateHook);
       this._updateHook = null;
+    }
+    if (this._libraryHook) {
+      for (const hook of ["createJournalEntry", "updateJournalEntry", "deleteJournalEntry"]) Hooks.off(hook, this._libraryHook);
+      this._libraryHook = null;
     }
     if (this._messageHook) {
       Hooks.off("createChatMessage", this._messageHook);

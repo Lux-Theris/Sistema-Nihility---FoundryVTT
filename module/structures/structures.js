@@ -271,6 +271,8 @@ export async function requestStructure({ sourceActor, skillId, subSkillIndex = n
     return null;
   }
   if (!placement) {
+    // Sem mapa/cena a Skill pode ficar Ativa sem Estrutura nenhuma: quem usou precisa saber (sessão 4, A10).
+    ui.notifications.warn(`${label}: sem uma cena aberta no mapa a Estrutura "${structure.label}" não foi criada (só o cartão no chat).`);
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
       content: `<p><strong>${escapeHtml(sourceActor.name)}</strong> usou <strong>${escapeHtml(label)}</strong> e ergueu <strong>${escapeHtml(structure.label)}</strong>.</p>`

@@ -1,8 +1,9 @@
 /**
  * Formas (H5) — regras puras (sem Foundry): o que a ficha temporária pega do molde e do personagem, o
  * que volta ao personagem e o dano que passa do 0 da forma. `skills/forms.js` lê e grava; aqui só
- * se decide. Sem imports de propósito.
+ * se decide. Só importa regras puras.
  */
+import { originAttributeRows, originStatRows } from "../species/species-rules.js";
 
 /** Flags de efeito que NÃO voltam ao personagem (nasceram do corpo da forma ou do próprio Vida 0). */
 const NO_CARRY_FLAGS = ["incapacitation", "environment", "bodyInjury", "movementMode", "radiation", "preparing", "formSkill"];
@@ -199,4 +200,17 @@ export function itemMapFromStamps(created = []) {
   const map = {};
   for (const doc of created) if (doc?.stamp && doc.id) map[doc.stamp] = doc.id;
   return map;
+}
+
+/**
+ * Vida da forma como o molde vai nascer (C7, sessão 4): a prévia do editor só somava os pontos dos atributos e dizia 950,
+ * enquanto a ficha criada, com os bônus da Espécie nos atributos e na Vida, nascia com 1000. Agora a prévia e a criação
+ * fazem a mesma conta de `deriveVitalStats`: (atributo A + bônus) × (atributo B + bônus) × multiplicador, com o piso,
+ * mais o bônus de Vida da Espécie. `layers` são as camadas de origem da Espécie (`originLayers`). Pura.
+ */
+export function formVitalMax({ points = {}, layers = [], formula = {} } = {}) {
+  const total = key => (Number(points[key]) || 0) + originAttributeRows(layers, key).reduce((s, r) => s + r.value, 0);
+  const [a, b] = formula.hp ?? [];
+  const base = Math.max(Number(formula.floor) || 0, Math.round(total(a) * total(b) * (Number(formula.multiplier) || 0)));
+  return Math.max(1, base + originStatRows(layers, "hp").reduce((s, r) => s + r.value, 0));
 }

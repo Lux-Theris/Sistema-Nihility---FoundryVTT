@@ -13,6 +13,7 @@ import {
   REACTION_CONDITIONS,
   RADIATION_ELEMENT,
   registerSystemSettings,
+  applyRoundSeconds,
   getSkillPointsPerLevel,
   getSkillPointsStarting,
   getCompletedMigrations,
@@ -345,6 +346,7 @@ Hooks.once("ready", async () => {
   // Canal de socket que deixa um cliente sem permissão pedir a escrita ao Mestre (ver
   // helpers/gm-relay.js) — é o que faz XP de Resistência funcionar em jogador vs. jogador.
   registerGmRelay();
+  applyRoundSeconds();
 
   // Anatomia (board 5): Condições das partes perdidas, aviso de parte vital e o destaque de onde
   // um implante arrastado cabe.

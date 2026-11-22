@@ -327,3 +327,22 @@ export async function createPactDialog(borrower) {
   ui.notifications.info(`Pacto criado: ${borrower.name} ← ${patron.name}. O patrono marca as Skills liberadas na aba Origem dele.`);
   return true;
 }
+
+/**
+ * Re-pinta a ficha aberta de quem empresta e de quem toma emprestado quando um vínculo/liberação muda (sessão 4: a seção
+ * "Pacto" do bruxo só aparecia depois de fechar e reabrir a ficha quando o patrono liberava uma Skill, porque a mudança
+ * é na ficha DO OUTRO Ator). Chamado uma vez (`registerNaming`).
+ */
+export function registerBorrowedSheetRefresh() {
+  Hooks.on("updateActor", (actor, changes) => {
+    const flags = foundry.utils.getProperty(changes, `flags.${SYSTEM_ID}`);
+    if (!flags || (!(LEND_FLAG in flags) && !(BORROW_FLAG in flags) && !(`-=${LEND_FLAG}` in flags) && !(`-=${BORROW_FLAG}` in flags))) return;
+    const uuids = new Set([actor.uuid]);
+    for (const link of lendLinksOf(actor)) if (link.borrowerUuid) uuids.add(link.borrowerUuid);
+    for (const link of borrowLinksOf(actor)) if (link.sourceUuid) uuids.add(link.sourceUuid);
+    for (const uuid of uuids) {
+      const other = fromUuidSync(uuid);
+      if (other?.sheet?.rendered) other.sheet.render();
+    }
+  });
+}

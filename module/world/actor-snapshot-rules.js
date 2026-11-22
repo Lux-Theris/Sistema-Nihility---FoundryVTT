@@ -49,7 +49,26 @@ const KEEP_OUT = ["_id", "_stats", "folder", "sort", "ownership", "items", "effe
  * Flags do sistema que a restauração NUNCA reescreve nem apaga (como a posição do Token): o tempo
  * pessoal (J9b) não pode voltar só porque a ficha voltou — quem recua o tempo de alguém é uma Skill.
  */
-export const RESTORE_SKIP_FLAGS = ["personalTime"];
+export const RESTORE_SKIP_FLAGS = ["personalTime", "timeSync", "timeSyncStatus"];
+
+/** Flags de um ITEM que a restauração também preserva: o acerto do relógio analógico (senão a hora do relógio salta). */
+export const RESTORE_SKIP_ITEM_FLAGS = ["clockSync"];
+
+/**
+ * O Item como a restauração o reescreve: o salvo, mas com os flags de `RESTORE_SKIP_ITEM_FLAGS` iguais aos de AGORA
+ * (a atualização é por substituição, então o que não for copiado aqui seria apagado).
+ */
+export function itemRestoreData(saved, current, systemId) {
+  const data = { ...saved, flags: { ...(saved?.flags ?? {}) } };
+  const savedFlags = { ...(data.flags[systemId] ?? {}) };
+  const currentFlags = current?.flags?.[systemId] ?? {};
+  for (const key of RESTORE_SKIP_ITEM_FLAGS) {
+    if (key in currentFlags) savedFlags[key] = currentFlags[key];
+    else delete savedFlags[key];
+  }
+  data.flags[systemId] = savedFlags;
+  return data;
+}
 
 /**
  * O pedaço do `actor.update()` que devolve nome, imagem e dados de sistema ao que o ponto guardou.

@@ -276,7 +276,21 @@ export function sceneDarkness(scene, generation = foundryGeneration()) {
 /** Pedaço de `scene.update()` que põe a escuridão da cena em `level` (0 a 1). */
 export function sceneDarknessUpdate(level, generation = foundryGeneration()) {
   const value = Math.min(1, Math.max(0, Number(level) || 0));
-  return generation >= 14 ? { "environment.darknessLevel": value } : { darkness: value };
+  // V14: `environment.cycle` (padrão true de cena nova) deixa o ciclo dia/noite mandar na escuridão; quem escurece
+  // pelo relógio do sistema grava `cycle: false` na mesma escrita (achado da sessão 4, D9).
+  return generation >= 14 ? { "environment.darknessLevel": value, "environment.cycle": false } : { darkness: value };
+}
+
+/** Escuridão GRAVADA da cena (`_source`): o valor preparado pode ser sobreposto e enganar a comparação. */
+export function sceneStoredDarkness(scene, generation = foundryGeneration()) {
+  const value = generation >= 14 ? (scene?._source?.environment?.darknessLevel ?? scene?.environment?.darknessLevel) : scene?.darkness;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** V14: a cena ainda está com o ciclo do núcleo ligado (precisa de `cycle: false` para o relógio escurecer). */
+export function sceneCycleOn(scene, generation = foundryGeneration()) {
+  return generation >= 14 && (scene?._source?.environment?.cycle ?? scene?.environment?.cycle) === true;
 }
 
 /**

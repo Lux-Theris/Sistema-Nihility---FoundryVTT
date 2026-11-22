@@ -131,6 +131,20 @@ export async function addShipLibraryEntryAsGm(shipActor, { label, uuid, note = "
     { id: foundry.utils.randomID(), label, uuid, note, addedAt: Date.now() }
   ];
   await doc.update({ [`flags.${SYSTEM_ID}.library.entries`]: entries });
+  await pingShipLibrary(shipActor);
+}
+
+/**
+ * Avisa os PADs abertos de que a Biblioteca da Nave mudou. O documento mora num compêndio e os outros clientes nem
+ * sempre recebem o hook dele (achado da sessão 4, C4: a aba só repintava minutos depois); a Nave é um Ator comum e o
+ * `updateActor` chega a todos, na ordem, depois da gravação do compêndio.
+ */
+async function pingShipLibrary(shipActor) {
+  try {
+    await shipActor.setFlag(SYSTEM_ID, "libraryTick", Date.now());
+  } catch (err) {
+    console.warn(`${SYSTEM_ID} | Biblioteca da Nave: não consegui avisar os outros PADs.`, err);
+  }
 }
 
 /** Só no Mestre (direto ou pelo relay). */
@@ -139,6 +153,7 @@ export async function removeShipLibraryEntryAsGm(shipActor, entryId) {
   if (!doc) return;
   const entries = (doc.getFlag(SYSTEM_ID, "library")?.entries ?? []).filter(e => e.id !== entryId);
   await doc.update({ [`flags.${SYSTEM_ID}.library.entries`]: entries });
+  await pingShipLibrary(shipActor);
 }
 
 /** Enriquece entradas (pessoal ou de Nave) com o documento resolvido, pra exibição — nome/img/tipo sempre vêm do `resolvedDoc` quando ele existe; `label` salvo é só o fallback pra quando o documento original foi apagado. */

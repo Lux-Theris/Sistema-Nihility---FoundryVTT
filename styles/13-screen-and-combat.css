@@ -281,3 +281,24 @@ details.adv > .adv-body > .span-all { grid-column: 1 / -1; }
 .nihility-sheet .header-fields .initiative-button { height: auto; min-height: 0; line-height: normal; }
 .nihility-sheet .header-fields .active-conditions { width: 100%; row-gap: 4px; }
 .nihility-sheet .header-fields .header-row { row-gap: 6px; }
+
+/* A9 (sessão 4): com Condições ativas a coluna de recursos (`.resources`) crescia até o tamanho do conteúdo em UMA linha
+   (chips + botões) e empurrava `.header-fields` para largura ~0: Nível, Tamanho, Fluxo e Traços ficavam por baixo dos
+   botões. A coluna agora tem largura fixa (a faixa de chips quebra linha dentro dela) e o cabeçalho quebra em janela estreita. */
+.nihility-sheet .sheet-header { flex-wrap: wrap; }
+.nihility-sheet .header-fields { flex: 1 1 260px; min-width: 240px; }
+.nihility-sheet .resources { flex: 0 1 300px; width: 300px; min-width: 220px; max-width: 100%; }
+.nihility-sheet .resources .active-conditions { width: 100%; min-width: 0; }
+.nihility-sheet .resources .condition-chip { max-width: 100%; }
+
+/* Ambiente da Cena (sessão 4, D3): o seletor de linha (e os 2 botões) cabiam numa coluna de 90 px e o nome saía cortado;
+   as caixas de marcar ficavam escuras e quase invisíveis. Cor explícita em tudo (armadilha do tema do núcleo). */
+.nihility-environment-config .env-line { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.nihility-environment-config .env-line select { flex: 1 1 180px; min-width: 160px; color: var(--nihility-text); }
+.nihility-environment-config .env-line button { width: auto; flex: 0 0 auto; height: auto; min-height: 26px; line-height: normal; white-space: nowrap; }
+.nihility-environment-config .env-density.env-check { display: flex; align-items: flex-start; gap: 8px; color: var(--nihility-text); cursor: pointer; }
+.nihility-environment-config .env-check input[type="checkbox"] {
+  flex: 0 0 auto; appearance: auto; -webkit-appearance: checkbox; width: 18px; height: 18px; margin: 1px 0 0;
+  accent-color: var(--nihility-accent); background: var(--nihility-bg-panel-alt); border: 1px solid var(--nihility-accent-2);
+}
+.nihility-environment-config select, .nihility-environment-config input[type="number"] { color: var(--nihility-text); }

@@ -10,6 +10,20 @@ import { MEU_SISTEMA, SYSTEM_ID } from "./constants.js";
  * Registra todas as Game Settings do sistema. Deve ser chamado no hook `init`.
  */
 export function registerSystemSettings() {
+  registerSystemSettingsInner();
+}
+
+/** Aplica "segundos por rodada" em `CONFIG.time.roundTime` (o núcleo deixa 0). Roda no `ready` e quando a setting muda. */
+export function applyRoundSeconds() {
+  try {
+    const n = Math.max(0, Math.floor(Number(game.settings.get(SYSTEM_ID, "clockRoundSeconds"))));
+    if (Number.isFinite(n) && n > 0 && CONFIG?.time) CONFIG.time.roundTime = n;
+  } catch (err) {
+    // Setting ainda não registrada: fica o valor do núcleo (0 = o combate não passa tempo).
+  }
+}
+
+function registerSystemSettingsInner() {
   const S = MEU_SISTEMA.SETTINGS;
 
   // Um registro por bloco de MEU_SISTEMA.FEATURES — a tabela é a única fonte da verdade, então
@@ -206,6 +220,13 @@ export function registerSystemSettings() {
   clockSetting("clockDarkThreshold", "Relógio — limite de \"escuro\" (%)", "A condição \"Está escuro\" do Quando → Então vale quando a Escuridão da cena do Token (ou da Região de escuridão onde ele está) chega a este %. Padrão 50.", 50);
   clockSetting("clockShortRestHours", "Relógio — horas do Descanso Curto", "Quanto tempo o Descanso Curto leva (o personagem fica Dormindo até passar). Padrão 1.", 1);
   clockSetting("clockLongRestHours", "Relógio — horas do Descanso Completo", "Quanto tempo o Descanso Completo leva. Padrão 8.", 8);
+  // O núcleo deixa `CONFIG.time.roundTime` em 0 (cada sistema define o seu): com 0 o combate não passa tempo nenhum.
+  game.settings.register(SYSTEM_ID, S.clockRoundSeconds, {
+    name: "Relógio — segundos por rodada",
+    hint: "Quanto tempo do mundo uma rodada de combate leva. 0 (padrão, como o núcleo do Foundry) = o combate não passa tempo e os efeitos em rodadas só acabam pelo combate. Com mais de 0 (ex.: 6), o combate anda o relógio e um efeito em rodadas também vence fora de combate, quando o tempo passa.",
+    scope: "world", config: true, type: Number, default: 0,
+    onChange: () => applyRoundSeconds()
+  });
 
   game.settings.register(SYSTEM_ID, S.antimagicReach, {
     name: "Antimagia — alcance (× o nível)",
@@ -689,8 +710,8 @@ export function registerSystemSettings() {
 
   // Calendário do mundo (J9b, vazio = Gregoriano) e linhas do tempo (estado: o Mestre ajusta; a
   // principal nunca se apaga). Só `calendarData` termina em "Data" e viaja no Exportar/Importar.
-  game.settings.register(SYSTEM_ID, S.calendarData, { scope: "world", config: false, type: String, default: "" });
-  game.settings.register(SYSTEM_ID, S.timelines, { scope: "world", config: false, type: String, default: "" });
+  game.settings.register(SYSTEM_ID, S.calendarData, { name: "Calendário", scope: "world", config: false, type: String, default: "" });
+  game.settings.register(SYSTEM_ID, S.timelines, { name: "Linhas do tempo", scope: "world", config: false, type: String, default: "" });
 
   game.settings.register(SYSTEM_ID, S.scalesData, {
     scope: "world",

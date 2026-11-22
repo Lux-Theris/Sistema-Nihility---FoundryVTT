@@ -20,7 +20,7 @@
  */
 import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions, isWorldClockEnabled } from "./config.js";
 import { isDesignatedGm } from "../helpers/gm-relay.js";
-import { sceneDarkness, sceneDarknessUpdate } from "../helpers/foundry-compat.js";
+import { sceneDarkness, sceneDarknessUpdate, sceneStoredDarkness, sceneCycleOn } from "../helpers/foundry-compat.js";
 import { showVoiceBanner } from "./voice-banner.js";
 import {
   personalNow, personalRate, ensurePersonalTrack, localNowForActor, lineNow, sceneLine, getTimelines, dayLengthSeconds, localDateText, setWorldClockLocal,
@@ -32,7 +32,7 @@ import { MAIN_LINE_ID, resolveLine } from "./calendar-rules.js";
 export { deviceHour, itemClockText };
 import {
   normalizeClockConfig, isDayAt, darknessFor, isDarkLevel, darknessNeedsUpdate, adjustedDarkness,
-  sleepUntil, shouldWake, groupSleepState, skipLabel, restHours, SECONDS_PER_HOUR
+  sleepUntil, shouldWake, groupSleepState, groupRestSeconds, skipLabel, restHours, SECONDS_PER_HOUR
 } from "./world-clock-rules.js";
 
 const SLEEP_ID = "sleeping";
@@ -148,7 +148,7 @@ export async function applySceneDarkness() {
   for (const scene of clockScenes()) {
     // J9b: a escuridão de cada cena segue a hora da linha dela.
     const target = darknessFor(lineNow(sceneLine(scene)), config);
-    if (!darknessNeedsUpdate(sceneDarkness(scene), target)) continue;
+    if (!darknessNeedsUpdate(sceneStoredDarkness(scene), target) && !sceneCycleOn(scene)) continue;
     try {
       await scene.update(sceneDarknessUpdate(target), { animateDarkness: 2000 });
     } catch (err) {
@@ -325,7 +325,9 @@ export async function groupRest(kind) {
   }
   if (!members.length) return 0;
   const hours = restHours(kind, clockConfig());
-  await advanceWorldClock(hours * SECONDS_PER_HOUR);
+  // C15: quem está numa linha lenta leva mais tempo de mundo para acordar (falta pessoal ÷ ritmo): passa o maior.
+  const sleepers = members.map(actor => ({ sleeping: Boolean(sleepingEffect(actor)), until: sleepState(actor)?.until ?? 0, now: personalNow(actor), rate: personalRate(actor) }));
+  await advanceWorldClock(groupRestSeconds(sleepers, hours * SECONDS_PER_HOUR, worldNow()));
   return count;
 }
 

@@ -17,6 +17,7 @@ const ACTION_DURATION_MS = 30000;
 const MAX_QUEUE = 6;
 const queue = [];
 let showing = false;
+let current = null; // { key, close } do cartão na tela
 
 function enabledForMe() {
   try {
@@ -52,6 +53,7 @@ function showNext() {
     return;
   }
   showing = true;
+  current = null;
   const card = document.createElement("section");
   card.className = "nihility-voice-card";
   card.setAttribute("role", "status");
@@ -115,6 +117,7 @@ function showNext() {
       showNext();
     }, 250);
   };
+  current = { key: next.key ?? null, close };
   if (!actions.length) card.addEventListener("click", close);
   setTimeout(close, duration);
   stack().appendChild(card);
@@ -123,11 +126,21 @@ function showNext() {
 /**
  * Põe um anúncio na fila (também usado por outros avisos que queiram o mesmo cartão).
  * `label` troca o "Voz do Mundo" do topo; `actions` ([{label, primary, onClick}]) põe botões.
+ * `key`: um aviso por vez com a mesma chave: o novo SUBSTITUI o que estiver na fila ou na tela (D6, sessão 4).
  */
-export function showVoiceBanner({ title = "", body = "", label = "", actions = null } = {}) {
+export function showVoiceBanner({ title = "", body = "", label = "", actions = null, key = null } = {}) {
   if (!enabledForMe() || (!title && !body)) return;
+  if (key) {
+    for (let i = queue.length - 1; i >= 0; i--) if (queue[i].key === key) queue.splice(i, 1);
+  }
   if (queue.length >= MAX_QUEUE) queue.shift();
-  queue.push({ title: String(title), body: plainText(body), label: String(label || ""), actions });
+  const item = { title: String(title), body: plainText(body), label: String(label || ""), actions, key };
+  if (key && showing && current?.key === key) {
+    queue.unshift(item);
+    current.close();
+    return;
+  }
+  queue.push(item);
   if (!showing) showNext();
 }
 

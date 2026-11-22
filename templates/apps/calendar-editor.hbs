@@ -1,0 +1,93 @@
+<div class="cal-root wc-root">
+  <section class="wc-sec">
+    <h4>Começar de um modelo</h4>
+    <div class="wc-row">
+      <select name="model">{{#each models as |m|}}<option value="{{m.id}}">{{m.label}}</option>{{/each}}</select>
+      <button type="button" data-action="applyModel">Aplicar modelo</button>
+    </div>
+    <p class="wc-note">Substitui meses, dias e eras pelos do modelo (pede confirmação). O tempo de ninguém muda: só como a data é escrita.</p>
+  </section>
+
+  <section class="wc-sec">
+    <h4>Geral</h4>
+    <div class="wc-row">
+      <label>Nome <input type="text" name="name" value="{{draft.name}}"/></label>
+      <label>Formato
+        <select name="format">
+          <option value="date" {{#unless isStellar}}selected{{/unless}}>Data (dia, mês, ano)</option>
+          <option value="stellar" {{#if isStellar}}selected{{/if}}>Estelar (ano.fração)</option>
+        </select>
+      </label>
+    </div>
+  </section>
+
+  <section class="wc-sec">
+    <h4>O dia</h4>
+    <div class="wc-row">
+      <label>Horas por dia <input type="number" name="hoursPerDay" min="1" step="1" value="{{draft.hoursPerDay}}"/></label>
+      <label>Minutos por hora <input type="number" name="minutesPerHour" min="1" step="1" value="{{draft.minutesPerHour}}"/></label>
+      <label>Segundos por minuto <input type="number" name="secondsPerMinute" min="1" step="1" value="{{draft.secondsPerMinute}}"/></label>
+    </div>
+    <p class="wc-note">Nascer e pôr do sol (Regras da Mesa) seguem as horas do dia.</p>
+  </section>
+
+  <section class="wc-sec">
+    <h4>Meses <button type="button" class="wc-mini" data-action="addMonth"><i class="fa-solid fa-plus"></i> Mês</button></h4>
+    <table class="wc-people cal-months">
+      <thead><tr><th>Nome</th><th>Abrev.</th><th>Dias</th><th>Dias extras no bissexto</th><th></th></tr></thead>
+      <tbody>
+        {{#each draft.months as |m i|}}
+        <tr class="cal-month">
+          <td><input type="text" name="monthName" value="{{m.name}}"/></td>
+          <td><input type="text" name="monthAbbr" value="{{m.abbr}}" size="4"/></td>
+          <td><input type="number" name="monthDays" min="1" step="1" value="{{m.days}}"/></td>
+          <td><input type="number" name="monthLeap" min="0" step="1" value="{{m.leapDays}}"/></td>
+          <td><a data-action="removeMonth" data-index="{{i}}" title="Tirar o mês"><i class="fa-solid fa-trash"></i></a></td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    <div class="wc-row cal-leap">
+      <span>Bissexto</span>
+      <label class="tl-radio"><input type="radio" name="leapMode" value="every" {{#unless leapNever}}checked{{/unless}}/> a cada <input type="number" name="leapEvery" min="1" step="1" value="{{leapEvery}}"/> anos</label>
+      <label class="tl-radio"><input type="radio" name="leapMode" value="never" {{#if leapNever}}checked{{/if}}/> nunca</label>
+      <label>começando no ano <input type="number" name="leapFrom" step="1" value="{{leapFrom}}"/></label>
+    </div>
+    <p class="wc-note">{{yearText}} · {{secondsPerDay}} s por dia.</p>
+  </section>
+
+  <section class="wc-sec">
+    <h4>Dias da semana</h4>
+    <textarea name="weekdays" rows="4" placeholder="Um por linha (vazio = sem semana)">{{weekdaysText}}</textarea>
+    <p class="wc-note">Um nome por linha. Apague todos para um calendário sem semana.</p>
+  </section>
+
+  <section class="wc-sec">
+    <h4>Eras <button type="button" class="wc-mini" data-action="addEra"><i class="fa-solid fa-plus"></i> Era</button></h4>
+    <table class="wc-people cal-eras">
+      <thead><tr><th>Nome</th><th>Abrev.</th><th>Começa no ano</th><th></th></tr></thead>
+      <tbody>
+        {{#each draft.eras as |e i|}}
+        <tr class="cal-era">
+          <td><input type="text" name="eraName" value="{{e.name}}"/></td>
+          <td><input type="text" name="eraAbbr" value="{{e.abbr}}" size="6"/></td>
+          <td><input type="number" name="eraStart" step="1" value="{{e.start}}"/></td>
+          <td><a data-action="removeEra" data-index="{{i}}" title="Tirar a era"><i class="fa-solid fa-trash"></i></a></td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    <label class="tl-field">Antes da 1ª era (abreviação) <input type="text" name="beforeAbbr" value="{{draft.beforeAbbr}}" size="8"/></label>
+    <p class="wc-note">Antes da primeira era, os anos contam para trás.</p>
+  </section>
+
+  <section class="wc-sec">
+    <h4>Como fica</h4>
+    <ul class="wc-sleepers">{{#each preview as |line|}}<li>{{line}}</li>{{/each}}</ul>
+  </section>
+
+  <footer class="wc-row tl-footer">
+    <button type="button" data-action="cancel">Cancelar</button>
+    <button type="button" data-action="save"><i class="fa-solid fa-floppy-disk"></i> Salvar calendário</button>
+  </footer>
+</div>

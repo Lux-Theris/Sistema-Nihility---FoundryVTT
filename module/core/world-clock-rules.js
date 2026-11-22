@@ -4,19 +4,25 @@
  * O tempo é `game.time.worldTime` (segundos): o combate já soma a rodada nele, e o Mestre passa o
  * resto pela janela "Relógio do mundo". Um dia tem 24 h de 3600 s; o dia 1 começa em 0 s. Toda
  * regra recebe o ajuste (nascer/pôr do sol, escuridão da noite, limite de "escuro") como argumento.
+ *
+ * J9b: o instante pode ser a hora LOCAL de uma linha do tempo (calendar-rules.js) e o ajuste pode
+ * trazer `dayLength` (segundos do dia do calendário): nascer e pôr do sol continuam em "horas de 24"
+ * e valem proporcionalmente num dia mais curto ou mais longo.
  */
 
 export const SECONDS_PER_HOUR = 3600;
 export const SECONDS_PER_DAY = 86400;
 
 /** Dia (1…), hora (0–23), minuto e a hora fracionada (0 ≤ h < 24) de um instante em segundos. */
-export function clockParts(worldTime) {
+export function clockParts(worldTime, dayLength = SECONDS_PER_DAY) {
   const t = Number.isFinite(Number(worldTime)) ? Math.floor(Number(worldTime)) : 0;
-  const day = Math.floor(t / SECONDS_PER_DAY);
-  const inDay = ((t % SECONDS_PER_DAY) + SECONDS_PER_DAY) % SECONDS_PER_DAY;
+  const length = Number(dayLength) > 0 ? Math.floor(Number(dayLength)) : SECONDS_PER_DAY;
+  const day = Math.floor(t / length);
+  const inDay = ((t % length) + length) % length;
   const hour = Math.floor(inDay / SECONDS_PER_HOUR);
   const minute = Math.floor((inDay % SECONDS_PER_HOUR) / 60);
-  return { day: day + 1, hour, minute, hourFloat: inDay / SECONDS_PER_HOUR };
+  // `hourFloat` é sempre na escala de 24 h (nascer/pôr do sol são horas de 0 a 24, mesmo num dia de outro tamanho).
+  return { day: day + 1, hour, minute, hourFloat: (inDay / length) * 24 };
 }
 
 /** "Dia 3 · 14:05". */
@@ -49,7 +55,9 @@ export function normalizeClockConfig(config = {}) {
   const sunset = hour(config.sunset, 18);
   const night = Number(config.nightDarkness);
   const dark = Number(config.darkThreshold);
+  const dayLength = Number(config.dayLength);
   return {
+    dayLength: dayLength > 0 ? Math.floor(dayLength) : SECONDS_PER_DAY,
     sunrise: Math.min(sunrise, sunset),
     sunset: Math.max(sunrise, sunset),
     nightDarkness: Number.isFinite(night) ? Math.min(1, Math.max(0, night)) : 0.8,
@@ -61,8 +69,8 @@ export function normalizeClockConfig(config = {}) {
 
 /** É dia? (entre o nascer e o pôr do sol; o pôr do sol já é noite). */
 export function isDayAt(worldTime, config = {}) {
-  const { sunrise, sunset } = normalizeClockConfig(config);
-  const { hourFloat } = clockParts(worldTime);
+  const { sunrise, sunset, dayLength } = normalizeClockConfig(config);
+  const { hourFloat } = clockParts(worldTime, dayLength);
   return hourFloat >= sunrise && hourFloat < sunset;
 }
 
@@ -71,9 +79,9 @@ export function isDayAt(worldTime, config = {}) {
  * crepúsculo (`twilightHours`, 1 h) sobe depois do pôr do sol e desce nas horas antes do nascer.
  */
 export function darknessFor(worldTime, config = {}, twilightHours = 1) {
-  const { sunrise, sunset, nightDarkness } = normalizeClockConfig(config);
+  const { sunrise, sunset, nightDarkness, dayLength } = normalizeClockConfig(config);
   const tw = Math.max(0.0001, Number(twilightHours) || 1);
-  const h = clockParts(worldTime).hourFloat;
+  const h = clockParts(worldTime, dayLength).hourFloat;
   let level;
   if (h >= sunrise && h < sunset) level = 0;
   else if (h >= sunset) level = Math.min(1, (h - sunset) / tw);
@@ -136,8 +144,15 @@ export function groupSleepState(members = [], worldTime = 0) {
   const list = (members ?? []).filter(Boolean);
   const sleeping = list.filter(m => m.sleeping);
   const all = list.length > 0 && sleeping.length === list.length;
-  const remaining = sleeping.map(m => Math.max(0, (Number(m.until) || 0) - (Number(worldTime) || 0)));
-  const skipSeconds = all ? Math.max(0, ...remaining) : 0;
+  // J9b: `until` está no tempo pessoal do membro (`now`, ritmo `rate`); o que falta vira tempo do mundo
+  // (÷ ritmo). Sem `now`/`rate` o membro segue o tempo do mundo, como no J9. Se o tempo pessoal voltou,
+  // falta mais (a pessoa só dorme mais): nada quebra por diferença grande.
+  const remaining = sleeping.map(m => {
+    const now = m.now === undefined ? Number(worldTime) || 0 : Number(m.now) || 0;
+    const rate = Number(m.rate) > 0 ? Number(m.rate) : 1;
+    return Math.max(0, ((Number(m.until) || 0) - now) / rate);
+  });
+  const skipSeconds = all ? Math.ceil(Math.max(0, ...remaining)) : 0;
   return { all, sleeping: sleeping.length, total: list.length, skipSeconds, skipHours: Math.ceil(skipSeconds / SECONDS_PER_HOUR) };
 }
 

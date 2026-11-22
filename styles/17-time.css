@@ -1,0 +1,68 @@
+/* ==========================================================================
+   Calendário, linhas do tempo e tempo pessoal (J9b, 8b.1): Relógio do mundo (linhas e personagens),
+   editores de calendário e de linha, o bloco de data do PAD e o card de pedido de "Atualizar".
+   Reaproveita .nihility-world-clock/.wc-* de 16-glossary.css. Cor explícita em todo texto de janela.
+   ========================================================================== */
+
+.nihility-world-clock .wc-cal-btn,
+.nihility-world-clock .wc-mini,
+.nihility-timeline-editor .wc-mini,
+.nihility-calendar-editor .wc-mini { height: auto; min-height: 0; line-height: normal; padding: 2px 8px; font-size: 11px; }
+.nihility-world-clock .wc-cal-btn { margin-left: auto; align-self: center; height: auto; min-height: 0; line-height: normal; padding: 4px 10px; }
+
+.nihility-world-clock .wc-sec h4 .wc-mini,
+.nihility-calendar-editor .wc-sec h4 .wc-mini { margin-left: 8px; text-transform: none; letter-spacing: 0; }
+.wc-check { display: inline-flex; align-items: center; gap: 4px; margin-left: 10px; font-size: 11px; text-transform: none; letter-spacing: 0; color: var(--nihility-text-dim); }
+
+.wc-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.wc-line {
+  display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center;
+  padding: 6px 8px; border: 1px solid var(--nihility-border-soft); border-radius: 6px; background: var(--nihility-bg-panel-alt);
+  color: var(--nihility-text);
+}
+.wc-line-name { font-weight: 600; color: var(--nihility-gold); }
+.wc-line-date { grid-column: 1; font-family: var(--nihility-font-data); font-size: 12px; color: var(--nihility-text); }
+.wc-line-meta { grid-column: 1; font-size: 11px; color: var(--nihility-text-dim); }
+.wc-line-actions { grid-column: 2; grid-row: 1 / span 3; display: flex; gap: 4px; }
+
+.wc-people { width: 100%; border-collapse: collapse; font-size: 12px; color: var(--nihility-text); }
+.wc-people th { text-align: left; font-weight: 600; color: var(--nihility-text-dim); border-bottom: 1px solid var(--nihility-border-soft); padding: 2px 6px; }
+.wc-people td { padding: 3px 6px; vertical-align: top; border-bottom: 1px solid var(--nihility-border-soft); color: var(--nihility-text); }
+.wc-people td em { color: var(--nihility-text-dim); }
+.wc-people input[type=text], .wc-people input[type=number] { width: 100%; box-sizing: border-box; }
+.wc-warn { color: var(--nihility-warn) !important; }
+
+.nihility-timeline-editor .tl-field, .nihility-calendar-editor .tl-field { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--nihility-text-dim); }
+.nihility-timeline-editor .tl-rate input[type=number] { width: 80px; }
+.nihility-timeline-editor .tl-radio, .nihility-calendar-editor .tl-radio { display: flex; align-items: center; gap: 6px; font-size: 12px; margin: 2px 0; }
+.nihility-calendar-editor .cal-leap { margin-top: 6px; align-items: center; color: var(--nihility-text); }
+.nihility-calendar-editor .cal-leap input[type=number] { width: 60px; }
+.nihility-calendar-editor textarea { width: 100%; box-sizing: border-box; background: var(--nihility-bg-panel-alt); color: var(--nihility-text); border: 1px solid var(--nihility-border); }
+.tl-scenes { list-style: none; margin: 0; padding: 0; max-height: 160px; overflow-y: auto; color: var(--nihility-text); }
+.tl-scenes em { color: var(--nihility-text-dim); }
+.tl-footer { justify-content: flex-end; margin-top: 12px; }
+.tl-footer button { height: auto; min-height: 0; line-height: normal; padding: 5px 12px; }
+.nihility-timeline-editor .window-content, .nihility-calendar-editor .window-content { overflow-y: auto; }
+
+/* ---- PAD: a data que o personagem acha que é ---- */
+.pad-time {
+  margin: 8px 0 14px; padding: 10px 12px; border-radius: 12px;
+  background: var(--nihility-bg-panel-alt); border: 1px solid var(--nihility-border-soft); text-align: center;
+}
+.pad-time-clock { font-family: var(--pad-font-display); font-weight: 700; font-size: 2.1rem; line-height: 1.1; color: var(--nihility-text); }
+.pad-time-date { font-size: 0.78rem; color: var(--nihility-text-dim); margin-top: 2px; }
+.pad-time-status { font-size: 0.7rem; color: var(--nihility-text-faint); margin-top: 6px; }
+.pad-time-network .pad-time-status, .pad-time-fresh .pad-time-status { color: var(--nihility-ok); }
+.pad-time-pending .pad-time-status { color: var(--nihility-warn); }
+.pad-time-denied .pad-time-status { color: var(--nihility-danger); }
+.pad-time-suppressed .pad-time-clock { color: var(--nihility-text-faint); }
+.pad-time-btn { height: auto; min-height: 0; line-height: normal; margin-top: 8px; padding: 5px 14px; border-radius: 999px; }
+
+/* ---- Chat: pedido de "Atualizar" ---- */
+.nihility-time-card { color: var(--nihility-text); }
+.nihility-time-card .ntc-rows { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 6px 0; }
+.nihility-time-card dt { color: var(--nihility-text-dim); }
+.nihility-time-card dd { margin: 0; font-family: var(--nihility-font-data); }
+.nihility-time-card .ntc-actions { display: flex; gap: 6px; }
+.nihility-time-card .ntc-actions button { height: auto; min-height: 0; line-height: normal; padding: 4px 12px; }
+.nihility-time-card .ntc-done { color: var(--nihility-text-dim); font-style: italic; }

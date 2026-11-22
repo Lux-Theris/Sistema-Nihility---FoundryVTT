@@ -5,7 +5,7 @@ import {
   normalizeTrap, trapHasEffect, trapGroundOk, trapShouldFire, trapImmune, trapDisarmedByField,
   trapDisarmedByEmission, polygonSegments, closedShapesOverlap, describeTrap
 } from "../module/environment/trap-rules.js";
-import { validateTrap, buildCatalogIndex } from "../module/world/world-validator.js";
+import { validateTrap, validateTimeSetup, buildCatalogIndex } from "../module/world/world-validator.js";
 import { areaTouchesStructure } from "../module/structures/structure-geometry.js";
 
 test("normalizeTrap: padrões e limpeza", () => {
@@ -121,4 +121,16 @@ test("Validar Mundo: Condição, elemento e Traço que sumiram do catálogo", ()
   assert.ok(issues.some(i => i.catalog === "conditions" && i.ref === "sumiu"));
   assert.ok(issues.some(i => i.catalog === "elements" && i.ref === "raio"));
   assert.ok(issues.some(i => i.catalog === "traits" && i.ref === "asas"));
+});
+
+test("J9b: validateTimeSetup — ritmo fora dos limites, cena em linha apagada, módulo de calendário", () => {
+  assert.deepEqual(validateTimeSetup({ timelines: [{ id: "main" }, { id: "a", name: "A", rate: 0.5 }], scenes: [{ name: "S", lineId: "a" }, { name: "T", lineId: "main" }] }), []);
+  const bad = validateTimeSetup({
+    timelines: [{ id: "main" }, { id: "x", name: "X", rate: 1e-12 }, { id: "y", name: "Y", rate: 0 }, { id: "z", name: "Z", rate: 1e7 }],
+    scenes: [{ name: "Velha", lineId: "sumiu" }],
+    activeModules: ["seasons-and-stars", "outro", "foundryvtt-simple-calendar-reborn"]
+  });
+  assert.equal(bad.filter(i => i.where.startsWith("Linha")).length, 3);
+  assert.equal(bad.filter(i => i.where.startsWith("Cena")).length, 1);
+  assert.equal(bad.filter(i => i.where === "Módulo de calendário").length, 2);
 });

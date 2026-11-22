@@ -219,3 +219,12 @@ test("bloco Superfícies: desligado por padrão, pesado e do grupo Combate", () 
   assert.ok(MEU_SISTEMA.EFFECT_TARGETS.includes("createSurface"));
   assert.ok(MEU_SISTEMA.EFFECT_TARGET_GROUPS.some(g => g.targets.includes("createSurface")));
 });
+
+test("J9b: os minutos da superfície valem na linha da cena (ritmo)", () => {
+  assert.equal(surfaceExpiresAt(1000, 10), 1600);
+  assert.equal(surfaceExpiresAt(1000, 10, 1), 1600);
+  assert.equal(surfaceExpiresAt(1000, 10, 0.5), 2200, "ritmo lento: o relógio de fora conta o dobro");
+  assert.equal(surfaceExpiresAt(1000, 10, 2), 1300);
+  assert.equal(surfaceExpiresAt(1000, 0, 2), null);
+  assert.equal(surfaceExpiresAt(1000, 10, 0), 1600, "ritmo inválido vira 1");
+});

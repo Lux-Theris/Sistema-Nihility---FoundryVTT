@@ -99,6 +99,9 @@ export const MEU_SISTEMA = {
     antimagicReach: "antimagicReach",
     technomagicPower: "technomagicPower",
     manaDensityDefault: "manaDensityDefault",
+    // J9b: o calendário (catálogo, entra no exportar/importar) e as linhas do tempo (estado do mundo).
+    calendarData: "calendarData",
+    timelines: "timelines",
     clockSunrise: "clockSunrise",
     clockSunset: "clockSunset",
     clockNightDarkness: "clockNightDarkness",

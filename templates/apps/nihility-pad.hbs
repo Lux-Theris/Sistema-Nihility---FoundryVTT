@@ -50,6 +50,14 @@
             status logo acima, e ele sabe de quem é o próprio PAD), enquanto pro Mestre é o
             aviso de QUAL persona está ativa antes de mandar mensagem como ela. --}}
       {{#if isGM}}<p class="pad-home-head">{{actor.name}}</p>{{/if}}
+      {{#if padTime}}
+      <div class="pad-time pad-time-{{padTime.state}}">
+        <div class="pad-time-clock">{{padTime.text}}</div>
+        {{#if padTime.dateText}}<div class="pad-time-date">{{padTime.dateText}}</div>{{/if}}
+        <div class="pad-time-status">{{padTime.statusLine}}</div>
+        {{#if padTime.canRequest}}<button type="button" class="pad-time-btn" data-action="requestTimeSync"><i class="fa-solid fa-rotate"></i> Atualizar</button>{{/if}}
+      </div>
+      {{/if}}
       <p class="pad-home-sub">{{#if selectedShip}}Vinculado à {{selectedShip.name}} · sinal estável{{else}}PAD Pessoal · sinal estável{{/if}}</p>
       <div class="pad-icon-grid">
 

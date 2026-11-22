@@ -2,9 +2,10 @@
   <div class="wc-now">
     <i class="fa-solid {{phaseIcon}}"></i>
     <span class="wc-time">{{hour}}:{{minute}}</span>
-    <span class="wc-day">Dia {{day}} · {{phase}}</span>
+    <span class="wc-day">{{#if calendarOn}}{{dateLong}}{{else}}Dia {{day}}{{/if}} · {{phase}}{{#if calendarOn}} · sol até {{sunsetText}}{{/if}}</span>
+    {{#if calendarOn}}<button type="button" class="wc-cal-btn" data-action="openCalendar" title="Editar o calendário do mundo ({{calendarName}})"><i class="fa-solid fa-calendar-days"></i> Calendário…</button>{{/if}}
   </div>
-  <p class="wc-note">Escuridão das cenas marcadas "Escurece com o relógio": {{darkness}}%.</p>
+  <p class="wc-note">{{#if calendarOn}}Linha principal. {{/if}}Escuridão das cenas marcadas "Escurece com o relógio": {{darkness}}%.</p>
 
   <section class="wc-sec">
     <h4>Passar o tempo</h4>
@@ -12,18 +13,68 @@
       <button type="button" data-action="advance" data-hours="0.1667">+10 min</button>
       <button type="button" data-action="advance" data-hours="1">+1 h</button>
       <button type="button" data-action="advance" data-hours="8">+8 h</button>
+      {{#if calendarOn}}<button type="button" data-action="advanceDay">+1 dia</button>{{/if}}
     </div>
+    {{#if calendarOn}}<p class="wc-note">Todas as linhas andam, cada uma no seu ritmo.</p>{{/if}}
   </section>
 
   <section class="wc-sec">
-    <h4>Definir a hora</h4>
+    <h4>{{#if calendarOn}}Definir a data da linha principal{{else}}Definir a hora{{/if}}</h4>
     <div class="wc-row">
+      {{#if calendarOn}}
+      <label>Dia <input type="number" name="day" min="1" step="1" value="{{fields.day}}"/></label>
+      <label>Mês <select name="month">{{#each fields.months as |m|}}<option value="{{m.index}}" {{#if m.selected}}selected{{/if}}>{{m.name}}</option>{{/each}}</select></label>
+      <label>Ano <input type="number" name="year" min="1" step="1" value="{{fields.year}}"/></label>
+      {{#if fields.hasEras}}<label>Era <select name="era">{{#each fields.eras as |e|}}<option value="{{e.index}}" {{#if e.selected}}selected{{/if}}>{{e.name}}</option>{{/each}}</select></label>{{/if}}
+      <label>Hora <input type="number" name="hour" min="0" step="1" value="{{fields.hour}}"/></label>
+      <label>Min <input type="number" name="minute" min="0" step="1" value="{{fields.minute}}"/></label>
+      {{else}}
       <label>Dia <input type="number" name="day" min="1" step="1" value="{{day}}"/></label>
       <label>Hora <input type="number" name="hour" min="0" max="23" step="1" value="{{hour}}"/></label>
       <label>Min <input type="number" name="minute" min="0" max="59" step="1" value="{{minute}}"/></label>
+      {{/if}}
       <button type="button" data-action="setTime">Definir</button>
     </div>
+    <p class="wc-note">Muda só onde a linha está no calendário: o tempo do mundo nunca volta, então sono, superfícies e efeitos continuam certos.</p>
   </section>
+
+  {{#if calendarOn}}
+  <section class="wc-sec">
+    <h4>Linhas do tempo <button type="button" class="wc-mini" data-action="newLine"><i class="fa-solid fa-plus"></i> Nova linha</button></h4>
+    <ul class="wc-lines">
+      {{#each lines as |l|}}
+      <li class="wc-line">
+        <span class="wc-line-name">{{l.name}}</span>
+        <span class="wc-line-date">{{l.dateText}}</span>
+        <span class="wc-line-meta">{{l.sceneCount}} cena(s){{#if l.activeScene}} · ativa: {{l.activeScene}}{{/if}}{{#if l.rateText}} · {{l.rateText}}{{/if}}</span>
+        <span class="wc-line-actions">
+          <button type="button" class="wc-mini" data-action="viewScenes" data-line="{{l.id}}">Ver cenas</button>
+          <button type="button" class="wc-mini" data-action="editLine" data-line="{{l.id}}">Ajustar</button>
+        </span>
+      </li>
+      {{/each}}
+    </ul>
+  </section>
+
+  <section class="wc-sec">
+    <h4>Personagens <label class="wc-check"><input type="checkbox" data-action="toggleNpcs" {{#if showNpcs}}checked{{/if}}/> mostrar NPCs</label></h4>
+    {{#if people.length}}
+    <table class="wc-people">
+      <thead><tr><th>Quem</th><th>Onde</th><th>Tempo pessoal</th><th>Acha que é</th></tr></thead>
+      <tbody>
+        {{#each people as |p|}}
+        <tr>
+          <td>{{p.name}}</td>
+          <td>{{p.place}}<br/><em>{{p.lineName}}</em></td>
+          <td>{{p.personal}}</td>
+          <td>{{p.thinks}}{{#if p.mismatch}}<br/><em class="wc-warn">não bate com a cena</em>{{/if}}</td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{else}}<p class="wc-note">Nenhum personagem de jogador.</p>{{/if}}
+  </section>
+  {{/if}}
 
   <section class="wc-sec">
     <h4>Descanso do grupo</h4>

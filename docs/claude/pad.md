@@ -14,3 +14,8 @@ Three screens, three deliberately different storage strategies:
 Contacts: `getContactsFor()` combines visible PCs, current crewmates (always reachable, even if normal visibility wouldn't cover them), NPCs only when the GM is driving, plus `padContacts` (an Actor flag) — saved contacts override all the other rules on purpose, which is what makes "compartilhar contato com a cena" able to introduce an NPC to a player. Sharing is opt-in on the receiving side: `shareContactWithScene` only posts an offer card, and the recipient clicks to add it.
 
 Live updates come from `updateActor` + `createChatMessage` hooks registered in `_onRender` (guarded so repeated renders don't stack listeners) and removed in `close()`.
+
+
+## Data do personagem no PAD (J9b, 1.103.0)
+
+Com `FEATURES.calendar` ligado a tela inicial do PAD mostra a hora e a data que **o personagem acha que é** (`deviceView` em `core/world-time.js`; flag `timeSync`, tempo pessoal desde o último acerto), não a do mundo; a barra de status leva a mesma hora. Estados do desenho: na rede (cena "tem rede"), sem rede com "acertado há X (seu tempo)" e **Atualizar**, pedido enviado ("Procurando sinal…"), recusado ("Sem sinal"), e "--:--" sob PEM/campo (Atualizar some). Atualizar vai ao Mestre por `runAsGm("timeSyncRequest")` e vira um card com Aprovar/Recusar. Se o tempo pessoal recuar (Skill de reverter, 8e), o aparelho volta junto. O PAD se redesenha no `updateWorldTime` e quando os flags do Ator mudam. Detalhes e limites em [mundo.md](mundo.md).

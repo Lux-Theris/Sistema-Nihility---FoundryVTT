@@ -19,6 +19,7 @@ import { isDesignatedGm } from "../helpers/gm-relay.js";
 import { sceneScale } from "../combat/area-effects.js";
 import { tokenDocCenter } from "../combat/area-geometry.js";
 import { sceneEnvironment, areaBehaviors } from "./environment.js";
+import { personalRate } from "../core/world-time.js";
 import { normalizeRadiationSource, totalExposure, radiationStep, radiationDamage, simulateRadiation } from "./radiation-rules.js";
 
 const FLAG_SOURCE = "radiationSource";
@@ -155,7 +156,9 @@ export async function passRadiationTime(scene, rounds) {
     const before = radiationLevel(actor);
     const exposure = exposureAt(token);
     if (!before && !exposure) continue;
-    const { level, damage } = simulateRadiation(before, exposure, n, config);
+    // J9b: as N rodadas valem para o relógio de cada um: N × o ritmo pessoal (câmara lenta, nave em dobra).
+    const own = Math.min(10000, Math.max(0, Math.round(n * personalRate(actor))));
+    const { level, damage } = simulateRadiation(before, exposure, own, config);
     await setRadiationLevel(actor, level);
     const dealt = await applyRadiationDamage(actor, damage);
     rows.push({ name: token.name || actor.name, before, after: level, exposure, damage: dealt });

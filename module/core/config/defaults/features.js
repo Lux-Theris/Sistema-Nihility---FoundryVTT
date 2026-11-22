@@ -352,6 +352,13 @@ export const FEATURES = {
     hint: "O Mestre tem uma janela para passar o tempo do mundo (hora e dia). O \"Quando → Então\" ganha \"É dia\", \"É noite\" e \"Está escuro\"; cenas marcadas \"Escurece com o relógio\" ficam claras ou escuras pela hora; o Descanso fora de combate deixa o personagem Dormindo até o tempo passar, e o Mestre é avisado quando todos dormem. O jogador nunca vê a hora pela interface do Foundry: só no PAD e em itens que marcam o tempo. Desligar volta o Descanso a ser na hora; nada salvo se perde.",
     default: true
   },
+  calendar: {
+    setting: "calendarEnabled",
+    parent: "worldClock",
+    name: "Calendário, linhas do tempo e tempo pessoal",
+    hint: "O Relógio do mundo ganha um calendário editável (meses, semana, eras, data estelar) e linhas do tempo: cada cena escolhe a sua (a porta para 500 anos atrás, uma nave em dobra). O personagem tem tempo pessoal e o PAD mostra a data que ELE acha que é, com \"Atualizar\" aprovado pelo Mestre. Desligar volta ao relógio simples (o tempo pessoal é o do mundo); nada salvo se perde.",
+    default: true
+  },
   skillUndo: {
     setting: "skillUndoEnabled",
     name: "Desfazer uso de Skill",
@@ -539,6 +546,7 @@ const FEATURE_LAYOUT = {
   pact: ["character", "Pacto entre patrono e bruxo: o bruxo usa as Skills liberadas com a própria Mana."],
   reroll: ["combat", "Skill Rerrolar: refaz uma rolagem do chat (atributo, iniciativa, dano, d100)."],
   worldClock: ["world", "Relógio do mundo: dia/noite, escuro e o Descanso que passa o tempo."],
+  calendar: ["world", "Calendário e linhas do tempo: época por cena, tempo pessoal e a data do PAD."],
   vessels: ["world", "Naves e Veículos com Módulos, Grid de Energia e tripulação."],
   shipManeuver: ["world", "Naves se movem por casas e esquivam pela Rotação.", true],
   pad: ["world", "O \"celular\" do personagem: Nave, Biblioteca e Mensagens."],

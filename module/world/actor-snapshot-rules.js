@@ -46,6 +46,12 @@ export function embeddedPlan(currentIds, saved) {
 const KEEP_OUT = ["_id", "_stats", "folder", "sort", "ownership", "items", "effects", "prototypeToken"];
 
 /**
+ * Flags do sistema que a restauração NUNCA reescreve nem apaga (como a posição do Token): o tempo
+ * pessoal (J9b) não pode voltar só porque a ficha voltou — quem recua o tempo de alguém é uma Skill.
+ */
+export const RESTORE_SKIP_FLAGS = ["personalTime"];
+
+/**
  * O pedaço do `actor.update()` que devolve nome, imagem e dados de sistema ao que o ponto guardou.
  * Flags do sistema voltam inteiras: chave que a ficha tem agora e o ponto não tinha vem em
  * `removeFlagKeys` (o `update` só mescla, então quem chama as apaga).
@@ -60,8 +66,9 @@ export function actorRestoreUpdate(saved, current, systemId) {
     if (KEEP_OUT.includes(key) || key === "flags" || key === "type") continue;
     update[key] = saved[key];
   }
-  const savedFlags = saved?.flags?.[systemId] ?? {};
-  const currentFlags = current?.flags?.[systemId] ?? {};
+  const withoutSkipped = flags => Object.fromEntries(Object.entries(flags ?? {}).filter(([key]) => !RESTORE_SKIP_FLAGS.includes(key)));
+  const savedFlags = withoutSkipped(saved?.flags?.[systemId]);
+  const currentFlags = withoutSkipped(current?.flags?.[systemId]);
   if (Object.keys(savedFlags).length) update.flags = { [systemId]: savedFlags };
   const removeFlagKeys = Object.keys(currentFlags).filter(key => !(key in savedFlags));
   return { update, removeFlagKeys };

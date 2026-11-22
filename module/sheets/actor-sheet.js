@@ -83,6 +83,7 @@ import { enableHotbarDrag, enableUnarmedHotbarDrag } from "../core/hotbar.js";
 import { skillSummariesFor } from "../skills/skill-summary-ui.js";
 import { skillTimersFor } from "../skills/preparation.js";
 import { useConsumable, reloadWeapon, weaponCanFire } from "../economy/consumables.js";
+import { openItemClockDialog } from "../apps/item-clock-dialog.js";
 import { magazineState } from "../economy/consumable-rules.js";
 import { blockIfIncapacitated } from "../combat/incapacitation.js";
 import { actorMasteries, unarmedSummary, weaponAttackFlow, weaponAttackRoll, augmentsUnarmed } from "../combat/weapon-mastery.js";
@@ -219,6 +220,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       unarmedAttack: NihilityActorSheet.#onUnarmedAttack,
       unarmedAttackRoll: NihilityActorSheet.#onUnarmedAttackRoll,
       useConsumable: NihilityActorSheet.#onUseConsumable,
+      setItemClock: NihilityActorSheet.#onSetItemClock,
       reloadWeapon: NihilityActorSheet.#onReloadWeapon,
       breakSkillPoints: NihilityActorSheet.#onBreakSkillPoints,
       mergeSkillPoints: NihilityActorSheet.#onMergeSkillPoints,
@@ -1580,6 +1582,13 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     event.preventDefault();
     const item = this.actor.items.get(target.closest("[data-item-id]")?.dataset.itemId);
     if (item) await useConsumable(this.actor, item, event);
+  }
+
+  /** "Acertar" um relógio analógico (J9b): o dono põe a data e a hora que quiser, sem pedir ao Mestre. */
+  static async #onSetItemClock(event, target) {
+    event.preventDefault();
+    const item = this.actor.items.get(target.closest("[data-item-id]")?.dataset.itemId);
+    if (item) await openItemClockDialog(item);
   }
 
   /** "Recarregar" uma arma com carregador: gasta 1 munição compatível do inventário. */

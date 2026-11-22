@@ -130,6 +130,11 @@ export function isWorldClockEnabled() {
   return isFeatureEnabled("worldClock");
 }
 
+/** Calendário, linhas do tempo e tempo pessoal (J9b). Desligado: o tempo pessoal é o do mundo. */
+export function isCalendarEnabled() {
+  return isFeatureEnabled("calendar");
+}
+
 /**
  * Leitor ÚNICO de todo bloco ligável/desligável do sistema (ver MEU_SISTEMA.FEATURES) — use
  * isto, e não `game.settings.get` direto, pra gatear qualquer coisa: só aqui a cadeia de

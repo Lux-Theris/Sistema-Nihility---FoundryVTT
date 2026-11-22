@@ -66,6 +66,18 @@ function actorsOwnedBy(user) {
 /** Ações que o Mestre sabe executar em nome de outro cliente. Todas recebem `(payload, user)`. */
 const HANDLERS = {
   /**
+   * "Atualizar" no PAD (J9b): o jogador pede ao Mestre que acerte a data do aparelho. Só quem é dono do
+   * Ator pede; o Mestre recebe um card com Aprovar/Recusar (nada é acertado aqui).
+   * @param {{actorUuid:string}} payload
+   */
+  async timeSyncRequest({ actorUuid }, user) {
+    const actor = await ownedDoc(actorUuid, user);
+    if (!actor || actor.documentName !== "Actor") return refuse(RELAY_REASONS.permission);
+    const { handleTimeSyncRequest } = await import("../core/world-time.js");
+    await handleTimeSyncRequest(actor);
+  },
+
+  /**
    * Biblioteca do PAD "Da Nave": o jogador não grava em Compêndio, então o Mestre grava por ele.
    * Só quem comanda a Nave (dono dela ou de um tripulante); rótulo e nota limitados.
    * @param {{op:"add"|"remove", shipUuid:string, label?:string, uuid?:string, note?:string, entryId?:string}} payload

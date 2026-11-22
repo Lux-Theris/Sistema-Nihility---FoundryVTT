@@ -21,11 +21,18 @@
 import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions, isWorldClockEnabled } from "./config.js";
 import { isDesignatedGm } from "../helpers/gm-relay.js";
 import { sceneDarkness, sceneDarknessUpdate } from "../helpers/foundry-compat.js";
-import { suppressionState, sourceSuppressed } from "./suppression.js";
 import { showVoiceBanner } from "./voice-banner.js";
 import {
+  personalNow, personalRate, ensurePersonalTrack, localNowForActor, lineNow, sceneLine, getTimelines, dayLengthSeconds, localDateText, setWorldClockLocal,
+  registerWorldTime, deviceHour, itemClockText
+} from "./world-time.js";
+import { MAIN_LINE_ID, resolveLine } from "./calendar-rules.js";
+
+// J9b: a hora do aparelho e a do item "Marca o tempo" agora vêm do tempo pessoal (world-time.js).
+export { deviceHour, itemClockText };
+import {
   normalizeClockConfig, isDayAt, darknessFor, isDarkLevel, darknessNeedsUpdate, adjustedDarkness,
-  sleepUntil, shouldWake, groupSleepState, skipLabel, restHours, visibleHour, formatClock, SECONDS_PER_HOUR
+  sleepUntil, shouldWake, groupSleepState, skipLabel, restHours, SECONDS_PER_HOUR
 } from "./world-clock-rules.js";
 
 const SLEEP_ID = "sleeping";
@@ -49,7 +56,8 @@ export function clockConfig() {
     nightDarkness: read("clockNightDarkness"),
     darkThreshold: read("clockDarkThreshold"),
     shortRestHours: read("clockShortRestHours"),
-    longRestHours: read("clockLongRestHours")
+    longRestHours: read("clockLongRestHours"),
+    dayLength: dayLengthSeconds()
   });
 }
 
@@ -58,9 +66,10 @@ export function worldNow() {
   return Number(game.time?.worldTime) || 0;
 }
 
-/** "Dia 3 · 14:05" (só para o Mestre e para o PAD). */
+/** A data e hora da linha principal ("14 Flo 1203 E.C. · 14:05"; "Dia 3 · 14:05" com o calendário desligado). */
 export function clockText(worldTime = worldNow()) {
-  return formatClock(worldTime);
+  const main = resolveLine(getTimelines(), MAIN_LINE_ID);
+  return localDateText(lineNow(main, worldTime));
 }
 
 /** Token (documento) de um Ator, se tiver um. */
@@ -93,7 +102,8 @@ export function tokenDarkness(tokenDoc, scene = tokenDoc?.parent ?? null) {
 export function worldClockContext(actor) {
   if (!isWorldClockEnabled()) return { isDay: false, isNight: false, isDark: false };
   const config = clockConfig();
-  const day = isDayAt(worldNow(), config);
+  // J9b: dia e noite pela hora LOCAL da linha onde o Ator está (uma cena 500 anos atrás pode estar de noite).
+  const day = isDayAt(localNowForActor(actor), config);
   let dark = false;
   try {
     const token = tokenDocFor(actor);
@@ -103,37 +113,6 @@ export function worldClockContext(actor) {
     dark = false;
   }
   return { isDay: day, isNight: !day, isDark: dark };
-}
-
-/** O aparelho de tempo deste Ator está suprimido por PEM/campo (tecnológico)? */
-function techSuppressed(actor) {
-  try {
-    return suppressionState(actor).tech !== null;
-  } catch (err) {
-    return false;
-  }
-}
-
-/** A hora para quem olha pelo aparelho do Ator (PAD, item): "14:05" ou "--:--" sem energia. */
-export function deviceHour(actor) {
-  return visibleHour(worldNow(), { techSuppressed: techSuppressed(actor) });
-}
-
-/**
- * A hora que uma linha do inventário mostra para um Item Geral "Marca o tempo" (relógio, pulseira):
- * "14:05", "--:--" se o item é tecnológico e está suprimido (PEM/campo), ou "" se não marca o tempo.
- */
-export function itemClockText(item) {
-  if (!item?.system?.marksTime || !isWorldClockEnabled()) return "";
-  const actor = item.actor;
-  if (!actor) return "";
-  let suppressed = false;
-  try {
-    suppressed = sourceSuppressed(actor, item);
-  } catch (err) {
-    suppressed = false;
-  }
-  return visibleHour(worldNow(), { techSuppressed: suppressed });
 }
 
 /* ------------------------------------------------------------------ Passar o tempo (Mestre) */
@@ -146,12 +125,14 @@ export async function advanceWorldClock(seconds) {
   return true;
 }
 
-/** Define a hora do dia mantendo o dia (ou, se `day` vier, naquele dia). */
-export async function setWorldClock(worldTime) {
-  const t = Math.floor(Number(worldTime));
-  if (!game.user.isGM || !Number.isFinite(t) || t < 0 || !isWorldClockEnabled()) return false;
-  await game.time.advance(t - worldNow());
-  return true;
+/**
+ * "Definir dia/hora": ajusta a data da linha PRINCIPAL (o `base`); o tempo do mundo nunca volta
+ * (até o J9b isto chamava `advance` negativo, o que quebrava o Dormindo e as superfícies).
+ */
+export async function setWorldClock(localTime) {
+  const t = Math.floor(Number(localTime));
+  if (!game.user.isGM || !Number.isFinite(t) || !isWorldClockEnabled()) return false;
+  return setWorldClockLocal(t);
 }
 
 /* ------------------------------------------------------------------ Escuridão das cenas */
@@ -163,8 +144,10 @@ function clockScenes() {
 /** Põe a escuridão das cenas marcadas conforme a hora. Só o Mestre designado. */
 export async function applySceneDarkness() {
   if (!isDesignatedGm() || !isWorldClockEnabled()) return;
-  const target = darknessFor(worldNow(), clockConfig());
+  const config = clockConfig();
   for (const scene of clockScenes()) {
+    // J9b: a escuridão de cada cena segue a hora da linha dela.
+    const target = darknessFor(lineNow(sceneLine(scene)), config);
     if (!darknessNeedsUpdate(sceneDarkness(scene), target)) continue;
     try {
       await scene.update(sceneDarknessUpdate(target), { animateDarkness: 2000 });
@@ -244,7 +227,9 @@ export function sleepState(actor) {
  */
 export async function startSleeping(actor, kind) {
   if (!actor || sleepingEffect(actor)) return false;
-  const rest = { kind: kind === "long" ? "long" : "short", until: sleepUntil(worldNow(), kind, clockConfig()) };
+  // J9b: `until` está no tempo pessoal de quem dorme (que precisa de um trecho se está fora do ritmo 1).
+  await ensurePersonalTrack(actor);
+  const rest = { kind: kind === "long" ? "long" : "short", until: sleepUntil(personalNow(actor), kind, clockConfig()) };
   const { label, icon } = sleepCondition();
   await actor.createEmbeddedDocuments(
     "ActiveEffect",
@@ -289,10 +274,10 @@ function sleepScanActors() {
 /** Quem acorda agora com o descanso feito (o relógio passou de `until`). Só o Mestre designado. */
 export async function wakeDueSleepers() {
   if (!isDesignatedGm() || !isWorldClockEnabled()) return;
-  const now = worldNow();
   for (const actor of sleepScanActors()) {
     const state = sleepState(actor);
-    if (state && shouldWake(state.until, now)) await wakeSleeper(actor, { rested: true });
+    // Tempo pessoal (se voltou, a pessoa só dorme mais: a comparação segue sendo >=).
+    if (state && shouldWake(state.until, personalNow(actor))) await wakeSleeper(actor, { rested: true });
   }
 }
 
@@ -310,7 +295,7 @@ let lastGroupKey = "";
  */
 export function checkGroupSleep() {
   if (!isDesignatedGm() || !isWorldClockEnabled()) return;
-  const members = partyMembers().map(actor => ({ id: actor.id, sleeping: Boolean(sleepingEffect(actor)), until: sleepState(actor)?.until ?? 0 }));
+  const members = partyMembers().map(actor => ({ id: actor.id, sleeping: Boolean(sleepingEffect(actor)), until: sleepState(actor)?.until ?? 0, now: personalNow(actor), rate: personalRate(actor) }));
   const state = groupSleepState(members, worldNow());
   if (!state.all || state.skipSeconds <= 0) {
     lastGroupKey = "";
@@ -347,6 +332,7 @@ export async function groupRest(kind) {
 /* ------------------------------------------------------------------ Registro */
 
 export function registerWorldClock() {
+  registerWorldTime();
   Hooks.on("updateWorldTime", async () => {
     if (!isWorldClockEnabled()) return;
     scheduleRefresh();
@@ -379,7 +365,7 @@ export function registerWorldClock() {
   Hooks.on("updateScene", (scene, changed) => {
     const darkChanged = foundry.utils.hasProperty(changed, "environment.darknessLevel") || "darkness" in changed;
     if (darkChanged) scheduleRefresh();
-    if (foundry.utils.hasProperty(changed, `flags.${SYSTEM_ID}.environment`)) applySceneDarkness();
+    if (foundry.utils.hasProperty(changed, `flags.${SYSTEM_ID}.environment`) || foundry.utils.hasProperty(changed, `flags.${SYSTEM_ID}.time`)) applySceneDarkness();
   });
   Hooks.on("updateToken", (token, changed) => {
     if ("x" in changed || "y" in changed || "elevation" in changed || "level" in changed) scheduleRefresh();

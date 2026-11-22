@@ -231,7 +231,7 @@ function transferableSettings() {
   const out = new Map();
   for (const config of game.settings.settings.values()) {
     if (config.namespace !== SYSTEM_ID || config.scope !== "world") continue;
-    if (config.key === "completedMigrations") continue;
+    if (config.key === "completedMigrations" || config.key === "timelines") continue;
     out.set(config.key, config);
   }
   return out;

@@ -215,3 +215,9 @@ test("Validar Mundo: Traço apagado no Contágio de uma Condição aparece", () 
   assert.ok(text.includes("ghost"), "o Traço que não existe é listado");
   assert.ok(!text.includes('"mechanical"'), "o que existe não");
 });
+
+test("J9b: as linhas do tempo (estado do mundo) não entram no arquivo importado", () => {
+  const bundle = { _system: "nihility-rpg-system", settings: { calendarData: "{}", timelines: "[]", completedMigrations: "[]" } };
+  const read = readTransferBundle(bundle, "nihility-rpg-system");
+  assert.deepEqual(Object.keys(read), ["calendarData"]);
+});

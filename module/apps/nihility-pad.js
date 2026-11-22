@@ -1,5 +1,7 @@
 import { SYSTEM_ID, isPadShipEnabled, isPadLibraryEnabled, isPadMessagingEnabled, isWorldClockEnabled } from "../core/config.js";
 import { clockText, deviceHour } from "../core/world-clock.js";
+import { deviceView, requestTimeSync } from "../core/world-time.js";
+import { isCalendarEnabled } from "../core/config.js";
 import { findCrewedShipsForActor } from "../pad/pad-crew.js";
 import {
   getPersonalLibrary,
@@ -92,7 +94,8 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
       togglePersonaPicker: NihilityPadApp.#onTogglePersonaPicker,
       selectPersona: NihilityPadApp.#onSelectPersona,
       shareContact: NihilityPadApp.#onShareContact,
-      addPendingContact: NihilityPadApp.#onAddPendingContact
+      addPendingContact: NihilityPadApp.#onAddPendingContact,
+      requestTimeSync: NihilityPadApp.#onRequestTimeSync
     }
   };
 
@@ -111,6 +114,13 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const ship = game.actors.get(this.selectedShipId);
     if (!ship?.isOwner) return;
     await applyPowerFocus(ship, target.dataset.focus);
+    this.render();
+  }
+
+  /** "Atualizar": pede ao Mestre que acerte a data do PAD (card com Aprovar/Recusar). */
+  static async #onRequestTimeSync(event) {
+    event.preventDefault();
+    await requestTimeSync(this.actor);
     this.render();
   }
 
@@ -296,6 +306,21 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
     // J9: a hora aparece aqui (e em itens "Marca o tempo"), nunca pela interface do Foundry. O Mestre
     // vê dia e hora; o jogador só a hora, ou "--:--" com o aparelho suprimido (PEM/campo).
     context.padClock = isWorldClockEnabled() ? (game.user.isGM ? clockText() : deviceHour(actor)) : "";
+
+    // J9b: a data que o aparelho do personagem acha que é, e o estado do "Atualizar" (A a E do desenho).
+    context.padTime = null;
+    if (isWorldClockEnabled() && isCalendarEnabled()) {
+      const view = deviceView(actor);
+      const statusLine = {
+        network: "na rede · acertado agora",
+        fresh: "sem rede · acertado agora",
+        stale: `sem rede · acertado há ${view.ageText} (seu tempo)`,
+        pending: "Procurando sinal… (aguardando o Mestre)",
+        denied: "Sem sinal. Tente de novo mais tarde.",
+        suppressed: "sem energia"
+      }[view.state] ?? "";
+      context.padTime = { text: view.text, dateText: view.dateText, state: view.state, statusLine, canRequest: view.canRequest };
+    }
 
     const crewedShips = context.padShipEnabled ? findCrewedShipsForActor(actor) : [];
     context.crewedShips = crewedShips;

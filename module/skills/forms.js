@@ -19,6 +19,8 @@ import {
 
 const FOLDER_NAME = "Formas ativas";
 const reverting = new Set();
+/** Flags de tempo do personagem (J9b) que a Forma leva para a cópia e devolve ao original. */
+const TIME_FLAGS = ["personalTime", "timeSync"];
 
 /** A mecânica (Skill ou Sub-Skill) de uma Skill. */
 function mechOf(skill, subSkillIndex) {
@@ -152,6 +154,8 @@ export async function transformActorAsGm(payload, user) {
     prototypeToken: { ...foundry.utils.deepClone(templateData.prototypeToken ?? {}), name, actorLink: true },
     flags: {
       [SYSTEM_ID]: {
+        // J9b: o tempo pessoal e a data do aparelho viajam com a forma (e voltam ao original ao reverter).
+        ...Object.fromEntries(TIME_FLAGS.filter(key => original.getFlag(SYSTEM_ID, key) !== undefined).map(key => [key, foundry.utils.deepClone(original.getFlag(SYSTEM_ID, key))])),
         formOf: {
           originalUuid: original.uuid,
           skillUuid: skill.uuid,
@@ -301,6 +305,10 @@ export async function revertFormAsGm(copy, { reason = "" } = {}) {
     });
 
     const update = { "system.attributes.xp": plan.xp, "system.attributes.energy.value": plan.energy };
+    for (const key of TIME_FLAGS) {
+      const value = copy.getFlag(SYSTEM_ID, key);
+      if (value !== undefined) update[`flags.${SYSTEM_ID}.${key}`] = foundry.utils.deepClone(value);
+    }
     const carry = Math.max(0, Number(copy.getFlag(SYSTEM_ID, "formOf")?.carry) || 0);
     if (carry > 0) update["system.attributes.hp.value"] = hpAfterCarry(original.system.attributes.hp.value, carry);
     await original.update(update);

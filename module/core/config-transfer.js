@@ -13,7 +13,8 @@
  */
 
 export const TRANSFER_FORMAT = 2;
-const EXCLUDED_KEYS = new Set(["completedMigrations"]);
+// `timelines` (J9b) é estado do mundo (a data de cada linha), não configuração: nunca viaja no arquivo.
+const EXCLUDED_KEYS = new Set(["completedMigrations", "timelines"]);
 
 /** As 4 chaves do formato antigo (antes de exportar "tudo"), guardadas já parseadas. */
 const LEGACY_KEYS = ["currenciesData", "speciesPresetsData", "damageElementsData", "statusConditionsData"];

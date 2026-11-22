@@ -31,6 +31,7 @@ import { isDesignatedGm, runAsGm } from "../helpers/gm-relay.js";
 import { refuse, relayFailureMessage } from "../helpers/gm-relay-rules.js";
 import { reportError } from "../helpers/report.js";
 import { escapeHtml } from "../helpers/html.js";
+import { sceneLine } from "../core/world-time.js";
 import { currentSkillUseId } from "../skills/skill-use-context.js";
 import {
   leavesSurface, buildSurfaceFlag, surfaceChanceHits, surfaceEntered, surfaceReachesElevation, surfaceImmune, surfaceRoundStep,
@@ -164,6 +165,8 @@ export async function createSurfaceAsGm(payload) {
     radiusMeters,
     originMagic: Boolean(payload.originMagic),
     worldTime: game.time?.worldTime ?? 0,
+    // J9b: os minutos da superfície são os da linha do tempo da cena (convertidos pelo ritmo agora).
+    rate: sceneLine(scene).rate,
     useId: payload.useId,
     rounds
   });

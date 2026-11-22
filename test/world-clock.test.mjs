@@ -139,3 +139,30 @@ test("a Condição Dormindo existe de fábrica e incapacita", () => {
   assert.ok(sleeping);
   assert.equal(sleeping.incapacitates, true);
 });
+
+test("J9b: dia de outro tamanho (dayLength) mantém nascer e pôr do sol proporcionais", () => {
+  const cfg = { dayLength: 20 * 3600 };
+  assert.equal(normalizeClockConfig(cfg).dayLength, 72000);
+  assert.equal(normalizeClockConfig({}).dayLength, 86400);
+  // dia de 20 h: 10 h do dia = metade = 12 h na escala de 24 h => é dia (6–18)
+  assert.equal(isDayAt(10 * 3600, cfg), true);
+  assert.equal(isDayAt(19 * 3600, cfg), false, "19 h de 20 = 22:48 na escala de 24 h");
+  assert.equal(isDayAt(2 * 3600, cfg), false, "2 h de 20 = 2:24 na escala de 24 h");
+  assert.equal(darknessFor(10 * 3600, cfg), 0);
+  assert.equal(clockParts(-1, 72000).hourFloat > 23.9, true, "tempo negativo cai no fim do dia anterior");
+});
+
+test("J9b: groupSleepState usa o tempo pessoal e o ritmo de cada um", () => {
+  // Dorme até 3600 no tempo pessoal; já passaram 1800 pessoais; ritmo 0,5 => faltam 1800 / 0,5 = 3600 s do mundo
+  const slow = groupSleepState([{ id: "a", sleeping: true, until: 3600, now: 1800, rate: 0.5 }], 99999);
+  assert.equal(slow.skipSeconds, 3600);
+  // Sem now/rate segue o tempo do mundo, como no J9
+  assert.equal(groupSleepState([{ id: "a", sleeping: true, until: 5000 }], 2000).skipSeconds, 3000);
+  // Tempo pessoal que voltou: só falta mais, nada quebra
+  assert.equal(groupSleepState([{ id: "a", sleeping: true, until: 5000, now: -1000, rate: 1 }], 0).skipSeconds, 6000);
+  // O mais lento manda no pulo
+  const two = groupSleepState([{ id: "a", sleeping: true, until: 100, now: 0, rate: 1 }, { id: "b", sleeping: true, until: 100, now: 0, rate: 0.1 }], 0);
+  assert.equal(two.skipSeconds, 1000);
+  assert.equal(shouldWake(100, 99), false);
+  assert.equal(shouldWake(100, -50), false, "se o tempo pessoal voltou, só dorme mais");
+});

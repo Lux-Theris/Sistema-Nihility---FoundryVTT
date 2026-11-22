@@ -64,9 +64,11 @@ export function surfaceChanceHits(chance, roll) {
 }
 
 /** Quando a superfície acaba pelo relógio do mundo (segundos); `null` = nunca por relógio. Pura. */
-export function surfaceExpiresAt(worldTime, minutes) {
+export function surfaceExpiresAt(worldTime, minutes, rate = 1) {
   const m = num(minutes);
-  return m > 0 ? num(worldTime) + m * 60 : null;
+  // J9b: os minutos são da linha do tempo da cena; o relógio do mundo conta m × 60 ÷ ritmo.
+  const r = num(rate, 1) > 0 ? num(rate, 1) : 1;
+  return m > 0 ? num(worldTime) + Math.max(1, Math.round((m * 60) / r)) : null;
 }
 
 /**
@@ -74,7 +76,7 @@ export function surfaceExpiresAt(worldTime, minutes) {
  * opcionais sobrepõem o raio e as rodadas (efeito de Skill "Cria superfície"). `x`/`y` em pixels,
  * `radiusPx` já convertido por quem chama.
  */
-export function buildSurfaceFlag({ elementId, def, label, x, y, radiusPx, radiusMeters, elevation = 0, originMagic = false, worldTime = 0, useId = "", rounds = null }) {
+export function buildSurfaceFlag({ elementId, def, label, x, y, radiusPx, radiusMeters, elevation = 0, originMagic = false, worldTime = 0, useId = "", rounds = null, rate = 1 }) {
   const s = def ?? normalizeSurface({});
   const radiusM = clamp(num(radiusMeters, s.radius) > 0 ? num(radiusMeters, s.radius) : s.radius, 0, SURFACE_MAX_RADIUS);
   const roundsLeft = rounds === null || rounds === undefined ? s.rounds : clamp(Math.round(num(rounds)), 0, 100);
@@ -91,7 +93,7 @@ export function buildSurfaceFlag({ elementId, def, label, x, y, radiusPx, radius
     magic: surfaceIsMagic(s.nature, originMagic),
     roundsLeft,
     createdAt: num(worldTime),
-    expiresAt: surfaceExpiresAt(worldTime, s.minutes),
+    expiresAt: surfaceExpiresAt(worldTime, s.minutes, rate),
     immuneTraits: [...s.immuneTraits],
     useId: text(useId).slice(0, 32),
     area: { shape: "circle", x: num(x), y: num(y), radius: clamp(num(radiusPx), 0, 1e6), angle: 0, direction: 0, width: 0, elevation: 0 }

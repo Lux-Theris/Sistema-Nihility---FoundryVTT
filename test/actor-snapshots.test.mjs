@@ -63,3 +63,13 @@ test("snapshotLabel e snapshotSummary", () => {
   assert.equal(snapshotSummary({ items: [1, 2], effects: [1], system: { attributes: { level: 4 } } }), "2 item(ns) · 1 efeito(s) · nível 4");
   assert.equal(snapshotSummary({}), "0 item(ns) · 0 efeito(s)");
 });
+
+test("J9b: restaurar nunca reescreve nem apaga o tempo pessoal", () => {
+  const saved = { name: "A", system: {}, flags: { nihility: { xx: 1, personalTime: { base: 0, worldAt: 0, rate: 1 } } } };
+  const current = { name: "A", system: {}, flags: { nihility: { personalTime: { base: 900, worldAt: 5, rate: 2 } } } };
+  const { update, removeFlagKeys } = actorRestoreUpdate(saved, current, "nihility");
+  assert.deepEqual(update.flags.nihility, { xx: 1 });
+  assert.deepEqual(removeFlagKeys, []);
+  const onlyCurrent = actorRestoreUpdate({ name: "A", system: {} }, current, "nihility");
+  assert.deepEqual(onlyCurrent.removeFlagKeys, []);
+});

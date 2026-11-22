@@ -687,6 +687,11 @@ export function registerSystemSettings() {
     default: ""
   });
 
+  // Calendário do mundo (J9b, vazio = Gregoriano) e linhas do tempo (estado: o Mestre ajusta; a
+  // principal nunca se apaga). Só `calendarData` termina em "Data" e viaja no Exportar/Importar.
+  game.settings.register(SYSTEM_ID, S.calendarData, { scope: "world", config: false, type: String, default: "" });
+  game.settings.register(SYSTEM_ID, S.timelines, { scope: "world", config: false, type: String, default: "" });
+
   game.settings.register(SYSTEM_ID, S.scalesData, {
     scope: "world",
     config: false,

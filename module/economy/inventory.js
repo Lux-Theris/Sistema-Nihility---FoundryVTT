@@ -8,6 +8,7 @@ import { chargesLeft, magazineState } from "./consumable-rules.js";
 import { MEU_SISTEMA, stackCount, isInventoryEnabled } from "../core/config.js";
 import { itemNature } from "../core/magic-rules.js";
 import { itemClockText } from "../core/world-clock.js";
+import { itemClockAnalog } from "../core/world-time.js";
 import { createGrantedSkill, removeGrantedSkill } from "../skills/skill-economy.js";
 
 const { DialogV2 } = foundry.applications.api;
@@ -165,6 +166,8 @@ function itemRow(item, containers) {
     canSplit: quantity > 1,
     // "Marca o tempo" (J9): a hora do mundo na própria linha ("--:--" com o aparelho suprimido).
     clock: itemClockText(item),
+    // J9b: o relógio analógico é acertado à mão por quem o tem ("Acertar"); o tecnológico segue o PAD.
+    clockAnalog: itemClockAnalog(item),
     hasContainers: containers.some(c => c.id !== item.id),
     containerId: sys.containerId ?? "",
     containerOptions: [{ id: "", label: "— solto —" }, ...containers.filter(c => c.id !== item.id)].map(c => ({

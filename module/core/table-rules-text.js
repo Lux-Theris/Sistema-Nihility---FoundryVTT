@@ -163,6 +163,19 @@ export function buildTableRulesPages(d) {
     pages.push({ key: "combat", name: "Combate", html: parts.join("\n") });
   }
 
+  // Tempo: calendário, linhas do tempo e tempo pessoal (J9b).
+  if (d.features.worldClock && d.features.calendar) {
+    pages.push({
+      key: "time",
+      name: "Tempo e calendário",
+      html: [
+        "<p>O mundo tem um <b>calendário</b> próprio (meses, semana, eras). Cada cena está numa <b>linha do tempo</b>: ela diz que época é e a que velocidade o tempo corre ali. Atravessar uma porta para 500 anos atrás é trocar de cena para uma linha do passado.</p>",
+        "<p>Cada personagem tem o seu <b>tempo pessoal</b>: é o que ele viveu, e é ele que conta o sono e o descanso. O relógio do seu <b>PAD</b> mostra a data que ele <i>acha</i> que é: depois de uma porta no tempo, ele continua mostrando a data antiga até você tocar em <b>Atualizar</b> e o Mestre aprovar (em lugares com rede o PAD acerta sozinho). Um relógio de bolso é acertado por quem o tem, à mão.</p>",
+        "<p>Numa luta em lugar de tempo diferente, o resto do mundo fica parado até o combate acabar (ou passa tudo de uma vez no fim, conforme a linha).</p>"
+      ].join("\n")
+    });
+  }
+
   // 4. Condições e 5. Tipos de dano (catálogos deste mundo).
   if (d.features.statusConditions && d.conditions?.length) {
     pages.push({

@@ -310,6 +310,32 @@ export function validateTrap(system, idx) {
   return issues;
 }
 
+/** Módulos de calendário de terceiros que o Nihility ignora (e que podem voltar o tempo do mundo). */
+export const CALENDAR_MODULES = ["seasons-and-stars", "foundryvtt-simple-calendar", "foundryvtt-simple-calendar-reborn"];
+
+/**
+ * Linhas do tempo e módulos de calendário (J9b). Pura.
+ * @param {{timelines?: Array<{id:string,name?:string,rate?:number}>, scenes?: Array<{name:string, lineId:string}>, activeModules?: string[]}} input
+ *   `timelines` = a lista CRUA salva (antes de limitar o ritmo).
+ * @returns {Array<{where:string, message:string}>}
+ */
+export function validateTimeSetup({ timelines = [], scenes = [], activeModules = [] } = {}) {
+  const issues = [];
+  const ids = new Set((timelines ?? []).map(l => l?.id).concat("main"));
+  for (const line of timelines ?? []) {
+    if (!line || line.id === "main" || line.rate === undefined) continue;
+    const rate = Number(line.rate);
+    if (!(rate >= 1e-10 && rate <= 1e6)) issues.push({ where: `Linha "${line.name || line.id}"`, message: `o ritmo ${line.rate} está fora de 10⁻¹⁰ a 10⁶ (o sistema usa o limite mais próximo; 0 ou negativo vira 1)` });
+  }
+  for (const scene of scenes ?? []) {
+    if (scene?.lineId && !ids.has(scene.lineId)) issues.push({ where: `Cena "${scene.name}"`, message: `está numa linha do tempo que foi apagada ("${scene.lineId}"): conta como a linha principal` });
+  }
+  for (const id of CALENDAR_MODULES) {
+    if ((activeModules ?? []).includes(id)) issues.push({ where: "Módulo de calendário", message: `"${id}" está ativo: o Nihility o ignora (a data vem da linha do tempo). O "definir data" dele volta o tempo do mundo, o que o aviso de retrocesso pega; só a linha principal aparece nele` });
+  }
+  return issues;
+}
+
 /**
  * Referências ENTRE catálogos: elemento → Condição/Traço/elemento, Condição → elemento, Espécie →
  * Traço/elemento/Skill Racial, Estrutura → elemento, Escala por Porte, faixa e vagas das Classes.

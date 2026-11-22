@@ -628,3 +628,96 @@ export function rateInputs(cal, rate) {
     ? { inside: { value: 1, unit: "second" }, outside: pick(1 / r) }
     : { inside: pick(r), outside: { value: 1, unit: "second" } };
 }
+
+/* ------------------------------------------------------------------ Câmaras do tempo (8b.2) */
+
+/** O tipo do comportamento de Região "Ritmo do tempo (Nihility)". */
+export const TIME_RATE_BEHAVIOR = "nihilityTimeRate";
+
+/** Os dados do comportamento "Ritmo do tempo", saneados: ritmo limitado, `combatWorld` e "tem rede". */
+export function normalizeChamber(raw) {
+  return {
+    rate: clampRate(raw?.rate ?? 1),
+    combatWorld: raw?.combatWorld === "atEnd" ? "atEnd" : "stop",
+    network: Boolean(raw?.network)
+  };
+}
+
+/**
+ * O que as Regiões de ritmo em que um Token está dão ao ritmo pessoal e ao combate. `chambers` = os
+ * dados (já saneados ou crus) de cada comportamento ligado. Vários se multiplicam; no combate, "o mundo
+ * para" vence "anda no fim" (o mais seguro). Sem nenhuma: fator 1 e `combatWorld` vazio.
+ */
+export function chamberSummary(chambers) {
+  const list = (chambers ?? []).map(normalizeChamber);
+  const rate = composeRate(list.map(c => c.rate));
+  const moving = list.filter(c => Math.abs(c.rate - 1) > 1e-12);
+  const combatWorld = moving.length ? (moving.some(c => c.combatWorld === "stop") ? "stop" : "atEnd") : "";
+  return { rate, combatWorld, network: list.some(c => c.network), count: list.length };
+}
+
+const rateKey = rate => clampRate(rate).toPrecision(10);
+
+/**
+ * Com que ritmo um combate corre quando os combatentes estão em ritmos diferentes (linha × Região de
+ * cada um). Vale o ritmo da MAIORIA dos combatentes; empate fica com o da cena (`fallback`) se ele
+ * está entre os empatados, senão com o primeiro que apareceu. No grupo vencedor, "o mundo para" vence.
+ * @param {Array<{rate:number, combatWorld:"stop"|"atEnd"}>} entries
+ * @param {{rate:number, combatWorld:"stop"|"atEnd"}} fallback - o ritmo da linha da cena
+ */
+export function combatRateChoice(entries, fallback) {
+  const base = { rate: clampRate(fallback?.rate ?? 1), combatWorld: fallback?.combatWorld === "atEnd" ? "atEnd" : "stop" };
+  const groups = new Map();
+  for (const entry of entries ?? []) {
+    if (!entry) continue;
+    const key = rateKey(entry.rate);
+    const group = groups.get(key) ?? { rate: clampRate(entry.rate), count: 0, stop: false };
+    group.count += 1;
+    if (entry.combatWorld !== "atEnd") group.stop = true;
+    groups.set(key, group);
+  }
+  if (!groups.size) return base;
+  let best = null;
+  for (const group of groups.values()) {
+    if (!best || group.count > best.count) best = group;
+  }
+  const tied = [...groups.values()].filter(g => g.count === best.count);
+  if (tied.length > 1) {
+    const own = tied.find(g => rateKey(g.rate) === rateKey(base.rate));
+    if (own) best = own;
+  }
+  return { rate: best.rate, combatWorld: best.stop ? "stop" : "atEnd" };
+}
+
+/** "Anda no fim": soma ao guardado o tempo de fora (sem arredondar a cada rodada; arredonda só no fim). */
+export function heldOutsideAdd(previous, rate, delta) {
+  const d = Number(delta);
+  if (!(d > 0)) return Number(previous) || 0;
+  return (Number(previous) || 0) + d / clampRate(rate);
+}
+
+/** "Quem passa 1 hora aqui volta e lá fora passaram 36 mil anos." (a frase do editor da Região). */
+export function chamberResultText(cal, rate, insideSeconds = 3600) {
+  const r = clampRate(rate);
+  if (Math.abs(r - 1) < 1e-12) return "Tempo normal: dentro e fora passa igual.";
+  const outside = insideSeconds / r;
+  const inside = humanDuration(cal, insideSeconds);
+  if (outside < 1) return `Quem passa ${inside} aqui volta e lá fora passou menos de 1 segundo.`;
+  return `Quem passa ${inside} aqui volta e lá fora passaram ${humanDuration(cal, outside)}.`;
+}
+
+/* ------------------------------------------------------------------ Idade (8b.2) */
+
+/**
+ * A idade em anos pelo tempo pessoal: `start` (a idade ao preencher) + os anos do calendário vividos
+ * desde `at` (o tempo pessoal de quando foi preenchida). Vazio = `null` (a ficha não mostra). Se o
+ * tempo pessoal voltar (Skill de reverter), a idade cai junto; nunca abaixo de 0.
+ */
+export function ageYears(cal, { start, at } = {}, personal = 0) {
+  if (start === null || start === undefined || start === "") return null;
+  const s = Number(start);
+  if (!Number.isFinite(s) || s < 0) return null;
+  const from = Number.isFinite(Number(at)) && at !== null && at !== "" ? Number(at) : Number(personal) || 0;
+  const year = Math.max(1, unitSeconds(cal, "year"));
+  return Math.max(0, Math.floor(s + Math.floor((Number(personal) - from) / year)));
+}

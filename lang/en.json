@@ -10,5 +10,6 @@
   "TYPES.Item.starship_module": "Starship Module",
   "TYPES.Item.item": "Item",
   "TYPES.RegionBehavior.nihilityEnvironment": "Environment (Nihility)",
-  "TYPES.RegionBehavior.nihilityTrap": "Trap (Nihility)"
+  "TYPES.RegionBehavior.nihilityTrap": "Trap (Nihility)",
+  "TYPES.RegionBehavior.nihilityTimeRate": "Time rate (Nihility)"
 }

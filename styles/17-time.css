@@ -66,3 +66,25 @@
 .nihility-time-card .ntc-actions { display: flex; gap: 6px; }
 .nihility-time-card .ntc-actions button { height: auto; min-height: 0; line-height: normal; padding: 4px 12px; }
 .nihility-time-card .ntc-done { color: var(--nihility-text-dim); font-style: italic; }
+
+/* ---- Câmaras do tempo, "só para estes" e idade (J9b, 8b.2) ---- */
+.wc-chambers .wc-line { grid-template-columns: 1fr auto; }
+.wc-line-off { opacity: 0.6; }
+.wc-chip { display: inline-block; padding: 0 7px; border: 1px solid var(--nihility-border); border-radius: 999px; font-size: 11px; color: var(--nihility-accent-2); background: var(--nihility-bg-panel); }
+.wc-marked {
+  display: flex; align-items: center; gap: 8px; margin: 4px 0 6px; padding: 5px 9px;
+  border: 1px solid var(--nihility-gold); border-radius: 6px; background: var(--nihility-bg-panel-alt); color: var(--nihility-text); font-size: 12px;
+}
+.wc-marked span { flex: 1; }
+.nihility-world-clock .wc-marked .wc-mini { height: auto; min-height: 0; line-height: normal; padding: 2px 8px; font-size: 11px; }
+.wc-people .wc-who { display: flex; align-items: flex-start; gap: 6px; color: var(--nihility-text); }
+.wc-people .wc-age { color: var(--nihility-text-dim); font-size: 11px; }
+.wc-people .wc-who input[type=checkbox] { width: auto; margin-top: 2px; }
+
+.nihility-chamber-helper { margin: 4px 0 8px; padding: 6px 8px; border: 1px solid var(--nihility-border-soft); border-radius: 6px; background: var(--nihility-bg-panel-alt); color: var(--nihility-text); }
+.nihility-chamber-helper .nch-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--nihility-text); }
+.nihility-chamber-helper input[type=number] { width: 70px; }
+.nihility-chamber-helper .nch-result { margin: 6px 0 0; color: var(--nihility-gold); font-size: 12px; }
+
+.nihility-sheet .age-pill { display: inline-flex; align-items: center; padding: 2px 9px; border: 1px solid var(--nihility-border-soft); border-radius: 999px; background: var(--nihility-bg-panel-alt); color: var(--nihility-text-dim); font-size: 12px; }
+.nihility-sheet .age-start input[type=number] { width: 64px; }

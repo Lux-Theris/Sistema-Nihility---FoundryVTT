@@ -606,7 +606,11 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
       /** Arquétipo do Gerador de NPC que fez esta ficha (só informação). */
       npcArchetype: new fields.StringField({ required: false, initial: "", blank: true }),
       /** Forma (H5): marca esta ficha como molde de forma (fora das listas dos jogadores e do Simulador). */
-      formTemplate: new fields.BooleanField({ required: false, initial: false })
+      formTemplate: new fields.BooleanField({ required: false, initial: false }),
+      /** Idade ao começar, em anos (J9b 8b.2; vazio = a ficha não mostra idade). */
+      ageStart: new fields.NumberField({ required: false, nullable: true, integer: true, min: 0, initial: null }),
+      /** O tempo pessoal (segundos) de quando `ageStart` foi preenchido: a idade sobe dali em diante. Preenchido sozinho. */
+      ageStartAt: new fields.NumberField({ required: false, nullable: true, initial: null })
     };
   }
 

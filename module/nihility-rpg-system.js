@@ -80,6 +80,7 @@ import { tickContagion } from "./combat/contagion.js";
 import { registerEnvironment, syncTokenEnvironment } from "./environment/environment.js";
 import { registerRadiation, tickRadiation } from "./environment/radiation.js";
 import { registerTraps } from "./environment/traps.js";
+import { registerTimeChamber } from "./core/time-chamber.js";
 import { registerWorldClock } from "./core/world-clock.js";
 import { registerElevation } from "./combat/elevation.js";
 import { registerForms } from "./skills/forms.js";
@@ -255,6 +256,7 @@ Hooks.once("init", () => {
   registerRadiation();
   // Armadilhas de Região (I1) e Relógio do mundo (J9).
   registerTraps();
+  registerTimeChamber();
   // Superfícies (8.2): entrada por movimento, validade pelo relógio do mundo.
   registerSurfaces();
   registerWorldClock();

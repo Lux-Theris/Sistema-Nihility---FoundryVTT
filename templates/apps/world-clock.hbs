@@ -15,7 +15,7 @@
       <button type="button" data-action="advance" data-hours="8">+8 h</button>
       {{#if calendarOn}}<button type="button" data-action="advanceDay">+1 dia</button>{{/if}}
     </div>
-    {{#if calendarOn}}<p class="wc-note">Todas as linhas andam, cada uma no seu ritmo.</p>{{/if}}
+    {{#if calendarOn}}<p class="wc-note">{{#if markedCount}}Vale só para os {{markedCount}} personagem(ns) marcado(s) em "Personagens": o mundo não anda, só o tempo pessoal deles.{{else}}Todas as linhas andam, cada uma no seu ritmo. Marque personagens abaixo para passar o tempo só para eles.{{/if}}</p>{{/if}}
   </section>
 
   <section class="wc-sec">
@@ -56,15 +56,33 @@
     </ul>
   </section>
 
+  <section class="wc-sec wc-chambers">
+    <h4>Câmaras do tempo</h4>
+    {{#if chambers.length}}
+    <ul class="wc-lines">
+      {{#each chambers as |c|}}
+      <li class="wc-line {{#if c.disabled}}wc-line-off{{/if}}">
+        <span class="wc-line-name">{{c.where}}</span>
+        <span class="wc-line-meta"><span class="wc-chip">{{c.rateText}}</span>{{#if c.network}} · tem rede{{/if}}{{#if c.disabled}} · desligada{{/if}}</span>
+        <span class="wc-line-actions"><button type="button" class="wc-mini" data-action="goToChamber" data-uuid="{{c.uuid}}">Ir até</button></span>
+      </li>
+      {{/each}}
+    </ul>
+    {{else}}<p class="wc-note">Nenhuma. Numa Região, acrescente o comportamento "Ritmo do tempo (Nihility)" para fazer uma sala em que o tempo corre diferente.</p>{{/if}}
+  </section>
+
   <section class="wc-sec">
     <h4>Personagens <label class="wc-check"><input type="checkbox" data-action="toggleNpcs" {{#if showNpcs}}checked{{/if}}/> mostrar NPCs</label></h4>
+    {{#if markedCount}}
+    <div class="wc-marked"><span>{{markedCount}} marcado(s): {{markedNames}} · "Passar o tempo" vale só para eles.</span><button type="button" class="wc-mini" data-action="clearMarks">Limpar</button></div>
+    {{/if}}
     {{#if people.length}}
     <table class="wc-people">
       <thead><tr><th>Quem</th><th>Onde</th><th>Tempo pessoal</th><th>Acha que é</th></tr></thead>
       <tbody>
         {{#each people as |p|}}
         <tr>
-          <td>{{p.name}}</td>
+          <td><label class="wc-who"><input type="checkbox" data-action="toggleMark" data-uuid="{{p.uuid}}" {{#if p.checked}}checked{{/if}}/> <span>{{p.name}}{{#if p.ageText}}<br/><span class="wc-age">{{p.ageText}}</span>{{/if}}</span></label></td>
           <td>{{p.place}}<br/><em>{{p.lineName}}</em></td>
           <td>{{p.personal}}</td>
           <td>{{p.thinks}}{{#if p.mismatch}}<br/><em class="wc-warn">não bate com a cena</em>{{/if}}</td>

@@ -78,6 +78,24 @@ const HANDLERS = {
   },
 
   /**
+   * "Passar tempo só para estes" (Relógio do mundo, J9b 8b.2): quem clicou (um Mestre) já somou o tempo
+   * pessoal; o Mestre designado acorda quem completou o descanso, irradia e avisa o grupo. Só Mestre.
+   * @param {{actorUuids:string[], seconds:number}} payload
+   */
+  async timePassedFor({ actorUuids, seconds }, user) {
+    if (!user?.isGM) return refuse(RELAY_REASONS.permission);
+    const s = Math.min(Math.floor(Number(seconds) || 0), 1e10);
+    if (!(s > 0) || !Array.isArray(actorUuids)) return;
+    const actors = [];
+    for (const uuid of actorUuids.slice(0, 200)) {
+      const actor = typeof uuid === "string" ? await fromUuid(uuid) : null;
+      if (actor?.documentName === "Actor") actors.push(actor);
+    }
+    const { afterPersonalTimePassed } = await import("../core/world-time.js");
+    await afterPersonalTimePassed(actors, s);
+  },
+
+  /**
    * Biblioteca do PAD "Da Nave": o jogador não grava em Compêndio, então o Mestre grava por ele.
    * Só quem comanda a Nave (dono dela ou de um tripulante); rótulo e nota limitados.
    * @param {{op:"add"|"remove", shipUuid:string, label?:string, uuid?:string, note?:string, entryId?:string}} payload

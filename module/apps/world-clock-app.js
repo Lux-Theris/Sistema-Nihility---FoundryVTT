@@ -9,7 +9,7 @@ import { clockParts, isDayAt, darknessFor, timeAt, SECONDS_PER_HOUR } from "../c
 import { advanceWorldClock, setWorldClock, groupRest, clockConfig, worldNow, partyMembers, sleepingEffect, sleepState } from "../core/world-clock.js";
 import {
   getCalendar, getTimelines, lineNow, scenesOfLine, localDateText, localDateLong, actorScene, sceneLine, personalNow,
-  deviceView, dayLengthSeconds
+  deviceView, dayLengthSeconds, actorAge, listChambers, passTimeForActors
 } from "../core/world-time.js";
 import { timeToDate, dateToTime, eraYearToYear, describeRate, formatElapsed, MAIN_LINE_ID } from "../core/calendar-rules.js";
 import { escapeHtml } from "../helpers/html.js";
@@ -65,7 +65,10 @@ export class WorldClockApp extends HandlebarsApplicationMixin(ApplicationV2) {
       newLine: WorldClockApp.#onNewLine,
       editLine: WorldClockApp.#onEditLine,
       viewScenes: WorldClockApp.#onViewScenes,
-      toggleNpcs: WorldClockApp.#onToggleNpcs
+      toggleNpcs: WorldClockApp.#onToggleNpcs,
+      toggleMark: WorldClockApp.#onToggleMark,
+      clearMarks: WorldClockApp.#onClearMarks,
+      goToChamber: WorldClockApp.#onGoToChamber
     }
   };
 
@@ -75,6 +78,19 @@ export class WorldClockApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   #hookId = null;
   showNpcs = false;
+  /** Os personagens marcados na tabela (uuids): "Passar o tempo" vale só para eles (8b.2). */
+  marked = new Set();
+
+  /** Os Atores marcados que ainda existem. */
+  #markedActors() {
+    const out = [];
+    for (const uuid of [...this.marked]) {
+      const actor = fromUuidSync(uuid);
+      if (actor?.documentName === "Actor") out.push(actor);
+      else this.marked.delete(uuid);
+    }
+    return out;
+  }
 
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
@@ -117,8 +133,22 @@ export class WorldClockApp extends HandlebarsApplicationMixin(ApplicationV2) {
         }))
         : [],
       people: calendar ? this.#people(cal) : [],
+      chambers: calendar ? this.#chambers(cal) : [],
+      markedCount: calendar ? this.#markedActors().length : 0,
+      markedNames: calendar ? this.#markedActors().map(a => a.name).join(", ") : "",
       showNpcs: this.showNpcs
     });
+  }
+
+  /** As câmaras do tempo (Regiões com ritmo próprio): onde ficam, o ritmo, e "Ir até". */
+  #chambers(cal) {
+    return listChambers().map(c => ({
+      uuid: c.behavior.uuid,
+      where: `${c.scene.name} › ${c.region.name}`,
+      rateText: describeRate(cal, c.rate),
+      network: c.network,
+      disabled: c.disabled
+    }));
   }
 
   /** Os PJs (e os NPCs, por opção): onde estão, o tempo pessoal e o que o aparelho acha que é. */
@@ -129,7 +159,11 @@ export class WorldClockApp extends HandlebarsApplicationMixin(ApplicationV2) {
       const line = sceneLine(scene);
       const view = deviceView(actor);
       const drift = !view.network && view.drift !== 0;
+      const age = actorAge(actor);
       return {
+        uuid: actor.uuid,
+        checked: this.marked.has(actor.uuid),
+        ageText: age === null ? "" : `${age} ${age === 1 ? "ano" : "anos"}`,
         name: actor.name,
         place: scene?.name ?? "—",
         lineName: scene ? line.name : "sem Token",
@@ -145,7 +179,7 @@ export class WorldClockApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this.#hookId = Hooks.on("updateWorldTime", () => this.render());
     // D2 (sessão 4): `updateSetting` chega antes de a leitura da setting valer (a janela ficava com a data velha): re-pinta
     // também um instante depois, e quem salva o calendário/linhas chama `refreshOpenWorldClock`.
-    this.updateHooks = ["updateScene", "updateSetting", "createToken", "deleteToken"].map(name => [name, Hooks.on(name, () => {
+    this.updateHooks = ["updateScene", "updateSetting", "createToken", "deleteToken", "createRegionBehavior", "updateRegionBehavior", "deleteRegionBehavior"].map(name => [name, Hooks.on(name, () => {
       this.render();
       if (name === "updateSetting") setTimeout(() => { if (this.rendered) this.render(); }, 120);
     })]);
@@ -158,13 +192,56 @@ export class WorldClockApp extends HandlebarsApplicationMixin(ApplicationV2) {
     super._onClose?.(options);
   }
 
+  /** Com personagens marcados, o tempo passa só para eles (o mundo não anda). Devolve se foi assim. */
+  async #passForMarked(seconds) {
+    const actors = this.#markedActors();
+    if (!actors.length) return false;
+    const count = await passTimeForActors(actors, seconds);
+    ui.notifications.info(`${count} personagem(ns) viveram ${formatElapsed(getCalendar(), seconds)}; o mundo não andou.`);
+    this.render();
+    return true;
+  }
+
   static async #onAdvance(event, target) {
     const hours = Number(target.dataset.hours) || 0;
-    await advanceWorldClock(Math.round(hours * SECONDS_PER_HOUR));
+    const seconds = Math.round(hours * SECONDS_PER_HOUR);
+    if (await this.#passForMarked(seconds)) return;
+    await advanceWorldClock(seconds);
   }
 
   static async #onAdvanceDay() {
+    if (await this.#passForMarked(dayLengthSeconds())) return;
     await advanceWorldClock(dayLengthSeconds());
+  }
+
+  static #onToggleMark(event, target) {
+    const uuid = target.dataset.uuid;
+    if (!uuid) return;
+    if (this.marked.has(uuid)) this.marked.delete(uuid);
+    else this.marked.add(uuid);
+    this.render();
+  }
+
+  static #onClearMarks() {
+    this.marked.clear();
+    this.render();
+  }
+
+  /** Abre a cena da câmara e leva a vista até a Região. */
+  static async #onGoToChamber(event, target) {
+    const behavior = fromUuidSync(target.dataset.uuid);
+    const region = behavior?.parent;
+    const scene = region?.parent;
+    if (!scene) return;
+    try {
+      await scene.view();
+      const bounds = region.bounds;
+      if (bounds && canvas?.ready && canvas.scene?.id === scene.id) {
+        await canvas.animatePan({ x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 });
+      }
+    } catch (err) {
+      console.warn(`${SYSTEM_ID} | Relógio: não consegui ir até a câmara.`, err);
+    }
   }
 
   static async #onSetTime() {

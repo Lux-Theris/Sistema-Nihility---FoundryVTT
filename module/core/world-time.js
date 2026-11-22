@@ -9,6 +9,8 @@
  *    há migração). Só ganha flag quem sai do ritmo 1. Quem grava é o Mestre designado.
  *  - **O que o personagem sabe**: flag `timeSync` `{local, personalAt}` (PAD e itens tecnológicos);
  *    Item analógico guarda `clockSync` e o dono acerta à mão.
+ *  - **Câmaras (8b.2)**: Região com o comportamento "Ritmo do tempo" (`nihilityTimeRate`, time-chamber.js). O ritmo
+ *    pessoal = linha da cena × Regiões onde o Token está; "tem rede" da Região soma ao da cena.
  *  - O tempo pessoal PODE recuar (Skill de reverter, 8e) por `rewindPersonalTime`; nada aqui o força a
  *    ser crescente. O tempo do mundo nunca volta: a guarda de retrocesso avisa o Mestre.
  *
@@ -27,7 +29,8 @@ import { formatClock, formatHour } from "./world-clock-rules.js";
 import {
   CALENDAR_MODELS, buildCalendarModel, normalizeCalendar, secondsPerDay, formatDate, formatDateTimeShort, formatTimeOfDay,
   composeRate, normalizeTimelines, resolveLine, normalizeTrack, trackValue, trackRebase, trackSetValue, trackAdd, rewindSegment,
-  combatHoldsWorld, rewindDecision, deviceLocalNow, syncAge, deviceDrift, formatElapsed, outsideSeconds, dateToTime, MAIN_LINE_ID
+  combatHoldsWorld, rewindDecision, deviceLocalNow, syncAge, deviceDrift, formatElapsed, outsideSeconds, dateToTime, MAIN_LINE_ID,
+  TIME_RATE_BEHAVIOR, chamberSummary, combatRateChoice, heldOutsideAdd, ageYears
 } from "./calendar-rules.js";
 
 /* ------------------------------------------------------------------ Leitura básica */
@@ -184,17 +187,80 @@ export function localNowForActor(actor) {
 
 /* ------------------------------------------------------------------ Tempo pessoal */
 
-/**
- * Os fatores do ritmo pessoal. Hoje só o ritmo da linha da cena; a Região de ritmo e os efeitos de
- * Skill de tempo (8b.2 e 8e) entram aqui, e o produto sai por `composeRate`.
- */
-export function personalRateFactors(actor) {
-  if (!calendarOn()) return [];
-  return [actorLine(actor).rate];
+/* ------------------------------------------------------------------ Câmaras (Regiões de ritmo) */
+
+/** Alguma Região do mundo tem o comportamento "Ritmo do tempo"? (Atalho: sem câmara, ninguém procura Token.) */
+export function anyChambers() {
+  try {
+    return game.scenes.some(scene => scene.regions?.some(region => region.behaviors?.some(b => b.type === TIME_RATE_BEHAVIOR)));
+  } catch (err) {
+    return false;
+  }
 }
 
-export function personalRate(actor) {
-  return composeRate(personalRateFactors(actor));
+/** O Token do Ator para as Regiões: o próprio (não vinculado) ou o da cena do Ator. */
+export function actorTokenDoc(actor) {
+  if (!actor) return null;
+  if (actor.isToken) return actor.token ?? null;
+  const scene = actorScene(actor);
+  return scene?.tokens.find(t => t.actorLink && t.actorId === actor.id) ?? null;
+}
+
+/**
+ * Os dados dos comportamentos "Ritmo do tempo" ligados nas Regiões em que o Token está. `enter`/`exit` =
+ * um comportamento recém-entrado/recém-saído (o evento do core pode chegar antes de `token.regions`
+ * mudar): a Região dele entra ou sai da conta.
+ */
+export function tokenChambers(token, { enter = null, exit = null } = {}) {
+  if (!token) return [];
+  const regions = new Map();
+  for (const entry of token.regions ?? []) {
+    const region = typeof entry === "string" ? token.parent?.regions?.get(entry) : entry;
+    if (region) regions.set(region.id, region);
+  }
+  if (enter?.parent) regions.set(enter.parent.id, enter.parent);
+  if (exit?.parent) regions.delete(exit.parent.id);
+  const out = [];
+  for (const region of regions.values()) {
+    for (const behavior of region.behaviors ?? []) {
+      if (behavior.type === TIME_RATE_BEHAVIOR && !behavior.disabled) out.push(behavior.system);
+    }
+  }
+  return out;
+}
+
+/** O resumo das câmaras do Ator (ritmo, combate, rede). */
+export function actorChambers(actor, opts = {}) {
+  if (!calendarOn() || !anyChambers()) return chamberSummary([]);
+  return chamberSummary(tokenChambers(actorTokenDoc(actor), opts));
+}
+
+/** As câmaras do mundo (para a lista do Relógio): `{scene, region, behavior, rate, ...}`. */
+export function listChambers() {
+  const out = [];
+  for (const scene of game.scenes) {
+    for (const region of scene.regions ?? []) {
+      for (const behavior of region.behaviors ?? []) {
+        if (behavior.type !== TIME_RATE_BEHAVIOR) continue;
+        out.push({ scene, region, behavior, ...chamberSummary([behavior.system]), disabled: Boolean(behavior.disabled) });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Os fatores do ritmo pessoal: o ritmo da linha da cena × o das Regiões de ritmo onde o Token está (8b.2).
+ * Os efeitos de Skill de tempo (8e) entram aqui também; o produto sai por `composeRate`. `opts` =
+ * `{enter, exit}` do evento de Região (ver `tokenChambers`).
+ */
+export function personalRateFactors(actor, opts = {}) {
+  if (!calendarOn()) return [];
+  return [actorLine(actor).rate, actorChambers(actor, opts).rate];
+}
+
+export function personalRate(actor, opts = {}) {
+  return composeRate(personalRateFactors(actor, opts));
 }
 
 /** O trecho do tempo pessoal gravado (ou `null`). */
@@ -236,9 +302,9 @@ const sameRate = (a, b) => Math.abs(a - b) <= Math.max(a, b) * 1e-12;
  * Acerta o trecho pessoal ao ritmo de onde o Ator está agora (quem chama é o Mestre). Sem trecho e em
  * ritmo 1: nada a gravar. Personagem, ou quem dorme, ganha o trecho ao sair do ritmo 1.
  */
-export async function syncPersonalTime(actor) {
+export async function syncPersonalTime(actor, opts = {}) {
   if (!calendarOn() || !actor) return false;
-  const rate = personalRate(actor);
+  const rate = personalRate(actor, opts);
   const track = personalTrack(actor);
   const now = worldSeconds();
   if (!track) {
@@ -284,6 +350,44 @@ export async function rewindPersonalTime(actor, seconds) {
   const track = personalTrack(actor) ?? { base: now, worldAt: now, rate: personalRate(actor) };
   await setPersonalTrack(actor, rewindSegment(track, seconds, now));
   return true;
+}
+
+/**
+ * "Passar tempo só para estes" (Relógio do mundo, Mestre): soma `seconds` de tempo PESSOAL só a esses
+ * personagens; o mundo não anda. Como nenhum `updateWorldTime` vai rodar, o Mestre designado faz por
+ * eles o que o hook faria (`afterPersonalTimePassed`). Devolve quantos personagens receberam o tempo.
+ */
+export async function passTimeForActors(actors, seconds) {
+  const s = Math.floor(Number(seconds) || 0);
+  if (!game.user.isGM || !calendarOn() || s <= 0) return 0;
+  const unique = new Map();
+  for (const actor of actors ?? []) if (actor?.type === "character") unique.set(actor.uuid, actor);
+  for (const actor of unique.values()) await addPersonalSeconds(actor, s);
+  if (!unique.size) return 0;
+  await runAsGm("timePassedFor", { actorUuids: [...unique.keys()], seconds: s });
+  rerenderPads();
+  return unique.size;
+}
+
+/** Lado do Mestre designado de `passTimeForActors`: acorda quem completou o descanso, irradia, avisa o grupo. */
+export async function afterPersonalTimePassed(actors, seconds) {
+  if (!isDesignatedGm() || !calendarOn()) return;
+  const { wakeDueSleepers, checkGroupSleep } = await import("./world-clock.js");
+  await wakeDueSleepers();
+  const rounds = Math.max(1, Math.round(Number(seconds) / (Number(CONFIG.time?.roundTime) || 6)));
+  const { passRadiationTimeFor } = await import("../environment/radiation.js");
+  await passRadiationTimeFor(actors, rounds);
+  checkGroupSleep();
+}
+
+/**
+ * A idade do Ator em anos (ou `null`: campo vazio, ou bloco desligado). Sobe com o TEMPO PESSOAL: quem
+ * passa uma hora numa câmara lenta envelhece pouco, e a Skill de reverter (8e) o rejuvenesce.
+ */
+export function actorAge(actor) {
+  if (!calendarOn() || actor?.type !== "character") return null;
+  const { ageStart, ageStartAt } = actor.system ?? {};
+  return ageYears(getCalendar(), { start: ageStart, at: ageStartAt }, personalNow(actor));
 }
 
 /** Os Atores que o relógio acompanha: Diretório e Tokens não vinculados das cenas. */
@@ -335,7 +439,7 @@ export function deviceView(actor, { item = null } = {}) {
   const scene = actorScene(actor);
   const line = sceneLine(scene);
   const localNow = lineNow(line);
-  const network = sceneHasNetwork(scene);
+  const network = sceneHasNetwork(scene) || actorChambers(actor).network;
   const sync = actor?.getFlag?.(SYSTEM_ID, "timeSync") ?? null;
   const personal = personalNow(actor);
   const local = network ? localNow : deviceLocalNow(sync, personal, localNow);
@@ -474,10 +578,10 @@ export function renderTimeSyncControls(message, html) {
  * Antes da cena ou da linha mudar: quem ainda não tem data gravada, ou estava "na rede", guarda a que
  * o aparelho mostrava (senão pularia junto com a época). Os valores são lidos de forma síncrona.
  */
-export function settleDevices(actors, scene) {
+export function settleDevices(actors, scene, { network: networkNow = null } = {}) {
   if (!calendarOn()) return Promise.resolve();
   const local = lineNow(sceneLine(scene));
-  const network = sceneHasNetwork(scene);
+  const network = networkNow ?? sceneHasNetwork(scene);
   const jobs = [];
   for (const actor of actors) {
     if (!actor || actor.type !== "character") continue;
@@ -540,6 +644,26 @@ function combatLine(combat) {
   return sceneLine(scene);
 }
 
+/** O ritmo de um Token no combate: linha da cena × Regiões; "para / anda no fim" da Região (se ela muda o ritmo), senão o da linha. */
+function tokenCombatEntry(token) {
+  const line = sceneLine(token.parent);
+  const chambers = chamberSummary(tokenChambers(token));
+  return { rate: composeRate([line.rate, chambers.rate]), combatWorld: chambers.combatWorld || line.combatWorld };
+}
+
+/**
+ * O relógio do combate: com um combatente só no ritmo da linha da cena, é o da linha (como na 1.103). Com
+ * câmaras no mundo, cada combatente tem o seu (linha × Região) e vale o da MAIORIA (`combatRateChoice`;
+ * empate = o da cena). Todos os combatentes vivem o tempo da rodada, seja qual for o ritmo deles.
+ */
+export function combatClock(combat) {
+  const line = combatLine(combat);
+  const fallback = { rate: line.rate, combatWorld: line.combatWorld };
+  if (!anyChambers()) return { ...fallback, lineId: line.id };
+  const entries = [...(combat?.combatants ?? [])].map(c => c.token).filter(Boolean).map(tokenCombatEntry);
+  return { ...combatRateChoice(entries, fallback), lineId: line.id };
+}
+
 /**
  * `combatRound`/`combatTurn` rodam no cliente de quem clicou, ANTES do `update`: aqui o delta de tempo
  * vira 0 em linha de ritmo ≠ 1 (o mundo para durante o combate), e voltar o turno leva a marca
@@ -552,10 +676,12 @@ function holdCombatTime(combat, update, options) {
     options.worldTime = { ...(options.worldTime ?? {}), nihilityRewind: true };
     options.nihilityRewind = true;
   }
-  const line = combatLine(combat);
-  if (combatHoldsWorld(line.rate) && options.worldTime && Number.isFinite(Number(options.worldTime.delta))) {
+  const clock = combatClock(combat);
+  if (combatHoldsWorld(clock.rate) && options.worldTime && Number.isFinite(Number(options.worldTime.delta))) {
     options.nihilityCombatDelta = options.worldTime.delta;
-    options.nihilityLineId = line.id;
+    options.nihilityLineId = clock.lineId;
+    options.nihilityCombatWorld = clock.combatWorld;
+    options.nihilityCombatRate = clock.rate;
     options.worldTime.delta = 0;
   }
 }
@@ -566,8 +692,14 @@ async function onCombatClock(combat, changed, options) {
   const delta = Number(options?.nihilityCombatDelta);
   if (!(delta > 0) || !(options.direction > 0)) return;
   const line = resolveLine(getTimelines(), options.nihilityLineId);
-  if (line.combatWorld === "atEnd") {
-    await combat.setFlag(SYSTEM_ID, "heldTime", (Number(combat.getFlag(SYSTEM_ID, "heldTime")) || 0) + delta);
+  const world = options.nihilityCombatWorld ?? line.combatWorld;
+  if (world === "atEnd") {
+    // Guarda o tempo de combate e, já convertido pelo ritmo daquela rodada, o que passa lá fora no fim.
+    const rate = Number(options.nihilityCombatRate) || line.rate;
+    await combat.update({
+      [`flags.${SYSTEM_ID}.heldTime`]: (Number(combat.getFlag(SYSTEM_ID, "heldTime")) || 0) + delta,
+      [`flags.${SYSTEM_ID}.heldOutside`]: heldOutsideAdd(combat.getFlag(SYSTEM_ID, "heldOutside"), rate, delta)
+    });
     return;
   }
   const seen = new Set();
@@ -585,11 +717,18 @@ async function onCombatClock(combat, changed, options) {
 /** "Anda no fim": ao acabar o combate, lá fora passa o tempo guardado (tempo de combate ÷ ritmo). */
 async function onCombatEnd(combat) {
   if (!calendarOn() || !isDesignatedGm()) return;
+  const { advanceWorldClock } = await import("./world-clock.js");
+  // 8b.2: o que passa lá fora já vem convertido rodada a rodada (o ritmo pode mudar no meio da luta).
+  const outside = Number(combat.getFlag(SYSTEM_ID, "heldOutside"));
+  if (outside > 0) {
+    await advanceWorldClock(Math.round(outside));
+    return;
+  }
+  // Combate guardado na 1.103 (sem `heldOutside`): tempo de combate ÷ ritmo da linha.
   const held = Number(combat.getFlag(SYSTEM_ID, "heldTime")) || 0;
   if (!(held > 0)) return;
   const line = combatLine(combat);
   if (line.combatWorld !== "atEnd" || !combatHoldsWorld(line.rate)) return;
-  const { advanceWorldClock } = await import("./world-clock.js");
   await advanceWorldClock(outsideSeconds(line.rate, held));
 }
 
@@ -699,6 +838,17 @@ export function registerWorldTime() {
   });
   Hooks.on("updateActor", (actor, changed) => {
     if (foundry.utils.hasProperty(changed, `flags.${SYSTEM_ID}`)) rerenderPads();
+  });
+  // Idade (8b.2): ao preencher "Idade ao começar", guarda o tempo pessoal daquele instante (a idade sobe dali em diante).
+  Hooks.on("preUpdateActor", (actor, changed) => {
+    if (actor.type !== "character" || !foundry.utils.hasProperty(changed, "system.ageStart")) return;
+    if (foundry.utils.hasProperty(changed, "system.ageStartAt")) return;
+    const value = foundry.utils.getProperty(changed, "system.ageStart");
+    // O formulário da ficha pode mandar o campo sem mudança: só carimba quando o valor muda de fato.
+    const current = actor.system?.ageStart;
+    const empty = v => v === null || v === undefined || v === "";
+    if (empty(value) ? empty(current) : !empty(current) && Number(value) === Number(current)) return;
+    changed.system.ageStartAt = value === null || value === "" ? null : personalNow(actor);
   });
 
   Hooks.on("renderChatMessageHTML", renderTimeSyncControls);

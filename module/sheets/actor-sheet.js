@@ -2,7 +2,8 @@ import { effectAnchors, finiteRemaining, anchorLifetime, PERMANENT } from "../co
 import { describeLuck } from "../combat/luck-rules.js";
 import { borrowedSectionsFor, useBorrowedSkill, linkRowsFor, cutLink, toggleAcceptRequests, setPactReleased, createPactDialog } from "../skills/borrowed-skills.js";
 import { namingContext, openNamingBank } from "../species/naming.js";
-import { isPactEnabled } from "../core/config.js";
+import { isPactEnabled, isWorldClockEnabled, isCalendarEnabled } from "../core/config.js";
+import { actorAge } from "../core/world-time.js";
 import { changeActorSpecies, originContext, openSpeciesSync, changeActorHeritage, openEvolution } from "../species/species.js";
 import { anatomyContext, installImplant, uninstallImplant, currentDraggedImplant, setBodyPartLost } from "../species/anatomy.js";
 import { implantFits } from "../species/anatomy-rules.js";
@@ -547,6 +548,10 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.attributePoolEnabled = isAttributePoolEnabled() && !actor.getFlag(SYSTEM_ID, "formOf");
     context.energyPoolEnabled = isEnergyPoolEnabled();
     context.isGM = game.user.isGM;
+    // Idade (J9b 8b.2): sobe com o tempo pessoal; vazio (ou calendário desligado) = a ficha não mostra nada.
+    context.ageEnabled = isWorldClockEnabled() && isCalendarEnabled();
+    context.age = actorAge(actor);
+    context.ageShown = context.age !== null;
     // Nível de NPC (M6): select só do Mestre, só em NPC, só com o bloco ligado.
     context.npcTierOptions =
       game.user.isGM && !this.actor.system.isPlayerCharacter && isFeatureEnabled("npcTiers")

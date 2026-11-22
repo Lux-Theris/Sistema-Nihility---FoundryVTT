@@ -19,7 +19,7 @@ import { isDesignatedGm } from "../helpers/gm-relay.js";
 import { sceneScale } from "../combat/area-effects.js";
 import { tokenDocCenter } from "../combat/area-geometry.js";
 import { sceneEnvironment, areaBehaviors } from "./environment.js";
-import { personalRate } from "../core/world-time.js";
+import { personalRate, actorTokenDoc } from "../core/world-time.js";
 import { normalizeRadiationSource, totalExposure, radiationStep, radiationDamage, simulateRadiation } from "./radiation-rules.js";
 
 const FLAG_SOURCE = "radiationSource";
@@ -169,6 +169,38 @@ export async function passRadiationTime(scene, rounds) {
     : "<p>Ninguém nesta cena está exposto nem irradiado.</p>";
   await ChatMessage.create({
     content: `<div class="nihility-radiation-card"><p><i class="fas fa-radiation"></i> <strong>Passaram ${n} rodada(s)</strong> em ${esc(scene.name)}.</p>${body}</div>`,
+    whisper: game.users.filter(u => u.isGM).map(u => u.id)
+  });
+  return rows;
+}
+
+/**
+ * "Passar tempo só para estes" (J9b 8b.2): N rodadas de radiação só para esses Atores, no lugar onde cada
+ * Token está, SEM andar o relógio do mundo (o tempo pessoal deles já foi somado). Só o Mestre designado.
+ */
+export async function passRadiationTimeFor(actors, rounds) {
+  if (!isDesignatedGm() || !isRadiationEnabled()) return [];
+  const n = Math.min(10000, Math.max(0, Math.floor(Number(rounds) || 0)));
+  if (!n) return [];
+  const config = radiationConfig();
+  const seen = new Set();
+  const rows = [];
+  for (const actor of actors ?? []) {
+    if (!actor || actor.type !== "character" || seen.has(actor.uuid)) continue;
+    seen.add(actor.uuid);
+    const token = actorTokenDoc(actor);
+    const before = radiationLevel(actor);
+    const exposure = token ? exposureAt(token) : 0;
+    if (!before && !exposure) continue;
+    const { level, damage } = simulateRadiation(before, exposure, n, config);
+    await setRadiationLevel(actor, level);
+    const dealt = await applyRadiationDamage(actor, damage);
+    rows.push({ name: token?.name || actor.name, before, after: level, exposure, damage: dealt });
+  }
+  if (!rows.length) return rows;
+  const esc = foundry.utils.escapeHTML;
+  await ChatMessage.create({
+    content: `<div class="nihility-radiation-card"><p><i class="fas fa-radiation"></i> <strong>Passaram ${n} rodada(s)</strong> só para quem estava marcado no Relógio.</p><ul>${rows.map(r => `<li><strong>${esc(r.name)}</strong>: irradiação ${r.before} → ${r.after} (lugar ${r.exposure}) · −${r.damage} Vida</li>`).join("")}</ul></div>`,
     whisper: game.users.filter(u => u.isGM).map(u => u.id)
   });
   return rows;

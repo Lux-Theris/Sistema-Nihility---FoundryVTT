@@ -6,7 +6,8 @@ import {
   daysInYear, daysBeforeYear, eraOfYear, eraYearToYear, timeToDate, dateToTime, formatTimeOfDay, formatDate, formatDateShort,
   formatDateTimeShort, unitSeconds, rateFromUnits, validRate, clampRate, composeRate, formatCount, humanDuration, describeRate,
   outsideSeconds, formatElapsed, normalizeTrack, rewindSegment, trackValue, trackRebase, trackSetValue, trackAdd, normalizeTimelines,
-  resolveLine, lineExists, removeLine, combatHoldsWorld, rewindDecision, yearLengths, rateInputs, deviceLocalNow, syncAge, deviceDrift, MAIN_LINE_ID
+  resolveLine, lineExists, removeLine, combatHoldsWorld, rewindDecision, yearLengths, rateInputs, deviceLocalNow, syncAge, deviceDrift, MAIN_LINE_ID,
+  TIME_RATE_BEHAVIOR, normalizeChamber, chamberSummary, combatRateChoice, heldOutsideAdd, chamberResultText, ageYears
 } from "../module/core/calendar-rules.js";
 
 const greg = () => normalizeCalendar(buildCalendarModel("gregorian"));
@@ -282,4 +283,61 @@ test("yearLengths e rateInputs (ida e volta com rateFromUnits)", () => {
     assert.ok(Math.abs(back / rate - 1) < 0.01, `${rate} → ${back}`);
   }
   assert.deepEqual(rateInputs(c, 1).inside, { value: 1, unit: "day" });
+});
+
+test("câmara: dados saneados e resumo de várias Regiões", () => {
+  assert.equal(TIME_RATE_BEHAVIOR, "nihilityTimeRate");
+  assert.deepEqual(normalizeChamber({ rate: 0, combatWorld: "x", network: 1 }), { rate: 1, combatWorld: "stop", network: true });
+  assert.equal(normalizeChamber({ rate: 1e-20 }).rate, 1e-10);
+  assert.equal(normalizeChamber({ rate: 5e9 }).rate, 1e6);
+  assert.deepEqual(chamberSummary([]), { rate: 1, combatWorld: "", network: false, count: 0 });
+  const two = chamberSummary([{ rate: 0.5, combatWorld: "atEnd" }, { rate: 4, combatWorld: "atEnd", network: true }]);
+  assert.equal(two.rate, 2);
+  assert.equal(two.combatWorld, "atEnd");
+  assert.equal(two.network, true);
+  assert.equal(chamberSummary([{ rate: 0.5, combatWorld: "atEnd" }, { rate: 2, combatWorld: "stop" }]).combatWorld, "stop");
+  // Região de ritmo 1 só dá rede: não decide o combate.
+  assert.equal(chamberSummary([{ rate: 1, combatWorld: "stop", network: true }]).combatWorld, "");
+});
+
+test("combate com ritmos diferentes: vale a maioria; empate fica com a cena", () => {
+  const scene = { rate: 1, combatWorld: "stop" };
+  assert.deepEqual(combatRateChoice([], scene), scene);
+  const slow = { rate: 0.001, combatWorld: "atEnd" };
+  assert.deepEqual(combatRateChoice([slow, slow, { rate: 1, combatWorld: "stop" }], scene), { rate: 0.001, combatWorld: "atEnd" });
+  assert.equal(combatRateChoice([slow, { rate: 1, combatWorld: "stop" }], scene).rate, 1, "empate: o ritmo da cena");
+  assert.equal(combatRateChoice([slow, { rate: 5, combatWorld: "stop" }], scene).rate, 0.001, "empate sem o da cena: o primeiro");
+  assert.equal(combatRateChoice([slow, { rate: 0.001, combatWorld: "stop" }, slow], scene).combatWorld, "stop", "no grupo, parar vence");
+  assert.ok(Math.abs(combatRateChoice([{ rate: 0.1 + 0.2 }, { rate: 0.3 }, { rate: 5 }], scene).rate - 0.3) < 1e-9, "ritmos iguais por arredondamento são o mesmo grupo");
+});
+
+test("anda no fim: soma sem arredondar a cada rodada", () => {
+  let held = 0;
+  for (let i = 0; i < 4; i += 1) held = heldOutsideAdd(held, 1e6, 6);
+  assert.ok(Math.abs(held - 24e-6) < 1e-12);
+  assert.equal(Math.round(heldOutsideAdd(0, 0.001, 6)), 6000);
+  assert.equal(heldOutsideAdd(5, 2, 0), 5);
+  assert.equal(heldOutsideAdd(undefined, 2, -3), 0);
+});
+
+test("frase do editor da Região", () => {
+  const c = greg();
+  assert.match(chamberResultText(c, 1), /normal/i);
+  assert.match(chamberResultText(c, rateFromUnits(c, { value: 1, unit: "second" }, { value: 10, unit: "year" })), /1 hora aqui volta e lá fora passaram .*anos/);
+  assert.match(chamberResultText(c, 3600 * 24), /menos de 1 segundo/);
+  assert.match(chamberResultText(c, 2), /30 minutos/);
+});
+
+test("idade pelo tempo pessoal", () => {
+  const c = greg();
+  const year = unitSeconds(c, "year");
+  assert.equal(ageYears(c, { start: null, at: 0 }, 5), null);
+  assert.equal(ageYears(c, { start: "", at: 0 }, 5), null);
+  assert.equal(ageYears(c, { start: 22, at: 1000 }, 1000), 22);
+  assert.equal(ageYears(c, { start: 22, at: 1000 }, 1000 + year - 1), 22);
+  assert.equal(ageYears(c, { start: 22, at: 1000 }, 1000 + year), 23);
+  assert.equal(ageYears(c, { start: 22, at: 1000 }, 1000 + year * 10.5), 32);
+  assert.equal(ageYears(c, { start: 22, at: 1000 }, 1000 - year), 21, "o tempo pessoal voltou: a idade cai junto");
+  assert.equal(ageYears(c, { start: 1, at: 0 }, -year * 5), 0, "nunca abaixo de 0");
+  assert.equal(ageYears(c, { start: 30 }, 12345), 30, "sem o carimbo, vale a idade ao começar");
 });

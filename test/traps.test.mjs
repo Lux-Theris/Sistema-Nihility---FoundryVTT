@@ -134,3 +134,10 @@ test("J9b: validateTimeSetup — ritmo fora dos limites, cena em linha apagada, 
   assert.equal(bad.filter(i => i.where.startsWith("Cena")).length, 1);
   assert.equal(bad.filter(i => i.where === "Módulo de calendário").length, 2);
 });
+
+test("J9b 8b.2: validateTimeSetup — ritmo de câmara do tempo fora dos limites", () => {
+  assert.deepEqual(validateTimeSetup({ chambers: [{ where: "Torre › Sala", rate: 0.001 }, { where: "A › B", rate: 1e6 }] }), []);
+  const bad = validateTimeSetup({ chambers: [{ where: "Torre › Sala", rate: 1e-12 }, { where: "X › Y", rate: 0 }, { where: "Z › W", rate: 5e9 }, { where: "V › U", rate: undefined }] });
+  assert.equal(bad.filter(i => i.where.startsWith("Câmara do tempo")).length, 4);
+  assert.match(bad[0].where, /Torre › Sala/);
+});

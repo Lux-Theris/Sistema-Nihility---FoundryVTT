@@ -234,7 +234,13 @@ export class WorldClockApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const scene = region?.parent;
     if (!scene) return;
     try {
-      await scene.view();
+      if (canvas?.scene?.id !== scene.id) {
+        // Vindo de outra cena, o `view()` resolve antes de o canvas terminar de desenhar e pôr a vista inicial
+        // da cena (que apagava o pan): espera o `canvasReady` (sessão 5, "Ir até" centrava no meio da cena).
+        const ready = new Promise(resolve => Hooks.once("canvasReady", resolve));
+        await scene.view();
+        await Promise.race([ready, new Promise(resolve => setTimeout(resolve, 5000))]);
+      }
       const bounds = region.bounds;
       if (bounds && canvas?.ready && canvas.scene?.id === scene.id) {
         await canvas.animatePan({ x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 });

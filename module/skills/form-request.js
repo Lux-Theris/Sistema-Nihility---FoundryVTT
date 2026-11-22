@@ -131,7 +131,10 @@ export async function openFormRequestEditor(actor, current = null, { title = "Pe
             : Object.values(points).reduce((s, v) => s + v, 0) > total ? "Os pontos passam do total do personagem." : "";
           if (problem) {
             ui.notifications?.warn(problem);
-            throw new Error(problem); // o DialogV2 não fecha quando o callback lança
+            // O DialogV2 não fecha quando o callback lança, mas desliga os botões ANTES do callback e só os religa
+            // se ele terminar (núcleo V14, `DialogV2#_onSubmit`): sem religar aqui, a janela ficava travada (sessão 5).
+            setTimeout(() => dialog.element?.querySelectorAll("button").forEach(b => { b.disabled = false; }), 0);
+            throw new Error(problem);
           }
           return {
             name: root.querySelector('[name="name"]').value,

@@ -19,7 +19,7 @@ const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 export class TimelineEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static DEFAULT_OPTIONS = {
     classes: [SYSTEM_ID, "nihility-config-app", "nihility-timeline-editor"],
-    window: { title: "Ajustar linha do tempo", icon: "fa-solid fa-timeline", resizable: true },
+    window: { title: "Ajustar linha do tempo", icon: "fa-solid fa-hourglass-half", resizable: true },
     position: { width: 520, height: "auto" },
     actions: { save: TimelineEditorApp.#onSave, remove: TimelineEditorApp.#onRemove, setNormal: TimelineEditorApp.#onSetNormal }
   };

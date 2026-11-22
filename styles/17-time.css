@@ -83,7 +83,9 @@
 
 .nihility-chamber-helper { margin: 4px 0 8px; padding: 6px 8px; border: 1px solid var(--nihility-border-soft); border-radius: 6px; background: var(--nihility-bg-panel-alt); color: var(--nihility-text); }
 .nihility-chamber-helper .nch-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--nihility-text); }
-.nihility-chamber-helper input[type=number] { width: 70px; }
+.nihility-chamber-helper .nch-row > * { flex: 0 0 auto; margin: 0; }
+.application .nihility-chamber-helper .nch-row input[type=number] { width: 70px; flex: 0 0 70px; }
+.application .nihility-chamber-helper .nch-row select { width: auto; min-width: 90px; flex: 0 0 auto; }
 .nihility-chamber-helper .nch-result { margin: 6px 0 0; color: var(--nihility-gold); font-size: 12px; }
 
 .nihility-sheet .age-pill { display: inline-flex; align-items: center; padding: 2px 9px; border: 1px solid var(--nihility-border-soft); border-radius: 999px; background: var(--nihility-bg-panel-alt); color: var(--nihility-text-dim); font-size: 12px; }

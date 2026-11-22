@@ -302,3 +302,6 @@ details.adv > .adv-body > .span-all { grid-column: 1 / -1; }
   accent-color: var(--nihility-accent); background: var(--nihility-bg-panel-alt); border: 1px solid var(--nihility-accent-2);
 }
 .nihility-environment-config select, .nihility-environment-config input[type="number"] { color: var(--nihility-text); }
+
+/* Nome da ficha em janela estreita: reticências em vez de cortar seco (sessão 5). */
+.nihility-sheet .sheet-header input[name="name"] { text-overflow: ellipsis; min-width: 0; }

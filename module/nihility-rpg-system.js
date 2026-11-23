@@ -6,18 +6,10 @@
 import {
   SYSTEM_ID,
   NIHILITY,
-  PHYSICAL_SUBTYPES,
-  DEFAULT_ELEMENT_REACTIONS,
-  DEFAULT_ELEMENT_SURFACES,
-  REACTION_ELEMENTS,
-  REACTION_CONDITIONS,
-  RADIATION_ELEMENT,
   registerSystemSettings,
   applyRoundSeconds,
   getSkillPointsPerLevel,
   getSkillPointsStarting,
-  getCompletedMigrations,
-  markMigrationCompleted,
   isSkillPointsEnabled,
   isVesselsEnabled
 } from "./core/config.js";
@@ -63,7 +55,7 @@ import { advanceStructures, collapseStructuresOfCaster, renderStructureControls,
 import { registerStructureRendering } from "./structures/structure-render.js";
 import { registerFloatingNumbers } from "./combat/floating-numbers.js";
 import { registerReactionFloats } from "./combat/reactions.js";
-import { registerEffectBadges, registerSystemEffectIcons, migrateSystemEffectIcons } from "./combat/effect-badges.js";
+import { registerEffectBadges, registerSystemEffectIcons } from "./combat/effect-badges.js";
 import { registerVoiceBanner } from "./core/voice-banner.js";
 import { registerEndCombat } from "./apps/end-combat.js";
 import { tickSkillTimers, registerSkillTimers } from "./skills/preparation.js";
@@ -95,26 +87,14 @@ import { registerEnvironmentSceneMenu } from "./apps/environment-config.js";
 import { registerShieldLightHooks } from "./combat/lights.js";
 import { registerShieldPoolReconcile } from "./combat/shield-pools.js";
 import { registerStatusConditions, interceptManualCondition } from "./combat/conditions.js";
-import { mergeReactionDefaults } from "./combat/reaction-rules.js";
-import { mergeSurfaceDefaults } from "./environment/surface-rules.js";
-import { addMissingById } from "./skills/combined-rules.js";
+import { registerModuleInstallRules } from "./starship/module-install.js";
+import { runPendingMigrations } from "./core/migrations.js";
 import { registerDuelRules } from "./skills/duel.js";
 import { registerSurfaces, tickSurfacesForCombatant, advanceSurfaces } from "./environment/surfaces.js";
 import { renderDamageControls, renderDamageTrace } from "./combat/damage-apply.js";
-import { isSpeciesLocked, normalizeSpeciesCatalog } from "./species/species-rules.js";
+import { isSpeciesLocked } from "./species/species-rules.js";
 import { notifyIncomingPadMessage } from "./pad/pad-messaging.js";
-import {
-  isEnergyPoolEnabled,
-  getModuleCategories,
-  categorySlotLimit,
-  moduleRole,
-  getVesselSizes,
-  getVesselClasses,
-  vesselKind,
-  vesselSizeLabel,
-  sizeFitsClass,
-  describeClassSizeRange
-} from "./core/config.js";
+import { isEnergyPoolEnabled } from "./core/config.js";
 import { registerPortraitHelper } from "./helpers/portrait-frame.js";
 import {
   actorsCollection,
@@ -235,6 +215,7 @@ Hooks.once("init", () => {
   registerShieldPoolReconcile();
   registerShieldAdaptationReset();
   registerStructureContact();
+  registerModuleInstallRules();
   registerDuelRules();
   registerFieldAntimagic();
   registerFloatingNumbers();
@@ -366,373 +347,9 @@ Hooks.once("ready", async () => {
   registerStatusConditions();
 
   await ensureSystemCompendiums();
-  await runMigrationIfNeeded("tierCommonToNormal", migrateCommonTierToNormal);
-  await runMigrationIfNeeded("elementalDamageToMagicTag", migrateElementalDamageToMagicTag);
-  await runMigrationIfNeeded("speciesStableKeys", migrateSpeciesStableKeys);
-  await runMigrationIfNeeded("physicalSubtypes", migratePhysicalSubtypes);
-  await runMigrationIfNeeded("incapacitationConditions", migrateIncapacitationConditions);
-  await runMigrationIfNeeded("radiationElement", migrateRadiationElement);
-  await runMigrationIfNeeded("techConditions", migrateTechConditions);
-  await runMigrationIfNeeded("systemEffectIcons", migrateSystemEffectIcons);
-  await runMigrationIfNeeded("markCondition", migrateMarkCondition);
-  await runMigrationIfNeeded("senseConditions", migrateSenseConditions);
-  await runMigrationIfNeeded("sleepingCondition", migrateSleepingCondition);
-  await runMigrationIfNeeded("reactionsDefaults", migrateReactionsDefaults);
-  await runMigrationIfNeeded("surfaceDefaults", migrateSurfaceDefaults);
-  await runMigrationIfNeeded("duelDefaults", migrateDuelDefaults);
-  await runMigrationIfNeeded("luckDefaults", migrateLuckDefaults);
+  await runPendingMigrations();
   console.log(`${SYSTEM_ID} | Sistema pronto.`);
 });
-
-/**
- * Rework de Espécies: grava no catálogo salvo as chaves estáveis das Skills Raciais (antes só
- * tinham nome) e a versão 1. Só mexe se o Mestre já tinha salvo um catálogo; o padrão de fábrica
- * ganha as mesmas chaves (determinísticas) na leitura. Fichas não são migradas: o diff reconhece
- * dados antigos pelo nome/slot e grava a marca de origem na primeira aplicação.
- */
-async function migrateSpeciesStableKeys() {
-  const raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.speciesPresetsData);
-  if (!raw || (typeof raw === "string" && !raw.trim())) return;
-  const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-  if (!parsed || typeof parsed !== "object") return;
-  const normalized = normalizeSpeciesCatalog(parsed);
-  await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.speciesPresetsData, JSON.stringify(normalized, null, 2));
-}
-
-/**
- * Roda uma migração única (`migrationFn`) só se `key` ainda não estiver marcada como concluída
- * em `getCompletedMigrations()` — sem isso, cada migração reescanearia todos os Atores/
- * Compêndios em TODO hook `ready`, pra sempre, mesmo anos depois de já ter rodado com sucesso
- * uma vez. Marca a chave como concluída ao terminar (`markMigrationCompleted`).
- * @param {string} key - identificador estável da migração (nunca reusar pra outra migração).
- * @param {() => Promise<void>} migrationFn
- */
-async function runMigrationIfNeeded(key, migrationFn) {
-  // Mestre designado, não `isGM`: com dois Mestres entrando juntos, os dois migravam ao mesmo tempo.
-  if (!isDesignatedGm()) return;
-  if (getCompletedMigrations().includes(key)) return;
-
-  await migrationFn();
-  await markMigrationCompleted(key);
-  console.log(`${SYSTEM_ID} | Migração "${key}" concluída e marcada — não roda de novo neste mundo.`);
-}
-
-/**
- * Migração única: catálogo de Tipos de Dano já salvo que tem o Físico ganha os subtipos Cortante,
- * Perfurante e Contundente (só os que ainda não existem — nada é trocado nem removido). Catálogo
- * nunca salvo usa o padrão, que já os tem.
- */
-/**
- * Migração única: catálogo de Condições já salvo ganha Caído e Inconsciente (Vida 0), só se ainda
- * não tiver — nada é trocado nem removido. Catálogo nunca salvo usa o padrão, que já os tem.
- */
-async function migrateIncapacitationConditions() {
-  const raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.statusConditionsData);
-  if (!raw) return;
-  let list;
-  try {
-    list = typeof raw === "string" ? JSON.parse(raw) : raw;
-  } catch (err) {
-    return;
-  }
-  if (!Array.isArray(list)) return;
-  const missing = NIHILITY.DEFAULT_STATUS_CONDITIONS.filter(c => c.incapacitates && !list.some(e => e?.id === c.id));
-  if (!missing.length) return;
-  list.push(...foundry.utils.deepClone(missing));
-  await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.statusConditionsData, JSON.stringify(list, null, 2));
-  // A paleta do HUD do Token já foi montada nesta carga: republica para as duas aparecerem agora.
-  registerStatusConditions();
-}
-
-/**
- * Migração única (Natureza + PEM): catálogo de Condições já salvo ganha as que o PEM e a Antimagia
- * usam e podem faltar nele — "Suprimido (Tecnologia)", "Selo de Interferência", "Suprimido
- * (Antimagia)" e "Selo Antimagia". Só acrescenta o que não existe; nada é reescrito.
- */
-async function migrateTechConditions() {
-  const raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.statusConditionsData);
-  if (!raw) return;
-  let list;
-  try {
-    list = typeof raw === "string" ? JSON.parse(raw) : raw;
-  } catch (err) {
-    return;
-  }
-  if (!Array.isArray(list)) return;
-  const wanted = c => c.suppressesTech || c.suppressesMagic || Number(c.interferenceLevel) > 0 || Number(c.antimagicLevel) > 0;
-  const missing = NIHILITY.DEFAULT_STATUS_CONDITIONS.filter(c => wanted(c) && !list.some(e => e?.id === c.id));
-  if (!missing.length) return;
-  list.push(...foundry.utils.deepClone(missing));
-  await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.statusConditionsData, JSON.stringify(list, null, 2));
-  registerStatusConditions();
-}
-
-/**
- * Migração única (H4): catálogo de Condições já salvo ganha "Marcado", a Condição que o efeito
- * "Marcar" aplica. Quem nunca salvou o catálogo já a recebe pelo padrão.
- */
-async function migrateMarkCondition() {
-  const raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.statusConditionsData);
-  if (!raw) return;
-  let list;
-  try {
-    list = typeof raw === "string" ? JSON.parse(raw) : raw;
-  } catch (err) {
-    return;
-  }
-  if (!Array.isArray(list) || list.some(e => e?.id === "marked")) return;
-  const mark = NIHILITY.DEFAULT_STATUS_CONDITIONS.find(c => c.id === "marked");
-  if (!mark) return;
-  list.push(foundry.utils.deepClone(mark));
-  await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.statusConditionsData, JSON.stringify(list, null, 2));
-  registerStatusConditions();
-}
-
-/**
- * Migração única (J9): catálogo de Condições já salvo ganha "Dormindo", a Condição do Descanso
- * fora de combate. Quem nunca salvou o catálogo já a recebe pelo padrão.
- */
-async function migrateSleepingCondition() {
-  const raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.statusConditionsData);
-  if (!raw) return;
-  let list;
-  try {
-    list = typeof raw === "string" ? JSON.parse(raw) : raw;
-  } catch (err) {
-    return;
-  }
-  if (!Array.isArray(list) || list.some(e => e?.id === "sleeping")) return;
-  const sleeping = NIHILITY.DEFAULT_STATUS_CONDITIONS.find(c => c.id === "sleeping");
-  if (!sleeping) return;
-  list.push(foundry.utils.deepClone(sleeping));
-  await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.statusConditionsData, JSON.stringify(list, null, 2));
-  registerStatusConditions();
-}
-
-/**
- * Migração única (item 8.1): os catálogos de Tipos de Dano e de Condições já salvos ganham, SÓ no que
- * falta, Água/Óleo, Molhado/Oleado, o "Elemento do corpo" de Queimadura/Lentidão e as reações de
- * fábrica dos elementos que nunca tiveram o campo. Nada editado é sobrescrito (mergeReactionDefaults).
- */
-async function migrateReactionsDefaults() {
-  const read = key => {
-    const raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS[key]);
-    if (!raw) return null;
-    try {
-      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-      return Array.isArray(parsed) ? parsed : null;
-    } catch (err) {
-      return null;
-    }
-  };
-  const elementList = read("damageElementsData");
-  const conditionList = read("statusConditionsData");
-  if (!elementList && !conditionList) return;
-  const conditionDefaults = NIHILITY.DEFAULT_STATUS_CONDITIONS;
-  const merged = mergeReactionDefaults(elementList ?? [], conditionList ?? [], {
-    reactions: DEFAULT_ELEMENT_REACTIONS,
-    elements: elementList ? REACTION_ELEMENTS : [],
-    conditions: [
-      ...REACTION_CONDITIONS.map(c => ({ ...c, addIfMissing: true })),
-      ...["burn", "slow"].map(id => conditionDefaults.find(c => c.id === id)).filter(Boolean)
-    ]
-  });
-  if (elementList && merged.elementsChanged) await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.damageElementsData, JSON.stringify(merged.elements, null, 2));
-  if (conditionList && merged.conditionsChanged) {
-    await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.statusConditionsData, JSON.stringify(merged.conditions, null, 2));
-    registerStatusConditions();
-  }
-}
-
-/**
- * Migração única (8.2): um catálogo de elementos já salvo ganha a seção "Deixa no chão" de fábrica
- * (Água, Óleo, Fogo, Gelo) só onde o elemento nunca teve o campo `surface`. Nada editado é sobrescrito.
- */
-/**
- * Migração única (8c.2): os catálogos já salvos ganham o que o duelo precisa — a Condição "Marca do Duelo", a
- * Estrutura "Bolha do duelo" e o modelo de Skill "Duelo na bolha". Só acrescenta o que falta, pelo id.
- */
-/**
- * Migração única (8d.1): os catálogos já salvos ganham os Traços "Sortudo"/"Azarado" e as Condições "Abençoado"/"Azarado".
- * Só acrescenta o que falta, pelo id; nada editado é sobrescrito.
- */
-async function migrateLuckDefaults() {
-  const targets = [
-    [NIHILITY.SETTINGS.traitsData, NIHILITY.DEFAULT_TRAITS, ["lucky", "unlucky"]],
-    [NIHILITY.SETTINGS.statusConditionsData, NIHILITY.DEFAULT_STATUS_CONDITIONS, ["blessed", "jinxed"]]
-  ];
-  for (const [key, defaults, wanted] of targets) {
-    const raw = game.settings.get(SYSTEM_ID, key);
-    if (!raw) continue;
-    let list;
-    try {
-      list = typeof raw === "string" ? JSON.parse(raw) : raw;
-    } catch (err) {
-      continue;
-    }
-    if (!Array.isArray(list)) continue;
-    const merged = addMissingById(list, defaults, wanted);
-    if (merged.changed) await game.settings.set(SYSTEM_ID, key, JSON.stringify(merged.list, null, 2));
-  }
-  registerStatusConditions();
-}
-
-async function migrateDuelDefaults() {
-  const targets = [
-    [NIHILITY.SETTINGS.statusConditionsData, NIHILITY.DEFAULT_STATUS_CONDITIONS, ["duel-mark"]],
-    [NIHILITY.SETTINGS.structuresData, NIHILITY.DEFAULT_STRUCTURES, ["duel-bubble"]],
-    [NIHILITY.SETTINGS.skillTemplatesData, NIHILITY.DEFAULT_SKILL_TEMPLATES, ["duelo_bolha"]]
-  ];
-  for (const [key, defaults, wanted] of targets) {
-    const raw = game.settings.get(SYSTEM_ID, key);
-    if (!raw) continue;
-    let list;
-    try {
-      list = typeof raw === "string" ? JSON.parse(raw) : raw;
-    } catch (err) {
-      continue;
-    }
-    if (!Array.isArray(list)) continue;
-    const merged = addMissingById(list, defaults, wanted);
-    if (merged.changed) await game.settings.set(SYSTEM_ID, key, JSON.stringify(merged.list, null, 2));
-  }
-  registerStatusConditions();
-}
-
-async function migrateSurfaceDefaults() {
-  const raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.damageElementsData);
-  if (!raw) return;
-  let list;
-  try {
-    list = typeof raw === "string" ? JSON.parse(raw) : raw;
-  } catch (err) {
-    return;
-  }
-  if (!Array.isArray(list)) return;
-  const merged = mergeSurfaceDefaults(list, DEFAULT_ELEMENT_SURFACES);
-  if (merged.changed) await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.damageElementsData, JSON.stringify(merged.elements, null, 2));
-}
-
-/**
- * Migração única (J4b): catálogo de Condições já salvo ganha "Invisibilidade". O campo `mapStatus` das
- * Condições de fábrica (Cegueira) é preenchido na leitura, só quando falta.
- */
-async function migrateSenseConditions() {
-  const raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.statusConditionsData);
-  if (!raw) return;
-  let list;
-  try {
-    list = typeof raw === "string" ? JSON.parse(raw) : raw;
-  } catch (err) {
-    return;
-  }
-  if (!Array.isArray(list) || list.some(e => e?.id === "invisibility")) return;
-  const invisibility = NIHILITY.DEFAULT_STATUS_CONDITIONS.find(c => c.id === "invisibility");
-  if (!invisibility) return;
-  list.push(foundry.utils.deepClone(invisibility));
-  await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.statusConditionsData, JSON.stringify(list, null, 2));
-  registerStatusConditions();
-}
-
-/**
- * Migração única: catálogo de Tipos de Dano já salvo com os elementos Sci-Fi ganha "Radiação", que
- * o Ambiente usa para a Resistência ao dano de radiação. Catálogo de fantasia fica como está (o
- * Mestre acrescenta pelo editor se quiser).
- */
-async function migrateRadiationElement() {
-  const raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.damageElementsData);
-  if (!raw) return;
-  let list;
-  try {
-    list = typeof raw === "string" ? JSON.parse(raw) : raw;
-  } catch (err) {
-    return;
-  }
-  if (!Array.isArray(list) || list.some(el => el?.id === RADIATION_ELEMENT.id)) return;
-  const scifi = new Set(NIHILITY.SCIFI_DAMAGE_ELEMENTS.map(el => el.id));
-  if (!list.some(el => scifi.has(el?.id))) return;
-  list.push(foundry.utils.deepClone(RADIATION_ELEMENT));
-  await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.damageElementsData, JSON.stringify(list, null, 2));
-}
-
-async function migratePhysicalSubtypes() {
-  const raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.damageElementsData);
-  if (!raw) return;
-  let list;
-  try {
-    list = typeof raw === "string" ? JSON.parse(raw) : raw;
-  } catch (err) {
-    return;
-  }
-  if (!Array.isArray(list) || !list.some(el => el?.id === "physical")) return;
-  const missing = PHYSICAL_SUBTYPES.filter(sub => !list.some(el => el?.id === sub.id));
-  if (!missing.length) return;
-  const index = list.findIndex(el => el?.id === "physical");
-  list.splice(index + 1, 0, ...foundry.utils.deepClone(missing));
-  await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.damageElementsData, JSON.stringify(list, null, 2));
-}
-
-/**
- * Migração única: o tier de Skill "common" foi renomeado para "normal" quando
- * os tiers foram reordenados (Extra < Normal < Racial < Único < Ultimate).
- * Corrige Items já salvos em Atores e no Compêndio de Habilidades.
- */
-async function migrateCommonTierToNormal() {
-  for (const actor of game.actors) {
-    const toFix = actor.items.filter(i => i.type === "skill" && i.system.tier === "common");
-    if (!toFix.length) continue;
-    await actor.updateEmbeddedDocuments(
-      "Item",
-      toFix.map(i => ({ _id: i.id, "system.tier": "normal" }))
-    );
-  }
-
-  const pack = game.packs.get(`world.${NIHILITY.COMPENDIUM.skills.key}`);
-  if (!pack) return;
-  const index = await pack.getIndex({ fields: ["system.tier"] });
-  const toFixInPack = index.filter(e => e.system?.tier === "common");
-  for (const entry of toFixInPack) {
-    const doc = await pack.getDocument(entry._id);
-    await doc.update({ "system.tier": "normal" });
-  }
-}
-
-/**
- * Migração única: `isElementalDamage` (booleano) + `damageElement` (string única) viraram
- * `isMagicDamage` (independente) + `damageElements` (lista). Lê de `_source` (dado bruto
- * salvo) porque esses dois campos antigos já saíram do schema — `item.system` não os
- * exporia mais depois de limpo pelo DataModel novo. Assume que todo dano elemental antigo
- * já era mágico (o toggle antigo conflava os dois conceitos).
- */
-async function migrateElementalDamageToMagicTag() {
-  function buildPatch(rawSystem) {
-    if (!rawSystem || rawSystem.isElementalDamage === undefined) return null;
-    return {
-      "system.isMagicDamage": Boolean(rawSystem.isElementalDamage),
-      "system.damageElements": rawSystem.damageElement ? [rawSystem.damageElement] : [],
-      "system.-=isElementalDamage": null,
-      "system.-=damageElement": null
-    };
-  }
-
-  for (const actor of game.actors) {
-    const updates = [];
-    for (const item of actor.items) {
-      if (item.type !== "skill") continue;
-      const patch = buildPatch(item._source.system);
-      if (patch) updates.push({ _id: item.id, ...patch });
-    }
-    if (updates.length) await actor.updateEmbeddedDocuments("Item", updates);
-  }
-
-  const pack = game.packs.get(`world.${NIHILITY.COMPENDIUM.skills.key}`);
-  if (!pack) return;
-  const documents = await pack.getDocuments();
-  for (const doc of documents) {
-    const patch = buildPatch(doc._source.system);
-    if (patch) await doc.update(patch);
-  }
-}
 
 // Concede os Pontos de Habilidade Normais iniciais (setting "Pontos de Habilidade Normais —
 // Criação") em Personagens novos. Só entra se `system.skillPoints.normal` não veio explícito
@@ -906,123 +523,6 @@ Hooks.on("preDeleteItem", item => {
   if (!["item", "starship_module"].includes(item.type)) return;
   if (!item.parent) return;
   removeGrantedSkill(item.parent, item.id);
-});
-
-/**
- * Overhaul de Naves (Fase 1) — compatibilidade de Porte: um Módulo só pode existir numa
- * Nave/Veículo cujo Porte seja igual ou maior ao dele (`MODULE_SIZE_RANK` vs o `rank` do Porte
- * em config.js). Bloqueia a criação/edição com um aviso em vez de deixar o Módulo instalado
- * incompatível silenciosamente.
- */
-function checkModuleSizeCompatibility(actor, moduleSize) {
-  if (!actor || !["starship", "vehicle"].includes(actor.type)) return true;
-  const size = actor.system.vesselSize;
-  if (NIHILITY.MODULE_SIZE_RANK[moduleSize] <= size.rank) return true;
-
-  ui.notifications.error(
-    `${actor.name}: Módulo de Porte "${NIHILITY.MODULE_SIZE_LABELS[moduleSize]}" não cabe num Porte "${size.label}" (aceita até ${NIHILITY.MODULE_SIZE_LABELS[NIHILITY.MODULE_SIZES[size.rank]]}).`
-  );
-  return false;
-}
-
-/**
- * Vagas por Categoria: cada Categoria do catálogo diz quantos Módulos dela cabem (0 = sem limite),
- * e a Classe da Nave pode mudar isso (ver categorySlotLimit em config.js). Cheio, instalar outro
- * exige remover um antes.
- */
-function checkSingleSlotAvailable(actor, category, excludeItemId) {
-  if (!actor || !["starship", "vehicle"].includes(actor.type)) return true;
-  // Vagas por Categoria: a da Classe da Nave, se ela disser; senão a da Categoria (0 = sem limite).
-  const categoryDef = getModuleCategories().find(c => c.id === category);
-  if (!categoryDef) return true;
-  const limit = categorySlotLimit(categoryDef, actor.system.vesselClass);
-  if (!limit) return true;
-
-  const used = actor.items.filter(
-    i => i.type === "starship_module" && i.id !== excludeItemId && i.system.category === category
-  ).length;
-  if (used < limit) return true;
-
-  ui.notifications.error(
-    `${actor.name}: sem vaga de "${categoryDef.label}" (${used} de ${limit}) — remova um Módulo antes de instalar outro.`
-  );
-  return false;
-}
-
-/**
- * Overhaul de Naves (Fase 2) — orçamento de espaço de Arma por Porte da Nave/Veículo. Cada Arma
- * consome `MODULE_SIZE_RANK + 1` unidades do orçamento do casco (`weaponSlotBudget`, ver
- * ShipSystemsDataModel em starship-model.js): num Porte Mini cabe exatamente uma Arma Compacta.
- * Só não bloqueia se o Porte não estiver na tabela (orçamento `Infinity`).
- */
-function checkWeaponBudget(actor, category, moduleSize, excludeItemId) {
-  if (!actor || !["starship", "vehicle"].includes(actor.type)) return true;
-  if (moduleRole(category) !== "weapon") return true;
-
-  // Porte máximo de Arma da Classe (um Cargueiro não monta canhão Colossal).
-  const maxSize = actor.system.vesselClass?.maxWeaponSize;
-  if (maxSize && NIHILITY.MODULE_SIZE_RANK[moduleSize] > NIHILITY.MODULE_SIZE_RANK[maxSize]) {
-    ui.notifications.error(`${actor.name}: a Classe desta Nave não comporta Arma maior que ${NIHILITY.MODULE_SIZE_LABELS[maxSize]}.`);
-    return false;
-  }
-
-  const budget = actor.system.weaponSlotBudget;
-  if (!Number.isFinite(budget)) return true;
-
-  const usedByOthers = actor.items
-    .filter(i => i.type === "starship_module" && i.id !== excludeItemId && moduleRole(i.system.category) === "weapon")
-    .reduce((sum, i) => sum + NIHILITY.MODULE_SIZE_RANK[i.system.moduleSize] + 1, 0);
-  const thisUnit = NIHILITY.MODULE_SIZE_RANK[moduleSize] + 1;
-  if (usedByOthers + thisUnit <= budget) return true;
-
-  ui.notifications.error(`${actor.name}: orçamento de espaço de Arma excedido (${usedByOthers + thisUnit} / ${budget}).`);
-  return false;
-}
-
-// Faixa de Porte da Classe: trocar Porte ou Classe para uma combinação que a Classe não aceita é
-// recusado. Uma Nave que JÁ está fora da faixa (Classe editada depois) não muda sozinha — a ficha
-// só avisa o Mestre; o bloqueio vale para a próxima troca, nunca para outras edições.
-Hooks.on("preUpdateActor", (actor, changes) => {
-  if (!["starship", "vehicle"].includes(actor.type)) return;
-  const newSize = foundry.utils.getProperty(changes, "system.shipSize");
-  const newClassId = foundry.utils.getProperty(changes, "system.shipClass");
-  if (newSize === undefined && newClassId === undefined) return;
-  const sizeId = newSize ?? actor.system.shipSize;
-  const classId = newClassId ?? actor.system.shipClass;
-  if (sizeId === actor.system.shipSize && classId === actor.system.shipClass) return;
-  const kind = vesselKind(actor);
-  const sizes = getVesselSizes(kind);
-  const vesselClass = getVesselClasses(kind).find(c => c.id === classId) ?? null;
-  if (sizeFitsClass(sizeId, vesselClass, sizes)) return;
-  ui.notifications.warn(
-    `${actor.name}: a Classe ${vesselClass.label} aceita Porte ${describeClassSizeRange(vesselClass, sizes)} — ${vesselSizeLabel(kind, sizeId)} fica fora. Nada foi mudado.`
-  );
-  return false;
-});
-
-Hooks.on("preCreateItem", (item, data, options, userId) => {
-  if (item.type !== "starship_module") return;
-  const actor = item.parent;
-  const { category, moduleSize } = item.system;
-  if (!checkModuleSizeCompatibility(actor, moduleSize)) return false;
-  if (!checkSingleSlotAvailable(actor, category, item.id)) return false;
-  if (!checkWeaponBudget(actor, category, moduleSize, item.id)) return false;
-});
-
-Hooks.on("preUpdateItem", (item, changes, options, userId) => {
-  if (item.type !== "starship_module") return;
-
-  const sizeChanged = foundry.utils.getProperty(changes, "system.moduleSize") !== undefined;
-  const categoryChanged = foundry.utils.getProperty(changes, "system.category") !== undefined;
-  if (!sizeChanged && !categoryChanged) return;
-
-  const actor = item.parent;
-  const newSize = foundry.utils.getProperty(changes, "system.moduleSize") ?? item.system.moduleSize;
-  const newCategory = foundry.utils.getProperty(changes, "system.category") ?? item.system.category;
-
-  if (!checkModuleSizeCompatibility(actor, newSize)) return false;
-  if (!checkSingleSlotAvailable(actor, newCategory, item.id)) return false;
-  if (!checkWeaponBudget(actor, newCategory, newSize, item.id)) return false;
 });
 
 // Tica Efeitos Periódicos (veneno/cura contínua com tickUnit "combatRound", ver

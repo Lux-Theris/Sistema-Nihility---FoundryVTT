@@ -221,3 +221,31 @@ test("J9b: as linhas do tempo (estado do mundo) não entram no arquivo importado
   const read = readTransferBundle(bundle, "nihility-rpg-system");
   assert.deepEqual(Object.keys(read), ["calendarData"]);
 });
+
+/* -------------------------------------------- */
+/*  Migrações únicas                             */
+/* -------------------------------------------- */
+
+import { MIGRATION_KEYS } from "../module/core/migration-keys.js";
+
+test("migrações: as 15 chaves e a ordem estão congeladas, sem repetida", () => {
+  // Trocar uma chave faz a migração rodar de novo em todo mundo: mude aqui só ao ACRESCENTAR no fim.
+  assert.deepEqual(MIGRATION_KEYS, [
+    "tierCommonToNormal",
+    "elementalDamageToMagicTag",
+    "speciesStableKeys",
+    "physicalSubtypes",
+    "incapacitationConditions",
+    "radiationElement",
+    "techConditions",
+    "systemEffectIcons",
+    "markCondition",
+    "senseConditions",
+    "sleepingCondition",
+    "reactionsDefaults",
+    "surfaceDefaults",
+    "duelDefaults",
+    "luckDefaults"
+  ]);
+  assert.equal(new Set(MIGRATION_KEYS).size, MIGRATION_KEYS.length);
+});

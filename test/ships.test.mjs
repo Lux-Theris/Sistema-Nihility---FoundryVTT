@@ -472,3 +472,38 @@ test("Escudo adaptativo: aprende por elemento + frequência, com teto, e reduz o
 });
 
 const arm = (id, hp, extra = {}) => ({ id, name: id, slot: "arm", hpValue: hp, hpMax: 8, functions: ["manipulacao"], ...extra });
+
+/* -------------------------------------------- */
+/*  Regras de instalação de Módulo                */
+/* -------------------------------------------- */
+
+import { moduleSizeFits, categorySlotCheck, weaponBudgetCheck } from "../module/starship/module-install-rules.js";
+
+test("instalação: Módulo de Porte maior que o da Nave é recusado, igual passa", () => {
+  assert.equal(moduleSizeFits({ moduleRank: 3, vesselRank: 2 }), false);
+  assert.equal(moduleSizeFits({ moduleRank: 2, vesselRank: 2 }), true);
+  assert.equal(moduleSizeFits({ moduleRank: 1, vesselRank: 2 }), true);
+});
+
+test("instalação: vaga cheia é recusada e limite 0 (sem limite) passa", () => {
+  assert.deepEqual(categorySlotCheck({ used: 2, limit: 2 }), { ok: false, used: 2, limit: 2 });
+  assert.equal(categorySlotCheck({ used: 1, limit: 2 }).ok, true);
+  assert.equal(categorySlotCheck({ used: 99, limit: 0 }).ok, true);
+});
+
+test("instalação: Arma acima do máximo da Classe é recusada", () => {
+  const v = weaponBudgetCheck({ thisUnit: 4, usedByOthers: 0, budget: Infinity, moduleRank: 3, maxRank: 2 });
+  assert.equal(v.ok, false);
+  assert.equal(v.reason, "classMax");
+  assert.equal(weaponBudgetCheck({ thisUnit: 3, usedByOthers: 0, budget: Infinity, moduleRank: 2, maxRank: 2 }).ok, true);
+});
+
+test("instalação: orçamento de Arma estourado é recusado, exatamente no limite passa", () => {
+  const over = weaponBudgetCheck({ thisUnit: 2, usedByOthers: 3, budget: 4, moduleRank: 1 });
+  assert.deepEqual([over.ok, over.reason, over.total, over.budget], [false, "budget", 5, 4]);
+  assert.equal(weaponBudgetCheck({ thisUnit: 1, usedByOthers: 3, budget: 4, moduleRank: 0 }).ok, true);
+});
+
+test("instalação: orçamento infinito sempre passa", () => {
+  assert.equal(weaponBudgetCheck({ thisUnit: 9, usedByOthers: 999, budget: Infinity, moduleRank: 8 }).ok, true);
+});

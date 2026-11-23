@@ -1,5 +1,5 @@
 import { SYSTEM_ID, isFormsEnabled } from "../core/config.js";
-import { isDesignatedGm, runAsGm } from "../helpers/gm-relay.js";
+import { isDesignatedGm, runAsGm, mayActFor } from "../helpers/gm-relay.js";
 import { RELAY_REASONS, refuse, relayFailureMessage } from "../helpers/gm-relay-rules.js";
 import { escapeHtml } from "../helpers/html.js";
 import { reportError } from "../helpers/report.js";
@@ -403,3 +403,19 @@ export function formCarryUpdate(actor, previousHp, hpDamage) {
 }
 
 export const FORM_CARRY_PATH = `flags.${SYSTEM_ID}.formOf.carry`;
+
+
+// ---------------------------------------------------------------------------
+// Ações do relay do Mestre (ver helpers/gm-relay.js). Juntadas em core/relay-actions.js.
+// Todas recebem `(payload, user)`; `user` é dito pelo servidor, nunca pelo payload.
+// ---------------------------------------------------------------------------
+export const RELAY_HANDLERS = {
+  /**
+   * Forma (H5): o Mestre cria a ficha temporária e troca os Tokens. Quem pede tem de ser dono do
+   * personagem; molde, Skill e estado são lidos da ficha (ver transformActorAsGm).
+   */
+  async transformActor(payload, user) {
+    if (!(await mayActFor(user, payload?.sourceActorUuid))) return refuse(RELAY_REASONS.permission);
+    return transformActorAsGm(payload ?? {}, user);
+  }
+};

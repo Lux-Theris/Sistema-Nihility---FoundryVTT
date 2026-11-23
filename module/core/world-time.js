@@ -18,7 +18,8 @@
  * e as datas saem como no J9 ("Dia 3 · 14:05"). Nenhum flag é apagado.
  */
 import { SYSTEM_ID, NIHILITY, isCalendarEnabled, isWorldClockEnabled } from "./config.js";
-import { isDesignatedGm, runAsGm } from "../helpers/gm-relay.js";
+import { isDesignatedGm, runAsGm, ownedDoc } from "../helpers/gm-relay.js";
+import { RELAY_REASONS, refuse } from "../helpers/gm-relay-rules.js";
 import { combatScenes } from "../helpers/foundry-compat.js";
 import { escapeHtml } from "../helpers/html.js";
 import { reportError } from "../helpers/report.js";
@@ -863,3 +864,38 @@ export function registerWorldTime() {
 }
 
 export { CALENDAR_MODELS };
+
+
+// ---------------------------------------------------------------------------
+// Ações do relay do Mestre (ver helpers/gm-relay.js). Juntadas em core/relay-actions.js.
+// Todas recebem `(payload, user)`; `user` é dito pelo servidor, nunca pelo payload.
+// ---------------------------------------------------------------------------
+export const RELAY_HANDLERS = {
+  /**
+   * "Atualizar" no PAD (J9b): o jogador pede ao Mestre que acerte a data do aparelho. Só quem é dono do
+   * Ator pede; o Mestre recebe um card com Aprovar/Recusar (nada é acertado aqui).
+   * @param {{actorUuid:string}} payload
+   */
+  async timeSyncRequest({ actorUuid }, user) {
+    const actor = await ownedDoc(actorUuid, user);
+    if (!actor || actor.documentName !== "Actor") return refuse(RELAY_REASONS.permission);
+    await handleTimeSyncRequest(actor);
+  },
+
+  /**
+   * "Passar tempo só para estes" (Relógio do mundo, J9b 8b.2): quem clicou (um Mestre) já somou o tempo
+   * pessoal; o Mestre designado acorda quem completou o descanso, irradia e avisa o grupo. Só Mestre.
+   * @param {{actorUuids:string[], seconds:number}} payload
+   */
+  async timePassedFor({ actorUuids, seconds }, user) {
+    if (!user?.isGM) return refuse(RELAY_REASONS.permission);
+    const s = Math.min(Math.floor(Number(seconds) || 0), 1e10);
+    if (!(s > 0) || !Array.isArray(actorUuids)) return;
+    const actors = [];
+    for (const uuid of actorUuids.slice(0, 200)) {
+      const actor = typeof uuid === "string" ? await fromUuid(uuid) : null;
+      if (actor?.documentName === "Actor") actors.push(actor);
+    }
+    await afterPersonalTimePassed(actors, s);
+  }
+};

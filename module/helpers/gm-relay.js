@@ -10,7 +10,12 @@
  * O `system.json` já declarava `"socket": true` desde sempre, mas nada no sistema usava — este é
  * o primeiro (e por ora único) uso.
  *
- * **Regras ao adicionar uma ação nova aqui** — a ação roda com permissão de Mestre:
+ * **Onde moram as ações:** este arquivo só tem o motor (socket, `runAsGm`, portões `owns`/`ownedDoc`/`mayActFor`/
+ * `actorsOwnedBy`) e NÃO importa nenhum subsistema. Cada subsistema exporta as suas ações num objeto
+ * `RELAY_HANDLERS`; `core/relay-actions.js` as junta via `registerRelayActions` (que recusa nome repetido e valor
+ * que não seja função) e confere contra `RELAY_ACTION_NAMES` (`core/relay-action-names.js`).
+ *
+ * **Regras ao adicionar uma ação nova** (em `RELAY_HANDLERS` do subsistema) — a ação roda com permissão de Mestre:
  *  - **Quem pediu:** todo handler recebe `(payload, user)`. `user` é quem emitiu, dito pelo
  *    SERVIDOR do Foundry (`handleCustomSocket` reenvia `emit(canal, dados, socket.user.id)`;
  *    conferido na 14.368), nunca um campo do payload — esse o cliente escreveria o que quisesse.
@@ -24,9 +29,9 @@
  *    códigos de `RELAY_REASONS`). Só chega a alguém quando o pedido foi feito com `reply: true`
  *    (ver `runAsGm`); devolver nada continua significando "feito".
  */
-import { SYSTEM_ID, resistanceXpGain } from "../core/config.js";
+import { SYSTEM_ID } from "../core/config.js";
 import { reportError } from "./report.js";
-import { RELAY_REASONS, createReplyRegistry, normalizeRelayOutcome, refuse } from "./gm-relay-rules.js";
+import { RELAY_REASONS, createReplyRegistry, normalizeRelayOutcome, validateRelayRegistration } from "./gm-relay-rules.js";
 
 const CHANNEL = `system.${SYSTEM_ID}`;
 
@@ -37,457 +42,49 @@ const pendingReplies = createReplyRegistry();
  * `user` pode agir em nome de `doc`? Mestre sempre pode (inclusive quando a origem não existe,
  * ex.: Condição marcada à mão, sem Skill por trás). Item embutido herda a permissão do Ator.
  */
-function owns(user, doc) {
+export function owns(user, doc) {
   if (!user) return false;
   if (user.isGM) return true;
   return typeof doc?.testUserPermission === "function" && doc.testUserPermission(user, "OWNER");
 }
 
 /** Resolve um UUID vindo do payload e devolve o documento só se ele existir e `user` for dono. */
-async function ownedDoc(uuid, user) {
+export async function ownedDoc(uuid, user) {
   if (typeof uuid !== "string" || !uuid) return null;
   const doc = await fromUuid(uuid);
   return doc && owns(user, doc) ? doc : null;
 }
 
 /** Portão para ações que só precisam da permissão (não do documento): Mestre passa direto. */
-async function mayActFor(user, uuid) {
+export async function mayActFor(user, uuid) {
   if (user?.isGM) return true;
   return Boolean(await ownedDoc(uuid, user));
 }
 
 /** Atores do Diretório e sintéticos (Token não vinculado) que `user` possui. */
-function actorsOwnedBy(user) {
+export function actorsOwnedBy(user) {
   const list = [...game.actors];
   for (const scene of game.scenes) for (const token of scene.tokens) if (!token.actorLink && token.actor) list.push(token.actor);
   return list.filter(actor => owns(user, actor));
 }
 
-/** Ações que o Mestre sabe executar em nome de outro cliente. Todas recebem `(payload, user)`. */
-const HANDLERS = {
-  /**
-   * "Atualizar" no PAD (J9b): o jogador pede ao Mestre que acerte a data do aparelho. Só quem é dono do
-   * Ator pede; o Mestre recebe um card com Aprovar/Recusar (nada é acertado aqui).
-   * @param {{actorUuid:string}} payload
-   */
-  async timeSyncRequest({ actorUuid }, user) {
-    const actor = await ownedDoc(actorUuid, user);
-    if (!actor || actor.documentName !== "Actor") return refuse(RELAY_REASONS.permission);
-    const { handleTimeSyncRequest } = await import("../core/world-time.js");
-    await handleTimeSyncRequest(actor);
-  },
+/**
+ * Ações que o Mestre sabe executar em nome de outro cliente. Todas recebem `(payload, user)`.
+ * Começa vazio: cada subsistema exporta as suas em `RELAY_HANDLERS` e `core/relay-actions.js`
+ * chama `registerRelayActions` com elas, no `ready`, antes de `registerGmRelay`.
+ */
+const HANDLERS = {};
 
-  /**
-   * "Passar tempo só para estes" (Relógio do mundo, J9b 8b.2): quem clicou (um Mestre) já somou o tempo
-   * pessoal; o Mestre designado acorda quem completou o descanso, irradia e avisa o grupo. Só Mestre.
-   * @param {{actorUuids:string[], seconds:number}} payload
-   */
-  async timePassedFor({ actorUuids, seconds }, user) {
-    if (!user?.isGM) return refuse(RELAY_REASONS.permission);
-    const s = Math.min(Math.floor(Number(seconds) || 0), 1e10);
-    if (!(s > 0) || !Array.isArray(actorUuids)) return;
-    const actors = [];
-    for (const uuid of actorUuids.slice(0, 200)) {
-      const actor = typeof uuid === "string" ? await fromUuid(uuid) : null;
-      if (actor?.documentName === "Actor") actors.push(actor);
-    }
-    const { afterPersonalTimePassed } = await import("../core/world-time.js");
-    await afterPersonalTimePassed(actors, s);
-  },
-
-  /**
-   * Biblioteca do PAD "Da Nave": o jogador não grava em Compêndio, então o Mestre grava por ele.
-   * Só quem comanda a Nave (dono dela ou de um tripulante); rótulo e nota limitados.
-   * @param {{op:"add"|"remove", shipUuid:string, label?:string, uuid?:string, note?:string, entryId?:string}} payload
-   */
-  async shipLibrary({ op, shipUuid, label, uuid, note, entryId }, user) {
-    const ship = typeof shipUuid === "string" ? await fromUuid(shipUuid) : null;
-    if (!ship || !["starship", "vehicle"].includes(ship.type)) return refuse(RELAY_REASONS.invalid);
-    const lib = await import("../pad/pad-library.js");
-    if (!lib.commandsShip(user, ship)) return refuse(RELAY_REASONS.permission);
-    if (op === "add") {
-      if (typeof uuid !== "string" || !uuid) return refuse(RELAY_REASONS.invalid);
-      await lib.addShipLibraryEntryAsGm(ship, { uuid: uuid.slice(0, 300), label: String(label ?? "").slice(0, 120), note: String(note ?? "").slice(0, 500) });
-    } else if (op === "remove") {
-      if (typeof entryId !== "string" || !entryId) return refuse(RELAY_REASONS.invalid);
-      await lib.removeShipLibraryEntryAsGm(ship, entryId);
-    } else return refuse(RELAY_REASONS.invalid);
-  },
-
-  /**
-   * Credita XP em Skills de Resistência que acabaram de reduzir dano.
-   *
-   * Quem pede é quem atacou — quase nunca dono do alvo —, então aqui não dá para exigir posse.
-   * O que segura o abuso é o limite: cada Skill ganha no máximo o XP de um golpe que tivesse
-   * levado a Vida inteira do alvo (`resistanceXpGain(maxHp, maxHp)`), só Skills de Resistência
-   * de verdade, uma vez cada por pedido, e nunca além do teto do nível.
-   * @param {{actorUuid:string, grants:Array<{skillId:string, gain:number}>}} payload
-   */
-  async resistanceXp({ actorUuid, grants }) {
-    const actor = typeof actorUuid === "string" ? await fromUuid(actorUuid) : null;
-    if (!actor || !Array.isArray(grants)) return;
-
-    const maxHp = Number(actor.system?.attributes?.hp?.max) || 0;
-    const perHitCap = resistanceXpGain(maxHp, maxHp);
-    const seen = new Set();
-    for (const { skillId, gain } of grants.slice(0, 20)) {
-      if (seen.has(skillId)) continue;
-      seen.add(skillId);
-      const skill = actor.items.get(skillId);
-      // Skill concedida por Item/Módulo é fixa: nunca ganha XP.
-      if (!skill || skill.type !== "skill" || skill.system.isItemGranted || !skill.system.resistanceTarget) continue;
-      const amount = Math.min(Number(gain) || 0, perHitCap);
-      if (!(amount > 0)) continue;
-
-      const current = Number(skill.system.xp) || 0;
-      const max = Number(skill.system.xpMax) || 0;
-      // Re-aplica o teto aqui, e não só no emissor: o payload veio de outro cliente.
-      const next = max > 0 ? Math.min(max, current + amount) : current + amount;
-      if (next !== current) await skill.update({ "system.xp": next });
-    }
-  },
-
-  /**
-   * XP por uso numa Skill que quem pede não possui (hoje: a Estrutura de outro segurando o golpe
-   * de quem atacou). Mesmo raciocínio da `resistanceXp`: não há posse a exigir, então o pedido é
-   * limitado — o Mestre refaz a conta com a configuração DELE, poucas medidas, e no máximo uma
-   * unidade ("uma Vida inteira") por pedido, nunca além do teto do nível.
-   * @param {{skillUuid:string, measures:Array<object>, mastery?:boolean}} payload
-   */
-  async skillUseXp({ skillUuid, measures, mastery }) {
-    const skill = typeof skillUuid === "string" ? await fromUuid(skillUuid) : null;
-    if (!skill || skill.type !== "skill" || skill.system.isItemGranted || !Array.isArray(measures)) return;
-    const { skillUseXp } = await import("../skills/skill-xp-rules.js");
-    const { skillXpConfig } = await import("../skills/skill-xp.js");
-    const { isFeatureEnabled, getFeatureOption } = await import("../core/config.js");
-    if (!isFeatureEnabled("skillUseXp")) return;
-    // Maestria de arma (H6): a fatia vem da configuração do Mestre, e só vale para uma Maestria que ainda sobe.
-    const { masteryXpConfig } = await import("../skills/skill-xp.js");
-    const { masteryEarnsXp } = await import("../combat/weapon-mastery-rules.js");
-    if (mastery && (!isFeatureEnabled("weaponMastery") || !skill.system.weaponMastery || !masteryEarnsXp(skill.system, { maxLevel: getFeatureOption("weaponMastery", "masteryMaxLevel") }))) return;
-    // Uma Maestria só ganha XP pelo caminho dela (com o teto de nível e a fatia), nunca como Skill comum.
-    if (!mastery && skill.system.weaponMastery) return;
-    const config = mastery ? masteryXpConfig() : skillXpConfig();
-    const clean = measures.slice(0, 10).map(m => (m?.flat ? { flat: true } : { value: Number(m?.value) || 0, base: Number(m?.base) || 0, buff: Boolean(m?.buff), block: Boolean(m?.block) }));
-    const gain = skillUseXp(clean, { ...config, cap: config.factor });
-    if (!gain) return;
-    const current = Number(skill.system.xp) || 0;
-    const max = Number(skill.system.xpMax) || 0;
-    const next = max > 0 ? Math.min(max, current + gain) : current + gain;
-    if (next !== current) await skill.update({ "system.xp": next });
-  },
-
-  /**
-   * Liga/desliga o Correr (deslocamento ×2) do Combatant que está no turno.
-   * @param {{combatantUuid:string, value:boolean}} payload
-   */
-  async setMovementDash({ combatantUuid, value }, user) {
-    const combatant = typeof combatantUuid === "string" ? await fromUuid(combatantUuid) : null;
-    if (combatant?.documentName !== "Combatant") return refuse(RELAY_REASONS.invalid);
-    if (!owns(user, combatant.actor)) return refuse(RELAY_REASONS.permission);
-    // Só quem está no seu turno pode declarar Correr — o payload vem de outro cliente.
-    const combat = combatant.combat;
-    if (!combat?.started || combat.combatant?.id !== combatant.id) return refuse("não é o turno deste personagem");
-    // Caído/Inconsciente não corre.
-    const { isIncapacitated } = await import("../combat/incapacitation.js");
-    if (value && isIncapacitated(combatant.actor)) return refuse("o personagem está caído ou inconsciente");
-    await combatant.setFlag(SYSTEM_ID, "movementDash", Boolean(value));
-  },
-
-  /**
-   * Contabiliza exposição a um tipo de dano (ver `registerResistanceExposure` em resistance.js).
-   * Quem pede é o atacante, então não há posse a conferir; o efeito máximo é uma *sugestão* ao
-   * Mestre, e o pedido é limitado a poucos tipos distintos.
-   * @param {{actorUuid:string, elements:string[]}} payload
-   */
-  async resistanceExposure({ actorUuid, elements }) {
-    const actor = typeof actorUuid === "string" ? await fromUuid(actorUuid) : null;
-    if (!actor || !Array.isArray(elements)) return;
-    const clean = [...new Set(elements.filter(e => typeof e === "string" && e))].slice(0, 10);
-    const { applyResistanceExposure } = await import("../combat/resistance.js");
-    await applyResistanceExposure(actor, clean);
-  },
-
-  /**
-   * Registra no Compêndio de mundo um Item que um jogador criou (o jogador não pode escrever lá).
-   * O payload só serve para achar o Item: ele tem de existir numa ficha que o jogador possui, e o
-   * que vai para o Compêndio são os dados DESSE Item (name/img/type/system) — nunca o `system`
-   * que veio no payload, nem ids, ownership ou flags.
-   * @param {{itemData:object}} payload
-   */
-  async registerCompendiumItem({ itemData }, user) {
-    const itemId = itemData?._id;
-    if (typeof itemId !== "string") return;
-    const item = actorsOwnedBy(user)
-      .map(actor => actor.items.get(itemId))
-      .find(Boolean);
-    if (!item) return;
-    const { registerItemInCompendium, getCompendiumForItemType } = await import("../core/compendium.js");
-    if (!getCompendiumForItemType(item.type)) return;
-    const source = item.toObject();
-    await registerItemInCompendium({ name: source.name, img: source.img, type: source.type, system: source.system ?? {} });
-  },
-
-  /**
-   * Aplica os Efeitos de uma Skill (ou consumível) em Atores que quem usou não possui — Lentidão
-   * num NPC, buff no personagem de outro jogador. A mecânica é refeita da Skill do lado do Mestre
-   * e quem pede tem de ser dono dela; ver applySkillEffectsAsGm em skill-effects.js.
-   */
-  async applySkillEffects(payload, user) {
-    const { applySkillEffectsAsGm } = await import("../skills/skill-effects.js");
-    return applySkillEffectsAsGm(payload, user);
-  },
-
-  /**
-   * Ficha em modo criação (J10): o jogador não cria Atores (padrão do Foundry), então o Mestre cria
-   * a ficha em branco que já é dele. Quem pede é `user` (dito pelo servidor); o payload não tem
-   * nada. Uma em criação por jogador: pedir de novo devolve a que já existe.
-   */
-  async createCharacter(payload, user) {
-    const { createCharacterAsGm } = await import("../creation/creation.js");
-    return createCharacterAsGm(payload, user);
-  },
-
-  /**
-   * Pasta de imagens do jogador (1.94.1): criar pasta e listar exigem "Usar o navegador de arquivos",
-   * que o jogador não tem; o Mestre faz por ele. A pasta vem de `user` (dito pelo servidor), nunca do
-   * payload — ninguém pede a pasta de outro. Só para quem tem "Enviar arquivos".
-   */
-  async ensureUploadFolder(payload, user) {
-    if (!user?.can?.("FILES_UPLOAD")) return refuse(RELAY_REASONS.permission);
-    const { ensurePlayerFolderAsGm } = await import("./player-uploads.js");
-    return ensurePlayerFolderAsGm(user);
-  },
-
-  async listUploadFolder(payload, user) {
-    if (!user?.can?.("FILES_UPLOAD")) return refuse(RELAY_REASONS.permission);
-    const { listPlayerFolderAsGm } = await import("./player-uploads.js");
-    return listPlayerFolderAsGm(user);
-  },
-
-  /**
-   * Forma (H5): o Mestre cria a ficha temporária e troca os Tokens. Quem pede tem de ser dono do
-   * personagem; molde, Skill e estado são lidos da ficha (ver transformActorAsGm).
-   */
-  async transformActor(payload, user) {
-    if (!(await mayActFor(user, payload?.sourceActorUuid))) return refuse(RELAY_REASONS.permission);
-    const { transformActorAsGm } = await import("../skills/forms.js");
-    return transformActorAsGm(payload ?? {}, user);
-  },
-
-  /**
-   * Skill emprestada (7a): a Recarga de depois do uso é gravada na Skill do DONO. Quem pede é dono de
-   * quem usou; o vínculo e a Recarga são refeitos do lado do Mestre (ver borrowedCooldownAsGm).
-   */
-  async borrowedCooldown(payload, user) {
-    const { borrowedCooldownAsGm } = await import("../skills/borrowed-skills.js");
-    return borrowedCooldownAsGm(payload ?? {}, user);
-  },
-
-  /** O patrono ou o bruxo corta o Pacto (o Mestre desfaz os dois lados). Corredor de alma: só o Mestre. */
-  async cutBorrowLink(payload, user) {
-    const { cutLinkAsGm } = await import("../skills/borrowed-skills.js");
-    return cutLinkAsGm(payload ?? {}, user);
-  },
-
-  /**
-   * Corredor de alma (7a): parte do XP que o nomeado ganhou vai a quem o nomeou. Quem pede é dono do
-   * nomeado (foi quem gravou o XP dele); o vínculo é conferido aqui e o ganho é limitado a um nível.
-   */
-  async soulXp(payload, user) {
-    if (!(await mayActFor(user, payload?.namedUuid))) return refuse(RELAY_REASONS.permission);
-    const { soulXpAsGm } = await import("../species/naming.js");
-    return soulXpAsGm(payload ?? {});
-  },
-
-  /**
-   * Rerrolar (8d.2): marca a rolagem antiga, troca a iniciativa, refaz o card de dano ou o d100 da Predação.
-   * Quem pede é dono da Skill de Rerrolar; o Mestre confere a Skill e se ela alcança a rolagem.
-   */
-  async rerollApply(payload, user) {
-    if (!(await mayActFor(user, payload?.skillUuid))) return refuse(RELAY_REASONS.permission);
-    const { rerollApplyAsGm } = await import("../skills/reroll.js");
-    return rerollApplyAsGm(payload ?? {}, user);
-  },
-
-  /** Ergue uma Estrutura (Paredes + Desenho). Validação e catálogo ficam em structures.js. */
-  async createStructure(payload, user) {
-    if (!(await mayActFor(user, payload?.sourceActorUuid))) return refuse(RELAY_REASONS.permission);
-    const { createStructureAsGm } = await import("../structures/structures.js");
-    return createStructureAsGm(payload);
-  },
-
-  /**
-   * Dano numa Estrutura que estava no caminho de um ataque (ver hitStructure em structures.js).
-   * Quem pede tem de ser dono de quem atacou. O valor em si é o da rolagem desse cliente — o
-   * mesmo grau de confiança de qualquer rolagem de dano.
-   */
-  async damageStructure({ sceneId, instanceId, amount, attackerUuid, broken }, user) {
-    if (!(await mayActFor(user, attackerUuid))) return;
-    const scene = typeof sceneId === "string" ? game.scenes.get(sceneId) : null;
-    const value = Math.max(0, Math.round(Number(amount) || 0));
-    if (!scene || typeof instanceId !== "string" || (!value && broken !== true)) return;
-    const { damageStructure } = await import("../structures/structures.js");
-    await damageStructure(scene, instanceId, value, { broken: broken === true });
-  },
-
-  /**
-   * Empurrar/Puxar (J1): o Mestre move os Tokens. Quem pede tem de ser dono da Skill/arma de origem; o
-   * resto (metros, direção, Traços) é refeito da ficha do lado do Mestre (ver forcedMoveAsGm).
-   */
-  async forcedMove(payload, user) {
-    if (!(await mayActFor(user, payload?.sourceUuid))) return refuse(RELAY_REASONS.permission);
-    const { forcedMoveAsGm } = await import("../combat/forced-movement.js");
-    return forcedMoveAsGm(payload ?? {});
-  },
-
-  /** "Regenerar agora" da janela de Efeitos: os Escudos mantidos deste Ator (escreve nos alvos). */
-  async regenerateSustainedShields(payload, user) {
-    const actor = await ownedDoc(payload?.actorUuid, user);
-    if (!actor) return;
-    const { regenerateSustainedShields } = await import("../skills/sustained-shields.js");
-    await regenerateSustainedShields(actor);
-  },
-
-  /** Raio Trator: prende um alvo (a força é recalculada aqui, ver engageTractorAsGm). */
-  async engageTractor(payload, user) {
-    if (!(await mayActFor(user, payload?.moduleUuid))) return refuse(RELAY_REASONS.permission);
-    const { engageTractorAsGm, tractorRefusal } = await import("../starship/starship-power.js");
-    const refusal = await tractorRefusal(payload ?? {});
-    if (refusal) return refuse(refusal);
-    await engageTractorAsGm(payload ?? {});
-  },
-
-  /** Raio Trator: solta o alvo. */
-  async releaseTractor(payload, user) {
-    if (!(await mayActFor(user, payload?.moduleUuid))) return;
-    const { releaseTractorAsGm } = await import("../starship/starship-power.js");
-    await releaseTractorAsGm(payload ?? {});
-  },
-
-  /** Acende a luz de um Escudo pessoal nos Tokens do alvo (ver lights.js). Quem pede: dono de quem lançou. */
-  async setShieldLight(payload, user) {
-    if (!(await mayActFor(user, payload?.source?.actorUuid))) return refuse(RELAY_REASONS.permission);
-    const { setShieldLightAsGm } = await import("../combat/lights.js");
-    return setShieldLightAsGm(payload ?? {});
-  },
-
-  /** Apaga as luzes de Escudo que uma Skill Ativa acendeu (ao desligá-la). */
-  async clearShieldLights({ actorUuid, skillId, subSkillIndex }, user) {
-    if (!(await mayActFor(user, actorUuid))) return;
-    const { clearShieldLightsFromSourceAsGm } = await import("../combat/lights.js");
-    await clearShieldLightsFromSourceAsGm({ actorUuid, skillId: String(skillId ?? ""), subSkillIndex: Number.isInteger(subSkillIndex) ? subSkillIndex : null });
-  },
-
-  /**
-   * Desligar uma Skill Ativa: tira a âncora dela dos efeitos em Atores que quem desligou não
-   * possui. Quem pede tem de ser dono da Skill — ou, se ela já foi apagada, do Ator que a tinha.
-   */
-  async releaseSkillAnchors(payload, user) {
-    const skillUuid = payload?.skillUuid;
-    if (typeof skillUuid !== "string") return;
-    const skill = await fromUuid(skillUuid);
-    const holder = skill ?? (await fromUuid(skillUuid.split(".Item.")[0]));
-    if (!owns(user, holder)) return;
-    const { releaseSkillAnchorsAsGm } = await import("../skills/upkeep.js");
-    // `requesterId` é sempre quem pediu de verdade, nunca o que veio no payload.
-    await releaseSkillAnchorsAsGm({ ...payload, requesterId: user.id });
-  },
-
-  /**
-   * Antimagia em Emissão desfaz as Estruturas que a área toca. Quem pede tem de ser dono da Skill;
-   * o alcance e o tamanho da área são conferidos contra a Skill na ficha (structures.js).
-   */
-  async antimagicStructures(payload, user) {
-    const skill = await ownedDoc(payload?.skillUuid, user);
-    if (!skill) return refuse(RELAY_REASONS.permission);
-    const { antimagicStructuresAsGm } = await import("../structures/structures.js");
-    return antimagicStructuresAsGm(payload, skill);
-  },
-
-  /** Derruba as Estruturas que uma Skill Ativa mantinha (ao desligá-la). */
-  async removeStructures({ sourceUuid, skillId, subSkillIndex }, user) {
-    if (!(await mayActFor(user, sourceUuid))) return;
-    const { removeStructuresForAsGm } = await import("../structures/structures.js");
-    await removeStructuresForAsGm({ sourceUuid, skillId: String(skillId ?? ""), subSkillIndex: Number.isInteger(subSkillIndex) ? subSkillIndex : null });
-  },
-
-  /** Apaga as Zonas que uma Skill Ativa mantinha (ao desligá-la). Quem pede: dono de quem lançou. */
-  async removeZones({ sourceUuid, skillId, subSkillIndex }, user) {
-    if (!(await mayActFor(user, sourceUuid))) return;
-    const { zonesOnScene } = await import("../combat/area-effects.js");
-    for (const scene of game.scenes) {
-      for (const doc of zonesOnScene(scene)) {
-        const zone = doc.getFlag(SYSTEM_ID, "zone");
-        if (zone?.sourceUuid === sourceUuid && zone.skillId === skillId && (zone.subSkillIndex ?? null) === (subSkillIndex ?? null)) {
-          await doc.delete();
-        }
-      }
-    }
-  },
-
-  /**
-   * Superfícies elementais (8.2): o Mestre cria (ou renova) a superfície de um elemento num ponto da cena.
-   * Quem pede tem de ser dono de `sourceUuid` (quem usou a Skill / o alvo do golpe); o elemento tem de
-   * deixar algo no chão, e o raio e as rodadas são limitados do lado do Mestre (ver createSurfaceAsGm).
-   */
-  async createSurface(payload, user) {
-    if (!(await mayActFor(user, payload?.sourceUuid))) return refuse(RELAY_REASONS.permission);
-    const { createSurfaceAsGm } = await import("../environment/surfaces.js");
-    return createSurfaceAsGm({
-      sceneId: payload?.sceneId,
-      x: payload?.x,
-      y: payload?.y,
-      elementId: String(payload?.elementId ?? ""),
-      radiusMeters: payload?.radiusMeters,
-      rounds: payload?.rounds,
-      originMagic: payload?.originMagic === true,
-      useId: String(payload?.useId ?? "").slice(0, 32)
-    });
-  },
-
-  /**
-   * Cria a Zona na cena: Region na V14, Measured Template na V13 (`zoneDocumentData`). A área
-   * vem do cliente de quem lançou, então passa por `normalizeArea` (formas e números limitados),
-   * e quem pede tem de ser dono de quem lançou.
-   */
-  async createZone({ sceneId, area, color, zone }, user) {
-    const scene = game.scenes.get(sceneId);
-    const source = await ownedDoc(zone?.sourceUuid, user);
-    const { normalizeArea, zoneDocumentData } = await import("../combat/area-geometry.js");
-    const { sceneScale } = await import("../combat/area-effects.js");
-    const { foundryGeneration } = await import("./foundry-compat.js");
-    const clean = normalizeArea(area);
-    if (!scene) return refuse("a cena não existe mais");
-    if (!source) return refuse(RELAY_REASONS.permission);
-    if (!clean) return refuse("a área da Zona ficou inválida");
-
-    const label = String(zone.label ?? "").trim() || "Zona"; // Region recusa nome vazio
-    const { documentName, data } = zoneDocumentData(clean, {
-      generation: foundryGeneration(),
-      pxPerUnit: sceneScale(scene).pxPerUnit,
-      color: /^#[0-9a-f]{6}$/i.test(color ?? "") ? color : "#ff0000",
-      name: label,
-      visibility: CONST.REGION_VISIBILITY?.ALWAYS ?? 2,
-      flags: {
-        [SYSTEM_ID]: {
-          zone: {
-            sourceUuid: source.uuid,
-            skillId: String(zone.skillId ?? ""),
-            subSkillIndex: Number.isInteger(zone.subSkillIndex) ? zone.subSkillIndex : null,
-            label,
-            untilDeactivated: Boolean(zone.untilDeactivated),
-            roundsRemaining: Math.min(Math.max(Number(zone.roundsRemaining) || 1, 1), 100),
-            area: clean,
-            useId: String(zone.useId ?? "").slice(0, 32),
-            casterDisposition: Number.isInteger(zone.casterDisposition) ? zone.casterDisposition : null
-          }
-        }
-      }
-    });
-    await scene.createEmbeddedDocuments(documentName, [data]);
-  }
-};
+/**
+ * Copia as ações de um subsistema para o mapa do relay. Lança erro se o valor não for função ou se
+ * o nome já existir — melhor quebrar alto no boot do que um subsistema sobrescrever outro.
+ * @param {Record<string, (payload: object, user: User) => unknown>} handlers
+ */
+export function registerRelayActions(handlers) {
+  const errors = validateRelayRegistration(Object.keys(HANDLERS), handlers);
+  if (errors.length) throw new Error(`Relay do Mestre: ${errors.join("; ")}.`);
+  for (const [name, fn] of Object.entries(handlers)) HANDLERS[name] = fn;
+}
 
 /**
  * O Mestre "designado": exatamente um entre os Mestres conectados. Com dois Mestres online (um

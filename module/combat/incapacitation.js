@@ -18,7 +18,8 @@
  */
 import { SYSTEM_ID, getActiveStatusConditions, getFeatureOption, isIncapacitationEnabled, actorTraits } from "../core/config.js";
 import { TECH_SUPPRESSION_FLAG } from "../core/suppression.js";
-import { isDesignatedGm } from "../helpers/gm-relay.js";
+import { isDesignatedGm, owns } from "../helpers/gm-relay.js";
+import { RELAY_REASONS, refuse } from "../helpers/gm-relay-rules.js";
 import { escapeHtml } from "../helpers/html.js";
 import { incapacitatingIds, isIncapacitatedBy, zeroHpOutcome, incapacitationTurn } from "./incapacitation-rules.js";
 import { blockIfTimeStopped } from "./time-stop-state.js";
@@ -392,3 +393,26 @@ export function registerIncapacitation() {
 
   Hooks.on("renderChatMessageHTML", renderIncapacitationCard);
 }
+
+
+// ---------------------------------------------------------------------------
+// Ações do relay do Mestre (ver helpers/gm-relay.js). Juntadas em core/relay-actions.js.
+// Todas recebem `(payload, user)`; `user` é dito pelo servidor, nunca pelo payload.
+// ---------------------------------------------------------------------------
+export const RELAY_HANDLERS = {
+  /**
+   * Liga/desliga o Correr (deslocamento ×2) do Combatant que está no turno.
+   * @param {{combatantUuid:string, value:boolean}} payload
+   */
+  async setMovementDash({ combatantUuid, value }, user) {
+    const combatant = typeof combatantUuid === "string" ? await fromUuid(combatantUuid) : null;
+    if (combatant?.documentName !== "Combatant") return refuse(RELAY_REASONS.invalid);
+    if (!owns(user, combatant.actor)) return refuse(RELAY_REASONS.permission);
+    // Só quem está no seu turno pode declarar Correr — o payload vem de outro cliente.
+    const combat = combatant.combat;
+    if (!combat?.started || combat.combatant?.id !== combatant.id) return refuse("não é o turno deste personagem");
+    // Caído/Inconsciente não corre.
+    if (value && isIncapacitated(combatant.actor)) return refuse("o personagem está caído ou inconsciente");
+    await combatant.setFlag(SYSTEM_ID, "movementDash", Boolean(value));
+  }
+};

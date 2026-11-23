@@ -20,7 +20,7 @@ import { SYSTEM_ID } from "../core/config.js";
 import { filePickerClass } from "./foundry-compat.js";
 import { escapeHtml } from "./html.js";
 import { runAsGm } from "./gm-relay.js";
-import { RELAY_REASONS } from "./gm-relay-rules.js";
+import { RELAY_REASONS, refuse } from "./gm-relay-rules.js";
 import {
   playerFolder, folderChain, uploadFileName, galleryEntries, blankMimeFor, imageUsage, addRemoved, pathInFolder
 } from "./player-uploads-rules.js";
@@ -245,3 +245,25 @@ export async function openPlayerGallery() {
     ]
   });
 }
+
+
+// ---------------------------------------------------------------------------
+// Ações do relay do Mestre (ver helpers/gm-relay.js). Juntadas em core/relay-actions.js.
+// Todas recebem `(payload, user)`; `user` é dito pelo servidor, nunca pelo payload.
+// ---------------------------------------------------------------------------
+export const RELAY_HANDLERS = {
+  /**
+   * Pasta de imagens do jogador (1.94.1): criar pasta e listar exigem "Usar o navegador de arquivos",
+   * que o jogador não tem; o Mestre faz por ele. A pasta vem de `user` (dito pelo servidor), nunca do
+   * payload — ninguém pede a pasta de outro. Só para quem tem "Enviar arquivos".
+   */
+  async ensureUploadFolder(payload, user) {
+    if (!user?.can?.("FILES_UPLOAD")) return refuse(RELAY_REASONS.permission);
+    return ensurePlayerFolderAsGm(user);
+  },
+
+  async listUploadFolder(payload, user) {
+    if (!user?.can?.("FILES_UPLOAD")) return refuse(RELAY_REASONS.permission);
+    return listPlayerFolderAsGm(user);
+  }
+};

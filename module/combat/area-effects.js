@@ -18,10 +18,10 @@
 
 import { currentSkillUseId } from "../skills/skill-use-context.js";
 import { SYSTEM_ID, actorToken, isElevationEnabled } from "../core/config.js";
-import { runAsGm } from "../helpers/gm-relay.js";
-import { relayFailureMessage } from "../helpers/gm-relay-rules.js";
+import { runAsGm, mayActFor, ownedDoc } from "../helpers/gm-relay.js";
+import { RELAY_REASONS, refuse, relayFailureMessage } from "../helpers/gm-relay-rules.js";
 import { foundryGeneration } from "../helpers/foundry-compat.js";
-import { areaFromSkill, areaContains, areaContains3d, areaPolygon, normalizeArea, tokenDocCenter, areaFromTemplateData, areaAffectsTarget } from "./area-geometry.js";
+import { areaFromSkill, areaContains, areaContains3d, areaPolygon, normalizeArea, tokenDocCenter, areaFromTemplateData, areaAffectsTarget, zoneDocumentData } from "./area-geometry.js";
 import { clampToRange, filterByReach, markCostFactor, pointDistance } from "./range-rules.js";
 import { pointReach, viaMarkFrom, casterTokenOf } from "./range.js";
 import { isDead } from "./incapacitation.js";
@@ -386,3 +386,62 @@ export function zoneContainsToken(zoneDoc, tokenDoc) {
   if (!area || !tokenDoc) return false;
   return insideArea(area, tokenDocCenter(tokenDoc, zoneDoc.parent?.grid?.size), tokenElevation(tokenDoc), sceneScale(zoneDoc.parent).pxPerUnit);
 }
+
+
+// ---------------------------------------------------------------------------
+// Ações do relay do Mestre (ver helpers/gm-relay.js). Juntadas em core/relay-actions.js.
+// Todas recebem `(payload, user)`; `user` é dito pelo servidor, nunca pelo payload.
+// ---------------------------------------------------------------------------
+export const RELAY_HANDLERS = {
+  /** Apaga as Zonas que uma Skill Ativa mantinha (ao desligá-la). Quem pede: dono de quem lançou. */
+  async removeZones({ sourceUuid, skillId, subSkillIndex }, user) {
+    if (!(await mayActFor(user, sourceUuid))) return;
+    for (const scene of game.scenes) {
+      for (const doc of zonesOnScene(scene)) {
+        const zone = doc.getFlag(SYSTEM_ID, "zone");
+        if (zone?.sourceUuid === sourceUuid && zone.skillId === skillId && (zone.subSkillIndex ?? null) === (subSkillIndex ?? null)) {
+          await doc.delete();
+        }
+      }
+    }
+  },
+
+  /**
+   * Cria a Zona na cena: Region na V14, Measured Template na V13 (`zoneDocumentData`). A área
+   * vem do cliente de quem lançou, então passa por `normalizeArea` (formas e números limitados),
+   * e quem pede tem de ser dono de quem lançou.
+   */
+  async createZone({ sceneId, area, color, zone }, user) {
+    const scene = game.scenes.get(sceneId);
+    const source = await ownedDoc(zone?.sourceUuid, user);
+    const clean = normalizeArea(area);
+    if (!scene) return refuse("a cena não existe mais");
+    if (!source) return refuse(RELAY_REASONS.permission);
+    if (!clean) return refuse("a área da Zona ficou inválida");
+
+    const label = String(zone.label ?? "").trim() || "Zona"; // Region recusa nome vazio
+    const { documentName, data } = zoneDocumentData(clean, {
+      generation: foundryGeneration(),
+      pxPerUnit: sceneScale(scene).pxPerUnit,
+      color: /^#[0-9a-f]{6}$/i.test(color ?? "") ? color : "#ff0000",
+      name: label,
+      visibility: CONST.REGION_VISIBILITY?.ALWAYS ?? 2,
+      flags: {
+        [SYSTEM_ID]: {
+          zone: {
+            sourceUuid: source.uuid,
+            skillId: String(zone.skillId ?? ""),
+            subSkillIndex: Number.isInteger(zone.subSkillIndex) ? zone.subSkillIndex : null,
+            label,
+            untilDeactivated: Boolean(zone.untilDeactivated),
+            roundsRemaining: Math.min(Math.max(Number(zone.roundsRemaining) || 1, 1), 100),
+            area: clean,
+            useId: String(zone.useId ?? "").slice(0, 32),
+            casterDisposition: Number.isInteger(zone.casterDisposition) ? zone.casterDisposition : null
+          }
+        }
+      }
+    });
+    await scene.createEmbeddedDocuments(documentName, [data]);
+  }
+};

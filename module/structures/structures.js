@@ -35,8 +35,8 @@ import {
   getActiveStatusConditions
 } from "../core/config.js";
 import { fieldUseOutcome } from "../core/magic-rules.js";
-import { runAsGm, isDesignatedGm } from "../helpers/gm-relay.js";
-import { refuse, relayFailureMessage } from "../helpers/gm-relay-rules.js";
+import { runAsGm, isDesignatedGm, mayActFor, ownedDoc } from "../helpers/gm-relay.js";
+import { RELAY_REASONS, refuse, relayFailureMessage } from "../helpers/gm-relay-rules.js";
 import { escapeHtml } from "../helpers/html.js";
 import { reportError } from "../helpers/report.js";
 import { deleteKeyUpdate, wallSenseTypes } from "../helpers/foundry-compat.js";
@@ -1284,3 +1284,45 @@ export function renderStructureControls(message, html) {
   );
   box.querySelector(".structure-remove").addEventListener("click", () => removeStructureInstance(scene, card.instanceId, "destroyed"));
 }
+
+
+// ---------------------------------------------------------------------------
+// Ações do relay do Mestre (ver helpers/gm-relay.js). Juntadas em core/relay-actions.js.
+// Todas recebem `(payload, user)`; `user` é dito pelo servidor, nunca pelo payload.
+// ---------------------------------------------------------------------------
+export const RELAY_HANDLERS = {
+  /** Ergue uma Estrutura (Paredes + Desenho). Validação e catálogo ficam em structures.js. */
+  async createStructure(payload, user) {
+    if (!(await mayActFor(user, payload?.sourceActorUuid))) return refuse(RELAY_REASONS.permission);
+    return createStructureAsGm(payload);
+  },
+
+  /**
+   * Dano numa Estrutura que estava no caminho de um ataque (ver hitStructure em structures.js).
+   * Quem pede tem de ser dono de quem atacou. O valor em si é o da rolagem desse cliente — o
+   * mesmo grau de confiança de qualquer rolagem de dano.
+   */
+  async damageStructure({ sceneId, instanceId, amount, attackerUuid, broken }, user) {
+    if (!(await mayActFor(user, attackerUuid))) return;
+    const scene = typeof sceneId === "string" ? game.scenes.get(sceneId) : null;
+    const value = Math.max(0, Math.round(Number(amount) || 0));
+    if (!scene || typeof instanceId !== "string" || (!value && broken !== true)) return;
+    await damageStructure(scene, instanceId, value, { broken: broken === true });
+  },
+
+  /**
+   * Antimagia em Emissão desfaz as Estruturas que a área toca. Quem pede tem de ser dono da Skill;
+   * o alcance e o tamanho da área são conferidos contra a Skill na ficha (structures.js).
+   */
+  async antimagicStructures(payload, user) {
+    const skill = await ownedDoc(payload?.skillUuid, user);
+    if (!skill) return refuse(RELAY_REASONS.permission);
+    return antimagicStructuresAsGm(payload, skill);
+  },
+
+  /** Derruba as Estruturas que uma Skill Ativa mantinha (ao desligá-la). */
+  async removeStructures({ sourceUuid, skillId, subSkillIndex }, user) {
+    if (!(await mayActFor(user, sourceUuid))) return;
+    await removeStructuresForAsGm({ sourceUuid, skillId: String(skillId ?? ""), subSkillIndex: Number.isInteger(subSkillIndex) ? subSkillIndex : null });
+  }
+};

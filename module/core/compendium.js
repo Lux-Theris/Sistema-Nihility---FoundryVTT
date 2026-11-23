@@ -6,7 +6,7 @@
  */
 import { SYSTEM_ID, NIHILITY, getCharacterEnergyLabel } from "./config.js";
 import { compendiumCollectionClass } from "../helpers/foundry-compat.js";
-import { runAsGm } from "../helpers/gm-relay.js";
+import { runAsGm, actorsOwnedBy } from "../helpers/gm-relay.js";
 
 const COMPENDIUM_TYPE_MAP = {
   skill: NIHILITY.COMPENDIUM.skills,
@@ -179,3 +179,29 @@ export async function registerItemInCompendium(itemData) {
   const [doc] = await pack.documentClass.createDocuments([itemData], { pack: pack.collection });
   return doc;
 }
+
+
+// ---------------------------------------------------------------------------
+// Ações do relay do Mestre (ver helpers/gm-relay.js). Juntadas em core/relay-actions.js.
+// Todas recebem `(payload, user)`; `user` é dito pelo servidor, nunca pelo payload.
+// ---------------------------------------------------------------------------
+export const RELAY_HANDLERS = {
+  /**
+   * Registra no Compêndio de mundo um Item que um jogador criou (o jogador não pode escrever lá).
+   * O payload só serve para achar o Item: ele tem de existir numa ficha que o jogador possui, e o
+   * que vai para o Compêndio são os dados DESSE Item (name/img/type/system) — nunca o `system`
+   * que veio no payload, nem ids, ownership ou flags.
+   * @param {{itemData:object}} payload
+   */
+  async registerCompendiumItem({ itemData }, user) {
+    const itemId = itemData?._id;
+    if (typeof itemId !== "string") return;
+    const item = actorsOwnedBy(user)
+      .map(actor => actor.items.get(itemId))
+      .find(Boolean);
+    if (!item) return;
+    if (!getCompendiumForItemType(item.type)) return;
+    const source = item.toObject();
+    await registerItemInCompendium({ name: source.name, img: source.img, type: source.type, system: source.system ?? {} });
+  }
+};

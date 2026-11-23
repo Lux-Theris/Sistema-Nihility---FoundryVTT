@@ -346,3 +346,23 @@ export function registerBorrowedSheetRefresh() {
     }
   });
 }
+
+
+// ---------------------------------------------------------------------------
+// Ações do relay do Mestre (ver helpers/gm-relay.js). Juntadas em core/relay-actions.js.
+// Todas recebem `(payload, user)`; `user` é dito pelo servidor, nunca pelo payload.
+// ---------------------------------------------------------------------------
+export const RELAY_HANDLERS = {
+  /**
+   * Skill emprestada (7a): a Recarga de depois do uso é gravada na Skill do DONO. Quem pede é dono de
+   * quem usou; o vínculo e a Recarga são refeitos do lado do Mestre (ver borrowedCooldownAsGm).
+   */
+  async borrowedCooldown(payload, user) {
+    return borrowedCooldownAsGm(payload ?? {}, user);
+  },
+
+  /** O patrono ou o bruxo corta o Pacto (o Mestre desfaz os dois lados). Corredor de alma: só o Mestre. */
+  async cutBorrowLink(payload, user) {
+    return cutLinkAsGm(payload ?? {}, user);
+  }
+};

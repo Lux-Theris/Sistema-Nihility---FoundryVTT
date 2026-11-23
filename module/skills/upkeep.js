@@ -5,7 +5,7 @@
 import { SYSTEM_ID, getEnergyLabelForActor, isEnergyPoolEnabled, effectiveSkillCost, combatantIsActor, isMagicUse, isTechUse, isInterferenceEnabled, getHealingRules, actorManipulation } from "../core/config.js";
 import { fieldUseOutcome } from "../core/magic-rules.js";
 import { creditManipulation } from "../combat/antimagic.js";
-import { runAsGm } from "../helpers/gm-relay.js";
+import { runAsGm, owns } from "../helpers/gm-relay.js";
 import { makeAnchor, removeAnchor, effectAnchors, finiteRemaining, anchorLifetime, PERMANENT, ANCHORED_TARGETS_FLAG, ANCHORED_TARGETS_CAP, anchoredTargetsFor, forgetAnchoredTargets } from "../combat/effect-anchors.js";
 import { worldActors, actorsFromUuids } from "../helpers/world-actors.js";
 import { escapeHtml } from "../helpers/html.js";
@@ -454,3 +454,24 @@ export async function tickActorUpkeepSkills(actor, { steps = 1, notes = null } =
 
   return results;
 }
+
+
+// ---------------------------------------------------------------------------
+// Ações do relay do Mestre (ver helpers/gm-relay.js). Juntadas em core/relay-actions.js.
+// Todas recebem `(payload, user)`; `user` é dito pelo servidor, nunca pelo payload.
+// ---------------------------------------------------------------------------
+export const RELAY_HANDLERS = {
+  /**
+   * Desligar uma Skill Ativa: tira a âncora dela dos efeitos em Atores que quem desligou não
+   * possui. Quem pede tem de ser dono da Skill — ou, se ela já foi apagada, do Ator que a tinha.
+   */
+  async releaseSkillAnchors(payload, user) {
+    const skillUuid = payload?.skillUuid;
+    if (typeof skillUuid !== "string") return;
+    const skill = await fromUuid(skillUuid);
+    const holder = skill ?? (await fromUuid(skillUuid.split(".Item.")[0]));
+    if (!owns(user, holder)) return;
+    // `requesterId` é sempre quem pediu de verdade, nunca o que veio no payload.
+    await releaseSkillAnchorsAsGm({ ...payload, requesterId: user.id });
+  }
+};

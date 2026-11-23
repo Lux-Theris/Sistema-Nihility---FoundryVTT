@@ -5,6 +5,7 @@
 import { SYSTEM_ID } from "../core/config.js";
 import { addShieldToPool, removeShieldPool } from "../combat/shield-pools.js";
 import { escapeHtml } from "../helpers/html.js";
+import { ownedDoc } from "../helpers/gm-relay.js";
 
 /* ------------------------------------------------------------------ Escudo mantido */
 
@@ -70,3 +71,17 @@ export async function dropSustainedShields(holder, skillId, subSkillIndex) {
   }
   await holder.setFlag(SYSTEM_ID, SUSTAINED_SHIELD_FLAG, list.filter(r => !isThis(r)));
 }
+
+
+// ---------------------------------------------------------------------------
+// Ações do relay do Mestre (ver helpers/gm-relay.js). Juntadas em core/relay-actions.js.
+// Todas recebem `(payload, user)`; `user` é dito pelo servidor, nunca pelo payload.
+// ---------------------------------------------------------------------------
+export const RELAY_HANDLERS = {
+  /** "Regenerar agora" da janela de Efeitos: os Escudos mantidos deste Ator (escreve nos alvos). */
+  async regenerateSustainedShields(payload, user) {
+    const actor = await ownedDoc(payload?.actorUuid, user);
+    if (!actor) return;
+    await regenerateSustainedShields(actor);
+  }
+};

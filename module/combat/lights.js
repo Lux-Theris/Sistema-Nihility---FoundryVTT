@@ -13,8 +13,8 @@
  * de quem está editando: nada é gravado até Aplicar.
  */
 import { SYSTEM_ID, normalizeLightConfig } from "../core/config.js";
-import { runAsGm, isDesignatedGm } from "../helpers/gm-relay.js";
-import { refuse, relayFailureMessage } from "../helpers/gm-relay-rules.js";
+import { runAsGm, isDesignatedGm, mayActFor } from "../helpers/gm-relay.js";
+import { RELAY_REASONS, refuse, relayFailureMessage } from "../helpers/gm-relay-rules.js";
 import { escapeHtml } from "../helpers/html.js";
 import { deleteKeyUpdate } from "../helpers/foundry-compat.js";
 
@@ -358,3 +358,22 @@ export function registerShieldLightHooks() {
     syncShieldLightsToPools(actor);
   });
 }
+
+
+// ---------------------------------------------------------------------------
+// Ações do relay do Mestre (ver helpers/gm-relay.js). Juntadas em core/relay-actions.js.
+// Todas recebem `(payload, user)`; `user` é dito pelo servidor, nunca pelo payload.
+// ---------------------------------------------------------------------------
+export const RELAY_HANDLERS = {
+  /** Acende a luz de um Escudo pessoal nos Tokens do alvo (ver lights.js). Quem pede: dono de quem lançou. */
+  async setShieldLight(payload, user) {
+    if (!(await mayActFor(user, payload?.source?.actorUuid))) return refuse(RELAY_REASONS.permission);
+    return setShieldLightAsGm(payload ?? {});
+  },
+
+  /** Apaga as luzes de Escudo que uma Skill Ativa acendeu (ao desligá-la). */
+  async clearShieldLights({ actorUuid, skillId, subSkillIndex }, user) {
+    if (!(await mayActFor(user, actorUuid))) return;
+    await clearShieldLightsFromSourceAsGm({ actorUuid, skillId: String(skillId ?? ""), subSkillIndex: Number.isInteger(subSkillIndex) ? subSkillIndex : null });
+  }
+};

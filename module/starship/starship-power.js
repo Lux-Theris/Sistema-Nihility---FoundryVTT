@@ -1,6 +1,8 @@
 import { SYSTEM_ID, NIHILITY, moduleRole, tractorHold, getShipActionConfig, focusGroupAssignments } from "../core/config.js";
 import { splitTargetedStructural, hardenedChance } from "../combat/damage-rules.js";
 import { deleteKeyUpdate } from "../helpers/foundry-compat.js";
+import { mayActFor } from "../helpers/gm-relay.js";
+import { RELAY_REASONS, refuse } from "../helpers/gm-relay-rules.js";
 
 /**
  * Reparte `amount` de dano entre Módulos, em pedaços de tamanho ALEATÓRIO e em ordem ALEATÓRIA —
@@ -534,3 +536,24 @@ export async function modulateWeaponFrequency(ship) {
   await ship.setFlag(SYSTEM_ID, "weaponFrequency", next);
   return next;
 }
+
+
+// ---------------------------------------------------------------------------
+// Ações do relay do Mestre (ver helpers/gm-relay.js). Juntadas em core/relay-actions.js.
+// Todas recebem `(payload, user)`; `user` é dito pelo servidor, nunca pelo payload.
+// ---------------------------------------------------------------------------
+export const RELAY_HANDLERS = {
+  /** Raio Trator: prende um alvo (a força é recalculada aqui, ver engageTractorAsGm). */
+  async engageTractor(payload, user) {
+    if (!(await mayActFor(user, payload?.moduleUuid))) return refuse(RELAY_REASONS.permission);
+    const refusal = await tractorRefusal(payload ?? {});
+    if (refusal) return refuse(refusal);
+    await engageTractorAsGm(payload ?? {});
+  },
+
+  /** Raio Trator: solta o alvo. */
+  async releaseTractor(payload, user) {
+    if (!(await mayActFor(user, payload?.moduleUuid))) return;
+    await releaseTractorAsGm(payload ?? {});
+  }
+};

@@ -21,7 +21,7 @@ import { currentEnergyValue } from "./skill-state.js";
 import { useBlockReason } from "./preparation.js";
 import { useSkillEffect } from "./skill-effects.js";
 import { grantSkillUseXp } from "./skill-xp.js";
-import { runAsGm } from "../helpers/gm-relay.js";
+import { runAsGm, mayActFor } from "../helpers/gm-relay.js";
 import { RELAY_REASONS, refuse, relayFailureMessage } from "../helpers/gm-relay-rules.js";
 import { escapeHtml } from "../helpers/html.js";
 import { reportError } from "../helpers/report.js";
@@ -420,3 +420,19 @@ export function registerReroll() {
 }
 
 export { rerollGroupOf };
+
+
+// ---------------------------------------------------------------------------
+// Ações do relay do Mestre (ver helpers/gm-relay.js). Juntadas em core/relay-actions.js.
+// Todas recebem `(payload, user)`; `user` é dito pelo servidor, nunca pelo payload.
+// ---------------------------------------------------------------------------
+export const RELAY_HANDLERS = {
+  /**
+   * Rerrolar (8d.2): marca a rolagem antiga, troca a iniciativa, refaz o card de dano ou o d100 da Predação.
+   * Quem pede é dono da Skill de Rerrolar; o Mestre confere a Skill e se ela alcança a rolagem.
+   */
+  async rerollApply(payload, user) {
+    if (!(await mayActFor(user, payload?.skillUuid))) return refuse(RELAY_REASONS.permission);
+    return rerollApplyAsGm(payload ?? {}, user);
+  }
+};

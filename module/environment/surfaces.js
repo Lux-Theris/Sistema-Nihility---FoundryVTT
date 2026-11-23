@@ -27,8 +27,8 @@ import {
 } from "../core/config.js";
 import { areaContains, normalizeArea, areaPolygon, tokenDocCenter, zoneDocumentData } from "../combat/area-geometry.js";
 import { foundryGeneration, combatScenes, tokenElevation } from "../helpers/foundry-compat.js";
-import { isDesignatedGm, runAsGm } from "../helpers/gm-relay.js";
-import { refuse, relayFailureMessage } from "../helpers/gm-relay-rules.js";
+import { isDesignatedGm, runAsGm, mayActFor } from "../helpers/gm-relay.js";
+import { RELAY_REASONS, refuse, relayFailureMessage } from "../helpers/gm-relay-rules.js";
 import { reportError } from "../helpers/report.js";
 import { escapeHtml } from "../helpers/html.js";
 import { sceneLine } from "../core/world-time.js";
@@ -600,3 +600,29 @@ export function registerSurfaces() {
     }
   });
 }
+
+
+// ---------------------------------------------------------------------------
+// Ações do relay do Mestre (ver helpers/gm-relay.js). Juntadas em core/relay-actions.js.
+// Todas recebem `(payload, user)`; `user` é dito pelo servidor, nunca pelo payload.
+// ---------------------------------------------------------------------------
+export const RELAY_HANDLERS = {
+  /**
+   * Superfícies elementais (8.2): o Mestre cria (ou renova) a superfície de um elemento num ponto da cena.
+   * Quem pede tem de ser dono de `sourceUuid` (quem usou a Skill / o alvo do golpe); o elemento tem de
+   * deixar algo no chão, e o raio e as rodadas são limitados do lado do Mestre (ver createSurfaceAsGm).
+   */
+  async createSurface(payload, user) {
+    if (!(await mayActFor(user, payload?.sourceUuid))) return refuse(RELAY_REASONS.permission);
+    return createSurfaceAsGm({
+      sceneId: payload?.sceneId,
+      x: payload?.x,
+      y: payload?.y,
+      elementId: String(payload?.elementId ?? ""),
+      radiusMeters: payload?.radiusMeters,
+      rounds: payload?.rounds,
+      originMagic: payload?.originMagic === true,
+      useId: String(payload?.useId ?? "").slice(0, 32)
+    });
+  }
+};

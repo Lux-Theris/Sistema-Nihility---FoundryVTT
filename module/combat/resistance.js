@@ -195,3 +195,56 @@ export async function applyResistanceExposure(actor, elements) {
     });
   }
 }
+
+
+// ---------------------------------------------------------------------------
+// Ações do relay do Mestre (ver helpers/gm-relay.js). Juntadas em core/relay-actions.js.
+// Todas recebem `(payload, user)`; `user` é dito pelo servidor, nunca pelo payload.
+// ---------------------------------------------------------------------------
+export const RELAY_HANDLERS = {
+  /**
+   * Credita XP em Skills de Resistência que acabaram de reduzir dano.
+   *
+   * Quem pede é quem atacou — quase nunca dono do alvo —, então aqui não dá para exigir posse.
+   * O que segura o abuso é o limite: cada Skill ganha no máximo o XP de um golpe que tivesse
+   * levado a Vida inteira do alvo (`resistanceXpGain(maxHp, maxHp)`), só Skills de Resistência
+   * de verdade, uma vez cada por pedido, e nunca além do teto do nível.
+   * @param {{actorUuid:string, grants:Array<{skillId:string, gain:number}>}} payload
+   */
+  async resistanceXp({ actorUuid, grants }) {
+    const actor = typeof actorUuid === "string" ? await fromUuid(actorUuid) : null;
+    if (!actor || !Array.isArray(grants)) return;
+
+    const maxHp = Number(actor.system?.attributes?.hp?.max) || 0;
+    const perHitCap = resistanceXpGain(maxHp, maxHp);
+    const seen = new Set();
+    for (const { skillId, gain } of grants.slice(0, 20)) {
+      if (seen.has(skillId)) continue;
+      seen.add(skillId);
+      const skill = actor.items.get(skillId);
+      // Skill concedida por Item/Módulo é fixa: nunca ganha XP.
+      if (!skill || skill.type !== "skill" || skill.system.isItemGranted || !skill.system.resistanceTarget) continue;
+      const amount = Math.min(Number(gain) || 0, perHitCap);
+      if (!(amount > 0)) continue;
+
+      const current = Number(skill.system.xp) || 0;
+      const max = Number(skill.system.xpMax) || 0;
+      // Re-aplica o teto aqui, e não só no emissor: o payload veio de outro cliente.
+      const next = max > 0 ? Math.min(max, current + amount) : current + amount;
+      if (next !== current) await skill.update({ "system.xp": next });
+    }
+  },
+
+  /**
+   * Contabiliza exposição a um tipo de dano (ver `registerResistanceExposure` em resistance.js).
+   * Quem pede é o atacante, então não há posse a conferir; o efeito máximo é uma *sugestão* ao
+   * Mestre, e o pedido é limitado a poucos tipos distintos.
+   * @param {{actorUuid:string, elements:string[]}} payload
+   */
+  async resistanceExposure({ actorUuid, elements }) {
+    const actor = typeof actorUuid === "string" ? await fromUuid(actorUuid) : null;
+    if (!actor || !Array.isArray(elements)) return;
+    const clean = [...new Set(elements.filter(e => typeof e === "string" && e))].slice(0, 10);
+    await applyResistanceExposure(actor, clean);
+  }
+};

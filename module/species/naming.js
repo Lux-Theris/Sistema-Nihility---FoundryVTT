@@ -1,5 +1,5 @@
 import { SYSTEM_ID, NIHILITY, isNamingEnabled, getNamingConfig, getXpForNextLevel, getFeatureOption, getEnergyLabelForActor, getCharacterEnergyLabel } from "../core/config.js";
-import { runAsGm } from "../helpers/gm-relay.js";
+import { runAsGm, mayActFor } from "../helpers/gm-relay.js";
 import { RELAY_REASONS, refuse } from "../helpers/gm-relay-rules.js";
 import { escapeHtml } from "../helpers/html.js";
 import { reportError } from "../helpers/report.js";
@@ -563,3 +563,19 @@ export function namingContext(actor) {
     showBank: game.user.isGM && bank > 0
   };
 }
+
+
+// ---------------------------------------------------------------------------
+// Ações do relay do Mestre (ver helpers/gm-relay.js). Juntadas em core/relay-actions.js.
+// Todas recebem `(payload, user)`; `user` é dito pelo servidor, nunca pelo payload.
+// ---------------------------------------------------------------------------
+export const RELAY_HANDLERS = {
+  /**
+   * Corredor de alma (7a): parte do XP que o nomeado ganhou vai a quem o nomeou. Quem pede é dono do
+   * nomeado (foi quem gravou o XP dele); o vínculo é conferido aqui e o ganho é limitado a um nível.
+   */
+  async soulXp(payload, user) {
+    if (!(await mayActFor(user, payload?.namedUuid))) return refuse(RELAY_REASONS.permission);
+    return soulXpAsGm(payload ?? {});
+  }
+};

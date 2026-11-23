@@ -33,7 +33,7 @@ import { isCombinedSkill, combinedPartMech } from "../skills/combined-rules.js";
 import { buildAttributeRollFormula } from "../core/dice.js";
 import { luckOf } from "./luck-rules.js";
 import { escapeHtml } from "../helpers/html.js";
-import { runAsGm } from "../helpers/gm-relay.js";
+import { runAsGm, mayActFor } from "../helpers/gm-relay.js";
 import { RELAY_REASONS, refuse, relayFailureMessage } from "../helpers/gm-relay-rules.js";
 import { isShipLike } from "../starship/ship-damage.js";
 import { currentSkillUseId } from "../skills/skill-use-context.js";
@@ -527,3 +527,19 @@ export async function forcedMoveAsGm(payload) {
   }
   return { ok: true, value: { lines, moved } };
 }
+
+
+// ---------------------------------------------------------------------------
+// Ações do relay do Mestre (ver helpers/gm-relay.js). Juntadas em core/relay-actions.js.
+// Todas recebem `(payload, user)`; `user` é dito pelo servidor, nunca pelo payload.
+// ---------------------------------------------------------------------------
+export const RELAY_HANDLERS = {
+  /**
+   * Empurrar/Puxar (J1): o Mestre move os Tokens. Quem pede tem de ser dono da Skill/arma de origem; o
+   * resto (metros, direção, Traços) é refeito da ficha do lado do Mestre (ver forcedMoveAsGm).
+   */
+  async forcedMove(payload, user) {
+    if (!(await mayActFor(user, payload?.sourceUuid))) return refuse(RELAY_REASONS.permission);
+    return forcedMoveAsGm(payload ?? {});
+  }
+};

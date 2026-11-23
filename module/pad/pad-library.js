@@ -13,7 +13,7 @@
  */
 import { SYSTEM_ID, NIHILITY } from "../core/config.js";
 import { runAsGm } from "../helpers/gm-relay.js";
-import { relayFailureMessage } from "../helpers/gm-relay-rules.js";
+import { RELAY_REASONS, refuse, relayFailureMessage } from "../helpers/gm-relay-rules.js";
 
 const LIBRARY_PACK_COLLECTION = `world.${NIHILITY.COMPENDIUM.padLibrary.key}`;
 
@@ -160,3 +160,28 @@ export async function removeShipLibraryEntryAsGm(shipActor, entryId) {
 export function resolveLibraryEntries(entries) {
   return entries.map(entry => ({ ...entry, resolvedDoc: fromUuidSync(entry.uuid) }));
 }
+
+
+// ---------------------------------------------------------------------------
+// Ações do relay do Mestre (ver helpers/gm-relay.js). Juntadas em core/relay-actions.js.
+// Todas recebem `(payload, user)`; `user` é dito pelo servidor, nunca pelo payload.
+// ---------------------------------------------------------------------------
+export const RELAY_HANDLERS = {
+  /**
+   * Biblioteca do PAD "Da Nave": o jogador não grava em Compêndio, então o Mestre grava por ele.
+   * Só quem comanda a Nave (dono dela ou de um tripulante); rótulo e nota limitados.
+   * @param {{op:"add"|"remove", shipUuid:string, label?:string, uuid?:string, note?:string, entryId?:string}} payload
+   */
+  async shipLibrary({ op, shipUuid, label, uuid, note, entryId }, user) {
+    const ship = typeof shipUuid === "string" ? await fromUuid(shipUuid) : null;
+    if (!ship || !["starship", "vehicle"].includes(ship.type)) return refuse(RELAY_REASONS.invalid);
+    if (!commandsShip(user, ship)) return refuse(RELAY_REASONS.permission);
+    if (op === "add") {
+      if (typeof uuid !== "string" || !uuid) return refuse(RELAY_REASONS.invalid);
+      await addShipLibraryEntryAsGm(ship, { uuid: uuid.slice(0, 300), label: String(label ?? "").slice(0, 120), note: String(note ?? "").slice(0, 500) });
+    } else if (op === "remove") {
+      if (typeof entryId !== "string" || !entryId) return refuse(RELAY_REASONS.invalid);
+      await removeShipLibraryEntryAsGm(ship, entryId);
+    } else return refuse(RELAY_REASONS.invalid);
+  }
+};

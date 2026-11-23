@@ -555,3 +555,19 @@ export function registerCreationHooks() {
   Hooks.on("deleteChatMessage", onRequestMessage);
   Hooks.on("createChatMessage", onReadyMessage);
 }
+
+
+// ---------------------------------------------------------------------------
+// Ações do relay do Mestre (ver helpers/gm-relay.js). Juntadas em core/relay-actions.js.
+// Todas recebem `(payload, user)`; `user` é dito pelo servidor, nunca pelo payload.
+// ---------------------------------------------------------------------------
+export const RELAY_HANDLERS = {
+  /**
+   * Ficha em modo criação (J10): o jogador não cria Atores (padrão do Foundry), então o Mestre cria
+   * a ficha em branco que já é dele. Quem pede é `user` (dito pelo servidor); o payload não tem
+   * nada. Uma em criação por jogador: pedir de novo devolve a que já existe.
+   */
+  async createCharacter(payload, user) {
+    return createCharacterAsGm(payload, user);
+  }
+};

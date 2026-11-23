@@ -801,3 +801,19 @@ export async function applySkillEffectsArea(sourceActor, skill, mech, label, tar
 
   return true;
 }
+
+
+// ---------------------------------------------------------------------------
+// Ações do relay do Mestre (ver helpers/gm-relay.js). Juntadas em core/relay-actions.js.
+// Todas recebem `(payload, user)`; `user` é dito pelo servidor, nunca pelo payload.
+// ---------------------------------------------------------------------------
+export const RELAY_HANDLERS = {
+  /**
+   * Aplica os Efeitos de uma Skill (ou consumível) em Atores que quem usou não possui — Lentidão
+   * num NPC, buff no personagem de outro jogador. A mecânica é refeita da Skill do lado do Mestre
+   * e quem pede tem de ser dono dela; ver applySkillEffectsAsGm em skill-effects.js.
+   */
+  async applySkillEffects(payload, user) {
+    return applySkillEffectsAsGm(payload, user);
+  }
+};

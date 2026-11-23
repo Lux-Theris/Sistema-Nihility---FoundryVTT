@@ -96,3 +96,20 @@ export function createReplyRegistry({ setTimer = setTimeout, clearTimer = clearT
     }
   };
 }
+
+/**
+ * Confere o que um subsistema quer registrar no relay: cada valor tem de ser função e nenhum nome
+ * pode já existir (dois subsistemas com a mesma ação, um sobrescrevendo o outro em silêncio).
+ * @param {Iterable<string>} existingNames  Nomes já registrados.
+ * @param {Record<string, unknown>} handlers
+ * @returns {string[]} Lista de erros em texto; vazia = pode registrar.
+ */
+export function validateRelayRegistration(existingNames, handlers) {
+  const existing = new Set(existingNames);
+  const errors = [];
+  for (const [name, fn] of Object.entries(handlers ?? {})) {
+    if (typeof fn !== "function") errors.push(`a ação "${name}" não é uma função`);
+    if (existing.has(name)) errors.push(`a ação "${name}" já está registrada`);
+  }
+  return errors;
+}

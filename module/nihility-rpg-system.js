@@ -43,6 +43,7 @@ import { reportError } from "./helpers/report.js";
 import { registerShieldAdaptationReset } from "./starship/starship-power.js";
 import { requestShipRepair, approveShipRepairRoll, restoreShipRepairTarget } from "./starship/starship-repair.js";
 import { registerGmRelay } from "./helpers/gm-relay.js";
+import { registerAllRelayActions } from "./core/relay-actions.js";
 import { registerInitiative } from "./combat/combat.js";
 import { onCombatTurnStart } from "./combat/turn-start.js";
 import { registerLuckDice } from "./combat/luck-dice.js";
@@ -331,6 +332,8 @@ Hooks.once("init", () => {
 Hooks.once("ready", async () => {
   // Canal de socket que deixa um cliente sem permissão pedir a escrita ao Mestre (ver
   // helpers/gm-relay.js) — é o que faz XP de Resistência funcionar em jogador vs. jogador.
+  // As ações do relay moram nos subsistemas; têm de estar no mapa antes de o socket escutar.
+  registerAllRelayActions();
   registerGmRelay();
   applyRoundSeconds();
 

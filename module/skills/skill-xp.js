@@ -125,3 +125,35 @@ export async function grantMasteryXp(skill, measures) {
     console.warn("nihility-rpg-system | Falha ao creditar XP de Maestria.", err);
   }
 }
+
+
+// ---------------------------------------------------------------------------
+// Ações do relay do Mestre (ver helpers/gm-relay.js). Juntadas em core/relay-actions.js.
+// Todas recebem `(payload, user)`; `user` é dito pelo servidor, nunca pelo payload.
+// ---------------------------------------------------------------------------
+export const RELAY_HANDLERS = {
+  /**
+   * XP por uso numa Skill que quem pede não possui (hoje: a Estrutura de outro segurando o golpe
+   * de quem atacou). Mesmo raciocínio da `resistanceXp`: não há posse a exigir, então o pedido é
+   * limitado — o Mestre refaz a conta com a configuração DELE, poucas medidas, e no máximo uma
+   * unidade ("uma Vida inteira") por pedido, nunca além do teto do nível.
+   * @param {{skillUuid:string, measures:Array<object>, mastery?:boolean}} payload
+   */
+  async skillUseXp({ skillUuid, measures, mastery }) {
+    const skill = typeof skillUuid === "string" ? await fromUuid(skillUuid) : null;
+    if (!skill || skill.type !== "skill" || skill.system.isItemGranted || !Array.isArray(measures)) return;
+    if (!isFeatureEnabled("skillUseXp")) return;
+    // Maestria de arma (H6): a fatia vem da configuração do Mestre, e só vale para uma Maestria que ainda sobe.
+    if (mastery && (!isFeatureEnabled("weaponMastery") || !skill.system.weaponMastery || !masteryEarnsXp(skill.system, { maxLevel: getFeatureOption("weaponMastery", "masteryMaxLevel") }))) return;
+    // Uma Maestria só ganha XP pelo caminho dela (com o teto de nível e a fatia), nunca como Skill comum.
+    if (!mastery && skill.system.weaponMastery) return;
+    const config = mastery ? masteryXpConfig() : skillXpConfig();
+    const clean = measures.slice(0, 10).map(m => (m?.flat ? { flat: true } : { value: Number(m?.value) || 0, base: Number(m?.base) || 0, buff: Boolean(m?.buff), block: Boolean(m?.block) }));
+    const gain = skillUseXp(clean, { ...config, cap: config.factor });
+    if (!gain) return;
+    const current = Number(skill.system.xp) || 0;
+    const max = Number(skill.system.xpMax) || 0;
+    const next = max > 0 ? Math.min(max, current + gain) : current + gain;
+    if (next !== current) await skill.update({ "system.xp": next });
+  }
+};

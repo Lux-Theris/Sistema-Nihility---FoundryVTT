@@ -57,6 +57,8 @@ export async function tickZonesForCombatant(combatant) {
   for (const zoneDoc of zonesOnScene(scene)) {
     if (!zoneContainsToken(zoneDoc, tokenDoc)) continue;
     const zone = zoneDoc.getFlag(SYSTEM_ID, "zone");
+    // Zona mantida por quem está Parado no tempo (8e.4): suspensa, não age até ele voltar.
+    if (zone.suspended) continue;
     const sourceActor = await fromUuid(zone.sourceUuid);
     const skill = sourceActor?.items.get(zone.skillId);
     const sub = skill && zone.subSkillIndex != null ? skill.system.subSkills?.[zone.subSkillIndex] : null;

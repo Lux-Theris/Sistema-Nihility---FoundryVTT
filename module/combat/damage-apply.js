@@ -24,6 +24,8 @@ import { absorbLayer, consumeShieldPools, hitAffinityFactor, shieldBlockCredits 
 import { getElementAffinityMatrix, getAffinityConfig } from "../core/config.js";
 import { damageBodyPart, restoreBodyPart } from "../species/anatomy.js";
 import { formCarryUpdate, FORM_CARRY_PATH } from "../skills/forms.js";
+import { isTimeStopped } from "./time-stop-state.js";
+import { STOP_DAMAGE_FLAG, stopDamageAdd, stopDamageRemove, stopDamageFactor } from "./time-stop-rules.js";
 
 const SHIELD_PATH = "system.attributes.shield.value";
 const POOLS_PATH = "system.attributes.shield.pools";
@@ -163,6 +165,8 @@ export function renderDamageTrace(message, html) {
 
 /** "10 no Escudo · 10 na Vida", omitindo a parte que for zero. */
 function describeApplied(applied) {
+  // Golpe num Parado no tempo (8e.5): guardado, cai quando o tempo voltar.
+  if (applied.accumulated) return `Acumulado: ${applied.amount} (cai quando o tempo voltar)`;
   // Cards aplicados antes do Escudo existir no cálculo só têm `amount`.
   if (applied.toShield === undefined) return `${applied.amount} aplicado(s)`;
   const parts = [];
@@ -174,19 +178,30 @@ function describeApplied(applied) {
   return parts.join(" · ");
 }
 
+/** O alvo deste golpe está Parado no tempo agora? (leitura síncrona; qualquer falha = não) */
+function targetIsStopped(state) {
+  try {
+    return isTimeStopped(fromUuidSync(state.targetUuid));
+  } catch {
+    return false;
+  }
+}
+
 /** Desenha a faixa de botões conforme o estado atual do card. */
 function buildControls(state) {
   if (state.applied) {
     return (
       '<div class="nihility-damage-controls">' +
-      `<span class="damage-applied">✓ ${describeApplied(state.applied)}</span>` +
+      `<span class="damage-applied${state.applied.accumulated ? " is-accumulated" : ""}">✓ ${describeApplied(state.applied)}</span>` +
       '<button type="button" class="damage-undo">↩ Desfazer</button>' +
       "</div>"
     );
   }
+  const stopped = targetIsStopped(state);
   return (
     '<div class="nihility-damage-controls">' +
-    `<button type="button" class="damage-apply" data-factor="1">Aplicar ${state.amount}</button>` +
+    (stopped ? '<span class="damage-accumulated-note">Acumulado: o alvo está parado no tempo. O dano cai quando o tempo voltar.</span>' : "") +
+    `<button type="button" class="damage-apply" data-factor="1">Aplicar ${state.amount}${stopped ? " (guardar)" : ""}</button>` +
     '<button type="button" class="damage-apply" data-factor="0.5">Metade</button>' +
     '<button type="button" class="damage-apply" data-factor="2">Dobro</button>' +
     "</div>"
@@ -276,10 +291,17 @@ function buildManyControls(entries) {
       const done = document.createElement("span");
       done.className = "damage-applied";
       done.textContent = `✓ ${describeApplied(entry.applied)}`;
+      if (entry.applied.accumulated) done.classList.add("is-accumulated");
       const undo = makeButton("↩", "damage-undo", { index });
       undo.title = "Desfazer";
       row.append(done, undo);
     } else {
+      if (targetIsStopped(entry)) {
+        const note = document.createElement("span");
+        note.className = "damage-accumulated-note";
+        note.textContent = "Acumulado (parado no tempo)";
+        row.append(note);
+      }
       row.append(
         makeButton(`Aplicar ${entry.amount}`, "damage-apply", { index, factor: 1 }),
         makeButton("½", "damage-apply", { index, factor: 0.5 }),
@@ -296,12 +318,18 @@ function buildManyControls(entries) {
  * Aplica o golpe de um alvo (o `state` de um card) com o fator de Metade/Dobro e devolve o que
  * aconteceu, com os valores ANTERIORES para o Desfazer. Null se o alvo não existe mais.
  */
-async function applyHit(state, factor) {
+async function applyHit(state, factor, { where = null, release = false } = {}) {
   const actor = await fromUuid(state.targetUuid);
   const path = hpPath(actor);
   if (!path) {
     ui.notifications.warn(`${state.name ?? "O alvo deste card"} não existe mais.`);
     return null;
+  }
+
+  // Parado no tempo (8e.5): o golpe não escreve a Vida nem o Escudo; fica guardado e cai na saída (`release`).
+  if (!release && where && isTimeStopped(actor)) {
+    await actor.setFlag(SYSTEM_ID, STOP_DAMAGE_FLAG, stopDamageAdd(actor.getFlag(SYSTEM_ID, STOP_DAMAGE_FLAG), { ...where, factor }));
+    return { accumulated: true, factor, amount: Math.max(0, Math.round(state.amount * factor)), toShield: 0, toHp: 0, at: Date.now() };
   }
 
   // Metade/Dobro agem sobre o dano inteiro, antes de o Escudo absorver.
@@ -407,8 +435,13 @@ async function creditShieldBlocks(actor, before, after) {
 }
 
 /** Desfaz o golpe de um alvo, restaurando os valores guardados em `state.applied`. */
-async function undoHit(state) {
+async function undoHit(state, where = null) {
   const actor = await fromUuid(state.targetUuid);
+  // Ainda guardado (o tempo não voltou): desfazer é só tirar da fila.
+  if (state.applied?.accumulated) {
+    if (actor && where) await actor.setFlag(SYSTEM_ID, STOP_DAMAGE_FLAG, stopDamageRemove(actor.getFlag(SYSTEM_ID, STOP_DAMAGE_FLAG), where));
+    return true;
+  }
   const path = hpPath(actor);
   if (!path) {
     ui.notifications.warn(`${state.name ?? "O alvo deste card"} não existe mais.`);
@@ -445,14 +478,14 @@ async function undoHit(state) {
 async function applyDamage(message, factor) {
   const state = message.getFlag(SYSTEM_ID, "damageApply");
   if (!state || state.applied) return;
-  const applied = await applyHit(state, factor);
+  const applied = await applyHit(state, factor, { where: { messageId: message.id, index: null } });
   if (applied) await message.setFlag(SYSTEM_ID, "damageApply", { ...state, applied });
 }
 
 async function undoDamage(message) {
   const state = message.getFlag(SYSTEM_ID, "damageApply");
   if (!state?.applied) return;
-  if (await undoHit(state)) await message.setFlag(SYSTEM_ID, "damageApply", { ...state, applied: null });
+  if (await undoHit(state, { messageId: message.id, index: null })) await message.setFlag(SYSTEM_ID, "damageApply", { ...state, applied: null });
 }
 
 /**
@@ -494,7 +527,7 @@ async function applyMany(message, indices, factor) {
   }
   list = list.filter(i => entries[i] && !entries[i].applied);
   if (!list.length) return;
-  for (const i of list) entries[i].applied = await applyHit(entries[i], factor);
+  for (const i of list) entries[i].applied = await applyHit(entries[i], factor, { where: { messageId: message.id, index: i } });
   await message.setFlag(SYSTEM_ID, "damageApplyMany", { ...many, entries });
 }
 
@@ -505,6 +538,45 @@ async function undoMany(message, indices) {
   const entries = foundry.utils.deepClone(many.entries);
   const list = (indices ?? entries.map((_, i) => i)).filter(i => entries[i]?.applied);
   if (!list.length) return;
-  for (const i of list) if (await undoHit(entries[i])) entries[i].applied = null;
+  for (const i of list) if (await undoHit(entries[i], { messageId: message.id, index: i })) entries[i].applied = null;
   await message.setFlag(SYSTEM_ID, "damageApplyMany", { ...many, entries });
+}
+
+/**
+ * A saída do Parado (8e.5): aplica, um por um e pelo caminho normal (Escudo e Vida lidos agora, "ao acertar" na hora),
+ * cada golpe que ficou guardado. Cada card passa a ter o próprio Desfazer. Só aplica o que ainda está "acumulado" no
+ * card (idempotente). Devolve as linhas do cartão "O tempo voltou": `[{label, toShield, toHp, extras}]`.
+ * @param {Actor} actor
+ * @param {Array<{messageId:string, index:number|null, factor:number}>} list
+ */
+export async function releaseAccumulatedDamage(actor, list) {
+  const rows = [];
+  for (const hit of list ?? []) {
+    const message = game.messages.get(hit.messageId);
+    if (!message) continue;
+    try {
+      const many = hit.index === null ? null : message.getFlag(SYSTEM_ID, "damageApplyMany");
+      const entries = many ? foundry.utils.deepClone(many.entries ?? []) : null;
+      const state = entries ? entries[hit.index] : message.getFlag(SYSTEM_ID, "damageApply");
+      if (!state?.applied?.accumulated || state.targetUuid !== actor.uuid) continue;
+      const factor = state.applied.factor ?? stopDamageFactor(list, hit) ?? hit.factor ?? 1;
+      const applied = await applyHit(state, factor, { release: true });
+      if (!applied) continue;
+      if (entries) {
+        entries[hit.index].applied = applied;
+        await message.setFlag(SYSTEM_ID, "damageApplyMany", { ...many, entries });
+      } else {
+        await message.setFlag(SYSTEM_ID, "damageApply", { ...state, applied });
+      }
+      const extras = [];
+      if (applied.bodyPart?.name) extras.push(applied.bodyPart.name);
+      if (applied.reactionNames?.length) extras.push(...applied.reactionNames);
+      if (applied.createdEffectIds?.length) extras.push(`${applied.createdEffectIds.length} efeito(s)`);
+      const alias = message.speaker?.alias;
+      rows.push({ label: `${state.label || "Golpe"}${alias ? ` (${alias})` : ""}`, toShield: applied.toShield, toHp: applied.toHp, extras });
+    } catch (err) {
+      console.warn(`${SYSTEM_ID} | Parar: não consegui aplicar o golpe guardado do card ${hit.messageId}.`, err);
+    }
+  }
+  return rows;
 }

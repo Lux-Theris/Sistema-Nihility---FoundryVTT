@@ -780,6 +780,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       else if (entry.target === "push") summary = `${{ pull: "Puxa", choose: "Empurra ou puxa" }[entry.pushDirection] ?? "Empurra"} ${amount} m`;
       else if (["flight", "burrow"].includes(entry.target)) summary = targetLabel;
       else if (entry.target === "luck") summary = `Sorte ${describeLuck(luckFromScopes(amount, entry.luckScopes)) || "(sem escopo)"}`;
+      else if (entry.target === "timeRate" && entry.timeStop) summary = "Parar o tempo";
       else if (entry.target === "timeRate") summary = `${Number(entry.timeFactor ?? 2) < 1 ? "Desacelerar" : "Acelerar"} ${describeTimeFactor(entry.timeFactor ?? 2)}`;
       else if (entry.target === "dispelMagic") summary = `Dissipar: ${entry.dispelScope === "condition" ? `só ${condition?.label ?? "uma Condição"}` : entry.dispelScope === "marks" ? "só marcas" : "todo efeito mágico"} (nv ≤ ${Number(sys.level) || 0})`;
       else if (entry.target === "magicDampen") summary = `Magia enfraquecida: ${Number(entry.chance ?? 100)}% das magias saem com ${amount}% da força`;
@@ -852,6 +853,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         dispelLevel: Number(sys.level) || 0,
         isTimeRate: entry.target === "timeRate",
         timeFactor: Number(entry.timeFactor ?? 2),
+        timeStop: Boolean(entry.timeStop),
         isLuck: entry.target === "luck",
         luckScopeAttributes: Boolean(entry.luckScopes?.attributes),
         luckScopeDamage: Boolean(entry.luckScopes?.damage),

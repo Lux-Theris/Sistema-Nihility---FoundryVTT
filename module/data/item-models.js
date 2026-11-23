@@ -340,6 +340,8 @@ function effectEntrySchema() {
      * 1 não muda nada. A duração é a `durationRounds` do efeito (0 numa Ativa = enquanto ligada). Ver combat/time-rate.js.
      */
     timeFactor: new fields.NumberField({ required: false, initial: 2, min: 0.01, max: 1000 }),
+    /** Só no alvo "timeRate": PARAR o tempo do alvo (fator 0, 8e.4). Ignora `timeFactor`. A duração (rodadas de quem lançou) é a `durationRounds`. Ver combat/time-stop.js. */
+    timeStop: new fields.BooleanField({ required: false, initial: false }),
     /**
      * "Só se…" (8.1a): o efeito só pega quando isto vale no alvo (ou em quem usou). `kind` vazio =
      * sempre. Mesma linguagem do "Quando" do "Quando → Então"; ver skills/only-if-rules.js.

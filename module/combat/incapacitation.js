@@ -21,6 +21,7 @@ import { TECH_SUPPRESSION_FLAG } from "../core/suppression.js";
 import { isDesignatedGm } from "../helpers/gm-relay.js";
 import { escapeHtml } from "../helpers/html.js";
 import { incapacitatingIds, isIncapacitatedBy, zeroHpOutcome, incapacitationTurn } from "./incapacitation-rules.js";
+import { blockIfTimeStopped } from "./time-stop-state.js";
 
 const FLAG = "incapacitation";
 const HP_PATH = "system.attributes.hp.value";
@@ -53,6 +54,8 @@ function incapacitationLabel(actor) {
 
 /** Avisa e devolve true se o Ator não pode agir agora. Usado por Skill, ataque, consumível e Correr. */
 export function blockIfIncapacitated(actor, what = "agir") {
+  // Parado no tempo (8e.4): também não age (arma, consumível, desarmado, Correr, Skill), com ou sem o bloco da Vida 0.
+  if (blockIfTimeStopped(actor, what)) return true;
   if (!isIncapacitated(actor)) return false;
   ui.notifications?.warn(`${actor.name} está ${incapacitationLabel(actor)} e não pode ${what}.`);
   return true;
@@ -243,13 +246,37 @@ export async function tickIncapacitation(actor, { steps = 1 } = {}) {
   // O hook de combate roda em todo cliente de Mestre: o contador anda num só.
   if (!isDesignatedGm() || !actor || actor.type !== "character" || !isIncapacitationEnabled()) return;
   // Acelerado (8e.2): o contador anda `steps` vezes (para quando acorda ou chega ao fim); 0 = o tempo dele não andou.
+  // Um card só por turno: com mais de um passo, o resumo ("3 turnos passaram") substitui um card por passo.
+  const summary = steps > 1 ? [] : null;
+  let passed = 0;
   for (let i = 0; i < Math.max(0, steps); i++) {
-    if (!(await tickIncapacitationOnce(actor))) break;
+    passed++;
+    if (!(await tickIncapacitationOnce(actor, summary))) break;
+  }
+  if (summary?.length) await postIncapacitationSummary(actor, summary, passed);
+}
+
+/** O resumo do turno Acelerado: o último estado de cada contador (Caído/Inconsciente) e "N turnos passaram". */
+async function postIncapacitationSummary(actor, events, passed) {
+  const last = new Map();
+  for (const e of events) last.set(e.id, e);
+  const turns = `${passed} ${passed === 1 ? "turno passou" : "turnos passaram"}`;
+  for (const e of last.values()) {
+    const label = e.id === "fallen" ? "Caído" : "Inconsciente";
+    if (e.event === "wake") {
+      await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor }), content: `<p><strong>${escapeHtml(actor.name)}</strong> — ${label}: ${turns}; recobra a consciência.</p>` });
+    } else if (e.id === "fallen" && !e.stabilized) {
+      await ChatMessage.create({
+        whisper: ownersOf(actor),
+        speaker: ChatMessage.getSpeaker({ actor }),
+        content: `<p><strong>${escapeHtml(actor.name)}</strong> — ${label}: ${turns}; ${e.rounds} rodada(s) até a morte.</p>`
+      });
+    }
   }
 }
 
 /** Um passo do contador. Devolve true se ainda há contador correndo. */
-async function tickIncapacitationOnce(actor) {
+async function tickIncapacitationOnce(actor, collect = null) {
   let running = false;
   for (const id of ["fallen", "unconscious"]) {
     const effect = effectWith(actor, id);
@@ -258,6 +285,10 @@ async function tickIncapacitationOnce(actor) {
     const { state: next, event } = incapacitationTurn(state);
     if (event === "wake") {
       await effect.delete();
+      if (collect) {
+        collect.push({ id, event });
+        continue;
+      }
       await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor }), content: `<p><strong>${escapeHtml(actor.name)}</strong> recobra a consciência.</p>` });
       continue;
     }
@@ -270,6 +301,8 @@ async function tickIncapacitationOnce(actor) {
         content: `<p><strong>${escapeHtml(actor.name)}</strong> chegou ao fim do contador caído, sem ajuda. Pela regra, morreria agora — a decisão é sua.</p>`,
         flags: { [SYSTEM_ID]: { incapacitationCard: { actorUuid: actor.uuid, death: true } } }
       });
+    } else if (collect) {
+      collect.push({ id, event, rounds: next.rounds, stabilized: Boolean(next.stabilized) });
     } else if (id === "fallen" && !next.stabilized) {
       await ChatMessage.create({
         whisper: ownersOf(actor),

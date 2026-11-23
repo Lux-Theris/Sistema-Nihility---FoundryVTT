@@ -19,7 +19,7 @@ export const UNDO_VITAL_PATHS = {
 export const UNDO_ITEM_PATHS = ["system.active", "system.xp", "system.hp.value", "system.integrity", "system.lost", "system.status", "system.cooldownRemaining"];
 
 /** Flags do sistema no Ator que um uso pode mexer e que voltam inteiras. */
-export const UNDO_FLAG_KEYS = ["sustainedShields", "shipEffects", "preparing"];
+export const UNDO_FLAG_KEYS = ["sustainedShields", "shipEffects", "preparing", "timeReserve"];
 
 /**
  * Os diffs vão para um flag de mensagem, e o Foundry expande chave com ponto ("system.xp") em
@@ -217,6 +217,7 @@ export function undoPreviewRows(record, { damage = [], skillLabel = "" } = {}) {
     const flags = asFields(actor.flags);
     if (flags.sustainedShields) rows.push({ tag: "volta", tone: "effect", text: `Escudo mantido de ${actor.name}` });
     if (flags.preparing) rows.push({ tag: "volta", tone: "effect", text: `Preparo de ${actor.name}` });
+    if (flags.timeReserve) rows.push({ tag: "volta", tone: "effect", text: `Reserva de tempo de ${actor.name} (o que ela pagou)` });
     if (flags.shipEffects) rows.push({ tag: "volta", tone: "effect", text: `Efeitos de sistema de ${actor.name}` });
   }
   if (record?.placed?.structure) rows.push({ tag: "some", tone: "effect", text: `Estrutura erguida por ${skillLabel || "este uso"}` });

@@ -82,9 +82,14 @@ export async function applyCurse(target, condition, { level = 0, label = "", onU
 /**
  * Início do turno da vítima (Mestre): cada maldição cobra a Mana, faz o que faz sem pagamento e
  * aplica os efeitos por rodada (se não estiver dormindo). Posta um resumo.
+ *
+ * Ritmo do tempo (8e): a maldição segue o ritmo do personagem, como um "número por turno". Com `steps` > 1
+ * (Acelerado ×N) a conta anda `steps` vezes em memória (custo, piora, sono e efeitos por rodada, volta a volta,
+ * parando se a Vida chega a 0) e é gravada uma vez por maldição. `steps` 0 (Desacelerado, turno parado): nada anda.
+ * A maldição não tem prazo próprio (acaba por Antimagia, Dissipar ou à mão), então só o N limita.
  */
-export async function tickCurses(actor) {
-  if (actor?.type !== "character") return null;
+export async function tickCurses(actor, { steps = 1, notes = null } = {}) {
+  if (actor?.type !== "character" || steps <= 0) return null;
   const catalog = new Map(getActiveStatusConditions().map(c => [c.id, c]));
   const curses = actor.effects.filter(e => e.flags?.[SYSTEM_ID]?.[CURSE_FLAG]);
   if (!curses.length) return null;
@@ -97,50 +102,83 @@ export async function tickCurses(actor) {
     const curse = normalizeCurse(condition.curse);
     const attrs = actor.system.attributes;
     const energyOn = isEnergyPoolEnabled();
-    const round = energyOn
-      ? curseCostRound({ energy: attrs.energy.value, energyMax: attrs.energy.max, costPercent: curse.costPercent, onUnpaid: state.onUnpaid, factor: state.factor, worsenStep: curse.worsenStep, worsenCap: curse.worsenCap, sleeping: state.sleeping })
-      : { energy: attrs.energy.value, cost: 0, paid: true, missing: 0, hpLoss: 0, sleeping: false, factor: state.factor ?? 1 };
+    // Estado simulado em memória.
+    const sim = { energy: attrs.energy.value, hp: attrs.hp.value, factor: state.factor ?? 1, sleeping: Boolean(state.sleeping) };
+    const start = { energy: sim.energy, hp: sim.hp };
+    let missingTotal = 0;
+    let costed = false;
+    let energySpent = 0;
+    let hpLost = 0;
+    let slept = null;
+    let worsened = false;
+    const tickTotals = { hp: 0, energy: 0 };
+    let done = 0;
+    for (let turn = 0; turn < steps; turn++) {
+      done++;
+      const round = energyOn
+        ? curseCostRound({ energy: sim.energy, energyMax: attrs.energy.max, costPercent: curse.costPercent, onUnpaid: state.onUnpaid, factor: sim.factor, worsenStep: curse.worsenStep, worsenCap: curse.worsenCap, sleeping: sim.sleeping })
+        : { energy: sim.energy, cost: 0, paid: true, missing: 0, hpLoss: 0, sleeping: false, factor: sim.factor };
+      if (round.cost) {
+        costed = true;
+        energySpent += sim.energy - round.energy;
+        sim.energy = round.energy;
+        if (!round.paid) missingTotal += round.missing;
+      }
+      if (round.hpLoss) {
+        sim.hp = Math.max(0, sim.hp - round.hpLoss);
+        hpLost += round.hpLoss;
+      }
+      if (round.sleeping !== sim.sleeping) slept = round.sleeping;
+      sim.sleeping = round.sleeping;
+      if (round.factor !== sim.factor) worsened = true;
+      sim.factor = round.factor;
+      // Efeitos por rodada (dano/cura), com a piora: não agem dormindo.
+      if (!sim.sleeping) {
+        for (const fx of curse.effects.filter(f => f.kind === "tick")) {
+          const target = fx.tickTarget === "energy" ? "energy" : "hp";
+          const attr = actor.system.attributes[target];
+          const current = sim[target];
+          const base = fx.valueMode === "maxPercent" ? Math.round(((attr.max ?? 0) * (Number(fx.value) || 0)) / 100) : Number(fx.value) || 0;
+          const amount = curseScaled(Math.max(1, Math.abs(base)), sim.factor);
+          const delta = fx.tickSign === "heal" ? amount : -amount;
+          const next = Math.max(0, Math.min(attr.max, current + delta));
+          sim[target] = next;
+          tickTotals[target] += next - current;
+        }
+      }
+      if (sim.hp <= 0) break;
+    }
     const parts = [];
     const update = {};
-    if (round.cost) {
-      update["system.attributes.energy.value"] = round.energy;
-      parts.push(`−${attrs.energy.value - round.energy} ${energyLabel}${round.paid ? "" : ` (faltaram ${round.missing})`}`);
+    if (costed) {
+      parts.push(`−${energySpent} ${energyLabel}${missingTotal ? ` (faltaram ${missingTotal})` : ""}`);
     }
-    if (round.hpLoss) {
-      update["system.attributes.hp.value"] = Math.max(0, attrs.hp.value - round.hpLoss);
-      parts.push(`−${round.hpLoss} Vida (sem ${energyLabel})`);
-    }
+    if (hpLost) parts.push(`−${hpLost} Vida (sem ${energyLabel})`);
+    if (sim.energy !== start.energy) update["system.attributes.energy.value"] = sim.energy;
+    if (sim.hp !== start.hp) update["system.attributes.hp.value"] = sim.hp;
     if (Object.keys(update).length) await actor.update(update);
 
     // Estado da maldição: dormindo (efeitos desligados) e piora.
     const effectUpdate = {};
-    if (round.sleeping !== Boolean(state.sleeping)) {
-      effectUpdate[`flags.${SYSTEM_ID}.${CURSE_FLAG}.sleeping`] = round.sleeping;
-      effectUpdate.disabled = round.sleeping;
-      parts.push(round.sleeping ? "dormiu" : "acordou");
+    if (sim.sleeping !== Boolean(state.sleeping)) {
+      effectUpdate[`flags.${SYSTEM_ID}.${CURSE_FLAG}.sleeping`] = sim.sleeping;
+      effectUpdate.disabled = sim.sleeping;
+      parts.push(sim.sleeping ? "dormiu" : "acordou");
     }
-    if (round.factor !== (state.factor ?? 1)) {
-      effectUpdate[`flags.${SYSTEM_ID}.${CURSE_FLAG}.factor`] = round.factor;
-      Object.assign(effectUpdate, buildEffectChanges(curseChanges(curse, actor, round.factor)));
-      parts.push(`piorou (×${round.factor.toFixed(2)})`);
+    if (sim.factor !== (state.factor ?? 1)) {
+      effectUpdate[`flags.${SYSTEM_ID}.${CURSE_FLAG}.factor`] = sim.factor;
+      Object.assign(effectUpdate, buildEffectChanges(curseChanges(curse, actor, sim.factor)));
+      parts.push(`piorou (×${sim.factor.toFixed(2)})`);
     }
     if (Object.keys(effectUpdate).length) await effect.update(effectUpdate);
-
-    // Efeitos por rodada (dano/cura), com a piora — não agem dormindo.
-    if (!round.sleeping) {
-      for (const fx of curse.effects.filter(f => f.kind === "tick")) {
-        const target = fx.tickTarget === "energy" ? "energy" : "hp";
-        const attr = actor.system.attributes[target];
-        const base = fx.valueMode === "maxPercent" ? Math.round(((attr.max ?? 0) * (Number(fx.value) || 0)) / 100) : Number(fx.value) || 0;
-        const amount = curseScaled(Math.max(1, Math.abs(base)), round.factor);
-        const delta = fx.tickSign === "heal" ? amount : -amount;
-        const next = Math.max(0, Math.min(attr.max, attr.value + delta));
-        if (next === attr.value) continue;
-        await actor.update({ [`system.attributes.${target}.value`]: next });
-        parts.push(`${next - attr.value > 0 ? "+" : ""}${next - attr.value} ${target === "hp" ? "Vida" : energyLabel}`);
-      }
+    for (const target of ["hp", "energy"]) {
+      if (tickTotals[target]) parts.push(`${tickTotals[target] > 0 ? "+" : ""}${tickTotals[target]} ${target === "hp" ? "Vida" : energyLabel}`);
     }
-    if (parts.length) rows.push(`<li><strong>${foundry.utils.escapeHTML(effect.name)}</strong>: ${parts.join(" · ")}</li>`);
+    if (done > 1 && parts.length) parts.push(`em ${done} turnos`);
+    if (parts.length) {
+      rows.push(`<li><strong>${foundry.utils.escapeHTML(effect.name)}</strong>: ${parts.join(" · ")}</li>`);
+      if (notes) notes.push({ label: effect.name, text: parts.join(" · ") });
+    }
   }
   if (rows.length) {
     await ChatMessage.create({

@@ -17,6 +17,7 @@
 import { SYSTEM_ID, combatantIsActor, getEnergyLabelForActor, isMagicUse, isTechUse, getManaInvestConfig } from "../core/config.js";
 import { suppressionLevel, techSuppressionLevel } from "../core/suppression.js";
 import { isIncapacitated } from "../combat/incapacitation.js";
+import { actionBlockReason } from "../combat/time-stop-state.js";
 import { isDesignatedGm } from "../helpers/gm-relay.js";
 import { escapeHtml } from "../helpers/html.js";
 import { reportError } from "../helpers/report.js";
@@ -73,6 +74,9 @@ export function preparationFor(actor, skill, subSkillIndex = null) {
  */
 export function useBlockReason(actor, skill, subSkillIndex = null) {
   const { mech, label } = mechOf(skill, subSkillIndex);
+  // Parado no tempo (8e.4): nem desligar uma Ativa (antes da linha que deixa desligar).
+  const stopped = actionBlockReason(actor, "usar Habilidades");
+  if (stopped) return stopped;
   if (mech.hasUpkeep && mech.active) return null;
   // Acelerado (8e.2): a reserva de tempo paga o preparo ou a recarga que faltam, quando basta (`settleTimersByReserve`).
   const entry = preparationFor(actor, skill, subSkillIndex);

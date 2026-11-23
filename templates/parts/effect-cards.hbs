@@ -35,9 +35,12 @@
                 {{#each eff.weaponTypeIdOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
               </select>
               {{else if eff.isTimeRate}}
+              <label class="checkbox-line small" title="Parar o tempo do alvo (fator 0): ele não age nem se move e nada nele anda; o dano que leva cai quando o tempo volta. A duração é em rodadas de quem lança."><input type="checkbox" class="skill-effect-input" data-effect-field="timeStop" {{#if eff.timeStop}}checked{{/if}}/> Parar</label>
+              {{#unless eff.timeStop}}
               <span class="effect-note">Fator ×</span>
               <input class="num skill-effect-input" type="number" data-effect-field="timeFactor" value="{{eff.timeFactor}}" min="0.01" max="1000" step="0.1" aria-label="Fator do tempo" title="Maior que 1 acelera (3 = Acelerado ×3: 3 de tempo por turno); menor que 1 desacelera (0,5 = ×½). Mana investida aumenta o fator. Alvo de nível maior que a Skill sente menos."/>
               <span class="effect-note" title="Numa Habilidade Ativa, dura enquanto ligada; senão, as rodadas ao lado.">{{#if (eq eff.timeFactor 1)}}não muda nada{{else}}{{#if (gt eff.timeFactor 1)}}Acelerar{{else}}Desacelerar{{/if}}{{/if}}</span>
+              {{/unless}}
               {{else if eff.isLuck}}
               <input class="num skill-effect-input" type="number" data-effect-field="amount" value="{{eff.amount}}" aria-label="Sorte (%)" title="% de sorte nos dados (negativo = azar). Sem teto: +100% leva o d20 à média 13,8."/>
               <span class="effect-note">% de sorte em</span>

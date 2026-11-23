@@ -108,8 +108,9 @@ export function lintSkill(mech, ctx = {}) {
     }
     if (e?.target === "timeRate") {
       const factor = Number(e.timeFactor ?? 2);
-      if (!(Math.abs(factor - 1) > 1e-6)) push("timeRateOne", "hard", "mechanic", "Ritmo do tempo com fator 1: não muda nada.", i);
-      else if (!active && !(Number(e.durationRounds) > 0)) push("timeRateForever", "soft", "mechanic", "Ritmo do tempo sem duração numa Skill que não é Ativa: fica no alvo para sempre (até alguém tirar). Era isso?", i);
+      if (!e.timeStop && !(Math.abs(factor - 1) > 1e-6)) push("timeRateOne", "hard", "mechanic", "Ritmo do tempo com fator 1: não muda nada.", i);
+      else if (e.timeStop && !active && !(Number(e.durationRounds) > 0)) push("timeStopForever", "hard", "mechanic", "Parar o tempo sem duração numa Skill que não é Ativa: o alvo ficaria Parado para sempre. Ponha as rodadas (de quem lança) ou faça a Skill Ativa.", i);
+      else if (!e.timeStop && !active && !(Number(e.durationRounds) > 0)) push("timeRateForever", "soft", "mechanic", "Ritmo do tempo sem duração numa Skill que não é Ativa: fica no alvo para sempre (até alguém tirar). Era isso?", i);
       if (m.targetType === "self" && ctx.actorType === "ship") push("timeRateShip", "hard", "mechanic", "Ritmo do tempo numa Nave: o tempo é de quem vive, o efeito não se aplica.", i);
     }
     if (e?.target === "magicDampen" && Number(e.chance ?? 100) <= 0) push("magicDampenNever", "hard", "mechanic", "Magia enfraquecida com chance 0%: nunca pega.", i);

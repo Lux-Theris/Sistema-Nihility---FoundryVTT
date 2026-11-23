@@ -18,6 +18,7 @@ import { grantSkillUseXp, vitalBase, withXpBatch } from "./skill-xp.js";
 import { afterSkillStrike, strikeBlockReason } from "../combat/weapon-mastery.js";
 import { resolveWeaponStrike } from "../combat/weapon-mastery-rules.js";
 import { blockIfIncapacitated, knockUnconscious } from "../combat/incapacitation.js";
+import { blockIfTimeStopped } from "../combat/time-stop-state.js";
 import { skillOnlyIfBlock } from "./skill-only-if.js";
 import { useBlockReason, startPreparation, applyCooldownAfterUse, inStartedCombat, settleTimersByReserve } from "./preparation.js";
 import { prepCoveredByReserve, spendReserve, noteReservePrep } from "../combat/time-rate.js";
@@ -132,6 +133,9 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
 
   // Combinada (8c.2): um uso dispara todas as Sub-Skills. A mecânica de Custo, Ativa e nível é a da Skill-mãe.
   const combined = Boolean(options.combined) && options.subSkillIndex == null && isCombinedSkill(skill.system);
+
+  // Parado no tempo (8e.4): não faz nada, nem desligar uma Ativa.
+  if (blockIfTimeStopped(sourceActor, "usar Habilidades")) return null;
 
   if (mech.hasUpkeep && mech.active) {
     timers.skip = true;

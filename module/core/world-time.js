@@ -24,6 +24,7 @@ import { escapeHtml } from "../helpers/html.js";
 import { reportError } from "../helpers/report.js";
 import { itemIsTech } from "./magic-rules.js";
 import { actorTimeFactor } from "../combat/time-rate.js";
+import { isTimeStopped } from "../combat/time-stop-state.js";
 import { showVoiceBanner } from "./voice-banner.js";
 import { suppressionState, sourceSuppressed } from "./suppression.js";
 import { formatClock, formatHour } from "./world-clock-rules.js";
@@ -31,7 +32,7 @@ import {
   CALENDAR_MODELS, buildCalendarModel, normalizeCalendar, secondsPerDay, formatDate, formatDateTimeShort, formatTimeOfDay,
   composeRate, normalizeTimelines, resolveLine, normalizeTrack, trackValue, trackRebase, trackSetValue, trackAdd, rewindSegment,
   combatHoldsWorld, rewindDecision, deviceLocalNow, syncAge, deviceDrift, formatElapsed, outsideSeconds, dateToTime, MAIN_LINE_ID,
-  TIME_RATE_BEHAVIOR, chamberSummary, combatRateChoice, heldOutsideAdd, ageYears
+  TIME_RATE_BEHAVIOR, chamberSummary, combatRateChoice, heldOutsideAdd, ageYears, RATE_MIN
 } from "./calendar-rules.js";
 
 /* ------------------------------------------------------------------ Leitura básica */
@@ -257,7 +258,8 @@ export function listChambers() {
  */
 export function personalRateFactors(actor, opts = {}) {
   if (!calendarOn()) return [];
-  return [actorLine(actor).rate, actorChambers(actor, opts).rate, actorTimeFactor(actor)];
+  // Parado no tempo (8e.4): o tempo pessoal dele não anda (o menor ritmo que a conta aceita).
+  return [actorLine(actor).rate, actorChambers(actor, opts).rate, isTimeStopped(actor) ? RATE_MIN : actorTimeFactor(actor)];
 }
 
 export function personalRate(actor, opts = {}) {
@@ -709,7 +711,7 @@ async function onCombatClock(combat, changed, options) {
     if (!actor || seen.has(actor.uuid)) continue;
     seen.add(actor.uuid);
     // Acelerado/Desacelerado (8e): quem vive o tempo ×N soma a rodada ×N ao tempo pessoal.
-    await addPersonalSeconds(actor, delta * actorTimeFactor(actor));
+    await addPersonalSeconds(actor, isTimeStopped(actor) ? 0 : delta * actorTimeFactor(actor));
   }
   const { wakeDueSleepers, checkGroupSleep } = await import("./world-clock.js");
   await wakeDueSleepers();

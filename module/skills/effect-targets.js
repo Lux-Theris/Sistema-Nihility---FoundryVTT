@@ -117,6 +117,7 @@ export function resolveEffectChange(entry, targetActor) {
       // Ritmo do tempo (8e): não mexe em campo; o efeito só carrega o flag `timeRate` ({factor}), lido por
       // combat/time-rate.js (reserva, ticks, Deslocamento) e por personalRateFactors (tempo pessoal).
       // Nave/Veículo (e Estrutura, que nem é Ator) recusam: o tempo é de quem vive.
+      if (entry.timeStop) return ship ? null : { key: null, timeStop: { rounds: Math.max(0, Math.floor(Number(entry.durationRounds) || 0)) }, isMultiplier: false };
       return ship || !isTimeFactorActive(entry.timeFactor) ? null : { key: null, timeRate: { factor: clampTimeFactor(entry.timeFactor) }, isMultiplier: false };
     case "magicDampen":
       // Magia enfraquecida (8c.2): não mexe em campo; o efeito só carrega o flag `magicDampen` ({chance, percent}),

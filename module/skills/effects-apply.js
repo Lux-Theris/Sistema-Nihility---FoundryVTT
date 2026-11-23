@@ -27,6 +27,7 @@ import { resolveEffectAmount, resolveAttributePercent, ATTRIBUTE_PERCENT_TARGETS
 import { hasOnlyIf, onlyIfOutcome } from "./only-if-rules.js";
 import { buildModifierContext } from "../combat/conditional-context.js";
 import { describeLuck, luckFromScopes } from "../combat/luck-rules.js";
+import { stopRoundsFor, STOP_FLAG } from "../combat/time-stop-rules.js";
 import { clampTimeFactor, isTimeFactorActive, timeStrength, weakenTimeFactor, timeStateLabel, allowedTicks, simulateTicks } from "../combat/time-rate-rules.js";
 
 /** Nome curto dos efeitos de movimento (J4), para o Active Effect e o resumo. */
@@ -578,6 +579,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
 async function applyTimeRateEntry(entry, { mech, label, originSkill, origin, targetActor, subSkillIndex, sourceLevel, sourceMagic, sourceTech, appliedBy, xp }) {
   if (!isTimeManipulationEnabled()) return "Ritmo do tempo: o bloco Manipulação do tempo está desligado";
   if (isShipLike(targetActor) || targetActor.type !== "character") return `Ritmo do tempo: não se aplica a ${targetActor.name}`;
+  if (entry.timeStop) return applyTimeStopEntry(entry, { mech, label, originSkill, origin, targetActor, subSkillIndex, sourceLevel, sourceMagic, sourceTech, appliedBy, xp });
   let base = clampTimeFactor(entry.timeFactor);
   if (!isTimeFactorActive(base)) return "Ritmo do tempo: fator 1 não muda nada";
   const invest = Number(mech.investPower ?? 1);
@@ -637,6 +639,67 @@ async function applyTimeRateEntry(entry, { mech, label, originSkill, origin, tar
     }
   ]);
   return `${stateName}${tiedToActive ? " (até desativar)" : rounds > 0 ? ` (${rounds} ${rounds === 1 ? "rodada" : "rodadas"})` : ""}${weakNote}`;
+}
+
+/**
+ * Parar (8e.4): põe (ou renova) o "Parado no tempo" no alvo. Efeito sem `changes` e FORA do `incapacitates`, com o flag
+ * `timeStop = {rounds, forever, casterUuid, casterName}`: o prazo é em rodadas de QUEM LANÇA (descontado no turno dele,
+ * time-stop.js) e numa Ativa vale "enquanto ligada" (âncora). Contra alvo mais forte o prazo encolhe pela força
+ * (`timeStrength`); numa Ativa, alvo acima do nível da Skill não pega. Antimagia, PEM e Dissipar o apagam pelo nível.
+ */
+async function applyTimeStopEntry(entry, { mech, label, originSkill, origin, targetActor, subSkillIndex, sourceLevel, sourceMagic, sourceTech, appliedBy, xp }) {
+  const tiedToActive = Boolean(mech.hasUpkeep);
+  const targetLevel = Number(targetActor.system?.attributes?.level) || 0;
+  const strength = timeStrength(sourceLevel, targetLevel);
+  const asked = Math.max(0, Math.floor(Number(entry.durationRounds) || 0));
+  if (!tiedToActive && asked <= 0) return "Parar o tempo: sem duração, ninguém fica Parado para sempre (ponha as rodadas ou faça a Skill Ativa)";
+  const rounds = tiedToActive ? 0 : stopRoundsFor(asked, strength);
+  if ((tiedToActive && strength < 1) || (!tiedToActive && rounds <= 0)) return `Parar o tempo: ${targetActor.name} é forte demais (nível ${targetLevel} contra nível ${sourceLevel}): sem efeito`;
+  const caster = originSkill?.parent ?? null;
+  const stop = { rounds, forever: tiedToActive, casterUuid: caster?.uuid ?? appliedBy ?? "", casterName: caster?.name ?? "" };
+  const weakNote = strength < 1 ? `, encurtado (${Math.round(strength * 100)}%)` : "";
+  const anchor = makeAnchor({ skillUuid: origin.uuid, skillId: origin.id, subSkillIndex });
+  if (tiedToActive) await rememberAnchoredTarget(caster, anchor, targetActor.uuid);
+  xp.push({ flat: true });
+  const existing = targetActor.effects.find(e => e.flags?.[SYSTEM_ID]?.[STOP_FLAG] && (e.flags[SYSTEM_ID].appliedBy ?? "") === appliedBy && (e.flags[SYSTEM_ID].sourceSkillId ?? null) === (origin.id ?? null));
+  if (existing) {
+    const flags = existing.flags[SYSTEM_ID];
+    const patch = {
+      [`flags.${SYSTEM_ID}.${STOP_FLAG}`]: { ...stop, rounds: tiedToActive ? 0 : Math.max(rounds, Number(flags[STOP_FLAG]?.rounds) || 0), forever: tiedToActive || Boolean(flags[STOP_FLAG]?.forever) },
+      [`flags.${SYSTEM_ID}.sourceLevel`]: Math.max(sourceLevel, Number(flags.sourceLevel) || 0),
+      [`flags.${SYSTEM_ID}.magic`]: Boolean(sourceMagic || flags.magic),
+      [`flags.${SYSTEM_ID}.tech`]: Boolean(sourceTech || flags.tech)
+    };
+    if (tiedToActive) Object.assign(patch, { [`flags.${SYSTEM_ID}.activeAnchors`]: addAnchor(flags.activeAnchors ?? [], anchor), [`flags.${SYSTEM_ID}.tiedToActive`]: true });
+    await existing.update(patch);
+    return `Parado no tempo: renovado${tiedToActive ? " (até desativar)" : ` (${rounds} ${rounds === 1 ? "rodada" : "rodadas"})`}${weakNote}`;
+  }
+  await createActiveEffects(targetActor, [
+    {
+      name: `${label}: Parado no tempo`,
+      img: entry.icon || origin.img || "icons/svg/clockwork.svg",
+      origin: origin.uuid ?? undefined,
+      statuses: [],
+      duration: {},
+      flags: {
+        [SYSTEM_ID]: {
+          skillEffect: true,
+          conditionId: "",
+          tiedToActive,
+          activeAnchors: tiedToActive ? [anchor] : [],
+          sourceSkillId: origin.id,
+          sourceSubSkillIndex: subSkillIndex,
+          [STOP_FLAG]: stop,
+          sourceLevel,
+          magic: sourceMagic,
+          tech: sourceTech,
+          appliedBy,
+          healBlockPartId: ""
+        }
+      }
+    }
+  ]);
+  return `${targetActor.name} fica Parado no tempo${tiedToActive ? " (até desativar)" : ` (${rounds} ${rounds === 1 ? "rodada" : "rodadas"} de quem lançou)`}${weakNote}`;
 }
 
 /**

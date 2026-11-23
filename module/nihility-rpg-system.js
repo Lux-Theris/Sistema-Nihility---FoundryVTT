@@ -80,6 +80,7 @@ import { tickContagion } from "./combat/contagion.js";
 import { registerEnvironment, syncTokenEnvironment } from "./environment/environment.js";
 import { registerRadiation, tickRadiation, passRadiationTimeFor } from "./environment/radiation.js";
 import { registerTimeRate, beginTimeTurn, endTimeTurn, previousActorOf, announceTimeTurn } from "./combat/time-rate.js";
+import { registerTimeStop, isTimeStopped, advanceTimeStops, freezeStoppedEffects, stoppedTurnNotice } from "./combat/time-stop.js";
 import { registerTraps } from "./environment/traps.js";
 import { registerTimeChamber } from "./core/time-chamber.js";
 import { registerWorldClock } from "./core/world-clock.js";
@@ -253,6 +254,7 @@ Hooks.once("init", () => {
   registerIncapacitation();
   registerSkillTimers();
   registerTimeRate();
+  registerTimeStop();
   registerEnvironment();
   registerEnvironmentSceneMenu();
   registerRadiation();
@@ -1046,6 +1048,35 @@ Hooks.on("updateCombat", async (combat, changed, options) => {
   const actor = combatant?.actor;
   if (!actor) return;
 
+  // Parar o tempo (8e.4): a cada virada de rodada os prazos de quem está Parado ficam congelados; e os Parar lançados por
+  // quem começa o turno agora perdem 1 rodada (quem acaba o prazo sai do Parado, e o dano acumulado cai).
+  try {
+    if (changed.round !== undefined) await freezeStoppedEffects(combat);
+    if (!isTimeStopped(actor)) await advanceTimeStops(combat, combatant, { roundChanged: changed.round !== undefined });
+  } catch (err) {
+    reportError("Falha ao contar o tempo parado.", err, { gmOnly: true });
+  }
+
+  // Parado no tempo (8e.4): nada nele anda. Pula a cadeia toda do início do turno (Vida 0, Preparo, Recarga,
+  // periódicos, regeneração, manutenção, maldições, Radiação, Contágio, Zonas em cima dele); seguem só as coisas do
+  // MUNDO que contam por rodada (Zonas e Estruturas postas, superfícies) e o aviso na tela.
+  if (isTimeStopped(actor)) {
+    try {
+      const finished = previousActorOf(combat);
+      if (finished && !isTimeStopped(finished)) await endTimeTurn(combat, finished);
+      const roundChanged = changed.round !== undefined;
+      for (const scene of combatScenes(combat)) {
+        await advanceZones(scene, { combat, combatant, roundChanged });
+        if (roundChanged) await advanceStructures(scene);
+      }
+      if (roundChanged) for (const scene of combatScenes(combat)) await advanceSurfaces(scene);
+      await stoppedTurnNotice(actor);
+    } catch (err) {
+      reportError("Falha ao pular o turno de quem está Parado no tempo.", err, { gmOnly: true });
+    }
+    return;
+  }
+
   // Manipulação do tempo (8e.2): quem acabou o turno gasta a reserva que sobrou nos estados; quem começa recebe a
   // dele. `steps` = quantas vezes os números por turno (Veneno, regeneração, custo das Ativas, Radiação, Vida 0)
   // passam neste turno: 1 normal, N Acelerado, 0 ou 1 Desacelerado. `notes` junta o que passou para o aviso.
@@ -1146,7 +1177,7 @@ Hooks.on("updateCombat", async (combat, changed, options) => {
   try {
     // Maldições (prancha 6): cobram da Mana da vítima depois da regeneração e da manutenção.
     const { tickCurses } = await import("./skills/curses.js");
-    if (!dead) await tickCurses(actor);
+    if (!dead) await tickCurses(actor, { steps, notes: timeNotes });
   } catch (err) {
     reportError("Falha ao processar Maldições no início do turno.", err, { gmOnly: true });
   }

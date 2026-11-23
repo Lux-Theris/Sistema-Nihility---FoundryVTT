@@ -41,6 +41,7 @@ function describeEffectCore(entry, ctx) {
   }
   if (entry.target === "flight") return "voo";
   // Ritmo do tempo (8e): "Acelerado ×3 (3 de tempo por turno, Deslocamento ×3)" / "Desacelerado ×½".
+  if (entry.target === "timeRate" && entry.timeStop) return "para o tempo do alvo (ele não age nem se move, nada nele anda; o dano que leva cai quando o tempo volta)";
   if (entry.target === "timeRate") {
     const factor = clampTimeFactor(entry.timeFactor);
     if (Math.abs(factor - 1) < 1e-6) return "ritmo do tempo sem mudança";

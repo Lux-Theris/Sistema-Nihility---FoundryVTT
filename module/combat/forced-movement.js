@@ -45,6 +45,7 @@ import { cardReactions } from "./reactions.js";
 import { tokenDocCenter } from "./area-geometry.js";
 import { gravityWeaponMeters } from "./weapon-mastery.js";
 import { blockIfIncapacitated } from "./incapacitation.js";
+import { isTimeStopped } from "./time-stop-state.js";
 import { magazineState } from "../economy/consumable-rules.js";
 import { chargeAntimagic, fieldGate, creditManipulation } from "./antimagic.js";
 import { casterTokenOf, checkFlatRange, pxPerUnit } from "./range.js";
@@ -71,6 +72,8 @@ import {
  * @param {{x?:number, y?:number, elevation?:number}} place
  */
 export async function moveTokenForced(tokenDoc, { x, y, elevation } = {}) {
+  // Parado no tempo (8e.4): nem empurrão nem teleporte o move.
+  if (isTimeStopped(tokenDoc?.actor)) return false;
   const waypoint = {};
   if (Number.isFinite(x)) waypoint.x = Math.round(x);
   if (Number.isFinite(y)) waypoint.y = Math.round(y);

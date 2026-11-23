@@ -29,6 +29,7 @@ import { weaponMasteryHit, strikeMasteryBonus, unarmedWeaponItem } from "./weapo
 import { resolveWeaponStrike, masteryFactor, formatMasteryPercent } from "./weapon-mastery-rules.js";
 import { isCombinedSkill, combinedPartMech } from "../skills/combined-rules.js";
 import { actorTimeFactor } from "./time-rate.js";
+import { isTimeStopped } from "./time-stop-state.js";
 import { scaledCadence } from "./time-rate-rules.js";
 
 /** Usos que cabem na Mana, divididos pelo fator de quem está Acelerado (0 continua 0). */
@@ -206,6 +207,8 @@ export function unitFor(actor, { key, count = 1, tier = null, npc = false } = {}
     energyMax: Math.max(0, Number(actor.system?.attributes?.energy?.max) || 0),
     // Ritmo do tempo (8e): quem está Acelerado age ×N por rodada (Desacelerado, ÷N): a cadência vezes o fator.
     timeFactor: actorTimeFactor(actor),
+    // Parado no tempo (8e.4): 0 ações (nem ataca, nem se move).
+    stopped: isTimeStopped(actor),
     options: attackOptions(actor)
   };
 }
@@ -251,7 +254,7 @@ export function buildSides({ allies, foes }, { choices = {}, areaTargets = {} } 
           : null;
       const attack = toAttack(chosen);
       if (attack && free) attack.fallback = toAttack(free);
-      return { ...unit, attack, chosenId: chosen?.id ?? null };
+      return { ...unit, attack: unit.stopped ? null : attack, chosenId: unit.stopped ? null : chosen?.id ?? null };
     });
   return { allies: prepare(allies, foes), foes: prepare(foes, allies), hit };
 }

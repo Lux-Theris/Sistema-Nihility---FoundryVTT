@@ -17,6 +17,8 @@ import { isShipLike } from "../starship/ship-damage.js";
 export async function applyStructureContactAsGm(tokenDocument, instance, info) {
   const target = tokenDocument?.actor;
   if (!target || isShipLike(target) || !info?.contactDamage) return;
+  // Estrutura mantida por quem está Parado no tempo (8e.4): suspensa, não queima.
+  if (instance?.suspended) return;
   let roll;
   try {
     roll = await new Roll(info.contactDamage).evaluate();

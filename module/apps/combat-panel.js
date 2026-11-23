@@ -11,6 +11,8 @@ import { preparationsOf } from "../skills/preparation.js";
 import { collectActiveUpkeepSources } from "../skills/upkeep.js";
 import { NPC_TIER_LABELS } from "../npc/npc-generator-rules.js";
 import { actorTimeFactor, reserveOf, adjustReserve } from "../combat/time-rate.js";
+import { isTimeStopped, stopInfoOf } from "../combat/time-stop-state.js";
+import { stopBadgeText } from "../combat/time-stop-rules.js";
 import { timeStateLabel, reserveText, isTimeFactorActive, describeTimeFactor } from "../combat/time-rate-rules.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -85,8 +87,10 @@ export class CombatPanelApp extends HandlebarsApplicationMixin(ApplicationV2) {
             slow: timeFactor < 1 ? "Recarga, Preparo e números por turno andam em parte dos turnos" : ""
           }
         : null;
+      const stopInfo = actor && !ship && isTimeStopped(actor) ? stopInfoOf(actor) : null;
       return {
         time,
+        stopped: stopInfo ? { text: stopBadgeText({ remaining: stopInfo.rounds, forever: stopInfo.forever }), title: "Parado no tempo: não age, não se move e nada nele anda. O dano que leva cai quando o tempo volta." } : null,
         id: c.id,
         actorUuid: actor?.uuid ?? "",
         tokenId: c.tokenId,

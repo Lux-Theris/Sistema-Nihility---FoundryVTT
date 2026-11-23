@@ -17,6 +17,7 @@ import { SYSTEM_ID, MEU_SISTEMA } from "../core/config.js";
 import { effectAnchors, finiteRemaining } from "./effect-anchors.js";
 import { effectBadge, BADGE_COLORS, roundsLeftFromStart } from "./effect-badge-rules.js";
 import { describeTimeFactor } from "./time-rate-rules.js";
+import { stopBadgeText } from "./time-stop-rules.js";
 import { reserveOf, TIME_FLAG } from "./time-rate.js";
 
 function enabledForMe() {
@@ -65,6 +66,7 @@ export function badgeFor(effect, { combat = null } = {}) {
   const timeFactor = f[TIME_FLAG]?.factor;
   const reserve = timeFactor ? reserveOf(effect.parent) : null;
   return effectBadge({
+    timeStop: f.timeStop ? { text: stopBadgeText({ remaining: f.timeStop.rounds, forever: f.timeStop.forever }) } : null,
     timeRate: timeFactor ? { text: `${describeTimeFactor(timeFactor)}${reserve && reserve.max > 0 ? ` · ${reserve.value}` : ""}` } : null,
     radiationLevel: f.radiation?.level ?? 0,
     preparing: f.preparing?.turnsLeft ?? 0,

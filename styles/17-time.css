@@ -107,3 +107,11 @@
 .nihility-combat-panel .cp-time-pill { display: inline-block; padding: 1px 8px; border: 1px solid var(--nihility-accent); border-radius: 999px; color: var(--nihility-accent); font-size: 12px; }
 .nihility-combat-panel .cp-time-pill.slow { border-color: var(--nihility-gold); color: var(--nihility-gold); }
 .nihility-combat-panel .cp-time button { height: auto; min-height: 0; line-height: normal; padding: 1px 7px; font-size: 11px; }
+
+/* 8e.4–8e.5: Parado no tempo e dano acumulado (mockup aprovado, quadro 3). */
+.nihility-time-notice.is-stopped { border-color: var(--nihility-text-dim); }
+.nihility-time-notice.is-stopped strong { color: var(--nihility-text); }
+.nihility-time-notice.is-return { border-color: var(--nihility-gold); background: #1d1a14; }
+.nihility-time-notice.is-return ul { margin: 4px 0; padding-left: 18px; color: var(--nihility-text); }
+.damage-accumulated-note { display: block; margin: 4px 0; padding: 4px 8px; border: 1px solid #2f6b78; border-radius: 5px; background: #26304a; color: var(--nihility-accent); font-size: 12px; }
+.damage-applied.is-accumulated { color: var(--nihility-accent); }

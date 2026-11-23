@@ -43,6 +43,8 @@ function positiveInt(value) {
  * @returns {{text: string, tone: "time"|"anchor"|"radiation"|"danger"|"prep"}|null}
  */
 export function effectBadge(info = {}) {
+  // Parado no tempo (8e.4): "⏸ 2" (turnos de quem lançou que faltam) ou "⏸ ∞".
+  if (info.timeStop?.text) return { text: String(info.timeStop.text), tone: "time" };
   // Ritmo do tempo (8e): "×3" e, em combate, o que sobra da reserva ("×3 · 2").
   if (info.timeRate?.text) return { text: String(info.timeRate.text), tone: "anchor" };
 

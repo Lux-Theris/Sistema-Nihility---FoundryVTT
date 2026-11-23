@@ -110,7 +110,42 @@ async function resolveOverdraw(sourceActor, skillId, options, info) {
   await knockUnconscious(sourceActor);
 }
 
+/**
+ * `runSkillEffect` é uma sequência de passos; cada passo devolve `null` (segue) ou `{ stop: true, value }`
+ * (o uso acaba ali e `runSkillEffect` devolve `value`, exatamente como o `return` que havia no lugar).
+ * `ctx` leva o que um passo calcula e os seguintes leem (`ctx.options` pode ser trocado por `checkUseBlocks`).
+ */
+const stopUse = (value) => ({ stop: true, value });
+
 async function runSkillEffect(sourceActor, skillId, options = {}, timers = { ratio: 1, skip: false, overdraw: null }) {
+  const resolved = resolveUsedSkill(sourceActor, skillId, options);
+  if (!resolved) return null;
+  const ctx = { sourceActor, skillId, options, timers, ...resolved };
+
+  for (const step of [toggleOffIfActive, checkUseBlocks, checkPlaceAndField]) {
+    const stop = await step(ctx);
+    if (stop) return stop.value;
+  }
+
+  const paying = await resolveCostAndInvestment(ctx);
+  if (paying.stop) return paying.value;
+  Object.assign(ctx, paying);
+
+  for (const step of [startPreparationIfNeeded, checkRewindEnergy, payUseCost]) {
+    const stop = await step(ctx);
+    if (stop) return stop.value;
+  }
+
+  await activateAndAnnounce(ctx);
+  const mech = await resolveUsePower(ctx);
+
+  const { skill, label, viaMark, options: finalOptions } = ctx;
+  if (ctx.combined) return runCombinedParts({ sourceActor, skill, skillId, parentMech: mech, label, options: finalOptions, viaMark, investPower: mech.investPower });
+  return dispatchMechanic({ sourceActor, skill, skillId, mech, label, options: finalOptions, viaMark });
+}
+
+/** A Skill usada (própria ou emprestada), a mecânica (Sub-Skill ou a da Skill), o rótulo e se é Combinada. */
+function resolveUsedSkill(sourceActor, skillId, options) {
   // Skill emprestada (7a, Corredor de alma ou Pacto): a mecânica e o nível são da Skill do DONO, mas
   // quem lança, paga a Mana e tem Token, alcance, campos e Supressão é quem usa (`sourceActor`).
   const skill = options.borrowedSkill ?? sourceActor.items.get(skillId);
@@ -135,9 +170,14 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
 
   // Combinada (8c.2): um uso dispara todas as Sub-Skills. A mecânica de Custo, Ativa e nível é a da Skill-mãe.
   const combined = Boolean(options.combined) && options.subSkillIndex == null && isCombinedSkill(skill.system);
+  return { skill, mech, label, combined };
+}
 
+/** Parado no tempo e clique numa Ativa ligada: desliga (sem cobrar nem rodar a mecânica) e acaba. */
+async function toggleOffIfActive(ctx) {
+  const { sourceActor, skill, mech, label, options, timers } = ctx;
   // Parado no tempo (8e.4): não faz nada, nem desligar uma Ativa.
-  if (blockIfTimeStopped(sourceActor, "usar Habilidades")) return null;
+  if (blockIfTimeStopped(sourceActor, "usar Habilidades")) return stopUse(null);
 
   if (mech.hasUpkeep && mech.active) {
     timers.skip = true;
@@ -147,30 +187,37 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
       speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
       content: `<p><strong>${escapeHtml(sourceActor.name)}</strong> desativou <strong>${escapeHtml(label)}</strong>.</p>`
     });
-    return true;
+    return stopUse(true);
   }
+  return null;
+}
+
+/** Quem não pode usar agora: incapacitado, Rerrolar fora do chat, Recarga/Preparo, "Só se…", Supressão. */
+async function checkUseBlocks(ctx) {
+  const { sourceActor, skill, mech, label } = ctx;
 
   // Caído/Inconsciente (incapacitation.js): não usa Habilidade nenhuma.
-  if (blockIfIncapacitated(sourceActor, "usar Habilidades")) return null;
+  if (blockIfIncapacitated(sourceActor, "usar Habilidades")) return stopUse(null);
 
   // Rerrolar (8d.2): só se usa pelo botão do card da rolagem, no chat — nunca da ficha nem da hotbar.
-  if (mech.effectType === "reroll" && !options.reroll) {
+  if (mech.effectType === "reroll" && !ctx.options.reroll) {
     ui.notifications?.info(`${label} é usada no chat: clique em "Rerrolar" no card da rolagem que ela alcança.`);
-    return null;
+    return stopUse(null);
   }
 
   // Acelerado (8e.2): a reserva de tempo paga a Recarga ou o Preparo em andamento, quando basta.
-  if (!options.prepaid && !options.borrowedSkill) {
-    const settled = await settleTimersByReserve(sourceActor, skill, options.subSkillIndex ?? null);
-    if (settled?.prepaid) options = { ...options, prepaid: settled.prepaid };
+  if (!ctx.options.prepaid && !ctx.options.borrowedSkill) {
+    const settled = await settleTimersByReserve(sourceActor, skill, ctx.options.subSkillIndex ?? null);
+    if (settled?.prepaid) ctx.options = { ...ctx.options, prepaid: settled.prepaid };
   }
+  const options = ctx.options;
 
   // Recarga ou Preparo em andamento (H3). O disparo de um Preparo (`prepaid`) já passou por aqui.
   if (!options.prepaid) {
     const blocked = useBlockReason(sourceActor, skill, options.subSkillIndex ?? null) ?? strikeBlockReason(sourceActor, skill, options.subSkillIndex ?? null);
     if (blocked) {
       ui.notifications?.warn(blocked);
-      return null;
+      return stopUse(null);
     }
   }
 
@@ -179,7 +226,7 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
     const onlyIfMessage = skillOnlyIfBlock(sourceActor, mech, options.targetActor ?? null);
     if (onlyIfMessage) {
       ui.notifications?.warn(`${label}: ${onlyIfMessage}.`);
-      return null;
+      return stopUse(null);
     }
   }
 
@@ -187,16 +234,21 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
   const suppression = sourceActor.type === "character" ? suppressionLevel(sourceActor) : null;
   if (suppression !== null && skillIsMagic({ ...mech, tier: skill.system.tier }) && (Number(mech.level) || 0) <= suppression) {
     ui.notifications?.warn(`${sourceActor.name} está Suprimido (Antimagia nv ${suppression}): ${label} não funciona.`);
-    return null;
+    return stopUse(null);
   }
 
   // Suprimido (Tecnologia, o PEM): Skill tecnológica de nível ≤ a supressão também não funciona.
   const techSuppression = sourceActor.type === "character" ? techSuppressionLevel(sourceActor) : null;
   if (techSuppression !== null && skillIsTech({ ...mech }, sourceActor) && (Number(mech.level) || 0) <= techSuppression) {
     ui.notifications?.warn(`${sourceActor.name} está Suprimido (Tecnologia nv ${techSuppression}): ${label} não funciona.`);
-    return null;
+    return stopUse(null);
   }
+  return null;
+}
 
+/** Densidade de mana do lugar e o portão do Campo de Antimagia/Interferência; guarda `ctx.manaDensity`. */
+async function checkPlaceAndField(ctx) {
+  const { sourceActor, mech, label } = ctx;
   // Densidade de mana do lugar (environment.js). Mana interna: quem lança usa a própria Mana, então
   // mana rarefeita não impede nem enfraquece o lançamento (só a Antimagia bloqueia); mana densa
   // reforça a Skill, junto com o investimento. O que não se sustenta em densidade 0 é a Habilidade
@@ -204,9 +256,9 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
   const rawDensity = isMagicUse(mech, sourceActor) ? manaDensityFor(sourceActor) : 1;
   if (mech.hasUpkeep && !densitySustainsMagic(rawDensity)) {
     ui.notifications?.warn(`Não há mana neste lugar para sustentar ${label}.`);
-    return null;
+    return stopUse(null);
   }
-  const manaDensity = castPowerFromDensity(rawDensity);
+  ctx.manaDensity = castPowerFromDensity(rawDensity);
 
   // Dentro de um Campo de Antimagia/Interferência (ou sob Selo): nada acontece e nada se gasta, a menos
   // que a Manipulação deixe passar (o extra é cobrado junto com o Custo, mais abaixo). De fora para
@@ -214,9 +266,17 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
   const earlyGate = fieldGate(sourceActor, mech);
   if (earlyGate.blocked) {
     ui.notifications?.warn(earlyGate.blocked);
-    return null;
+    return stopUse(null);
   }
+  return null;
+}
 
+/**
+ * O Custo (com Marca, Preparo e Mana variável): devolve `{ cost, paid, investRatio, overdraw, viaMark, markFactor,
+ * investConfig, preparing, prepByReserve }` ou `{ stop: true, value }`. Define `timers.ratio` ao fim, como antes.
+ */
+async function resolveCostAndInvestment(ctx) {
+  const { sourceActor, mech, label, options, timers, combined } = ctx;
   // Numa campanha sem pool de Mana/Energia (setting `energyPoolEnabled`), Personagem/Criatura
   // não paga Custo nenhum — a Habilidade continua funcionando, o recurso é que não existe.
   // Nave/Veículo ignora esse desligamento: o Grid de Energia é um sistema à parte.
@@ -252,7 +312,7 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
     const minimum = mech.variableMana ? Math.max(1, Math.ceil((cost * investConfig.minPercent) / 100)) : cost;
     if (mech.variableMana && available < markedCost(minimum, markFactor)) {
       await warnInsufficientEnergy(sourceActor, label, markedCost(minimum, markFactor));
-      return null;
+      return stopUse(null);
     }
     let invested =
       options.manaInvested ??
@@ -265,7 +325,7 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
         exponent: investConfig.exponent,
         energyLabel: getEnergyLabelForActor(sourceActor)
       }));
-    if (invested == null) return null;
+    if (invested == null) return stopUse(null);
     invested = Math.min(ceiling, Math.max(minimum, Math.round(Number(invested)) || minimum));
     // O que realmente sai da Mana (com a Marca) é que conta para passar do que se tem.
     const spend = markedCost(invested, markFactor);
@@ -273,54 +333,66 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
     if (over.over) {
       if (preparing) {
         ui.notifications?.warn(`${label} tem Preparo: o Custo é pago aos poucos e não passa do que você tem de ${getEnergyLabelForActor(sourceActor)}.`);
-        return null;
+        return stopUse(null);
       }
-      if (!(await confirmOverdraw({ label, invested: spend, current: available, percent: over.percent, energyLabel: getEnergyLabelForActor(sourceActor) }))) return null;
+      if (!(await confirmOverdraw({ label, invested: spend, current: available, percent: over.percent, energyLabel: getEnergyLabelForActor(sourceActor) }))) return stopUse(null);
       overdraw = { ...over, invested: spend, current: available, max: maxEnergy };
     }
     paid = spend;
     investRatio = invested / cost;
   }
   timers.ratio = investRatio;
+  return { cost, paid, investRatio, overdraw, viaMark, markFactor, investConfig, preparing, prepByReserve };
+}
 
-  if (preparing) {
-    // Preparo (H3): o Custo todo (com o investimento) é dividido em N partes; a 1ª sai agora, as outras no
-    // começo de cada turno de preparo (preparation.js). Alvo e área já foram escolhidos e ficam guardados.
-    const payments = preparationPayments(paid, mech.prepTurns);
-    const current = currentEnergyValue(sourceActor);
-    // Dentro de um campo: o extra da Manipulação (sobre o Custo todo) sai agora, junto da 1ª parte.
-    const prepGate = fieldGate(sourceActor, mech, { baseCost: paid });
-    const firstDue = payments[0] + prepGate.extra;
-    if (firstDue > 0 && current < firstDue) {
-      await warnInsufficientEnergy(sourceActor, label, firstDue);
-      return null;
-    }
-    if (firstDue > 0) await sourceActor.update({ [energyValuePath(sourceActor)]: current - firstDue });
-    if (prepGate.resisted) await creditManipulation(prepGate.skill);
-    await startPreparation({ actor: sourceActor, skill, subSkillIndex: options.subSkillIndex ?? null, payments, investRatio, options: packUseOptions(options) });
-    timers.skip = true;
-    const energyName = escapeHtml(getEnergyLabelForActor(sourceActor));
-    await ChatMessage.create({
-      speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
-      content: `<p><strong>${escapeHtml(sourceActor.name)}</strong> começou a preparar <strong>${escapeHtml(label)}</strong> — pronta em ${mech.prepTurns} rodada(s)${paid > 0 ? `; o Custo (${paid} ${energyName}) sai em ${payments.length} parte(s): ${payments.join(" + ")}` : ""}.</p>`
-    });
-    return true;
+/** Preparo (H3): paga só a 1ª parte, guarda o uso e acaba (o disparo vem nos turnos seguintes). */
+async function startPreparationIfNeeded(ctx) {
+  const { sourceActor, skill, mech, label, options, timers, paid, investRatio } = ctx;
+  if (!ctx.preparing) return null;
+  // Preparo (H3): o Custo todo (com o investimento) é dividido em N partes; a 1ª sai agora, as outras no
+  // começo de cada turno de preparo (preparation.js). Alvo e área já foram escolhidos e ficam guardados.
+  const payments = preparationPayments(paid, mech.prepTurns);
+  const current = currentEnergyValue(sourceActor);
+  // Dentro de um campo: o extra da Manipulação (sobre o Custo todo) sai agora, junto da 1ª parte.
+  const prepGate = fieldGate(sourceActor, mech, { baseCost: paid });
+  const firstDue = payments[0] + prepGate.extra;
+  if (firstDue > 0 && current < firstDue) {
+    await warnInsufficientEnergy(sourceActor, label, firstDue);
+    return stopUse(null);
   }
+  if (firstDue > 0) await sourceActor.update({ [energyValuePath(sourceActor)]: current - firstDue });
+  if (prepGate.resisted) await creditManipulation(prepGate.skill);
+  await startPreparation({ actor: sourceActor, skill, subSkillIndex: options.subSkillIndex ?? null, payments, investRatio, options: packUseOptions(options) });
+  timers.skip = true;
+  const energyName = escapeHtml(getEnergyLabelForActor(sourceActor));
+  await ChatMessage.create({
+    speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
+    content: `<p><strong>${escapeHtml(sourceActor.name)}</strong> começou a preparar <strong>${escapeHtml(label)}</strong> — pronta em ${mech.prepTurns} rodada(s)${paid > 0 ? `; o Custo (${paid} ${energyName}) sai em ${payments.length} parte(s): ${payments.join(" + ")}` : ""}.</p>`
+  });
+  return stopUse(true);
+}
 
-  // Reverter (8e.8): alvos ligados por vínculo (Nomeação, Pacto) custam o custo da Skill por parceiro: sem energia para todos, nada se paga.
+/** Reverter (8e.8): alvos ligados por vínculo (Nomeação, Pacto) custam o custo da Skill por parceiro: sem energia para todos, nada se paga. */
+async function checkRewindEnergy(ctx) {
+  const { sourceActor, mech, label, options, paid } = ctx;
   const rewindNeed = !options.prepaid ? rewindEnergyShortfall(sourceActor, mech, options.targetActor ? [options.targetActor] : options.targetActors ?? [], paid) : 0;
   if (rewindNeed > 0) {
     await warnInsufficientEnergy(sourceActor, label, rewindNeed);
-    return null;
+    return stopUse(null);
   }
+  return null;
+}
 
+/** Desconta a energia (com o extra do campo) e a reserva de tempo do Preparo adiantado; guarda o Overdraw no `timers`. */
+async function payUseCost(ctx) {
+  const { sourceActor, mech, label, timers, paid, overdraw, prepByReserve } = ctx;
   // Dentro de um campo, com Manipulação a curva pede um extra sobre o que se paga (0 fora de campo).
   const hold = fieldGate(sourceActor, mech, { baseCost: paid });
   if (paid + hold.extra > 0) {
     const current = currentEnergyValue(sourceActor);
     if (!overdraw && current < paid + hold.extra) {
       await warnInsufficientEnergy(sourceActor, label, paid + hold.extra);
-      return null;
+      return stopUse(null);
     }
     await sourceActor.update({ [energyValuePath(sourceActor)]: Math.max(0, current - paid - hold.extra) });
     timers.overdraw = overdraw;
@@ -333,6 +405,12 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
     await spendReserve(sourceActor, prepByReserve);
     await noteReservePrep(sourceActor, label, prepByReserve);
   }
+  return null;
+}
+
+/** Liga a Ativa (guardando investimento, Marca e alvo) e, se emprestada, diz de quem é a Skill. */
+async function activateAndAnnounce(ctx) {
+  const { sourceActor, skill, mech, label, options, investRatio, markFactor } = ctx;
   if (mech.hasUpkeep) {
     // A razão investida fica guardada: o Custo por rodada é cobrado vezes ela enquanto ligada.
     // O alvo escolhido fica guardado (desliga se ele cair; quem entra na bolha é comparado com ele).
@@ -346,6 +424,12 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
       content: `<p><strong>${escapeHtml(sourceActor.name)}</strong> usa <strong>${escapeHtml(label)}</strong> ${escapeHtml(borrowedVia(options.borrowedVia, skill))}.</p>`
     });
   }
+}
+
+/** A mecânica com a força resolvida (`investPower`, `paidCost`, `fieldGated`, `viaMark`), pronta para disparar. */
+async function resolveUsePower(ctx) {
+  const { sourceActor, label, options, investRatio, markFactor, cost, paid, viaMark, investConfig, manaDensity } = ctx;
+  let { mech } = ctx;
   // Daqui pra frente a Skill carrega a força do investimento (dano, Efeitos, Vida de Estrutura).
   // Tecnomágico (mágico E tecnológico) sai mais forte (Regras da Mesa).
   const technomagic = technomagicFactor(isMagicUse(mech, sourceActor), isTechUse(mech, sourceActor), getTechnomagicPower());
@@ -364,9 +448,7 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
   const paidCost = options.prepaid ? markedCost(cost * investRatio, markFactor) : paid;
   // `viaMark`: de onde o uso sai (Estruturas no caminho e campos de antimagia contam a partir do Marcado).
   mech = { ...(typeof mech.toObject === "function" ? mech.toObject() : mech), investPower, paidCost, fieldGated: true, viaMark };
-
-  if (combined) return runCombinedParts({ sourceActor, skill, skillId, parentMech: mech, label, options, viaMark, investPower });
-  return dispatchMechanic({ sourceActor, skill, skillId, mech, label, options, viaMark });
+  return mech;
 }
 
 /**

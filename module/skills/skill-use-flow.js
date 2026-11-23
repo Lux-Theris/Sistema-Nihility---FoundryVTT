@@ -116,120 +116,151 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget, bo
     }
   }
 
-  // Forma (H5): liga a Skill e o Mestre troca a ficha. Confere o molde antes de pagar o Custo.
-  if (mode === "form") {
-    const reason = formUseCheck(actor, mech);
-    if (reason) {
-      ui.notifications.warn(reason);
-      return;
-    }
-    try {
-      await useSkill({ subSkillIndex, manaInvested });
-    } catch (err) {
-      reportError("Falha ao assumir a forma.", err);
-    }
-    return;
-  }
+  // Daqui em diante cada modo tem o seu tratador (tabela `USE_HANDLERS`, abaixo). Tudo o que vale para vários
+  // modos (confere de bloqueio, "Só se…", Shift+clique, energia) já ficou acima, na mesma ordem de sempre.
+  const ctx = { actor, skill, mech, subSkillIndex, rollOptions, manaInvested, useSkill, pickTarget, refuseOnlyIf };
+  await USE_HANDLERS[mode]?.(ctx);
+}
 
-  // Estrutura: posiciona (ou desenha) no mapa e o Mestre ergue — ver structures.js. Sem mapa, a
-  // Skill só posta o cartão.
-  if (mode === "structure") {
-    try {
-      let structurePlacement = null;
-      let viaMark = null;
-      let pickedTarget = null;
-      if (canvas?.ready && canvas.scene) {
-        const structure = getStructure(mech.structureId);
-        if (!structure) {
-          ui.notifications.warn(`${skill.name} não tem uma Estrutura escolhida.`);
-          return;
-        }
-        const place = mech.structurePlace ?? "click";
-        if (place === "click") {
-          // Alcance (H4): os pontos têm de estar ao alcance de quem lança ou de uma Marca.
-          structurePlacement = await pickStructurePlacement(structure, reachContext(actor, { range: mech.range, free: true }));
-          if (!structurePlacement) return;
-          viaMark = structurePlacement.viaMark ?? null;
-          if (viaMark && !(await confirmMarkCost({ title: `Marca — ${skill.name}`, via: viaMark, baseCost: baseCostOf(actor, mech), actor }))) return;
-        } else {
-          // Sem clique (8c.2): centrada em quem usa, ou no alvo escolhido.
-          let center = null;
-          if (place === "target") {
-            pickedTarget = await pickTarget?.();
-            if (!pickedTarget) return;
-            const reach = await resolveTargetReach(actor, pickedTarget, mech, { label: skill.name, baseCost: baseCostOf(actor, mech) });
-            if (!reach.ok) return;
-            viaMark = reach.viaMark;
-            center = actorToken(pickedTarget, [...(game.user?.targets ?? [])])?.center ?? null;
-          } else {
-            center = casterTokenOf(actor)?.center ?? null;
-          }
-          structurePlacement = structurePlacementAround(structure, center);
-          if (!structurePlacement) {
-            ui.notifications.warn(`${skill.name}: não achei o Token ${place === "target" ? "do alvo" : "de quem usa"} nesta cena para centrar a Estrutura.`);
-            return;
-          }
-        }
-      }
-      await useSkill({ structurePlacement, targetActor: pickedTarget ?? undefined, subSkillIndex, manaInvested, viaMark });
-    } catch (err) {
-      reportError("Falha ao erguer a Estrutura.", err);
-    }
-    return;
-  }
-
-  // Ativa já ligada (só desliga) ou Descritiva: sem alvo nem rolagem.
-  if (mode === "deactivate" || mode === "plain") {
-    try {
-      await useSkill({ subSkillIndex });
-    } catch (err) {
-      reportError("Falha ao usar a Habilidade.", err);
-    }
-    return;
-  }
-
-  if (mode === "emissionNoCanvas") {
-    ui.notifications.warn("Skills de Emissão precisam de acesso ao canvas da cena ativa.");
-    return;
-  }
-
+/** Erro de um uso que não é Forma nem Estrutura (essas duas têm a própria mensagem). */
+async function guardedUse(fn) {
   try {
-    if (mode === "zone") {
-      // Zona: posiciona a área (fica na cena) — quem estiver dentro sofre no início do turno.
-      const zonePlacement = await pickZonePlacement({ system: mech }, areaReach(actor, mech), { caster: actor });
-      if (!zonePlacement) return;
-      const viaMark = zonePlacement.viaMark ?? null;
-      if (viaMark && !(await confirmMarkCost({ title: `Marca — ${skill.name}`, via: viaMark, baseCost: baseCostOf(actor, mech), actor }))) return;
-      await useSkill({ zonePlacement, subSkillIndex, rollOptions, manaInvested, viaMark });
-    } else if (mode === "emission") {
-      // Sem alvo manual: a forma posicionada no mapa decide quem é afetado (aplica direto).
-      const targetActors = await pickAreaTargets({ system: mech }, areaReach(actor, mech), { caster: actor });
-      // Sem `origin` = cancelou a colocação (pickAreaTargets devolve [] nos dois casos).
-      if (!targetActors.origin) return;
-      const viaMark = targetActors.viaMark ?? null;
-      if (viaMark && !(await confirmMarkCost({ title: `Marca — ${skill.name}`, via: viaMark, baseCost: baseCostOf(actor, mech), actor }))) return;
-      await useSkill({ targetActors, subSkillIndex, rollOptions, manaInvested, viaMark });
-    } else if (mode === "self") {
-      if (refuseOnlyIf(actor)) return;
-      await useSkill({ targetActor: actor, subSkillIndex, rollOptions, manaInvested });
-    } else {
-      // Alvo único. Todo dano pode ser reduzido pelo alvo, então dano e efeito temporário pedem
-      // alvo — o seletor já vem com quem usa marcado (inclusive a própria nave).
-      const targetActor = await pickTarget?.();
-      if (!targetActor) return;
-      // Alcance (H4): fora dele, só pela Marca (ou o Mestre ignora).
-      const reach = await resolveTargetReach(actor, targetActor, mech, { label: skill.name, baseCost: baseCostOf(actor, mech) });
-      if (!reach.ok) return;
-      if (refuseOnlyIf(targetActor)) return;
-      // Análise e Predação (7b): confere o alvo ANTES de pagar o Custo.
-      const gate = await targetedMechanicGate(actor, mech, targetActor);
-      if (!gate) return;
-      await useSkill({ targetActor, subSkillIndex, rollOptions, manaInvested, viaMark: reach.viaMark, ...gate });
-    }
+    await fn();
   } catch (err) {
     reportError("Falha ao usar a Habilidade.", err);
   }
 }
+
+/** Forma (H5): liga a Skill e o Mestre troca a ficha. Confere o molde antes de pagar o Custo. */
+async function useForm({ actor, mech, subSkillIndex, manaInvested, useSkill }) {
+  const reason = formUseCheck(actor, mech);
+  if (reason) {
+    ui.notifications.warn(reason);
+    return;
+  }
+  try {
+    await useSkill({ subSkillIndex, manaInvested });
+  } catch (err) {
+    reportError("Falha ao assumir a forma.", err);
+  }
+}
+
+/** Estrutura: posiciona (ou desenha) no mapa e o Mestre ergue — ver structures.js. Sem mapa, a Skill só posta o cartão. */
+async function useStructure({ actor, skill, mech, subSkillIndex, manaInvested, useSkill, pickTarget }) {
+  try {
+    let structurePlacement = null;
+    let viaMark = null;
+    let pickedTarget = null;
+    if (canvas?.ready && canvas.scene) {
+      const structure = getStructure(mech.structureId);
+      if (!structure) {
+        ui.notifications.warn(`${skill.name} não tem uma Estrutura escolhida.`);
+        return;
+      }
+      const place = mech.structurePlace ?? "click";
+      if (place === "click") {
+        // Alcance (H4): os pontos têm de estar ao alcance de quem lança ou de uma Marca.
+        structurePlacement = await pickStructurePlacement(structure, reachContext(actor, { range: mech.range, free: true }));
+        if (!structurePlacement) return;
+        viaMark = structurePlacement.viaMark ?? null;
+        if (viaMark && !(await confirmMarkCost({ title: `Marca — ${skill.name}`, via: viaMark, baseCost: baseCostOf(actor, mech), actor }))) return;
+      } else {
+        // Sem clique (8c.2): centrada em quem usa, ou no alvo escolhido.
+        let center = null;
+        if (place === "target") {
+          pickedTarget = await pickTarget?.();
+          if (!pickedTarget) return;
+          const reach = await resolveTargetReach(actor, pickedTarget, mech, { label: skill.name, baseCost: baseCostOf(actor, mech) });
+          if (!reach.ok) return;
+          viaMark = reach.viaMark;
+          center = actorToken(pickedTarget, [...(game.user?.targets ?? [])])?.center ?? null;
+        } else {
+          center = casterTokenOf(actor)?.center ?? null;
+        }
+        structurePlacement = structurePlacementAround(structure, center);
+        if (!structurePlacement) {
+          ui.notifications.warn(`${skill.name}: não achei o Token ${place === "target" ? "do alvo" : "de quem usa"} nesta cena para centrar a Estrutura.`);
+          return;
+        }
+      }
+    }
+    await useSkill({ structurePlacement, targetActor: pickedTarget ?? undefined, subSkillIndex, manaInvested, viaMark });
+  } catch (err) {
+    reportError("Falha ao erguer a Estrutura.", err);
+  }
+}
+
+/** Ativa já ligada (só desliga) ou Descritiva: sem alvo nem rolagem. */
+async function usePlain({ subSkillIndex, useSkill }) {
+  await guardedUse(() => useSkill({ subSkillIndex }));
+}
+
+async function useEmissionNoCanvas() {
+  ui.notifications.warn("Skills de Emissão precisam de acesso ao canvas da cena ativa.");
+}
+
+/** Zona: posiciona a área (fica na cena) — quem estiver dentro sofre no início do turno. */
+async function useZone({ actor, skill, mech, subSkillIndex, rollOptions, manaInvested, useSkill }) {
+  await guardedUse(async () => {
+    const zonePlacement = await pickZonePlacement({ system: mech }, areaReach(actor, mech), { caster: actor });
+    if (!zonePlacement) return;
+    const viaMark = zonePlacement.viaMark ?? null;
+    if (viaMark && !(await confirmMarkCost({ title: `Marca — ${skill.name}`, via: viaMark, baseCost: baseCostOf(actor, mech), actor }))) return;
+    await useSkill({ zonePlacement, subSkillIndex, rollOptions, manaInvested, viaMark });
+  });
+}
+
+/** Emissão: sem alvo manual, a forma posicionada no mapa decide quem é afetado (aplica direto). */
+async function useEmission({ actor, skill, mech, subSkillIndex, rollOptions, manaInvested, useSkill }) {
+  await guardedUse(async () => {
+    const targetActors = await pickAreaTargets({ system: mech }, areaReach(actor, mech), { caster: actor });
+    // Sem `origin` = cancelou a colocação (pickAreaTargets devolve [] nos dois casos).
+    if (!targetActors.origin) return;
+    const viaMark = targetActors.viaMark ?? null;
+    if (viaMark && !(await confirmMarkCost({ title: `Marca — ${skill.name}`, via: viaMark, baseCost: baseCostOf(actor, mech), actor }))) return;
+    await useSkill({ targetActors, subSkillIndex, rollOptions, manaInvested, viaMark });
+  });
+}
+
+async function useSelf({ actor, subSkillIndex, rollOptions, manaInvested, useSkill, refuseOnlyIf }) {
+  await guardedUse(async () => {
+    if (refuseOnlyIf(actor)) return;
+    await useSkill({ targetActor: actor, subSkillIndex, rollOptions, manaInvested });
+  });
+}
+
+async function useTargeted({ actor, skill, mech, subSkillIndex, rollOptions, manaInvested, useSkill, pickTarget, refuseOnlyIf }) {
+  await guardedUse(async () => {
+    // Alvo único. Todo dano pode ser reduzido pelo alvo, então dano e efeito temporário pedem
+    // alvo — o seletor já vem com quem usa marcado (inclusive a própria nave).
+    const targetActor = await pickTarget?.();
+    if (!targetActor) return;
+    // Alcance (H4): fora dele, só pela Marca (ou o Mestre ignora).
+    const reach = await resolveTargetReach(actor, targetActor, mech, { label: skill.name, baseCost: baseCostOf(actor, mech) });
+    if (!reach.ok) return;
+    if (refuseOnlyIf(targetActor)) return;
+    // Análise e Predação (7b): confere o alvo ANTES de pagar o Custo.
+    const gate = await targetedMechanicGate(actor, mech, targetActor);
+    if (!gate) return;
+    await useSkill({ targetActor, subSkillIndex, rollOptions, manaInvested, viaMark: reach.viaMark, ...gate });
+  });
+}
+
+/**
+ * Um tratador por modo de `skillUseMode`. Só são chamados dentro de `useSkillFlow`, nunca na avaliação do
+ * módulo (os tratadores são funções declaradas acima; nada aqui chama um import de um irmão).
+ */
+const USE_HANDLERS = {
+  form: useForm,
+  structure: useStructure,
+  deactivate: usePlain,
+  plain: usePlain,
+  emissionNoCanvas: useEmissionNoCanvas,
+  zone: useZone,
+  emission: useEmission,
+  self: useSelf,
+  targeted: useTargeted,
+};
 
 /**
  * Skill Combinada (8c.2): o mesmo fluxo para a Skill-mãe inteira. As escolhas saem UMA vez e antes de pagar: o

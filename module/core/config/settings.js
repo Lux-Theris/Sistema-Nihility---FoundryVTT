@@ -10,7 +10,24 @@ import { NIHILITY, SYSTEM_ID } from "./constants.js";
  * Registra todas as Game Settings do sistema. Deve ser chamado no hook `init`.
  */
 export function registerSystemSettings() {
-  registerSystemSettingsInner();
+  registerFeatureSettings();
+  registerAttributeAndDamageSettings();
+  registerUnarmedAndShipTargetSettings();
+  registerElementAdvantageSettings();
+  registerEnvironmentAndClockSettings();
+  registerAntimagicSettings();
+  registerShipSettings();
+  registerSkillLevelAndXpSettings();
+  registerVitalAndInitiativeSettings();
+  registerEnergyLabelAndPointSettings();
+  registerPresetStorageSettings();
+  registerSkillCostAndComplexitySettings();
+  registerNamingAndPredationSettings();
+  registerCatalogSettings();
+  registerScaleAndVesselSettings();
+  registerMigrationSettings();
+  registerDebugAndUiSettings();
+  registerAiSettings();
 }
 
 /** Aplica "segundos por rodada" em `CONFIG.time.roundTime` (o núcleo deixa 0). Roda no `ready` e quando a setting muda. */
@@ -23,7 +40,8 @@ export function applyRoundSeconds() {
   }
 }
 
-function registerSystemSettingsInner() {
+/** Um interruptor por bloco de NIHILITY.FEATURES, e as opções sob cada um. */
+function registerFeatureSettings() {
   const S = NIHILITY.SETTINGS;
 
   // Um registro por bloco de NIHILITY.FEATURES — a tabela é a única fonte da verdade, então
@@ -55,6 +73,11 @@ function registerSystemSettingsInner() {
       });
     }
   }
+}
+
+/** Atributos, escala de dano, Custo variável, Descanso e Cura. */
+function registerAttributeAndDamageSettings() {
+  const S = NIHILITY.SETTINGS;
 
   // Rótulo/visibilidade dos atributos (editados pela tela "Configurar Atributos").
   // Registrada ANTES das settings de fórmula vital de propósito: os `choices` daquelas são
@@ -138,6 +161,11 @@ function registerSystemSettingsInner() {
     type: Number,
     default: 1
   });
+}
+
+/** Ataque desarmado e o sistema-alvo de Naves. */
+function registerUnarmedAndShipTargetSettings() {
+  const S = NIHILITY.SETTINGS;
 
   // Ataque desarmado (H6): sempre existe, mesmo com `FEATURES.weaponMastery` desligada.
   game.settings.register(SYSTEM_ID, S.unarmedFormula, {
@@ -183,6 +211,11 @@ function registerSystemSettingsInner() {
     type: Number,
     default: 75
   });
+}
+
+/** Multiplicadores da tabela de vantagens entre elementos. */
+function registerElementAdvantageSettings() {
+  const S = NIHILITY.SETTINGS;
 
   for (const [key, name, value] of [
     ["affinityImmune", "Imune", 0],
@@ -199,6 +232,11 @@ function registerSystemSettingsInner() {
       default: value
     });
   }
+}
+
+/** Densidade de mana do mundo, Relógio do mundo e Reverter o tempo. */
+function registerEnvironmentAndClockSettings() {
+  const S = NIHILITY.SETTINGS;
 
   // Densidade de mana do mundo (ambiente, environment.js): multiplica a potência das Skills mágicas
   // e a regeneração de Mana. Cenas e áreas (Regions com "Ambiente") sobrescrevem.
@@ -234,6 +272,11 @@ function registerSystemSettingsInner() {
     hint: "Quantas rodadas uma Habilidade de Reverter pode voltar (de 1 a 100; padrão 10). Em combate o sistema guarda uma foto de cada personagem por turno, só em memória no navegador do Mestre, até esse número de rodadas; recarregar a página do Mestre apaga o histórico. Fora de combate o teto vale para o tempo que volta (1 rodada = os segundos por rodada do relógio, ou 6).",
     scope: "world", config: true, type: Number, default: 10
   });
+}
+
+/** Antimagia e Tecnomagia. */
+function registerAntimagicSettings() {
+  const S = NIHILITY.SETTINGS;
 
   game.settings.register(SYSTEM_ID, S.antimagicReach, {
     name: "Antimagia — alcance (× o nível)",
@@ -272,6 +315,11 @@ function registerSystemSettingsInner() {
     type: Number,
     default: 2
   });
+}
+
+/** Naves: reparo, preparo para impacto e foco de energia. */
+function registerShipSettings() {
+  const S = NIHILITY.SETTINGS;
 
   game.settings.register(SYSTEM_ID, S.shipRepairEngineerFormula, {
     name: "Naves — Bônus de Engenharia no reparo (Vida)",
@@ -308,6 +356,11 @@ function registerSystemSettingsInner() {
     type: Number,
     default: 75
   });
+}
+
+/** Nível de Skill, XP de Resistência e fórmula de XP. */
+function registerSkillLevelAndXpSettings() {
+  const S = NIHILITY.SETTINGS;
 
   game.settings.register(SYSTEM_ID, S.skillPowerPerLevel, {
     name: "Nível de Skill — Poder por nível (%)",
@@ -387,6 +440,11 @@ function registerSystemSettingsInner() {
     type: String,
     default: "100 * @nivel"
   });
+}
+
+/** Fórmulas de HP/Mana, pool de energia, alvos fora da cena e Iniciativa. */
+function registerVitalAndInitiativeSettings() {
+  const S = NIHILITY.SETTINGS;
 
   // Fórmula de HP/Mana. Fica visível na tela de settings (config: true) porque é uma regra de
   // balanceamento que o Mestre ajusta uma vez e esquece — não é um liga/desliga de campanha.
@@ -486,6 +544,11 @@ function registerSystemSettingsInner() {
     default: NIHILITY.MIN_BASE_VITAL_STAT,
     requiresReload: true
   });
+}
+
+/** Rótulos de energia e Pontos de Atributo e de Habilidade. */
+function registerEnergyLabelAndPointSettings() {
+  const S = NIHILITY.SETTINGS;
 
   game.settings.register(SYSTEM_ID, S.characterEnergyLabel, {
     name: "Rótulo de Energia — Personagens/Criaturas",
@@ -549,6 +612,11 @@ function registerSystemSettingsInner() {
     type: Number,
     default: 2
   });
+}
+
+/** Dados guardados de Moedas, Espécies, Heranças e Modelos de Skill (sem UI própria). */
+function registerPresetStorageSettings() {
+  const S = NIHILITY.SETTINGS;
 
   // Armazenamento cru (sem UI própria na lista de settings): editados pelos
   // FormApplications dedicados registrados como Settings Menu em nihility-rpg-system.js.
@@ -580,6 +648,11 @@ function registerSystemSettingsInner() {
     type: String,
     default: ""
   });
+}
+
+/** Custo sugerido de Skill e teto de Complexidade por tier. */
+function registerSkillCostAndComplexitySettings() {
+  const S = NIHILITY.SETTINGS;
 
   // Custo sugerido (L9): quanto de Mana/Energia vale cada "ponto de poder" da Skill.
   game.settings.register(SYSTEM_ID, S.skillCostManaPerPoint, {
@@ -616,6 +689,11 @@ function registerSystemSettingsInner() {
     type: Number,
     default: 12
   });
+}
+
+/** Nomeação, Análise e Predação (grupos da Regras da Mesa). */
+function registerNamingAndPredationSettings() {
+  const S = NIHILITY.SETTINGS;
 
   // Nomeação (7a): Regras da Mesa, grupo "Nomeação".
   game.settings.register(SYSTEM_ID, S.namingManaFactor, {
@@ -669,6 +747,11 @@ function registerSystemSettingsInner() {
     type: Number,
     default: 5
   });
+}
+
+/** Dados guardados dos catálogos, do Glossário e do Calendário (sem UI própria). */
+function registerCatalogSettings() {
+  const S = NIHILITY.SETTINGS;
 
   // Arquétipos do Gerador de NPC (vazio = os de fábrica, NIHILITY.DEFAULT_NPC_ARCHETYPES).
   game.settings.register(SYSTEM_ID, S.npcArchetypesData, {
@@ -719,6 +802,11 @@ function registerSystemSettingsInner() {
   // principal nunca se apaga). Só `calendarData` termina em "Data" e viaja no Exportar/Importar.
   game.settings.register(SYSTEM_ID, S.calendarData, { name: "Calendário", scope: "world", config: false, type: String, default: "" });
   game.settings.register(SYSTEM_ID, S.timelines, { name: "Linhas do tempo", scope: "world", config: false, type: String, default: "" });
+}
+
+/** Escalas e catálogos de Nave/Veículo (dados guardados, sem UI própria). */
+function registerScaleAndVesselSettings() {
+  const S = NIHILITY.SETTINGS;
 
   game.settings.register(SYSTEM_ID, S.scalesData, {
     scope: "world",
@@ -731,6 +819,11 @@ function registerSystemSettingsInner() {
   for (const key of ["moduleCategoriesData", "shipClassesData", "vehicleClassesData", "shipSizesData", "vehicleSizesData", "ammoTypesData", "crewRolesData", "structuresData", "weaponTypesData"]) {
     game.settings.register(SYSTEM_ID, S[key], { scope: "world", config: false, type: String, default: "" });
   }
+}
+
+/** Chaves das migrações já executadas neste mundo. */
+function registerMigrationSettings() {
+  const S = NIHILITY.SETTINGS;
 
   // Chaves das migrações únicas (ver runMigrationIfNeeded em nihility-rpg-system.js) já
   // executadas com sucesso neste mundo — sem isso, cada migração reescanearia todos os
@@ -741,6 +834,11 @@ function registerSystemSettingsInner() {
     type: String,
     default: "[]"
   });
+}
+
+/** Log de debug e os avisos por navegador (números, Voz do Mundo, duração). */
+function registerDebugAndUiSettings() {
+  const S = NIHILITY.SETTINGS;
 
   // scope "client" (não "world"): cada pessoa liga o próprio log de debug sem forçar isso nos
   // jogadores conectados.
@@ -784,6 +882,11 @@ function registerSystemSettingsInner() {
       for (const token of globalThis.canvas?.tokens?.placeables ?? []) token.renderFlags?.set({ redrawEffects: true });
     }
   });
+}
+
+/** Assistente de IA (fica só no navegador de quem configura). */
+function registerAiSettings() {
+  const S = NIHILITY.SETTINGS;
 
   // scope:"client" (não "world"): fica só no navegador de quem configura, nunca
   // sincroniza pros outros clientes conectados. Como só o GM usa o Assistente de
@@ -830,3 +933,4 @@ function registerSystemSettingsInner() {
     default: ""
   });
 }
+

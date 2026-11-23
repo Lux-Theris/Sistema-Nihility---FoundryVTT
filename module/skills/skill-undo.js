@@ -34,6 +34,7 @@ import {
   undoWindowOpen,
   undoPreviewRows
 } from "./skill-undo-rules.js";
+import { escapeHtml } from "../helpers/html.js";
 
 const POOLS_PATH = "system.attributes.shield.pools";
 const SHIELD_PATH = "system.attributes.shield.value";
@@ -184,7 +185,7 @@ export async function recordSkillUse(sourceActor, skillId, options, run) {
     if (!card) {
       card = await ChatMessage.create({
         speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
-        content: `<p><strong>${foundry.utils.escapeHTML(record.actorName)}</strong> usou <strong>${foundry.utils.escapeHTML(label)}</strong>.</p>`,
+        content: `<p><strong>${escapeHtml(record.actorName)}</strong> usou <strong>${escapeHtml(label)}</strong>.</p>`,
         flags: { [SYSTEM_ID]: { skillUseId: context.id } }
       });
     }
@@ -269,9 +270,8 @@ async function confirmSkillUndo(message) {
   }
   const damage = taggedMessages(record).flatMap(m => damageCardHits(m));
   const rows = undoPreviewRows(record, { damage, skillLabel: record.label });
-  const esc = foundry.utils.escapeHTML;
   const list = rows.length
-    ? `<ul class="undo-rows">${rows.map(r => `<li><span class="undo-tag tone-${r.tone}">${esc(r.tag)}</span><span>${esc(r.text)}</span></li>`).join("")}</ul>`
+    ? `<ul class="undo-rows">${rows.map(r => `<li><span class="undo-tag tone-${r.tone}">${escapeHtml(r.tag)}</span><span>${escapeHtml(r.text)}</span></li>`).join("")}</ul>`
     : `<p class="undo-empty">Nada além do card a reverter.</p>`;
   const ok = await foundry.applications.api.DialogV2.confirm({
     window: { title: `Desfazer uso — ${record.label} (${record.actorName})` },
@@ -389,7 +389,7 @@ async function performSkillUndo(message, record) {
   for (const m of new Set([message, ...tagged])) {
     await m.update({ [`flags.${SYSTEM_ID}.skillUndone`]: true, ...(recordOf(m) ? { [`flags.${SYSTEM_ID}.skillUse.undone`]: true } : {}) });
   }
-  ui.notifications.info(`Uso de ${foundry.utils.escapeHTML(record.label)} desfeito.`);
+  ui.notifications.info(`Uso de ${escapeHtml(record.label)} desfeito.`);
 }
 
 /* ------------------------------------------------------------------ Registro */

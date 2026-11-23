@@ -57,7 +57,7 @@
 .nihility-sheet.item-sheet .sec-head-note { text-transform: none; letter-spacing: 0; color: var(--nihility-text-faint); }
 .nihility-sheet.item-sheet .sec-head-input { flex: 1 1 auto; text-transform: none; letter-spacing: 0; font: 600 0.85rem var(--nihility-font); }
 .nihility-sheet.item-sheet .sp { flex-grow: 1; }
-.nihility-sheet.item-sheet .sec-body { padding: 10px; display: grid; gap: 10px; }
+.nihility-sheet.item-sheet .sec-body { padding: 10px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .nihility-sheet.item-sheet .sec-body.tight { gap: 6px; }
 .nihility-sheet.item-sheet .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .nihility-sheet.item-sheet .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -327,7 +327,7 @@
 .nihility-sheet.item-sheet .row-delete:hover { color: var(--nihility-danger); }
 
 /* Efeitos em card com frase-resumo e selo do grupo. */
-.nihility-sheet.item-sheet .effect-cols { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) 20px; padding: 0 10px; }
+.nihility-sheet.item-sheet .effect-cols { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.4fr) minmax(0, 0.9fr) 20px; padding: 0 10px; }
 .nihility-sheet.item-sheet .effect-cols span:nth-child(2),
 .nihility-sheet.item-sheet .effect-cols span:nth-child(3) { text-align: right; }
 .nihility-sheet.item-sheet .effect-card {
@@ -342,7 +342,17 @@
 .nihility-sheet.item-sheet .effect-card-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .nihility-sheet.item-sheet .effect-sum { font-size: 0.8rem; color: var(--nihility-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nihility-sheet.item-sheet .effect-sum em { font-style: normal; color: var(--nihility-text-dim); }
-.nihility-sheet.item-sheet .effect-card-main { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) 20px; gap: 6px; align-items: center; }
+.nihility-sheet.item-sheet .effect-card-head .link-add { flex-shrink: 0; white-space: nowrap; }
+.nihility-sheet.item-sheet .effect-card-main { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.4fr) minmax(0, 0.9fr) 20px; gap: 6px; align-items: center; }
+/* Coluna "Qtd.": uma célula só, com as peças lado a lado (quebram dentro dela, nunca empurram a Duração). */
+.nihility-sheet.item-sheet .effect-qty { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
+.nihility-sheet.item-sheet .effect-card .effect-qty > input,
+.nihility-sheet.item-sheet .effect-card .effect-qty > select { flex: 1 1 0; width: auto; min-width: 3.2em; }
+.nihility-sheet.item-sheet .effect-card .effect-qty > .effect-amount-mode { flex: 0 1 auto; padding-left: 4px; padding-right: 4px; }
+.nihility-sheet.item-sheet .effect-qty > .effect-note,
+.nihility-sheet.item-sheet .effect-qty > label { flex: 0 0 auto; }
+.nihility-sheet.item-sheet .effect-qty > label { display: inline-flex; align-items: center; gap: 3px; }
+.nihility-sheet.item-sheet .effect-qty > label input[type="checkbox"] { width: 14px; height: 14px; margin: 0; flex: none; }
 .nihility-sheet.item-sheet .effect-card-extra {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

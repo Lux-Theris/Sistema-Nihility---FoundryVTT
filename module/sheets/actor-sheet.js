@@ -142,13 +142,12 @@ async function promptDialog({ title, content, confirmLabel = "Confirmar", onConf
  * Skill Assistido", prancha 2) — "Em branco" é o jeito de antes. O resto se edita na ficha.
  */
 async function promptNewSkill(tierChoices) {
-  const esc = escapeHtml;
-  const options = tierChoices.map(t => `<option value="${t}" ${t === "normal" ? "selected" : ""}>${esc(NIHILITY.SKILL_TIER_LABELS[t] ?? t)}</option>`).join("");
+  const options = tierChoices.map(t => `<option value="${t}" ${t === "normal" ? "selected" : ""}>${escapeHtml(NIHILITY.SKILL_TIER_LABELS[t] ?? t)}</option>`).join("");
   const tile = (id, label, hint, extra = "") =>
-    `<label class="sa-tile ${extra}"><input type="radio" name="template" value="${esc(id)}" ${id ? "" : "checked"}/><span class="sa-tile-name">${esc(label)}</span><small>${esc(hint)}</small></label>`;
+    `<label class="sa-tile ${extra}"><input type="radio" name="template" value="${escapeHtml(id)}" ${id ? "" : "checked"}/><span class="sa-tile-name">${escapeHtml(label)}</span><small>${escapeHtml(hint)}</small></label>`;
   const groups = templateGroups();
   const tiles = groups
-    .map((g, i) => `<p class="sa-tile-group">${esc(g.label)}</p><div class="sa-tiles">${i === 0 ? tile("", "Em branco", "Tudo vazio, como antes", "blank") : ""}${g.templates.map(t => tile(t.id, t.label, t.hint)).join("")}</div>`)
+    .map((g, i) => `<p class="sa-tile-group">${escapeHtml(g.label)}</p><div class="sa-tiles">${i === 0 ? tile("", "Em branco", "Tudo vazio, como antes", "blank") : ""}${g.templates.map(t => tile(t.id, t.label, t.hint)).join("")}</div>`)
     .join("");
   return foundry.applications.api.DialogV2.wait({
     window: { title: "Nova Habilidade" },

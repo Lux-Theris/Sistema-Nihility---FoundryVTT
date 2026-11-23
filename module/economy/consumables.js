@@ -19,6 +19,7 @@ import { rollSkillDamage, rollSkillDamageArea } from "../combat/damage-roll.js";
 import { applySkillEffects, applySkillEffectsArea } from "../skills/skill-effects.js";
 import { reportError } from "../helpers/report.js";
 import { reachContext, checkFlatRange, throwRangeFor } from "../combat/range.js";
+import { escapeHtml } from "../helpers/html.js";
 
 /** A "mecânica" de um consumível, no formato que os caminhos de Skill entendem. */
 export function consumableMech(item) {
@@ -64,7 +65,7 @@ export async function useConsumable(actor, item, event = null) {
   // Caído não bebe a própria poção — um aliado usa nele (o Usar do inventário DO aliado, mirando nele).
   if (blockIfIncapacitated(actor, "usar itens")) return null;
   if ((item.system.quantity ?? 0) <= 0) {
-    ui.notifications.warn(`${item.name} acabou.`);
+    ui.notifications.warn(`${escapeHtml(item.name)} acabou.`);
     return null;
   }
   const mech = consumableMech(item);
@@ -80,11 +81,11 @@ export async function useConsumable(actor, item, event = null) {
   const label = item.name;
   const isDamage = mech.effectType === "damage";
   if (isDamage && !mech.damageFormula.trim()) {
-    ui.notifications.warn(`${item.name} não tem uma Fórmula de Dano configurada.`);
+    ui.notifications.warn(`${escapeHtml(item.name)} não tem uma Fórmula de Dano configurada.`);
     return null;
   }
   if (!isDamage && !mech.effects.length) {
-    ui.notifications.warn(`${item.name} não tem nenhum Efeito configurado.`);
+    ui.notifications.warn(`${escapeHtml(item.name)} não tem nenhum Efeito configurado.`);
     return null;
   }
 
@@ -159,7 +160,6 @@ function ammoDamageText(ammo, weapon, elements) {
  * `{action: "unload"}` ou null.
  */
 async function reloadDialog(weapon, candidates, mag, current) {
-  const esc = foundry.utils.escapeHTML;
   const types = Object.fromEntries(getAmmoTypes().map(t => [t.id, t.label]));
   const elements = Object.fromEntries(getActiveDamageElements().map(e => [e.id, e.label]));
   const { returned } = reloadPlan({ size: weapon.system.weapon.magazineSize, loaded: mag.loaded, currentMax: mag.max });
@@ -169,7 +169,7 @@ async function reloadDialog(weapon, candidates, mag, current) {
   else if (returned?.rounds) insideNote = `Ao trocar, volta para o inventário como unidade aberta (${plural(returned.rounds, "disparo", "disparos")}).`;
   else if (returned) insideNote = "Ainda cheia: ao trocar, volta para a pilha.";
   const inside = current
-    ? `<div class="rl-current"><span class="rl-name">${esc(current.label ?? "Munição")}</span><span class="rl-count">${mag.loaded}/${mag.max} disparos</span></div>${insideNote ? `<p class="rl-note">${insideNote}</p>` : ""}`
+    ? `<div class="rl-current"><span class="rl-name">${escapeHtml(current.label ?? "Munição")}</span><span class="rl-count">${mag.loaded}/${mag.max} disparos</span></div>${insideNote ? `<p class="rl-note">${insideNote}</p>` : ""}`
     : `<div class="rl-current"><span class="rl-name rl-empty">Vazia</span><span class="rl-count">0/${mag.max} disparos</span></div>`;
 
   const options = candidates.length
@@ -179,7 +179,7 @@ async function reloadDialog(weapon, candidates, mag, current) {
           const plan = reloadPlan({ size: weapon.system.weapon.magazineSize, ammoRounds: ammo.rounds, capacity: ammo.capacity });
           const gives = (Number(ammo.rounds) || 0) > 0 ? `aberta: ${plan.loaded}/${plan.max} disparos` : `enche: ${plural(plan.max, "disparo", "disparos")}`;
           const meta = [types[ammo.type], gives, ammoDamageText(ammo, weapon, elements)].filter(Boolean).join(" · ");
-          return `<label class="rl-option"><input type="radio" name="ammo" value="${item.id}" ${index === 0 ? "checked" : ""}/><span class="rl-text"><span class="rl-name">${esc(item.name)} <em>×${item.system.quantity}</em></span><span class="rl-meta">${esc(meta)}</span></span></label>`;
+          return `<label class="rl-option"><input type="radio" name="ammo" value="${item.id}" ${index === 0 ? "checked" : ""}/><span class="rl-text"><span class="rl-name">${escapeHtml(item.name)} <em>×${item.system.quantity}</em></span><span class="rl-meta">${escapeHtml(meta)}</span></span></label>`;
         })
         .join("")
     : `<p class="rl-note">Nenhuma munição compatível no inventário.</p>`;

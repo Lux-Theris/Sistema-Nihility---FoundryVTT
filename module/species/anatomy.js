@@ -13,6 +13,7 @@ import { isDesignatedGm } from "../helpers/gm-relay.js";
 import { createGrantedSkill, removeGrantedSkill } from "../skills/skill-economy.js";
 import { createActiveEffects } from "../helpers/foundry-compat.js";
 import { reportError } from "../helpers/report.js";
+import { escapeHtml } from "../helpers/html.js";
 
 const INJURY_FLAG = "bodyInjury";
 
@@ -255,8 +256,7 @@ export async function promptTargetBodyPart(targetActor, { used = "A Habilidade j
   if (!getFeatureOption("bodyPartInjury", "aimBodyPart")) return null;
   const parts = partsSnapshot(targetActor).filter(p => p.state !== "lost");
   if (!parts.length) return null;
-  const esc = value => foundry.utils.escapeHTML(String(value ?? ""));
-  const options = parts.map(p => `<option value="${p.id}">${esc(p.name)} (${p.value}/${p.max})</option>`).join("");
+  const options = parts.map(p => `<option value="${p.id}">${escapeHtml(p.name)} (${p.value}/${p.max})</option>`).join("");
   const chosen = await foundry.applications.api.DialogV2.wait({
     window: { title: `Mirar numa parte — ${targetActor.name}` },
     classes: ["nihility-target-module-dialog"],
@@ -285,9 +285,8 @@ export async function promptHealFocus(targetActor, mech) {
   if (!heal) return null;
   const parts = healableParts(targetActor, heal.healKind || "cura", { repairsProsthesis: heal.healKind === "regeneracao" && ["unique", "ultimate"].includes(mech.tier), level: Number(mech.level) || 0 });
   if (!parts.length) return null;
-  const esc = value => foundry.utils.escapeHTML(String(value ?? ""));
   const pct = p => (p.state === "lost" ? "perdida" : `${p.max > 0 ? Math.round((p.value / p.max) * 100) : 0}%`);
-  const options = parts.map(p => `<option value="${p.id}">${esc(p.name)} (${pct(p)})</option>`).join("");
+  const options = parts.map(p => `<option value="${p.id}">${escapeHtml(p.name)} (${pct(p)})</option>`).join("");
   const chosen = await foundry.applications.api.DialogV2.wait({
     window: { title: `Focar a cura — ${targetActor.name}` },
     classes: ["nihility-target-module-dialog"],
@@ -393,7 +392,7 @@ export function registerAnatomyHooks() {
     const functions = item.system.functions?.length ? item.system.functions : [];
     if (!functions.some(f => vital.includes(f))) return;
     ChatMessage.create({
-      content: `<p><strong>${foundry.utils.escapeHTML(item.parent.name)}</strong>: ${foundry.utils.escapeHTML(item.name)} (vital) foi ${lostNow ? "perdida" : "inutilizada"}. O Mestre decide o que isso significa.</p>`,
+      content: `<p><strong>${escapeHtml(item.parent.name)}</strong>: ${escapeHtml(item.name)} (vital) foi ${lostNow ? "perdida" : "inutilizada"}. O Mestre decide o que isso significa.</p>`,
       whisper: game.users.filter(u => u.isGM).map(u => u.id),
       speaker: ChatMessage.getSpeaker({ actor: item.parent })
     });

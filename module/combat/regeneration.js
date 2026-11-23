@@ -18,6 +18,7 @@ import { restOutcome } from "../species/anatomy-rules.js";
 import { manaDensityFor } from "../environment/environment.js";
 import { isInCombat } from "./conditional-context.js";
 import { healPlan, healBodyParts, partsSnapshot, partWrite } from "../species/anatomy.js";
+import { escapeHtml } from "../helpers/html.js";
 
 /**
  * As fontes de regeneração por rodada de um Personagem (para o tick e para o "De onde vem").
@@ -104,7 +105,7 @@ export async function tickRegeneration(actor, { steps = 1, notes = null } = {}) 
   if (!parts.length) return null;
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor }),
-    content: `<p><strong>${foundry.utils.escapeHTML(actor.name)}</strong> — início de turno, regeneração: ${parts.join(" · ")}</p>`
+    content: `<p><strong>${escapeHtml(actor.name)}</strong> — início de turno, regeneração: ${parts.join(" · ")}</p>`
   });
   return parts;
 }
@@ -148,7 +149,7 @@ async function applyRest(actor, kind, outcome) {
   if (outcome.cap < 1) gained.push(`Vida segura em ${Math.round(outcome.cap * 100)}% por partes a 0%`);
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor }),
-    content: `<p><strong>${foundry.utils.escapeHTML(actor.name)}</strong> fez um <strong>Descanso ${kind === "long" ? "Completo" : "Curto"}</strong>: ${gained.join(" · ")}.</p>`
+    content: `<p><strong>${escapeHtml(actor.name)}</strong> fez um <strong>Descanso ${kind === "long" ? "Completo" : "Curto"}</strong>: ${gained.join(" · ")}.</p>`
   });
 }
 
@@ -172,15 +173,14 @@ export async function openRestDialog(actor) {
   const hp = actor.system.attributes.hp;
   const energy = actor.system.attributes.energy;
   const energyLabel = getCharacterEnergyLabel();
-  const esc = value => foundry.utils.escapeHTML(String(value ?? ""));
   const partRows = outcome => {
     const byId = new Map(outcome.healedParts.map(h => [h.id, h.value]));
     return preview.parts
       .filter(p => p.state !== "intact")
       .map(p => {
         const pct = v => `${p.max > 0 ? Math.round((v / p.max) * 100) : 0}%`;
-        if (p.state === "lost" || p.value <= 0) return `<span class="k">${esc(p.name)}</span><span class="v is-zero">${p.state === "lost" ? "perdida" : "0%"}</span>`;
-        return `<span class="k">${esc(p.name)} (${pct(p.value)})</span><span class="v">→ ${pct(byId.get(p.id) ?? p.value)}</span>`;
+        if (p.state === "lost" || p.value <= 0) return `<span class="k">${escapeHtml(p.name)}</span><span class="v is-zero">${p.state === "lost" ? "perdida" : "0%"}</span>`;
+        return `<span class="k">${escapeHtml(p.name)} (${pct(p.value)})</span><span class="v">→ ${pct(byId.get(p.id) ?? p.value)}</span>`;
       })
       .join("");
   };
@@ -191,7 +191,7 @@ export async function openRestDialog(actor) {
       <span class="hint">${text}</span>
       <span class="pv">
         <span class="k">Vida</span><span class="v">${hp.value} → ${outcome.hp}</span>
-        ${isEnergyPoolEnabled() ? `<span class="k">${esc(energyLabel)}</span><span class="v">${energy.value} → ${outcome.energy}</span>` : ""}
+        ${isEnergyPoolEnabled() ? `<span class="k">${escapeHtml(energyLabel)}</span><span class="v">${energy.value} → ${outcome.energy}</span>` : ""}
         ${partRows(outcome)}
       </span>
     </label>`;

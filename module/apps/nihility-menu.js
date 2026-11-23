@@ -35,6 +35,7 @@ import { ensureSystemCompendiums, registerItemInCompendium } from "../core/compe
 import { saveTextToFile, readFileAsText } from "../helpers/foundry-compat.js";
 import { readTransferBundle, buildTransferBundle, diffTransfer, transferGroup } from "../core/config-transfer.js";
 import { reportError } from "../helpers/report.js";
+import { escapeHtml } from "../helpers/html.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 
@@ -52,6 +53,152 @@ const AI_TASK_ACTIONS = {
   "generate-item": "item",
   freeform: "freeform"
 };
+
+/**
+ * Ação do menu (`data-menu-action`) → função que a executa. Cada entrada é o antigo `case` do
+ * `switch` de `#onRunAction`, com o mesmo código. Ação fora da tabela cai no aviso de "ainda não
+ * implementada" de `#onRunAction`. As Ações de Assistente de IA (`AI_TASK_ACTIONS`) não estão
+ * aqui: têm a própria rota antes da tabela.
+ */
+const MENU_ACTIONS = new Map([
+  ["npc-generator", async () => {
+    const { openNpcGenerator } = await import("./npc-generator.js");
+    openNpcGenerator();
+  }],
+  ["table-rules", async () => {
+    const { generateTableRulesJournal } = await import("../core/table-rules-journal.js");
+    await generateTableRulesJournal();
+  }],
+  ["combat-panel", async () => {
+    const { openCombatPanel } = await import("./combat-panel.js");
+    openCombatPanel();
+  }],
+  ["world-clock", async () => {
+    const { openWorldClock } = await import("./world-clock-app.js");
+    openWorldClock();
+  }],
+  ["encounter-sim", async () => {
+    const { openEncounterSim } = await import("./encounter-sim.js");
+    openEncounterSim();
+  }],
+  ["glossary", async () => {
+    const { openGlossary } = await import("../glossary/glossary.js");
+    openGlossary();
+  }],
+  ["skill-templates-config", async () => {
+    const { SkillTemplatesConfigApp } = await import("./skill-templates-config.js");
+    new SkillTemplatesConfigApp().render(true);
+  }],
+  ["npc-archetypes-config", async () => {
+    const { NpcArchetypesConfigApp } = await import("./npc-archetypes-config.js");
+    new NpcArchetypesConfigApp().render(true);
+  }],
+  ["open-ai-assistant", async () => {
+    const { AIAssistantApp } = await import("./ai-assistant.js");
+    new AIAssistantApp().render(true);
+  }],
+  ["backup-manager", async () => {
+    // O gerenciador de backup/desfazer vive no modo "Agente" do Assistente de IA.
+    const { AIAssistantApp } = await import("./ai-assistant.js");
+    new AIAssistantApp({ initialMode: "agent" }).render(true);
+  }],
+  ["rules-config", async () => {
+    const { TableRulesConfigApp } = await import("./table-rules-config.js");
+    new TableRulesConfigApp().render(true);
+  }],
+  ["feature-config", async () => {
+    const { FeatureConfigApp } = await import("./feature-config.js");
+    new FeatureConfigApp().render(true);
+  }],
+  ["attribute-config", async () => {
+    const { AttributeConfigApp } = await import("./attribute-config.js");
+    new AttributeConfigApp().render(true);
+  }],
+  ["damage-elements-config", async () => {
+    const { DamageElementsConfigApp } = await import("./damage-elements-config.js");
+    new DamageElementsConfigApp().render(true);
+  }],
+  ["economy-config", async () => {
+    const { CurrencyConfigApp } = await import("./currency-config.js");
+    new CurrencyConfigApp().render(true);
+  }],
+  ["body-functions-config", async () => {
+    const { BodyFunctionsConfigApp } = await import("./body-functions-config.js");
+    new BodyFunctionsConfigApp().render(true);
+  }],
+  ["heritages-config", async () => {
+    const { HeritagesConfigApp } = await import("./heritages-config.js");
+    new HeritagesConfigApp().render(true);
+  }],
+  ["anatomy-config", async () => {
+    // Presets de Espécie SÃO a configuração de Anatomia (Partes do Corpo + Skills Raciais).
+    const { SpeciesConfigApp } = await import("./species-config.js");
+    new SpeciesConfigApp().render(true);
+  }],
+  ["status-conditions-config", async () => {
+    const { StatusConditionsConfigApp } = await import("./status-conditions-config.js");
+    new StatusConditionsConfigApp().render(true);
+  }],
+  // Catálogos de Nave/Veículo: todos vivem em `vessel-catalogs-config.js`.
+  ["module-categories-config", vesselCatalogAction(apps => apps.ModuleCategoriesConfigApp)],
+  ["ship-classes-config", vesselCatalogAction(apps => apps.ShipClassesConfigApp)],
+  ["vehicle-classes-config", vesselCatalogAction(apps => apps.VehicleClassesConfigApp)],
+  ["ship-sizes-config", vesselCatalogAction(apps => apps.ShipSizesConfigApp)],
+  ["ammo-types-config", vesselCatalogAction(apps => apps.AmmoTypesConfigApp)],
+  ["vehicle-sizes-config", vesselCatalogAction(apps => apps.VehicleSizesConfigApp)],
+  ["crew-roles-config", vesselCatalogAction(apps => apps.CrewRolesConfigApp)],
+  ["weapon-types-config", async () => {
+    const { WeaponTypesConfigApp } = await import("./weapon-types-config.js");
+    new WeaponTypesConfigApp().render(true);
+  }],
+  ["structures-config", async () => {
+    const { StructuresConfigApp } = await import("./structures-config.js");
+    new StructuresConfigApp().render(true);
+  }],
+  ["traits-config", async () => {
+    const { TraitsConfigApp } = await import("./traits-config.js");
+    new TraitsConfigApp().render(true);
+  }],
+  ["environment-config", async () => {
+    const { EnvironmentConfigApp } = await import("./environment-config.js");
+    EnvironmentConfigApp.open();
+  }],
+  ["scales-config", async () => {
+    const { ScalesConfigApp } = await import("./scales-config.js");
+    new ScalesConfigApp().render(true);
+  }],
+  ["items-compendium", () => {
+    // Itens Gerais (armas, equipamentos, PAD) não têm criação automática no Compêndio — o
+    // Mestre cria/arrasta aqui dentro o que quiser ter à mão.
+    const pack = game.packs.get(`world.${NIHILITY.COMPENDIUM.items.key}`);
+    if (pack) pack.render(true);
+    else ui.notifications.warn("Compêndio de Itens ainda não existe — use 'Sincronizar' primeiro.");
+  }],
+  ["titles-config", () => {
+    // Não existe preset global de Títulos (são só Items por Ator) — o mais útil que já
+    // existe é abrir o Compêndio de Títulos do mundo pra navegar/gerenciar.
+    const pack = game.packs.get(`world.${NIHILITY.COMPENDIUM.titles.key}`);
+    if (pack) pack.render(true);
+    else ui.notifications.warn("Compêndio de Títulos ainda não existe — use 'Sincronizar' primeiro.");
+  }],
+  ["validate-world", async () => {
+    const { WorldValidatorApp } = await import("./world-validator-app.js");
+    WorldValidatorApp.open();
+  }],
+  ["create-macros", () => createSystemMacros()],
+  ["create-sample-content", () => createSampleContent()],
+  ["sync-data", () => syncData()],
+  ["export-data", () => exportData()],
+  ["import-data", () => importData()]
+]);
+
+/** Catálogo de Nave/Veículo: `pickApp` escolhe a classe de janela dentro de `vessel-catalogs-config.js`. */
+function vesselCatalogAction(pickApp) {
+  return async () => {
+    const apps = await import("./vessel-catalogs-config.js");
+    new (pickApp(apps))().render(true);
+  };
+}
 
 /** Abas exclusivas do Mestre — o jogador nunca consegue selecioná-las, mesmo clicando no item travado da trilha. */
 const GM_ONLY_TABS = ["system", "ai", "generation", "tools"];
@@ -259,10 +406,9 @@ async function pickTransferKeys({ title, hint, rows, confirmLabel }) {
     if (!groups.has(group)) groups.set(group, []);
     groups.get(group).push(row);
   }
-  const escape = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const html = [...groups]
     .map(([group, list]) => `<fieldset class="transfer-group"><legend><label><input type="checkbox" class="transfer-group-toggle" checked/> ${group}</label></legend>
-        ${list.map(row => `<label class="transfer-row"><input type="checkbox" name="key" value="${escape(row.key)}" ${row.checked === false ? "" : "checked"}/> ${escape(row.label)}${row.note ? ` <span class="hint-inline">${escape(row.note)}</span>` : ""}</label>`).join("")}
+        ${list.map(row => `<label class="transfer-row"><input type="checkbox" name="key" value="${escapeHtml(row.key)}" ${row.checked === false ? "" : "checked"}/> ${escapeHtml(row.label)}${row.note ? ` <span class="hint-inline">${escapeHtml(row.note)}</span>` : ""}</label>`).join("")}
       </fieldset>`)
     .join("");
 
@@ -745,187 +891,11 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
       return;
     }
 
-    switch (action) {
-      case "npc-generator": {
-        const { openNpcGenerator } = await import("./npc-generator.js");
-        openNpcGenerator();
-        break;
-      }
-      case "table-rules": {
-        const { generateTableRulesJournal } = await import("../core/table-rules-journal.js");
-        await generateTableRulesJournal();
-        break;
-      }
-      case "combat-panel": {
-        const { openCombatPanel } = await import("./combat-panel.js");
-        openCombatPanel();
-        break;
-      }
-      case "world-clock": {
-        const { openWorldClock } = await import("./world-clock-app.js");
-        openWorldClock();
-        break;
-      }
-      case "encounter-sim": {
-        const { openEncounterSim } = await import("./encounter-sim.js");
-        openEncounterSim();
-        break;
-      }
-      case "glossary": {
-        const { openGlossary } = await import("../glossary/glossary.js");
-        openGlossary();
-        break;
-      }
-      case "skill-templates-config": {
-        const { SkillTemplatesConfigApp } = await import("./skill-templates-config.js");
-        new SkillTemplatesConfigApp().render(true);
-        break;
-      }
-      case "npc-archetypes-config": {
-        const { NpcArchetypesConfigApp } = await import("./npc-archetypes-config.js");
-        new NpcArchetypesConfigApp().render(true);
-        break;
-      }
-      case "open-ai-assistant": {
-        const { AIAssistantApp } = await import("./ai-assistant.js");
-        new AIAssistantApp().render(true);
-        break;
-      }
-      case "backup-manager": {
-        // O gerenciador de backup/desfazer vive no modo "Agente" do Assistente de IA.
-        const { AIAssistantApp } = await import("./ai-assistant.js");
-        new AIAssistantApp({ initialMode: "agent" }).render(true);
-        break;
-      }
-      case "rules-config": {
-        const { TableRulesConfigApp } = await import("./table-rules-config.js");
-        new TableRulesConfigApp().render(true);
-        break;
-      }
-      case "feature-config": {
-        const { FeatureConfigApp } = await import("./feature-config.js");
-        new FeatureConfigApp().render(true);
-        break;
-      }
-      case "attribute-config": {
-        const { AttributeConfigApp } = await import("./attribute-config.js");
-        new AttributeConfigApp().render(true);
-        break;
-      }
-      case "damage-elements-config": {
-        const { DamageElementsConfigApp } = await import("./damage-elements-config.js");
-        new DamageElementsConfigApp().render(true);
-        break;
-      }
-      case "economy-config": {
-        const { CurrencyConfigApp } = await import("./currency-config.js");
-        new CurrencyConfigApp().render(true);
-        break;
-      }
-      case "body-functions-config": {
-        const { BodyFunctionsConfigApp } = await import("./body-functions-config.js");
-        new BodyFunctionsConfigApp().render(true);
-        break;
-      }
-      case "heritages-config": {
-        const { HeritagesConfigApp } = await import("./heritages-config.js");
-        new HeritagesConfigApp().render(true);
-        break;
-      }
-      case "anatomy-config": {
-        // Presets de Espécie SÃO a configuração de Anatomia (Partes do Corpo + Skills Raciais).
-        const { SpeciesConfigApp } = await import("./species-config.js");
-        new SpeciesConfigApp().render(true);
-        break;
-      }
-      case "status-conditions-config": {
-        const { StatusConditionsConfigApp } = await import("./status-conditions-config.js");
-        new StatusConditionsConfigApp().render(true);
-        break;
-      }
-      case "module-categories-config":
-      case "ship-classes-config":
-      case "vehicle-classes-config":
-      case "ship-sizes-config":
-      case "ammo-types-config":
-      case "vehicle-sizes-config":
-      case "crew-roles-config": {
-        const apps = await import("./vessel-catalogs-config.js");
-        const App = {
-          "module-categories-config": apps.ModuleCategoriesConfigApp,
-          "ship-classes-config": apps.ShipClassesConfigApp,
-          "vehicle-classes-config": apps.VehicleClassesConfigApp,
-          "ship-sizes-config": apps.ShipSizesConfigApp,
-          "ammo-types-config": apps.AmmoTypesConfigApp,
-          "vehicle-sizes-config": apps.VehicleSizesConfigApp,
-          "crew-roles-config": apps.CrewRolesConfigApp
-        }[action];
-        new App().render(true);
-        break;
-      }
-      case "weapon-types-config": {
-        const { WeaponTypesConfigApp } = await import("./weapon-types-config.js");
-        new WeaponTypesConfigApp().render(true);
-        break;
-      }
-      case "structures-config": {
-        const { StructuresConfigApp } = await import("./structures-config.js");
-        new StructuresConfigApp().render(true);
-        break;
-      }
-      case "traits-config": {
-        const { TraitsConfigApp } = await import("./traits-config.js");
-        new TraitsConfigApp().render(true);
-        break;
-      }
-      case "environment-config": {
-        const { EnvironmentConfigApp } = await import("./environment-config.js");
-        EnvironmentConfigApp.open();
-        break;
-      }
-      case "scales-config": {
-        const { ScalesConfigApp } = await import("./scales-config.js");
-        new ScalesConfigApp().render(true);
-        break;
-      }
-      case "items-compendium": {
-        // Itens Gerais (armas, equipamentos, PAD) não têm criação automática no Compêndio — o
-        // Mestre cria/arrasta aqui dentro o que quiser ter à mão.
-        const pack = game.packs.get(`world.${NIHILITY.COMPENDIUM.items.key}`);
-        if (pack) pack.render(true);
-        else ui.notifications.warn("Compêndio de Itens ainda não existe — use 'Sincronizar' primeiro.");
-        break;
-      }
-      case "titles-config": {
-        // Não existe preset global de Títulos (são só Items por Ator) — o mais útil que já
-        // existe é abrir o Compêndio de Títulos do mundo pra navegar/gerenciar.
-        const pack = game.packs.get(`world.${NIHILITY.COMPENDIUM.titles.key}`);
-        if (pack) pack.render(true);
-        else ui.notifications.warn("Compêndio de Títulos ainda não existe — use 'Sincronizar' primeiro.");
-        break;
-      }
-      case "validate-world": {
-        const { WorldValidatorApp } = await import("./world-validator-app.js");
-        WorldValidatorApp.open();
-        break;
-      }
-      case "create-macros":
-        await createSystemMacros();
-        break;
-      case "create-sample-content":
-        await createSampleContent();
-        break;
-      case "sync-data":
-        await syncData();
-        break;
-      case "export-data":
-        await exportData();
-        break;
-      case "import-data":
-        await importData();
-        break;
-      default:
-        console.warn(`${SYSTEM_ID} | NihilityMenuApp: ação "${action}" ainda não implementada.`);
+    const run = MENU_ACTIONS.get(action);
+    if (!run) {
+      console.warn(`${SYSTEM_ID} | NihilityMenuApp: ação "${action}" ainda não implementada.`);
+      return;
     }
+    await run();
   }
 }

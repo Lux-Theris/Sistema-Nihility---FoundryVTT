@@ -6,6 +6,7 @@ import { SYSTEM_ID, getEnergyLabelForActor, isEnergyPoolEnabled, effectiveSkillC
 import { fieldUseOutcome } from "../core/magic-rules.js";
 import { creditManipulation } from "../combat/antimagic.js";
 import { runAsGm, owns } from "../helpers/gm-relay.js";
+import { RELAY_REASONS, refuse } from "../helpers/gm-relay-rules.js";
 import { makeAnchor, removeAnchor, effectAnchors, finiteRemaining, anchorLifetime, PERMANENT, ANCHORED_TARGETS_FLAG, ANCHORED_TARGETS_CAP, anchoredTargetsFor, forgetAnchoredTargets } from "../combat/effect-anchors.js";
 import { worldActors, actorsFromUuids } from "../helpers/world-actors.js";
 import { escapeHtml } from "../helpers/html.js";
@@ -467,10 +468,11 @@ export const RELAY_HANDLERS = {
    */
   async releaseSkillAnchors(payload, user) {
     const skillUuid = payload?.skillUuid;
-    if (typeof skillUuid !== "string") return;
+    if (typeof skillUuid !== "string") return refuse(RELAY_REASONS.invalid);
     const skill = await fromUuid(skillUuid);
     const holder = skill ?? (await fromUuid(skillUuid.split(".Item.")[0]));
-    if (!owns(user, holder)) return;
+    if (!holder) return refuse(RELAY_REASONS.invalid);
+    if (!owns(user, holder)) return refuse(RELAY_REASONS.permission);
     // `requesterId` é sempre quem pediu de verdade, nunca o que veio no payload.
     await releaseSkillAnchorsAsGm({ ...payload, requesterId: user.id });
   }

@@ -553,7 +553,7 @@ export const RELAY_HANDLERS = {
 
   /** Raio Trator: solta o alvo. */
   async releaseTractor(payload, user) {
-    if (!(await mayActFor(user, payload?.moduleUuid))) return;
+    if (!(await mayActFor(user, payload?.moduleUuid))) return refuse(RELAY_REASONS.permission);
     await releaseTractorAsGm(payload ?? {});
   }
 };

@@ -24,6 +24,10 @@
                 </optgroup>
                 {{/each}}
               </select>
+              {{!-- Tudo o que fica na coluna "Qtd." numa célula só: com "pts / %" ou com os campos de Sorte,
+                    Dissipar, Ritmo do tempo…, cada peça virava uma coluna da grade e a Duração e a lixeira
+                    desciam de linha. --}}
+              <div class="effect-qty">
               {{#if eff.isElementTarget}}
               <select class="skill-effect-input" data-effect-field="elementId" aria-label="Elemento">
                 <option value="">— elemento —</option>
@@ -80,7 +84,8 @@
               </select>
               {{/if}}
               {{/if}}
-              <span class="suffix"><input type="number" class="skill-effect-input" data-effect-field="durationRounds" value="{{eff.durationRounds}}" min="0" aria-label="Duração"/><span>{{eff.durationUnit}}</span></span>
+              </div>
+              <span class="suffix" title="{{eff.durationHint}}"><input type="number" class="skill-effect-input" data-effect-field="durationRounds" value="{{eff.durationRounds}}" min="0" aria-label="Duração"/><span>{{eff.durationUnit}}</span></span>
               <a class="row-delete" data-action="deleteSkillEffect" title="Remover Efeito" aria-label="Remover Efeito"><i class="fas fa-trash"></i></a>
             </div>
             {{#if eff.hasExtras}}

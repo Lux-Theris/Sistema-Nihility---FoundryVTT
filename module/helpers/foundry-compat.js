@@ -187,10 +187,14 @@ export function buildEffectChanges(changes, generation = foundryGeneration()) {
 /** As mudanças de um Active Effect (documento ou dados), nos dois formatos, como `{key, mode, value}`. Pura. */
 export function readEffectChanges(effect) {
   const v14 = effect?.system?.changes;
-  const source = Array.isArray(v14) && v14.length ? v14 : effect?.changes ?? [];
+  // Documento da V14 com a lista vazia: é vazia mesmo. Cair no `effect.changes` aí só dispara o aviso de
+  // depreciação do core (aparecia ao abrir a janela de Efeitos). Dados soltos no formato antigo continuam lidos.
+  const v14Doc = Array.isArray(v14) && typeof effect?.documentName === "string";
+  const source = v14Doc || (Array.isArray(v14) && v14.length) ? v14 : effect?.changes ?? [];
   return Array.from(source).map(c => ({
     key: c.key,
-    mode: c.mode ?? MODE_BY_CHANGE_TYPE[c.type] ?? EFFECT_MODES_FALLBACK.ADD,
+    // `type` primeiro: na V14 ler `c.mode` de uma mudança dispara o aviso de depreciação do core.
+    mode: (c.type !== undefined ? MODE_BY_CHANGE_TYPE[c.type] : undefined) ?? c.mode ?? EFFECT_MODES_FALLBACK.ADD,
     value: c.value
   }));
 }

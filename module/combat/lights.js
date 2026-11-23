@@ -373,7 +373,7 @@ export const RELAY_HANDLERS = {
 
   /** Apaga as luzes de Escudo que uma Skill Ativa acendeu (ao desligá-la). */
   async clearShieldLights({ actorUuid, skillId, subSkillIndex }, user) {
-    if (!(await mayActFor(user, actorUuid))) return;
+    if (!(await mayActFor(user, actorUuid))) return refuse(RELAY_REASONS.permission);
     await clearShieldLightsFromSourceAsGm({ actorUuid, skillId: String(skillId ?? ""), subSkillIndex: Number.isInteger(subSkillIndex) ? subSkillIndex : null });
   }
 };

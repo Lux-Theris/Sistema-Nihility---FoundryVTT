@@ -395,7 +395,7 @@ export function zoneContainsToken(zoneDoc, tokenDoc) {
 export const RELAY_HANDLERS = {
   /** Apaga as Zonas que uma Skill Ativa mantinha (ao desligá-la). Quem pede: dono de quem lançou. */
   async removeZones({ sourceUuid, skillId, subSkillIndex }, user) {
-    if (!(await mayActFor(user, sourceUuid))) return;
+    if (!(await mayActFor(user, sourceUuid))) return refuse(RELAY_REASONS.permission);
     for (const scene of game.scenes) {
       for (const doc of zonesOnScene(scene)) {
         const zone = doc.getFlag(SYSTEM_ID, "zone");

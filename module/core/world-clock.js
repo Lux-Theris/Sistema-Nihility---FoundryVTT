@@ -34,6 +34,7 @@ import {
   normalizeClockConfig, isDayAt, darknessFor, isDarkLevel, darknessNeedsUpdate, adjustedDarkness,
   sleepUntil, shouldWake, groupSleepState, groupRestSeconds, skipLabel, restHours, SECONDS_PER_HOUR
 } from "./world-clock-rules.js";
+import { escapeHtml } from "../helpers/html.js";
 
 const SLEEP_ID = "sleeping";
 const CLOCK_WHEN = new Set(["selfDark", "isDay", "isNight"]);
@@ -238,7 +239,7 @@ export async function startSleeping(actor, kind) {
   );
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor }),
-    content: `<p><strong>${foundry.utils.escapeHTML(actor.name)}</strong> foi dormir (Descanso ${rest.kind === "long" ? "Completo" : "Curto"}, ${restHours(rest.kind, clockConfig())} h).</p>`
+    content: `<p><strong>${escapeHtml(actor.name)}</strong> foi dormir (Descanso ${rest.kind === "long" ? "Completo" : "Curto"}, ${restHours(rest.kind, clockConfig())} h).</p>`
   });
   return true;
 }
@@ -258,7 +259,7 @@ export async function wakeSleeper(actor, { rested = false } = {}) {
   } else {
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor }),
-      content: `<p><strong>${foundry.utils.escapeHTML(actor.name)}</strong> acordou sem terminar o descanso.</p>`
+      content: `<p><strong>${escapeHtml(actor.name)}</strong> acordou sem terminar o descanso.</p>`
     });
   }
   return true;

@@ -182,7 +182,7 @@ export function selectedTraitChips(selected) {
 
 /** HTML do contêiner vazio; `wirePickerField` desenha os chips e o botão. */
 export function pickerFieldHtml(selected, cls) {
-  const json = JSON.stringify(selected ?? []).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+  const json = escapeHtml(JSON.stringify(selected ?? []));
   return `<div class="element-field ${cls}" data-selected="${json}"></div>`;
 }
 

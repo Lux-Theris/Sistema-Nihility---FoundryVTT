@@ -2,25 +2,21 @@
  * Efeitos Temporários: criar/renovar Active Effects e Condições num alvo, e os ticks periódicos (Veneno, cura).
  * (Separado de skill-effects.js na reorganização de pastas — mesma lógica de antes.)
  */
-import { SYSTEM_ID, NIHILITY, getActiveStatusConditions, getActiveTraits, getEffectTargetLabels, skillLevelBonuses, getDamageElement, getWeaponType, isInterferenceEnabled, isSkillRangeEnabled, isTimeManipulationEnabled, sameActor } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, getActiveStatusConditions, getActiveTraits, getEffectTargetLabels, skillLevelBonuses, getDamageElement, getWeaponType, isTimeManipulationEnabled } from "../core/config.js";
 import { makeAnchor, addAnchor, effectAnchors, finiteRemaining, serializeFinite, durationRemaining, refreshFiniteRounds, PERMANENT, ANCHORED_TARGETS_FLAG, recordAnchoredTarget } from "../combat/effect-anchors.js";
 import { escapeHtml } from "../helpers/html.js";
 import { applyStructuralDamage, damageCasco, repairModules } from "../starship/starship-power.js";
 import { resolveConditionEffect, refreshReapplication } from "../combat/damage-rules.js";
-import { requestShieldLight } from "../combat/lights.js";
-import { addShieldToPool } from "../combat/shield-pools.js";
 import { buildEffectChanges, createActiveEffects, foundryGeneration, readEffectChanges, effectDurationRounds, effectStartRound, effectRoundsUpdate } from "../helpers/foundry-compat.js";
 import { isSenseTarget, SENSE_LABELS, describeSenseRange, senseRangeValue } from "../combat/senses-rules.js";
 import { applyDamageReductions, averageElementContext } from "../combat/damage-roll.js";
 import { SHIP_PERCENT_PATHS, resolveEffectChange } from "./effect-targets.js";
 import { grantResistanceXp, registerResistanceExposure } from "../combat/resistance.js";
 import { isShipLike, applyShipInstantEffect } from "../starship/ship-damage.js";
-import { recordSustainedShield } from "./sustained-shields.js";
 import { combatNow } from "./upkeep.js";
 import { healBodyParts, healPlan } from "../species/anatomy.js";
 import { skillIsMagic, skillIsTech } from "../core/magic-rules.js";
-import { applyAntimagic, applyEmp, applyDissipate, suppressionLevel, techSuppressionLevel } from "./dispel.js";
-import { protectingStructureKinds } from "../structures/structures.js";
+import { suppressionLevel, techSuppressionLevel } from "./dispel.js";
 import { applyCurse } from "./curses.js";
 import { effectMeasuresFor, vitalBase, grantSkillUseXp } from "./skill-xp.js";
 import { resolveEffectAmount, resolveAttributePercent, ATTRIBUTE_PERCENT_TARGETS } from "../economy/consumable-rules.js";
@@ -30,6 +26,7 @@ import { describeLuck, luckFromScopes } from "../combat/luck-rules.js";
 import { stopRoundsFor, STOP_FLAG } from "../combat/time-stop-rules.js";
 import { applyTimeRewindEntry } from "../combat/time-rewind.js";
 import { clampTimeFactor, isTimeFactorActive, timeStrength, weakenTimeFactor, timeStateLabel, allowedTicks, simulateTicks } from "../combat/time-rate-rules.js";
+import { runTargetHandler, HANDLED } from "./effect-target-handlers.js";
 
 /** Nome curto dos efeitos de movimento (J4), para o Active Effect e o resumo. */
 const MOVEMENT_MODE_NAMES = { flight: "Voando", burrow: "Escavando" };
@@ -133,30 +130,76 @@ const PERCENT_TARGETS = ["hp", "energy", "shield", "heal", "restoreEnergy"];
 
 export async function applyEffectsToActor(mech, label, originSkill, targetActor, subSkillIndex = null) {
   const rawEntries = mech.effects ?? [];
-  const summary = [];
-  // XP por uso (skill-xp.js): o que cada entrada que PEGOU fez neste alvo. Volta pendurado no
-  // `summary` (`summary.xp`), pra quem chama somar e creditar na Skill uma vez só.
-  const xp = [];
+  const ctx = buildEffectContext(mech, label, originSkill, targetActor, subSkillIndex);
+  const { summary, xp } = ctx;
 
+  for (let entry of scaleEntriesByLevelPower(rawEntries, ctx.levelPower)) {
+    entry = resolvePercentAmounts(entry, targetActor);
+    // Empurrar/Puxar (J1) não é um efeito que fica no alvo: quem usa a Skill (applySkillEffects*) move o
+    // Token pelo Mestre (forced-movement.js). Chegando aqui por outro caminho, nada acontece.
+    if (entry.target === "push") continue;
+    // "Cria superfície" (8.2) também não fica no alvo: quem usa a Skill pede ao Mestre (environment/surfaces.js).
+    if (entry.target === "createSurface") continue;
+    // "Só se…" (8.1a): o efeito só pega se o alvo (ou quem usou) está como a condição pede.
+    if (hasOnlyIf(entry.onlyIf)) {
+      const gate = onlyIfOutcome(entry.onlyIf, buildModifierContext(originSkill?.parent ?? null, targetActor), onlyIfLabelOf);
+      if (!gate.ok) {
+        summary.push(`${getEffectTargetLabels()[entry.target] ?? entry.target}: ${gate.reason}`);
+        continue;
+      }
+    }
+    if (ctx.shielded(entry)) {
+      summary.push(`${getEffectTargetLabels()[entry.target] ?? entry.target}: sem efeito (${targetActor.name} está Suprimido)`);
+      continue;
+    }
+    // Ritmo do tempo, Marcar, Dissipar, Antimagia e PEM (ver effect-target-handlers.js, estágio "pre").
+    if (await runTargetHandler("pre", entry, ctx) === HANDLED) continue;
+    const condition = entry.conditionId ? getActiveStatusConditions().find(c => c.id === entry.conditionId) : null;
+    // Maldição (prancha 6): vários efeitos num só, sem prazo, paga pela Mana da vítima.
+    if (condition?.curse?.enabled) {
+      if (targetActor.type !== "character") {
+        summary.push(`${condition.label}: não se aplica a ${targetActor.name}`);
+        continue;
+      }
+      summary.push(await applyCurse(targetActor, condition, { level: ctx.sourceLevel, label, onUnpaid: entry.curseOnUnpaid || "", partId: entry.healBlockPartId || "", caster: originSkill?.parent?.name ?? "", appliedBy: ctx.appliedBy }));
+      xp.push({ flat: true });
+      continue;
+    }
+    // Condição com efeito padrão e valor 0 na entrada: usa o padrão da Condição (ver
+    // resolveConditionEffect em damage-rules.js). Sem golpe de onde tirar "% do dano", fica só o ícone.
+    if (condition?.effect?.kind && !Number(entry.amount)) {
+      const resolved = resolveConditionEffect(condition, {
+        hitDamage: entry.hitDamage,
+        targetMax: { hp: targetActor.system?.attributes?.hp?.max ?? 0, energy: targetActor.system?.attributes?.energy?.max ?? 0 },
+        attributeTotal: key => targetActor.system?.attributes?.combat?.[key]?.total ?? 0
+      });
+      if (resolved) entry = { ...entry, ...resolved };
+    }
+    const view = {
+      condition,
+      targetLabel: getEffectTargetLabels()[entry.target] ?? entry.target,
+      sign: entry.amount >= 0 ? "+" : ""
+    };
+    // Curar/Recuperar Mana na hora e Escudo (estágio "post").
+    if (await runTargetHandler("post", entry, ctx, view) === HANDLED) continue;
+
+    await applyActiveEffectEntry(entry, ctx, view);
+  }
+
+  summary.xp = xp;
+  return summary;
+}
+
+/**
+ * Preparação única por chamada de `applyEffectsToActor`: tudo o que não depende da entrada.
+ *  - `summary`/`xp`: acumuladores (XP por uso, skill-xp.js: o que cada entrada que PEGOU fez neste alvo;
+ *    volta pendurado no `summary` como `summary.xp`, pra quem chama somar e creditar na Skill uma vez só);
+ *  - `levelPower`, `origin`, `sourceLevel`/`sourceMagic`/`sourceTech`/`appliedBy`, `shielded(entry)`.
+ */
+function buildEffectContext(mech, label, originSkill, targetActor, subSkillIndex) {
   // O Poder do nível também vale pros valores de Efeito — um buff/veneno de Skill nível 10 é
-  // mais forte que o mesmo de nível 1, igual acontece com o dano. Entrada de tipo "multiplicador"
-  // (só os alvos de arma de Nave) fica de fora: ali `amount` é um percentual, e escalá-lo
-  // significaria outra coisa.
+  // mais forte que o mesmo de nível 1, igual acontece com o dano.
   const levelPower = skillLevelBonuses(mech.level).power * (mech.investPower ?? 1);
-  const entries =
-    levelPower === 1
-      ? rawEntries
-      : rawEntries.map(entry =>
-          // Sentido: o alcance em metros não cresce com o Poder do nível nem com o investimento.
-          entry.modifierType === "multiplier" || isSenseTarget(entry.target) || entry.target === "magicDampen" || entry.target === "timeRate"
-            ? entry
-            : {
-                ...entry,
-                amount: Math.round((Number(entry.amount) || 0) * levelPower),
-                shieldRegen: Math.round((Number(entry.shieldRegen) || 0) * levelPower),
-                shieldCap: Math.round((Number(entry.shieldCap) || 0) * levelPower)
-              }
-        );
 
   // Condição aplicada por elemento (sem Skill de origem) — ícone e origem vêm da própria Condição.
   const origin = originSkill ?? { id: null, uuid: null, img: null };
@@ -181,182 +224,64 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
     return techSuppressed !== null && sourceTech && sourceLevel <= techSuppressed;
   };
 
-  for (let entry of entries) {
-    // "% do máximo do alvo" (Poção de 25%): vira pontos agora, com o máximo DESTE alvo. Periódico
-    // guarda o valor resolvido no tick. Escudo usa a Vida máxima como referência.
-    if (entry.amountMode === "percentMax" && PERCENT_TARGETS.includes(entry.target)) {
-      const max = ["energy", "restoreEnergy"].includes(entry.target) ? targetActor.system?.attributes?.energy?.max : targetActor.system?.attributes?.hp?.max;
-      entry = { ...entry, amount: resolveEffectAmount(entry.amount, "percentMax", max), amountMode: "flat" };
-    }
-    // "% do total" de um atributo (8c.1): vira pontos agora, sobre o total DESTE alvo (o Poder do nível já
-    // escalou o percentual, como nos vitais; −100% é o teto do que se tira).
-    if (entry.amountMode === "percentMax" && ATTRIBUTE_PERCENT_TARGETS.includes(entry.target)) {
-      const total = targetActor.system?.attributes?.combat?.[entry.target]?.total;
-      if (total !== undefined) entry = { ...entry, amount: resolveAttributePercent(entry.amount, total), amountMode: "flat" };
-    }
-    // Empurrar/Puxar (J1) não é um efeito que fica no alvo: quem usa a Skill (applySkillEffects*) move o
-    // Token pelo Mestre (forced-movement.js). Chegando aqui por outro caminho, nada acontece.
-    if (entry.target === "push") continue;
-    // "Cria superfície" (8.2) também não fica no alvo: quem usa a Skill pede ao Mestre (environment/surfaces.js).
-    if (entry.target === "createSurface") continue;
-    // "Só se…" (8.1a): o efeito só pega se o alvo (ou quem usou) está como a condição pede.
-    if (hasOnlyIf(entry.onlyIf)) {
-      const gate = onlyIfOutcome(entry.onlyIf, buildModifierContext(originSkill?.parent ?? null, targetActor), onlyIfLabelOf);
-      if (!gate.ok) {
-        summary.push(`${getEffectTargetLabels()[entry.target] ?? entry.target}: ${gate.reason}`);
-        continue;
-      }
-    }
-    if (shielded(entry)) {
-      summary.push(`${getEffectTargetLabels()[entry.target] ?? entry.target}: sem efeito (${targetActor.name} está Suprimido)`);
-      continue;
-    }
-    // Ritmo do tempo (8e): Acelerar/Desacelerar; o fator enfraquece contra alvo mais forte que a Skill.
-    if (entry.target === "timeRate") {
-      summary.push(await applyTimeRateEntry(entry, { mech, label, originSkill, origin, targetActor, subSkillIndex, sourceLevel, sourceMagic, sourceTech, appliedBy, xp }));
-      continue;
-    }
-    // Marcar (H4): quem usou passa a poder lançar Skills a partir do alvo.
-    if (entry.target === "mark") {
-      const caster = originSkill?.parent;
-      if (!isSkillRangeEnabled()) summary.push("Marca: o recurso Alcance e Marcas está desligado");
-      else if (!caster) summary.push("Marca: sem quem marcar");
-      else if (sameActor(caster, targetActor)) summary.push("Marca: ninguém marca a si mesmo");
-      else {
-        summary.push(await applyMark(targetActor, caster, { rounds: Math.max(0, Number(entry.durationRounds) || 0), level: sourceLevel, tech: sourceTech, origin }));
-        xp.push({ flat: true });
-      }
-      continue;
-    }
-    // Dissipar (8d.2): termina só efeitos mágicos do alvo de nível ≤ o da Skill; não suprime nem desliga nada.
-    if (entry.target === "dispelMagic") {
-      if (targetActor.type !== "character") {
-        summary.push(`Dissipar: não se aplica a ${targetActor.name}`);
-        continue;
-      }
-      const dissipated = await applyDissipate(targetActor, { level: sourceLevel, scope: entry.dispelScope || "all", conditionId: entry.conditionId || "" });
-      if (dissipated.length) summary.push(`Dissipar: ${dissipated.join("; ")}`);
-      xp.push(...(dissipated.xp ?? []));
-      continue;
-    }
-    // Antimagia (prancha 8) e PEM: cortam, desligam e suprimem — com o nível desta Skill. Camada do
-    // tipo oposto (Escudo, ou Estrutura no caminho/em volta) protege o alvo.
-    if (entry.target === "antimagic" || (entry.target === "emp" && isInterferenceEnabled())) {
-      const isEmp = entry.target === "emp";
-      if (targetActor.type !== "character" && !(isEmp && isShipLike(targetActor))) {
-        summary.push(`${isEmp ? "PEM" : "Antimagia"}: não se aplica a ${targetActor.name}`);
-        continue;
-      }
-      const structureKinds = protectingStructureKinds(originSkill?.parent ?? null, targetActor, { origin: mech.viaMark?.origin ?? null });
-      const dispelled = await (isEmp ? applyEmp : applyAntimagic)(targetActor, { level: sourceLevel, rounds: entry.durationRounds, structureKinds });
-      summary.push(...dispelled);
-      xp.push(...(dispelled.xp ?? []));
-      continue;
-    }
-    const condition = entry.conditionId ? getActiveStatusConditions().find(c => c.id === entry.conditionId) : null;
-    // Maldição (prancha 6): vários efeitos num só, sem prazo, paga pela Mana da vítima.
-    if (condition?.curse?.enabled) {
-      if (targetActor.type !== "character") {
-        summary.push(`${condition.label}: não se aplica a ${targetActor.name}`);
-        continue;
-      }
-      summary.push(await applyCurse(targetActor, condition, { level: sourceLevel, label, onUnpaid: entry.curseOnUnpaid || "", partId: entry.healBlockPartId || "", caster: originSkill?.parent?.name ?? "", appliedBy }));
-      xp.push({ flat: true });
-      continue;
-    }
-    // Condição com efeito padrão e valor 0 na entrada: usa o padrão da Condição (ver
-    // resolveConditionEffect em damage-rules.js). Sem golpe de onde tirar "% do dano", fica só o ícone.
-    if (condition?.effect?.kind && !Number(entry.amount)) {
-      const resolved = resolveConditionEffect(condition, {
-        hitDamage: entry.hitDamage,
-        targetMax: { hp: targetActor.system?.attributes?.hp?.max ?? 0, energy: targetActor.system?.attributes?.energy?.max ?? 0 },
-        attributeTotal: key => targetActor.system?.attributes?.combat?.[key]?.total ?? 0
-      });
-      if (resolved) entry = { ...entry, ...resolved };
-    }
-    const targetLabel = getEffectTargetLabels()[entry.target] ?? entry.target;
-    const sign = entry.amount >= 0 ? "+" : "";
+  return { mech, label, originSkill, targetActor, subSkillIndex, summary: [], xp: [], levelPower, origin, sourceLevel, sourceMagic, sourceTech, appliedBy, shielded };
+}
 
-    // Curar Vida / Recuperar Mana NA HORA (poção, stimpack, Skill de cura instantânea). "HP"/"Mana"
-    // sem Periódico são buff do MÁXIMO, não cura — por isso alvos à parte. A cura respeita os
-    // bloqueios de cura e reparte nas Partes do Corpo, como o tick periódico.
-    if (entry.target === "heal" || entry.target === "restoreEnergy") {
-      const key = entry.target === "heal" ? "hp" : "energy";
-      const attr = targetActor.system?.attributes?.[key];
-      if (targetActor.type !== "character" || !attr) {
-        summary.push(`${targetLabel}: não se aplica a ${targetActor.name}`);
-        continue;
-      }
-      const { change, note } = await restoreVital(targetActor, key, Number(entry.amount) || 0, { level: sourceLevel, focusPartId: entry.focusPartId || null });
-      if (change) xp.push({ value: change, base: attr.max });
-      if (entry.conditionId) xp.push({ flat: true });
-      summary.push(`${key === "hp" ? "Vida" : getEffectTargetLabels().energy} ${change >= 0 ? "+" : ""}${change}${note ? ` (${note})` : ""}`);
-      continue;
-    }
+/**
+ * Poder do nível sobre as entradas. Entrada de tipo "multiplicador" (só os alvos de arma de Nave) fica de
+ * fora: ali `amount` é um percentual, e escalá-lo significaria outra coisa.
+ */
+function scaleEntriesByLevelPower(rawEntries, levelPower) {
+  return levelPower === 1
+    ? rawEntries
+    : rawEntries.map(entry =>
+        // Sentido: o alcance em metros não cresce com o Poder do nível nem com o investimento.
+        entry.modifierType === "multiplier" || isSenseTarget(entry.target) || entry.target === "magicDampen" || entry.target === "timeRate"
+          ? entry
+          : {
+              ...entry,
+              amount: Math.round((Number(entry.amount) || 0) * levelPower),
+              shieldRegen: Math.round((Number(entry.shieldRegen) || 0) * levelPower),
+              shieldCap: Math.round((Number(entry.shieldCap) || 0) * levelPower)
+            }
+      );
+}
 
-    if (entry.target === "shield") {
-      // Escudo ignora Condição/Periódico/Duração — é sempre somado direto, gasto na mão. Numa
-      // Habilidade Ativa com Regeneração ou Teto, vira um Escudo MANTIDO: entra até o teto,
-      // regenera a cada turno de quem mantém e some ao desligar (ver sustainedShieldGain).
-      if (!targetActor.system.attributes?.shield) {
-        summary.push(`${targetLabel}: não se aplica a ${targetActor.name}`);
-        continue;
-      }
-      const sustained = Boolean(mech.hasUpkeep) && (entry.shieldRegen > 0 || entry.shieldCap > 0) && entry.amount >= 0;
-      // Cada Skill tem o seu pool de Escudo no alvo (ver shield-pools.js); sem Skill de origem
-      // (Condição marcada à mão), vai pro avulso.
-      // O Escudo pode ser de um elemento (Escudo de Água): o golpe usa a vantagem contra ele.
-      const shieldElements = Array.isArray(entry.damageElements) ? entry.damageElements.filter(Boolean) : [];
-      const source = originSkill?.parent ? { holderUuid: originSkill.parent.uuid, skillId: origin.id, subSkillIndex, label, elements: shieldElements } : null;
-      let change;
-      if (entry.amount >= 0) {
-        change = await addShieldToPool(targetActor, source, entry.amount, { cap: sustained ? entry.shieldCap : 0 });
-      } else {
-        // Escudo negativo (debuff): tira do total; os pools se ajustam sozinhos (mais recente primeiro).
-        const current = targetActor.system.attributes.shield.value ?? 0;
-        change = Math.max(-current, entry.amount);
-        await targetActor.update({ "system.attributes.shield.value": current + change });
-      }
-      if (sustained && originSkill?.parent) {
-        await recordSustainedShield(originSkill.parent, {
-          targetUuid: targetActor.uuid,
-          elements: shieldElements,
-          skillId: origin.id,
-          subSkillIndex,
-          regen: entry.shieldRegen,
-          cap: entry.shieldCap,
-          label
-        });
-      }
-      // Luz do Escudo (opcional, ver lights.js): acende no Token do alvo; é apagada quando o
-      // Escudo chega a 0 ou quando a Skill Ativa que o deu é desligada.
-      if (entry.amount > 0 && entry.light?.enabled) {
-        await requestShieldLight(targetActor, entry.light, {
-          actorUuid: originSkill?.parent?.uuid ?? "",
-          skillId: origin.id ?? "",
-          subSkillIndex
-        });
-      }
-      // XP: Escudo lançado uma vez rende o fixo ao surgir; o de Skill Ativa rende pelo que segurar
-      // (no Aplicar do dano, ver creditShieldBlocks em damage-apply.js). Negativo (tirar Escudo) é debuff.
-      if (change > 0 && !mech.hasUpkeep) xp.push({ flat: true });
-      else if (change < 0) xp.push({ value: change, base: vitalBase(targetActor), buff: true });
-      summary.push(sustained ? `Escudo +${change} (mantido${entry.shieldRegen ? `, +${entry.shieldRegen}/rodada` : ""}${entry.shieldCap ? `, teto ${entry.shieldCap}` : ""})` : `Escudo ${sign}${entry.amount}`);
-      continue;
-    }
+/** "% do máximo do alvo" e "% do total" de um atributo: viram pontos agora, com os números DESTE alvo. */
+function resolvePercentAmounts(entry, targetActor) {
+  // "% do máximo do alvo" (Poção de 25%): vira pontos agora, com o máximo DESTE alvo. Periódico
+  // guarda o valor resolvido no tick. Escudo usa a Vida máxima como referência.
+  if (entry.amountMode === "percentMax" && PERCENT_TARGETS.includes(entry.target)) {
+    const max = ["energy", "restoreEnergy"].includes(entry.target) ? targetActor.system?.attributes?.energy?.max : targetActor.system?.attributes?.hp?.max;
+    entry = { ...entry, amount: resolveEffectAmount(entry.amount, "percentMax", max), amountMode: "flat" };
+  }
+  // "% do total" de um atributo (8c.1): vira pontos agora, sobre o total DESTE alvo (o Poder do nível já
+  // escalou o percentual, como nos vitais; −100% é o teto do que se tira).
+  if (entry.amountMode === "percentMax" && ATTRIBUTE_PERCENT_TARGETS.includes(entry.target)) {
+    const total = targetActor.system?.attributes?.combat?.[entry.target]?.total;
+    if (total !== undefined) entry = { ...entry, amount: resolveAttributePercent(entry.amount, total), amountMode: "flat" };
+  }
+  return entry;
+}
 
+/**
+ * Caminho padrão de uma entrada: Efeito de Nave na hora, Periódico (Veneno/cura contínua) ou Active Effect
+ * (criar, ou renovar o que já existe). Recebe a entrada já resolvida (porcentagem, padrão da Condição).
+ */
+async function applyActiveEffectEntry(entry, ctx, { condition, targetLabel, sign }) {
+  const { mech, label, originSkill, origin, targetActor, subSkillIndex, summary, xp, sourceLevel, sourceMagic, sourceTech, appliedBy } = ctx;
     // Condição com tick de Vida que cai numa Nave (Queimadura de Plasma): a "Vida" da Nave é a
     // Integridade Estrutural.
     if (isShipLike(targetActor) && entry.periodic && entry.target === "hp") entry = { ...entry, target: "shipHull" };
     const shipTarget = SHIP_INSTANT_TARGETS.includes(entry.target);
     if (shipTarget && !isShipLike(targetActor)) {
       summary.push(`${targetLabel}: não se aplica a ${targetActor.name}`);
-      continue;
+      return;
     }
     if (shipTarget && !isPeriodicEntry(entry)) {
       summary.push(await applyShipInstantEffect(targetActor, entry, label));
       xp.push({ flat: true });
-      continue;
+      return;
     }
 
     // Tick de Nave (Casco/Integridade) não mexe em campo nenhum por Active Effect: é só o flag
@@ -364,13 +289,13 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
     if (isSenseTarget(entry.target) && !shipTarget && !isShipLike(targetActor) && foundryGeneration() < 14) {
       // Sentidos mudam o Token por um Active Effect de Token, que só existe na V14.
       summary.push(`${SENSE_LABELS[entry.target]}: precisa do Foundry V14`);
-      continue;
+      return;
     }
     const change = shipTarget ? { isMultiplier: false } : resolveEffectChange(entry, targetActor);
     if (!change) {
       // Antes era silencioso: "Força" numa Nave virava um efeito que não fazia nada.
       summary.push(`${targetLabel}: não se aplica a ${targetActor.name}`);
-      continue;
+      return;
     }
     const isMultiplier = change.isMultiplier;
     if (change.movementMode || change.magicDampen || change.luck) xp.push({ flat: true });
@@ -471,7 +396,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
           summary.push(`${name}: renovado (${nextFinite === PERMANENT ? "sem prazo" : `${nextFinite} rodada(s)`})`);
         }
       }
-      continue;
+      return;
     }
 
     if (periodic) {
@@ -515,7 +440,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
       const unitLabel = entry.tickUnit === "manual" ? "manual" : "por rodada de combate";
       const durationLabel = tiedToActive ? "até desativar" : `${Math.max(1, entry.durationRounds)} tick(s)`;
       summary.push(`${condition?.label ?? targetLabel} ${sign}${entry.amount}/tick (${durationLabel}, ${unitLabel})`);
-      continue;
+      return;
     }
 
     await createActiveEffects(targetActor, [
@@ -565,10 +490,6 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
         ? `${head} (até desativar)`
         : `${head}${entry.durationRounds > 0 ? ` (${entry.durationRounds} ${entry.durationRounds === 1 ? "rodada" : "rodadas"})` : ""}`
     );
-  }
-
-  summary.xp = xp;
-  return summary;
 }
 
 /**
@@ -577,7 +498,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
  * Mana investida. Nave/Veículo recusam; com o bloco desligado nada novo nasce (o que existe segue).
  * Devolve a linha do resumo.
  */
-async function applyTimeRateEntry(entry, { mech, label, originSkill, origin, targetActor, subSkillIndex, sourceLevel, sourceMagic, sourceTech, appliedBy, xp }) {
+export async function applyTimeRateEntry(entry, { mech, label, originSkill, origin, targetActor, subSkillIndex, sourceLevel, sourceMagic, sourceTech, appliedBy, xp }) {
   if (!isTimeManipulationEnabled()) return "Ritmo do tempo: o bloco Manipulação do tempo está desligado";
   if (isShipLike(targetActor) || targetActor.type !== "character") return `Ritmo do tempo: não se aplica a ${targetActor.name}`;
   if (entry.timeRewind) return applyTimeRewindEntry(entry, { mech, label, originSkill, targetActor, sourceLevel, xp });
@@ -709,7 +630,7 @@ async function applyTimeStopEntry(entry, { mech, label, originSkill, origin, tar
  * MÁGICO (a Antimagia desfaz, e dentro de um campo ele acaba). Marcar de novo renova o prazo e o nível.
  * `rounds` 0 = até ser desfeita.
  */
-async function applyMark(targetActor, caster, { rounds = 0, level = 0, tech = false, origin = {} } = {}) {
+export async function applyMark(targetActor, caster, { rounds = 0, level = 0, tech = false, origin = {} } = {}) {
   const duration = rounds > 0 ? { rounds } : {};
   const existing = targetActor.effects.find(e => e.getFlag(SYSTEM_ID, "markedBy") === caster.uuid);
   if (existing) {
@@ -900,7 +821,7 @@ export async function tickPeriodicEffect(actor, effect, { steps = 1 } = {}) {
  * que a Vida subiu é repartido nas Partes do Corpo. Negativo tira direto (é perda, não dano: não
  * passa por defesas). Devolve o que de fato mudou.
  */
-async function restoreVital(actor, key, amount, { level = 0, focusPartId = null } = {}) {
+export async function restoreVital(actor, key, amount, { level = 0, focusPartId = null } = {}) {
   const attr = actor.system.attributes[key];
   let delta = amount;
   let note = "";

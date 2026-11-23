@@ -14,6 +14,7 @@ import { SYSTEM_ID, getActiveStatusConditions, getCharacterEnergyLabel, isEnergy
 import { normalizeCurse, curseCostRound, curseScaled, CURSE_UNPAID } from "../core/curse-rules.js";
 import { buildEffectChanges, createActiveEffects } from "../helpers/foundry-compat.js";
 import { resolveEffectChange } from "./effect-targets.js";
+import { escapeHtml } from "../helpers/html.js";
 
 export const CURSE_FLAG = "curse";
 
@@ -176,14 +177,14 @@ export async function tickCurses(actor, { steps = 1, notes = null } = {}) {
     }
     if (done > 1 && parts.length) parts.push(`em ${done} turnos`);
     if (parts.length) {
-      rows.push(`<li><strong>${foundry.utils.escapeHTML(effect.name)}</strong>: ${parts.join(" · ")}</li>`);
+      rows.push(`<li><strong>${escapeHtml(effect.name)}</strong>: ${parts.join(" · ")}</li>`);
       if (notes) notes.push({ label: effect.name, text: parts.join(" · ") });
     }
   }
   if (rows.length) {
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor }),
-      content: `<p><strong>${foundry.utils.escapeHTML(actor.name)}</strong> — maldições no início do turno:</p><ul>${rows.join("")}</ul>`
+      content: `<p><strong>${escapeHtml(actor.name)}</strong> — maldições no início do turno:</p><ul>${rows.join("")}</ul>`
     });
   }
   return rows;

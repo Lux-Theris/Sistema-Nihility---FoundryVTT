@@ -1303,10 +1303,12 @@ export const RELAY_HANDLERS = {
    * mesmo grau de confiança de qualquer rolagem de dano.
    */
   async damageStructure({ sceneId, instanceId, amount, attackerUuid, broken }, user) {
-    if (!(await mayActFor(user, attackerUuid))) return;
+    if (!(await mayActFor(user, attackerUuid))) return refuse(RELAY_REASONS.permission);
     const scene = typeof sceneId === "string" ? game.scenes.get(sceneId) : null;
     const value = Math.max(0, Math.round(Number(amount) || 0));
-    if (!scene || typeof instanceId !== "string" || (!value && broken !== true)) return;
+    if (!scene || typeof instanceId !== "string") return refuse(RELAY_REASONS.invalid);
+    // Dano zero sem quebra: nada a fazer, não é erro.
+    if (!value && broken !== true) return;
     await damageStructure(scene, instanceId, value, { broken: broken === true });
   },
 
@@ -1322,7 +1324,7 @@ export const RELAY_HANDLERS = {
 
   /** Derruba as Estruturas que uma Skill Ativa mantinha (ao desligá-la). */
   async removeStructures({ sourceUuid, skillId, subSkillIndex }, user) {
-    if (!(await mayActFor(user, sourceUuid))) return;
+    if (!(await mayActFor(user, sourceUuid))) return refuse(RELAY_REASONS.permission);
     await removeStructuresForAsGm({ sourceUuid, skillId: String(skillId ?? ""), subSkillIndex: Number.isInteger(subSkillIndex) ? subSkillIndex : null });
   }
 };

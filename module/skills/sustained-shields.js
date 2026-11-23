@@ -5,7 +5,8 @@
 import { SYSTEM_ID } from "../core/config.js";
 import { addShieldToPool, removeShieldPool } from "../combat/shield-pools.js";
 import { escapeHtml } from "../helpers/html.js";
-import { ownedDoc } from "../helpers/gm-relay.js";
+import { owns } from "../helpers/gm-relay.js";
+import { RELAY_REASONS, refuse } from "../helpers/gm-relay-rules.js";
 
 /* ------------------------------------------------------------------ Escudo mantido */
 
@@ -80,8 +81,10 @@ export async function dropSustainedShields(holder, skillId, subSkillIndex) {
 export const RELAY_HANDLERS = {
   /** "Regenerar agora" da janela de Efeitos: os Escudos mantidos deste Ator (escreve nos alvos). */
   async regenerateSustainedShields(payload, user) {
-    const actor = await ownedDoc(payload?.actorUuid, user);
-    if (!actor) return;
+    const actorUuid = payload?.actorUuid;
+    const actor = typeof actorUuid === "string" && actorUuid ? await fromUuid(actorUuid) : null;
+    if (!actor) return refuse(RELAY_REASONS.invalid);
+    if (!owns(user, actor)) return refuse(RELAY_REASONS.permission);
     await regenerateSustainedShields(actor);
   }
 };

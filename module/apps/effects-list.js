@@ -81,7 +81,8 @@ function describeActiveEffect(effect, actor) {
       remaining = anchorLifetime({ anchors, finite }).untilOff ? `até desligar a Skill${holders}` : finite === PERMANENT ? "sem prazo" : `${finite} rodada(s) ou até desligar a Skill${holders}`;
     } else {
       const rounds = effect.duration?.remaining ?? effect.duration?.rounds;
-      remaining = fromEnvironment ? "enquanto estiver no lugar" : rounds ? `${Math.max(0, Math.ceil(rounds))} rodada(s)` : "sem prazo";
+      // V14: um efeito sem prazo devolve Infinity aqui ("Infinity rodada(s)" na janela).
+      remaining = fromEnvironment ? "enquanto estiver no lugar" : Number.isFinite(rounds) && rounds > 0 ? `${Math.ceil(rounds)} rodada(s)` : "sem prazo";
     }
   }
   // Maldição (prancha 6): quem lançou, custo na Mana da vítima, o que faz sem Mana e o estado.

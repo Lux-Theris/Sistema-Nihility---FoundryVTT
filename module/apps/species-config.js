@@ -15,6 +15,7 @@ import { normalizeSpeciesCatalog, bumpSpeciesVersions, speciesSlug } from "../sp
 import { actorsWithSpecies, syncPreviewFor, openSpeciesSync } from "../species/species.js";
 import { SENSE_TARGETS, SENSE_LABELS } from "../combat/senses-rules.js";
 import { WHEN_KINDS, WHEN_LABELS, THEN_KINDS, THEN_LABELS } from "../combat/conditional-modifiers.js";
+import { escapeHtml } from "../helpers/html.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -363,7 +364,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
     const sheets = actorsWithSpecies(id).length;
     const ok = await foundry.applications.api.DialogV2.confirm({
       window: { title: "Remover Espécie" },
-      content: `<p>Remover <b>${foundry.utils.escapeHTML(this.catalog[id].label || id)}</b> do catálogo?${sheets ? ` ${sheets} ficha(s) usam esta Espécie: elas não mudam, mas o Validar Mundo vai apontá-las.` : ""}</p><p>Só vale depois de Salvar.</p>`
+      content: `<p>Remover <b>${escapeHtml(this.catalog[id].label || id)}</b> do catálogo?${sheets ? ` ${sheets} ficha(s) usam esta Espécie: elas não mudam, mas o Validar Mundo vai apontá-las.` : ""}</p><p>Só vale depois de Salvar.</p>`
     });
     if (!ok) return;
     delete this.catalog[id];

@@ -16,6 +16,8 @@
  * 5. Nenhuma folha de `styles/` fica fora do `system.json` (o Foundry só carrega as listadas).
  * 6. Texto com acentuação quebrada ("Ã§", "Ã£"…): aparece quando um script grava UTF-8 como
  *    Latin-1, e passa despercebido até alguém ler a tela.
+ * 7. Escape de HTML com uma cópia só: nenhum arquivo .js de module/ fora de `helpers/html.js` chama
+ *    `escapeHTML(` nem define o próprio `esc` (`import { escapeHtml as esc }` é permitido).
  *
  * Sai com código 1 se algo falhar.
  */
@@ -156,6 +158,24 @@ function checkEncoding() {
   if (!bad) console.log(`  ✓ ${files.length} arquivos de texto`);
 }
 
+// Uma cópia só do escape de HTML (helpers/html.js). Cópia local escapa um conjunto diferente e,
+// com o tempo, um card ou atributo passa a quebrar só para um tipo de nome.
+function checkEscapeCopies() {
+  step("Escape de HTML: uma cópia só (helpers/html.js)");
+  const files = walk(join(ROOT, "module"), f => f.endsWith(".js")).filter(f => rel(f) !== "module/helpers/html.js");
+  const local = /escapeHTML\(|foundry\.utils\.escapeHTML|\bfunction\s+esc\s*\(|\b(?:const|let|var)\s+esc\s*=/;
+  let bad = 0;
+  for (const file of files) {
+    const lines = readFileSync(file, "utf8").split("\n");
+    lines.forEach((line, i) => {
+      if (!local.test(line)) return;
+      bad++;
+      fail(`escape de HTML próprio em ${rel(file)}:${i + 1} (use escapeHtml de helpers/html.js)`, line.trim().slice(0, 120));
+    });
+  }
+  if (!bad) console.log(`  ✓ ${files.length} arquivos, todos usam helpers/html.js`);
+}
+
 // O CLAUDE.md da raiz é um índice: cada arquivo de docs/claude/ tem de estar nele, e todo link dele tem de existir.
 function checkGuideIndex() {
   step("Guia do projeto (CLAUDE.md → docs/claude/)");
@@ -176,6 +196,7 @@ const manifest = checkManifest();
 checkStylesListed(manifest);
 checkTemplates();
 checkEncoding();
+checkEscapeCopies();
 checkGuideIndex();
 if (!args.has("--no-tests")) runTests();
 

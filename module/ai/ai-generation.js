@@ -19,6 +19,7 @@ import { ensureSystemCompendiums, registerItemInCompendium } from "../core/compe
 import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
 import { changeActorSpecies } from "../species/species.js";
 import { mechanicsGuide, sanitizeSkillMechanics, sanitizeWeapon, sanitizeItemBonuses, currentAICatalogs, foundryFormulaCheck, originGuide, sanitizeOriginEntry } from "./ai-mechanics.js";
+import { escapeHtml } from "../helpers/html.js";
 
 /* -------------------------------------------- */
 /*  Núcleo genérico de geração via IA            */
@@ -424,7 +425,7 @@ export async function describeNpcWithAI(draft, archetype) {
   const user = `${draft.name}, ${draft.speciesLabel || "humano"}, ${archetype.label} de nível ${draft.level}. ${archetype.description ?? ""}`;
   const parsed = await generateJSON(system, user);
   return {
-    biography: foundry.utils.cleanHTML?.(String(parsed?.biography ?? "")) ?? foundry.utils.escapeHTML(String(parsed?.biography ?? "")),
+    biography: foundry.utils.cleanHTML?.(String(parsed?.biography ?? "")) ?? escapeHtml(String(parsed?.biography ?? "")),
     personality: String(parsed?.personality ?? "").slice(0, 500)
   };
 }

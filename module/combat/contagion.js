@@ -22,6 +22,7 @@ import { chainedResistance } from "./damage-rules.js";
 import { resistanceSourceFor } from "./resistance.js";
 import { isDead } from "./incapacitation.js";
 import { normalizeSpread, contagionChance, withinRadius, immuneByTrait } from "./contagion-rules.js";
+import { escapeHtml } from "../helpers/html.js";
 
 /** A melhor Resistência do Ator entre os elementos da Condição (cada um com a cadeia de "pais"). */
 function elementResistance(actor, elementIds) {
@@ -67,7 +68,6 @@ export async function tickContagion(combatant) {
     .filter(({ condition, spread }) => spread && carrier.statuses?.has(condition.id));
   if (!spreading.length) return;
 
-  const esc = foundry.utils.escapeHTML;
   const { pxPerUnit } = sceneScale(scene);
   const gridSize = scene.grid?.size;
   const origin = tokenDocCenter(from, gridSize);
@@ -87,20 +87,20 @@ export async function tickContagion(combatant) {
       const immune = immuneByTrait(actorTraits(actor), spread.immuneTraits);
       const chance = contagionChance({ chance: spread.chance, resistance: elementResistance(actor, condition.elements), immune });
       if (!chance) {
-        rows.push(`<li>${esc(token.name)}: imune</li>`);
+        rows.push(`<li>${escapeHtml(token.name)}: imune</li>`);
         continue;
       }
       // Sorte (8d.1): a VÍTIMA se beneficia — a sorte dela empurra o d100 para cima (= não pega).
       const roll = await new Roll(applyLuckToFormula("1d100", luckOf(actor, "chances"))).evaluate();
       const caught = roll.total <= chance;
       if (caught) await infect(actor, condition);
-      rows.push(`<li>${esc(token.name)}: ${caught ? "<strong>pegou</strong>" : "resistiu"} (${roll.total} ${caught ? "≤" : ">"} ${chance}%)</li>`);
+      rows.push(`<li>${escapeHtml(token.name)}: ${caught ? "<strong>pegou</strong>" : "resistiu"} (${roll.total} ${caught ? "≤" : ">"} ${chance}%)</li>`);
     }
     if (!rows.length) continue;
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor: carrier }),
       whisper: secret ? game.users.filter(u => u.isGM).map(u => u.id) : [],
-      content: `<p><strong>${esc(condition.label)}</strong> se espalha de ${esc(from.name)} (raio ${spread.radius} m, ${spread.chance}%):</p><ul>${rows.join("")}</ul>`
+      content: `<p><strong>${escapeHtml(condition.label)}</strong> se espalha de ${escapeHtml(from.name)} (raio ${spread.radius} m, ${spread.chance}%):</p><ul>${rows.join("")}</ul>`
     });
   }
 }

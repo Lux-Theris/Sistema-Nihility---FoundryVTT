@@ -207,10 +207,9 @@ export function mechanicSummaryFor(mech) {
  *   Mestre sobe nível à mão — jogador usa o botão de Level Up, GM-only, fora deste modal).
  * @returns {Promise<object|null>} os dados editados, ou null se cancelado
  */
-export async function openSkillEditorDialog(initialData = {}, options = {}) {
-  const { lockTier = null, tierChoices = null, levelReadonly = false, actor = null, request = false, tierLabels = {} } = options;
-  // Modelos (L7): só numa Skill NOVA — editando uma que existe, trocar de modelo apagaria o que ela tem.
-  const offerTemplates = options.offerTemplates ?? !initialData.name;
+
+/** Normaliza o que chega ao editor no objeto `data` que as seções leem (defaults de toda Skill). */
+function buildEditorData(initialData, { lockTier, offerTemplates }) {
   const data = {
     name: initialData.name ?? "",
     tier: initialData.tier ?? lockTier ?? NIHILITY.SKILL_TIERS[0],
@@ -272,7 +271,13 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
     data.effectType = "structure";
     data.targetType = "targeted";
   }
+  return data;
+}
 
+
+/** Bloco de cima: modelo ("Começar de"), Nome, Tier, complexidade, campos escondidos e "Evoluiu de". */
+function buildIdentitySectionHtml(data, ctx) {
+  const { options, lockTier, tierChoices, tierLabels, request, offerTemplates } = ctx;
   const tierField = lockTier
     ? `<div class="skill-editor-tier-lock"><i class="fas fa-lock"></i> Tier travado: ${NIHILITY.SKILL_TIER_LABELS[lockTier] ?? lockTier}</div>`
     : `<div class="form-group"><label>Tier</label><select name="tier">
@@ -287,132 +292,6 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
       </div>`
     : "";
 
-  // Atributo de Escala: "nenhum" na frente (o padrão, e o estado de toda Skill anterior à regra).
-  // Um atributo escondido pela campanha some da lista, mas continua listado se a Skill JÁ usa ele
-  // — senão editar a Skill apagaria a escala dela sem avisar.
-  const scalingAttributeOptions =
-    `<option value="" ${data.scalingAttribute ? "" : "selected"}>— sem escala —</option>` +
-    getVisibleAttributes()
-      .concat(
-        data.scalingAttribute && !getVisibleAttributes().some(a => a.key === data.scalingAttribute)
-          ? [{ key: data.scalingAttribute, label: `${getAttributeLabel(data.scalingAttribute)} (oculto)` }]
-          : []
-      )
-      .map(a => `<option value="${a.key}" ${a.key === data.scalingAttribute ? "selected" : ""}>${escapeHtml(a.label)}</option>`)
-      .join("");
-
-  const effectTypeOptions = NIHILITY.SKILL_EFFECT_TYPES.filter(t => (t !== "structure" || isStructuresEnabled() || data.effectType === "structure") && (t !== "form" || isFormsEnabled() || data.effectType === "form") && (t !== "analysis" || isAnalysisEnabled() || data.effectType === "analysis") && (t !== "predation" || isPredationEnabled() || data.effectType === "predation") && (t !== "reroll" || isRerollEnabled() || data.effectType === "reroll")).map(
-    t => `<option value="${t}" ${t === data.effectType ? "selected" : ""}>${NIHILITY.SKILL_EFFECT_TYPE_LABELS[t]}</option>`
-  ).join("");
-
-
-  // Tipo desligado pela campanha sai da lista — a menos que a Skill já esteja nele.
-  const availableTargetTypes = NIHILITY.SKILL_TARGET_TYPES.filter(
-    t => t === data.targetType || isAreaEffectsEnabled() || (t !== "emission" && t !== "zone")
-  );
-  const structureOptions =
-    `<option value="">— escolha —</option>` +
-    getStructures().map(st => `<option value="${escapeHtml(st.id)}" ${st.id === data.structureId ? "selected" : ""}>${escapeHtml(st.label)}</option>`).join("");
-  const targetTypeOptions = availableTargetTypes.map(
-    t => `<option value="${t}" ${t === data.targetType ? "selected" : ""}>${NIHILITY.SKILL_TARGET_TYPE_LABELS[t]}</option>`
-  ).join("");
-
-  const areaShapeOptions = NIHILITY.SKILL_AREA_SHAPES.map(
-    s => `<option value="${s}" ${s === data.areaShape ? "selected" : ""}>${NIHILITY.SKILL_AREA_SHAPE_LABELS[s]}</option>`
-  ).join("");
-
-  const scaleField = isScaleEnabled()
-    ? `<div class="form-group"><label>Escala do golpe</label><select name="damageScale">
-        ${[{ id: "", label: "— a de quem usa —" }, ...getScaleConfig().scales]
-          .map(sc => `<option value="${escapeHtml(sc.id)}" ${sc.id === data.damageScale ? "selected" : ""}>${escapeHtml(sc.label)}</option>`)
-          .join("")}
-      </select></div>`
-    : "";
-
-  const resistChips = getResistanceTargetOptions()
-    .map(
-      opt =>
-        `<label class="element-chip resist-chip ${data.resistanceTarget === opt.value ? "checked" : ""}">
-          <input type="radio" name="resistTarget" value="${escapeHtml(opt.value)}" ${data.resistanceTarget === opt.value ? "checked" : ""}/>${escapeHtml(opt.label)}
-        </label>`
-    )
-    .join("");
-
-  // Bloco de Resistência: sai inteiro do editor quando a campanha não usa Resistências. O
-  // `resistEnable` ausente faz `readForm` devolver resistanceTarget "" — uma Skill que JÁ era de
-  // Resistência mantém o valor salvo intocado (desligar nunca reescreve dado), ela só deixa de
-  // ser editável por aqui.
-  const resistanceSection = isResistancesEnabled()
-    ? `
-      <label class="checkbox-line">
-        <input type="checkbox" name="resistEnable" ${data.resistanceTarget ? "checked" : ""}/>
-        Esta Skill concede Resistência/Imunidade passiva
-        <span class="hint-inline">(independente da Mecânica ao Usar abaixo — pode ter as duas)</span>
-      </label>
-      <div class="mechanic-panel resist se-resist-panel">
-        <div class="field-hint-label">Alvo <span class="hint-inline" style="display:inline;">(escolha um — Geral cobre qualquer dano, Elemento só aquele tipo)</span></div>
-        <div class="element-grid">${resistChips}</div>
-        <p class="hint-inline se-resist-info">&nbsp;</p>
-      </div>`
-    : "";
-
-  // Maestria de arma (H6): uma Skill passiva de um Tipo de arma. Com o recurso desligado o campo some,
-  // mas o valor salvo vai num input escondido — o editor nunca o apaga sem querer.
-  const masteryOn = isWeaponMasteryEnabled();
-  const masterySection = masteryOn
-    ? `
-      <div class="form-group se-mastery-field" title="Passiva: sem botão Usar. Dá +% de dano com as armas do tipo (grupo: todos os subtipos; subtipo: só ele). Uma Maestria nasce mundana.">
-        <label>Maestria de arma <span class="hint-inline" style="display:inline;">(passiva — o tipo de arma que esta Skill treina)</span></label>
-        <select name="weaponMastery">
-          <option value="" ${data.weaponMastery ? "" : "selected"}>— não é uma Maestria —</option>
-          ${weaponTypeChoices(data.weaponMastery).map(o => `<option value="${escapeHtml(o.value)}" ${o.value === data.weaponMastery ? "selected" : ""}>${escapeHtml(o.label)}</option>`).join("")}
-        </select>
-        <input type="hidden" name="masteryRank" value="${data.masteryRank}"/>
-      </div>`
-    : `<input type="hidden" name="weaponMastery" value="${escapeHtml(data.weaponMastery)}"/><input type="hidden" name="masteryRank" value="${data.masteryRank}"/>`;
-
-  const subSkillsField = data.subSkills.length
-    ? `<div class="form-group sub-skills-block">
-        <label>Sub-Skills <span class="hint-inline" style="display:inline;">(componentes desta Fusão — cada um com o efeito que ele mesmo tinha; clique pra ver a Descrição original)</span></label>
-        <div class="subskill-mini-list">
-          ${data.subSkills
-            .map(
-              (sub, i) => `
-            <div class="subskill-mini-item">
-              <div class="subskill-mini-row" data-i="${i}">
-                <span class="subskill-tier-chip tier-${sub.tier}">${NIHILITY.SKILL_TIER_LABELS[sub.tier] ?? sub.tier}</span>
-                <span class="subskill-mini-name">${escapeHtml(sub.name)}</span>
-                <span class="subskill-mini-mechanic">${mechanicSummaryFor(sub)}</span>
-                <svg class="subskill-chevron" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 9 6 6 6-6"/></svg>
-              </div>
-              <div class="subskill-mini-desc">${sub.description || "<i>Sem descrição.</i>"}</div>
-            </div>`
-            )
-            .join("")}
-        </div>
-      </div>`
-    : "";
-
-  const fusionLineageField = data.fusionSources.length
-    ? `<div class="form-group fusion-lineage">
-        <label>Linhagem de Fusão <span class="hint-inline" style="display:inline;">(só leitura — quais Skills foram consumidas pra gerar esta)</span></label>
-        <p class="hint-inline" style="margin:0;">${data.fusionSources.map(escapeHtml).join(" · ")}</p>
-      </div>`
-    : "";
-
-  const rangeOn = isSkillRangeEnabled();
-  const energyLabel = getCharacterEnergyLabel();
-  // "Avançado ▸" (K1): abre sozinho quando algum campo de dentro tem valor.
-  const advTop = advancedFold([
-    { label: "Só se… (a Skill inteira)", used: Boolean(data.onlyIf.kind) },
-    { label: `Variar a ${energyLabel}`, used: Boolean(data.variableMana) },
-    { label: "Mágico / Tecnológico", used: Boolean(data.isTech) || data.isMagic === false || data.magicTag === "mundane" },
-    { label: "Animação", used: Boolean(data.animationPath) }
-  ]);
-  const advDamage = advancedFold([
-    { label: "Dano Absoluto", used: Boolean(data.isAbsoluteDamage) },
-    isScaleEnabled() ? { label: "Escala do golpe", used: Boolean(data.damageScale) } : null
-  ]);
   const groups = offerTemplates ? templateGroups() : [];
   // Pedido de Skill (J10, prancha 3 B): "Começar de" em ladrilhos, com "Do Compêndio…" e "Só
   // descrever" (o "Em branco" de sempre — sem mecânica, só o texto). Escolher reabre preenchido.
@@ -433,16 +312,20 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
         ${groups.map(g => `<optgroup label="${escapeHtml(g.label)}">${g.templates.map(t => `<option value="${escapeHtml(t.id)}" ${t.id === options.templateChosen ? "selected" : ""}>${escapeHtml(t.label)}</option>`).join("")}</optgroup>`).join("")}
       </select>${options.templateChosen ? `<span class="hint-inline">Veio preenchido: ${escapeHtml(templateFillSentence(options.templateChosen))}. Ajuste nome e números.</span>` : ""}</div>`
     : "";
-  const content = `
-    <div class="skill-editor-form">
-      ${templateField}
+  return `${templateField}
       <div class="form-group"><label>Nome</label><input type="text" name="name" value="${escapeHtml(data.name)}"/></div>
       ${tierField}
       <p class="hint-inline se-complexity" style="margin:0 0 .4em;"></p>
       <input type="hidden" name="onHitJson" value="${escapeHtml(JSON.stringify(data.onHit ?? null))}"/>
       <input type="hidden" name="duelJson" value="${escapeHtml(JSON.stringify({ endsWhenTargetFalls: data.endsWhenTargetFalls, intruderRule: data.intruderRule }))}"/>
-      ${evolvedField}
-      <div class="row-2">
+      ${evolvedField}`;
+}
+
+
+/** Nível, Custo, Recarga, Preparo e "Habilidade Ativa" (com o Custo por Rodada). */
+function buildCostSectionHtml(data, ctx) {
+  const { energyLabel, request, levelReadonly } = ctx;
+  return `<div class="row-2">
         ${request
           ? `<input type="hidden" name="level" value="1"/>`
           : `<div class="form-group"><label>Nível</label><input type="number" name="level" value="${data.level}" min="1" ${levelReadonly ? "readonly" : ""}/></div>`}
@@ -459,8 +342,21 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
       <div class="form-group se-upkeep-field" style="display:${data.hasUpkeep ? "flex" : "none"};">
         <label>Custo de ${energyLabel} por Rodada</label>
         <span class="sa-costrow"><input type="number" name="upkeepCost" value="${data.upkeepCost}" min="0"/><span class="se-sug" data-sug="upkeepCost"></span></span>
-      </div>
-      <details class="adv" ${advTop.open ? "open" : ""}>
+      </div>`;
+}
+
+
+/** "Avançado ▸" de cima: Só se…, variar a energia, Natureza e Animação. */
+function buildAdvancedTopHtml(data, ctx) {
+  const { energyLabel } = ctx;
+  // "Avançado ▸" (K1): abre sozinho quando algum campo de dentro tem valor.
+  const advTop = advancedFold([
+    { label: "Só se… (a Skill inteira)", used: Boolean(data.onlyIf.kind) },
+    { label: `Variar a ${energyLabel}`, used: Boolean(data.variableMana) },
+    { label: "Mágico / Tecnológico", used: Boolean(data.isTech) || data.isMagic === false || data.magicTag === "mundane" },
+    { label: "Animação", used: Boolean(data.animationPath) }
+  ]);
+  return `<details class="adv" ${advTop.open ? "open" : ""}>
       ${advSummaryHtml(advTop)}
       <div class="adv-body">
       <div class="form-group se-skill-onlyif" title="Conferido depois de escolher o alvo e ANTES de pagar o Custo: se não vale, a Skill nem sai. Desligar uma Ativa nunca é barrado.">
@@ -484,23 +380,130 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
         <input type="text" name="animationPath" value="${escapeHtml(data.animationPath)}" placeholder="modules/jb2a_patreon/Library/.../explosion.webm"/>
       </div>
       </div>
-      </details>
-      <div class="form-group">
+      </details>`;
+}
+
+
+/** Descrição rica (`<prose-mirror>` é campo real do form: nada de handler próprio). */
+function buildDescriptionHtml(data) {
+  return `<div class="form-group">
         <label>Descrição</label>
         <prose-mirror name="description" value="${escapeHtml(data.description)}"></prose-mirror>
-      </div>
+      </div>`;
+}
 
-      ${subSkillsField}
-      ${fusionLineageField}
 
-      ${resistanceSection}
-      ${masterySection}
+/** Sub-Skills de uma Fusão (só leitura). */
+function buildSubSkillsHtml(data) {
+  return data.subSkills.length
+    ? `<div class="form-group sub-skills-block">
+        <label>Sub-Skills <span class="hint-inline" style="display:inline;">(componentes desta Fusão — cada um com o efeito que ele mesmo tinha; clique pra ver a Descrição original)</span></label>
+        <div class="subskill-mini-list">
+          ${data.subSkills
+            .map(
+              (sub, i) => `
+            <div class="subskill-mini-item">
+              <div class="subskill-mini-row" data-i="${i}">
+                <span class="subskill-tier-chip tier-${sub.tier}">${NIHILITY.SKILL_TIER_LABELS[sub.tier] ?? sub.tier}</span>
+                <span class="subskill-mini-name">${escapeHtml(sub.name)}</span>
+                <span class="subskill-mini-mechanic">${mechanicSummaryFor(sub)}</span>
+                <svg class="subskill-chevron" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 9 6 6 6-6"/></svg>
+              </div>
+              <div class="subskill-mini-desc">${sub.description || "<i>Sem descrição.</i>"}</div>
+            </div>`
+            )
+            .join("")}
+        </div>
+      </div>`
+    : "";
+}
 
-      <hr/>
 
-      <div class="form-group"><label>Mecânica ao Usar</label><select name="effectType">${effectTypeOptions}</select></div>
+/** Linhagem de Fusão (só leitura). */
+function buildFusionLineageHtml(data) {
+  return data.fusionSources.length
+    ? `<div class="form-group fusion-lineage">
+        <label>Linhagem de Fusão <span class="hint-inline" style="display:inline;">(só leitura — quais Skills foram consumidas pra gerar esta)</span></label>
+        <p class="hint-inline" style="margin:0;">${data.fusionSources.map(escapeHtml).join(" · ")}</p>
+      </div>`
+    : "";
+}
 
-      <div class="se-range-section">
+
+/** Bloco de Resistência passiva. */
+function buildResistanceHtml(data) {
+  const resistChips = getResistanceTargetOptions()
+    .map(
+      opt =>
+        `<label class="element-chip resist-chip ${data.resistanceTarget === opt.value ? "checked" : ""}">
+          <input type="radio" name="resistTarget" value="${escapeHtml(opt.value)}" ${data.resistanceTarget === opt.value ? "checked" : ""}/>${escapeHtml(opt.label)}
+        </label>`
+    )
+    .join("");
+
+  // Bloco de Resistência: sai inteiro do editor quando a campanha não usa Resistências. O
+  // `resistEnable` ausente faz `readForm` devolver resistanceTarget "" — uma Skill que JÁ era de
+  // Resistência mantém o valor salvo intocado (desligar nunca reescreve dado), ela só deixa de
+  // ser editável por aqui.
+  return isResistancesEnabled()
+    ? `
+      <label class="checkbox-line">
+        <input type="checkbox" name="resistEnable" ${data.resistanceTarget ? "checked" : ""}/>
+        Esta Skill concede Resistência/Imunidade passiva
+        <span class="hint-inline">(independente da Mecânica ao Usar abaixo — pode ter as duas)</span>
+      </label>
+      <div class="mechanic-panel resist se-resist-panel">
+        <div class="field-hint-label">Alvo <span class="hint-inline" style="display:inline;">(escolha um — Geral cobre qualquer dano, Elemento só aquele tipo)</span></div>
+        <div class="element-grid">${resistChips}</div>
+        <p class="hint-inline se-resist-info">&nbsp;</p>
+      </div>`
+    : "";
+}
+
+
+/** Maestria de arma (H6). */
+function buildMasteryHtml(data, ctx) {
+  const { masteryOn } = ctx;
+  // Maestria de arma (H6): uma Skill passiva de um Tipo de arma. Com o recurso desligado o campo some,
+  // mas o valor salvo vai num input escondido — o editor nunca o apaga sem querer.
+  return masteryOn
+    ? `
+      <div class="form-group se-mastery-field" title="Passiva: sem botão Usar. Dá +% de dano com as armas do tipo (grupo: todos os subtipos; subtipo: só ele). Uma Maestria nasce mundana.">
+        <label>Maestria de arma <span class="hint-inline" style="display:inline;">(passiva — o tipo de arma que esta Skill treina)</span></label>
+        <select name="weaponMastery">
+          <option value="" ${data.weaponMastery ? "" : "selected"}>— não é uma Maestria —</option>
+          ${weaponTypeChoices(data.weaponMastery).map(o => `<option value="${escapeHtml(o.value)}" ${o.value === data.weaponMastery ? "selected" : ""}>${escapeHtml(o.label)}</option>`).join("")}
+        </select>
+        <input type="hidden" name="masteryRank" value="${data.masteryRank}"/>
+      </div>`
+    : `<input type="hidden" name="weaponMastery" value="${escapeHtml(data.weaponMastery)}"/><input type="hidden" name="masteryRank" value="${data.masteryRank}"/>`;
+}
+
+
+/** Seletor da Mecânica ao Usar. */
+function buildMechanicSelectHtml(data) {
+  const effectTypeOptions = NIHILITY.SKILL_EFFECT_TYPES.filter(t => (t !== "structure" || isStructuresEnabled() || data.effectType === "structure") && (t !== "form" || isFormsEnabled() || data.effectType === "form") && (t !== "analysis" || isAnalysisEnabled() || data.effectType === "analysis") && (t !== "predation" || isPredationEnabled() || data.effectType === "predation") && (t !== "reroll" || isRerollEnabled() || data.effectType === "reroll")).map(
+    t => `<option value="${t}" ${t === data.effectType ? "selected" : ""}>${NIHILITY.SKILL_EFFECT_TYPE_LABELS[t]}</option>`
+  ).join("");
+  return `<div class="form-group"><label>Mecânica ao Usar</label><select name="effectType">${effectTypeOptions}</select></div>`;
+}
+
+
+/** Tipo de Alvo, Alcance e o painel de Emissão/Zona (origem, quem atinge, formato, distância, ângulo). */
+function buildRangeSectionHtml(data, ctx) {
+  const { rangeOn } = ctx;
+  // Tipo desligado pela campanha sai da lista — a menos que a Skill já esteja nele.
+  const availableTargetTypes = NIHILITY.SKILL_TARGET_TYPES.filter(
+    t => t === data.targetType || isAreaEffectsEnabled() || (t !== "emission" && t !== "zone")
+  );
+  const targetTypeOptions = availableTargetTypes.map(
+    t => `<option value="${t}" ${t === data.targetType ? "selected" : ""}>${NIHILITY.SKILL_TARGET_TYPE_LABELS[t]}</option>`
+  ).join("");
+
+  const areaShapeOptions = NIHILITY.SKILL_AREA_SHAPES.map(
+    s => `<option value="${s}" ${s === data.areaShape ? "selected" : ""}>${NIHILITY.SKILL_AREA_SHAPE_LABELS[s]}</option>`
+  ).join("");
+  return `<div class="se-range-section">
         <div class="form-group se-target-type-field"><label>Tipo de Alvo</label><select name="targetType">${targetTypeOptions}</select></div>
         ${rangeOn ? `<div class="form-group se-reach-field" title="Até onde a Skill chega, em metros (0 = sem limite). Fora dele só pela Marca de quem usa (custo × (distância ÷ alcance)²)."><label>Alcance <span class="hint-inline" style="display:inline;">(metros, 0 = sem limite)</span></label><input type="number" name="range" value="${data.range}" min="0" step="0.5"/></div>` : `<input type="hidden" name="range" value="${data.range}"/>`}
         <div class="mechanic-panel se-emission-panel">
@@ -516,22 +519,38 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
             <div class="form-group se-area-angle-field"><label>Ângulo <span class="hint-inline" style="display:inline;">(graus)</span></label><input type="number" name="areaAngle" value="${data.areaAngle}" min="1" max="360"/></div>
           </div>
         </div>
-      </div>
+      </div>`;
+}
 
-      <div class="mechanic-panel se-reroll-panel">
+
+/** Painel de Rerrolar. */
+function buildRerollPanelHtml(data) {
+  return `<div class="mechanic-panel se-reroll-panel">
         <p class="hint-inline" style="display:block;">Rerrolar é usada no chat, depois de ver uma rolagem: o botão "Rerrolar" aparece no card das rolagens que ela alcança. Paga o Custo e a Recarga como qualquer Skill.</p>
         <div class="form-group"><label>De quem</label><select name="rerollWho">${REROLL_WHO.map(w => `<option value="${w}" ${w === data.rerollWho ? "selected" : ""}>${escapeHtml(REROLL_WHO_LABELS[w])}</option>`).join("")}</select></div>
         <div class="form-group"><label>O que fica</label><select name="rerollKeep">${rerollKeepOptions(data.tier === "ultimate" || data.rerollKeep === "choose" ? "ultimate" : data.tier).map(k => `<option value="${k}" ${k === data.rerollKeep ? "selected" : ""}>${escapeHtml(REROLL_KEEP_LABELS[k])}</option>`).join("")}</select></div>
         <div class="form-group"><label>Quais rolagens</label>${REROLL_KIND_KEYS.map(k => `<label class="checkbox-line"><input type="checkbox" name="rerollKind_${k}" ${data.rerollKinds[k] ? "checked" : ""}/> ${escapeHtml(REROLL_KIND_LABELS[k])}</label>`).join("")}</div>
-      </div>
+      </div>`;
+}
 
-      <div class="mechanic-panel se-form-panel">
+
+/** Painel de Forma. */
+function buildFormPanelHtml(data) {
+  return `<div class="mechanic-panel se-form-panel">
         <div class="form-group"><label>Ficha da forma</label><input type="text" name="formActorUuid" value="${escapeHtml(data.formActorUuid)}" placeholder="Arraste a ficha-molde para cá">
           <span class="hint-inline">Um Personagem marcado como "Molde de forma". Precisa ser Habilidade Ativa: desligar volta ao normal.</span>
         </div>
-      </div>
+      </div>`;
+}
 
-      <div class="mechanic-panel se-structure-panel">
+
+/** Painel de Estrutura. */
+function buildStructurePanelHtml(data, ctx) {
+  const { rangeOn, energyLabel } = ctx;
+  const structureOptions =
+    `<option value="">— escolha —</option>` +
+    getStructures().map(st => `<option value="${escapeHtml(st.id)}" ${st.id === data.structureId ? "selected" : ""}>${escapeHtml(st.label)}</option>`).join("");
+  return `<div class="mechanic-panel se-structure-panel">
         <div class="form-group"><label>Estrutura</label><select name="structureId">${structureOptions}</select>
           <span class="hint-inline">Formato, tamanho e Vida vêm do catálogo (Configurações Gerais › Estruturas). Skill Ativa com Estrutura sem prazo: ela fica até a Skill ser desligada.</span>
         </div>
@@ -541,9 +560,39 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
           <div class="form-group"><label title="No início do seu turno, depois da manutenção, a Estrutura ferida recupera esta Vida, sem passar do teto">Regenera (Vida/rodada)</label><input type="number" name="structureRegen" value="${data.structureRegen}" min="0"/></div>
           <div class="form-group"><label title="${energyLabel} paga para recuperar; sem ferida não custa, sem ${energyLabel} não regenera">Custo da regeneração</label><input type="number" name="structureRegenCost" value="${data.structureRegenCost}" min="0"/></div>
         </div>
-      </div>
+      </div>`;
+}
 
-      <div class="mechanic-panel se-damage-panel">
+
+/** Painel de Dano (fórmula, escala, elementos, golpe de arma e o "Avançado ▸" do dano). */
+function buildDamagePanelHtml(data, ctx) {
+  const { masteryOn } = ctx;
+  // Atributo de Escala: "nenhum" na frente (o padrão, e o estado de toda Skill anterior à regra).
+  // Um atributo escondido pela campanha some da lista, mas continua listado se a Skill JÁ usa ele
+  // — senão editar a Skill apagaria a escala dela sem avisar.
+  const scalingAttributeOptions =
+    `<option value="" ${data.scalingAttribute ? "" : "selected"}>— sem escala —</option>` +
+    getVisibleAttributes()
+      .concat(
+        data.scalingAttribute && !getVisibleAttributes().some(a => a.key === data.scalingAttribute)
+          ? [{ key: data.scalingAttribute, label: `${getAttributeLabel(data.scalingAttribute)} (oculto)` }]
+          : []
+      )
+      .map(a => `<option value="${a.key}" ${a.key === data.scalingAttribute ? "selected" : ""}>${escapeHtml(a.label)}</option>`)
+      .join("");
+
+  const scaleField = isScaleEnabled()
+    ? `<div class="form-group"><label>Escala do golpe</label><select name="damageScale">
+        ${[{ id: "", label: "— a de quem usa —" }, ...getScaleConfig().scales]
+          .map(sc => `<option value="${escapeHtml(sc.id)}" ${sc.id === data.damageScale ? "selected" : ""}>${escapeHtml(sc.label)}</option>`)
+          .join("")}
+      </select></div>`
+    : "";
+  const advDamage = advancedFold([
+    { label: "Dano Absoluto", used: Boolean(data.isAbsoluteDamage) },
+    isScaleEnabled() ? { label: "Escala do golpe", used: Boolean(data.damageScale) } : null
+  ]);
+  return `<div class="mechanic-panel se-damage-panel">
         <div class="form-group"><label>Fórmula de Dano</label><input type="text" name="damageFormula" value="${escapeHtml(data.damageFormula)}" placeholder="2d6+3"/></div>
         <div class="form-group">
           <label>Atributo de Escala</label>
@@ -566,9 +615,14 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
         ${scaleField}
         </div>
         </details>
-      </div>
+      </div>`;
+}
 
-      <div class="mechanic-panel se-temp-panel">
+
+/** Painel de Efeitos (as linhas entram por `setupEffects`). */
+function buildEffectsPanelHtml(data, ctx) {
+  const { energyLabel } = ctx;
+  return `<div class="mechanic-panel se-temp-panel">
         <div class="field-hint-label">Efeitos <span class="hint-inline" style="display:inline;">(pode combinar quantos alvos quiser)</span></div>
         <p class="hint-inline se-temp-upkeep-note" style="display:${data.hasUpkeep ? "block" : "none"};">
           Habilidade Ativa marcada acima: todo Efeito abaixo (buff/debuff comum OU Periódico/
@@ -584,9 +638,55 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
           Quantidade a CADA tick em vez de uma vez só — Duração vira "quantos ticks". Reaplicar a
           MESMA Condição em quem já a tem RENOVA a duração (não soma) e fica com o valor mais forte.
         </p>
-      </div>
+      </div>`;
+}
+
+
+export async function openSkillEditorDialog(initialData = {}, options = {}) {
+  const { lockTier = null, tierChoices = null, levelReadonly = false, actor = null, request = false, tierLabels = {} } = options;
+  // Modelos (L7): só numa Skill NOVA — editando uma que existe, trocar de modelo apagaria o que ela tem.
+  const offerTemplates = options.offerTemplates ?? !initialData.name;
+  const data = buildEditorData(initialData, { lockTier, offerTemplates });
+
+  // Valores de campanha lidos uma vez e repassados às seções (o mesmo valor em todas).
+  const ctx = {
+    options, lockTier, tierChoices, tierLabels, levelReadonly, request, offerTemplates,
+    energyLabel: getCharacterEnergyLabel(),
+    rangeOn: isSkillRangeEnabled(),
+    masteryOn: isWeaponMasteryEnabled()
+  };
+
+  const content = `
+    <div class="skill-editor-form">
+      ${buildIdentitySectionHtml(data, ctx)}
+      ${buildCostSectionHtml(data, ctx)}
+      ${buildAdvancedTopHtml(data, ctx)}
+      ${buildDescriptionHtml(data)}
+
+      ${buildSubSkillsHtml(data)}
+      ${buildFusionLineageHtml(data)}
+
+      ${buildResistanceHtml(data)}
+      ${buildMasteryHtml(data, ctx)}
+
+      <hr/>
+
+      ${buildMechanicSelectHtml(data)}
+
+      ${buildRangeSectionHtml(data, ctx)}
+
+      ${buildRerollPanelHtml(data)}
+
+      ${buildFormPanelHtml(data)}
+
+      ${buildStructurePanelHtml(data, ctx)}
+
+      ${buildDamagePanelHtml(data, ctx)}
+
+      ${buildEffectsPanelHtml(data, ctx)}
       <div class="se-assist"></div>
     </div>`;
+
 
   const result = await DialogV2.wait({
     window: {
@@ -683,8 +783,23 @@ async function pickCompendiumSkill(tiers) {
   return typeof id === "string" && id ? pack.getDocument(id) : null;
 }
 
-/** Liga a interatividade do modal: mostrar/esconder painéis, linhas de Efeito, Sub-Skills expansíveis e o resumo de Resistência. */
+/** Liga a interatividade do modal, uma seção por vez, na ordem em que os listeners sempre foram ligados. */
 function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = null } = {}) {
+  setupScrollFit(root);
+  setupMechanic(root);
+  setupTargetArea(root);
+  setupResistance(root);
+  setupUpkeep(root);
+  setupDamageElements(root);
+  setupSubSkills(root);
+  setupEffects(root, data);
+  setupTemplatePicker(root);
+  setupSkillOnlyIf(root);
+  setupAssist(root, { lockTier, actor });
+}
+
+/** Mede a altura real da janela e limita o formulário (o porquê está nos comentários). */
+function setupScrollFit(root) {
   // Nenhuma tentativa via CSS de cascata (classe no DialogV2.wait, flex em .window-content)
   // sobreviveu tanto na janela embutida quanto numa Pop Out (Foundry renderiza o mesmo App numa
   // janela de navegador separada, "/detached/index.html" — contexto de ancestrais diferente,
@@ -724,16 +839,14 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
     // preventDefault) e só impede o evento de continuar subindo depois de rolar o form.
     form.addEventListener("wheel", event => event.stopPropagation());
   }
+}
 
+/** Mecânica ao Usar: mostra só o painel da mecânica escolhida; "Ficha da forma" aceita arrastar a ficha. */
+function setupMechanic(root) {
   const mechanicSelect = root.querySelector('[name="effectType"]');
   const rangeSection = root.querySelector(".se-range-section");
   const damagePanel = root.querySelector(".se-damage-panel");
   const tempPanel = root.querySelector(".se-temp-panel");
-  const resistEnable = root.querySelector('[name="resistEnable"]');
-  const resistPanel = root.querySelector(".se-resist-panel");
-  const effectList = root.querySelector(".se-effect-list");
-  const levelInput = root.querySelector('[name="level"]');
-
   const structurePanel = root.querySelector(".se-structure-panel");
   const formPanel = root.querySelector(".se-form-panel");
   const rerollPanel = root.querySelector(".se-reroll-panel");
@@ -763,7 +876,11 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
   }
   mechanicSelect.addEventListener("change", applyMechanic);
   applyMechanic();
+}
 
+/** Tipo de Alvo e formato de Área: o painel de Emissão/Zona, o Alcance e os campos que dependem deles. */
+function setupTargetArea(root) {
+  const mechanicSelect = root.querySelector('[name="effectType"]');
   const targetTypeSelect = root.querySelector('[name="targetType"]');
   const emissionPanel = root.querySelector(".se-emission-panel");
   const areaShapeSelect = root.querySelector('[name="areaShape"]');
@@ -790,6 +907,13 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
   areaShapeSelect.addEventListener("change", applyAreaShape);
   applyTargetType();
   applyAreaShape();
+}
+
+/** Resistência passiva: liga/desliga o painel e o resumo "Redução atual". */
+function setupResistance(root) {
+  const resistEnable = root.querySelector('[name="resistEnable"]');
+  const resistPanel = root.querySelector(".se-resist-panel");
+  const levelInput = root.querySelector('[name="level"]');
 
   function applyResistEnable() {
     resistPanel.style.display = resistEnable.checked ? "flex" : "none";
@@ -800,18 +924,6 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
     resistEnable.addEventListener("change", applyResistEnable);
     applyResistEnable();
   }
-
-  const upkeepEnable = root.querySelector('[name="hasUpkeep"]');
-  const upkeepField = root.querySelector(".se-upkeep-field");
-  const tempUpkeepNote = root.querySelector(".se-temp-upkeep-note");
-  const regenField = root.querySelector(".se-regen-field");
-  function applyUpkeepEnable() {
-    if (regenField) regenField.style.display = upkeepEnable.checked ? "flex" : "none";
-    upkeepField.style.display = upkeepEnable.checked ? "flex" : "none";
-    tempUpkeepNote.style.display = upkeepEnable.checked ? "block" : "none";
-  }
-  upkeepEnable.addEventListener("change", applyUpkeepEnable);
-  applyUpkeepEnable();
 
   function updateResistInfo() {
     const checked = root.querySelector('[name="resistTarget"]:checked');
@@ -834,10 +946,30 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
   });
   levelInput.addEventListener("input", updateResistInfo);
   updateResistInfo();
+}
 
+/** "Habilidade Ativa": mostra o Custo por Rodada, a regeneração da Estrutura e o aviso dos Efeitos. */
+function setupUpkeep(root) {
+  const upkeepEnable = root.querySelector('[name="hasUpkeep"]');
+  const upkeepField = root.querySelector(".se-upkeep-field");
+  const tempUpkeepNote = root.querySelector(".se-temp-upkeep-note");
+  const regenField = root.querySelector(".se-regen-field");
+  function applyUpkeepEnable() {
+    if (regenField) regenField.style.display = upkeepEnable.checked ? "flex" : "none";
+    upkeepField.style.display = upkeepEnable.checked ? "flex" : "none";
+    tempUpkeepNote.style.display = upkeepEnable.checked ? "block" : "none";
+  }
+  upkeepEnable.addEventListener("change", applyUpkeepEnable);
+  applyUpkeepEnable();
+}
+
+/** Elementos do Dano da Skill. */
+function setupDamageElements(root) {
   wireElementPickerField(root.querySelector(".se-damage-elements"));
+}
 
-  // Sub-Skills: clicar no nome/linha abre a Descrição rica original daquele componente (só leitura).
+/** Sub-Skills: clicar no nome/linha abre a Descrição rica original daquele componente (só leitura). */
+function setupSubSkills(root) {
   root.querySelectorAll(".subskill-mini-row").forEach(row => {
     row.addEventListener("click", () => {
       const desc = row.nextElementSibling;
@@ -846,180 +978,199 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
       row.classList.toggle("open", opening);
     });
   });
+}
 
+/** Efeitos: o botão "+ Efeito", as linhas já salvas e o "Avançado ▸" de cada linha (que depende de "Habilidade Ativa"). */
+function setupEffects(root, data) {
+  const effectList = root.querySelector(".se-effect-list");
   // Cada linha de Efeito registra aqui o seu refreshAdv (o Avançado depende de "Habilidade Ativa").
   const rowRefreshers = [];
   root.querySelector('[name="hasUpkeep"]')?.addEventListener("change", () => rowRefreshers.forEach(fn => fn()));
 
-  function addEffectRow(entry = { target: NIHILITY.EFFECT_TARGETS[0], amount: 1, modifierType: "flat", durationRounds: 1, conditionId: "", periodic: false, tickUnit: "combatRound", damageElements: [] }) {
-    const li = document.createElement("li");
-    li.className = "effect-row";
-    li.innerHTML = buildEffectRowHtml(entry);
-    li.querySelector(".se-effect-delete").addEventListener("click", event => {
-      event.preventDefault();
-      li.remove();
-    });
-
-    // Mostra "Periódico" só pra HP/Energia; some (e desliga) sozinho pra qualquer outro alvo —
-    // "Unidade de Tick" e o Elemento(s) do tick de dano só aparecem quando Periódico está marcado.
-    const targetSelect = li.querySelector(".se-effect-target");
-    const periodicLine = li.querySelector(".se-effect-periodic-line");
-    const periodicCheckbox = li.querySelector(".se-effect-periodic");
-    const tickUnitSelect = li.querySelector(".se-effect-tick-unit");
-    const periodicExtra = li.querySelector(".effect-row-periodic-extra");
-    const modifierTypeSelect = li.querySelector(".se-effect-modifier-type");
-
-    function applyPeriodicVisibility() {
-      const accepts = targetAcceptsPeriodic(targetSelect.value);
-      periodicLine.style.display = accepts ? "inline-flex" : "none";
-      if (!accepts) periodicCheckbox.checked = false;
-      const periodicOn = accepts && periodicCheckbox.checked;
-      tickUnitSelect.style.display = periodicOn ? "inline-block" : "none";
-      li.querySelector(".se-effect-heal-kind").style.display = periodicOn && targetSelect.value === "hp" ? "inline-block" : "none";
-      // A mesma lista de elementos serve de "elemento do escudo" num Efeito de Escudo.
-      const isShield = targetSelect.value === "shield";
-      const isPush = targetSelect.value === "push";
-      periodicExtra.style.display = periodicOn || isShield || isPush ? "flex" : "none";
-      periodicExtra.querySelector(".se-elements-label").textContent = isPush ? "Elemento do empurrão (vazio = só a Defesa Mágica):" : isShield ? "Elemento do escudo (vazio = neutro):" : "Elemento do tick (ignorado se o tick for cura):";
-      li.querySelector(".effect-row-push-traits").style.display = isPush ? "flex" : "none";
-      li.querySelector(".se-effect-push-direction").style.display = isPush ? "inline-block" : "none";
-    }
-    // Fixo/Multiplicador só existe pros alvos "de Nave" (Dano/Penetração de Arma) — some sozinho
-    // (volta pro padrão "flat") pra qualquer outro alvo, mesmo padrão de applyPeriodicVisibility.
-    function applyModifierTypeVisibility() {
-      const isShipTarget = NIHILITY.SHIP_EFFECT_TARGETS.includes(targetSelect.value);
-      modifierTypeSelect.style.display = isShipTarget ? "inline-block" : "none";
-      if (!isShipTarget) modifierTypeSelect.value = "flat";
-    }
-    targetSelect.addEventListener("change", applyPeriodicVisibility);
-    // Antimagia não tem quantidade: a força é o nível da Skill; a duração é a da supressão.
-    targetSelect.addEventListener("change", () => {
-      li.querySelector(".se-effect-amount").style.display = ["antimagic", "emp", "mark", "dispelMagic", "flight", "burrow", "unarmedType", "timeRate"].includes(targetSelect.value) ? "none" : "";
-    });
-    targetSelect.addEventListener("change", () => {
-      const luckBox = li.querySelector(".se-effect-luck");
-      luckBox.style.display = targetSelect.value === "luck" ? "inline-flex" : "none";
-      // Ao escolher Sorte sem escopo marcado, começa valendo em tudo.
-      if (targetSelect.value === "luck" && !luckBox.querySelector(".se-effect-luck-scope:checked")) luckBox.querySelectorAll(".se-effect-luck-scope").forEach(c => (c.checked = true));
-    });
-    targetSelect.addEventListener("change", () => {
-      li.querySelector(".se-effect-dispel-scope").style.display = targetSelect.value === "dispelMagic" ? "inline-block" : "none";
-    });
-    targetSelect.addEventListener("change", () => {
-      li.querySelector(".se-effect-time-factor").style.display = targetSelect.value === "timeRate" ? "inline-block" : "none";
-      li.querySelector(".se-effect-time-stop-label").style.display = targetSelect.value === "timeRate" ? "inline-flex" : "none";
-      li.querySelector(".se-effect-time-rewind-label").style.display = targetSelect.value === "timeRate" ? "inline-flex" : "none";
-    });
-    targetSelect.addEventListener("change", () => {
-      li.querySelector(".se-effect-chance").style.display = targetSelect.value === "magicDampen" ? "inline-block" : "none";
-    });
-    targetSelect.addEventListener("change", applyModifierTypeVisibility);
-    // "% do máximo / do total": só nos alvos que aceitam; fora deles volta para pontos.
-    targetSelect.addEventListener("change", () => {
-      const modeSelect = li.querySelector(".se-effect-amount-mode");
-      const accepts = PERCENT_AMOUNT_TARGETS.includes(targetSelect.value);
-      modeSelect.style.display = accepts ? "inline-block" : "none";
-      if (!accepts) modeSelect.value = "flat";
-      modeSelect.options[1].textContent = ATTRIBUTE_PERCENT_TARGETS.includes(targetSelect.value) ? "% total" : "% máx.";
-    });
-    // Luz do Escudo pessoal: só pro alvo Escudo; a luz fica em `data-light` (JSON) até salvar.
-    const lightRow = li.querySelector(".effect-row-light");
-    const shieldRow = li.querySelector(".effect-row-shield");
-    targetSelect.addEventListener("change", () => {
-      lightRow.style.display = targetSelect.value === "shield" ? "flex" : "none";
-      shieldRow.style.display = targetSelect.value === "shield" ? "flex" : "none";
-    });
-    li.querySelector(".se-light-edit").addEventListener("click", async event => {
-      event.preventDefault();
-      let current = null;
-      try {
-        current = JSON.parse(lightRow.dataset.light || "null");
-      } catch (err) {
-        current = null;
-      }
-      const light = await openLightConfigDialog(current, { title: "Luz do Escudo", autoHint: "Raio 0 = automático (2 m em volta do Token)" });
-      if (!light) return;
-      const stored = light.enabled ? light : null;
-      lightRow.dataset.light = JSON.stringify(stored);
-      lightRow.querySelector(".se-light-text").textContent = describeLight(stored);
-    });
-    targetSelect.addEventListener("change", () => {
-      li.querySelector(".se-effect-element-id").style.display = ["weaponElement", "bodyElement", "createSurface"].includes(targetSelect.value) ? "inline-block" : "none";
-      li.querySelector(".se-effect-weapon-type").style.display = targetSelect.value === "unarmedType" ? "inline-block" : "none";
-    });
-    periodicCheckbox.addEventListener("change", applyPeriodicVisibility);
-    // Maldição: o "sem Mana" aparece só quando a Condição escolhida é uma Maldição.
-    li.querySelector(".se-effect-condition")?.addEventListener("change", event => {
-      const isCurse = Boolean(getActiveStatusConditions().find(c => c.id === event.target.value)?.curse?.enabled);
-      li.querySelector(".se-effect-curse-unpaid").style.display = isCurse ? "inline-block" : "none";
-    });
-
-    // "Avançado ▸" da linha (K1): lista o que esta linha tem de raro e diz o que está em uso.
-    // Abre sozinho só na criação (quando já há valor); depois, quem manda é quem clica.
-    const advDetails = li.querySelector(".se-effect-adv");
-    let advInitialized = false;
-    function refreshAdv() {
-      const target = targetSelect.value;
-      const periodicOn = targetAcceptsPeriodic(target) && periodicCheckbox.checked;
-      const isShield = target === "shield";
-      const elements = readPickerField(li.querySelector(".se-effect-elements")).length > 0;
-      const curseSelect = li.querySelector(".se-effect-curse-unpaid");
-      const healSelect = li.querySelector(".se-effect-heal-kind");
-      let light = null;
-      try {
-        light = JSON.parse(lightRow.dataset.light || "null");
-      } catch (err) {
-        light = null;
-      }
-      const shieldRegen = Number(li.querySelector(".se-effect-shield-regen")?.value) || 0;
-      const shieldCap = Number(li.querySelector(".se-effect-shield-cap")?.value) || 0;
-      // Como na ficha: Tipo de cura só numa cura (valor positivo), Escudo mantido só em Skill Ativa.
-      const isHeal = periodicOn && target === "hp" && Number(li.querySelector(".se-effect-amount")?.value) > 0;
-      const active = Boolean(root.querySelector('[name="hasUpkeep"]')?.checked);
-      healSelect.style.display = isHeal ? "inline-block" : "none";
-      // "Só se…" (8.1a): mostra só o campo que o tipo escolhido pede; não vale para Empurrar.
-      const onlyIfKind = li.querySelector(".se-effect-onlyif-kind").value;
-      const needs = onlyIfNeeds(onlyIfKind);
-      li.querySelector(".effect-row-only-if").style.display = target === "push" ? "none" : "flex";
-      li.querySelector(".se-effect-onlyif-condition").style.display = needs === "condition" ? "inline-block" : "none";
-      li.querySelector(".se-effect-onlyif-trait").style.display = needs === "trait" ? "inline-block" : "none";
-      li.querySelector(".se-effect-onlyif-threshold").style.display = needs === "threshold" ? "inline-block" : "none";
-      li.querySelector(".effect-row-shield").style.display = isShield && active ? "flex" : "none";
-      const fold = advancedFold([
-        target !== "push" ? { label: "Só se…", used: Boolean(onlyIfKind) } : null,
-        periodicOn ? { label: "Elemento do tick", used: elements } : null,
-        isHeal ? { label: "Tipo de cura", used: healSelect.value !== "cura" } : null,
-        isShield ? { label: "Elemento do escudo", used: elements } : null,
-        target === "push" ? { label: "Elemento do empurrão", used: elements } : null,
-        target === "push" ? { label: "Traços que não saem do lugar", used: readPickerField(li.querySelector(".se-effect-immune-traits")).length > 0 } : null,
-        isShield && active ? { label: "Escudo mantido", used: Boolean(shieldRegen || shieldCap) } : null,
-        isShield ? { label: "Luz", used: Boolean(light?.enabled) } : null,
-        curseSelect.style.display !== "none" ? { label: "Sem Mana para pagar", used: Boolean(curseSelect.value) } : null
-      ]);
-      advDetails.style.display = fold.show ? "" : "none";
-      advDetails.querySelector("summary").outerHTML = advSummaryHtml(fold);
-      if (!advInitialized) {
-        advDetails.open = fold.open;
-        advInitialized = true;
-      }
-    }
-    li.addEventListener("change", () => refreshAdv());
-    rowRefreshers.push(refreshAdv);
-    li.querySelector(".se-light-edit").addEventListener("click", () => setTimeout(refreshAdv, 0));
-
-    wireElementPickerField(li.querySelector(".se-effect-elements"), { onChange: () => refreshAdv() });
-    wireTraitPickerField(li.querySelector(".se-effect-immune-traits"), { onChange: () => refreshAdv() });
-    refreshAdv();
-
-    effectList.appendChild(li);
-  }
+  const addEffectRow = entry => effectList.appendChild(createEffectRow(root, rowRefreshers, entry));
   root.querySelector(".se-add-effect").addEventListener("click", event => {
     event.preventDefault();
     addEffectRow();
   });
-  data.effects.forEach(addEffectRow);
+  data.effects.forEach(entry => addEffectRow(entry));
+}
 
-  // Modelo (L7): escolher fecha e reabre já preenchido, pelo botão escondido "template".
+/** Monta uma linha de Efeito (o `<li>`), ligada, sem pôr na lista — quem chama faz o `appendChild`. */
+function createEffectRow(root, rowRefreshers, entry = { target: NIHILITY.EFFECT_TARGETS[0], amount: 1, modifierType: "flat", durationRounds: 1, conditionId: "", periodic: false, tickUnit: "combatRound", damageElements: [] }) {
+  const li = document.createElement("li");
+  li.className = "effect-row";
+  li.innerHTML = buildEffectRowHtml(entry);
+  li.querySelector(".se-effect-delete").addEventListener("click", event => {
+    event.preventDefault();
+    li.remove();
+  });
+  wireEffectRowTarget(li);
+  wireEffectRowAdvanced(root, li, rowRefreshers);
+  return li;
+}
+
+/** Visibilidade dos campos de uma linha de Efeito conforme o Alvo escolhido (e Periódico). */
+function wireEffectRowTarget(li) {
+  // Mostra "Periódico" só pra HP/Energia; some (e desliga) sozinho pra qualquer outro alvo —
+  // "Unidade de Tick" e o Elemento(s) do tick de dano só aparecem quando Periódico está marcado.
+  const targetSelect = li.querySelector(".se-effect-target");
+  const periodicLine = li.querySelector(".se-effect-periodic-line");
+  const periodicCheckbox = li.querySelector(".se-effect-periodic");
+  const tickUnitSelect = li.querySelector(".se-effect-tick-unit");
+  const periodicExtra = li.querySelector(".effect-row-periodic-extra");
+  const modifierTypeSelect = li.querySelector(".se-effect-modifier-type");
+
+  function applyPeriodicVisibility() {
+    const accepts = targetAcceptsPeriodic(targetSelect.value);
+    periodicLine.style.display = accepts ? "inline-flex" : "none";
+    if (!accepts) periodicCheckbox.checked = false;
+    const periodicOn = accepts && periodicCheckbox.checked;
+    tickUnitSelect.style.display = periodicOn ? "inline-block" : "none";
+    li.querySelector(".se-effect-heal-kind").style.display = periodicOn && targetSelect.value === "hp" ? "inline-block" : "none";
+    // A mesma lista de elementos serve de "elemento do escudo" num Efeito de Escudo.
+    const isShield = targetSelect.value === "shield";
+    const isPush = targetSelect.value === "push";
+    periodicExtra.style.display = periodicOn || isShield || isPush ? "flex" : "none";
+    periodicExtra.querySelector(".se-elements-label").textContent = isPush ? "Elemento do empurrão (vazio = só a Defesa Mágica):" : isShield ? "Elemento do escudo (vazio = neutro):" : "Elemento do tick (ignorado se o tick for cura):";
+    li.querySelector(".effect-row-push-traits").style.display = isPush ? "flex" : "none";
+    li.querySelector(".se-effect-push-direction").style.display = isPush ? "inline-block" : "none";
+  }
+  // Fixo/Multiplicador só existe pros alvos "de Nave" (Dano/Penetração de Arma) — some sozinho
+  // (volta pro padrão "flat") pra qualquer outro alvo, mesmo padrão de applyPeriodicVisibility.
+  function applyModifierTypeVisibility() {
+    const isShipTarget = NIHILITY.SHIP_EFFECT_TARGETS.includes(targetSelect.value);
+    modifierTypeSelect.style.display = isShipTarget ? "inline-block" : "none";
+    if (!isShipTarget) modifierTypeSelect.value = "flat";
+  }
+  targetSelect.addEventListener("change", applyPeriodicVisibility);
+  // Antimagia não tem quantidade: a força é o nível da Skill; a duração é a da supressão.
+  targetSelect.addEventListener("change", () => {
+    li.querySelector(".se-effect-amount").style.display = ["antimagic", "emp", "mark", "dispelMagic", "flight", "burrow", "unarmedType", "timeRate"].includes(targetSelect.value) ? "none" : "";
+  });
+  targetSelect.addEventListener("change", () => {
+    const luckBox = li.querySelector(".se-effect-luck");
+    luckBox.style.display = targetSelect.value === "luck" ? "inline-flex" : "none";
+    // Ao escolher Sorte sem escopo marcado, começa valendo em tudo.
+    if (targetSelect.value === "luck" && !luckBox.querySelector(".se-effect-luck-scope:checked")) luckBox.querySelectorAll(".se-effect-luck-scope").forEach(c => (c.checked = true));
+  });
+  targetSelect.addEventListener("change", () => {
+    li.querySelector(".se-effect-dispel-scope").style.display = targetSelect.value === "dispelMagic" ? "inline-block" : "none";
+  });
+  targetSelect.addEventListener("change", () => {
+    li.querySelector(".se-effect-time-factor").style.display = targetSelect.value === "timeRate" ? "inline-block" : "none";
+    li.querySelector(".se-effect-time-stop-label").style.display = targetSelect.value === "timeRate" ? "inline-flex" : "none";
+    li.querySelector(".se-effect-time-rewind-label").style.display = targetSelect.value === "timeRate" ? "inline-flex" : "none";
+  });
+  targetSelect.addEventListener("change", () => {
+    li.querySelector(".se-effect-chance").style.display = targetSelect.value === "magicDampen" ? "inline-block" : "none";
+  });
+  targetSelect.addEventListener("change", applyModifierTypeVisibility);
+  // "% do máximo / do total": só nos alvos que aceitam; fora deles volta para pontos.
+  targetSelect.addEventListener("change", () => {
+    const modeSelect = li.querySelector(".se-effect-amount-mode");
+    const accepts = PERCENT_AMOUNT_TARGETS.includes(targetSelect.value);
+    modeSelect.style.display = accepts ? "inline-block" : "none";
+    if (!accepts) modeSelect.value = "flat";
+    modeSelect.options[1].textContent = ATTRIBUTE_PERCENT_TARGETS.includes(targetSelect.value) ? "% total" : "% máx.";
+  });
+  // Luz do Escudo pessoal: só pro alvo Escudo; a luz fica em `data-light` (JSON) até salvar.
+  const lightRow = li.querySelector(".effect-row-light");
+  const shieldRow = li.querySelector(".effect-row-shield");
+  targetSelect.addEventListener("change", () => {
+    lightRow.style.display = targetSelect.value === "shield" ? "flex" : "none";
+    shieldRow.style.display = targetSelect.value === "shield" ? "flex" : "none";
+  });
+  li.querySelector(".se-light-edit").addEventListener("click", async event => {
+    event.preventDefault();
+    let current = null;
+    try {
+      current = JSON.parse(lightRow.dataset.light || "null");
+    } catch (err) {
+      current = null;
+    }
+    const light = await openLightConfigDialog(current, { title: "Luz do Escudo", autoHint: "Raio 0 = automático (2 m em volta do Token)" });
+    if (!light) return;
+    const stored = light.enabled ? light : null;
+    lightRow.dataset.light = JSON.stringify(stored);
+    lightRow.querySelector(".se-light-text").textContent = describeLight(stored);
+  });
+  targetSelect.addEventListener("change", () => {
+    li.querySelector(".se-effect-element-id").style.display = ["weaponElement", "bodyElement", "createSurface"].includes(targetSelect.value) ? "inline-block" : "none";
+    li.querySelector(".se-effect-weapon-type").style.display = targetSelect.value === "unarmedType" ? "inline-block" : "none";
+  });
+  periodicCheckbox.addEventListener("change", applyPeriodicVisibility);
+  // Maldição: o "sem Mana" aparece só quando a Condição escolhida é uma Maldição.
+  li.querySelector(".se-effect-condition")?.addEventListener("change", event => {
+    const isCurse = Boolean(getActiveStatusConditions().find(c => c.id === event.target.value)?.curse?.enabled);
+    li.querySelector(".se-effect-curse-unpaid").style.display = isCurse ? "inline-block" : "none";
+  });
+}
+
+/** "Avançado ▸" da linha de Efeito (K1) e o "Só se…" dela. */
+function wireEffectRowAdvanced(root, li, rowRefreshers) {
+  const targetSelect = li.querySelector(".se-effect-target");
+  const periodicCheckbox = li.querySelector(".se-effect-periodic");
+  const lightRow = li.querySelector(".effect-row-light");
+  // "Avançado ▸" da linha (K1): lista o que esta linha tem de raro e diz o que está em uso.
+  // Abre sozinho só na criação (quando já há valor); depois, quem manda é quem clica.
+  const advDetails = li.querySelector(".se-effect-adv");
+  let advInitialized = false;
+  function refreshAdv() {
+    const target = targetSelect.value;
+    const periodicOn = targetAcceptsPeriodic(target) && periodicCheckbox.checked;
+    const isShield = target === "shield";
+    const elements = readPickerField(li.querySelector(".se-effect-elements")).length > 0;
+    const curseSelect = li.querySelector(".se-effect-curse-unpaid");
+    const healSelect = li.querySelector(".se-effect-heal-kind");
+    let light = null;
+    try {
+      light = JSON.parse(lightRow.dataset.light || "null");
+    } catch (err) {
+      light = null;
+    }
+    const shieldRegen = Number(li.querySelector(".se-effect-shield-regen")?.value) || 0;
+    const shieldCap = Number(li.querySelector(".se-effect-shield-cap")?.value) || 0;
+    // Como na ficha: Tipo de cura só numa cura (valor positivo), Escudo mantido só em Skill Ativa.
+    const isHeal = periodicOn && target === "hp" && Number(li.querySelector(".se-effect-amount")?.value) > 0;
+    const active = Boolean(root.querySelector('[name="hasUpkeep"]')?.checked);
+    healSelect.style.display = isHeal ? "inline-block" : "none";
+    // "Só se…" (8.1a): mostra só o campo que o tipo escolhido pede; não vale para Empurrar.
+    const onlyIfKind = li.querySelector(".se-effect-onlyif-kind").value;
+    const needs = onlyIfNeeds(onlyIfKind);
+    li.querySelector(".effect-row-only-if").style.display = target === "push" ? "none" : "flex";
+    li.querySelector(".se-effect-onlyif-condition").style.display = needs === "condition" ? "inline-block" : "none";
+    li.querySelector(".se-effect-onlyif-trait").style.display = needs === "trait" ? "inline-block" : "none";
+    li.querySelector(".se-effect-onlyif-threshold").style.display = needs === "threshold" ? "inline-block" : "none";
+    li.querySelector(".effect-row-shield").style.display = isShield && active ? "flex" : "none";
+    const fold = advancedFold([
+      target !== "push" ? { label: "Só se…", used: Boolean(onlyIfKind) } : null,
+      periodicOn ? { label: "Elemento do tick", used: elements } : null,
+      isHeal ? { label: "Tipo de cura", used: healSelect.value !== "cura" } : null,
+      isShield ? { label: "Elemento do escudo", used: elements } : null,
+      target === "push" ? { label: "Elemento do empurrão", used: elements } : null,
+      target === "push" ? { label: "Traços que não saem do lugar", used: readPickerField(li.querySelector(".se-effect-immune-traits")).length > 0 } : null,
+      isShield && active ? { label: "Escudo mantido", used: Boolean(shieldRegen || shieldCap) } : null,
+      isShield ? { label: "Luz", used: Boolean(light?.enabled) } : null,
+      curseSelect.style.display !== "none" ? { label: "Sem Mana para pagar", used: Boolean(curseSelect.value) } : null
+    ]);
+    advDetails.style.display = fold.show ? "" : "none";
+    advDetails.querySelector("summary").outerHTML = advSummaryHtml(fold);
+    if (!advInitialized) {
+      advDetails.open = fold.open;
+      advInitialized = true;
+    }
+  }
+  li.addEventListener("change", () => refreshAdv());
+  rowRefreshers.push(refreshAdv);
+  li.querySelector(".se-light-edit").addEventListener("click", () => setTimeout(refreshAdv, 0));
+
+  wireElementPickerField(li.querySelector(".se-effect-elements"), { onChange: () => refreshAdv() });
+  wireTraitPickerField(li.querySelector(".se-effect-immune-traits"), { onChange: () => refreshAdv() });
+  refreshAdv();
+}
+
+/** Modelo (L7): escolher fecha e reabre já preenchido, pelo botão escondido "template". */
+function setupTemplatePicker(root) {
   root.querySelector('[name="templatePick"]')?.addEventListener("change", () => {
     root.querySelector('button[data-action="template"]')?.click();
   });
@@ -1031,8 +1182,10 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
       root.querySelector('button[data-action="template"]')?.click();
     });
   });
+}
 
-  // "Só se…" da Skill: mostra só o campo que o tipo pede.
+/** "Só se…" da Skill: mostra só o campo que o tipo pede. */
+function setupSkillOnlyIf(root) {
   const syncSkillOnlyIf = () => {
     const needs = onlyIfNeeds(root.querySelector('[name="skillOnlyIfKind"]')?.value ?? "");
     const show = (name, on) => {
@@ -1044,8 +1197,10 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
     show("skillOnlyIfThreshold", needs === "threshold");
   };
   root.querySelector('[name="skillOnlyIfKind"]')?.addEventListener("change", syncSkillOnlyIf);
+}
 
-  // Avisos (L8) e custo sugerido (L9), recalculados a cada mudança. Nunca bloqueiam o Salvar.
+/** Avisos (L8) e custo sugerido (L9), recalculados a cada mudança. Nunca bloqueiam o Salvar. */
+function setupAssist(root, { lockTier, actor }) {
   const assistBox = root.querySelector(".se-assist");
   let timer = null;
   const refreshAssist = () => {
@@ -1082,6 +1237,7 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
   });
   refreshAssist();
 }
+
 
 /**
  * Lê o estado atual do formulário — só devolve os campos do modo de Mecânica/Resistência que

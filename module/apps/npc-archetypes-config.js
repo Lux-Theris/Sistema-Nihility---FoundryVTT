@@ -12,6 +12,7 @@ import { openSkillEditorDialog, mechanicSummaryFor } from "./skill-editor-dialog
 import { wirePickerField, pickFromChecklist } from "./checklist-picker.js";
 import { normalizeArchetype, archetypeStatus, missingDefaultArchetypes, archetypeSlug, WEIGHT_FACTORS } from "../npc/npc-generator-rules.js";
 import { getDragEventData, pickImageFile } from "../helpers/foundry-compat.js";
+import { escapeHtml } from "../helpers/html.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -249,7 +250,7 @@ export class NpcArchetypesConfigApp extends HandlebarsApplicationMixin(Applicati
     if (!entry) return;
     const ok = await foundry.applications.api.DialogV2.confirm({
       window: { title: "Remover arquétipo" },
-      content: `<p>Remover <b>${foundry.utils.escapeHTML(entry.label)}</b>? As fichas já geradas não mudam.</p><p>Só vale depois de Salvar.</p>`
+      content: `<p>Remover <b>${escapeHtml(entry.label)}</b>? As fichas já geradas não mudam.</p><p>Só vale depois de Salvar.</p>`
     });
     if (!ok) return;
     this.catalog = this.catalog.filter(a => a.id !== entry.id);

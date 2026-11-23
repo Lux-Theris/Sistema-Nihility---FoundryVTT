@@ -18,6 +18,7 @@ import { SYSTEM_ID } from "../core/config.js";
 import { compendiumCollectionClass, deleteKeyUpdate } from "../helpers/foundry-compat.js";
 import { reportError } from "../helpers/report.js";
 import { MAX_SNAPSHOTS, snapshotsToPrune, snapshotsForActor, embeddedPlan, actorRestoreUpdate, itemRestoreData, snapshotLabel, snapshotSummary } from "./actor-snapshot-rules.js";
+import { escapeHtml } from "../helpers/html.js";
 
 const PACK_KEY = `${SYSTEM_ID}-restore-points`;
 const INDEX_FIELD = `flags.${SYSTEM_ID}.restorePoint`;
@@ -134,7 +135,7 @@ export async function restoreSnapshot(actor, id) {
   }
 
   await ChatMessage.create({
-    content: `<p><i class="fa-solid fa-clock-rotate-left"></i> <strong>${foundry.utils.escapeHTML(actor.name)}</strong> foi restaurada para "${foundry.utils.escapeHTML(meta.reason)}" (${foundry.utils.escapeHTML(snapshotLabel(meta))}). Cards de uso ou de dano anteriores a este ponto não servem mais para Desfazer.</p>`,
+    content: `<p><i class="fa-solid fa-clock-rotate-left"></i> <strong>${escapeHtml(actor.name)}</strong> foi restaurada para "${escapeHtml(meta.reason)}" (${escapeHtml(snapshotLabel(meta))}). Cards de uso ou de dano anteriores a este ponto não servem mais para Desfazer.</p>`,
     whisper: game.users.filter(u => u.isGM).map(u => u.id)
   });
   return true;
@@ -219,7 +220,7 @@ export class RestorePointsApp extends HandlebarsApplicationMixin(ApplicationV2) 
     if (!point) return;
     const ok = await foundry.applications.api.DialogV2.confirm({
       window: { title: "Restaurar a ficha" },
-      content: `<p>Devolver <strong>${foundry.utils.escapeHTML(this.actor.name)}</strong> ao ponto <strong>${foundry.utils.escapeHTML(snapshotLabel(point))}</strong>? Itens, efeitos, Skills, XP, pontos e flags voltam ao que eram; o que foi criado depois some. O estado de agora é guardado antes ("Antes de restaurar"), então dá para voltar. A posição do Token não muda.</p>`
+      content: `<p>Devolver <strong>${escapeHtml(this.actor.name)}</strong> ao ponto <strong>${escapeHtml(snapshotLabel(point))}</strong>? Itens, efeitos, Skills, XP, pontos e flags voltam ao que eram; o que foi criado depois some. O estado de agora é guardado antes ("Antes de restaurar"), então dá para voltar. A posição do Token não muda.</p>`
     });
     if (!ok) return;
     if (await restoreSnapshot(this.actor, id)) ui.notifications.info(`${this.actor.name} restaurada.`);

@@ -86,6 +86,7 @@ import { clampTimeFactor, describeTimeFactor } from "../combat/time-rate-rules.j
 import { isSenseTarget, SENSE_LABELS, describeSenseRange, senseRangeValue } from "../combat/senses-rules.js";
 import { isWeaponMasteryEnabled, masteryConfig, masterySentenceFor, weaponTypeChoices, weaponTypeDisplay } from "../combat/weapon-mastery.js";
 import { masteryLevelUpBlock } from "../combat/weapon-mastery-rules.js";
+import { escapeHtml } from "../helpers/html.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -360,6 +361,24 @@ function grantedSkillSummary(grantsSkill, path) {
   };
 }
 
+/**
+ * Unidade da Duração no card de Efeito: curta, porque cabe numa coluna estreita ao lado da lixeira;
+ * o que o 0 quer dizer em cada alvo vai no `title` (o texto longo passava por cima da lixeira).
+ */
+function effectDurationUnit(entry, { hasUpkeep, periodic }) {
+  const t = entry.target;
+  if (t === "push") return { durationUnit: "", durationHint: "" };
+  if (t === "createSurface") return { durationUnit: "rod.", durationHint: "Rodadas da superfície (0 = a duração do elemento)" };
+  if (t === "timeRate" && entry.timeRewind) return { durationUnit: "voltam", durationHint: "Rodadas que voltam" };
+  if (["flight", "burrow", "timeRate"].includes(t) || isSenseTarget(t)) {
+    return hasUpkeep ? { durationUnit: "ativa", durationHint: "Dura enquanto a Habilidade Ativa estiver ligada" } : { durationUnit: "rod.", durationHint: "Rodadas (0 = até ser desfeito)" };
+  }
+  if (t === "mark") return { durationUnit: "rod.", durationHint: "Rodadas da Marca (0 = até ser desfeita)" };
+  if (["antimagic", "emp"].includes(t)) return { durationUnit: "rod.", durationHint: "Rodadas de supressão (0 = até tirar)" };
+  if (hasUpkeep) return { durationUnit: "ativa", durationHint: "Dura enquanto a Habilidade Ativa estiver ligada" };
+  return periodic ? { durationUnit: "ticks", durationHint: "Quantos ticks o Periódico dá" } : { durationUnit: "rod.", durationHint: "Rodadas" };
+}
+
 export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   static DEFAULT_OPTIONS = {
     classes: [SYSTEM_ID, "sheet", "item"],
@@ -489,7 +508,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.system = sys;
     // Quem não é dono vê a descrição como HTML pronto ({{{ }}}): passa pela limpeza do Foundry, que
     // tira script e atributos de evento (onerror…) — a descrição pode ter vindo de outro jogador.
-    context.descriptionHTML = foundry.utils.cleanHTML?.(String(sys.description ?? "")) ?? foundry.utils.escapeHTML(String(sys.description ?? ""));
+    context.descriptionHTML = foundry.utils.cleanHTML?.(String(sys.description ?? "")) ?? escapeHtml(String(sys.description ?? ""));
     context.config = NIHILITY;
     context.itemType = item.type;
     context.inventoryEnabled = isInventoryEnabled();
@@ -845,7 +864,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         index,
         amount,
         durationRounds: entry.durationRounds,
-        durationUnit: entry.target === "push" ? "" : entry.target === "createSurface" ? "rod. (0 = a do elemento)" : entry.target === "timeRate" && entry.timeRewind ? "rodadas que voltam" : ["flight", "burrow", "timeRate"].includes(entry.target) ? (sys.hasUpkeep ? "ativa" : "rod. (0 = até desfeito)") : isSenseTarget(entry.target) ? (sys.hasUpkeep ? "ativa" : "rod. (0 = até desfeito)") : entry.target === "mark" ? "rod. (0 = até desfeita)" : ["antimagic", "emp"].includes(entry.target) ? "rod. de supressão (0 = até tirar)" : sys.hasUpkeep ? "ativa" : periodic ? "ticks" : "rod.",
+        ...effectDurationUnit(entry, { hasUpkeep: sys.hasUpkeep, periodic }),
         isAntimagic: ["antimagic", "emp"].includes(entry.target),
         isMark: entry.target === "mark",
         isDispel: entry.target === "dispelMagic",

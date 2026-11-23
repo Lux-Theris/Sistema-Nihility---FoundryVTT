@@ -57,6 +57,10 @@ test("Active Effect: formato V13 e V14, e leitura dos dois", async () => {
   assert.deepEqual(readEffectChanges(v14), [{ key: "system.attributes.combat.strength.buffDelta", mode: 2, value: "3" }, { key: "x", mode: 5, value: "fire" }]);
   assert.deepEqual(readEffectChanges(buildEffectChanges(changes, 13)), readEffectChanges(v14));
   assert.deepEqual(readEffectChanges({ system: { changes: [{ key: "k", type: "multiply", value: "1.2" }] } }), [{ key: "k", mode: 1, value: "1.2" }]);
+  // Documento V14 com lista vazia não cai no `changes` antigo (getter depreciado no core); dado solto antigo, sim.
+  const v14Empty = { documentName: "ActiveEffect", system: { changes: [] }, get changes() { throw new Error("getter depreciado lido"); } };
+  assert.deepEqual(readEffectChanges(v14Empty), []);
+  assert.deepEqual(readEffectChanges({ system: { changes: [] }, changes: [{ key: "k", mode: 2, value: "1" }] }), [{ key: "k", mode: 2, value: "1" }]);
 });
 
 test("Âncoras de Skill Ativa: A e B seguram o mesmo efeito, desligar A não derruba B", () => {

@@ -21,6 +21,7 @@ import { tokenDocCenter } from "../combat/area-geometry.js";
 import { sceneEnvironment, areaBehaviors } from "./environment.js";
 import { personalRate, actorTokenDoc } from "../core/world-time.js";
 import { normalizeRadiationSource, totalExposure, radiationStep, radiationDamage, simulateRadiation } from "./radiation-rules.js";
+import { escapeHtml } from "../helpers/html.js";
 
 const FLAG_SOURCE = "radiationSource";
 const STATUS = "irradiated";
@@ -163,12 +164,11 @@ export async function passRadiationTime(scene, rounds) {
     const dealt = await applyRadiationDamage(actor, damage);
     rows.push({ name: token.name || actor.name, before, after: level, exposure, damage: dealt });
   }
-  const esc = foundry.utils.escapeHTML;
   const body = rows.length
-    ? `<ul>${rows.map(r => `<li><strong>${esc(r.name)}</strong>: irradiação ${r.before} → ${r.after} (lugar ${r.exposure}) · −${r.damage} Vida</li>`).join("")}</ul>`
+    ? `<ul>${rows.map(r => `<li><strong>${escapeHtml(r.name)}</strong>: irradiação ${r.before} → ${r.after} (lugar ${r.exposure}) · −${r.damage} Vida</li>`).join("")}</ul>`
     : "<p>Ninguém nesta cena está exposto nem irradiado.</p>";
   await ChatMessage.create({
-    content: `<div class="nihility-radiation-card"><p><i class="fas fa-radiation"></i> <strong>Passaram ${n} rodada(s)</strong> em ${esc(scene.name)}.</p>${body}</div>`,
+    content: `<div class="nihility-radiation-card"><p><i class="fas fa-radiation"></i> <strong>Passaram ${n} rodada(s)</strong> em ${escapeHtml(scene.name)}.</p>${body}</div>`,
     whisper: game.users.filter(u => u.isGM).map(u => u.id)
   });
   return rows;
@@ -198,9 +198,8 @@ export async function passRadiationTimeFor(actors, rounds) {
     rows.push({ name: token?.name || actor.name, before, after: level, exposure, damage: dealt });
   }
   if (!rows.length) return rows;
-  const esc = foundry.utils.escapeHTML;
   await ChatMessage.create({
-    content: `<div class="nihility-radiation-card"><p><i class="fas fa-radiation"></i> <strong>Passaram ${n} rodada(s)</strong> só para quem estava marcado no Relógio.</p><ul>${rows.map(r => `<li><strong>${esc(r.name)}</strong>: irradiação ${r.before} → ${r.after} (lugar ${r.exposure}) · −${r.damage} Vida</li>`).join("")}</ul></div>`,
+    content: `<div class="nihility-radiation-card"><p><i class="fas fa-radiation"></i> <strong>Passaram ${n} rodada(s)</strong> só para quem estava marcado no Relógio.</p><ul>${rows.map(r => `<li><strong>${escapeHtml(r.name)}</strong>: irradiação ${r.before} → ${r.after} (lugar ${r.exposure}) · −${r.damage} Vida</li>`).join("")}</ul></div>`,
     whisper: game.users.filter(u => u.isGM).map(u => u.id)
   });
   return rows;

@@ -228,6 +228,13 @@ function registerSystemSettingsInner() {
     onChange: () => applyRoundSeconds()
   });
 
+  // Reverter o tempo (8e.7/8e.8): quantas rodadas de fotos o sistema guarda e o teto do que uma Habilidade reverte.
+  game.settings.register(SYSTEM_ID, S.timeRewindRounds, {
+    name: "Reverter o tempo — teto de rodadas",
+    hint: "Quantas rodadas uma Habilidade de Reverter pode voltar (de 1 a 100; padrão 10). Em combate o sistema guarda uma foto de cada personagem por turno, só em memória no navegador do Mestre, até esse número de rodadas; recarregar a página do Mestre apaga o histórico. Fora de combate o teto vale para o tempo que volta (1 rodada = os segundos por rodada do relógio, ou 6).",
+    scope: "world", config: true, type: Number, default: 10
+  });
+
   game.settings.register(SYSTEM_ID, S.antimagicReach, {
     name: "Antimagia — alcance (× o nível)",
     hint: "A Skill de Antimagia corta efeitos mágicos, desliga Habilidades Ativas e suprime (passivos, itens mágicos, Skills usadas no alvo) até o nível dela vezes isto. Padrão 1,5 (nível 10 alcança até 15); 2 = o dobro.",

@@ -28,6 +28,7 @@ import { hasOnlyIf, onlyIfOutcome } from "./only-if-rules.js";
 import { buildModifierContext } from "../combat/conditional-context.js";
 import { describeLuck, luckFromScopes } from "../combat/luck-rules.js";
 import { stopRoundsFor, STOP_FLAG } from "../combat/time-stop-rules.js";
+import { applyTimeRewindEntry } from "../combat/time-rewind.js";
 import { clampTimeFactor, isTimeFactorActive, timeStrength, weakenTimeFactor, timeStateLabel, allowedTicks, simulateTicks } from "../combat/time-rate-rules.js";
 
 /** Nome curto dos efeitos de movimento (J4), para o Active Effect e o resumo. */
@@ -579,6 +580,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
 async function applyTimeRateEntry(entry, { mech, label, originSkill, origin, targetActor, subSkillIndex, sourceLevel, sourceMagic, sourceTech, appliedBy, xp }) {
   if (!isTimeManipulationEnabled()) return "Ritmo do tempo: o bloco Manipulação do tempo está desligado";
   if (isShipLike(targetActor) || targetActor.type !== "character") return `Ritmo do tempo: não se aplica a ${targetActor.name}`;
+  if (entry.timeRewind) return applyTimeRewindEntry(entry, { mech, label, originSkill, targetActor, sourceLevel, xp });
   if (entry.timeStop) return applyTimeStopEntry(entry, { mech, label, originSkill, origin, targetActor, subSkillIndex, sourceLevel, sourceMagic, sourceTech, appliedBy, xp });
   let base = clampTimeFactor(entry.timeFactor);
   if (!isTimeFactorActive(base)) return "Ritmo do tempo: fator 1 não muda nada";

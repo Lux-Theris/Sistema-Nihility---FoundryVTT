@@ -676,6 +676,16 @@ export function getAntimagicConfig() {
   return { base: Math.max(0, read("antimagicBase", 10)), growth: Math.max(1, read("antimagicGrowth", 2)) };
 }
 
+/** Teto de rodadas do Reverter o tempo (Regras da Mesa; 1 a 100, padrão 10). */
+export function getTimeRewindRounds() {
+  try {
+    const value = Math.floor(Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.timeRewindRounds)));
+    return Number.isFinite(value) && value >= 1 ? Math.min(100, value) : 10;
+  } catch (err) {
+    return 10;
+  }
+}
+
 /** Alcance da Antimagia (prancha 8): nível × isto = até onde ela corta, desliga e suprime. Padrão 1,5. */
 export function getAntimagicReach() {
   try {

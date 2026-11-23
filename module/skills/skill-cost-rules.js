@@ -161,10 +161,17 @@ export function suggestSkillCost(mech, ctx = {}) {
         p = w.senseFlat + rounds * 0.25;
         text = `${name} por ${active ? "rodada ativa" : `${rounds} rodada(s)`}`;
       } else if (target === "timeRate") {
-        const factor = e?.timeStop ? 1000 : clampTimeFactor(e?.timeFactor);
+        const factor = e?.timeStop ? 1000 : e?.timeRewind ? 100 : clampTimeFactor(e?.timeFactor);
         const rounds = active ? w.activeTicks : Math.max(1, Math.min(w.maxRounds, Number(e?.durationRounds) || w.foreverRounds));
-        p = w.timeFlat * (1 + Math.abs(Math.log2(factor))) + rounds * 0.5;
+        if (e?.timeRewind) {
+          // Reverter age uma vez: pesa pelas rodadas que voltam (o teto das Regras desta mesa), não por rodada ativa.
+          const back = Math.max(1, Math.min(w.maxRounds, Number(e?.durationRounds) || 1));
+          p = w.timeFlat * (1 + Math.abs(Math.log2(factor))) + back * 2;
+          text = `Reverter o tempo em ${back} rodada(s)`;
+        } else {
+          p = w.timeFlat * (1 + Math.abs(Math.log2(factor))) + rounds * 0.5;
         text = `${e?.timeStop ? "Parar o tempo" : `Ritmo do tempo ×${String(Math.round(factor * 100) / 100).replace(".", ",")}`} por ${active ? "rodada ativa" : `${rounds} rodada(s)`}`;
+        }
       } else if (target === "flight" || target === "burrow") {
         const rounds = active ? w.activeTicks : Math.max(1, Math.min(w.maxRounds, Number(e?.durationRounds) || w.foreverRounds));
         p = w.movementMode + rounds * 0.5;

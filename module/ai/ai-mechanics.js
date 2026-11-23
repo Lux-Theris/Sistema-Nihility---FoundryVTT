@@ -62,7 +62,7 @@ export function mechanicsGuide(catalogs = {}) {
     '  Sorte (grupo "Sorte", só Personagem): {"target":"luck","amount": % de sorte nos dados (negativo = azar; 100 = d20 de média 13,8),"luckScopes":{"attributes":true,"damage":true,"chances":true},"durationRounds": rodadas}.',
     '  Dissipar (grupo "Magia"): {"target":"dispelMagic","dispelScope":"all"|"marks"|"condition","conditionId": id de Condição (só no escopo condition)} termina efeitos MÁGICOS do alvo de nível ≤ o da Skill (sem suprimir nem desligar nada).',
     '  Mecânica "reroll" (usada no chat depois de ver uma rolagem; não é Ativa): "rerollWho": "own"|"allies"|"any", "rerollKeep": "new"|"best"|"worst" (|"choose" só em Skill Ultimate), "rerollKinds": {"attribute":bool,"initiative":bool,"damage":bool,"chances":bool}.',
-    '  Ritmo do tempo (grupo "Tempo", só Personagem; só se o bloco Manipulação do tempo estiver ligado): {"target":"timeRate","timeFactor": fator (2 = Acelerado ×2; 0.5 = Desacelerado ×½; 1 não muda nada),"durationRounds": rodadas (0 numa Habilidade Ativa = enquanto ligada)}. Para PARAR o tempo do alvo use "timeStop": true (o fator é ignorado; durationRounds = rodadas de quem lança; sempre com duração ou numa Ativa).',
+    '  Ritmo do tempo (grupo "Tempo", só Personagem; só se o bloco Manipulação do tempo estiver ligado): {"target":"timeRate","timeFactor": fator (2 = Acelerado ×2; 0.5 = Desacelerado ×½; 1 não muda nada),"durationRounds": rodadas (0 numa Habilidade Ativa = enquanto ligada)}. Para PARAR o tempo do alvo use "timeStop": true (o fator é ignorado; durationRounds = rodadas de quem lança; sempre com duração ou numa Ativa). Para REVERTER o tempo do alvo (voltar N rodadas: Vida, energia, efeitos, Itens e lugar) use "timeRewind": true (o fator é ignorado; durationRounds = quantas rodadas voltam, de 1 em diante; nunca numa Habilidade Ativa).',
     '  Magia enfraquecida (grupo "Magia"): {"target":"magicDampen","amount": % da força que sobra (50 = metade),"chance": % de cada uso mágico do alvo ser enfraquecido,"durationRounds": rodadas}.',
     '  Terreno: {"target":"createSurface","elementId": id de elemento que deixa superfície no chão (só vale se o bloco Superfícies estiver ligado),"amount": raio em metros (0 = o do elemento),"durationRounds": rodadas (0 = as do elemento)}.',
     '  Efeitos de sentido (grupo "Sentidos", só Personagem): {"target":"senseTremor"|"senseInvisible"|"senseTrue"|"senseAll","amount": alcance em metros (0 = sem limite),"durationRounds": rodadas} — Sentido sísmico, Ver o invisível, Visão verdadeira, Sentir tudo.',
@@ -202,9 +202,11 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
       if (e.target === "magicDampen") entry.chance = clampInt(e.chance, 0, 100, 100);
       // Ritmo do tempo (8e): o fator, nos limites; 1 não muda nada e o efeito cai.
       if (e.target === "timeRate") {
+        entry.timeRewind = Boolean(e.timeRewind) && !e.timeStop;
         entry.timeStop = Boolean(e.timeStop);
         entry.timeFactor = clampTimeFactor(e.timeFactor);
-        if (!entry.timeStop && !isTimeFactorActive(entry.timeFactor)) continue;
+        if (entry.timeRewind && !(Number(entry.durationRounds) > 0)) continue;
+        if (!entry.timeRewind && !entry.timeStop && !isTimeFactorActive(entry.timeFactor)) continue;
       }
       // Dissipar (8d.2): o que termina; uma Condição que não existe aqui derruba o efeito.
       if (e.target === "dispelMagic") {

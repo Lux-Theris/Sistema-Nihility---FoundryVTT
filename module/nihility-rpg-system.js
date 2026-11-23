@@ -80,6 +80,7 @@ import { tickContagion } from "./combat/contagion.js";
 import { registerEnvironment, syncTokenEnvironment } from "./environment/environment.js";
 import { registerRadiation, tickRadiation, passRadiationTimeFor } from "./environment/radiation.js";
 import { registerTimeRate, beginTimeTurn, endTimeTurn, previousActorOf, announceTimeTurn } from "./combat/time-rate.js";
+import { registerTimeRewind, renderTimeRewind } from "./combat/time-rewind.js";
 import { registerTimeStop, isTimeStopped, advanceTimeStops, freezeStoppedEffects, stoppedTurnNotice } from "./combat/time-stop.js";
 import { registerTraps } from "./environment/traps.js";
 import { registerTimeChamber } from "./core/time-chamber.js";
@@ -255,6 +256,7 @@ Hooks.once("init", () => {
   registerSkillTimers();
   registerTimeRate();
   registerTimeStop();
+  registerTimeRewind();
   registerEnvironment();
   registerEnvironmentSceneMenu();
   registerRadiation();
@@ -1233,6 +1235,7 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
   renderRerollControls(message, html);
   // Desfazer uso de Skill (só o Mestre, até o turno virar) — ver skills/skill-undo.js.
   renderSkillUndo(message, html);
+  renderTimeRewind(message, html);
 
   const padMessage = message.getFlag(SYSTEM_ID, "padMessage");
   const padContactShare = message.getFlag(SYSTEM_ID, "padContactShare");

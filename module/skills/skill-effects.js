@@ -37,6 +37,8 @@ import { publicRollModeOption } from "../helpers/foundry-compat.js";
 import { skillStateUpdate, energyValuePath, currentEnergyValue, warnInsufficientEnergy } from "./skill-state.js";
 import { removeUpkeepLinkedEffects } from "./upkeep.js";
 import { recordSkillUse } from "./skill-undo.js";
+import { rewindEnergyShortfall } from "../combat/time-rewind.js";
+import { mechHasRewind } from "../combat/time-rewind-rules.js";
 import { escapeHtml } from "../helpers/html.js";
 import { runAsGm } from "../helpers/gm-relay.js";
 import { RELAY_REASONS, refuse, relayFailureMessage } from "../helpers/gm-relay-rules.js";
@@ -303,6 +305,13 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
       content: `<p><strong>${escapeHtml(sourceActor.name)}</strong> começou a preparar <strong>${escapeHtml(label)}</strong> — pronta em ${mech.prepTurns} rodada(s)${paid > 0 ? `; o Custo (${paid} ${energyName}) sai em ${payments.length} parte(s): ${payments.join(" + ")}` : ""}.</p>`
     });
     return true;
+  }
+
+  // Reverter (8e.8): alvos ligados por vínculo (Nomeação, Pacto) custam o custo da Skill por parceiro: sem energia para todos, nada se paga.
+  const rewindNeed = !options.prepaid ? rewindEnergyShortfall(sourceActor, mech, options.targetActor ? [options.targetActor] : options.targetActors ?? [], paid) : 0;
+  if (rewindNeed > 0) {
+    await warnInsufficientEnergy(sourceActor, label, rewindNeed);
+    return null;
   }
 
   // Dentro de um campo, com Manipulação a curva pede um extra sobre o que se paga (0 fora de campo).
@@ -595,7 +604,9 @@ function withEffectChoices(mech, choices) {
  * O mesmo modelo de dnd5e/Midi-QOL: quem tem a permissão grava.
  */
 async function applyEffectsToTargets(skill, mech, label, targets, subSkillIndex, choices = {}, sourceActor = null) {
-  const { local, remote } = splitByWriteAccess(targets, target => target.isOwner);
+  // Reverter (8e.8) lê o anel de fotos, que só existe no navegador de um Mestre: quem não é Mestre pede ao Mestre, até em si mesmo.
+  const rewinds = mechHasRewind(mech) && !game.user.isGM;
+  const { local, remote } = splitByWriteAccess(targets, target => target.isOwner && !rewinds);
   const results = new Map();
   for (const target of local) results.set(target, { summary: await applyEffectsToActor(mech, label, skill, target, subSkillIndex), applied: true });
 

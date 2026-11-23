@@ -127,24 +127,7 @@ export async function restoreSnapshot(actor, id) {
   await saveSnapshot(actor, `Antes de restaurar "${meta.reason}"`, { auto: true });
 
   try {
-    // Efeitos.
-    const effects = embeddedPlan(actor.effects.map(e => e.id), data.effects);
-    const goneEffects = stillThere(actor.effects, effects.remove);
-    if (goneEffects.length) await actor.deleteEmbeddedDocuments("ActiveEffect", goneEffects, { nihilityRestore: true });
-    if (effects.create.length) await actor.createEmbeddedDocuments("ActiveEffect", effects.create.map(withoutStats), { keepId: true, nihilityConfigured: true, nihilityRestore: true });
-    if (effects.update.length) await actor.updateEmbeddedDocuments("ActiveEffect", effects.update.map(withoutStats), { recursive: false, diff: false, nihilityRestore: true });
-
-    // Itens.
-    const items = embeddedPlan(actor.items.map(i => i.id), data.items);
-    const goneItems = stillThere(actor.items, items.remove);
-    if (goneItems.length) await actor.deleteEmbeddedDocuments("Item", goneItems, { nihilityRestore: true });
-    if (items.create.length) await actor.createEmbeddedDocuments("Item", items.create.map(withoutStats), { keepId: true, nihilityRestore: true });
-    if (items.update.length) await actor.updateEmbeddedDocuments("Item", items.update.map(d => itemRestoreData(withoutStats(d), actor.items.get(d._id)?.toObject(), SYSTEM_ID)), { recursive: false, diff: false, nihilityRestore: true });
-
-    // A ficha: nome, imagem, dados de sistema e os flags do sistema (chave que sobrou sai).
-    const { update, removeFlagKeys } = actorRestoreUpdate(data, actor.toObject(), SYSTEM_ID);
-    for (const key of removeFlagKeys) Object.assign(update, deleteKeyUpdate(`flags.${SYSTEM_ID}.${key}`));
-    await actor.update(update, { nihilityRestore: true });
+    await applyRestoreData(actor, data);
   } catch (err) {
     reportError(`Restaurar ${actor.name}: falhou no meio. O ponto "Antes de restaurar" guarda como a ficha estava.`, err);
     return false;
@@ -155,6 +138,38 @@ export async function restoreSnapshot(actor, id) {
     whisper: game.users.filter(u => u.isGM).map(u => u.id)
   });
   return true;
+}
+
+/**
+ * Escreve na ficha o que `data` (um `actor.toObject()`) guarda: efeitos primeiro, Itens depois e a ficha no fim, com os
+ * mesmos ids. É o miolo de `restoreSnapshot` e do Reverter o tempo (que guarda as fotos em memória). `skipFlags`: flags do
+ * sistema que ficam como estão (o Reverter acrescenta a reserva de tempo e o dano acumulado). Lança se falhar.
+ * @param {Actor} actor
+ * @param {object} data
+ * @param {{skipFlags?: string[], options?: object}} [config]
+ */
+export async function applyRestoreData(actor, data, { skipFlags = undefined, options = {} } = {}) {
+  const op = () => ({ nihilityRestore: true, ...options });
+  {
+    // Efeitos.
+    const effects = embeddedPlan(actor.effects.map(e => e.id), data.effects);
+    const goneEffects = stillThere(actor.effects, effects.remove);
+    if (goneEffects.length) await actor.deleteEmbeddedDocuments("ActiveEffect", goneEffects, op());
+    if (effects.create.length) await actor.createEmbeddedDocuments("ActiveEffect", effects.create.map(withoutStats), { keepId: true, nihilityConfigured: true, ...op() });
+    if (effects.update.length) await actor.updateEmbeddedDocuments("ActiveEffect", effects.update.map(withoutStats), { recursive: false, diff: false, ...op() });
+
+    // Itens.
+    const items = embeddedPlan(actor.items.map(i => i.id), data.items);
+    const goneItems = stillThere(actor.items, items.remove);
+    if (goneItems.length) await actor.deleteEmbeddedDocuments("Item", goneItems, op());
+    if (items.create.length) await actor.createEmbeddedDocuments("Item", items.create.map(withoutStats), { keepId: true, ...op() });
+    if (items.update.length) await actor.updateEmbeddedDocuments("Item", items.update.map(d => itemRestoreData(withoutStats(d), actor.items.get(d._id)?.toObject(), SYSTEM_ID)), { recursive: false, diff: false, ...op() });
+
+    // A ficha: nome, imagem, dados de sistema e os flags do sistema (chave que sobrou sai).
+    const { update, removeFlagKeys } = actorRestoreUpdate(data, actor.toObject(), SYSTEM_ID, skipFlags ? { skipFlags } : undefined);
+    for (const key of removeFlagKeys) Object.assign(update, deleteKeyUpdate(`flags.${SYSTEM_ID}.${key}`));
+    await actor.update(update, op());
+  }
 }
 
 /* ------------------------------------------------------------------ Janela */

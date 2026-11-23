@@ -41,6 +41,10 @@ function describeEffectCore(entry, ctx) {
   }
   if (entry.target === "flight") return "voo";
   // Ritmo do tempo (8e): "Acelerado ×3 (3 de tempo por turno, Deslocamento ×3)" / "Desacelerado ×½".
+  if (entry.target === "timeRate" && entry.timeRewind) {
+    const rounds = Math.max(0, Math.floor(Number(entry.durationRounds) || 0));
+    return `volta o tempo do alvo em ${rounds} ${rounds === 1 ? "rodada" : "rodadas"} (Vida, energia, efeitos, Itens e lugar em combate; efeitos e tempo de vida fora dele)`;
+  }
   if (entry.target === "timeRate" && entry.timeStop) return "para o tempo do alvo (ele não age nem se move, nada nele anda; o dano que leva cai quando o tempo volta)";
   if (entry.target === "timeRate") {
     const factor = clampTimeFactor(entry.timeFactor);

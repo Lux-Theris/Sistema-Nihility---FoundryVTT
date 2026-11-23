@@ -60,7 +60,7 @@ function carryOf(actor) {
   return Math.max(0, Number(actor?.getFlag?.(SYSTEM_ID, CARRY_FLAG)) || 0);
 }
 
-function startedCombatOf(actor) {
+export function startedCombatOf(actor) {
   return game.combats?.find(c => c.started && c.combatants.some(cb => cb.actor?.uuid === actor?.uuid)) ?? null;
 }
 
@@ -75,7 +75,7 @@ function isStateEffect(effect) {
   return effectDurationRounds(effect) > 0;
 }
 
-function roundsLeft(effect, combat) {
+export function roundsLeft(effect, combat) {
   const total = effectDurationRounds(effect);
   const start = effectStartRound(effect);
   const elapsed = combat && start != null ? Math.max(0, (combat.round ?? 0) - start) : 0;

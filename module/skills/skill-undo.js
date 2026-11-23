@@ -18,6 +18,7 @@ import { zonesOnScene } from "../combat/area-effects.js";
 import { removeSurfacesOfUse } from "../environment/surfaces.js";
 import { beginSkillUse, endSkillUse, currentSkillUseId } from "./skill-use-context.js";
 import { reportError } from "../helpers/report.js";
+import { mechHasRewind } from "../combat/time-rewind-rules.js";
 import { deleteKeyUpdate } from "../helpers/foundry-compat.js";
 import {
   UNDO_VITAL_PATHS,
@@ -131,7 +132,8 @@ export async function recordSkillUse(sourceActor, skillId, options, run) {
   const skill = options?.borrowedSkill ?? sourceActor?.items?.get(skillId);
   const sub = options?.subSkillIndex != null ? skill?.system?.subSkills?.[options.subSkillIndex] : null;
   const mech = sub ?? skill?.system;
-  if (!skill || !mech || (mech.hasUpkeep && mech.active) || !isSkillUndoEnabled()) return run();
+  // Reverter o tempo (8e.8) tem o próprio "Desfazer reversão" (ponto de restauração por ficha): fora do Desfazer uso.
+  if (!skill || !mech || (mech.hasUpkeep && mech.active) || !isSkillUndoEnabled() || mechHasRewind(mech)) return run();
 
   let actors;
   let before;

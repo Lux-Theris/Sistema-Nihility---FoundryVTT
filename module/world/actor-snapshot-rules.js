@@ -77,15 +77,16 @@ export function itemRestoreData(saved, current, systemId) {
  * @param {object} saved - `actor.toObject()` do ponto
  * @param {object} current - `actor.toObject()` de agora
  * @param {string} systemId - namespace dos flags do sistema
+ * @param {{skipFlags?: string[]}} [options] - flags a não tocar (padrão `RESTORE_SKIP_FLAGS`; o Reverter acrescenta a reserva de tempo etc.)
  * @returns {{update:object, removeFlagKeys:string[]}}
  */
-export function actorRestoreUpdate(saved, current, systemId) {
+export function actorRestoreUpdate(saved, current, systemId, { skipFlags = RESTORE_SKIP_FLAGS } = {}) {
   const update = {};
   for (const key of Object.keys(saved ?? {})) {
     if (KEEP_OUT.includes(key) || key === "flags" || key === "type") continue;
     update[key] = saved[key];
   }
-  const withoutSkipped = flags => Object.fromEntries(Object.entries(flags ?? {}).filter(([key]) => !RESTORE_SKIP_FLAGS.includes(key)));
+  const withoutSkipped = flags => Object.fromEntries(Object.entries(flags ?? {}).filter(([key]) => !skipFlags.includes(key)));
   const savedFlags = withoutSkipped(saved?.flags?.[systemId]);
   const currentFlags = withoutSkipped(current?.flags?.[systemId]);
   if (Object.keys(savedFlags).length) update.flags = { [systemId]: savedFlags };

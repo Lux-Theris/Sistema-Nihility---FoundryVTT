@@ -109,6 +109,7 @@ export const MEU_SISTEMA = {
     clockShortRestHours: "clockShortRestHours",
     clockLongRestHours: "clockLongRestHours",
     clockRoundSeconds: "clockRoundSeconds",
+    timeRewindRounds: "timeRewindRounds",
     shipFocusBoost: "shipFocusBoost",
     shipFocusCut: "shipFocusCut",
     skillPowerPerLevel: "skillPowerPerLevel",

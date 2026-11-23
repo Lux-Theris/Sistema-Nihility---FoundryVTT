@@ -780,6 +780,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       else if (entry.target === "push") summary = `${{ pull: "Puxa", choose: "Empurra ou puxa" }[entry.pushDirection] ?? "Empurra"} ${amount} m`;
       else if (["flight", "burrow"].includes(entry.target)) summary = targetLabel;
       else if (entry.target === "luck") summary = `Sorte ${describeLuck(luckFromScopes(amount, entry.luckScopes)) || "(sem escopo)"}`;
+      else if (entry.target === "timeRate" && entry.timeRewind) summary = `Reverter ${Math.max(0, Math.floor(Number(entry.durationRounds) || 0))} rod.`;
       else if (entry.target === "timeRate" && entry.timeStop) summary = "Parar o tempo";
       else if (entry.target === "timeRate") summary = `${Number(entry.timeFactor ?? 2) < 1 ? "Desacelerar" : "Acelerar"} ${describeTimeFactor(entry.timeFactor ?? 2)}`;
       else if (entry.target === "dispelMagic") summary = `Dissipar: ${entry.dispelScope === "condition" ? `só ${condition?.label ?? "uma Condição"}` : entry.dispelScope === "marks" ? "só marcas" : "todo efeito mágico"} (nv ≤ ${Number(sys.level) || 0})`;
@@ -844,7 +845,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         index,
         amount,
         durationRounds: entry.durationRounds,
-        durationUnit: entry.target === "push" ? "" : entry.target === "createSurface" ? "rod. (0 = a do elemento)" : ["flight", "burrow", "timeRate"].includes(entry.target) ? (sys.hasUpkeep ? "ativa" : "rod. (0 = até desfeito)") : isSenseTarget(entry.target) ? (sys.hasUpkeep ? "ativa" : "rod. (0 = até desfeito)") : entry.target === "mark" ? "rod. (0 = até desfeita)" : ["antimagic", "emp"].includes(entry.target) ? "rod. de supressão (0 = até tirar)" : sys.hasUpkeep ? "ativa" : periodic ? "ticks" : "rod.",
+        durationUnit: entry.target === "push" ? "" : entry.target === "createSurface" ? "rod. (0 = a do elemento)" : entry.target === "timeRate" && entry.timeRewind ? "rodadas que voltam" : ["flight", "burrow", "timeRate"].includes(entry.target) ? (sys.hasUpkeep ? "ativa" : "rod. (0 = até desfeito)") : isSenseTarget(entry.target) ? (sys.hasUpkeep ? "ativa" : "rod. (0 = até desfeito)") : entry.target === "mark" ? "rod. (0 = até desfeita)" : ["antimagic", "emp"].includes(entry.target) ? "rod. de supressão (0 = até tirar)" : sys.hasUpkeep ? "ativa" : periodic ? "ticks" : "rod.",
         isAntimagic: ["antimagic", "emp"].includes(entry.target),
         isMark: entry.target === "mark",
         isDispel: entry.target === "dispelMagic",
@@ -854,6 +855,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         isTimeRate: entry.target === "timeRate",
         timeFactor: Number(entry.timeFactor ?? 2),
         timeStop: Boolean(entry.timeStop),
+        timeRewind: Boolean(entry.timeRewind),
         isLuck: entry.target === "luck",
         luckScopeAttributes: Boolean(entry.luckScopes?.attributes),
         luckScopeDamage: Boolean(entry.luckScopes?.damage),
@@ -1316,8 +1318,12 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       await this.item.update({ [this.#effectsPath()]: effects });
       return;
     }
-    if (input.type === "checkbox") entry[field] = input.checked;
-    else if (field === "timeFactor") entry[field] = clampTimeFactor(input.value);
+    if (input.type === "checkbox") {
+      entry[field] = input.checked;
+      // Parar e Reverter são modos que não convivem no mesmo efeito.
+      if (input.checked && field === "timeRewind") entry.timeStop = false;
+      if (input.checked && field === "timeStop") entry.timeRewind = false;
+    } else if (field === "timeFactor") entry[field] = clampTimeFactor(input.value);
     else if (input.type === "number") entry[field] = Number(input.value) || 0;
     else entry[field] = input.value.trim();
 

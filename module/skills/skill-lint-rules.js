@@ -108,7 +108,20 @@ export function lintSkill(mech, ctx = {}) {
     }
     if (e?.target === "timeRate") {
       const factor = Number(e.timeFactor ?? 2);
-      if (!e.timeStop && !(Math.abs(factor - 1) > 1e-6)) push("timeRateOne", "hard", "mechanic", "Ritmo do tempo com fator 1: não muda nada.", i);
+      const areaLike = ["emission", "zone"].includes(m.targetType);
+      if (e.timeRewind) {
+        if (active) push("timeRewindActive", "hard", "mechanic", "Reverter numa Skill Ativa: reverter age uma vez, na hora; a Skill ligada não repetiria nada. Use uma Skill de uso comum.", i);
+        else if (!(Number(e.durationRounds) > 0)) push("timeRewindNoRounds", "hard", "mechanic", "Reverter sem rodadas: ponha quantas rodadas voltam (o teto é das Regras desta mesa).", i);
+        if (m.targetType === "emission") push("timeRewindArea", "soft", "mechanic", "Reverter em área desfaz todo mundo que estiver dentro, cada um pelo próprio histórico; vínculos (Nomeação, Pacto) custam energia a mais por cada um. Era isso?", i);
+        if (m.targetType === "zone") push("timeRewindZone", "hard", "mechanic", "Reverter numa Zona: a Zona repetiria a reversão todo turno. Use uma Emissão (área na hora) ou um alvo.", i);
+      } else if (e.timeStop && areaLike && !["notCaster", "enemies", "othersExceptTarget"].includes(m.areaAffects ?? "all")) {
+        push("timeStopArea", "soft", "mechanic", "Parar o tempo em área que inclui quem lança: quem lança também ficaria Parado. Escolha \"Todos menos quem lança\" em \"Quem a área atinge\".", i);
+      } else if (m.targetType === "zone") {
+        push("timeZoneNote", "soft", "mechanic", "Ritmo/Parar numa Zona (câmara temporária): vale para quem começa o turno dentro, por 1 rodada renovada a cada turno, e só em combate; fora dele use uma Região de ritmo (câmara do tempo). Era isso?", i);
+      }
+      if (e.timeRewind) {
+        // Reverter não tem fator nem "para sempre": o resto dos avisos de tempo não se aplica.
+      } else if (!e.timeStop && !(Math.abs(factor - 1) > 1e-6)) push("timeRateOne", "hard", "mechanic", "Ritmo do tempo com fator 1: não muda nada.", i);
       else if (e.timeStop && !active && !(Number(e.durationRounds) > 0)) push("timeStopForever", "hard", "mechanic", "Parar o tempo sem duração numa Skill que não é Ativa: o alvo ficaria Parado para sempre. Ponha as rodadas (de quem lança) ou faça a Skill Ativa.", i);
       else if (!e.timeStop && !active && !(Number(e.durationRounds) > 0)) push("timeRateForever", "soft", "mechanic", "Ritmo do tempo sem duração numa Skill que não é Ativa: fica no alvo para sempre (até alguém tirar). Era isso?", i);
       if (m.targetType === "self" && ctx.actorType === "ship") push("timeRateShip", "hard", "mechanic", "Ritmo do tempo numa Nave: o tempo é de quem vive, o efeito não se aplica.", i);

@@ -36,29 +36,28 @@ import { StatusConditionsConfigApp } from "./apps/status-conditions-config.js";
 import { NihilityMenuApp } from "./apps/nihility-menu.js";
 import { FeatureConfigApp } from "./apps/feature-config.js";
 import { AttributeConfigApp } from "./apps/attribute-config.js";
-import { tickCombatRoundEffects } from "./skills/effects-apply.js";
 import { registerAnatomyHooks, registerImplantDragTracking } from "./species/anatomy.js";
-import { tickActorUpkeepSkills, shutdownActiveSkillsOnDepletion, processPendingUpkeepRemoval } from "./skills/upkeep.js";
-import { advanceZones, tickZonesForCombatant } from "./skills/zones.js";
+import { shutdownActiveSkillsOnDepletion } from "./skills/upkeep.js";
 import { isDesignatedGm } from "./helpers/gm-relay.js";
 import { reportError } from "./helpers/report.js";
-import { tickStarshipPower, registerShieldAdaptationReset } from "./starship/starship-power.js";
+import { registerShieldAdaptationReset } from "./starship/starship-power.js";
 import { requestShipRepair, approveShipRepairRoll, restoreShipRepairTarget } from "./starship/starship-repair.js";
 import { registerGmRelay } from "./helpers/gm-relay.js";
 import { registerInitiative } from "./combat/combat.js";
+import { onCombatTurnStart } from "./combat/turn-start.js";
 import { registerLuckDice } from "./combat/luck-dice.js";
 import { registerReroll, renderRerollControls } from "./skills/reroll.js";
 import { registerMovementLimit } from "./combat/movement.js";
 import { registerConditionalRefresh } from "./combat/conditional-context.js";
-import { registerFieldAntimagic, endMagicInsideFields } from "./combat/antimagic.js";
-import { advanceStructures, collapseStructuresOfCaster, renderStructureControls, registerStructureContact, tickStructureContact } from "./structures/structures.js";
+import { registerFieldAntimagic } from "./combat/antimagic.js";
+import { collapseStructuresOfCaster, renderStructureControls, registerStructureContact } from "./structures/structures.js";
 import { registerStructureRendering } from "./structures/structure-render.js";
 import { registerFloatingNumbers } from "./combat/floating-numbers.js";
 import { registerReactionFloats } from "./combat/reactions.js";
 import { registerEffectBadges, registerSystemEffectIcons } from "./combat/effect-badges.js";
 import { registerVoiceBanner } from "./core/voice-banner.js";
 import { registerEndCombat } from "./apps/end-combat.js";
-import { tickSkillTimers, registerSkillTimers } from "./skills/preparation.js";
+import { registerSkillTimers } from "./skills/preparation.js";
 import { registerSkillUndo, renderSkillUndo } from "./skills/skill-undo.js";
 import { registerNpcTierHooks } from "./npc/npc-generator.js";
 import { registerEncounterSimTracker } from "./apps/encounter-sim.js";
@@ -67,13 +66,12 @@ import { registerCreationHooks, renderCreationReadyControls } from "./creation/c
 import { registerGlossaryLinks } from "./glossary/glossary.js";
 import { registerHotbarMacros, useItemFromHotbar } from "./core/hotbar.js";
 import { registerWeaponMastery, renderMasterySuggestion, unarmedAttackFromHotbar } from "./combat/weapon-mastery.js";
-import { registerIncapacitation, tickIncapacitation, isDead } from "./combat/incapacitation.js";
-import { tickContagion } from "./combat/contagion.js";
-import { registerEnvironment, syncTokenEnvironment } from "./environment/environment.js";
-import { registerRadiation, tickRadiation, passRadiationTimeFor } from "./environment/radiation.js";
-import { registerTimeRate, beginTimeTurn, endTimeTurn, previousActorOf, announceTimeTurn } from "./combat/time-rate.js";
+import { registerIncapacitation } from "./combat/incapacitation.js";
+import { registerEnvironment } from "./environment/environment.js";
+import { registerRadiation } from "./environment/radiation.js";
+import { registerTimeRate } from "./combat/time-rate.js";
 import { registerTimeRewind, renderTimeRewind } from "./combat/time-rewind.js";
-import { registerTimeStop, isTimeStopped, advanceTimeStops, freezeStoppedEffects, stoppedTurnNotice } from "./combat/time-stop.js";
+import { registerTimeStop } from "./combat/time-stop.js";
 import { registerTraps } from "./environment/traps.js";
 import { registerTimeChamber } from "./core/time-chamber.js";
 import { registerWorldClock } from "./core/world-clock.js";
@@ -90,7 +88,7 @@ import { registerStatusConditions, interceptManualCondition } from "./combat/con
 import { registerModuleInstallRules } from "./starship/module-install.js";
 import { runPendingMigrations } from "./core/migrations.js";
 import { registerDuelRules } from "./skills/duel.js";
-import { registerSurfaces, tickSurfacesForCombatant, advanceSurfaces } from "./environment/surfaces.js";
+import { registerSurfaces } from "./environment/surfaces.js";
 import { renderDamageControls, renderDamageTrace } from "./combat/damage-apply.js";
 import { isSpeciesLocked } from "./species/species-rules.js";
 import { notifyIncomingPadMessage } from "./pad/pad-messaging.js";
@@ -101,8 +99,7 @@ import {
   itemsCollection,
   coreActorSheetClass,
   coreItemSheetClass,
-  registerSystemPartials,
-  combatScenes
+  registerSystemPartials
 } from "./helpers/foundry-compat.js";
 
 Hooks.once("init", () => {
@@ -525,211 +522,11 @@ Hooks.on("preDeleteItem", item => {
   removeGrantedSkill(item.parent, item.id);
 });
 
-// Tica Efeitos Periódicos (veneno/cura contínua com tickUnit "combatRound", ver
-// skill-effects.js) sempre que chega a vez de um combatente — só o dono desse turno tica,
-// uma vez por turno próprio (não uma vez por rodada global). Só o Mestre DESIGNADO executa:
-// com `isGM`, um segundo Mestre (ou um Assistente) conectado ticava tudo de novo — veneno,
-// regeneração e manutenção em dobro. Várias funções abaixo não se protegem por dentro.
-Hooks.on("updateCombat", async (combat, changed, options) => {
-  if (!isDesignatedGm()) return;
-  if (changed.turn === undefined && changed.round === undefined) return;
-  // "Turno anterior"/"Rodada anterior" do Foundry (direction −1): o turno já começou uma vez.
-  // Tudo daqui é início de turno (ticks, Zonas, regeneração, manutenção, Maldição, radiação,
-  // Contágio) e rodaria DE NOVO — o Mestre que volta um turno por engano cobraria tudo duas vezes.
-  if (options?.direction < 0) return;
-  // Voltar e avançar de novo cai num turno que já começou: só processa turno NOVO (rodada/turno
-  // além do último já processado, guardado no próprio Combate pelo Mestre designado).
-  const position = (Number(combat.round) || 0) * 1000 + (Number(combat.turn) || 0);
-  const processed = combat.getFlag(SYSTEM_ID, "turnProcessed");
-  if (processed != null && position <= Number(processed)) return;
-  await combat.setFlag(SYSTEM_ID, "turnProcessed", position);
-
-  // O combatente deste turno, guardado já: o resto é assíncrono, e ler `combat.combatant` depois
-  // de um await pegava o PRÓXIMO (Mestre avançando rápido) ou null (combate encerrado no meio).
-  const combatant = combat.combatant;
-  const actor = combatant?.actor;
-  if (!actor) return;
-
-  // Parar o tempo (8e.4): a cada virada de rodada os prazos de quem está Parado ficam congelados; e os Parar lançados por
-  // quem começa o turno agora perdem 1 rodada (quem acaba o prazo sai do Parado, e o dano acumulado cai).
-  try {
-    if (changed.round !== undefined) await freezeStoppedEffects(combat);
-    if (!isTimeStopped(actor)) await advanceTimeStops(combat, combatant, { roundChanged: changed.round !== undefined });
-  } catch (err) {
-    reportError("Falha ao contar o tempo parado.", err, { gmOnly: true });
-  }
-
-  // Parado no tempo (8e.4): nada nele anda. Pula a cadeia toda do início do turno (Vida 0, Preparo, Recarga,
-  // periódicos, regeneração, manutenção, maldições, Radiação, Contágio, Zonas em cima dele); seguem só as coisas do
-  // MUNDO que contam por rodada (Zonas e Estruturas postas, superfícies) e o aviso na tela.
-  if (isTimeStopped(actor)) {
-    try {
-      const finished = previousActorOf(combat);
-      if (finished && !isTimeStopped(finished)) await endTimeTurn(combat, finished);
-      const roundChanged = changed.round !== undefined;
-      for (const scene of combatScenes(combat)) {
-        await advanceZones(scene, { combat, combatant, roundChanged });
-        if (roundChanged) await advanceStructures(scene);
-      }
-      if (roundChanged) for (const scene of combatScenes(combat)) await advanceSurfaces(scene);
-      await stoppedTurnNotice(actor);
-    } catch (err) {
-      reportError("Falha ao pular o turno de quem está Parado no tempo.", err, { gmOnly: true });
-    }
-    return;
-  }
-
-  // Manipulação do tempo (8e.2): quem acabou o turno gasta a reserva que sobrou nos estados; quem começa recebe a
-  // dele. `steps` = quantas vezes os números por turno (Veneno, regeneração, custo das Ativas, Radiação, Vida 0)
-  // passam neste turno: 1 normal, N Acelerado, 0 ou 1 Desacelerado. `notes` junta o que passou para o aviso.
-  let timePlan = { kind: "normal", factor: 1, steps: 1 };
-  const timeNotes = [];
-  try {
-    const finished = previousActorOf(combat);
-    if (finished) await endTimeTurn(combat, finished);
-    timePlan = await beginTimeTurn(combat, actor);
-  } catch (err) {
-    reportError("Falha ao começar o turno do tempo (reserva).", err, { gmOnly: true });
-  }
-  const steps = timePlan.steps;
-
-  try {
-    // Vida 0 (incapacitation.js): contador de morte do Caído e rodadas do Inconsciente — ANTES de
-    // Zonas, ticks e regeneração, para quem sair do 0 neste turno não perder já uma rodada.
-    await tickIncapacitation(actor, { steps });
-  } catch (err) {
-    reportError("Falha ao contar Caído/Inconsciente no início do turno.", err, { gmOnly: true });
-  }
-  try {
-    // Recarga e Preparo (H3): logo depois do Vida 0 (quem caiu perde o preparo), antes de qualquer
-    // regeneração ou manutenção — a parte do Custo do turno é a primeira coisa paga. Morto não.
-    if (!isDead(actor) && steps > 0) await tickSkillTimers(actor);
-  } catch (err) {
-    reportError("Falha ao andar recarga e preparo das Habilidades no início do turno.", err, { gmOnly: true });
-  }
-  // Morto: o turno dele não processa ticks, regeneração, Zona, manutenção nem Maldição. Seguem só
-  // as Zonas que ELE lançou (contando, para sumirem no prazo) e a limpeza dos efeitos das
-  // Habilidades Ativas que desligaram na morte — senão o buff que ele dava a um aliado ficaria.
-  const dead = isDead(actor);
-
-  try {
-    // Contágio (contagion.js): Condições com "espalha" passam para quem está no raio.
-    if (!dead) await tickContagion(combatant);
-  } catch (err) {
-    reportError("Falha no Contágio no início do turno.", err, { gmOnly: true });
-  }
-  try {
-    // Ambiente (environment.js): confere os perigos da cena/área antes dos ticks da rodada.
-    if (combatant.token) await syncTokenEnvironment(combatant.token);
-  } catch (err) {
-    reportError("Falha ao conferir o Ambiente no início do turno.", err, { gmOnly: true });
-  }
-  try {
-    // Radiação (radiation.js): acumula/cai e causa o dano da rodada. Morto não.
-    if (!dead && combatant.token && steps > 0) await tickRadiation(combatant.token);
-  } catch (err) {
-    reportError("Falha na Radiação no início do turno.", err, { gmOnly: true });
-  }
-  try {
-    if (!dead && steps > 1) {
-      const rows = await passRadiationTimeFor([actor], steps - 1);
-      for (const r of rows ?? []) timeNotes.push({ label: "Radiação", text: `irradiação ${r.before} → ${r.after} · −${r.damage} Vida` });
-    }
-  } catch (err) {
-    reportError("Falha na Radiação acumulada do tempo acelerado no início do turno.", err, { gmOnly: true });
-  }
-  try {
-    // Muralha que queima: quem continua encostado nela (ou dentro) queima de novo.
-    if (!dead) await tickStructureContact(combatant);
-  } catch (err) {
-    reportError("Falha no contato com Estrutura no início do turno.", err, { gmOnly: true });
-  }
-  try {
-    // Campo de antimagia: quem começa o turno dentro dele perde o que é mágico.
-    if (!dead && combatant.token) await endMagicInsideFields(combatant.token);
-  } catch (err) {
-    reportError("Falha no campo de Antimagia no início do turno.", err, { gmOnly: true });
-  }
-
-  // Na V14 o Combate não tem Cena por padrão: as Cenas vêm dos Tokens dos combatentes.
-  // Zonas contam pelo turno de quem lançou (ver advanceZones); Estruturas, pela rodada.
-  const roundChanged = changed.round !== undefined;
-  try {
-    for (const scene of combatScenes(combat)) {
-      await advanceZones(scene, { combat, combatant, roundChanged });
-      if (roundChanged) await advanceStructures(scene);
-    }
-  } catch (err) {
-    reportError("Falha ao processar Zonas e Estruturas no início do turno.", err, { gmOnly: true });
-  }
-  try {
-    if (!dead) await tickZonesForCombatant(combatant);
-  } catch (err) {
-    reportError("Falha ao processar a Zona do combatente no início do turno.", err, { gmOnly: true });
-  }
-  try {
-    // Superfícies (8.2): sem dono, contam pela virada da rodada; quem começa o turno em cima sofre.
-    if (roundChanged) for (const scene of combatScenes(combat)) await advanceSurfaces(scene);
-  } catch (err) {
-    reportError("Falha ao processar Superfícies no início do turno.", err, { gmOnly: true });
-  }
-  try {
-    if (!dead) await tickSurfacesForCombatant(combatant);
-  } catch (err) {
-    reportError("Falha ao processar a Superfície do combatente no início do turno.", err, { gmOnly: true });
-  }
-
-  try {
-    if (!dead) await tickCombatRoundEffects(actor, { steps, notes: timeNotes });
-  } catch (err) {
-    reportError("Falha ao ticar Efeitos Periódicos no início do turno.", err, { gmOnly: true });
-  }
-
-
-  try {
-    // Regeneração por rodada (natural + passivos de Skill/Título/Item/Espécie) — antes da manutenção
-    // das Habilidades Ativas, para uma regeneração alta poder bancar uma Ativa barata.
-    const { tickRegeneration } = await import("./combat/regeneration.js");
-    await tickRegeneration(actor, { steps, notes: timeNotes });
-  } catch (err) {
-    reportError("Falha na regeneração por rodada.", err, { gmOnly: true });
-  }
-
-  try {
-    // Efeitos das Skills que a Mana em 0 desligou no turno anterior somem agora.
-    await processPendingUpkeepRemoval(actor);
-  } catch (err) {
-    reportError("Falha ao remover efeitos de Habilidades desligadas por falta de Mana.", err, { gmOnly: true });
-  }
-
-  try {
-    if (!dead) await tickActorUpkeepSkills(actor, { steps, notes: timeNotes });
-  } catch (err) {
-    reportError("Falha ao drenar Energia de Habilidades Ativas no início do turno.", err, { gmOnly: true });
-  }
-
-  try {
-    // Maldições (prancha 6): cobram da Mana da vítima depois da regeneração e da manutenção.
-    const { tickCurses } = await import("./skills/curses.js");
-    if (!dead) await tickCurses(actor, { steps, notes: timeNotes });
-  } catch (err) {
-    reportError("Falha ao processar Maldições no início do turno.", err, { gmOnly: true });
-  }
-
-  try {
-    await announceTimeTurn(actor, timePlan, timeNotes);
-  } catch (err) {
-    reportError("Falha ao avisar o ritmo do tempo.", err, { gmOnly: true });
-  }
-
-  if (["starship", "vehicle"].includes(actor.type)) {
-    try {
-      await tickStarshipPower(actor);
-    } catch (err) {
-      reportError("Falha ao ticar Energia/Sobrecarga de Módulos no início do turno.", err, { gmOnly: true });
-    }
-  }
-});
+// Início de turno: ticks, Zonas, regeneração, manutenção etc. Só o Mestre DESIGNADO executa (com
+// `isGM`, um segundo Mestre ticava tudo em dobro). A ordem dos passos está em combat/turn-start.js.
+// Registrado aqui, na avaliação do módulo (antes do `ready`): o Reverter depende disso (ver o cabeçalho
+// de turn-start.js).
+Hooks.on("updateCombat", (combat, changed, options) => onCombatTurnStart(combat, changed, options));
 
 // Botões de Aprovar/Rejeitar nos pedidos de criação de Skill via Pontos de Habilidade.
 // `renderChatMessageHTML` (e não o antigo `renderChatMessage`) é o hook do V13+: entrega um

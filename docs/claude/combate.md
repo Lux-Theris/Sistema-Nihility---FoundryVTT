@@ -42,3 +42,13 @@ The enforcement was designed from a probe run in a real Foundry V14 (the probe i
 
 
 - **Sessão 4 (1.103.1):** `Combat.rollAll()` não falha mais em quem não tem o atributo de iniciativa (`safeInitiativeFormula`, cai em 0). **Limite conhecido:** números flutuantes de fontes diferentes no mesmo Token (os nossos de Vida/Mana e o texto de Condição do core, "Fúria do duelo: Destreza +11" e "Inconsciente") saem juntos e se sobrepõem; só os nossos são escalonados (350 ms entre si). Usar uma Skill de Estrutura sem cena aberta avisa na tela que a Estrutura não foi criada.
+
+
+## Início de turno (`combat/turn-start.js`)
+
+`onCombatTurnStart` is the `updateCombat` hook that runs everything that happens when a combatant's turn begins (designated GM only, new turns only, never on `direction < 0`). After the header (guards, `turnProcessed` flag, capture of `combatant`/`actor`) and the common "tempo parado" step, it runs one list of steps through `runTurnSteps`: `STOPPED_STEP_IDS` if the Actor is Parado no tempo, otherwise `TURN_STEP_IDS`. The order lives in `combat/turn-start-rules.js` and is frozen by a test in `test/combat-effects.test.mjs`. Each step has its own `try`: an error is reported (`reportError`, `gmOnly`) with the step's label and the next steps still run.
+
+- **New step:** add its id to `TURN_STEP_IDS` at the right position **and** an entry in `NORMAL_STEPS` (`{ label (pt-BR), when?(ctx), run(ctx) }`); `buildSteps` throws if an id has no entry. Update the frozen-order test on purpose. `when` is evaluated right before the step, so it sees what earlier steps changed.
+- **`deadSnapshot`:** `ctx.dead = isDead(actor)` is taken once, right after `skillTimers` (Vida 0 and Preparo may change it), and every later step uses `ctx.dead`. Only `skillTimers` reads `isDead` live. Dead actors still run `regeneration` and `upkeepRemoval`.
+- **Reverter constraint:** `time-rewind.js` takes its Actor snapshot synchronously in another `updateCombat` hook. Nothing that writes to an Actor may run before the first `await` of `onCombatTurnStart` (today the `setFlag` on the Combat), and the hook must stay registered at module evaluation of the entry file, before `ready`.
+- The two dynamic `import()`s (regeneration, curses) stay dynamic.

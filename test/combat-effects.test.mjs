@@ -431,3 +431,40 @@ test("tokenElevation lê o valor gravado (_source), não o do documento animado/
   assert.equal(C.tokenElevation({ elevation: 4 }), 4);
   assert.equal(C.tokenElevation(null), 0);
 });
+
+test("Início de turno: posição do turno e turno já processado", async () => {
+  const { turnPosition, alreadyProcessed } = await import("../module/combat/turn-start-rules.js");
+  assert.equal(turnPosition(3, 2), 3002);
+  assert.equal(turnPosition(undefined, "x"), 0);
+  assert.equal(alreadyProcessed(3002, undefined), false);
+  assert.equal(alreadyProcessed(3002, null), false);
+  assert.equal(alreadyProcessed(3002, 3002), true);
+  assert.equal(alreadyProcessed(3001, 3002), true);
+  assert.equal(alreadyProcessed(3003, 3002), false);
+});
+
+test("Início de turno: runTurnSteps (ordem, when na hora, erro isolado)", async () => {
+  const { runTurnSteps } = await import("../module/combat/turn-start-rules.js");
+  const log = [];
+  const reports = [];
+  const ctx = { dead: false };
+  const steps = [
+    { id: "a", label: "A", run: c => { log.push("a"); c.dead = true; } },
+    { id: "b", label: "B", when: c => !c.dead, run: () => log.push("b") },
+    { id: "c", label: "C", when: () => true, run: async () => { throw new Error("falhou"); } },
+    { id: "d", label: "D", run: async () => { log.push("d"); } }
+  ];
+  await runTurnSteps(steps, ctx, (label, err) => reports.push([label, err.message]));
+  assert.deepEqual(log, ["a", "d"], "b pulado porque a mudou o ctx; d roda depois do erro de c");
+  assert.deepEqual(reports, [["C", "falhou"]]);
+});
+
+test("Início de turno: a ordem dos passos está congelada", async () => {
+  const { TURN_STEP_IDS, STOPPED_STEP_IDS } = await import("../module/combat/turn-start-rules.js");
+  assert.deepEqual(TURN_STEP_IDS, [
+    "timeRhythm", "incapacitation", "skillTimers", "deadSnapshot", "contagion", "environment", "radiation",
+    "radiationAccrued", "structureContact", "antimagic", "zonesStructures", "zoneCombatant", "surfaces",
+    "surfaceCombatant", "periodicEffects", "regeneration", "upkeepRemoval", "upkeepDrain", "curses", "announce", "starshipPower"
+  ]);
+  assert.deepEqual(STOPPED_STEP_IDS, ["stoppedTimeEnd", "stoppedZones", "stoppedSurfaces", "stoppedNotice"]);
+});

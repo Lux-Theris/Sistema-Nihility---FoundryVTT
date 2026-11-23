@@ -161,7 +161,7 @@ import { resolveEffectChange, describeEffectChangeKey } from "../module/skills/e
 import { skillSummary } from "../module/skills/skill-summary.js";
 import { suggestSkillCost } from "../module/skills/skill-cost-rules.js";
 import { lintSkill } from "../module/skills/skill-lint-rules.js";
-import { MEU_SISTEMA } from "../module/core/config.js";
+import { NIHILITY } from "../module/core/config.js";
 
 test("efeito de sentido vira mudança de Token (OVERRIDE do alcance e do ligado)", () => {
   const person = { type: "character" };
@@ -177,12 +177,12 @@ test("efeito de sentido vira mudança de Token (OVERRIDE do alcance e do ligado)
 });
 
 test("os alvos de sentido estão no grupo Sentidos, só de Personagem", () => {
-  const group = MEU_SISTEMA.EFFECT_TARGET_GROUPS.find(g => g.label === "Sentidos");
+  const group = NIHILITY.EFFECT_TARGET_GROUPS.find(g => g.label === "Sentidos");
   assert.equal(group.actor, "character");
   assert.deepEqual(group.targets, ["senseTremor", "senseInvisible", "senseTrue", "senseAll"]);
   for (const t of group.targets) {
-    assert.ok(MEU_SISTEMA.EFFECT_TARGETS.includes(t));
-    assert.ok(MEU_SISTEMA.EFFECT_TARGET_LABELS[t]);
+    assert.ok(NIHILITY.EFFECT_TARGETS.includes(t));
+    assert.ok(NIHILITY.EFFECT_TARGET_LABELS[t]);
   }
 });
 
@@ -201,10 +201,10 @@ test("a frase da Skill, o custo sugerido e o aviso tratam o sentido", () => {
 });
 
 test("a Condição de fábrica Cegueira marca Cego e Invisibilidade marca Invisível", () => {
-  const byId = Object.fromEntries(MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS.map(c => [c.id, c]));
+  const byId = Object.fromEntries(NIHILITY.DEFAULT_STATUS_CONDITIONS.map(c => [c.id, c]));
   assert.equal(byId.blindness.mapStatus, "blind");
   assert.equal(byId.invisibility.mapStatus, "invisible");
   assert.ok(byId.invisibility.explanation);
-  assert.equal(MEU_SISTEMA.FEATURES.senses.default, true);
-  assert.ok(MEU_SISTEMA.FEATURES.senses.short.length <= 90);
+  assert.equal(NIHILITY.FEATURES.senses.default, true);
+  assert.ok(NIHILITY.FEATURES.senses.short.length <= 90);
 });

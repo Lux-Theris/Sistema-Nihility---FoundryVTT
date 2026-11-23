@@ -4,7 +4,7 @@
  * refactor) — nada aqui fala com IA diretamente, exceto `fuseSkills` no modo "auto" (Skill
  * Única/Ultimate), que delega pra `requestAISpecialSkill` em ai-generation.js.
  */
-import { SYSTEM_ID, MEU_SISTEMA, getComplexityCaps } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, getComplexityCaps } from "../core/config.js";
 import { complexityVerdict } from "./skill-complexity-rules.js";
 import { ensureSystemCompendiums, getCompendiumForItemType, registerItemInCompendium } from "../core/compendium.js";
 import { buildSubSkillsFromSources, buildGrantedSkillData } from "./skill-snapshot.js";
@@ -30,7 +30,7 @@ import { autoSnapshot } from "../world/auto-snapshot.js";
  * @returns {Promise<Item|null>} a Skill criada, ou null se `grantsSkill.name` estiver vazio
  */
 export async function createGrantedSkill(actor, grantsSkill, sourceKey, sourceNature = null) {
-  const data = buildGrantedSkillData(grantsSkill, MEU_SISTEMA.ITEM_GRANTABLE_SKILL_TIERS, sourceNature);
+  const data = buildGrantedSkillData(grantsSkill, NIHILITY.ITEM_GRANTABLE_SKILL_TIERS, sourceNature);
   if (!data) return null;
   data.flags = { [SYSTEM_ID]: { grantedBySource: sourceKey } };
 
@@ -102,7 +102,7 @@ function buildGenericFusionData(sources, tier) {
 }
 
 function buildManualSpecialSkillData(sources, tier, manualData) {
-  const tierLabel = MEU_SISTEMA.SKILL_TIER_LABELS[tier] ?? tier;
+  const tierLabel = NIHILITY.SKILL_TIER_LABELS[tier] ?? tier;
   return {
     name: manualData?.name || `Habilidade ${tierLabel} de ${sources[0]?.parent?.name ?? "?"}`,
     type: "skill",
@@ -121,11 +121,11 @@ function buildManualSpecialSkillData(sources, tier, manualData) {
 
 /**
  * Verdadeiro se `sourceTier` puder ser consumido/fundido por uma skill de `targetTier`,
- * segundo a ordem de força em MEU_SISTEMA.SKILL_TIERS (uma skill só consome fontes do
+ * segundo a ordem de força em NIHILITY.SKILL_TIERS (uma skill só consome fontes do
  * seu próprio tier ou de tiers abaixo — nunca de um tier acima).
  */
 function canConsumeTier(targetTier, sourceTier) {
-  const order = MEU_SISTEMA.SKILL_TIERS;
+  const order = NIHILITY.SKILL_TIERS;
   return order.indexOf(sourceTier) <= order.indexOf(targetTier);
 }
 
@@ -139,7 +139,7 @@ function canConsumeTier(targetTier, sourceTier) {
  *  - tier "extra"/"normal": verifica reutilização por assinatura de fusão antes
  *    de criar um item novo.
  *  - Regra geral de consumo: uma skill de tier T só pode consumir fontes de tier
- *    ≤ T na ordem de MEU_SISTEMA.SKILL_TIERS (ex: Única consome Única-e-abaixo;
+ *    ≤ T na ordem de NIHILITY.SKILL_TIERS (ex: Única consome Única-e-abaixo;
  *    Ultimate consome tudo, inclusive outras Ultimates).
  *  - "ultimate" nunca é escolhido como resultado aqui — só surge por fusão quando
  *    as próprias fontes já somam poder suficiente (ver `mode` "auto"/"manual" abaixo).
@@ -147,7 +147,7 @@ function canConsumeTier(targetTier, sourceTier) {
  * @param {Actor} actor
  * @param {string[]} sourceItemIds - ids dos Items (type "skill") a fundir
  * @param {object} [options]
- * @param {string} [options.tier="normal"] - um valor de MEU_SISTEMA.SKILL_TIERS
+ * @param {string} [options.tier="normal"] - um valor de NIHILITY.SKILL_TIERS
  * @param {"auto"|"manual"} [options.mode="manual"] - só relevante para tier "unique"/"ultimate"
  * @param {{name?:string, effect?:string, emotion?:string}} [options.manualData]
  * @param {string} [options.emotionPrompt] - prompt de emoção para o modo "auto" (IA)
@@ -169,7 +169,7 @@ export async function fuseSkills(actor, sourceItemIds, options = {}) {
 
   const invalidSource = sources.find(s => !canConsumeTier(tier, s.system.tier));
   if (invalidSource) {
-    const tierLabel = MEU_SISTEMA.SKILL_TIER_LABELS[tier] ?? tier;
+    const tierLabel = NIHILITY.SKILL_TIER_LABELS[tier] ?? tier;
     ui.notifications?.error(`Uma Skill ${tierLabel} não pode consumir "${invalidSource.name}" (tier acima).`);
     throw new Error(`Regra violada: tier "${tier}" não pode consumir tier "${invalidSource.system.tier}".`);
   }
@@ -333,49 +333,49 @@ export async function evolveSkill(actor, sourceItemId, newSkillData) {
 /*  Pontos de Habilidade: conversão e criação    */
 /* -------------------------------------------- */
 
-/** Quebra 1 Ponto de Habilidade de `tier` em MEU_SISTEMA.SKILL_POINT_CONVERSION_RATE pontos do tier abaixo. */
+/** Quebra 1 Ponto de Habilidade de `tier` em NIHILITY.SKILL_POINT_CONVERSION_RATE pontos do tier abaixo. */
 export async function breakSkillPoints(actor, tier) {
-  const order = MEU_SISTEMA.SKILL_POINT_TIERS; // ["extra", "normal", "unique"]
+  const order = NIHILITY.SKILL_POINT_TIERS; // ["extra", "normal", "unique"]
   const idx = order.indexOf(tier);
   if (idx <= 0) throw new Error("Não há tier abaixo para quebrar esse Ponto de Habilidade.");
   const lowerTier = order[idx - 1];
 
   const current = actor.system.skillPoints[tier] ?? 0;
   if (current < 1) {
-    ui.notifications?.warn(`Sem Pontos ${MEU_SISTEMA.SKILL_TIER_LABELS[tier]} para quebrar.`);
+    ui.notifications?.warn(`Sem Pontos ${NIHILITY.SKILL_TIER_LABELS[tier]} para quebrar.`);
     throw new Error("Pontos insuficientes.");
   }
   if (freeSkillPoints(actor, tier) < 1) {
-    ui.notifications?.warn(`O Ponto ${MEU_SISTEMA.SKILL_TIER_LABELS[tier]} está reservado por um pedido de Habilidade em aberto. Cancele ou espere o pedido antes de quebrá-lo.`);
+    ui.notifications?.warn(`O Ponto ${NIHILITY.SKILL_TIER_LABELS[tier]} está reservado por um pedido de Habilidade em aberto. Cancele ou espere o pedido antes de quebrá-lo.`);
     throw new Error("Ponto reservado por um pedido.");
   }
 
   await actor.update({
     [`system.skillPoints.${tier}`]: current - 1,
     [`system.skillPoints.${lowerTier}`]:
-      (actor.system.skillPoints[lowerTier] ?? 0) + MEU_SISTEMA.SKILL_POINT_CONVERSION_RATE
+      (actor.system.skillPoints[lowerTier] ?? 0) + NIHILITY.SKILL_POINT_CONVERSION_RATE
   });
 }
 
-/** Funde MEU_SISTEMA.SKILL_POINT_CONVERSION_RATE Pontos de Habilidade de `tier` em 1 ponto do tier acima. */
+/** Funde NIHILITY.SKILL_POINT_CONVERSION_RATE Pontos de Habilidade de `tier` em 1 ponto do tier acima. */
 export async function mergeSkillPoints(actor, tier) {
-  const order = MEU_SISTEMA.SKILL_POINT_TIERS;
+  const order = NIHILITY.SKILL_POINT_TIERS;
   const idx = order.indexOf(tier);
   if (idx < 0 || idx >= order.length - 1) throw new Error("Não há tier acima para fundir esses Pontos de Habilidade.");
   const upperTier = order[idx + 1];
 
   const current = actor.system.skillPoints[tier] ?? 0;
-  if (current < MEU_SISTEMA.SKILL_POINT_CONVERSION_RATE) {
-    ui.notifications?.warn(`Precisa de ${MEU_SISTEMA.SKILL_POINT_CONVERSION_RATE} Pontos ${MEU_SISTEMA.SKILL_TIER_LABELS[tier]} para fundir.`);
+  if (current < NIHILITY.SKILL_POINT_CONVERSION_RATE) {
+    ui.notifications?.warn(`Precisa de ${NIHILITY.SKILL_POINT_CONVERSION_RATE} Pontos ${NIHILITY.SKILL_TIER_LABELS[tier]} para fundir.`);
     throw new Error("Pontos insuficientes.");
   }
-  if (freeSkillPoints(actor, tier) < MEU_SISTEMA.SKILL_POINT_CONVERSION_RATE) {
-    ui.notifications?.warn(`Há ponto ${MEU_SISTEMA.SKILL_TIER_LABELS[tier]} reservado por um pedido de Habilidade em aberto: só os pontos livres podem ser fundidos.`);
+  if (freeSkillPoints(actor, tier) < NIHILITY.SKILL_POINT_CONVERSION_RATE) {
+    ui.notifications?.warn(`Há ponto ${NIHILITY.SKILL_TIER_LABELS[tier]} reservado por um pedido de Habilidade em aberto: só os pontos livres podem ser fundidos.`);
     throw new Error("Ponto reservado por um pedido.");
   }
 
   await actor.update({
-    [`system.skillPoints.${tier}`]: current - MEU_SISTEMA.SKILL_POINT_CONVERSION_RATE,
+    [`system.skillPoints.${tier}`]: current - NIHILITY.SKILL_POINT_CONVERSION_RATE,
     [`system.skillPoints.${upperTier}`]: (actor.system.skillPoints[upperTier] ?? 0) + 1
   });
 }
@@ -426,14 +426,14 @@ export function freeSkillPoints(actor, tier, { exceptMessageId = null } = {}) {
  * @returns {Promise<object|null>} os dados do editor (com `tier`), ou null se cancelou
  */
 export async function openSkillRequestEditor(actor, current = null, { messageId = null } = {}) {
-  const tiers = MEU_SISTEMA.SKILL_POINT_TIERS.filter(t => t === current?.tier || freeSkillPoints(actor, t, { exceptMessageId: messageId }) > 0);
+  const tiers = NIHILITY.SKILL_POINT_TIERS.filter(t => t === current?.tier || freeSkillPoints(actor, t, { exceptMessageId: messageId }) > 0);
   if (!tiers.length) {
     ui.notifications?.warn("Sem Pontos de Habilidade livres para pedir uma Skill (os pedidos abertos já reservam os seus).");
     return null;
   }
   const { openSkillEditorDialog } = await import("../apps/skill-editor-dialog.js");
   const tierLabels = Object.fromEntries(
-    tiers.map(t => [t, `${MEU_SISTEMA.SKILL_TIER_LABELS[t]} (${freeSkillPoints(actor, t, { exceptMessageId: messageId })} ponto(s) livre(s))`])
+    tiers.map(t => [t, `${NIHILITY.SKILL_TIER_LABELS[t]} (${freeSkillPoints(actor, t, { exceptMessageId: messageId })} ponto(s) livre(s))`])
   );
   const initial = current ? { ...requestMechanics(current), name: current.name, tier: current.tier, level: 1 } : { tier: tiers.includes("normal") ? "normal" : tiers[0], level: 1 };
   const result = await openSkillEditorDialog(initial, {
@@ -459,12 +459,12 @@ export async function openSkillRequestEditor(actor, current = null, { messageId 
  */
 export async function requestSkillCreation(actor, data) {
   const { tier, name } = data ?? {};
-  if (!MEU_SISTEMA.SKILL_POINT_TIERS.includes(tier)) {
+  if (!NIHILITY.SKILL_POINT_TIERS.includes(tier)) {
     throw new Error("Tier inválido para criação via Pontos de Habilidade.");
   }
   if (!name?.trim()) throw new Error("Dê um nome para a habilidade.");
   if (freeSkillPoints(actor, tier) < 1) {
-    ui.notifications?.warn(`Sem Pontos ${MEU_SISTEMA.SKILL_TIER_LABELS[tier]} livres.`);
+    ui.notifications?.warn(`Sem Pontos ${NIHILITY.SKILL_TIER_LABELS[tier]} livres.`);
     throw new Error("Pontos de Habilidade insuficientes.");
   }
   const mechanics = requestSkillSystem({ ...data, description: safeRequestDescription(data.description) }, tier);
@@ -491,7 +491,7 @@ async function requestCardContent(actor, req) {
   return renderSystemTemplate(REQUEST_TEMPLATE, {
     actorName: actor?.name ?? "?",
     ownerName: owner?.name ?? "",
-    tierLabel: MEU_SISTEMA.SKILL_TIER_LABELS[req.tier],
+    tierLabel: NIHILITY.SKILL_TIER_LABELS[req.tier],
     name: req.name,
     status: req.status,
     open: isOpenRequest(req.status),
@@ -557,7 +557,7 @@ export async function approveSkillCreationRequest(message, { override = null } =
 
   const available = actor.system.skillPoints[req.tier] ?? 0;
   if (available < 1) {
-    ui.notifications?.warn(`${actor.name} não tem mais Pontos ${MEU_SISTEMA.SKILL_TIER_LABELS[req.tier]} suficientes.`);
+    ui.notifications?.warn(`${actor.name} não tem mais Pontos ${NIHILITY.SKILL_TIER_LABELS[req.tier]} suficientes.`);
     await updateSkillRequestMessage(message, "insufficient");
     return null;
   }
@@ -574,7 +574,7 @@ export async function approveSkillCreationRequest(message, { override = null } =
   await announceVoiceOfTheWorld(actor, {
     kind: "new-skill",
     title: `Habilidade Aprovada: ${created.name}`,
-    body: `O Mestre aprovou "${created.name}" (custou 1 Ponto ${MEU_SISTEMA.SKILL_TIER_LABELS[req.tier]}).`
+    body: `O Mestre aprovou "${created.name}" (custou 1 Ponto ${NIHILITY.SKILL_TIER_LABELS[req.tier]}).`
   });
 
   await updateSkillRequestMessage(message, "approved", override ? { name, mechanics: requestSkillSystem(override, req.tier) } : {});
@@ -649,9 +649,9 @@ export async function editSkillRequest(message) {
   if (!actor) return;
   const edited = await openSkillRequestEditor(actor, req, { messageId: message.id });
   if (!edited) return;
-  const tier = MEU_SISTEMA.SKILL_POINT_TIERS.includes(edited.tier) ? edited.tier : req.tier;
+  const tier = NIHILITY.SKILL_POINT_TIERS.includes(edited.tier) ? edited.tier : req.tier;
   if (tier !== req.tier && freeSkillPoints(actor, tier, { exceptMessageId: message.id }) < 1) {
-    ui.notifications?.warn(`Sem Pontos ${MEU_SISTEMA.SKILL_TIER_LABELS[tier]} livres.`);
+    ui.notifications?.warn(`Sem Pontos ${NIHILITY.SKILL_TIER_LABELS[tier]} livres.`);
     return;
   }
   const mechanics = requestSkillSystem({ ...edited, description: safeRequestDescription(edited.description) }, tier);

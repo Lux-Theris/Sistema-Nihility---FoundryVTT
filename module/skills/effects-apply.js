@@ -2,7 +2,7 @@
  * Efeitos Temporários: criar/renovar Active Effects e Condições num alvo, e os ticks periódicos (Veneno, cura).
  * (Separado de skill-effects.js na reorganização de pastas — mesma lógica de antes.)
  */
-import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions, getActiveTraits, getEffectTargetLabels, skillLevelBonuses, getDamageElement, getWeaponType, isInterferenceEnabled, isSkillRangeEnabled, isTimeManipulationEnabled, sameActor } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, getActiveStatusConditions, getActiveTraits, getEffectTargetLabels, skillLevelBonuses, getDamageElement, getWeaponType, isInterferenceEnabled, isSkillRangeEnabled, isTimeManipulationEnabled, sameActor } from "../core/config.js";
 import { makeAnchor, addAnchor, effectAnchors, finiteRemaining, serializeFinite, durationRemaining, refreshFiniteRounds, PERMANENT, ANCHORED_TARGETS_FLAG, recordAnchoredTarget } from "../combat/effect-anchors.js";
 import { escapeHtml } from "../helpers/html.js";
 import { applyStructuralDamage, damageCasco, repairModules } from "../starship/starship-power.js";
@@ -504,7 +504,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
               healBlockPartId: entry.healBlockPartId || "",
               // Cura nas partes do corpo (Ferimentos por parte): o tipo e, numa Regeneração de Skill
               // Única ou Ultimate, se ela também conserta próteses.
-              healKind: MEU_SISTEMA.HEAL_KINDS.includes(entry.healKind) ? entry.healKind : "cura",
+              healKind: NIHILITY.HEAL_KINDS.includes(entry.healKind) ? entry.healKind : "cura",
               repairsProsthesis: entry.healKind === "regeneracao" && PROSTHESIS_REGEN_TIERS.includes(mech.tier),
               // Cura focada numa parte (escolhida ao usar): ela enche primeiro.
               focusPartId: entry.focusPartId || ""

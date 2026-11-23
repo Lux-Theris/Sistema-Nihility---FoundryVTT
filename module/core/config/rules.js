@@ -3,7 +3,7 @@
  * (Parte de core/config.js, dividido em 1.68.0 sem mudar nenhuma função; importe de
  * `core/config.js`, que reexporta tudo.)
  */
-import { MEU_SISTEMA } from "./constants.js";
+import { NIHILITY } from "./constants.js";
 
 /**
  * Traços efetivos de um Ator: os da Espécie, mais os acrescentados na ficha, menos os retirados
@@ -32,7 +32,7 @@ export function originTraitIdsOf(layers) {
 
 /** Slots e carga base (kg) de uma Espécie: os campos do preset, senão a tabela padrão. Pura. */
 export function speciesCarry(preset, speciesKey) {
-  const fallback = MEU_SISTEMA.SPECIES_CARRY_DEFAULTS[speciesKey] ?? MEU_SISTEMA.DEFAULT_CARRY;
+  const fallback = NIHILITY.SPECIES_CARRY_DEFAULTS[speciesKey] ?? NIHILITY.DEFAULT_CARRY;
   const read = (value, fb) => {
     if (value === undefined || value === null || value === "") return fb;
     const n = Number(value);
@@ -45,7 +45,7 @@ export function speciesCarry(preset, speciesKey) {
 export function stackCount(quantity, stackSize) {
   const q = Math.max(0, Math.floor(Number(quantity) || 0));
   if (!q) return 0;
-  const size = Math.max(1, Math.floor(Number(stackSize) || MEU_SISTEMA.ITEM_STACK_DEFAULT));
+  const size = Math.max(1, Math.floor(Number(stackSize) || NIHILITY.ITEM_STACK_DEFAULT));
   return Math.ceil(q / size);
 }
 
@@ -98,7 +98,7 @@ export function encumbrancePenalty(weight, capacity) {
 
 /** Slots de um Módulo de Porão: tabela do Porte × multiplicador do Módulo. Pura. */
 export function cargoSlotsFor(moduleSize, multiplier = 1) {
-  return Math.floor((MEU_SISTEMA.CARGO_SLOTS_BY_MODULE_SIZE[moduleSize] ?? 0) * Math.max(0, Number(multiplier ?? 1) || 0));
+  return Math.floor((NIHILITY.CARGO_SLOTS_BY_MODULE_SIZE[moduleSize] ?? 0) * Math.max(0, Number(multiplier ?? 1) || 0));
 }
 
 /** Fator de massa da carga no Motor: 1 + peso ÷ carga de referência do Porte. Pura. */
@@ -115,7 +115,7 @@ export function ammoFitsLauncher(ammo, launcher) {
   if (!ammo?.enabled || !launcher?.usesAmmo || !ammo.type) return false;
   if (!(launcher.ammoTypes ?? []).includes(ammo.type)) return false;
   if (!ammo.minLauncherSize) return true;
-  return (MEU_SISTEMA.MODULE_SIZE_RANK[launcher.moduleSize] ?? 0) >= (MEU_SISTEMA.MODULE_SIZE_RANK[ammo.minLauncherSize] ?? 0);
+  return (NIHILITY.MODULE_SIZE_RANK[launcher.moduleSize] ?? 0) >= (NIHILITY.MODULE_SIZE_RANK[ammo.minLauncherSize] ?? 0);
 }
 
 /**
@@ -269,9 +269,9 @@ export function tractorHold(moduleRank, targetRank, throttleRatio = 1) {
  */
 export function powerPriorityGroup(value) {
   const n = Math.round(Number(value));
-  if (n >= 1 && n <= MEU_SISTEMA.POWER_PRIORITY_GROUPS) return n;
+  if (n >= 1 && n <= NIHILITY.POWER_PRIORITY_GROUPS) return n;
   if (n === 0) return 1;
-  return Math.ceil(MEU_SISTEMA.POWER_PRIORITY_GROUPS / 2);
+  return Math.ceil(NIHILITY.POWER_PRIORITY_GROUPS / 2);
 }
 
 /**
@@ -292,7 +292,7 @@ export function resolvePowerGroups(stored) {
     seen.add(id);
     groups.push({ id, label: String(entry.label ?? "").trim() });
   }
-  const list = groups.length ? groups : MEU_SISTEMA.DEFAULT_POWER_GROUPS.map(g => ({ ...g }));
+  const list = groups.length ? groups : NIHILITY.DEFAULT_POWER_GROUPS.map(g => ({ ...g }));
   return list.map((g, i) => ({ id: g.id, label: g.label || `Prioridade ${i + 1}` }));
 }
 

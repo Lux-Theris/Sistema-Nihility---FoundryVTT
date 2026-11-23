@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 
 import { sheetTrim, allZero, shownSkillTiers, TRIM_BLOCKS } from "../module/sheets/sheet-trim-rules.js";
 import { conditionSentence, buildTableRulesPages } from "../module/core/table-rules-text.js";
-import { MEU_SISTEMA } from "../module/core/config.js";
+import { NIHILITY } from "../module/core/config.js";
 
 test("Ficha enxuta: jogador não vê bloco vazio, Mestre vê marcado, 'mostrar' abre tudo", () => {
   const empty = { titles: true, skillPoints: true, gear: false, economy: true, anatomy: false };
@@ -97,17 +97,17 @@ test("Regras desta mesa: páginas só com o que vale, texto escapado", () => {
 });
 
 test("Módulos do Sistema: todo bloco tem grupo e frase; 'Deixar leve' só desliga os pesados", () => {
-  const groups = new Set(MEU_SISTEMA.FEATURE_GROUPS.map(g => g.id));
-  for (const [key, f] of Object.entries(MEU_SISTEMA.FEATURES)) {
+  const groups = new Set(NIHILITY.FEATURE_GROUPS.map(g => g.id));
+  for (const [key, f] of Object.entries(NIHILITY.FEATURES)) {
     assert.ok(f.short, `${key} sem frase curta`);
     assert.ok(groups.has(f.group), `${key} sem grupo válido`);
     assert.ok(f.short.length <= 90, `${key}: frase longa demais`);
   }
-  const light = MEU_SISTEMA.CAMPAIGN_PRESETS.leve;
+  const light = NIHILITY.CAMPAIGN_PRESETS.leve;
   assert.ok(light.light);
   assert.equal(light.content, undefined);
   assert.ok(Object.values(light.features).every(v => v === false));
-  assert.deepEqual(Object.keys(light.features).sort(), Object.entries(MEU_SISTEMA.FEATURES).filter(([, f]) => f.heavy).map(([k]) => k).sort());
+  assert.deepEqual(Object.keys(light.features).sort(), Object.entries(NIHILITY.FEATURES).filter(([, f]) => f.heavy).map(([k]) => k).sort());
   // naturalRegen, bodyPartInjury, movement, radiation, encumbrance, scale, shipManeuver, elevation (J4) e surfaces (8.2).
   assert.equal(Object.keys(light.features).length, 9);
 });

@@ -17,7 +17,7 @@
  *    e a regeneração de Mana (regeneration.js); 0 = magia não funciona ali.
  */
 import { effectRoundsUpdate } from "../helpers/foundry-compat.js";
-import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions, getActiveTraits, actorTraits, isEnvironmentEnabled } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, getActiveStatusConditions, getActiveTraits, actorTraits, isEnvironmentEnabled } from "../core/config.js";
 import { isDesignatedGm } from "../helpers/gm-relay.js";
 import { desiredEnvironmentConditions, environmentDiff, resolveManaDensity, normalizeHazard, normalizeDensity, wantedSceneFx, sceneFxPlan, fxPresetLabel } from "./environment-rules.js";
 import { reportError } from "../helpers/report.js";
@@ -72,7 +72,7 @@ export function manaDensityFor(actor, tokenDoc = null) {
   if (!isEnvironmentEnabled()) return 1;
   let worldDefault = 1;
   try {
-    worldDefault = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.manaDensityDefault));
+    worldDefault = Number(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.manaDensityDefault));
   } catch (err) {
     /* setting ainda não registrada */
   }

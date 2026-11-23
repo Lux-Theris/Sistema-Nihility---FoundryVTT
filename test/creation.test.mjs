@@ -21,7 +21,7 @@ import {
   speciesCardLines,
   speciesBlurb
 } from "../module/creation/creation-rules.js";
-import { MEU_SISTEMA } from "../module/core/config.js";
+import { NIHILITY } from "../module/core/config.js";
 
 test("Pedido de Skill: só a mecânica entra; Nível 1, desligada, Tier do ponto", () => {
   const system = requestSkillSystem(
@@ -114,7 +114,7 @@ test("Faixa Criando: passos, o atual e quando dá para clicar Pronto", () => {
 });
 
 test("Começar de um jeito: reparte tudo, inteiro, só nos atributos que aparecem", () => {
-  const keys = MEU_SISTEMA.COMBAT_ATTRIBUTES;
+  const keys = NIHILITY.COMBAT_ATTRIBUTES;
   for (const spread of Object.values(QUICK_SPREADS)) {
     const out = quickSpread(35, spread.weights, keys);
     assert.equal(Object.values(out).reduce((a, b) => a + b, 0), 35, spread.label);
@@ -160,7 +160,7 @@ test("Uma frase por atributo, com o que ele alimenta neste mundo", () => {
 });
 
 test("Origem: o cartão diz o que a Espécie com a Linhagem traz", () => {
-  const dragoide = MEU_SISTEMA.DEFAULT_SPECIES_PRESETS.dragoide;
+  const dragoide = NIHILITY.DEFAULT_SPECIES_PRESETS.dragoide;
   const fogo = dragoide.lineages.find(l => l.id === "fogo");
   const lines = speciesCardLines(dragoide, fogo, { traitLabel: id => `T:${id}`, elementLabel: id => (id === "fire" ? "Fogo" : id) });
   const byLabel = Object.fromEntries(lines.map(l => [l.label, l]));

@@ -8,7 +8,7 @@ import { SYSTEM_ID } from "../core/config.js";
 import { compendiumCollectionClass } from "../helpers/foundry-compat.js";
 
 /**
- * Este Compêndio é criado aqui e NÃO entra em `MEU_SISTEMA.COMPENDIUM` de propósito (decisão
+ * Este Compêndio é criado aqui e NÃO entra em `NIHILITY.COMPENDIUM` de propósito (decisão
  * revisada e mantida): aquela tabela é de Compêndios de CONTEÚDO DE JOGO (Skills, Títulos,
  * Módulos, Biblioteca/Grupos do PAD) — coisas que o Mestre abre, navega e edita, e que o botão
  * "Sincronizar" do menu recria por serem parte do mundo. Este aqui é infraestrutura interna: um

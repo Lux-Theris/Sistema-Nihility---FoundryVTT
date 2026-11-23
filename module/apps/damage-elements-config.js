@@ -1,4 +1,4 @@
-import { MEU_SISTEMA, getActiveDamageElements, getActiveStatusConditions, getActiveTraits, getAffinityConfig, isSurfacesEnabled } from "../core/config.js";
+import { NIHILITY, getActiveDamageElements, getActiveStatusConditions, getActiveTraits, getAffinityConfig, isSurfacesEnabled } from "../core/config.js";
 import { normalizeSurface } from "../environment/surface-rules.js";
 import { cycleAffinityLevel, clampAffinityLevel, affinityMultiplier } from "../combat/damage-rules.js";
 import { createCardListConfigApp, escapeHtml, optionsHtml } from "./card-list-config-factory.js";
@@ -33,7 +33,7 @@ function effectRowHtml(effect = {}) {
   const type = effect.type ?? "condition";
   const conditions = getActiveStatusConditions().map(c => [c.id, c.label]);
   const traits = getActiveTraits().map(t => [t.id, t.label]);
-  const types = MEU_SISTEMA.ELEMENT_EFFECT_TYPES.map(t => [t, MEU_SISTEMA.ELEMENT_EFFECT_TYPE_LABELS[t]]);
+  const types = NIHILITY.ELEMENT_EFFECT_TYPES.map(t => [t, NIHILITY.ELEMENT_EFFECT_TYPE_LABELS[t]]);
   // Só Condições com a marca "Impede regeneração" (vazio = a padrão, "Regeneração bloqueada").
   const blocking = [["", "Regeneração bloqueada (padrão)"], ...getActiveStatusConditions().filter(c => (c.healBlock || c.blocksRegeneration) && c.id !== "regen-blocked").map(c => [c.id, c.label])];
   return `
@@ -41,7 +41,7 @@ function effectRowHtml(effect = {}) {
       <select data-effect-field="type">${optionsHtml(types, type)}</select>
       <select data-effect-field="conditionId" data-shows="condition">${optionsHtml(conditions, effect.conditionId)}</select>
       <select data-effect-field="trait" data-shows="traitBonus">${optionsHtml(traits, effect.trait)}</select>
-      <select data-effect-field="layer" data-shows="layer">${optionsHtml(MEU_SISTEMA.DAMAGE_LAYERS.map(l => [l, MEU_SISTEMA.DAMAGE_LAYER_LABELS[l]]), effect.layer ?? "shield")}</select>
+      <select data-effect-field="layer" data-shows="layer">${optionsHtml(NIHILITY.DAMAGE_LAYERS.map(l => [l, NIHILITY.DAMAGE_LAYER_LABELS[l]]), effect.layer ?? "shield")}</select>
       <select data-effect-field="blockConditionId" data-shows="blockRegen" title="A Condição aplicada (precisa ter a marca Impede regeneração no catálogo de Condições)">${optionsHtml(blocking, effect.type === "blockRegen" ? effect.conditionId ?? "" : "")}</select>
       <label data-shows="condition" title="0 = a duração que a própria Condição já tem (uma marca como Molhado precisa de duração).">Rodadas <input type="number" data-effect-field="condRounds" min="0" value="${effect.type === "condition" ? effect.rounds ?? 0 : 0}"/></label>
       <label data-shows="condition sever blockRegen moduleDisable energyDrain resistanceDown">Chance % <input type="number" data-effect-field="chance" min="0" max="100" value="${effect.chance ?? (effect.type === "blockRegen" ? 100 : 25)}"/></label>
@@ -165,7 +165,7 @@ function refreshAffinitySummary(card, labelOf = id => id) {
   for (const [defenseId, level] of Object.entries(affinity)) (groups[level] ??= []).push(labelOf(defenseId));
   const parts = [2, 1, -1, -2]
     .filter(level => groups[level]?.length)
-    .map(level => `${MEU_SISTEMA.AFFINITY_LEVEL_LABELS[level]} contra: ${groups[level].join(", ")}`);
+    .map(level => `${NIHILITY.AFFINITY_LEVEL_LABELS[level]} contra: ${groups[level].join(", ")}`);
   summary.textContent = parts.length ? parts.join(" · ") : "Neutro contra todos (abra a Tabela para mudar).";
 }
 
@@ -477,10 +477,10 @@ export class DamageElementsConfigApp extends DamageElementsCards {
       const level = clampAffinityLevel(readAffinity(attacker.card)[defender.id] ?? 0);
       const text = level ? mult(level) : "";
       return `<td><button type="button" class="affinity-cell level-${LEVEL_CLASS[level]}" data-attack="${esc(attacker.id)}" data-defense="${esc(defender.id)}"
-        title="${esc(attacker.label)} contra ${esc(defender.label)}: ${MEU_SISTEMA.AFFINITY_LEVEL_LABELS[level]} ${mult(level)} — clique esquerdo sobe, direito desce">${text}</button></td>`;
+        title="${esc(attacker.label)} contra ${esc(defender.label)}: ${NIHILITY.AFFINITY_LEVEL_LABELS[level]} ${mult(level)} — clique esquerdo sobe, direito desce">${text}</button></td>`;
     };
     const legend = [2, 1, 0, -1, -2]
-      .map(level => `<span class="affinity-legend-item"><span class="affinity-cell level-${LEVEL_CLASS[level]}">${level ? mult(level) : "·"}</span> ${MEU_SISTEMA.AFFINITY_LEVEL_LABELS[level]}</span>`)
+      .map(level => `<span class="affinity-legend-item"><span class="affinity-cell level-${LEVEL_CLASS[level]}">${level ? mult(level) : "·"}</span> ${NIHILITY.AFFINITY_LEVEL_LABELS[level]}</span>`)
       .join("");
     wrap.innerHTML = elements.length
       ? `<p class="hint-inline">Linha = elemento que <strong>ataca</strong>; coluna = elemento que <strong>defende</strong> (o corpo, o Escudo ou a Estrutura). Defensor com dois elementos: os multiplicadores se multiplicam. Multiplicadores em Regras da Mesa.</p>
@@ -507,7 +507,7 @@ export class DamageElementsConfigApp extends DamageElementsCards {
       input.value = JSON.stringify(affinity);
       button.className = `affinity-cell level-${LEVEL_CLASS[level]}`;
       button.textContent = level ? mult(level) : "";
-      button.title = `${attacker.label} contra ${byId.get(button.dataset.defense)?.label ?? ""}: ${MEU_SISTEMA.AFFINITY_LEVEL_LABELS[level]} ${mult(level)} — clique esquerdo sobe, direito desce`;
+      button.title = `${attacker.label} contra ${byId.get(button.dataset.defense)?.label ?? ""}: ${NIHILITY.AFFINITY_LEVEL_LABELS[level]} ${mult(level)} — clique esquerdo sobe, direito desce`;
     };
     wrap.querySelectorAll("button.affinity-cell").forEach(button => {
       button.addEventListener("click", event => {

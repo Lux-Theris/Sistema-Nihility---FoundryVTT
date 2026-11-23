@@ -3,7 +3,7 @@
  * Lista com uma linha por Função; o "detalhe" muda com o efeito (Condição, Traço, metros de
  * arrastar). Vale só com "Ferimentos por parte" ligado.
  */
-import { SYSTEM_ID, MEU_SISTEMA, getActiveBodyFunctions, getActiveStatusConditions, getActiveTraits } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, getActiveBodyFunctions, getActiveStatusConditions, getActiveTraits } from "../core/config.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -97,7 +97,7 @@ export class BodyFunctionsConfigApp extends HandlebarsApplicationMixin(Applicati
 
   static async #onSave() {
     const rows = this.rows.filter(r => r.id).map(r => ({ ...r, label: r.label || r.id }));
-    await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.bodyFunctionsData, JSON.stringify(rows, null, 2));
+    await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.bodyFunctionsData, JSON.stringify(rows, null, 2));
     ui.notifications.info("Funções de Parte salvas.");
     this.close();
   }

@@ -13,7 +13,7 @@
  */
 import {
   SYSTEM_ID,
-  MEU_SISTEMA,
+  NIHILITY,
   getActiveStatusConditions,
   getVisibleAttributes,
   isStatusConditionsEnabled,
@@ -113,8 +113,8 @@ function buildTargetOptions() {
   return (
     '<option value="">— nenhum (só o ícone) —</option>' +
     '<option value="hp">HP</option>' +
-    `<option value="energy">${MEU_SISTEMA.EFFECT_TARGET_LABELS.energy}</option>` +
-    `<option value="movement">${MEU_SISTEMA.EFFECT_TARGET_LABELS.movement}</option>` +
+    `<option value="energy">${NIHILITY.EFFECT_TARGET_LABELS.energy}</option>` +
+    `<option value="movement">${NIHILITY.EFFECT_TARGET_LABELS.movement}</option>` +
     attributes
   );
 }

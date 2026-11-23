@@ -11,7 +11,7 @@
  */
 import {
   SYSTEM_ID,
-  MEU_SISTEMA,
+  NIHILITY,
   isFeatureEnabled,
   getFeatureOption,
   getActiveWeaponTypes,
@@ -96,7 +96,7 @@ export function masteryHitFor(actor, typeId) {
 
 function readSetting(key, fallback) {
   try {
-    const value = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[key]);
+    const value = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS[key]);
     return value === undefined || value === null || value === "" ? fallback : value;
   } catch (err) {
     return fallback;

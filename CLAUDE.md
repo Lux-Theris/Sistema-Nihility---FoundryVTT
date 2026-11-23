@@ -8,7 +8,7 @@ Nihility RPG System — a custom Foundry VTT game system (id `nihility-rpg-syste
 
 **Design goal to respect in every change:** the owner runs medieval-fantasy, sci-fi and mixed campaigns from this one system, and wants subsystems to be switchable per world. Anything you add should either sit behind a feature toggle or be small enough not to get in the way when the campaign doesn't use it — see "Feature toggles" under `config.js` below.
 
-Everything user-facing is in **pt-BR**, hardcoded in the templates and JS. The `lang/*.json` files now contain only `TYPES.*` keys, which is all Foundry actually consumes here — the ~40 `NIHILITY.*` keys they used to carry were read by nothing (there is no `game.i18n` call anywhere in this system) and were removed so the files stop implying a translation layer that doesn't exist. Write new UI strings in pt-BR like the surrounding code; adding `NIHILITY.*` keys would not resolve anywhere.
+Everything user-facing is in **pt-BR**, hardcoded in the templates and JS. The `lang/*.json` files now contain only `TYPES.*` keys, which is all Foundry actually consumes here — the ~40 `NIHILITY.*` keys they used to carry were read by nothing (there is no `game.i18n` call anywhere in this system) and were removed so the files stop implying a translation layer that doesn't exist. Write new UI strings in pt-BR like the surrounding code; adding `NIHILITY.*` keys would not resolve anywhere. `NIHILITY` (no dot) is now the name of the configuration object in `module/core/config/constants.js` (formerly `MEU_SISTEMA`), not a translation key.
 
 ## Commands
 

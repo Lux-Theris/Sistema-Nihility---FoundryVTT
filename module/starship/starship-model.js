@@ -1,6 +1,6 @@
 import {
   SYSTEM_ID,
-  MEU_SISTEMA,
+  NIHILITY,
   getStarshipEnergyLabel,
   effectiveSkillCost,
   isShipManeuverEnabled,
@@ -135,7 +135,7 @@ function shipSystemsSchema({ sizeChoices }) {
 
     /**
      * Fila de prioridade de energia desta Nave (aba Prioridade): grupos em ordem, o primeiro
-     * recebe energia primeiro. Vazia = os cinco grupos padrão (MEU_SISTEMA.DEFAULT_POWER_GROUPS),
+     * recebe energia primeiro. Vazia = os cinco grupos padrão (NIHILITY.DEFAULT_POWER_GROUPS),
      * que é como toda Nave salva antes da fila dinâmica continua igual. Leia por `powerGroupList`.
      */
     powerGroups: new fields.ArrayField(
@@ -190,7 +190,7 @@ function shipSystemsSchema({ sizeChoices }) {
 
 /**
  * Base compartilhada por Nave Espacial e Veículo — os dois tipos usam o MESMO Grid de Energia e
- * leem os Módulos pela FUNÇÃO da Categoria (MEU_SISTEMA.MODULE_ROLES: `modulesByRole`,
+ * leem os Módulos pela FUNÇÃO da Categoria (NIHILITY.MODULE_ROLES: `modulesByRole`,
  * `sumRoleStat`), não por um id de categoria fixo: dois Núcleos de Dobra somam Geração, impulso +
  * manobradores somam Propulsão. Os getters `reactorModule`/`shieldModule`/… devolvem o primeiro
  * Módulo da Função, pra ficha mostrar o nome.
@@ -260,7 +260,7 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
   }
 
   /**
-   * Módulos de uma Função mecânica (MEU_SISTEMA.MODULE_ROLES), de qualquer Categoria: "Motor de
+   * Módulos de uma Função mecânica (NIHILITY.MODULE_ROLES), de qualquer Categoria: "Motor de
    * Impulso" e "Manobradores" são os dois Propulsão. É o que as capacidades derivadas leem — dois
    * Núcleos de Dobra somam Geração, dois Escudos somam capacidade.
    */
@@ -341,8 +341,8 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
     // Todos os Módulos de Propulsão somam: impulso dá Aceleração, manobradores dão Rotação.
     const propulsion = this.modulesByRole("propulsion");
     if (!propulsion.length) return 0;
-    const moduleSize = MEU_SISTEMA.MODULE_SIZES[this.vesselSize.rank];
-    const reference = MEU_SISTEMA.MODULE_SIZE_PRESETS.engine?.[moduleSize]?.[field] ?? 0;
+    const moduleSize = NIHILITY.MODULE_SIZES[this.vesselSize.rank];
+    const reference = NIHILITY.MODULE_SIZE_PRESETS.engine?.[moduleSize]?.[field] ?? 0;
     // Carga no Porão pesa no Motor (só com o bloco de peso ligado): o Motor rende ÷ fator de massa.
     return engineRatio(this.sumRoleStat("propulsion", field) * this.bonusFactor("propulsionPercent"), reference) / this.cargoMassFactor;
   }
@@ -495,7 +495,7 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
 
   /** Espaço de Arma já ocupado — cada Arma consome (rank do seu Porte + 1) unidades (Compacto = 1). */
   get weaponSpaceUsed() {
-    return this.weaponModules.reduce((sum, m) => sum + MEU_SISTEMA.MODULE_SIZE_RANK[m.system.moduleSize] + 1, 0);
+    return this.weaponModules.reduce((sum, m) => sum + NIHILITY.MODULE_SIZE_RANK[m.system.moduleSize] + 1, 0);
   }
 
   /**
@@ -725,7 +725,7 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
 export class StarshipDataModel extends ShipSystemsDataModel {
   static defineSchema() {
     return {
-      ...shipSystemsSchema({ sizeChoices: MEU_SISTEMA.DEFAULT_SHIP_SIZES.map(s => s.id) }),
+      ...shipSystemsSchema({ sizeChoices: NIHILITY.DEFAULT_SHIP_SIZES.map(s => s.id) }),
       crew: new fields.NumberField({ required: false, integer: true, initial: 1, min: 0 }),
       biography: new fields.HTMLField({ required: false, initial: "" })
     };
@@ -746,7 +746,7 @@ export class StarshipDataModel extends ShipSystemsDataModel {
 export class VehicleDataModel extends ShipSystemsDataModel {
   static defineSchema() {
     return {
-      ...shipSystemsSchema({ sizeChoices: MEU_SISTEMA.DEFAULT_VEHICLE_SIZES.map(s => s.id) }),
+      ...shipSystemsSchema({ sizeChoices: NIHILITY.DEFAULT_VEHICLE_SIZES.map(s => s.id) }),
       fuel: new fields.SchemaField({
         value: new fields.NumberField({ required: true, integer: true, initial: 100, min: 0 }),
         max: new fields.NumberField({ required: true, integer: true, initial: 100, min: 0 }),

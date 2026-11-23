@@ -1,4 +1,4 @@
-import { SYSTEM_ID, MEU_SISTEMA, getScaleConfig, getFeatureOption, isScaleEnabled, getVesselSizes } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, getScaleConfig, getFeatureOption, isScaleEnabled, getVesselSizes } from "../core/config.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -108,7 +108,7 @@ export class ScalesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) {
       ui.notifications.warn("É preciso pelo menos uma Escala.");
       return;
     }
-    await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.scalesData, JSON.stringify({ ...this.draft, scales }, null, 2));
+    await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.scalesData, JSON.stringify({ ...this.draft, scales }, null, 2));
     ui.notifications.info("Escalas atualizadas.");
   }
 }

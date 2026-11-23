@@ -5,7 +5,7 @@
  */
 import {
   SYSTEM_ID,
-  MEU_SISTEMA,
+  NIHILITY,
   PHYSICAL_SUBTYPES,
   DEFAULT_ELEMENT_REACTIONS,
   DEFAULT_ELEMENT_SURFACES,
@@ -134,7 +134,7 @@ Hooks.once("init", () => {
   // injetado no diretório de Atores não apareça em alguma versão do Foundry.
   game.nihility = {
     id: SYSTEM_ID,
-    config: MEU_SISTEMA,
+    config: NIHILITY,
     ai: AIHelper,
     openAssistant: () => new NihilityMenuApp().render(true),
     // Overhaul de Naves, Fase 7 — rode via macro na hotbar pra pedir reparo de Módulo/Nave.
@@ -391,12 +391,12 @@ Hooks.once("ready", async () => {
  * dados antigos pelo nome/slot e grava a marca de origem na primeira aplicação.
  */
 async function migrateSpeciesStableKeys() {
-  const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.speciesPresetsData);
+  const raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.speciesPresetsData);
   if (!raw || (typeof raw === "string" && !raw.trim())) return;
   const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
   if (!parsed || typeof parsed !== "object") return;
   const normalized = normalizeSpeciesCatalog(parsed);
-  await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.speciesPresetsData, JSON.stringify(normalized, null, 2));
+  await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.speciesPresetsData, JSON.stringify(normalized, null, 2));
 }
 
 /**
@@ -427,7 +427,7 @@ async function runMigrationIfNeeded(key, migrationFn) {
  * não tiver — nada é trocado nem removido. Catálogo nunca salvo usa o padrão, que já os tem.
  */
 async function migrateIncapacitationConditions() {
-  const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData);
+  const raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.statusConditionsData);
   if (!raw) return;
   let list;
   try {
@@ -436,10 +436,10 @@ async function migrateIncapacitationConditions() {
     return;
   }
   if (!Array.isArray(list)) return;
-  const missing = MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS.filter(c => c.incapacitates && !list.some(e => e?.id === c.id));
+  const missing = NIHILITY.DEFAULT_STATUS_CONDITIONS.filter(c => c.incapacitates && !list.some(e => e?.id === c.id));
   if (!missing.length) return;
   list.push(...foundry.utils.deepClone(missing));
-  await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData, JSON.stringify(list, null, 2));
+  await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.statusConditionsData, JSON.stringify(list, null, 2));
   // A paleta do HUD do Token já foi montada nesta carga: republica para as duas aparecerem agora.
   registerStatusConditions();
 }
@@ -450,7 +450,7 @@ async function migrateIncapacitationConditions() {
  * (Antimagia)" e "Selo Antimagia". Só acrescenta o que não existe; nada é reescrito.
  */
 async function migrateTechConditions() {
-  const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData);
+  const raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.statusConditionsData);
   if (!raw) return;
   let list;
   try {
@@ -460,10 +460,10 @@ async function migrateTechConditions() {
   }
   if (!Array.isArray(list)) return;
   const wanted = c => c.suppressesTech || c.suppressesMagic || Number(c.interferenceLevel) > 0 || Number(c.antimagicLevel) > 0;
-  const missing = MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS.filter(c => wanted(c) && !list.some(e => e?.id === c.id));
+  const missing = NIHILITY.DEFAULT_STATUS_CONDITIONS.filter(c => wanted(c) && !list.some(e => e?.id === c.id));
   if (!missing.length) return;
   list.push(...foundry.utils.deepClone(missing));
-  await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData, JSON.stringify(list, null, 2));
+  await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.statusConditionsData, JSON.stringify(list, null, 2));
   registerStatusConditions();
 }
 
@@ -472,7 +472,7 @@ async function migrateTechConditions() {
  * "Marcar" aplica. Quem nunca salvou o catálogo já a recebe pelo padrão.
  */
 async function migrateMarkCondition() {
-  const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData);
+  const raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.statusConditionsData);
   if (!raw) return;
   let list;
   try {
@@ -481,10 +481,10 @@ async function migrateMarkCondition() {
     return;
   }
   if (!Array.isArray(list) || list.some(e => e?.id === "marked")) return;
-  const mark = MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS.find(c => c.id === "marked");
+  const mark = NIHILITY.DEFAULT_STATUS_CONDITIONS.find(c => c.id === "marked");
   if (!mark) return;
   list.push(foundry.utils.deepClone(mark));
-  await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData, JSON.stringify(list, null, 2));
+  await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.statusConditionsData, JSON.stringify(list, null, 2));
   registerStatusConditions();
 }
 
@@ -493,7 +493,7 @@ async function migrateMarkCondition() {
  * fora de combate. Quem nunca salvou o catálogo já a recebe pelo padrão.
  */
 async function migrateSleepingCondition() {
-  const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData);
+  const raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.statusConditionsData);
   if (!raw) return;
   let list;
   try {
@@ -502,10 +502,10 @@ async function migrateSleepingCondition() {
     return;
   }
   if (!Array.isArray(list) || list.some(e => e?.id === "sleeping")) return;
-  const sleeping = MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS.find(c => c.id === "sleeping");
+  const sleeping = NIHILITY.DEFAULT_STATUS_CONDITIONS.find(c => c.id === "sleeping");
   if (!sleeping) return;
   list.push(foundry.utils.deepClone(sleeping));
-  await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData, JSON.stringify(list, null, 2));
+  await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.statusConditionsData, JSON.stringify(list, null, 2));
   registerStatusConditions();
 }
 
@@ -516,7 +516,7 @@ async function migrateSleepingCondition() {
  */
 async function migrateReactionsDefaults() {
   const read = key => {
-    const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[key]);
+    const raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS[key]);
     if (!raw) return null;
     try {
       const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
@@ -528,7 +528,7 @@ async function migrateReactionsDefaults() {
   const elementList = read("damageElementsData");
   const conditionList = read("statusConditionsData");
   if (!elementList && !conditionList) return;
-  const conditionDefaults = MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS;
+  const conditionDefaults = NIHILITY.DEFAULT_STATUS_CONDITIONS;
   const merged = mergeReactionDefaults(elementList ?? [], conditionList ?? [], {
     reactions: DEFAULT_ELEMENT_REACTIONS,
     elements: elementList ? REACTION_ELEMENTS : [],
@@ -537,9 +537,9 @@ async function migrateReactionsDefaults() {
       ...["burn", "slow"].map(id => conditionDefaults.find(c => c.id === id)).filter(Boolean)
     ]
   });
-  if (elementList && merged.elementsChanged) await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.damageElementsData, JSON.stringify(merged.elements, null, 2));
+  if (elementList && merged.elementsChanged) await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.damageElementsData, JSON.stringify(merged.elements, null, 2));
   if (conditionList && merged.conditionsChanged) {
-    await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData, JSON.stringify(merged.conditions, null, 2));
+    await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.statusConditionsData, JSON.stringify(merged.conditions, null, 2));
     registerStatusConditions();
   }
 }
@@ -558,8 +558,8 @@ async function migrateReactionsDefaults() {
  */
 async function migrateLuckDefaults() {
   const targets = [
-    [MEU_SISTEMA.SETTINGS.traitsData, MEU_SISTEMA.DEFAULT_TRAITS, ["lucky", "unlucky"]],
-    [MEU_SISTEMA.SETTINGS.statusConditionsData, MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS, ["blessed", "jinxed"]]
+    [NIHILITY.SETTINGS.traitsData, NIHILITY.DEFAULT_TRAITS, ["lucky", "unlucky"]],
+    [NIHILITY.SETTINGS.statusConditionsData, NIHILITY.DEFAULT_STATUS_CONDITIONS, ["blessed", "jinxed"]]
   ];
   for (const [key, defaults, wanted] of targets) {
     const raw = game.settings.get(SYSTEM_ID, key);
@@ -579,9 +579,9 @@ async function migrateLuckDefaults() {
 
 async function migrateDuelDefaults() {
   const targets = [
-    [MEU_SISTEMA.SETTINGS.statusConditionsData, MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS, ["duel-mark"]],
-    [MEU_SISTEMA.SETTINGS.structuresData, MEU_SISTEMA.DEFAULT_STRUCTURES, ["duel-bubble"]],
-    [MEU_SISTEMA.SETTINGS.skillTemplatesData, MEU_SISTEMA.DEFAULT_SKILL_TEMPLATES, ["duelo_bolha"]]
+    [NIHILITY.SETTINGS.statusConditionsData, NIHILITY.DEFAULT_STATUS_CONDITIONS, ["duel-mark"]],
+    [NIHILITY.SETTINGS.structuresData, NIHILITY.DEFAULT_STRUCTURES, ["duel-bubble"]],
+    [NIHILITY.SETTINGS.skillTemplatesData, NIHILITY.DEFAULT_SKILL_TEMPLATES, ["duelo_bolha"]]
   ];
   for (const [key, defaults, wanted] of targets) {
     const raw = game.settings.get(SYSTEM_ID, key);
@@ -600,7 +600,7 @@ async function migrateDuelDefaults() {
 }
 
 async function migrateSurfaceDefaults() {
-  const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.damageElementsData);
+  const raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.damageElementsData);
   if (!raw) return;
   let list;
   try {
@@ -610,7 +610,7 @@ async function migrateSurfaceDefaults() {
   }
   if (!Array.isArray(list)) return;
   const merged = mergeSurfaceDefaults(list, DEFAULT_ELEMENT_SURFACES);
-  if (merged.changed) await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.damageElementsData, JSON.stringify(merged.elements, null, 2));
+  if (merged.changed) await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.damageElementsData, JSON.stringify(merged.elements, null, 2));
 }
 
 /**
@@ -618,7 +618,7 @@ async function migrateSurfaceDefaults() {
  * Condições de fábrica (Cegueira) é preenchido na leitura, só quando falta.
  */
 async function migrateSenseConditions() {
-  const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData);
+  const raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.statusConditionsData);
   if (!raw) return;
   let list;
   try {
@@ -627,10 +627,10 @@ async function migrateSenseConditions() {
     return;
   }
   if (!Array.isArray(list) || list.some(e => e?.id === "invisibility")) return;
-  const invisibility = MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS.find(c => c.id === "invisibility");
+  const invisibility = NIHILITY.DEFAULT_STATUS_CONDITIONS.find(c => c.id === "invisibility");
   if (!invisibility) return;
   list.push(foundry.utils.deepClone(invisibility));
-  await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.statusConditionsData, JSON.stringify(list, null, 2));
+  await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.statusConditionsData, JSON.stringify(list, null, 2));
   registerStatusConditions();
 }
 
@@ -640,7 +640,7 @@ async function migrateSenseConditions() {
  * Mestre acrescenta pelo editor se quiser).
  */
 async function migrateRadiationElement() {
-  const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.damageElementsData);
+  const raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.damageElementsData);
   if (!raw) return;
   let list;
   try {
@@ -649,14 +649,14 @@ async function migrateRadiationElement() {
     return;
   }
   if (!Array.isArray(list) || list.some(el => el?.id === RADIATION_ELEMENT.id)) return;
-  const scifi = new Set(MEU_SISTEMA.SCIFI_DAMAGE_ELEMENTS.map(el => el.id));
+  const scifi = new Set(NIHILITY.SCIFI_DAMAGE_ELEMENTS.map(el => el.id));
   if (!list.some(el => scifi.has(el?.id))) return;
   list.push(foundry.utils.deepClone(RADIATION_ELEMENT));
-  await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.damageElementsData, JSON.stringify(list, null, 2));
+  await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.damageElementsData, JSON.stringify(list, null, 2));
 }
 
 async function migratePhysicalSubtypes() {
-  const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.damageElementsData);
+  const raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.damageElementsData);
   if (!raw) return;
   let list;
   try {
@@ -669,7 +669,7 @@ async function migratePhysicalSubtypes() {
   if (!missing.length) return;
   const index = list.findIndex(el => el?.id === "physical");
   list.splice(index + 1, 0, ...foundry.utils.deepClone(missing));
-  await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.damageElementsData, JSON.stringify(list, null, 2));
+  await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.damageElementsData, JSON.stringify(list, null, 2));
 }
 
 /**
@@ -687,7 +687,7 @@ async function migrateCommonTierToNormal() {
     );
   }
 
-  const pack = game.packs.get(`world.${MEU_SISTEMA.COMPENDIUM.skills.key}`);
+  const pack = game.packs.get(`world.${NIHILITY.COMPENDIUM.skills.key}`);
   if (!pack) return;
   const index = await pack.getIndex({ fields: ["system.tier"] });
   const toFixInPack = index.filter(e => e.system?.tier === "common");
@@ -725,7 +725,7 @@ async function migrateElementalDamageToMagicTag() {
     if (updates.length) await actor.updateEmbeddedDocuments("Item", updates);
   }
 
-  const pack = game.packs.get(`world.${MEU_SISTEMA.COMPENDIUM.skills.key}`);
+  const pack = game.packs.get(`world.${NIHILITY.COMPENDIUM.skills.key}`);
   if (!pack) return;
   const documents = await pack.getDocuments();
   for (const doc of documents) {
@@ -773,7 +773,7 @@ function defaultPrototypeToken(type) {
 Hooks.on("preCreateActor", (actor, data, options, userId) => {
   if (!data.prototypeToken) actor.updateSource(defaultPrototypeToken(data.type));
 
-  // Naves/Veículos desligados pela campanha (ver MEU_SISTEMA.FEATURES) não podem ser CRIADOS —
+  // Naves/Veículos desligados pela campanha (ver NIHILITY.FEATURES) não podem ser CRIADOS —
   // mas as que já existem continuam abrindo e funcionando normalmente. Desligar um bloco nunca
   // apaga nem esconde dado salvo, só impede conteúdo novo.
   if (["starship", "vehicle"].includes(data.type) && !isVesselsEnabled()) {
@@ -917,10 +917,10 @@ Hooks.on("preDeleteItem", item => {
 function checkModuleSizeCompatibility(actor, moduleSize) {
   if (!actor || !["starship", "vehicle"].includes(actor.type)) return true;
   const size = actor.system.vesselSize;
-  if (MEU_SISTEMA.MODULE_SIZE_RANK[moduleSize] <= size.rank) return true;
+  if (NIHILITY.MODULE_SIZE_RANK[moduleSize] <= size.rank) return true;
 
   ui.notifications.error(
-    `${actor.name}: Módulo de Porte "${MEU_SISTEMA.MODULE_SIZE_LABELS[moduleSize]}" não cabe num Porte "${size.label}" (aceita até ${MEU_SISTEMA.MODULE_SIZE_LABELS[MEU_SISTEMA.MODULE_SIZES[size.rank]]}).`
+    `${actor.name}: Módulo de Porte "${NIHILITY.MODULE_SIZE_LABELS[moduleSize]}" não cabe num Porte "${size.label}" (aceita até ${NIHILITY.MODULE_SIZE_LABELS[NIHILITY.MODULE_SIZES[size.rank]]}).`
   );
   return false;
 }
@@ -961,8 +961,8 @@ function checkWeaponBudget(actor, category, moduleSize, excludeItemId) {
 
   // Porte máximo de Arma da Classe (um Cargueiro não monta canhão Colossal).
   const maxSize = actor.system.vesselClass?.maxWeaponSize;
-  if (maxSize && MEU_SISTEMA.MODULE_SIZE_RANK[moduleSize] > MEU_SISTEMA.MODULE_SIZE_RANK[maxSize]) {
-    ui.notifications.error(`${actor.name}: a Classe desta Nave não comporta Arma maior que ${MEU_SISTEMA.MODULE_SIZE_LABELS[maxSize]}.`);
+  if (maxSize && NIHILITY.MODULE_SIZE_RANK[moduleSize] > NIHILITY.MODULE_SIZE_RANK[maxSize]) {
+    ui.notifications.error(`${actor.name}: a Classe desta Nave não comporta Arma maior que ${NIHILITY.MODULE_SIZE_LABELS[maxSize]}.`);
     return false;
   }
 
@@ -971,8 +971,8 @@ function checkWeaponBudget(actor, category, moduleSize, excludeItemId) {
 
   const usedByOthers = actor.items
     .filter(i => i.type === "starship_module" && i.id !== excludeItemId && moduleRole(i.system.category) === "weapon")
-    .reduce((sum, i) => sum + MEU_SISTEMA.MODULE_SIZE_RANK[i.system.moduleSize] + 1, 0);
-  const thisUnit = MEU_SISTEMA.MODULE_SIZE_RANK[moduleSize] + 1;
+    .reduce((sum, i) => sum + NIHILITY.MODULE_SIZE_RANK[i.system.moduleSize] + 1, 0);
+  const thisUnit = NIHILITY.MODULE_SIZE_RANK[moduleSize] + 1;
   if (usedByOthers + thisUnit <= budget) return true;
 
   ui.notifications.error(`${actor.name}: orçamento de espaço de Arma excedido (${usedByOthers + thisUnit} / ${budget}).`);

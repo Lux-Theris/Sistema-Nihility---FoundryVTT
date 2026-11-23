@@ -1,11 +1,11 @@
-import { MEU_SISTEMA, getXpForNextLevel, migrateStructureTarget } from "../core/config.js";
+import { NIHILITY, getXpForNextLevel, migrateStructureTarget } from "../core/config.js";
 
 const fields = foundry.data.fields;
 
 /**
  * Schema reaproveitado por Item Geral, Modificação de Parte do Corpo e Módulo de
  * Nave: uma Habilidade opcional concedida enquanto equipado/instalado/online.
- * Tier travado em MEU_SISTEMA.ITEM_GRANTABLE_SKILL_TIERS (nunca Único/Ultimate —
+ * Tier travado em NIHILITY.ITEM_GRANTABLE_SKILL_TIERS (nunca Único/Ultimate —
  * essas só nascem de fusão/narrativa, nunca de um item). Presença = `name` não vazio.
  *
  * Carrega a Skill INTEIRA (a mesma mecânica de uma Sub-Skill — dano, efeitos, alcance, custo
@@ -21,7 +21,7 @@ function grantedSkillSchema() {
     tier: new fields.StringField({
       required: true,
       initial: "normal",
-      choices: MEU_SISTEMA.ITEM_GRANTABLE_SKILL_TIERS
+      choices: NIHILITY.ITEM_GRANTABLE_SKILL_TIERS
     }),
     subSkills: new fields.ArrayField(subSkillSchema(), { required: false, initial: [] })
   });
@@ -93,7 +93,7 @@ function statModifiersSchema() {
 function attributeBonusesSchema() {
   return new fields.ArrayField(
     new fields.SchemaField({
-      attribute: new fields.StringField({ required: true, choices: MEU_SISTEMA.COMBAT_ATTRIBUTES }),
+      attribute: new fields.StringField({ required: true, choices: NIHILITY.COMBAT_ATTRIBUTES }),
       amount: new fields.NumberField({ required: true, integer: true, initial: 0 })
     }),
     { required: false, initial: [] }
@@ -259,7 +259,7 @@ function effectEntrySchema() {
     elementId: new fields.StringField({ required: false, initial: "", blank: true }),
     /** Alvo "unarmedType": o Tipo de arma (id de getActiveWeaponTypes) em que o ataque desarmado se transforma. */
     weaponTypeId: new fields.StringField({ required: false, initial: "", blank: true }),
-    target: new fields.StringField({ required: true, choices: MEU_SISTEMA.EFFECT_TARGETS }),
+    target: new fields.StringField({ required: true, choices: NIHILITY.EFFECT_TARGETS }),
     amount: new fields.NumberField({ required: true, integer: true, initial: 1 }),
     /**
      * Vida, Mana e Escudo: "flat" = `amount` em pontos (como sempre foi); "percentMax" = `amount` %
@@ -268,7 +268,7 @@ function effectEntrySchema() {
      */
     amountMode: new fields.StringField({ required: false, initial: "flat", choices: ["flat", "percentMax"] }),
     /**
-     * Só relevante pros EFFECT_TARGETS "de Nave" (MEU_SISTEMA.SHIP_EFFECT_TARGETS): "flat" soma
+     * Só relevante pros EFFECT_TARGETS "de Nave" (NIHILITY.SHIP_EFFECT_TARGETS): "flat" soma
      * `amount` direto no resultado (ADD); "multiplier" multiplica (MULTIPLY) — `amount` nesse
      * caso é lido como percentual (ex: 20 = ×1.20), ver `applyEffectsToActor` em effects-apply.js.
      */
@@ -276,7 +276,7 @@ function effectEntrySchema() {
       required: false,
       initial: "flat",
       blank: true,
-      choices: MEU_SISTEMA.EFFECT_MODIFIER_TYPES
+      choices: NIHILITY.EFFECT_MODIFIER_TYPES
     }),
     durationRounds: new fields.NumberField({ required: true, integer: true, initial: 1, min: 0 }),
     conditionId: new fields.StringField({ required: false, initial: "", blank: true }),
@@ -292,7 +292,7 @@ function effectEntrySchema() {
       required: false,
       initial: "combatRound",
       blank: true,
-      choices: MEU_SISTEMA.PERIODIC_TICK_UNITS
+      choices: NIHILITY.PERIODIC_TICK_UNITS
     }),
     damageElements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
     /**
@@ -380,13 +380,13 @@ function subSkillSchema() {
 function skillMechanicsFields() {
   return {
     name: new fields.StringField({ required: true, initial: "" }),
-    tier: new fields.StringField({ required: false, initial: "normal", choices: MEU_SISTEMA.SKILL_TIERS }),
+    tier: new fields.StringField({ required: false, initial: "normal", choices: NIHILITY.SKILL_TIERS }),
     level: new fields.NumberField({ required: false, integer: true, initial: 1, min: 1 }),
     cost: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
     ...usageFields(),
     description: new fields.HTMLField({ required: false, initial: "" }),
     resistanceTarget: new fields.StringField({ required: false, initial: "" }),
-    effectType: new fields.StringField({ required: false, initial: "none", choices: MEU_SISTEMA.SKILL_EFFECT_TYPES }),
+    effectType: new fields.StringField({ required: false, initial: "none", choices: NIHILITY.SKILL_EFFECT_TYPES }),
     damageFormula: new fields.StringField({ required: false, initial: "" }),
     scalingAttribute: new fields.StringField({ required: false, initial: "", blank: true }),
     isMagicDamage: new fields.BooleanField({ required: false, initial: false }),
@@ -449,7 +449,7 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
       tier: new fields.StringField({
         required: true,
         initial: "normal",
-        choices: MEU_SISTEMA.SKILL_TIERS
+        choices: NIHILITY.SKILL_TIERS
       }),
       level: new fields.NumberField({ required: true, integer: true, initial: 1, min: 1 }),
 
@@ -528,7 +528,7 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
       }),
 
       /**
-       * Mecânica ao "Usar" a skill — ver MEU_SISTEMA.SKILL_EFFECT_TYPES:
+       * Mecânica ao "Usar" a skill — ver NIHILITY.SKILL_EFFECT_TYPES:
        * "none" (padrão, só descritiva), "damage" (rola damageFormula e posta no
        * chat público, com elemento(s) opcional(is)) ou "temporary" (aplica cada
        * entrada de `effects` — buffs/debuffs/drawbacks somam nos 7 Atributos ou em
@@ -537,7 +537,7 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
       effectType: new fields.StringField({
         required: true,
         initial: "none",
-        choices: MEU_SISTEMA.SKILL_EFFECT_TYPES
+        choices: NIHILITY.SKILL_EFFECT_TYPES
       }),
 
       damageFormula: new fields.StringField({ required: false, initial: "" }),
@@ -572,7 +572,7 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
       /** Escala do golpe (id de getScaleConfig().scales); vazio = a de quem usa a Skill. */
       damageScale: new fields.StringField({ required: false, initial: "", blank: true }),
 
-      /** 0+ ids de MEU_SISTEMA/getActiveDamageElements() — só flavor no chat (pode ter vários ao mesmo tempo). */
+      /** 0+ ids de NIHILITY/getActiveDamageElements() — só flavor no chat (pode ter vários ao mesmo tempo). */
       damageElements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
 
       /** [{ target, amount, durationRounds, conditionId, periodic, tickUnit }] — ver effectEntrySchema() acima. */
@@ -666,7 +666,7 @@ export class BodyPartDataModel extends foundry.abstract.TypeDataModel {
       status: new fields.StringField({
         required: true,
         initial: "intact",
-        choices: MEU_SISTEMA.BODY_PART_STATUS
+        choices: NIHILITY.BODY_PART_STATUS
       }),
       isProsthetic: new fields.BooleanField({ required: false, initial: false }),
 
@@ -773,10 +773,10 @@ export class TitleDataModel extends foundry.abstract.TypeDataModel {
       luck: luckSchema(),
       rarity: new fields.StringField({ required: false, initial: "comum" }),
 
-      /** Bônus permanentes concedidos: [{ attribute, amount }], attribute em MEU_SISTEMA.TITLE_BONUS_TARGETS (os atributos de combate + hp/energy diretos). */
+      /** Bônus permanentes concedidos: [{ attribute, amount }], attribute em NIHILITY.TITLE_BONUS_TARGETS (os atributos de combate + hp/energy diretos). */
       bonuses: new fields.ArrayField(
         new fields.SchemaField({
-          attribute: new fields.StringField({ required: true, choices: MEU_SISTEMA.TITLE_BONUS_TARGETS }),
+          attribute: new fields.StringField({ required: true, choices: NIHILITY.TITLE_BONUS_TARGETS }),
           amount: new fields.NumberField({ required: true, integer: true, initial: 0 })
         }),
         { required: false, initial: [] }
@@ -831,7 +831,7 @@ export class StarshipModuleDataModel extends foundry.abstract.TypeDataModel {
       slot: new fields.StringField({ required: false, initial: "" }),
 
       /**
-       * Porte do Módulo (Compacto..Colossal, ver MEU_SISTEMA.MODULE_SIZES) — Arma reaproveita
+       * Porte do Módulo (Compacto..Colossal, ver NIHILITY.MODULE_SIZES) — Arma reaproveita
        * este MESMO campo pro seu próprio Porte, não é uma escala separada. Checado contra o
        * Porte da Nave/Veículo (`rank` da linha do Porte) na instalação: um Módulo maior que
        * o Porte do casco não cabe.
@@ -839,7 +839,7 @@ export class StarshipModuleDataModel extends foundry.abstract.TypeDataModel {
       moduleSize: new fields.StringField({
         required: true,
         initial: "standard",
-        choices: MEU_SISTEMA.MODULE_SIZES
+        choices: NIHILITY.MODULE_SIZES
       }),
 
       /**
@@ -885,7 +885,7 @@ export class StarshipModuleDataModel extends foundry.abstract.TypeDataModel {
        * Rotação de Motor, Fator de Dobra de FTL — `effectiveModuleStat` no mesmo arquivo; Dano/
        * Penetração/Recarga de Arma entram na Fase 5). Reator reaproveita o MESMO campo como seu
        * próprio clock, mas com limiar de sobrecarga diferente (ver
-       * MEU_SISTEMA.OVERLOAD_THRESHOLD_REACTOR); Distribuidor/Bateria não usam este campo.
+       * NIHILITY.OVERLOAD_THRESHOLD_REACTOR); Distribuidor/Bateria não usam este campo.
        */
       powerAllocationPercent: new fields.NumberField({ required: true, integer: true, initial: 100, min: 0 }),
 

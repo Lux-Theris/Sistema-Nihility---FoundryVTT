@@ -83,7 +83,7 @@ const GRANTED_MECHANIC_FIELDS = [
  * Módulo) cria no Ator: a mecânica inteira copiada, `active` sempre começando desligado e a
  * marca `isItemGranted`. Pura — `createGrantedSkill` em skill-economy.js só a grava.
  * @param {object} grantsSkill
- * @param {string[]} grantableTiers - MEU_SISTEMA.ITEM_GRANTABLE_SKILL_TIERS
+ * @param {string[]} grantableTiers - NIHILITY.ITEM_GRANTABLE_SKILL_TIERS
  * @param {{magic?:boolean, tech?:boolean}|null} [sourceNature] - natureza da fonte (Item, Módulo,
  *   implante): a Skill concedida herda o que o molde não definiu (caixa ainda `null`). Fonte
  *   mágica → Skill mágica; fonte tecnológica (Módulo sempre) → Skill tecnológica.

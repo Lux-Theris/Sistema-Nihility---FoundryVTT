@@ -8,7 +8,7 @@
  * settings de fórmula vital. Deixar renomear a chave apagaria em silêncio todo efeito, Título e
  * fórmula que apontasse pra ela — por isso só o rótulo e a visibilidade são editáveis.
  */
-import { SYSTEM_ID, MEU_SISTEMA, getActiveAttributes, getVitalFormula, debugLog } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, getActiveAttributes, getVitalFormula, debugLog } from "../core/config.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -40,7 +40,7 @@ export class AttributeConfigApp extends HandlebarsApplicationMixin(ApplicationV2
 
     context.attributes = getActiveAttributes().map(attr => ({
       ...attr,
-      defaultLabel: MEU_SISTEMA.COMBAT_ATTRIBUTE_LABELS[attr.key],
+      defaultLabel: NIHILITY.COMBAT_ATTRIBUTE_LABELS[attr.key],
       inFormula: usedInFormula.has(attr.key)
     }));
 
@@ -51,7 +51,7 @@ export class AttributeConfigApp extends HandlebarsApplicationMixin(ApplicationV2
   /** Devolve os rótulos originais e reexibe todos — não toca em valor de ficha nenhum. */
   static async #onReset(event, target) {
     event.preventDefault();
-    await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.attributesData, "[]");
+    await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.attributesData, "[]");
     ui.notifications.info("Atributos voltaram aos rótulos padrão.");
     this.render();
   }
@@ -59,18 +59,18 @@ export class AttributeConfigApp extends HandlebarsApplicationMixin(ApplicationV2
   static async #onSave(event, target) {
     event.preventDefault();
 
-    const data = MEU_SISTEMA.COMBAT_ATTRIBUTES.map(key => {
+    const data = NIHILITY.COMBAT_ATTRIBUTES.map(key => {
       const row = this.element.querySelector(`[data-attribute="${key}"]`);
       const label = row?.querySelector(".attribute-label-input")?.value?.trim();
       return {
         key,
         // Rótulo vazio volta pro padrão em vez de virar um atributo sem nome na ficha.
-        label: label || MEU_SISTEMA.COMBAT_ATTRIBUTE_LABELS[key],
+        label: label || NIHILITY.COMBAT_ATTRIBUTE_LABELS[key],
         visible: row?.querySelector(".attribute-visible-input")?.checked !== false
       };
     });
 
-    await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.attributesData, JSON.stringify(data, null, 2));
+    await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.attributesData, JSON.stringify(data, null, 2));
     ui.notifications.info("Atributos salvos. Recarregue o mundo (F5) para as fichas acompanharem.");
     this.close();
   }

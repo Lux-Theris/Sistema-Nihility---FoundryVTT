@@ -11,11 +11,11 @@
  *   toda vez que a tripulação muda (`syncLibraryOwnershipToCrew`, chamado pelos handlers de
  *   add/remove-crew em starship-sheet.js) pra quem sai da tripulação perder o acesso.
  */
-import { SYSTEM_ID, MEU_SISTEMA } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY } from "../core/config.js";
 import { runAsGm } from "../helpers/gm-relay.js";
 import { relayFailureMessage } from "../helpers/gm-relay-rules.js";
 
-const LIBRARY_PACK_COLLECTION = `world.${MEU_SISTEMA.COMPENDIUM.padLibrary.key}`;
+const LIBRARY_PACK_COLLECTION = `world.${NIHILITY.COMPENDIUM.padLibrary.key}`;
 
 function getLibraryPack() {
   return game.packs.get(LIBRARY_PACK_COLLECTION) ?? null;

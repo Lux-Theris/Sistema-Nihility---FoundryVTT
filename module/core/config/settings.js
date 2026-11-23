@@ -4,7 +4,7 @@
  * `core/config.js`, que reexporta tudo.)
  */
 import { getActiveAttributes } from "./catalogs.js";
-import { MEU_SISTEMA, SYSTEM_ID } from "./constants.js";
+import { NIHILITY, SYSTEM_ID } from "./constants.js";
 
 /**
  * Registra todas as Game Settings do sistema. Deve ser chamado no hook `init`.
@@ -24,14 +24,14 @@ export function applyRoundSeconds() {
 }
 
 function registerSystemSettingsInner() {
-  const S = MEU_SISTEMA.SETTINGS;
+  const S = NIHILITY.SETTINGS;
 
-  // Um registro por bloco de MEU_SISTEMA.FEATURES — a tabela é a única fonte da verdade, então
+  // Um registro por bloco de NIHILITY.FEATURES — a tabela é a única fonte da verdade, então
   // ligar um bloco novo não exige tocar aqui. `config: false` de propósito: a lista apareceria
   // como 15 checkboxes soltos no meio das settings do Foundry; em vez disso ela é editada pela
   // tela "Configurar Módulos do Sistema" (list-config-app-factory-style, ver
   // apps/feature-config.js), que mostra os presets de campanha junto.
-  for (const feature of Object.values(MEU_SISTEMA.FEATURES)) {
+  for (const feature of Object.values(NIHILITY.FEATURES)) {
     game.settings.register(SYSTEM_ID, feature.setting, {
       name: feature.name,
       hint: feature.hint,
@@ -473,7 +473,7 @@ function registerSystemSettingsInner() {
     scope: "world",
     config: true,
     type: Number,
-    default: MEU_SISTEMA.DEFAULT_VITAL_FORMULA_MULTIPLIER,
+    default: NIHILITY.DEFAULT_VITAL_FORMULA_MULTIPLIER,
     requiresReload: true
   });
 
@@ -483,7 +483,7 @@ function registerSystemSettingsInner() {
     scope: "world",
     config: true,
     type: Number,
-    default: MEU_SISTEMA.MIN_BASE_VITAL_STAT,
+    default: NIHILITY.MIN_BASE_VITAL_STAT,
     requiresReload: true
   });
 
@@ -493,7 +493,7 @@ function registerSystemSettingsInner() {
     scope: "world",
     config: true,
     type: String,
-    default: MEU_SISTEMA.DEFAULT_CHARACTER_ENERGY_LABEL
+    default: NIHILITY.DEFAULT_CHARACTER_ENERGY_LABEL
   });
 
   game.settings.register(SYSTEM_ID, S.starshipEnergyLabel, {
@@ -502,7 +502,7 @@ function registerSystemSettingsInner() {
     scope: "world",
     config: true,
     type: String,
-    default: MEU_SISTEMA.DEFAULT_STARSHIP_ENERGY_LABEL
+    default: NIHILITY.DEFAULT_STARSHIP_ENERGY_LABEL
   });
 
   game.settings.register(SYSTEM_ID, S.starshipEnergyAbbr, {
@@ -556,7 +556,7 @@ function registerSystemSettingsInner() {
     scope: "world",
     config: false,
     type: String,
-    default: JSON.stringify(MEU_SISTEMA.DEFAULT_CURRENCIES, null, 2)
+    default: JSON.stringify(NIHILITY.DEFAULT_CURRENCIES, null, 2)
   });
 
   game.settings.register(SYSTEM_ID, S.speciesPresetsData, {
@@ -573,7 +573,7 @@ function registerSystemSettingsInner() {
     default: ""
   });
 
-  // Modelos de Skill (vazio = os de fábrica, MEU_SISTEMA.DEFAULT_SKILL_TEMPLATES).
+  // Modelos de Skill (vazio = os de fábrica, NIHILITY.DEFAULT_SKILL_TEMPLATES).
   game.settings.register(SYSTEM_ID, S.skillTemplatesData, {
     scope: "world",
     config: false,
@@ -670,7 +670,7 @@ function registerSystemSettingsInner() {
     default: 5
   });
 
-  // Arquétipos do Gerador de NPC (vazio = os de fábrica, MEU_SISTEMA.DEFAULT_NPC_ARCHETYPES).
+  // Arquétipos do Gerador de NPC (vazio = os de fábrica, NIHILITY.DEFAULT_NPC_ARCHETYPES).
   game.settings.register(SYSTEM_ID, S.npcArchetypesData, {
     scope: "world",
     config: false,
@@ -689,21 +689,21 @@ function registerSystemSettingsInner() {
     scope: "world",
     config: false,
     type: String,
-    default: JSON.stringify(MEU_SISTEMA.DEFAULT_DAMAGE_ELEMENTS, null, 2)
+    default: JSON.stringify(NIHILITY.DEFAULT_DAMAGE_ELEMENTS, null, 2)
   });
 
   game.settings.register(SYSTEM_ID, S.statusConditionsData, {
     scope: "world",
     config: false,
     type: String,
-    default: JSON.stringify(MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS, null, 2)
+    default: JSON.stringify(NIHILITY.DEFAULT_STATUS_CONDITIONS, null, 2)
   });
 
   game.settings.register(SYSTEM_ID, S.traitsData, {
     scope: "world",
     config: false,
     type: String,
-    default: JSON.stringify(MEU_SISTEMA.DEFAULT_TRAITS, null, 2)
+    default: JSON.stringify(NIHILITY.DEFAULT_TRAITS, null, 2)
   });
 
   // Glossário (1.85.0): termos da mesa e explicações de fábrica reescritas. Termina em "Data",
@@ -724,7 +724,7 @@ function registerSystemSettingsInner() {
     scope: "world",
     config: false,
     type: String,
-    default: JSON.stringify(MEU_SISTEMA.DEFAULT_SCALES, null, 2)
+    default: JSON.stringify(NIHILITY.DEFAULT_SCALES, null, 2)
   });
 
   // Catálogos de Nave (vazio = padrão do código; ver readCatalog).

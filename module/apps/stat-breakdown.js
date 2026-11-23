@@ -10,7 +10,7 @@
  */
 import { collectLuckSources } from "../combat/luck-sources.js";
 import { LUCK_SCOPES, LUCK_SCOPE_LABELS, luckPercentText } from "../combat/luck-rules.js";
-import { SYSTEM_ID, MEU_SISTEMA, getAttributeLabel, getVitalFormula, getEnergyLabelForActor, isMovementEnabled, describeMovement, getNpcTierConfig } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, getAttributeLabel, getVitalFormula, getEnergyLabelForActor, isMovementEnabled, describeMovement, getNpcTierConfig } from "../core/config.js";
 import { NPC_TIER_LABELS } from "../npc/npc-generator-rules.js";
 import { readEffectChanges, effectModes } from "../helpers/foundry-compat.js";
 import { titleBonusSources, itemAttributeSources, statModifierSources, originBonusSources } from "../data/character-model.js";
@@ -205,7 +205,7 @@ export class StatBreakdownApp extends HandlebarsApplicationMixin(ApplicationV2) 
       notes.push(`Deslocamento: ${describeMovement(actor.system.movement).title.replace("Deslocamento por rodada: ", "")} = ${actor.system.movement.total} m por rodada.`);
     }
     try {
-      if (game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.initiativeAttribute) === key) notes.push("É o atributo que rola a Iniciativa.");
+      if (game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.initiativeAttribute) === key) notes.push("É o atributo que rola a Iniciativa.");
     } catch (err) {
       /* setting ausente */
     }

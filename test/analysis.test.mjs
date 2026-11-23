@@ -9,7 +9,7 @@ import { skillUseMode } from "../module/skills/skill-use-mode.js";
 import { borrowableSkill } from "../module/skills/borrowed-rules.js";
 import { lintSkill } from "../module/skills/skill-lint-rules.js";
 import { suggestSkillCost } from "../module/skills/skill-cost-rules.js";
-import { MEU_SISTEMA } from "../module/core/config.js";
+import { NIHILITY } from "../module/core/config.js";
 
 test("nível efetivo: só a Análise mágica perde nível pela Defesa Mágica", () => {
   assert.equal(effectiveAnalysisLevel(10, false, 0.5), 10);
@@ -57,8 +57,8 @@ test("fraquezas e resistências: só o que conta, do maior ao menor", () => {
 });
 
 test("Mecânica Análise: tipos, uso, frase, lint, custo e empréstimo", () => {
-  assert.ok(MEU_SISTEMA.SKILL_EFFECT_TYPES.includes("analysis"));
-  assert.ok(MEU_SISTEMA.SKILL_EFFECT_TYPE_LABELS.analysis && MEU_SISTEMA.SKILL_EFFECT_TYPE_SHORT_LABELS.analysis);
+  assert.ok(NIHILITY.SKILL_EFFECT_TYPES.includes("analysis"));
+  assert.ok(NIHILITY.SKILL_EFFECT_TYPE_LABELS.analysis && NIHILITY.SKILL_EFFECT_TYPE_SHORT_LABELS.analysis);
   // Sempre alvo único, mesmo escrita como Emissão ou "Si mesmo".
   assert.equal(skillUseMode({ effectType: "analysis", targetType: "emission" }, { areaEnabled: true, areaSupported: true }), "targeted");
   assert.equal(skillUseMode({ effectType: "analysis", targetType: "self" }), "targeted");

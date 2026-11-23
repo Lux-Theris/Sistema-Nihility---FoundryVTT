@@ -4,7 +4,7 @@
  * modelo" na ficha de uma Skill, ou "+ Novo modelo" aqui). Cada modelo é editado no editor de
  * Skill de sempre. Trabalha numa cópia e só grava em "Salvar".
  */
-import { SYSTEM_ID, MEU_SISTEMA, getActiveSkillTemplates, defaultSkillTemplates } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, getActiveSkillTemplates, defaultSkillTemplates } from "../core/config.js";
 import { openSkillEditorDialog } from "./skill-editor-dialog.js";
 import { normalizeSkillTemplate, templateStatus, missingDefaultTemplates, TEMPLATE_GROUPS } from "../skills/skill-template-rules.js";
 import { archetypeSlug } from "../npc/npc-generator-rules.js";
@@ -57,7 +57,7 @@ export class SkillTemplatesConfigApp extends HandlebarsApplicationMixin(Applicat
         summary: skillSentence(t.skill) || "—",
         status,
         statusLabel: statusLabel[status],
-        groups: TEMPLATE_GROUPS.map(g => ({ id: g, label: MEU_SISTEMA.SKILL_TEMPLATE_GROUP_LABELS[g], selected: g === t.group })),
+        groups: TEMPLATE_GROUPS.map(g => ({ id: g, label: NIHILITY.SKILL_TEMPLATE_GROUP_LABELS[g], selected: g === t.group })),
         first: index === 0,
         last: index === this.list.length - 1
       };
@@ -131,7 +131,7 @@ export class SkillTemplatesConfigApp extends HandlebarsApplicationMixin(Applicat
 
   static async #onSave() {
     const list = this.list.map(normalizeSkillTemplate);
-    await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.skillTemplatesData, JSON.stringify(list, null, 2));
+    await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.skillTemplatesData, JSON.stringify(list, null, 2));
     ui.notifications.info("Modelos de Skill salvos.");
     this.#load();
     this.render();

@@ -13,7 +13,7 @@ import { templateGroups, templateFillSentence, skillFromTemplate } from "../skil
 import { sheetTrim, allZero, shownSkillTiers } from "./sheet-trim-rules.js";
 import {
   SYSTEM_ID,
-  MEU_SISTEMA,
+  NIHILITY,
   getCharacterEnergyLabel,
   getActiveCurrencies,
   getSpeciesForCreation,
@@ -143,7 +143,7 @@ async function promptDialog({ title, content, confirmLabel = "Confirmar", onConf
  */
 async function promptNewSkill(tierChoices) {
   const esc = escapeHtml;
-  const options = tierChoices.map(t => `<option value="${t}" ${t === "normal" ? "selected" : ""}>${esc(MEU_SISTEMA.SKILL_TIER_LABELS[t] ?? t)}</option>`).join("");
+  const options = tierChoices.map(t => `<option value="${t}" ${t === "normal" ? "selected" : ""}>${esc(NIHILITY.SKILL_TIER_LABELS[t] ?? t)}</option>`).join("");
   const tile = (id, label, hint, extra = "") =>
     `<label class="sa-tile ${extra}"><input type="radio" name="template" value="${esc(id)}" ${id ? "" : "checked"}/><span class="sa-tile-name">${esc(label)}</span><small>${esc(hint)}</small></label>`;
   const groups = templateGroups();
@@ -539,7 +539,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.owner = actor.isOwner;
     context.activeTab = this.activeTab;
     context.system = actor.system;
-    context.config = MEU_SISTEMA;
+    context.config = NIHILITY;
     context.energyLabel = getCharacterEnergyLabel();
     context.economyEnabled = isEconomyEnabled();
     context.titlesEnabled = isTitlesEnabled();
@@ -611,7 +611,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         movement: key === "dexterity" && isMovementEnabled() ? describeMovement(actor.system.movement) : null
       };
     });
-    context.attributePointsPending = MEU_SISTEMA.COMBAT_ATTRIBUTES.reduce(
+    context.attributePointsPending = NIHILITY.COMBAT_ATTRIBUTES.reduce(
       (sum, key) => sum + (actor.system.attributes.combat[key].pendingPoints ?? 0),
       0
     );
@@ -625,7 +625,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.vitalPreview = context.attributePoolEnabled && (context.creation || context.attributePointsPending) ? vitalPreviewFor(actor) : null;
     // "Começar de um jeito" (prancha 2 D): só enquanto nenhum ponto foi confirmado.
     context.quickSpreads =
-      context.attributePoolEnabled && actor.isOwner && MEU_SISTEMA.COMBAT_ATTRIBUTES.every(k => !(actor.system.attributes.combat[k]?.points > 0))
+      context.attributePoolEnabled && actor.isOwner && NIHILITY.COMBAT_ATTRIBUTES.every(k => !(actor.system.attributes.combat[k]?.points > 0))
         ? Object.entries(QUICK_SPREADS).map(([id, s]) => ({ id, label: s.label }))
         : null;
     context.attributePoolPercent = percentOf(
@@ -707,11 +707,11 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     const ultimateVisible = actor.system.hasUltimateSkill || game.user.isGM;
     const skills = actor.items.filter(i => i.type === "skill");
     context.skillsByTier = {};
-    context.visibleTiers = MEU_SISTEMA.SKILL_TIERS.filter(t => t !== "ultimate" || ultimateVisible);
-    for (const tier of MEU_SISTEMA.SKILL_TIERS) {
+    context.visibleTiers = NIHILITY.SKILL_TIERS.filter(t => t !== "ultimate" || ultimateVisible);
+    for (const tier of NIHILITY.SKILL_TIERS) {
       context.skillsByTier[tier] = skills.filter(s => s.system.tier === tier);
     }
-    context.tierLabels = MEU_SISTEMA.SKILL_TIER_LABELS;
+    context.tierLabels = NIHILITY.SKILL_TIER_LABELS;
     // Pedidos de Skill abertos (prancha 3 A): linha tracejada na faixa do Tier, com o recado do Mestre.
     const { skillSentence } = await import("../skills/skill-assist.js");
     context.requestsByTier = {};
@@ -726,7 +726,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         canEdit: message.isOwner
       });
     }
-    context.freeSkillPoints = MEU_SISTEMA.SKILL_POINT_TIERS.reduce((sum, t) => sum + freeSkillPoints(actor, t), 0);
+    context.freeSkillPoints = NIHILITY.SKILL_POINT_TIERS.reduce((sum, t) => sum + freeSkillPoints(actor, t), 0);
     // A Skill numa frase, na linha da ficha (o que faz · onde · custo · manutenção).
     context.skillSummaries = skillSummariesFor(actor);
     // Recarga e Preparo (H3): a Skill bloqueada mostra o motivo e o botão Usar fica desligado.
@@ -742,7 +742,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.bodyParts = actor.items.filter(i => i.type === "body_part");
     // Anatomia (board 5): Funções, implantes e o que as partes perdidas estão causando.
     context.anatomy = anatomyContext(actor);
-    context.statusLabels = MEU_SISTEMA.BODY_PART_STATUS_LABELS;
+    context.statusLabels = NIHILITY.BODY_PART_STATUS_LABELS;
     context.titles = actor.system.titles;
     context.gear = actor.items.filter(i => i.type === "item");
     // Com o Inventário ligado, a aba Ficha mostra só os equipados (as armas atacam dali) e o resto
@@ -1266,7 +1266,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     event.preventDefault();
     const combat = this.actor.system.attributes.combat;
     const updates = {};
-    for (const key of MEU_SISTEMA.COMBAT_ATTRIBUTES) {
+    for (const key of NIHILITY.COMBAT_ATTRIBUTES) {
       const pending = combat[key].pendingPoints ?? 0;
       if (!pending) continue;
       updates[`system.attributes.combat.${key}.points`] = combat[key].points + pending;
@@ -1284,7 +1284,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     event.preventDefault();
     const combat = this.actor.system.attributes.combat;
     const updates = {};
-    for (const key of MEU_SISTEMA.COMBAT_ATTRIBUTES) {
+    for (const key of NIHILITY.COMBAT_ATTRIBUTES) {
       if (combat[key].pendingPoints) updates[`system.attributes.combat.${key}.pendingPoints`] = 0;
     }
     if (Object.keys(updates).length) await this.actor.update(updates);
@@ -1303,7 +1303,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     if (!game.user.isGM || !isAttributePoolEnabled()) return;
 
     const combat = this.actor.system.attributes.combat;
-    const refunded = MEU_SISTEMA.COMBAT_ATTRIBUTES.reduce(
+    const refunded = NIHILITY.COMBAT_ATTRIBUTES.reduce(
       (sum, key) => sum + (combat[key].points ?? 0) + (combat[key].pendingPoints ?? 0),
       0
     );
@@ -1320,7 +1320,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
     await autoSnapshot(this.actor, "Antes de zerar os pontos de atributo");
     const updates = {};
-    for (const key of MEU_SISTEMA.COMBAT_ATTRIBUTES) {
+    for (const key of NIHILITY.COMBAT_ATTRIBUTES) {
       updates[`system.attributes.combat.${key}.points`] = 0;
       updates[`system.attributes.combat.${key}.pendingPoints`] = 0;
     }
@@ -1492,7 +1492,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     if (type === "skill") {
       const hasUltimate = this.actor.system.hasUltimateSkill;
       const ultimateVisible = hasUltimate || game.user.isGM;
-      const tierChoices = MEU_SISTEMA.SKILL_TIERS.filter(t => t !== "racial" && (t !== "ultimate" || ultimateVisible));
+      const tierChoices = NIHILITY.SKILL_TIERS.filter(t => t !== "racial" && (t !== "ultimate" || ultimateVisible));
       const picked = await promptNewSkill(tierChoices);
       if (!picked) return;
       // Modelo escolhido: a Skill já nasce montada (o nome digitado e o Tier valem por cima).
@@ -1546,7 +1546,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
     const hasUltimate = this.actor.system.hasUltimateSkill;
     const ultimateVisible = hasUltimate || game.user.isGM;
-    const tierChoices = MEU_SISTEMA.SKILL_TIERS.filter(t => t !== "racial" && (t !== "ultimate" || ultimateVisible));
+    const tierChoices = NIHILITY.SKILL_TIERS.filter(t => t !== "racial" && (t !== "ultimate" || ultimateVisible));
 
     // Uma Maestria evolui para a mesma Maestria, um degrau acima: o editor já abre com o tipo.
     const source = this.actor.items.get(itemId)?.system;
@@ -1693,7 +1693,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     const ultimateVisible = this.actor.system.hasUltimateSkill || game.user.isGM;
     const tiers = FUSABLE_TARGET_TIERS.filter(t => t !== "ultimate" || ultimateVisible);
     const options = tiers
-      .map(t => `<option value="${t}">${MEU_SISTEMA.SKILL_TIER_LABELS[t]}</option>`)
+      .map(t => `<option value="${t}">${NIHILITY.SKILL_TIER_LABELS[t]}</option>`)
       .join("");
 
     return promptDialog({
@@ -1712,7 +1712,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
   /** Modo Manual: o Mestre insere/aprova o efeito e a emoção da Skill Única/Ultimate. */
   async _promptManualSpecialData(tier) {
-    const tierLabel = MEU_SISTEMA.SKILL_TIER_LABELS[tier];
+    const tierLabel = NIHILITY.SKILL_TIER_LABELS[tier];
     return promptDialog({
       title: `Skill ${tierLabel} — Aprovação do Mestre`,
       confirmLabel: `Criar Skill ${tierLabel}`,

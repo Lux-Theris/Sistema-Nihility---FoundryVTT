@@ -4,7 +4,7 @@
  * ganha +1d20 — todos os dados são somados (2d20, 3d20...). Bônus de
  * arma/equipamento NUNCA entram nessa conta: somam por fora, como número fixo.
  */
-import { MEU_SISTEMA, SYSTEM_ID, getAttributeLabel } from "./config.js";
+import { NIHILITY, SYSTEM_ID, getAttributeLabel } from "./config.js";
 import { buildModifiedFormula, describeRollOptions } from "./roll-modifiers.js";
 import { conditionalBonus } from "../combat/conditional-context.js";
 import { escapeHtml } from "../helpers/html.js";
@@ -41,7 +41,7 @@ export function buildAttributeRollFormula(bonus, extraFlat = 0, luck = 0) {
 /**
  * Rola um Atributo de combate do Ator e posta o resultado no chat.
  * @param {Actor} actor
- * @param {string} attributeKey - uma chave de MEU_SISTEMA.COMBAT_ATTRIBUTES
+ * @param {string} attributeKey - uma chave de NIHILITY.COMBAT_ATTRIBUTES
  * @param {{extraFlat?:number, flavor?:string, rollOptions?:object}} [options] - `rollOptions`: Vantagem e
  *   modificadores do shift+clique (ver roll-modifiers.js)
  */

@@ -6,7 +6,7 @@ import "./setup.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { SYSTEM_ID, isMagicUse, isTechUse, useNature, technomagicFactor, MEU_SISTEMA } from "../module/core/config.js";
+import { SYSTEM_ID, isMagicUse, isTechUse, useNature, technomagicFactor, NIHILITY } from "../module/core/config.js";
 import {
   skillIsMagic,
   skillIsTech,
@@ -142,7 +142,7 @@ test("Prótese suprimida perde a Função: o Deslocamento cai pela Anatomia", ()
 });
 
 test("Habilidade Concedida herda a natureza da fonte, sem passar por cima do molde", () => {
-  const tiers = MEU_SISTEMA.ITEM_GRANTABLE_SKILL_TIERS;
+  const tiers = NIHILITY.ITEM_GRANTABLE_SKILL_TIERS;
   const fromModule = buildGrantedSkillData({ name: "Salva", tier: "normal" }, tiers, { tech: true });
   assert.equal(fromModule.system.isTech, true);
   assert.equal(fromModule.system.isMagic, undefined);
@@ -157,13 +157,13 @@ test("Habilidade Concedida herda a natureza da fonte, sem passar por cima do mol
 });
 
 test("PEM e Interferência: bloco, alvo, Condições e Estrutura padrão", () => {
-  assert.ok(MEU_SISTEMA.EFFECT_TARGETS.includes("emp"));
-  assert.ok(MEU_SISTEMA.EFFECT_TARGET_GROUPS.some(g => g.label === "Tecnologia" && g.targets.includes("emp")));
-  assert.ok(MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS.some(c => c.suppressesTech));
-  assert.ok(MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS.some(c => c.interferenceLevel > 0));
-  const field = MEU_SISTEMA.DEFAULT_STRUCTURES.find(s => s.interferenceLevel > 0);
+  assert.ok(NIHILITY.EFFECT_TARGETS.includes("emp"));
+  assert.ok(NIHILITY.EFFECT_TARGET_GROUPS.some(g => g.label === "Tecnologia" && g.targets.includes("emp")));
+  assert.ok(NIHILITY.DEFAULT_STATUS_CONDITIONS.some(c => c.suppressesTech));
+  assert.ok(NIHILITY.DEFAULT_STATUS_CONDITIONS.some(c => c.interferenceLevel > 0));
+  const field = NIHILITY.DEFAULT_STRUCTURES.find(s => s.interferenceLevel > 0);
   assert.ok(field);
   assert.equal(field.shape, "circle");
   assert.equal(field.material, "ethereal");
-  assert.equal(MEU_SISTEMA.FEATURES.interference.default, false);
+  assert.equal(NIHILITY.FEATURES.interference.default, false);
 });

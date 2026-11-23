@@ -1,4 +1,4 @@
-import { MEU_SISTEMA, getStructures } from "../core/config.js";
+import { NIHILITY, getStructures } from "../core/config.js";
 import { pickerFieldHtml, readPickerField, wireElementPickerField } from "./checklist-picker.js";
 import { createCardListConfigApp, escapeHtml, optionsHtml } from "./card-list-config-factory.js";
 import { openLightConfigDialog, describeLight } from "../combat/lights.js";
@@ -9,7 +9,7 @@ import { openLightConfigDialog, describeLight } from "../combat/lights.js";
  */
 
 function renderStructure(values) {
-  const shapes = MEU_SISTEMA.STRUCTURE_SHAPES.map(s => [s, MEU_SISTEMA.STRUCTURE_SHAPE_LABELS[s]]);
+  const shapes = NIHILITY.STRUCTURE_SHAPES.map(s => [s, NIHILITY.STRUCTURE_SHAPE_LABELS[s]]);
   return `
     <div class="card-config-row card-config-row-main">
       <input type="text" data-field="id" value="${escapeHtml(values.id)}" placeholder="id (ex: stone-wall)"/>

@@ -2,7 +2,7 @@
  * Defesa Mágica e Resistência/Imunidade (de Skill e de Título), XP de Resistência e exposição a tipos de dano.
  * (Separado de skill-effects.js na reorganização de pastas — mesma lógica de antes.)
  */
-import { SYSTEM_ID, MEU_SISTEMA, getActiveDamageElements, resistanceXpGain, getResistanceLearnThreshold } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, getActiveDamageElements, resistanceXpGain, getResistanceLearnThreshold } from "../core/config.js";
 import { sourceSuppressed, suppressionState } from "../core/suppression.js";
 import { runAsGm } from "../helpers/gm-relay.js";
 import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
@@ -10,12 +10,12 @@ import { originResistance } from "../species/species-rules.js";
 
 /**
  * Percentual (0-1) de redução aplicado sobre dano mágico/elemental, com base na Defesa
- * Mágica.Total do alvo. Ver MEU_SISTEMA.MAGIC_DEFENSE_REDUCTION_PER_POINT/_CAP em config.js.
+ * Mágica.Total do alvo. Ver NIHILITY.MAGIC_DEFENSE_REDUCTION_PER_POINT/_CAP em config.js.
  */
 export function magicDefenseReduction(targetActor) {
   const total = targetActor?.system?.attributes?.combat?.magicalDefense?.total ?? 0;
-  const raw = total * MEU_SISTEMA.MAGIC_DEFENSE_REDUCTION_PER_POINT;
-  return Math.clamp(raw, 0, MEU_SISTEMA.MAGIC_DEFENSE_REDUCTION_CAP);
+  const raw = total * NIHILITY.MAGIC_DEFENSE_REDUCTION_PER_POINT;
+  return Math.clamp(raw, 0, NIHILITY.MAGIC_DEFENSE_REDUCTION_CAP);
 }
 
 /* -------------------------------------------- */

@@ -10,7 +10,7 @@
  * bônus de Item somado por fora — antes disso, iniciativa era um `1d20` pelado, que não conversava
  * com atributo nenhum do sistema.
  */
-import { SYSTEM_ID, MEU_SISTEMA, getAttributeLabel, combatantIsActor, actorToken } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, getAttributeLabel, combatantIsActor, actorToken } from "../core/config.js";
 import { buildAttributeRollFormula, safeInitiativeFormula } from "../core/dice.js";
 import { luckOf } from "./luck-rules.js";
 import { buildModifiedFormula, describeRollOptions, isNeutralRollOptions } from "../core/roll-modifiers.js";
@@ -20,8 +20,8 @@ import { combatantVisibleByPerception } from "./senses.js";
 /** Atributo que rege a iniciativa (setting; cai em Destreza se a setting sumir ou virar inválida). */
 export function getInitiativeAttribute() {
   try {
-    const key = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.initiativeAttribute);
-    if (MEU_SISTEMA.COMBAT_ATTRIBUTES.includes(key)) return key;
+    const key = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.initiativeAttribute);
+    if (NIHILITY.COMBAT_ATTRIBUTES.includes(key)) return key;
   } catch (err) {
     /* setting ainda não registrada */
   }

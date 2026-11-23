@@ -25,7 +25,7 @@ import {
   missingDefaultArchetypes,
   keepKnownIds
 } from "../module/npc/npc-generator-rules.js";
-import { MEU_SISTEMA } from "../module/core/config.js";
+import { NIHILITY } from "../module/core/config.js";
 
 const KEYS = ["strength", "defense", "magic", "magicalDefense", "dexterity", "stealth", "perception", "precision"];
 
@@ -118,7 +118,7 @@ test("Catálogo de arquétipos: normaliza, sabe o que é padrão/editado/do Mest
   assert.deepEqual(a.skills.map(s => s.key), ["golpe", "golpe_2"]);
   assert.equal(a.items[0].chance, 100);
 
-  const defaults = MEU_SISTEMA.DEFAULT_NPC_ARCHETYPES.map(e => normalizeArchetype(e, KEYS));
+  const defaults = NIHILITY.DEFAULT_NPC_ARCHETYPES.map(e => normalizeArchetype(e, KEYS));
   assert.ok(defaults.length >= 12);
   assert.equal(archetypeStatus(defaults[0], defaults), "default");
   assert.equal(archetypeStatus({ ...defaults[0], pointsPercent: 10 }, defaults), "edited");
@@ -128,16 +128,16 @@ test("Catálogo de arquétipos: normaliza, sabe o que é padrão/editado/do Mest
 });
 
 test("Arquétipos de fábrica: Civil sem Skill, todos com ids únicos e Skills com mecânica válida", () => {
-  const defaults = MEU_SISTEMA.DEFAULT_NPC_ARCHETYPES;
+  const defaults = NIHILITY.DEFAULT_NPC_ARCHETYPES;
   assert.equal(new Set(defaults.map(e => e.id)).size, defaults.length);
   const civil = defaults.find(e => e.id === "civil");
   assert.equal(civil.skills.length, 0);
   assert.equal(civil.pointsPercent, 50);
   for (const e of defaults) {
     for (const s of e.skills) {
-      assert.ok(MEU_SISTEMA.SKILL_EFFECT_TYPES.includes(s.effectType), `${e.id}/${s.name}: effectType`);
-      assert.ok(MEU_SISTEMA.SKILL_TARGET_TYPES.includes(s.targetType), `${e.id}/${s.name}: targetType`);
-      for (const eff of s.effects ?? []) assert.ok(MEU_SISTEMA.EFFECT_TARGETS.includes(eff.target), `${e.id}/${s.name}: alvo ${eff.target}`);
+      assert.ok(NIHILITY.SKILL_EFFECT_TYPES.includes(s.effectType), `${e.id}/${s.name}: effectType`);
+      assert.ok(NIHILITY.SKILL_TARGET_TYPES.includes(s.targetType), `${e.id}/${s.name}: targetType`);
+      for (const eff of s.effects ?? []) assert.ok(NIHILITY.EFFECT_TARGETS.includes(eff.target), `${e.id}/${s.name}: alvo ${eff.target}`);
     }
     assert.ok(e.skillsMax <= e.skills.length, `${e.id}: sorteia mais Skills do que tem`);
   }

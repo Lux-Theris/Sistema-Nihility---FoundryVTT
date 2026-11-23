@@ -1,6 +1,6 @@
 /**
  * Moedas e Escalas de fábrica.
- * Dados puros, referenciados por MEU_SISTEMA (core/config/constants.js); importe de
+ * Dados puros, referenciados por NIHILITY (core/config/constants.js); importe de
  * `core/config.js`. Separado em 1.68.0 sem mudar nenhum valor.
  */
 

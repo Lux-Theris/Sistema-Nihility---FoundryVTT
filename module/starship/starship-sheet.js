@@ -1,6 +1,6 @@
 import {
   SYSTEM_ID,
-  MEU_SISTEMA,
+  NIHILITY,
   getStarshipEnergyLabel,
   getStarshipEnergyAbbr,
   getModuleSizePreset,
@@ -264,7 +264,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.owner = actor.isOwner;
     context.activeTab = this.activeTab;
     context.system = actor.system;
-    context.config = MEU_SISTEMA;
+    context.config = NIHILITY;
     context.shipManeuverEnabled = isShipManeuverEnabled();
     context.traits = traitContext(actor);
     context.isGM = game.user.isGM;
@@ -593,7 +593,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
    * (`data-type="item"`) — `data-category` opcional pré-seleciona a Categoria do Módulo (ex: o
    * botão "+ Nova Arma" da aba Armas já cria com `category:"weapon"`, em vez de nascer
    * "Utilidade" e o jogador ter que trocar na mão). Já nasce com os presets Standard de
-   * `MEU_SISTEMA.MODULE_SIZE_PRESETS`/`MODULE_HP_BY_SIZE` (Overhaul de Naves, Fase 8) — o mesmo
+   * `NIHILITY.MODULE_SIZE_PRESETS`/`MODULE_HP_BY_SIZE` (Overhaul de Naves, Fase 8) — o mesmo
    * autopreenchimento que rodaria se o usuário trocasse a Categoria manualmente depois (ver
    * `_onModulePresetChange` em item-sheet.js), só que direto na criação.
    */
@@ -637,7 +637,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     // manualmente até estar reparado a 15%+ da Vida Máxima — mesma regra do tick automático.
     if (next === "online" && !moduleCanRestart(module)) {
       ui.notifications.warn(
-        `${module.name}: Vida baixa demais pra religar (precisa de ${MEU_SISTEMA.MODULE_RESTART_HP_THRESHOLD_PERCENT}%+ da Vida Máxima).`
+        `${module.name}: Vida baixa demais pra religar (precisa de ${NIHILITY.MODULE_RESTART_HP_THRESHOLD_PERCENT}%+ da Vida Máxima).`
       );
       return;
     }
@@ -908,7 +908,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     const victim = await pickTargetActor({ types: ["starship", "vehicle"], title: `${module.name} — prender quem?`, preferMap: true });
     if (!victim || victim.uuid === this.actor.uuid) return;
     const hold = tractorHold(
-      MEU_SISTEMA.MODULE_SIZE_RANK[module.system.moduleSize] ?? 0,
+      NIHILITY.MODULE_SIZE_RANK[module.system.moduleSize] ?? 0,
       victim.system.vesselSize?.rank ?? 0,
       (module.system.powerAllocationPercent ?? 100) / 100
     );
@@ -1010,9 +1010,9 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
         name: module.name,
         img: module.img,
         // A cor da pílula segue a Função (as classes CSS são as dos ids de sempre).
-        category: MEU_SISTEMA.MODULE_ROLES[moduleRole(sys.category)]?.presetKey ?? "utility",
+        category: NIHILITY.MODULE_ROLES[moduleRole(sys.category)]?.presetKey ?? "utility",
         categoryLabel: moduleCategoryLabel(sys.category),
-        sizeLabel: MEU_SISTEMA.MODULE_SIZE_LABELS[sys.moduleSize],
+        sizeLabel: NIHILITY.MODULE_SIZE_LABELS[sys.moduleSize],
         detail: moduleDetail(actor, module, abbr),
         online: sys.status === "online",
         hpValue: sys.hp.value,

@@ -10,7 +10,7 @@
  */
 import {
   SYSTEM_ID,
-  MEU_SISTEMA,
+  NIHILITY,
   isFeatureEnabled,
   getVisibleAttributes,
   getCharacterEnergyLabel,
@@ -28,7 +28,7 @@ import { attributePurposeContext } from "../creation/creation.js";
 import { conditionSentence } from "../core/table-rules-text.js";
 import { elementSentence, traitSentence, originSentence, normalizeGlossaryData, customTermId } from "./glossary-rules.js";
 
-const SETTING = () => MEU_SISTEMA.SETTINGS.glossaryData;
+const SETTING = () => NIHILITY.SETTINGS.glossaryData;
 
 export function loadGlossaryData() {
   try {
@@ -66,7 +66,7 @@ function conditionGlossarySentence(condition, energyLabel) {
 
 /** O mundo como a parte pura precisa. */
 export function gatherGlossaryWorld({ asPlayerPreview = false } = {}) {
-  const features = Object.fromEntries(Object.keys(MEU_SISTEMA.FEATURES).map(key => [key, isFeatureEnabled(key)]));
+  const features = Object.fromEntries(Object.keys(NIHILITY.FEATURES).map(key => [key, isFeatureEnabled(key)]));
   const energyLabel = getCharacterEnergyLabel();
   const purposeCtx = attributePurposeContext();
   const conditions = getActiveStatusConditions();
@@ -76,11 +76,11 @@ export function gatherGlossaryWorld({ asPlayerPreview = false } = {}) {
   const heritages = getActiveHeritages();
   const label = (list, id) => list.find(x => x.id === id)?.label ?? id;
   const defaultIds = list => new Set(list.map(x => x.id));
-  const defConditions = defaultIds(MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS);
-  const defElements = new Set([...(MEU_SISTEMA.DEFAULT_DAMAGE_ELEMENTS ?? []), ...(MEU_SISTEMA.SCIFI_DAMAGE_ELEMENTS ?? []), ...(PHYSICAL_SUBTYPES ?? []), RADIATION_ELEMENT].filter(Boolean).map(e => e.id));
-  const defTraits = defaultIds(MEU_SISTEMA.DEFAULT_TRAITS);
-  const defSpecies = new Set(Object.keys(MEU_SISTEMA.DEFAULT_SPECIES_PRESETS ?? {}));
-  const defHeritages = defaultIds(MEU_SISTEMA.DEFAULT_HERITAGES ?? []);
+  const defConditions = defaultIds(NIHILITY.DEFAULT_STATUS_CONDITIONS);
+  const defElements = new Set([...(NIHILITY.DEFAULT_DAMAGE_ELEMENTS ?? []), ...(NIHILITY.SCIFI_DAMAGE_ELEMENTS ?? []), ...(PHYSICAL_SUBTYPES ?? []), RADIATION_ELEMENT].filter(Boolean).map(e => e.id));
+  const defTraits = defaultIds(NIHILITY.DEFAULT_TRAITS);
+  const defSpecies = new Set(Object.keys(NIHILITY.DEFAULT_SPECIES_PRESETS ?? {}));
+  const defHeritages = defaultIds(NIHILITY.DEFAULT_HERITAGES ?? []);
   const actors = playerActors(asPlayerPreview);
   const traitLabel = id => label(traits, id);
   const data = loadGlossaryData();
@@ -137,7 +137,7 @@ export function gatherGlossaryWorld({ asPlayerPreview = false } = {}) {
 async function setCatalogExplanation(settingKey, defaults, id, text) {
   let list;
   try {
-    const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[settingKey]);
+    const raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS[settingKey]);
     const parsed = typeof raw === "string" && raw ? JSON.parse(raw) : raw;
     list = Array.isArray(parsed) && parsed.length ? parsed : null;
   } catch {
@@ -147,7 +147,7 @@ async function setCatalogExplanation(settingKey, defaults, id, text) {
   const entry = list.find(x => x?.id === id);
   if (!entry) throw new Error(`"${id}" não está mais no catálogo.`);
   entry.explanation = String(text ?? "").trim();
-  await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS[settingKey], JSON.stringify(list, null, 2));
+  await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS[settingKey], JSON.stringify(list, null, 2));
 }
 
 /**
@@ -169,9 +169,9 @@ export async function saveGlossaryEntry(entry, values) {
       // Texto igual ao de fábrica (ou vazio) não conta como reescrito.
       const fallback = String(entry.defaultText ?? "").trim();
       data.overrides[entry.key] = { ...(data.overrides[entry.key] ?? {}), text: text && text !== fallback ? text : "" };
-    } else if (kind === "condition") await setCatalogExplanation("statusConditionsData", MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS, id, text);
+    } else if (kind === "condition") await setCatalogExplanation("statusConditionsData", NIHILITY.DEFAULT_STATUS_CONDITIONS, id, text);
     else if (kind === "element") await setCatalogExplanation("damageElementsData", getActiveDamageElements(), id, text);
-    else if (kind === "trait") await setCatalogExplanation("traitsData", MEU_SISTEMA.DEFAULT_TRAITS, id, text);
+    else if (kind === "trait") await setCatalogExplanation("traitsData", NIHILITY.DEFAULT_TRAITS, id, text);
     data.overrides[entry.key] = { ...(data.overrides[entry.key] ?? {}), gmOnly: Boolean(values.gmOnly) };
   }
   // Não deixa sobra vazia na configuração.

@@ -8,7 +8,7 @@
  * Raciais com nível/XP) é COPIADO com chave estável e marca de origem (`speciesGrant`), e só muda
  * por este diff. O que a ficha criou à mão (sem marca de origem) nunca entra na conta.
  */
-import { MEU_SISTEMA, isStructureMechanic } from "../core/config.js";
+import { NIHILITY, isStructureMechanic } from "../core/config.js";
 import { normalizeSenses } from "../combat/senses-rules.js";
 
 /* ------------------------------------------------------------------ catálogo */
@@ -348,7 +348,7 @@ export function racialSkillSystem(source = {}, restored = null) {
   // completa os efeitos com os padrões do schema NO PRÓPRIO objeto ao criar o Item, o que mudava
   // o hash do catálogo e fazia fichas em dia aparecerem como "Espécie mudou".
   const s = structuredClone(source ?? {});
-  const effectType = isStructureMechanic(s) ? "structure" : MEU_SISTEMA.SKILL_EFFECT_TYPES.includes(s.effectType) ? s.effectType : "none";
+  const effectType = isStructureMechanic(s) ? "structure" : NIHILITY.SKILL_EFFECT_TYPES.includes(s.effectType) ? s.effectType : "none";
   const { key, unlockLevel, name, ...rest } = s;
   return {
     ...rest,
@@ -357,7 +357,7 @@ export function racialSkillSystem(source = {}, restored = null) {
     xp: Math.max(0, Number(restored?.xp) || 0),
     cost: Number(s.cost) || 0,
     effectType,
-    targetType: MEU_SISTEMA.SKILL_TARGET_TYPES.includes(s.targetType) ? s.targetType : "targeted",
+    targetType: NIHILITY.SKILL_TARGET_TYPES.includes(s.targetType) ? s.targetType : "targeted",
     damageElements: Array.isArray(s.damageElements) ? s.damageElements : [],
     effects: Array.isArray(s.effects) ? s.effects : [],
     description: s.description || "",

@@ -7,7 +7,7 @@
  */
 import {
   SYSTEM_ID,
-  MEU_SISTEMA,
+  NIHILITY,
   isVesselsEnabled,
   isAIAssistantEnabled,
   isFeatureEnabled,
@@ -240,7 +240,7 @@ function transferableSettings() {
 /** Chaves que pertencem a Módulos do Sistema (interruptores e seus campos). */
 function featureSettingKeys() {
   const keys = new Set();
-  for (const feature of Object.values(MEU_SISTEMA.FEATURES)) {
+  for (const feature of Object.values(NIHILITY.FEATURES)) {
     keys.add(feature.setting);
     for (const optionKey of Object.keys(feature.options ?? {})) keys.add(optionKey);
   }
@@ -371,7 +371,7 @@ function environmentState() {
 /** Quantos termos da mesa o glossário tem (linha "Glossário" de Configurações Gerais). */
 function glossaryCustomCount() {
   try {
-    const raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.glossaryData);
+    const raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.glossaryData);
     const data = raw ? JSON.parse(raw) : {};
     return Array.isArray(data?.custom) ? data.custom.length : 0;
   } catch (err) {
@@ -448,7 +448,7 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
     context.creation = await this._creationContext();
     if (isGM) {
       context.settingsSections = this._settingsSections();
-      context.disabledFeatures = Object.entries(MEU_SISTEMA.FEATURES)
+      context.disabledFeatures = Object.entries(NIHILITY.FEATURES)
         .filter(([key, feature]) => !feature.parent && !isFeatureEnabled(key))
         .map(([, feature]) => feature.name);
       context.aiSections = this._aiSections();
@@ -468,8 +468,8 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const elements = getActiveDamageElements();
     const conditions = getActiveStatusConditions();
     const categories = getModuleCategories();
-    const featuresOn = Object.entries(MEU_SISTEMA.FEATURES).filter(([key, f]) => !f.parent && isFeatureEnabled(key)).length;
-    const featuresTotal = Object.values(MEU_SISTEMA.FEATURES).filter(f => !f.parent).length;
+    const featuresOn = Object.entries(NIHILITY.FEATURES).filter(([key, f]) => !f.parent && isFeatureEnabled(key)).length;
+    const featuresTotal = Object.values(NIHILITY.FEATURES).filter(f => !f.parent).length;
     const rulesCount = [...game.settings.settings.values()].filter(c => c.namespace === SYSTEM_ID && c.scope === "world" && c.config).length;
 
     const sections = [
@@ -891,7 +891,7 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
       case "items-compendium": {
         // Itens Gerais (armas, equipamentos, PAD) não têm criação automática no Compêndio — o
         // Mestre cria/arrasta aqui dentro o que quiser ter à mão.
-        const pack = game.packs.get(`world.${MEU_SISTEMA.COMPENDIUM.items.key}`);
+        const pack = game.packs.get(`world.${NIHILITY.COMPENDIUM.items.key}`);
         if (pack) pack.render(true);
         else ui.notifications.warn("Compêndio de Itens ainda não existe — use 'Sincronizar' primeiro.");
         break;
@@ -899,7 +899,7 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
       case "titles-config": {
         // Não existe preset global de Títulos (são só Items por Ator) — o mais útil que já
         // existe é abrir o Compêndio de Títulos do mundo pra navegar/gerenciar.
-        const pack = game.packs.get(`world.${MEU_SISTEMA.COMPENDIUM.titles.key}`);
+        const pack = game.packs.get(`world.${NIHILITY.COMPENDIUM.titles.key}`);
         if (pack) pack.render(true);
         else ui.notifications.warn("Compêndio de Títulos ainda não existe — use 'Sincronizar' primeiro.");
         break;

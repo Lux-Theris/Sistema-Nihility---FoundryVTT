@@ -6,7 +6,7 @@ import {
   darknessNeedsUpdate, adjustedDarkness, restHours, sleepUntil, shouldWake, groupSleepState, skipLabel, visibleHour, groupRestSeconds
 } from "../module/core/world-clock-rules.js";
 import { matchesWhen, sumConditionalModifiers, WHEN_KINDS, SELF_WHEN_KINDS } from "../module/combat/conditional-modifiers.js";
-import { MEU_SISTEMA, isWorldClockEnabled, isTrapsEnabled } from "../module/core/config.js";
+import { NIHILITY, isWorldClockEnabled, isTrapsEnabled } from "../module/core/config.js";
 
 const H = 3600;
 
@@ -123,7 +123,7 @@ test("Quando → Então: selfDark, isDay e isNight leem o contexto e são condi�
 
 test("blocos novos: Relógio e Armadilhas existem, no grupo Mundo, ligados e leves", () => {
   for (const key of ["worldClock", "traps"]) {
-    const feature = MEU_SISTEMA.FEATURES[key];
+    const feature = NIHILITY.FEATURES[key];
     assert.ok(feature, key);
     assert.equal(feature.group, "world");
     assert.equal(feature.default, true);
@@ -135,7 +135,7 @@ test("blocos novos: Relógio e Armadilhas existem, no grupo Mundo, ligados e lev
 });
 
 test("a Condição Dormindo existe de fábrica e incapacita", () => {
-  const sleeping = MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS.find(c => c.id === "sleeping");
+  const sleeping = NIHILITY.DEFAULT_STATUS_CONDITIONS.find(c => c.id === "sleeping");
   assert.ok(sleeping);
   assert.equal(sleeping.incapacitates, true);
 });

@@ -17,7 +17,7 @@
  * Desligado o bloco: `personalNow(actor)` = tempo do mundo, toda cena está na linha principal (ritmo 1)
  * e as datas saem como no J9 ("Dia 3 · 14:05"). Nenhum flag é apagado.
  */
-import { SYSTEM_ID, MEU_SISTEMA, isCalendarEnabled, isWorldClockEnabled } from "./config.js";
+import { SYSTEM_ID, NIHILITY, isCalendarEnabled, isWorldClockEnabled } from "./config.js";
 import { isDesignatedGm, runAsGm } from "../helpers/gm-relay.js";
 import { combatScenes } from "../helpers/foundry-compat.js";
 import { escapeHtml } from "../helpers/html.js";
@@ -39,7 +39,7 @@ import {
 
 function readSetting(key) {
   try {
-    return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[key]);
+    return game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS[key]);
   } catch (err) {
     return undefined;
   }
@@ -72,7 +72,7 @@ export function getCalendar() {
 /** O calendário como o editor o grava. */
 export async function saveCalendar(calendar) {
   if (!game.user.isGM) return false;
-  await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.calendarData, JSON.stringify(normalizeCalendar(calendar), null, 2));
+  await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.calendarData, JSON.stringify(normalizeCalendar(calendar), null, 2));
   return true;
 }
 
@@ -104,7 +104,7 @@ export function getRawTimelines() {
 
 export async function saveTimelines(lines) {
   if (!game.user.isGM) return false;
-  await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.timelines, JSON.stringify(normalizeTimelines(lines)));
+  await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.timelines, JSON.stringify(normalizeTimelines(lines)));
   return true;
 }
 

@@ -10,7 +10,7 @@
  *  - Título e texto vêm das flags do anúncio (`title`/`body`, gravadas por announceVoiceOfTheWorld);
  *    o texto vira texto puro (o corpo pode ter HTML no chat) e é posto com `textContent`.
  */
-import { SYSTEM_ID, MEU_SISTEMA } from "./config.js";
+import { SYSTEM_ID, NIHILITY } from "./config.js";
 
 const DURATION_MS = 6000;
 const ACTION_DURATION_MS = 30000;
@@ -21,7 +21,7 @@ let current = null; // { key, close } do cartão na tela
 
 function enabledForMe() {
   try {
-    return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.voiceBanner) !== false;
+    return game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.voiceBanner) !== false;
   } catch {
     return true;
   }

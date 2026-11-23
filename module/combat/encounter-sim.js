@@ -9,7 +9,7 @@
  */
 import { luckOf, luckPercentText } from "./luck-rules.js";
 import {
-  MEU_SISTEMA,
+  NIHILITY,
   damageScalingMultiplier,
   isMagicUse,
   isTechUse,
@@ -288,7 +288,7 @@ export async function temporaryActorFromDraft(draft) {
       isPlayerCharacter: false,
       npcTier: draft.tier || "normal",
       species: draft.species,
-      attributes: { level: draft.level, combat: Object.fromEntries(MEU_SISTEMA.COMBAT_ATTRIBUTES.map(k => [k, { points: draft.points[k] ?? 0 }])) }
+      attributes: { level: draft.level, combat: Object.fromEntries(NIHILITY.COMBAT_ATTRIBUTES.map(k => [k, { points: draft.points[k] ?? 0 }])) }
     },
     items: items.map(i => ({ ...i, _id: foundry.utils.randomID() }))
   });

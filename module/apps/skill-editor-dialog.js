@@ -1,5 +1,5 @@
 import {
-  MEU_SISTEMA,
+  NIHILITY,
   getActiveDamageElements,
   getActiveStatusConditions,
   getActiveTraits,
@@ -80,18 +80,18 @@ function buildEffectRowHtml(entry) {
         .map(c => `<option value="${escapeHtml(c.id)}" ${c.id === entry.conditionId ? "selected" : ""}>${escapeHtml(c.label)}</option>`)
         .join("")
     : `<option value="" selected>— sem Condição —</option>`;
-  const tickUnitOptions = MEU_SISTEMA.PERIODIC_TICK_UNITS.map(
-    u => `<option value="${u}" ${u === entry.tickUnit ? "selected" : ""}>${MEU_SISTEMA.PERIODIC_TICK_UNIT_LABELS[u]}</option>`
+  const tickUnitOptions = NIHILITY.PERIODIC_TICK_UNITS.map(
+    u => `<option value="${u}" ${u === entry.tickUnit ? "selected" : ""}>${NIHILITY.PERIODIC_TICK_UNIT_LABELS[u]}</option>`
   ).join("");
-  const modifierTypeOptions = MEU_SISTEMA.EFFECT_MODIFIER_TYPES.map(
-    m => `<option value="${m}" ${m === (entry.modifierType || "flat") ? "selected" : ""}>${MEU_SISTEMA.EFFECT_MODIFIER_TYPE_LABELS[m]}</option>`
+  const modifierTypeOptions = NIHILITY.EFFECT_MODIFIER_TYPES.map(
+    m => `<option value="${m}" ${m === (entry.modifierType || "flat") ? "selected" : ""}>${NIHILITY.EFFECT_MODIFIER_TYPE_LABELS[m]}</option>`
   ).join("");
   const periodicVisible = targetAcceptsPeriodic(entry.target);
   // Periódico de Vida positivo = cura: o Tipo diz o que ela faz nas Partes do Corpo.
-  const healKindOptions = MEU_SISTEMA.HEAL_KINDS.map(
-    k => `<option value="${k}" ${k === (entry.healKind || "cura") ? "selected" : ""}>${MEU_SISTEMA.HEAL_KIND_LABELS[k]} — ${MEU_SISTEMA.HEAL_KIND_HINTS[k]}</option>`
+  const healKindOptions = NIHILITY.HEAL_KINDS.map(
+    k => `<option value="${k}" ${k === (entry.healKind || "cura") ? "selected" : ""}>${NIHILITY.HEAL_KIND_LABELS[k]} — ${NIHILITY.HEAL_KIND_HINTS[k]}</option>`
   ).join("");
-  const modifierTypeVisible = MEU_SISTEMA.SHIP_EFFECT_TARGETS.includes(entry.target);
+  const modifierTypeVisible = NIHILITY.SHIP_EFFECT_TARGETS.includes(entry.target);
   const entryElements = Array.isArray(entry.damageElements) ? entry.damageElements : [];
   const onlyIfNow = normalizeOnlyIf(entry.onlyIf) ?? { kind: "", value: "", threshold: 50 };
 
@@ -213,7 +213,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
   const offerTemplates = options.offerTemplates ?? !initialData.name;
   const data = {
     name: initialData.name ?? "",
-    tier: initialData.tier ?? lockTier ?? MEU_SISTEMA.SKILL_TIERS[0],
+    tier: initialData.tier ?? lockTier ?? NIHILITY.SKILL_TIERS[0],
     level: initialData.level ?? 1,
     cost: initialData.cost ?? 0,
     hasUpkeep: Boolean(initialData.hasUpkeep),
@@ -274,10 +274,10 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
   }
 
   const tierField = lockTier
-    ? `<div class="skill-editor-tier-lock"><i class="fas fa-lock"></i> Tier travado: ${MEU_SISTEMA.SKILL_TIER_LABELS[lockTier] ?? lockTier}</div>`
+    ? `<div class="skill-editor-tier-lock"><i class="fas fa-lock"></i> Tier travado: ${NIHILITY.SKILL_TIER_LABELS[lockTier] ?? lockTier}</div>`
     : `<div class="form-group"><label>Tier</label><select name="tier">
-        ${(tierChoices ?? MEU_SISTEMA.SKILL_TIERS.filter(t => t !== "racial"))
-          .map(t => `<option value="${t}" ${t === data.tier ? "selected" : ""}>${escapeHtml(tierLabels[t] ?? MEU_SISTEMA.SKILL_TIER_LABELS[t])}</option>`)
+        ${(tierChoices ?? NIHILITY.SKILL_TIERS.filter(t => t !== "racial"))
+          .map(t => `<option value="${t}" ${t === data.tier ? "selected" : ""}>${escapeHtml(tierLabels[t] ?? NIHILITY.SKILL_TIER_LABELS[t])}</option>`)
           .join("")}
       </select></div>`;
 
@@ -301,24 +301,24 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
       .map(a => `<option value="${a.key}" ${a.key === data.scalingAttribute ? "selected" : ""}>${escapeHtml(a.label)}</option>`)
       .join("");
 
-  const effectTypeOptions = MEU_SISTEMA.SKILL_EFFECT_TYPES.filter(t => (t !== "structure" || isStructuresEnabled() || data.effectType === "structure") && (t !== "form" || isFormsEnabled() || data.effectType === "form") && (t !== "analysis" || isAnalysisEnabled() || data.effectType === "analysis") && (t !== "predation" || isPredationEnabled() || data.effectType === "predation") && (t !== "reroll" || isRerollEnabled() || data.effectType === "reroll")).map(
-    t => `<option value="${t}" ${t === data.effectType ? "selected" : ""}>${MEU_SISTEMA.SKILL_EFFECT_TYPE_LABELS[t]}</option>`
+  const effectTypeOptions = NIHILITY.SKILL_EFFECT_TYPES.filter(t => (t !== "structure" || isStructuresEnabled() || data.effectType === "structure") && (t !== "form" || isFormsEnabled() || data.effectType === "form") && (t !== "analysis" || isAnalysisEnabled() || data.effectType === "analysis") && (t !== "predation" || isPredationEnabled() || data.effectType === "predation") && (t !== "reroll" || isRerollEnabled() || data.effectType === "reroll")).map(
+    t => `<option value="${t}" ${t === data.effectType ? "selected" : ""}>${NIHILITY.SKILL_EFFECT_TYPE_LABELS[t]}</option>`
   ).join("");
 
 
   // Tipo desligado pela campanha sai da lista — a menos que a Skill já esteja nele.
-  const availableTargetTypes = MEU_SISTEMA.SKILL_TARGET_TYPES.filter(
+  const availableTargetTypes = NIHILITY.SKILL_TARGET_TYPES.filter(
     t => t === data.targetType || isAreaEffectsEnabled() || (t !== "emission" && t !== "zone")
   );
   const structureOptions =
     `<option value="">— escolha —</option>` +
     getStructures().map(st => `<option value="${escapeHtml(st.id)}" ${st.id === data.structureId ? "selected" : ""}>${escapeHtml(st.label)}</option>`).join("");
   const targetTypeOptions = availableTargetTypes.map(
-    t => `<option value="${t}" ${t === data.targetType ? "selected" : ""}>${MEU_SISTEMA.SKILL_TARGET_TYPE_LABELS[t]}</option>`
+    t => `<option value="${t}" ${t === data.targetType ? "selected" : ""}>${NIHILITY.SKILL_TARGET_TYPE_LABELS[t]}</option>`
   ).join("");
 
-  const areaShapeOptions = MEU_SISTEMA.SKILL_AREA_SHAPES.map(
-    s => `<option value="${s}" ${s === data.areaShape ? "selected" : ""}>${MEU_SISTEMA.SKILL_AREA_SHAPE_LABELS[s]}</option>`
+  const areaShapeOptions = NIHILITY.SKILL_AREA_SHAPES.map(
+    s => `<option value="${s}" ${s === data.areaShape ? "selected" : ""}>${NIHILITY.SKILL_AREA_SHAPE_LABELS[s]}</option>`
   ).join("");
 
   const scaleField = isScaleEnabled()
@@ -380,7 +380,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
               (sub, i) => `
             <div class="subskill-mini-item">
               <div class="subskill-mini-row" data-i="${i}">
-                <span class="subskill-tier-chip tier-${sub.tier}">${MEU_SISTEMA.SKILL_TIER_LABELS[sub.tier] ?? sub.tier}</span>
+                <span class="subskill-tier-chip tier-${sub.tier}">${NIHILITY.SKILL_TIER_LABELS[sub.tier] ?? sub.tier}</span>
                 <span class="subskill-mini-name">${escapeHtml(sub.name)}</span>
                 <span class="subskill-mini-mechanic">${mechanicSummaryFor(sub)}</span>
                 <svg class="subskill-chevron" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 9 6 6 6-6"/></svg>
@@ -630,7 +630,7 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
   if (result && typeof result === "object" && "__template" in result) {
     const tier = lockTier ?? (result.tier || data.tier);
     if (result.__template === "__compendium") {
-      const picked = await pickCompendiumSkill(tierChoices ?? MEU_SISTEMA.SKILL_TIERS);
+      const picked = await pickCompendiumSkill(tierChoices ?? NIHILITY.SKILL_TIERS);
       if (!picked) return openSkillEditorDialog({ name: result.name, tier }, { ...options, offerTemplates: true, templateChosen: null });
       const copy = { ...foundry.utils.deepClone(picked.system), name: result.name || picked.name, tier, level: 1 };
       for (const key of ["subSkills", "fusionSources", "evolvedFrom", "isItemGranted", "xp", "active"]) delete copy[key];
@@ -659,7 +659,7 @@ async function pickCompendiumSkill(tiers) {
     ui.notifications?.info("Nenhuma Skill desses Tiers no Compêndio ainda.");
     return null;
   }
-  const options = entries.map(e => `<option value="${escapeHtml(e._id)}">${escapeHtml(e.name)} · ${escapeHtml(MEU_SISTEMA.SKILL_TIER_LABELS[e.system?.tier] ?? "")}</option>`).join("");
+  const options = entries.map(e => `<option value="${escapeHtml(e._id)}">${escapeHtml(e.name)} · ${escapeHtml(NIHILITY.SKILL_TIER_LABELS[e.system?.tier] ?? "")}</option>`).join("");
   const id = await DialogV2.wait({
     window: { title: "Começar de uma Skill do Compêndio" },
     content: `<div class="nihility-creation-dialog se-compendium-pick">
@@ -851,7 +851,7 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
   const rowRefreshers = [];
   root.querySelector('[name="hasUpkeep"]')?.addEventListener("change", () => rowRefreshers.forEach(fn => fn()));
 
-  function addEffectRow(entry = { target: MEU_SISTEMA.EFFECT_TARGETS[0], amount: 1, modifierType: "flat", durationRounds: 1, conditionId: "", periodic: false, tickUnit: "combatRound", damageElements: [] }) {
+  function addEffectRow(entry = { target: NIHILITY.EFFECT_TARGETS[0], amount: 1, modifierType: "flat", durationRounds: 1, conditionId: "", periodic: false, tickUnit: "combatRound", damageElements: [] }) {
     const li = document.createElement("li");
     li.className = "effect-row";
     li.innerHTML = buildEffectRowHtml(entry);
@@ -887,7 +887,7 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
     // Fixo/Multiplicador só existe pros alvos "de Nave" (Dano/Penetração de Arma) — some sozinho
     // (volta pro padrão "flat") pra qualquer outro alvo, mesmo padrão de applyPeriodicVisibility.
     function applyModifierTypeVisibility() {
-      const isShipTarget = MEU_SISTEMA.SHIP_EFFECT_TARGETS.includes(targetSelect.value);
+      const isShipTarget = NIHILITY.SHIP_EFFECT_TARGETS.includes(targetSelect.value);
       modifierTypeSelect.style.display = isShipTarget ? "inline-block" : "none";
       if (!isShipTarget) modifierTypeSelect.value = "flat";
     }

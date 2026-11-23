@@ -1,4 +1,4 @@
-import { MEU_SISTEMA, getActiveStatusConditions, getAttributeLabels } from "../core/config.js";
+import { NIHILITY, getActiveStatusConditions, getAttributeLabels } from "../core/config.js";
 import { CURSE_UNPAID, CURSE_UNPAID_LABELS, normalizeCurse } from "../core/curse-rules.js";
 import { createCardListConfigApp, escapeHtml, optionsHtml } from "./card-list-config-factory.js";
 import { registerStatusConditions } from "../combat/conditions.js";
@@ -23,7 +23,7 @@ const TICK_SIGNS = [["damage", "Dano"], ["heal", "Cura"]];
 const VALUE_MODES = [["hitPercent", "% do dano do golpe"], ["maxPercent", "% do máximo do alvo"], ["fixed", "Valor fixo"]];
 const TICK_UNITS = [["combatRound", "Por rodada de combate"], ["manual", "Manual (botão na ficha)"]];
 const MOD_MODES = [["percent", "%"], ["fixed", "Fixo"]];
-const HEAL_KINDS = MEU_SISTEMA.HEAL_KINDS.map(k => [k, MEU_SISTEMA.HEAL_KIND_LABELS[k]]);
+const HEAL_KINDS = NIHILITY.HEAL_KINDS.map(k => [k, NIHILITY.HEAL_KIND_LABELS[k]]);
 const HEAL_BLOCK_KINDS = [["", "Não"], ["regen", "Só Regeneração"], ["all", "Toda cura"]];
 const MAP_STATUSES = [["", "Nada"], ["invisible", "Invisível"], ["blind", "Cego"]];
 const HEAL_BLOCK_SCOPES = [["body", "Corpo todo"], ["part", "Parte atingida"]];
@@ -36,7 +36,7 @@ function healBlockKinds(values) {
 
 function modTargetOptions() {
   const labels = getAttributeLabels();
-  return [["movement", "Deslocamento (%)"], ...MEU_SISTEMA.COMBAT_ATTRIBUTES.map(key => [key, labels[key] ?? key])];
+  return [["movement", "Deslocamento (%)"], ...NIHILITY.COMBAT_ATTRIBUTES.map(key => [key, labels[key] ?? key])];
 }
 
 /** Uma linha de efeito da Maldição: atributo/Deslocamento, ou dano/cura por rodada. */

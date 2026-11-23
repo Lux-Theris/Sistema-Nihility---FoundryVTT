@@ -5,7 +5,7 @@
  * nenhuma função nem dado (conferido comparando a lista de exportações, com hash do código de cada
  * uma, antes e depois). Todo o sistema continua importando DAQUI; os arquivos da pasta são a
  * organização interna:
- *  - constants.js   SYSTEM_ID e MEU_SISTEMA (catálogos e tabelas padrão)
+ *  - constants.js   SYSTEM_ID e NIHILITY (catálogos e tabelas padrão)
  *  - catalogs.js    leitores dos catálogos do Mestre (setting > padrão) e rótulos
  *  - features.js    blocos liga/desliga, presets de campanha, migrações, debugLog
  *  - progression.js XP, nível de Skill, escala de dano, Vida/Mana, pontos

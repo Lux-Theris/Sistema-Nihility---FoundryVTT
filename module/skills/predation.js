@@ -1,5 +1,5 @@
 import {
-  SYSTEM_ID, MEU_SISTEMA, isPredationEnabled, getPredationAttrPercent, getPredationLevelStep, getAttributeLabel, actorToken
+  SYSTEM_ID, NIHILITY, isPredationEnabled, getPredationAttrPercent, getPredationLevelStep, getAttributeLabel, actorToken
 } from "../core/config.js";
 import { applyLuckToFormula, luckOf } from "../combat/luck-rules.js";
 import { escapeHtml } from "../helpers/html.js";
@@ -79,7 +79,7 @@ function formSkillOptions(predator) {
 }
 
 function attrTotals(target) {
-  return Object.fromEntries(MEU_SISTEMA.COMBAT_ATTRIBUTES.map(key => [key, Number(target.system?.attributes?.combat?.[key]?.total) || 0]));
+  return Object.fromEntries(NIHILITY.COMBAT_ATTRIBUTES.map(key => [key, Number(target.system?.attributes?.combat?.[key]?.total) || 0]));
 }
 
 /** A chave do contador desta criatura: a Espécie, ou o nome da ficha base sem Espécie. */
@@ -177,7 +177,7 @@ function attrLine(attrGain) {
 
 function cardHtml(data, predator, label) {
   const rows = data.results
-    .map(r => `<li><span class="pred-skill-name" data-won="${r.won ? 1 : 0}">${escapeHtml(r.name)}</span> <em>(${escapeHtml(MEU_SISTEMA.SKILL_TIER_LABELS[r.tier] ?? r.tier)})</em> — chance ${r.chance}% · d100 = ${r.roll} · <strong>${r.won ? "✓ absorvida" : "✗ não absorvida"}</strong></li>`)
+    .map(r => `<li><span class="pred-skill-name" data-won="${r.won ? 1 : 0}">${escapeHtml(r.name)}</span> <em>(${escapeHtml(NIHILITY.SKILL_TIER_LABELS[r.tier] ?? r.tier)})</em> — chance ${r.chance}% · d100 = ${r.roll} · <strong>${r.won ? "✓ absorvida" : "✗ não absorvida"}</strong></li>`)
     .join("");
   const skipped = data.skipped.length ? `<p class="hint-inline">Não entram: ${data.skipped.map(s => `${escapeHtml(s.name)} (${escapeHtml(s.reason)})`).join(", ")}.</p>` : "";
   const points = Object.keys(data.attrGain).length

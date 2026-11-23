@@ -5,7 +5,7 @@
  * As regras são puras; aqui só se lê o mundo e se monta HTML.
  */
 import {
-  MEU_SISTEMA,
+  NIHILITY,
   isFeatureEnabled,
   getActiveStatusConditions,
   getActiveTraits,
@@ -146,7 +146,7 @@ export function costChipHtml(info, field) {
 
 /** Modelos agrupados para a janela de criação: [{label, templates: [{id, label, hint}]}]. */
 export function templateGroups() {
-  const labels = MEU_SISTEMA.SKILL_TEMPLATE_GROUP_LABELS;
+  const labels = NIHILITY.SKILL_TEMPLATE_GROUP_LABELS;
   const groups = Object.entries(labels).map(([id, label]) => ({ id, label, templates: [] }));
   for (const t of getActiveSkillTemplates()) {
     // Modelo do Mestre sem frase própria: os dois primeiros pedaços da "Skill numa frase".

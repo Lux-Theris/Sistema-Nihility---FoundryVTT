@@ -13,7 +13,7 @@
  *  - Atualiza ao redesenhar os efeitos (o core faz isso ao criar/apagar), a cada mudança de efeito
  *    e a cada troca de turno (os prazos andam).
  */
-import { SYSTEM_ID, MEU_SISTEMA } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY } from "../core/config.js";
 import { effectAnchors, finiteRemaining } from "./effect-anchors.js";
 import { effectBadge, BADGE_COLORS, roundsLeftFromStart } from "./effect-badge-rules.js";
 import { describeTimeFactor } from "./time-rate-rules.js";
@@ -22,7 +22,7 @@ import { reserveOf, TIME_FLAG } from "./time-rate.js";
 
 function enabledForMe() {
   try {
-    return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.effectBadges) !== false;
+    return game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.effectBadges) !== false;
   } catch {
     return true;
   }

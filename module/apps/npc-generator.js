@@ -3,7 +3,7 @@
  * (arquétipo, nível, quantidade, Espécie, Nível de NPC, nomes, pasta); à direita a prévia das
  * fichas sorteadas. Nada é criado até "Criar". Só o Mestre.
  */
-import { SYSTEM_ID, MEU_SISTEMA, getActiveNpcArchetypes, getActiveSpeciesPresets, getAttributeLabel, isFeatureEnabled } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, getActiveNpcArchetypes, getActiveSpeciesPresets, getAttributeLabel, isFeatureEnabled } from "../core/config.js";
 import { draftNpc, draftNpcs, createNpcs, placeNpcTokens, pickCanvasPoint, tierLabel, archetypeBudget } from "../npc/npc-generator.js";
 import { NPC_TIERS, NPC_TIER_LABELS } from "../npc/npc-generator-rules.js";
 import { reportError } from "../helpers/report.js";
@@ -13,7 +13,7 @@ const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 /** Há chave de IA neste navegador? (A configuração da IA é por navegador.) */
 function aiConfigured() {
   try {
-    return Boolean(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.aiApiKey));
+    return Boolean(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.aiApiKey));
   } catch (err) {
     return false;
   }
@@ -76,8 +76,8 @@ export class NpcGeneratorApp extends HandlebarsApplicationMixin(ApplicationV2) {
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
     const archetypes = getActiveNpcArchetypes();
-    const groupLabels = MEU_SISTEMA.NPC_ARCHETYPE_GROUP_LABELS;
-    const defaults = new Set(MEU_SISTEMA.DEFAULT_NPC_ARCHETYPES.map(a => a.id));
+    const groupLabels = NIHILITY.NPC_ARCHETYPE_GROUP_LABELS;
+    const defaults = new Set(NIHILITY.DEFAULT_NPC_ARCHETYPES.map(a => a.id));
     const groups = {};
     for (const a of archetypes) {
       const key = groupLabels[a.group] ? a.group : "";
@@ -118,7 +118,7 @@ export class NpcGeneratorApp extends HandlebarsApplicationMixin(ApplicationV2) {
           meta: [d.speciesLabel, `Nv ${d.level}`, archetype.label, tierLabel(d.tier)].filter(Boolean).join(" · "),
           hp: d.vitals.hp,
           mp: d.vitals.mp,
-          attrs: MEU_SISTEMA.COMBAT_ATTRIBUTES.map(key => ({
+          attrs: NIHILITY.COMBAT_ATTRIBUTES.map(key => ({
             label: SHORT[key] ?? getAttributeLabel(key),
             value: d.points[key] ?? 0,
             width: `${Math.round(((d.points[key] ?? 0) / top) * 100)}%`,

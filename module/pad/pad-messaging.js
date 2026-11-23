@@ -15,12 +15,12 @@
  * persona atual constar como membro — "membro invisível" de qualquer conversa (mesma convenção de
  * privacidade já estabelecida em `voice-of-the-world.js`, ver docs/claude/pad.md).
  */
-import { SYSTEM_ID, MEU_SISTEMA, sceneActorCandidates } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, sceneActorCandidates } from "../core/config.js";
 import { findCrewedShipsForActor } from "./pad-crew.js";
 import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
 import { escapeHtml } from "../helpers/html.js";
 
-const GROUPS_PACK_COLLECTION = `world.${MEU_SISTEMA.COMPENDIUM.padGroups.key}`;
+const GROUPS_PACK_COLLECTION = `world.${NIHILITY.COMPENDIUM.padGroups.key}`;
 
 function getGroupsPack() {
   return game.packs.get(GROUPS_PACK_COLLECTION) ?? null;

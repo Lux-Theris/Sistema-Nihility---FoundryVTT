@@ -11,7 +11,7 @@ import { ATTRIBUTE_PERCENT_TARGETS } from "../economy/consumable-rules.js";
 import { sanitizeRerollFields } from "../skills/reroll-rules.js";
 import { clampTimeFactor, isTimeFactorActive } from "../combat/time-rate-rules.js";
 import {
-  MEU_SISTEMA,
+  NIHILITY,
   getActiveTraits,
   getActiveBodyFunctions,
   getActiveWeaponTypes,
@@ -115,7 +115,7 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
     out.intruderRule = ["break", "include"].includes(m.intruderRule) ? m.intruderRule : "";
   }
 
-  let effectType = MEU_SISTEMA.SKILL_EFFECT_TYPES.includes(m.effectType) ? m.effectType : "none";
+  let effectType = NIHILITY.SKILL_EFFECT_TYPES.includes(m.effectType) ? m.effectType : "none";
   if (effectType === "structure") {
     out.structureId = structures.has(m.structureId) ? m.structureId : "";
     if (!out.structureId) effectType = "none";
@@ -165,7 +165,7 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
   if (effectType === "temporary") {
     const effects = [];
     for (const e of Array.isArray(m.effects) ? m.effects.slice(0, 4) : []) {
-      if (!e || !MEU_SISTEMA.EFFECT_TARGETS.includes(e.target) || String(e.target).startsWith("ship")) continue;
+      if (!e || !NIHILITY.EFFECT_TARGETS.includes(e.target) || String(e.target).startsWith("ship")) continue;
       const conditionId = conditions.has(e.conditionId) ? e.conditionId : "";
       const movementOnly = ["flight", "burrow", "unarmedType", "dispelMagic", "timeRate"].includes(e.target);
       const surfaceEntry = e.target === "createSurface";
@@ -389,7 +389,7 @@ export function sanitizeOriginEntry(raw = {}, catalogs = {}, { kind = "species",
       slot: slug(p?.slot) || "body",
       hpMax: clampInt(p?.hpMax, 1, 200, 10),
       // Vida da parte em % da Vida máxima; sem número, o padrão do slot.
-      hpPercent: clampInt(p?.hpPercent, 1, 100, MEU_SISTEMA.PART_HP_PERCENT_BY_SLOT?.[slug(p?.slot)] ?? MEU_SISTEMA.PART_HP_PERCENT_BY_SLOT?.default ?? 20),
+      hpPercent: clampInt(p?.hpPercent, 1, 100, NIHILITY.PART_HP_PERCENT_BY_SLOT?.[slug(p?.slot)] ?? NIHILITY.PART_HP_PERCENT_BY_SLOT?.default ?? 20),
       tags: pickIds(p?.functions, functions, 4)
     };
   });

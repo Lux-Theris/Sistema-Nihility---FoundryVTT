@@ -7,7 +7,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  MEU_SISTEMA,
+  NIHILITY,
   movementAllowance,
   describeMovement,
   getMovementConfig,
@@ -140,8 +140,8 @@ test("Estrutura: é Mecânica ao Usar, e a forma de 1.37 (Tipo de Alvo) é conve
   assert.equal(isStructureMechanic({ effectType: "damage", targetType: "targeted" }), false);
   const legacy = migrateStructureTarget({ effectType: "none", targetType: "structure", structureId: "stone-wall" });
   assert.deepEqual(legacy, { effectType: "structure", targetType: "targeted", structureId: "stone-wall" });
-  assert.ok(!MEU_SISTEMA.SKILL_TARGET_TYPES.includes("structure"));
-  assert.ok(MEU_SISTEMA.SKILL_EFFECT_TYPES.includes("structure"));
+  assert.ok(!NIHILITY.SKILL_TARGET_TYPES.includes("structure"));
+  assert.ok(NIHILITY.SKILL_EFFECT_TYPES.includes("structure"));
 });
 
 test("luz: sem 'enabled' não há luz; valores fora da faixa são limitados", () => {

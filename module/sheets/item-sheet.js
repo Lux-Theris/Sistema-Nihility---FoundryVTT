@@ -3,7 +3,7 @@ import { describeLuck, luckFromScopes } from "../combat/luck-rules.js";
 import { ONLY_IF_KINDS, ONLY_IF_LABELS, onlyIfNeeds, normalizeOnlyIf, hasOnlyIf, onlyIfClause } from "../skills/only-if-rules.js";
 import { getAntimagicReach,
   SYSTEM_ID,
-  MEU_SISTEMA,
+  NIHILITY,
   getActiveDamageElements,
   getActiveCurrencies,
   getResistanceTargetOptions,
@@ -143,7 +143,7 @@ function headerChipsFor(item) {
   const fmt = n => String(n).replace(".", ",");
   switch (item.type) {
     case "skill": {
-      add(MEU_SISTEMA.SKILL_TIER_LABELS[sys.tier] ?? sys.tier, "Tier", "violet");
+      add(NIHILITY.SKILL_TIER_LABELS[sys.tier] ?? sys.tier, "Tier", "violet");
       add(`Nv ${sys.level}`, "Nível");
       if (sys.coreSkill) add("Skill de base", "Skill pré-feita do sistema: outras regras dependem dela", "violet");
       if (sys.cost) add(`${sys.cost} ${getCharacterEnergyLabel()}`, "Custo ao usar");
@@ -154,7 +154,7 @@ function headerChipsFor(item) {
       if (chipMagic && chipTech) add("Tecnomágica", "Sofre Antimagia e PEM", "violet");
       else if (chipMagic) add("Mágica", "Sofre Antimagia", "violet");
       else if (chipTech) add("Tecnológica", "Sofre PEM", "violet");
-      const target = MEU_SISTEMA.SKILL_TARGET_TYPE_SHORT_LABELS[sys.targetType] ?? "";
+      const target = NIHILITY.SKILL_TARGET_TYPE_SHORT_LABELS[sys.targetType] ?? "";
       if (isStructureMechanic(sys)) add("Estrutura", "Mecânica ao usar");
       else if (sys.effectType === "form") add("Forma", "Mecânica ao usar");
       else if (sys.effectType === "analysis") add("Análise", "Mecânica ao usar");
@@ -175,7 +175,7 @@ function headerChipsFor(item) {
     case "starship_module": {
       const role = moduleRole(sys.category);
       add(getModuleCategories().find(c => c.id === sys.category)?.label ?? sys.category, "Categoria", "violet");
-      add(MEU_SISTEMA.MODULE_SIZE_LABELS[sys.moduleSize] ?? sys.moduleSize, "Porte");
+      add(NIHILITY.MODULE_SIZE_LABELS[sys.moduleSize] ?? sys.moduleSize, "Porte");
       if (sys.powerConsumption) add(`${sys.powerConsumption} ${getStarshipEnergyAbbr()}`, "Consumo de energia a 100%");
       add(`Vida ${sys.hp?.max ?? 0}`, "Vida máxima");
       const key = {
@@ -309,7 +309,7 @@ function conditionalModifierRows(list, { activeSkill = false } = {}) {
   const conditions = getActiveStatusConditions().map(c => [c.id, c.label]);
   const elements = getActiveDamageElements().map(e => [e.id, e.label]);
   const attributeLabels = getAttributeLabels();
-  const attributes = MEU_SISTEMA.COMBAT_ATTRIBUTES.map(k => [k, attributeLabels[k] ?? k]);
+  const attributes = NIHILITY.COMBAT_ATTRIBUTES.map(k => [k, attributeLabels[k] ?? k]);
 
   return list.map((mod, index) => {
     const whenKind = mod.when?.kind || "always";
@@ -347,7 +347,7 @@ function grantedSkillSummary(grantsSkill, path) {
     path,
     empty: false,
     name: grantsSkill.name,
-    tierLabel: MEU_SISTEMA.SKILL_TIER_LABELS[grantsSkill.tier] ?? grantsSkill.tier,
+    tierLabel: NIHILITY.SKILL_TIER_LABELS[grantsSkill.tier] ?? grantsSkill.tier,
     cost: grantsSkill.cost ?? 0,
     level: grantsSkill.level ?? 1,
     upkeep: grantsSkill.hasUpkeep ? grantsSkill.upkeepCost ?? 0 : null,
@@ -464,7 +464,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const current = getActiveSkillTemplates().map(t => foundry.utils.deepClone(t));
     const entry = templateFromSkill(this.item.name, this.item.toObject().system, current.map(t => t.id));
     current.push(entry);
-    await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.skillTemplatesData, JSON.stringify(current, null, 2));
+    await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.skillTemplatesData, JSON.stringify(current, null, 2));
     ui.notifications.info(`"${this.item.name}" virou um Modelo de Skill (Configurações Gerais › Personagem › Modelos de Skill).`);
   }
 
@@ -490,7 +490,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     // Quem não é dono vê a descrição como HTML pronto ({{{ }}}): passa pela limpeza do Foundry, que
     // tira script e atributos de evento (onerror…) — a descrição pode ter vindo de outro jogador.
     context.descriptionHTML = foundry.utils.cleanHTML?.(String(sys.description ?? "")) ?? foundry.utils.escapeHTML(String(sys.description ?? ""));
-    context.config = MEU_SISTEMA;
+    context.config = NIHILITY;
     context.itemType = item.type;
     context.inventoryEnabled = isInventoryEnabled();
     // Alcance e Marcas (H4): desligado, os campos somem da ficha (o que está salvo fica).
@@ -565,23 +565,23 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     // Jogador pode comprar 1 nível de Skill com 1 Ponto de Habilidade do tier dela (Racial/
     // Ultimate não têm Pontos). O Mestre já tem o "+ Nível" livre, então o botão é só do jogador.
     context.canSpendPointLevel =
-      !game.user.isGM && this.item.isOwner && Boolean(owner) && isSkillPointsEnabled() && MEU_SISTEMA.SKILL_POINT_TIERS.includes(sys.tier);
+      !game.user.isGM && this.item.isOwner && Boolean(owner) && isSkillPointsEnabled() && NIHILITY.SKILL_POINT_TIERS.includes(sys.tier);
     context.levelPointBalance = owner?.system?.skillPoints?.[sys.tier] ?? 0;
 
     const hasUltimate = owner?.system?.hasUltimateSkill ?? sys.tier === "ultimate";
-    const visibleTiers = MEU_SISTEMA.SKILL_TIERS.filter(t => t !== "ultimate" || hasUltimate || game.user.isGM);
+    const visibleTiers = NIHILITY.SKILL_TIERS.filter(t => t !== "ultimate" || hasUltimate || game.user.isGM);
     context.isRacialSkill = sys.tier === "racial";
-    context.skillTierOptions = pick(visibleTiers.filter(t => t !== "racial").map(t => [t, MEU_SISTEMA.SKILL_TIER_LABELS[t]]), sys.tier);
+    context.skillTierOptions = pick(visibleTiers.filter(t => t !== "racial").map(t => [t, NIHILITY.SKILL_TIER_LABELS[t]]), sys.tier);
 
     // Mecânica ao Usar: Estrutura é uma mecânica (não um Tipo de Alvo). Bloco desligado pela
     // campanha sai da lista, a não ser que a Skill já esteja nele.
     const mechanicType = isStructureMechanic(sys) ? "structure" : sys.effectType;
     context.skillMechanicType = mechanicType;
     context.skillEffectTypeSeg = seg(
-      MEU_SISTEMA.SKILL_EFFECT_TYPES.filter(t => (t !== "structure" || isStructuresEnabled() || mechanicType === "structure") && (t !== "form" || isFormsEnabled() || mechanicType === "form") && (t !== "analysis" || isAnalysisEnabled() || mechanicType === "analysis") && (t !== "predation" || isPredationEnabled() || mechanicType === "predation") && (t !== "reroll" || isRerollEnabled() || mechanicType === "reroll")).map(t => [
+      NIHILITY.SKILL_EFFECT_TYPES.filter(t => (t !== "structure" || isStructuresEnabled() || mechanicType === "structure") && (t !== "form" || isFormsEnabled() || mechanicType === "form") && (t !== "analysis" || isAnalysisEnabled() || mechanicType === "analysis") && (t !== "predation" || isPredationEnabled() || mechanicType === "predation") && (t !== "reroll" || isRerollEnabled() || mechanicType === "reroll")).map(t => [
         t,
-        MEU_SISTEMA.SKILL_EFFECT_TYPE_SHORT_LABELS[t],
-        MEU_SISTEMA.SKILL_EFFECT_TYPE_LABELS[t]
+        NIHILITY.SKILL_EFFECT_TYPE_SHORT_LABELS[t],
+        NIHILITY.SKILL_EFFECT_TYPE_LABELS[t]
       ]),
       mechanicType
     );
@@ -590,10 +590,10 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.skillShowsTarget = mechanicType === "damage" || mechanicType === "temporary" || context.skillTargetIsFixed;
     const areaOn = isAreaEffectsEnabled();
     context.skillTargetTypeSeg = seg(
-      MEU_SISTEMA.SKILL_TARGET_TYPES.filter(t => areaOn || !["emission", "zone"].includes(t) || t === sys.targetType).map(t => [
+      NIHILITY.SKILL_TARGET_TYPES.filter(t => areaOn || !["emission", "zone"].includes(t) || t === sys.targetType).map(t => [
         t,
-        MEU_SISTEMA.SKILL_TARGET_TYPE_SHORT_LABELS[t],
-        MEU_SISTEMA.SKILL_TARGET_TYPE_LABELS[t]
+        NIHILITY.SKILL_TARGET_TYPE_SHORT_LABELS[t],
+        NIHILITY.SKILL_TARGET_TYPE_LABELS[t]
       ]),
       sys.targetType
     );
@@ -631,7 +631,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       context.rerollKindRows = REROLL_KIND_KEYS.map(k => ({ key: k, label: REROLL_KIND_LABELS[k], checked: kinds[k] }));
     }
     context.skillAreaShapeSeg = seg(
-      MEU_SISTEMA.SKILL_AREA_SHAPES.filter(Boolean).map(s => [s, MEU_SISTEMA.SKILL_AREA_SHAPE_LABELS[s]]),
+      NIHILITY.SKILL_AREA_SHAPES.filter(Boolean).map(s => [s, NIHILITY.SKILL_AREA_SHAPE_LABELS[s]]),
       sys.areaShape
     );
 
@@ -650,7 +650,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       const life = structure.manaPowered ? `barreira de mana (o dano sai da ${context.energyLabel} de quem ergueu)` : `Vida ${structure.hp}`;
       const material = structure.material === "ethereal" ? "etérea" : "física";
       const duration = structure.durationRounds > 0 ? `${structure.durationRounds} rodada(s)` : sys.hasUpkeep ? "até desligar a Skill" : "até o Mestre derrubar";
-      context.skillStructureSummary = `${MEU_SISTEMA.STRUCTURE_SHAPE_LABELS[structure.shape] ?? structure.shape} · tamanho ${structure.size} · ${material} · ${life} · ${duration}`;
+      context.skillStructureSummary = `${NIHILITY.STRUCTURE_SHAPE_LABELS[structure.shape] ?? structure.shape} · tamanho ${structure.size} · ${material} · ${life} · ${duration}`;
     }
 
     context.skillScalingOptions = scalingOptions(sys.scalingAttribute);
@@ -743,7 +743,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       index,
       name: sub.name,
       tier: sub.tier,
-      tierLabel: MEU_SISTEMA.SKILL_TIER_LABELS[sub.tier] ?? sub.tier,
+      tierLabel: NIHILITY.SKILL_TIER_LABELS[sub.tier] ?? sub.tier,
       mechanic: mechanicSummaryFor(sub)
     }));
   }
@@ -767,8 +767,8 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       // Periódico: Vida/Mana de Personagem e Casco/Integridade de Nave (dano contínuo, reparo por rodada).
       const acceptsPeriodic = ["hp", "energy", "shipCasco", "shipHull"].includes(entry.target);
       const periodic = acceptsPeriodic && Boolean(entry.periodic);
-      const isShipTarget = MEU_SISTEMA.SHIP_EFFECT_TARGETS.includes(entry.target);
-      const groupIndex = MEU_SISTEMA.EFFECT_TARGET_GROUPS.findIndex(g => g.targets.includes(entry.target));
+      const isShipTarget = NIHILITY.SHIP_EFFECT_TARGETS.includes(entry.target);
+      const groupIndex = NIHILITY.EFFECT_TARGET_GROUPS.findIndex(g => g.targets.includes(entry.target));
       const amount = Number(entry.amount) || 0;
       const targetLabel = labels[entry.target] ?? entry.target;
       const condition = conditions.find(c => c.id === entry.conditionId);
@@ -796,7 +796,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       if (condition) extra.push(condition.label);
       const onlyIfNow = normalizeOnlyIf(entry.onlyIf) ?? { kind: "", value: "", threshold: 50 };
       if (hasOnlyIf(entry.onlyIf) && entry.target !== "push") extra.push(`só se ${onlyIfClause(entry.onlyIf, (kind, value) => (kind === "otherTrait" ? getActiveTraits().find(t => t.id === value)?.label : conditions.find(c => c.id === value)?.label) ?? value)}`);
-      if (periodic && entry.target === "hp" && Number(entry.amount) > 0 && entry.healKind && entry.healKind !== "cura") extra.push(MEU_SISTEMA.HEAL_KIND_LABELS[entry.healKind] ?? entry.healKind);
+      if (periodic && entry.target === "hp" && Number(entry.amount) > 0 && entry.healKind && entry.healKind !== "cura") extra.push(NIHILITY.HEAL_KIND_LABELS[entry.healKind] ?? entry.healKind);
       if (entry.target === "shield" && entry.damageElements?.length) {
         extra.push(`Escudo de ${entry.damageElements.map(id => elements.find(el => el.id === id)?.label ?? id).join(" + ")}`);
       }
@@ -872,7 +872,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         icon: entry.icon ?? "",
         summary,
         summaryExtra: extra.join(" · "),
-        groupLabel: MEU_SISTEMA.EFFECT_TARGET_GROUPS[groupIndex]?.label ?? "—",
+        groupLabel: NIHILITY.EFFECT_TARGET_GROUPS[groupIndex]?.label ?? "—",
         groupClass: groupClasses[groupIndex] ?? "",
         targetGroups,
         isUnarmedType: entry.target === "unarmedType",
@@ -893,19 +893,19 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         conditionOptions: [{ value: "", label: "— sem Condição —", selected: !entry.conditionId }].concat(
           conditions.map(c => ({ value: c.id, label: c.label, selected: c.id === entry.conditionId }))
         ),
-        tickUnitOptions: MEU_SISTEMA.PERIODIC_TICK_UNITS.map(u => ({
-          value: u, label: MEU_SISTEMA.PERIODIC_TICK_UNIT_LABELS[u], selected: u === entry.tickUnit
+        tickUnitOptions: NIHILITY.PERIODIC_TICK_UNITS.map(u => ({
+          value: u, label: NIHILITY.PERIODIC_TICK_UNIT_LABELS[u], selected: u === entry.tickUnit
         })),
         // Maldição: o que fazer sem Mana, só para esta Skill ("" = o da maldição).
         isCurse,
         curseUnpaidOptions: [["", "Como na maldição"], ["hp", "Paga com Vida"], ["sleep", "Dorme"], ["worsen", "Piora"], ["continue", "Continua igual"]].map(([value, label]) => ({ value, label, selected: value === (entry.curseOnUnpaid ?? "") })),
         // Periódico de Vida positivo = cura: Cura / Regeneração / Reparo nas Partes do Corpo.
         isHeal,
-        healKindOptions: MEU_SISTEMA.HEAL_KINDS.map(k => ({
-          value: k, label: MEU_SISTEMA.HEAL_KIND_LABELS[k], hint: MEU_SISTEMA.HEAL_KIND_HINTS[k], selected: k === (entry.healKind || "cura")
+        healKindOptions: NIHILITY.HEAL_KINDS.map(k => ({
+          value: k, label: NIHILITY.HEAL_KIND_LABELS[k], hint: NIHILITY.HEAL_KIND_HINTS[k], selected: k === (entry.healKind || "cura")
         })),
-        modifierTypeOptions: MEU_SISTEMA.EFFECT_MODIFIER_TYPES.map(m => ({
-          value: m, label: MEU_SISTEMA.EFFECT_MODIFIER_TYPE_LABELS[m], selected: m === (entry.modifierType || "flat")
+        modifierTypeOptions: NIHILITY.EFFECT_MODIFIER_TYPES.map(m => ({
+          value: m, label: NIHILITY.EFFECT_MODIFIER_TYPE_LABELS[m], selected: m === (entry.modifierType || "flat")
         })),
         elementField: selectedElementChips(entry.damageElements),
         elementPath: `${effectsPath}.${index}.damageElements`,
@@ -944,7 +944,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const ammo = this.item.system.ammo ?? {};
     context.ammoElementField = selectedElementChips(ammo.damageElements ?? []);
     context.ammoTypeOptions = [{ id: "", label: "—" }, ...getAmmoTypes()].map(a => ({ id: a.id, label: a.label, selected: a.id === (ammo.type ?? "") }));
-    context.ammoSizeOptions = [["", "qualquer"], ...MEU_SISTEMA.MODULE_SIZES.map(s => [s, MEU_SISTEMA.MODULE_SIZE_LABELS[s]])].map(([id, label]) => ({
+    context.ammoSizeOptions = [["", "qualquer"], ...NIHILITY.MODULE_SIZES.map(s => [s, NIHILITY.MODULE_SIZE_LABELS[s]])].map(([id, label]) => ({
       id, label, selected: id === (ammo.minLauncherSize ?? "")
     }));
     context.grantSummary = grantedSkillSummary(this.item.system.grantsSkill, "system.grantsSkill");
@@ -976,19 +976,19 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     // Categoria do catálogo editável; os campos da ficha seguem a FUNÇÃO dela (ver MODULE_ROLES).
     const categories = getModuleCategories();
     context.moduleRole = moduleRole(sys.category);
-    context.moduleRoleLabel = MEU_SISTEMA.MODULE_ROLES[context.moduleRole]?.label ?? context.moduleRole;
+    context.moduleRoleLabel = NIHILITY.MODULE_ROLES[context.moduleRole]?.label ?? context.moduleRole;
     context.moduleCategoryOptions = categories.map(c => ({
       id: c.id,
       label: c.label,
       slots: Number(c.slots) || 0,
-      roleLabel: MEU_SISTEMA.MODULE_ROLES[c.role]?.label ?? c.role,
+      roleLabel: NIHILITY.MODULE_ROLES[c.role]?.label ?? c.role,
       selected: c.id === sys.category
     }));
     // Categoria que sumiu do catálogo continua na lista, senão salvar a ficha a trocaria.
     if (!categories.some(c => c.id === sys.category)) {
       context.moduleCategoryOptions.push({ id: sys.category, label: `${sys.category} (fora do catálogo)`, slots: 0, roleLabel: context.moduleRoleLabel, selected: true });
     }
-    context.moduleSizeSeg = seg(MEU_SISTEMA.MODULE_SIZES.map(size => [size, MEU_SISTEMA.MODULE_SIZE_LABELS[size]]), sys.moduleSize);
+    context.moduleSizeSeg = seg(NIHILITY.MODULE_SIZES.map(size => [size, NIHILITY.MODULE_SIZE_LABELS[size]]), sys.moduleSize);
     context.moduleElementField = selectedElementChips(sys.damageElements);
     context.shieldElementField = selectedElementChips(sys.shieldElements ?? []);
     const accepted = new Set(sys.ammoTypes ?? []);
@@ -1033,16 +1033,16 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     // Alvos agrupados como no editor de Efeito, limitados a TITLE_BONUS_TARGETS. Atributo oculto
     // pela campanha sai da lista, a não ser que a linha já o use.
     context.titleBonusRows = (sys.bonuses ?? []).map((bonus, index) => {
-      const allowed = MEU_SISTEMA.TITLE_BONUS_TARGETS.filter(
-        t => !MEU_SISTEMA.COMBAT_ATTRIBUTES.includes(t) || visible.has(t) || t === bonus.attribute
+      const allowed = NIHILITY.TITLE_BONUS_TARGETS.filter(
+        t => !NIHILITY.COMBAT_ATTRIBUTES.includes(t) || visible.has(t) || t === bonus.attribute
       );
       const option = t => ({ value: t, label: labels[t] ?? t, selected: t === bonus.attribute });
       return {
         index,
         amount: bonus.amount,
         groups: [
-          { label: "Atributos", options: allowed.filter(t => MEU_SISTEMA.COMBAT_ATTRIBUTES.includes(t)).map(option) },
-          { label: "Vitais", options: allowed.filter(t => !MEU_SISTEMA.COMBAT_ATTRIBUTES.includes(t)).map(option) }
+          { label: "Atributos", options: allowed.filter(t => NIHILITY.COMBAT_ATTRIBUTES.includes(t)).map(option) },
+          { label: "Vitais", options: allowed.filter(t => !NIHILITY.COMBAT_ATTRIBUTES.includes(t)).map(option) }
         ].filter(group => group.options.length)
       };
     });
@@ -1086,7 +1086,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
     const data = await openSkillEditorDialog(
       { ...current, subSkills: [] },
-      { tierChoices: MEU_SISTEMA.ITEM_GRANTABLE_SKILL_TIERS, levelReadonly: !game.user.isGM }
+      { tierChoices: NIHILITY.ITEM_GRANTABLE_SKILL_TIERS, levelReadonly: !game.user.isGM }
     );
     if (!data) return;
     // O editor não mexe em Sub-Skills (elas têm a própria lista na ficha); ficam como estavam.
@@ -1117,7 +1117,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const path = target.dataset.path;
     const current = foundry.utils.deepClone(foundry.utils.getProperty(this.item, path) ?? {});
 
-    const data = await openSkillEditorDialog({ tier: current.tier }, { tierChoices: MEU_SISTEMA.ITEM_GRANTABLE_SKILL_TIERS, levelReadonly: !game.user.isGM });
+    const data = await openSkillEditorDialog({ tier: current.tier }, { tierChoices: NIHILITY.ITEM_GRANTABLE_SKILL_TIERS, levelReadonly: !game.user.isGM });
     if (!data) return;
     await this._saveGrantedSkill(path, { ...current, subSkills: [...(current.subSkills ?? []), data] });
   }
@@ -1131,7 +1131,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const sub = current.subSkills?.[index];
     if (!sub) return;
 
-    const data = await openSkillEditorDialog(sub, { tierChoices: MEU_SISTEMA.ITEM_GRANTABLE_SKILL_TIERS, levelReadonly: !game.user.isGM });
+    const data = await openSkillEditorDialog(sub, { tierChoices: NIHILITY.ITEM_GRANTABLE_SKILL_TIERS, levelReadonly: !game.user.isGM });
     if (!data) return;
     current.subSkills[index] = data;
     await this._saveGrantedSkill(path, current);
@@ -1240,7 +1240,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
   /**
    * Autopreenche os campos numéricos de um Módulo de Nave (Overhaul de Naves, Fase 1/8) quando
-   * o usuário troca Categoria ou Porte, a partir de `MEU_SISTEMA.MODULE_SIZE_PRESETS`/
+   * o usuário troca Categoria ou Porte, a partir de `NIHILITY.MODULE_SIZE_PRESETS`/
    * `MODULE_HP_BY_SIZE` — só sobrescreve um campo se ele ainda estiver no valor-padrão do
    * schema, nunca uma edição manual já feita. `stopPropagation` evita que este mesmo "change"
    * TAMBÉM dispare o submitOnChange padrão do DocumentSheetV2 — os dois juntos fariam dois
@@ -1331,7 +1331,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       // Sorte: ao escolher o alvo sem escopo nenhum marcado, começa valendo em tudo.
       if (entry.target === "luck" && !Object.values(entry.luckScopes ?? {}).some(Boolean)) entry.luckScopes = { attributes: true, damage: true, chances: true };
       if (!["hp", "energy", "shipCasco", "shipHull"].includes(entry.target)) entry.periodic = false;
-      if (!MEU_SISTEMA.SHIP_EFFECT_TARGETS.includes(entry.target)) entry.modifierType = "flat";
+      if (!NIHILITY.SHIP_EFFECT_TARGETS.includes(entry.target)) entry.modifierType = "flat";
       if (!PERCENT_AMOUNT_TARGETS.includes(entry.target)) entry.amountMode = "flat";
     }
     await this.item.update({ [this.#effectsPath()]: effects });
@@ -1345,7 +1345,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       return this.item.update({ [this.#effectsPath()]: effects });
     }
     effects.push({
-      target: MEU_SISTEMA.EFFECT_TARGETS[0],
+      target: NIHILITY.EFFECT_TARGETS[0],
       amount: 1,
       modifierType: "flat",
       durationRounds: 1,
@@ -1549,7 +1549,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
     const hasUltimate = actor.system?.hasUltimateSkill;
     const ultimateVisible = hasUltimate || game.user.isGM;
-    const tierChoices = MEU_SISTEMA.SKILL_TIERS.filter(t => t !== "racial" && (t !== "ultimate" || ultimateVisible));
+    const tierChoices = NIHILITY.SKILL_TIERS.filter(t => t !== "racial" && (t !== "ultimate" || ultimateVisible));
 
     // Uma Maestria evolui para a mesma Maestria, um degrau acima: o editor já abre com o tipo.
     const sys = this.item.system;
@@ -1659,7 +1659,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   static async #onItemAttrBonusAdd(event, target) {
     event.preventDefault();
     const bonuses = foundry.utils.deepClone(this.item.system.attributeBonuses ?? []);
-    bonuses.push({ attribute: MEU_SISTEMA.COMBAT_ATTRIBUTES[0], amount: 1 });
+    bonuses.push({ attribute: NIHILITY.COMBAT_ATTRIBUTES[0], amount: 1 });
     await this.item.update({ "system.attributeBonuses": bonuses });
   }
 
@@ -1678,7 +1678,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const mod = mods[modIndex];
     if (!mod) return;
     mod.attributeBonuses = mod.attributeBonuses ?? [];
-    mod.attributeBonuses.push({ attribute: MEU_SISTEMA.COMBAT_ATTRIBUTES[0], amount: 1 });
+    mod.attributeBonuses.push({ attribute: NIHILITY.COMBAT_ATTRIBUTES[0], amount: 1 });
     await this.item.update({ "system.installedMods": mods });
   }
 
@@ -1697,7 +1697,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   static async #onTitleBonusAdd(event, target) {
     event.preventDefault();
     const bonuses = foundry.utils.deepClone(this.item.system.bonuses ?? []);
-    bonuses.push({ attribute: MEU_SISTEMA.COMBAT_ATTRIBUTES[0], amount: 1 });
+    bonuses.push({ attribute: NIHILITY.COMBAT_ATTRIBUTES[0], amount: 1 });
     await this.item.update({ "system.bonuses": bonuses });
   }
 
@@ -1730,10 +1730,10 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     event.preventDefault();
     const actor = this.item.parent;
     const tier = this.item.system.tier;
-    if (!actor || !MEU_SISTEMA.SKILL_POINT_TIERS.includes(tier)) return;
+    if (!actor || !NIHILITY.SKILL_POINT_TIERS.includes(tier)) return;
     const balance = actor.system.skillPoints?.[tier] ?? 0;
     if (balance < 1) {
-      ui.notifications.warn(`Sem Pontos ${MEU_SISTEMA.SKILL_TIER_LABELS[tier]} para subir o nível.`);
+      ui.notifications.warn(`Sem Pontos ${NIHILITY.SKILL_TIER_LABELS[tier]} para subir o nível.`);
       return;
     }
     // O ponto só é gasto se o nível realmente subiu (teto de Resistência recusa antes).

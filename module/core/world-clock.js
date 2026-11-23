@@ -18,7 +18,7 @@
  *    tirando à mão acordam SEM o descanso. Quando todos os PJs com jogador online dormem, o Mestre
  *    recebe o aviso "Passar o tempo (N h)".
  */
-import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions, isWorldClockEnabled } from "./config.js";
+import { SYSTEM_ID, NIHILITY, getActiveStatusConditions, isWorldClockEnabled } from "./config.js";
 import { isDesignatedGm } from "../helpers/gm-relay.js";
 import { sceneDarkness, sceneDarknessUpdate, sceneStoredDarkness, sceneCycleOn } from "../helpers/foundry-compat.js";
 import { showVoiceBanner } from "./voice-banner.js";
@@ -42,7 +42,7 @@ const CLOCK_WHEN = new Set(["selfDark", "isDay", "isNight"]);
 
 /** O ajuste do relógio (Regras da Mesa), com padrões se as settings ainda não existem. */
 export function clockConfig() {
-  const S = MEU_SISTEMA.SETTINGS;
+  const S = NIHILITY.SETTINGS;
   const read = key => {
     try {
       return game.settings.get(SYSTEM_ID, S[key]);

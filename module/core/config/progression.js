@@ -3,7 +3,7 @@
  * (Parte de core/config.js, dividido em 1.68.0 sem mudar nenhuma função; importe de
  * `core/config.js`, que reexporta tudo.)
  */
-import { MEU_SISTEMA, SYSTEM_ID } from "./constants.js";
+import { NIHILITY, SYSTEM_ID } from "./constants.js";
 import { isEnergyPoolEnabled } from "./features.js";
 
 /**
@@ -23,7 +23,7 @@ export function getXpForNextLevel(level) {
   const fallback = 100 * safeLevel;
   let formula;
   try {
-    formula = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.xpFormula);
+    formula = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.xpFormula);
   } catch (err) {
     return fallback;
   }
@@ -41,7 +41,7 @@ export function getXpForNextLevel(level) {
 /** Golpes de um mesmo tipo até o sistema sugerir a Resistência ao Mestre (0 = aviso desligado). */
 export function getResistanceLearnThreshold() {
   try {
-    const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.resistanceLearnThreshold));
+    const value = Number(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.resistanceLearnThreshold));
     return Number.isFinite(value) && value >= 0 ? Math.round(value) : 25;
   } catch (err) {
     return 25;
@@ -64,7 +64,7 @@ export function resistanceXpGain(blocked, maxHp) {
 
   let factor = 100;
   try {
-    const configured = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.resistanceXpFactor));
+    const configured = Number(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.resistanceXpFactor));
     if (Number.isFinite(configured) && configured >= 0) factor = configured;
   } catch (err) {
     /* setting ainda não registrada — segue no padrão */
@@ -97,7 +97,7 @@ export function resistanceXpGain(blocked, maxHp) {
 export function skillLevelBonuses(level) {
   const read = (key, fallback) => {
     try {
-      const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[key]));
+      const value = Number(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS[key]));
       return Number.isFinite(value) && value >= 0 ? value : fallback;
     } catch (err) {
       return fallback;
@@ -157,14 +157,14 @@ export function effectiveSkillCost(baseCost, level) {
  * @returns {number} fator multiplicativo (1 = sem escala)
  */
 export function damageScalingMultiplier(actor, attributeKey) {
-  if (!attributeKey || !MEU_SISTEMA.COMBAT_ATTRIBUTES.includes(attributeKey)) return 1;
+  if (!attributeKey || !NIHILITY.COMBAT_ATTRIBUTES.includes(attributeKey)) return 1;
 
   const total = actor?.system?.attributes?.combat?.[attributeKey]?.total ?? 0;
   if (total <= 0) return 1;
 
   let divisor = 10;
   try {
-    const configured = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.damageScalingDivisor));
+    const configured = Number(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.damageScalingDivisor));
     if (Number.isFinite(configured) && configured > 0) divisor = configured;
   } catch (err) {
     /* setting ainda não registrada — segue no padrão */
@@ -187,15 +187,15 @@ export function damageScalingMultiplier(actor, attributeKey) {
 export function getVitalFormula() {
   const read = (key, fallback) => {
     try {
-      const value = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[key]);
-      return MEU_SISTEMA.COMBAT_ATTRIBUTES.includes(value) ? value : fallback;
+      const value = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS[key]);
+      return NIHILITY.COMBAT_ATTRIBUTES.includes(value) ? value : fallback;
     } catch (err) {
       return fallback;
     }
   };
   const readNumber = (key, fallback) => {
     try {
-      const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[key]));
+      const value = Number(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS[key]));
       return Number.isFinite(value) && value >= 0 ? value : fallback;
     } catch (err) {
       return fallback;
@@ -205,25 +205,25 @@ export function getVitalFormula() {
   return {
     hp: [read("hpFormulaPrimary", "strength"), read("hpFormulaSecondary", "defense")],
     energy: [read("energyFormulaPrimary", "magic"), read("energyFormulaSecondary", "magicalDefense")],
-    multiplier: readNumber("vitalFormulaMultiplier", MEU_SISTEMA.DEFAULT_VITAL_FORMULA_MULTIPLIER),
-    floor: readNumber("vitalFormulaFloor", MEU_SISTEMA.MIN_BASE_VITAL_STAT),
+    multiplier: readNumber("vitalFormulaMultiplier", NIHILITY.DEFAULT_VITAL_FORMULA_MULTIPLIER),
+    floor: readNumber("vitalFormulaFloor", NIHILITY.MIN_BASE_VITAL_STAT),
     energyEnabled: isEnergyPoolEnabled()
   };
 }
 
 /** Pontos de Atributo/Habilidade concedidos na criação e por nível (settings do Mestre). */
 export function getAttributePointsStarting() {
-  return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.attributePointsStarting);
+  return game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.attributePointsStarting);
 }
 
 export function getAttributePointsPerLevel() {
-  return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.attributePointsPerLevel);
+  return game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.attributePointsPerLevel);
 }
 
 export function getSkillPointsStarting() {
-  return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.skillPointsStarting);
+  return game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.skillPointsStarting);
 }
 
 export function getSkillPointsPerLevel() {
-  return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.skillPointsPerLevel);
+  return game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.skillPointsPerLevel);
 }

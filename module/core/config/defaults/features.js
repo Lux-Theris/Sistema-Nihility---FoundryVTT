@@ -1,6 +1,6 @@
 /**
  * Blocos de Módulos do Sistema (FEATURES) e presets de campanha.
- * Dados puros, referenciados por MEU_SISTEMA (core/config/constants.js); importe de
+ * Dados puros, referenciados por NIHILITY (core/config/constants.js); importe de
  * `core/config.js`. Separado em 1.68.0 sem mudar nenhum valor.
  */
 
@@ -462,7 +462,7 @@ export const FEATURES = {
 export const CAMPAIGN_PRESETS = {
   medieval: {
     label: "Fantasia Medieval",
-    // Conteúdo que o preset carrega (substitui o catálogo): nome da(s) lista(s) de MEU_SISTEMA.
+    // Conteúdo que o preset carrega (substitui o catálogo): nome da(s) lista(s) de NIHILITY.
     content: { damageElementsData: ["DEFAULT_DAMAGE_ELEMENTS"] },
     hint: "Isekai/fantasia: Títulos, Anatomia, Fusão e Magia ligados; nada de Naves, Veículos ou PAD.",
     features: {

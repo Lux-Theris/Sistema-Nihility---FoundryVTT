@@ -33,7 +33,7 @@ import { sanitizeSkillMechanics } from "../module/ai/ai-mechanics.js";
 import { normalizeEffectRequest } from "../module/skills/effect-relay-rules.js";
 import { resolveEffectChange } from "../module/skills/effect-targets.js";
 import { REQUEST_MECHANIC_FIELDS } from "../module/creation/creation-rules.js";
-import { MEU_SISTEMA, getStructures, getActiveStatusConditions } from "../module/core/config.js";
+import { NIHILITY, getStructures, getActiveStatusConditions } from "../module/core/config.js";
 
 const part = (extra = {}) => ({ name: "Parte", effectType: "temporary", targetType: "targeted", level: 1, ...extra });
 
@@ -181,8 +181,8 @@ test("Magia enfraquecida: chance e força, vários efeitos se multiplicam", () =
 });
 
 test("o alvo magicDampen: um efeito sem campo, só com o flag", () => {
-  assert.ok(MEU_SISTEMA.EFFECT_TARGETS.includes("magicDampen"));
-  assert.ok(MEU_SISTEMA.EFFECT_TARGET_GROUPS.find(g => g.label === "Magia").targets.includes("magicDampen"));
+  assert.ok(NIHILITY.EFFECT_TARGETS.includes("magicDampen"));
+  assert.ok(NIHILITY.EFFECT_TARGET_GROUPS.find(g => g.label === "Magia").targets.includes("magicDampen"));
   const char = { type: "character" };
   const change = resolveEffectChange({ target: "magicDampen", amount: 50, chance: 40 }, char);
   assert.equal(change.key, null);
@@ -239,7 +239,7 @@ test("a complexidade já conta as partes da Combinada", () => {
 });
 
 test("o modelo Duelo na bolha traz tudo do pedido do dono", () => {
-  const raw = MEU_SISTEMA.DEFAULT_SKILL_TEMPLATES.find(t => t.id === "duelo_bolha");
+  const raw = NIHILITY.DEFAULT_SKILL_TEMPLATES.find(t => t.id === "duelo_bolha");
   assert.ok(raw, "modelo de fábrica");
   const template = normalizeSkillTemplate(raw);
   const skill = templateSkillData(template, {}, { conditions: ["duel-mark"], structures: ["duel-bubble"], elements: [], traits: [] });

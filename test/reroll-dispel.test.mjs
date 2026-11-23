@@ -14,7 +14,7 @@ import { lintSkill } from "../module/skills/skill-lint-rules.js";
 import { skillSummary } from "../module/skills/skill-summary.js";
 import { suggestSkillCost } from "../module/skills/skill-cost-rules.js";
 import { sanitizeSkillMechanics } from "../module/ai/ai-mechanics.js";
-import { MEU_SISTEMA } from "../module/core/config.js";
+import { NIHILITY } from "../module/core/config.js";
 
 /* ------------------------------------------------------------------ Rerrolar */
 
@@ -139,9 +139,9 @@ test("avisos de Rerrolar", () => {
 });
 
 test("a Mecânica Rerrolar existe nos catálogos e na frase da Skill", () => {
-  assert.ok(MEU_SISTEMA.SKILL_EFFECT_TYPES.includes("reroll"));
-  assert.ok(MEU_SISTEMA.SKILL_EFFECT_TYPE_LABELS.reroll);
-  assert.ok(MEU_SISTEMA.SKILL_EFFECT_TYPE_SHORT_LABELS.reroll);
+  assert.ok(NIHILITY.SKILL_EFFECT_TYPES.includes("reroll"));
+  assert.ok(NIHILITY.SKILL_EFFECT_TYPE_LABELS.reroll);
+  assert.ok(NIHILITY.SKILL_EFFECT_TYPE_SHORT_LABELS.reroll);
   const line = skillSummary({ effectType: "reroll", rerollWho: "own", rerollKeep: "worst", cost: 8, targetType: "emission", areaShape: "circle", areaDistance: 4 });
   assert.match(line, /reage a rolagens/);
   assert.match(line, /fica o pior/);
@@ -193,8 +193,8 @@ test("Dissipar: só marcas, ou só uma Condição escolhida", () => {
 });
 
 test("Dissipar existe como alvo de efeito do grupo Magia, com frase e aviso", () => {
-  assert.ok(MEU_SISTEMA.EFFECT_TARGETS.includes("dispelMagic"));
-  assert.ok(MEU_SISTEMA.EFFECT_TARGET_GROUPS.find(g => g.label === "Magia").targets.includes("dispelMagic"));
+  assert.ok(NIHILITY.EFFECT_TARGETS.includes("dispelMagic"));
+  assert.ok(NIHILITY.EFFECT_TARGET_GROUPS.find(g => g.label === "Magia").targets.includes("dispelMagic"));
   const line = skillSummary({ effectType: "temporary", targetType: "targeted", cost: 6, effects: [{ target: "dispelMagic", dispelScope: "marks" }] });
   assert.match(line, /dissipa marcas/);
   const warns = lintSkill({ effectType: "temporary", targetType: "targeted", effects: [{ target: "dispelMagic", dispelScope: "condition", conditionId: "" }] }).map(w => w.code);

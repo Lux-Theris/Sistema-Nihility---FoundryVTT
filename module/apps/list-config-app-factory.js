@@ -1,4 +1,4 @@
-import { SYSTEM_ID, MEU_SISTEMA, debugLog } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, debugLog } from "../core/config.js";
 import { pickImageFile } from "../helpers/foundry-compat.js";
 import { escapeHtml } from "../helpers/html.js";
 
@@ -70,7 +70,7 @@ function buildRowInputsHtml(fields, values) {
  * @param {object} config
  * @param {string} config.id - id do DOM/ApplicationV2 (ex: "nihility-currency-config")
  * @param {string} config.title - título da janela
- * @param {keyof MEU_SISTEMA["SETTINGS"]} config.settingsKey - chave em MEU_SISTEMA.SETTINGS
+ * @param {keyof NIHILITY["SETTINGS"]} config.settingsKey - chave em NIHILITY.SETTINGS
  *   onde a lista é salva (setting `config:false`, guardada como JSON)
  * @param {Array<{key:string,label:string,type:"text"|"number"|"color"|"icon"|"select",placeholder?:string,default?:*,step?:number,options?:Array|(() => Array<{value:string,label:string}>)}>} config.fields
  * @param {() => Array<object>} config.getActiveList - reader (setting > default) da lista atual
@@ -188,7 +188,7 @@ export function createListConfigApp({ id, title, settingsKey, fields, getActiveL
         rows.push(rowData);
       });
 
-      await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS[settingsKey], JSON.stringify(rows, null, 2));
+      await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS[settingsKey], JSON.stringify(rows, null, 2));
       afterSave?.();
       ui.notifications.info(`${noun} atualizado(s).`);
       debugLog(`${SYSTEM_ID} | ${id}: ${rows.length} linha(s) salva(s).`, rows);

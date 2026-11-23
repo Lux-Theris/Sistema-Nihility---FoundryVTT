@@ -1,6 +1,6 @@
 import {
   getCharacterEnergyLabel,
-  MEU_SISTEMA,
+  NIHILITY,
   getAttributePointsStarting,
   getAttributePointsPerLevel,
   getVitalFormula,
@@ -38,7 +38,7 @@ const fields = foundry.data.fields;
  */
 function baseActorSchema() {
   const combatAttributeFields = {};
-  for (const key of MEU_SISTEMA.COMBAT_ATTRIBUTES) {
+  for (const key of NIHILITY.COMBAT_ATTRIBUTES) {
     combatAttributeFields[key] = new fields.SchemaField({
       points: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
       /**
@@ -471,7 +471,7 @@ function deriveConditionalAttributes(dataModel) {
   if (!mods.length) return;
   const hp = dataModel.attributes.hp;
   const ctx = buildModifierContext(actor, null, { hpPercent: hp.max > 0 ? (hp.value / hp.max) * 100 : 0 });
-  for (const key of MEU_SISTEMA.COMBAT_ATTRIBUTES) {
+  for (const key of NIHILITY.COMBAT_ATTRIBUTES) {
     const attr = dataModel.attributes.combat[key];
     // Pontos fixos + % do total do atributo (item 8c.1; −100% tira o total inteiro). Nunca em `total`.
     const bonus = sumConditionalModifiers(mods, "attributeFlat", ctx, { attribute: key })
@@ -499,7 +499,7 @@ function deriveCombatAttributes(dataModel) {
   dataModel.originLayers = actorOriginLayers(dataModel);
   dataModel.effectiveScale = dataModel.scale || originScale(dataModel.originLayers);
   let spent = 0;
-  for (const key of MEU_SISTEMA.COMBAT_ATTRIBUTES) {
+  for (const key of NIHILITY.COMBAT_ATTRIBUTES) {
     const attr = combat[key];
     const titleBonus = sumTitleBonuses(dataModel.parent, key) + sumSources(originAttributeRows(dataModel.originLayers, key));
     attr.total = attr.points + titleBonus + (Number(attr.predationPoints) || 0);

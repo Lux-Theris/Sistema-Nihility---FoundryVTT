@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { lintSkill, lintIndex } from "../module/skills/skill-lint-rules.js";
 import { suggestSkillCost, averageRoll, areaFactor, costCloseEnough, holderLine } from "../module/skills/skill-cost-rules.js";
 import { normalizeSkillTemplate, templateSkillData, templateFromSkill } from "../module/skills/skill-template-rules.js";
-import { MEU_SISTEMA } from "../module/core/config.js";
+import { NIHILITY } from "../module/core/config.js";
 
 const codes = list => list.map(w => w.code);
 const eff = (target, amount, rounds, extra = {}) => ({ target, amount, durationRounds: rounds, conditionId: "", periodic: false, damageElements: [], ...extra });
@@ -97,7 +97,7 @@ test("Custo sugerido: efeitos, porcentagem, Ativa e as Skills padrão por perto"
   const aura = suggestSkillCost({ effectType: "temporary", targetType: "self", hasUpkeep: true, upkeepCost: 0, effects: [eff("defense", 3, 0)] });
   assert.ok(aura.upkeep >= 1 && aura.upkeep <= aura.cost);
   // A maioria das Skills dos Arquétipos fica a até 50% do custo que tem.
-  const skills = MEU_SISTEMA.DEFAULT_NPC_ARCHETYPES.flatMap(a => a.skills).filter(s => s.effectType !== "none");
+  const skills = NIHILITY.DEFAULT_NPC_ARCHETYPES.flatMap(a => a.skills).filter(s => s.effectType !== "none");
   const near = skills.filter(s => costCloseEnough(s.cost, suggestSkillCost(s).cost, 0.5));
   assert.ok(near.length / skills.length >= 0.8, `${near.length}/${skills.length} perto`);
   assert.equal(costCloseEnough(25, 25), true);
@@ -107,11 +107,11 @@ test("Custo sugerido: efeitos, porcentagem, Ativa e as Skills padrão por perto"
 });
 
 test("Modelos: normaliza, preenche e troca o que o mundo não tem", () => {
-  const defaults = MEU_SISTEMA.DEFAULT_SKILL_TEMPLATES.map(normalizeSkillTemplate);
+  const defaults = NIHILITY.DEFAULT_SKILL_TEMPLATES.map(normalizeSkillTemplate);
   assert.equal(defaults.length, 14);
   assert.equal(new Set(defaults.map(t => t.id)).size, 14);
   for (const t of defaults) {
-    assert.ok(MEU_SISTEMA.SKILL_EFFECT_TYPES.includes(t.skill.effectType), t.id);
+    assert.ok(NIHILITY.SKILL_EFFECT_TYPES.includes(t.skill.effectType), t.id);
     // Todo modelo de fábrica já nasce sem aviso "não faz nada".
     assert.deepEqual(lintSkill(t.skill, {}).filter(w => w.level === "hard"), [], t.id);
   }

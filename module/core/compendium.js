@@ -4,16 +4,16 @@
  * ai-helper.js (Fase 4 do refactor) porque é usado por praticamente todo o resto do sistema
  * (Sheets, Apps, skill-economy.js, ai-generation.js), não só pela geração via IA.
  */
-import { SYSTEM_ID, MEU_SISTEMA, getCharacterEnergyLabel } from "./config.js";
+import { SYSTEM_ID, NIHILITY, getCharacterEnergyLabel } from "./config.js";
 import { compendiumCollectionClass } from "../helpers/foundry-compat.js";
 import { runAsGm } from "../helpers/gm-relay.js";
 
 const COMPENDIUM_TYPE_MAP = {
-  skill: MEU_SISTEMA.COMPENDIUM.skills,
-  body_part: MEU_SISTEMA.COMPENDIUM.bodyParts,
-  title: MEU_SISTEMA.COMPENDIUM.titles,
-  item: MEU_SISTEMA.COMPENDIUM.items,
-  starship_module: MEU_SISTEMA.COMPENDIUM.starshipModules
+  skill: NIHILITY.COMPENDIUM.skills,
+  body_part: NIHILITY.COMPENDIUM.bodyParts,
+  title: NIHILITY.COMPENDIUM.titles,
+  item: NIHILITY.COMPENDIUM.items,
+  starship_module: NIHILITY.COMPENDIUM.starshipModules
 };
 
 /** Tipo de Item que um Compêndio do sistema guarda (`world.meu-sistema-items` → "item"), ou null. */
@@ -74,7 +74,7 @@ export function registerCompendiumCreateDefaults() {
  */
 export async function ensureSystemCompendiums() {
   if (!game.user.isGM) return;
-  for (const def of Object.values(MEU_SISTEMA.COMPENDIUM)) {
+  for (const def of Object.values(NIHILITY.COMPENDIUM)) {
     const collectionId = `world.${def.key}`;
     if (game.packs.get(collectionId)) continue;
     try {
@@ -100,7 +100,7 @@ export async function ensureSystemCompendiums() {
 
 /** Dados de uma Skill pré-feita com o nome e o texto no rótulo de energia atual do mundo. */
 export function coreSkillData(key, energyLabel = getCharacterEnergyLabel()) {
-  const def = MEU_SISTEMA.CORE_SKILL_DEFS?.[key];
+  const def = NIHILITY.CORE_SKILL_DEFS?.[key];
   if (!def) return null;
   const fill = text => String(text).replaceAll("{E}", energyLabel);
   return {
@@ -119,7 +119,7 @@ export async function ensureCoreSkills() {
   const pack = getCompendiumForItemType("skill");
   if (!pack) return;
   const index = await pack.getIndex({ fields: ["system.coreSkill"] });
-  const missing = Object.keys(MEU_SISTEMA.CORE_SKILL_DEFS ?? {}).filter(key => !index.some(e => e.system?.coreSkill === key));
+  const missing = Object.keys(NIHILITY.CORE_SKILL_DEFS ?? {}).filter(key => !index.some(e => e.system?.coreSkill === key));
   if (!missing.length) return;
   await pack.documentClass.createDocuments(missing.map(key => coreSkillData(key)), { pack: pack.collection });
 }

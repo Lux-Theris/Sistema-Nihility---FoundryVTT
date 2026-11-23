@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 
 import { computeAttributeDicePool, buildAttributeRollFormula, safeInitiativeFormula } from "../module/core/dice.js";
 import {
-  MEU_SISTEMA,
+  NIHILITY,
   getVitalFormula,
   skillLevelBonuses,
   effectiveSkillCost,
@@ -107,7 +107,7 @@ test("fórmula vital: sem settings registradas, cai exatamente no comportamento 
   assert.deepEqual(formula.hp, ["strength", "defense"]);
   assert.deepEqual(formula.energy, ["magic", "magicalDefense"]);
   assert.equal(formula.multiplier, 10);
-  assert.equal(formula.floor, MEU_SISTEMA.MIN_BASE_VITAL_STAT);
+  assert.equal(formula.floor, NIHILITY.MIN_BASE_VITAL_STAT);
   assert.equal(formula.energyEnabled, true);
 });
 

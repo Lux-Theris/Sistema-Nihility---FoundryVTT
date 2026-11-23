@@ -10,7 +10,7 @@
  */
 import {
   SYSTEM_ID,
-  MEU_SISTEMA,
+  NIHILITY,
   isFeatureEnabled,
   isSkillPointsEnabled,
   isAttributePoolEnabled,
@@ -79,7 +79,7 @@ function originLabel(actor) {
 /** Skills compradas com ponto, pedidos abertos e pontos que a ficha tem (para "Skills N/M"). */
 async function skillCounts(actor) {
   const { openSkillRequests } = await import("../skills/skill-economy.js");
-  const tiers = MEU_SISTEMA.SKILL_POINT_TIERS;
+  const tiers = NIHILITY.SKILL_POINT_TIERS;
   const owned = actor.items.filter(i => i.type === "skill" && tiers.includes(i.system.tier) && !i.system.isItemGranted && !i.getFlag(SYSTEM_ID, "speciesGrant")).length;
   const pending = openSkillRequests(actor).length;
   const points = tiers.reduce((sum, t) => sum + (Number(actor.system.skillPoints?.[t]) || 0), 0);
@@ -103,7 +103,7 @@ export async function creationProgress(actor) {
 export function vitalPreviewFor(actor) {
   const formula = getVitalFormula();
   const combat = actor.system.attributes.combat;
-  const read = Object.fromEntries(MEU_SISTEMA.COMBAT_ATTRIBUTES.map(key => [key, { total: combat[key]?.total ?? 0, pending: combat[key]?.pendingPoints ?? 0 }]));
+  const read = Object.fromEntries(NIHILITY.COMBAT_ATTRIBUTES.map(key => [key, { total: combat[key]?.total ?? 0, pending: combat[key]?.pendingPoints ?? 0 }]));
   const preview = vitalPreview({ combat: read, formula, hpNow: actor.system.attributes.hp.max, energyNow: actor.system.attributes.energy.max });
   const line = (label, entry) =>
     entry && {
@@ -150,7 +150,7 @@ export function originPicker(actor, pick = {}) {
   const entry = catalog[speciesId] ?? null;
   const lineageId = pick.lineage ?? (speciesId === actor.system.species ? actor.system.lineage : "") ?? "";
   const lineage = entry?.lineages?.find(l => l.id === lineageId) ?? null;
-  const groupLabels = MEU_SISTEMA.SPECIES_GROUP_LABELS;
+  const groupLabels = NIHILITY.SPECIES_GROUP_LABELS;
   const cards = getSpeciesForCreation().map(({ key, label }) => {
     const e = catalog[key];
     return {
@@ -194,11 +194,11 @@ export async function applyQuickSpread(actor, spreadId) {
   if (!spread || !isAttributePoolEnabled()) return;
   const combat = actor.system.attributes.combat;
   const pool = actor.system.attributePointsPool;
-  const free = pool.total - MEU_SISTEMA.COMBAT_ATTRIBUTES.reduce((sum, key) => sum + (combat[key]?.points ?? 0), 0);
+  const free = pool.total - NIHILITY.COMBAT_ATTRIBUTES.reduce((sum, key) => sum + (combat[key]?.points ?? 0), 0);
   const keys = getVisibleAttributes().map(a => a.key);
   const out = quickSpread(free, spread.weights, keys);
   const updates = {};
-  for (const key of MEU_SISTEMA.COMBAT_ATTRIBUTES) updates[`system.attributes.combat.${key}.pendingPoints`] = out[key] ?? 0;
+  for (const key of NIHILITY.COMBAT_ATTRIBUTES) updates[`system.attributes.combat.${key}.pendingPoints`] = out[key] ?? 0;
   await actor.update(updates);
 }
 
@@ -301,9 +301,9 @@ export async function releaseCharacter(actor) {
   if (!game.user.isGM || actor?.type !== "character") return;
   const { openSkillRequests, approveSkillCreationRequest } = await import("../skills/skill-economy.js");
   const combat = actor.system.attributes.combat;
-  const pending = MEU_SISTEMA.COMBAT_ATTRIBUTES.reduce((sum, key) => sum + (combat[key]?.pendingPoints ?? 0), 0);
+  const pending = NIHILITY.COMBAT_ATTRIBUTES.reduce((sum, key) => sum + (combat[key]?.pendingPoints ?? 0), 0);
   const requests = openSkillRequests(actor);
-  const freePoints = MEU_SISTEMA.SKILL_POINT_TIERS.reduce((sum, t) => sum + (Number(actor.system.skillPoints?.[t]) || 0), 0) - requests.length;
+  const freePoints = NIHILITY.SKILL_POINT_TIERS.reduce((sum, t) => sum + (Number(actor.system.skillPoints?.[t]) || 0), 0) - requests.length;
   const requestRows = requests
     .map(m => {
       const req = m.flags[SYSTEM_ID].skillRequest;
@@ -334,7 +334,7 @@ export async function releaseCharacter(actor) {
     "system.speciesState.unlocked": false,
     "system.creation": { active: false, status: "editing", gmNote: "", readyAt: null }
   };
-  for (const key of MEU_SISTEMA.COMBAT_ATTRIBUTES) {
+  for (const key of NIHILITY.COMBAT_ATTRIBUTES) {
     const p = combat[key]?.pendingPoints ?? 0;
     if (!p) continue;
     updates[`system.attributes.combat.${key}.points`] = (combat[key].points ?? 0) + p;

@@ -1,4 +1,4 @@
-import { SYSTEM_ID, MEU_SISTEMA, debugLog } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, debugLog } from "../core/config.js";
 import { pickImageFile } from "../helpers/foundry-compat.js";
 import { escapeHtml } from "../helpers/html.js";
 export { escapeHtml };
@@ -17,7 +17,7 @@ const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
  * @param {object} config
  * @param {string} config.id
  * @param {string} config.title
- * @param {keyof MEU_SISTEMA["SETTINGS"]} config.settingsKey
+ * @param {keyof NIHILITY["SETTINGS"]} config.settingsKey
  * @param {() => object[]} config.getActiveList
  * @param {(values: object) => string} config.renderCard - HTML de dentro do cartão
  * @param {(card: HTMLElement) => object|null} config.readCard - `null` descarta o cartão (ex.: sem id)
@@ -100,7 +100,7 @@ export function createCardListConfigApp({ id, title, settingsKey, getActiveList,
         const row = readCard(card);
         if (row) rows.push(row);
       });
-      await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS[settingsKey], JSON.stringify(rows, null, 2));
+      await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS[settingsKey], JSON.stringify(rows, null, 2));
       afterSave?.();
       ui.notifications.info(`${noun} atualizado(s).`);
       debugLog(`${SYSTEM_ID} | ${id}: ${rows.length} entrada(s) salva(s).`, rows);

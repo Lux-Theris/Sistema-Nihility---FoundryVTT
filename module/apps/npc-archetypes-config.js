@@ -7,7 +7,7 @@
  * As Skills são Skills completas no formato solto das Raciais, editadas no editor de Skill de
  * sempre; arrastar uma Skill/Item Geral do Compêndio ou de uma ficha põe uma CÓPIA no arquétipo.
  */
-import { SYSTEM_ID, MEU_SISTEMA, getActiveNpcArchetypes, defaultNpcArchetypes, getActiveSpeciesPresets, getAttributeLabel, debugLog } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, getActiveNpcArchetypes, defaultNpcArchetypes, getActiveSpeciesPresets, getAttributeLabel, debugLog } from "../core/config.js";
 import { openSkillEditorDialog, mechanicSummaryFor } from "./skill-editor-dialog.js";
 import { wirePickerField, pickFromChecklist } from "./checklist-picker.js";
 import { normalizeArchetype, archetypeStatus, missingDefaultArchetypes, archetypeSlug, WEIGHT_FACTORS } from "../npc/npc-generator-rules.js";
@@ -74,7 +74,7 @@ export class NpcArchetypesConfigApp extends HandlebarsApplicationMixin(Applicati
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
     const defaults = defaultNpcArchetypes();
-    const groupLabels = MEU_SISTEMA.NPC_ARCHETYPE_GROUP_LABELS;
+    const groupLabels = NIHILITY.NPC_ARCHETYPE_GROUP_LABELS;
     const groups = {};
     const statusLabel = { default: "padrão", edited: "editado", custom: "do Mestre" };
     for (const a of this.catalog) {
@@ -97,14 +97,14 @@ export class NpcArchetypesConfigApp extends HandlebarsApplicationMixin(Applicati
       isEdited: status === "edited",
       speciesJson: JSON.stringify(entry.species),
       groupOptions: [...Object.entries(groupLabels).map(([id, label]) => ({ id, label })), { id: "", label: "Outros" }].map(o => ({ ...o, selected: o.id === (groupLabels[entry.group] ? entry.group : "") })),
-      weights: MEU_SISTEMA.COMBAT_ATTRIBUTES.map(key => ({
+      weights: NIHILITY.COMBAT_ATTRIBUTES.map(key => ({
         key,
         label: getAttributeLabel(key),
         levels: WEIGHT_LABELS.map((label, level) => ({ label, level, active: (entry.weights[key] ?? 1) === level, strong: level >= 2 }))
       })),
       luck: Object.entries(LUCK_LABELS).map(([id, label]) => ({ id, label, active: entry.luck === id })),
       skillLevelOne: entry.skillLevel === "one",
-      skills: entry.skills.map((s, index) => ({ index, name: s.name, tier: MEU_SISTEMA.SKILL_TIER_LABELS[s.tier] ?? "Normal", summary: mechanicSummaryFor(s), always: s.always })),
+      skills: entry.skills.map((s, index) => ({ index, name: s.name, tier: NIHILITY.SKILL_TIER_LABELS[s.tier] ?? "Normal", summary: mechanicSummaryFor(s), always: s.always })),
       items: entry.items.map((i, index) => ({ index, name: i.name, summary: itemSummary(i), chance: i.chance }))
     };
     context.speciesCount = Object.keys(species).length;
@@ -135,7 +135,7 @@ export class NpcArchetypesConfigApp extends HandlebarsApplicationMixin(Applicati
           for (const o of source()) (groups[o.group] ??= []).push({ id: o.id, label: o.label });
           return pickFromChecklist({
             title: "Espécies possíveis",
-            groups: Object.entries(groups).map(([g, list]) => ({ label: MEU_SISTEMA.SPECIES_GROUP_LABELS[g] ?? "Outras", options: list })),
+            groups: Object.entries(groups).map(([g, list]) => ({ label: NIHILITY.SPECIES_GROUP_LABELS[g] ?? "Outras", options: list })),
             selected: ids
           });
         }
@@ -214,7 +214,7 @@ export class NpcArchetypesConfigApp extends HandlebarsApplicationMixin(Applicati
   /** Recalcula chaves únicas e campos depois de mexer em listas. */
   #normalizeSelected() {
     const i = this.catalog.findIndex(a => a.id === this.selected);
-    if (i >= 0) this.catalog[i] = normalizeArchetype(this.catalog[i], MEU_SISTEMA.COMBAT_ATTRIBUTES);
+    if (i >= 0) this.catalog[i] = normalizeArchetype(this.catalog[i], NIHILITY.COMBAT_ATTRIBUTES);
   }
 
   /* -------------------------------------------- actions */
@@ -227,7 +227,7 @@ export class NpcArchetypesConfigApp extends HandlebarsApplicationMixin(Applicati
   static #onAdd() {
     let id = "novo_arquetipo";
     for (let n = 2; this.catalog.some(a => a.id === id); n++) id = `novo_arquetipo_${n}`;
-    this.catalog.push(normalizeArchetype({ id, label: "Novo arquétipo", group: "", skillsMin: 1, skillsMax: 2 }, MEU_SISTEMA.COMBAT_ATTRIBUTES));
+    this.catalog.push(normalizeArchetype({ id, label: "Novo arquétipo", group: "", skillsMin: 1, skillsMax: 2 }, NIHILITY.COMBAT_ATTRIBUTES));
     this.selected = id;
     this.dirty = true;
     this.render();
@@ -330,8 +330,8 @@ export class NpcArchetypesConfigApp extends HandlebarsApplicationMixin(Applicati
   }
 
   static async #onSave() {
-    const list = this.catalog.map(a => normalizeArchetype(a, MEU_SISTEMA.COMBAT_ATTRIBUTES));
-    await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.npcArchetypesData, JSON.stringify(list, null, 2));
+    const list = this.catalog.map(a => normalizeArchetype(a, NIHILITY.COMBAT_ATTRIBUTES));
+    await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.npcArchetypesData, JSON.stringify(list, null, 2));
     debugLog(`${SYSTEM_ID} | Arquétipos de NPC: ${list.length} salvo(s).`);
     ui.notifications.info("Arquétipos salvos.");
     const keep = this.selected;

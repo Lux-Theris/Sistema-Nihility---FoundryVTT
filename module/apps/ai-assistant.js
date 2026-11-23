@@ -385,7 +385,7 @@ export class AIAssistantApp extends HandlebarsApplicationMixin(ApplicationV2) {
           }
         } else if (proposal.type === "species" || proposal.type === "heritage") {
           // Espécie/Herança proposta pelo Agente: entra no catálogo (sem sobrescrever uma chave existente).
-          const { getActiveSpeciesPresets, getActiveHeritages, MEU_SISTEMA } = await import("../core/config.js");
+          const { getActiveSpeciesPresets, getActiveHeritages, NIHILITY } = await import("../core/config.js");
           const { normalizeSpeciesCatalog, normalizeSpeciesEntry } = await import("../species/species-rules.js");
           const { id: baseId, entry } = proposal.data;
           if (proposal.type === "heritage") {
@@ -393,14 +393,14 @@ export class AIAssistantApp extends HandlebarsApplicationMixin(ApplicationV2) {
             let id = baseId;
             for (let n = 2; list.some(h => h.id === id); n++) id = `${baseId}_${n}`;
             list.push({ ...normalizeSpeciesEntry(entry), id });
-            await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.heritagesData, JSON.stringify(list, null, 2));
+            await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.heritagesData, JSON.stringify(list, null, 2));
             applied.push({ name: entry.label, uuid: `heritage:${id}`, icon: "fa-droplet" });
           } else {
             const catalog = normalizeSpeciesCatalog(getActiveSpeciesPresets());
             let id = baseId;
             for (let n = 2; catalog[id]; n++) id = `${baseId}_${n}`;
             catalog[id] = normalizeSpeciesEntry(entry);
-            await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.speciesPresetsData, JSON.stringify(catalog, null, 2));
+            await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.speciesPresetsData, JSON.stringify(catalog, null, 2));
             applied.push({ name: entry.label, uuid: `species:${id}`, icon: "fa-dna" });
           }
         } else if (proposal.type === "edit") {

@@ -34,10 +34,10 @@ import { suggestSkillCost } from "../module/skills/skill-cost-rules.js";
 import { skillSummary } from "../module/skills/skill-summary.js";
 import { sanitizeOnlyIf, sanitizeSkillMechanics } from "../module/ai/ai-mechanics.js";
 import { checkMechanic, buildCatalogIndex, validateCatalogs } from "../module/world/world-validator.js";
-import { MEU_SISTEMA, DEFAULT_ELEMENT_REACTIONS, REACTION_ELEMENTS, REACTION_CONDITIONS } from "../module/core/config.js";
+import { NIHILITY, DEFAULT_ELEMENT_REACTIONS, REACTION_ELEMENTS, REACTION_CONDITIONS } from "../module/core/config.js";
 
-const ELEMENTS = MEU_SISTEMA.DEFAULT_DAMAGE_ELEMENTS;
-const CONDITIONS = MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS;
+const ELEMENTS = NIHILITY.DEFAULT_DAMAGE_ELEMENTS;
+const CONDITIONS = NIHILITY.DEFAULT_STATUS_CONDITIONS;
 const chainOf = id => [ELEMENTS.find(e => e.id === id)].map(e => ({ id: e.id, reactions: normalizeReactions(e.reactions) }));
 const CONFIG = { immune: 0, ineffective: 0.5, effective: 1.5, superEffective: 2 };
 

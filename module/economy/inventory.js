@@ -5,7 +5,7 @@
  * os números do Personagem saem prontos de `system.inventory` (character-model.js).
  */
 import { chargesLeft, magazineState } from "./consumable-rules.js";
-import { MEU_SISTEMA, stackCount, isInventoryEnabled } from "../core/config.js";
+import { NIHILITY, stackCount, isInventoryEnabled } from "../core/config.js";
 import { itemNature } from "../core/magic-rules.js";
 import { itemClockText } from "../core/world-clock.js";
 import { itemClockAnalog } from "../core/world-time.js";
@@ -147,7 +147,7 @@ function itemRow(item, containers) {
     img: item.img,
     quantity,
     stacks,
-    stackSize: sys.stackSize ?? MEU_SISTEMA.ITEM_STACK_DEFAULT,
+    stackSize: sys.stackSize ?? NIHILITY.ITEM_STACK_DEFAULT,
     weight: Math.round((Number(sys.weight) || 0) * quantity * 100) / 100,
     equipped: Boolean(sys.equipped),
     isWeapon: Boolean(sys.weapon?.enabled),

@@ -1,16 +1,16 @@
 /**
  * "Configurar Módulos do Sistema" — a tela onde o Mestre liga/desliga cada bloco do sistema
- * (MEU_SISTEMA.FEATURES) e aplica um preset de campanha inteiro de uma vez
- * (MEU_SISTEMA.CAMPAIGN_PRESETS).
+ * (NIHILITY.FEATURES) e aplica um preset de campanha inteiro de uma vez
+ * (NIHILITY.CAMPAIGN_PRESETS).
  *
  * Não usa `list-config-app-factory.js` de propósito: a factory monta LISTAS editáveis (linhas
  * que o Mestre adiciona/remove livremente), e aqui o conjunto de blocos é fixo — quem define
  * quais existem é o código, não o Mestre. O que varia é só o booleano de cada um.
  *
- * Toda a tela é derivada de `MEU_SISTEMA.FEATURES`/`CAMPAIGN_PRESETS`: adicionar um bloco novo
+ * Toda a tela é derivada de `NIHILITY.FEATURES`/`CAMPAIGN_PRESETS`: adicionar um bloco novo
  * na tabela de config faz ele aparecer aqui sozinho, sem tocar neste arquivo nem no template.
  */
-import { SYSTEM_ID, MEU_SISTEMA, isFeatureEnabled, applyCampaignPreset, getFeatureOption, debugLog } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, isFeatureEnabled, applyCampaignPreset, getFeatureOption, debugLog } from "../core/config.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 
@@ -37,14 +37,14 @@ export class FeatureConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
 
     // Sub-features (as do PAD) entram aninhadas na linha do pai em vez de soltas na lista —
     // deixa visível que desligar o pai desliga o conjunto.
-    const entries = Object.entries(MEU_SISTEMA.FEATURES).map(([key, feature]) => ({
+    const entries = Object.entries(NIHILITY.FEATURES).map(([key, feature]) => ({
       key,
       name: feature.name,
       hint: feature.hint,
       // K4: uma frase por bloco; o hint longo e as opções ficam no "mais ▸".
       short: feature.short || feature.hint,
       heavy: Boolean(feature.heavy),
-      group: feature.group ?? MEU_SISTEMA.FEATURES[feature.parent]?.group ?? "gm",
+      group: feature.group ?? NIHILITY.FEATURES[feature.parent]?.group ?? "gm",
       parent: feature.parent ?? null,
       enabled: isFeatureEnabled(key),
       // O estado CRU da setting, sem herdar o pai: uma sub-feature ligada sob um pai desligado
@@ -64,7 +64,7 @@ export class FeatureConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
 
     // Grupos por assunto (Personagem, Combate, Mundo, Ferramentas do Mestre), com a contagem ligada.
     // Sub-blocos ficam recuados logo abaixo do pai.
-    context.groups = MEU_SISTEMA.FEATURE_GROUPS.map(group => {
+    context.groups = NIHILITY.FEATURE_GROUPS.map(group => {
       const parents = entries.filter(e => !e.parent && e.group === group.id);
       const features = parents.map(parent => ({ ...parent, children: entries.filter(e => e.parent === parent.key) }));
       const all = features.flatMap(f => [f, ...f.children]);
@@ -73,7 +73,7 @@ export class FeatureConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
     context.onCount = entries.filter(e => e.checked).length;
     context.total = entries.length;
 
-    context.presets = Object.entries(MEU_SISTEMA.CAMPAIGN_PRESETS).map(([key, preset]) => ({
+    context.presets = Object.entries(NIHILITY.CAMPAIGN_PRESETS).map(([key, preset]) => ({
       key,
       label: preset.label,
       hint: preset.hint,
@@ -100,7 +100,7 @@ export class FeatureConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
   static async #onApplyPreset(event, target) {
     event.preventDefault();
     const presetKey = target.dataset.preset;
-    const preset = MEU_SISTEMA.CAMPAIGN_PRESETS[presetKey];
+    const preset = NIHILITY.CAMPAIGN_PRESETS[presetKey];
     if (!preset) return;
 
     const confirmed = await DialogV2.confirm({
@@ -127,7 +127,7 @@ export class FeatureConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
   static async #onSave(event, target) {
     event.preventDefault();
 
-    for (const [key, feature] of Object.entries(MEU_SISTEMA.FEATURES)) {
+    for (const [key, feature] of Object.entries(NIHILITY.FEATURES)) {
       const checkbox = this.element.querySelector(`[data-feature="${key}"]`);
       if (!checkbox) continue;
       await game.settings.set(SYSTEM_ID, feature.setting, checkbox.checked);

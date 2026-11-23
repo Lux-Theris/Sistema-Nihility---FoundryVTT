@@ -6,7 +6,7 @@
  */
 import {
   SYSTEM_ID,
-  MEU_SISTEMA,
+  NIHILITY,
   getActiveStatusConditions,
   getActiveDamageElements,
   getStructures,
@@ -178,7 +178,7 @@ export class WorldValidatorApp extends HandlebarsApplicationMixin(ApplicationV2)
 
     let packCount = 0;
     if (this.includePacks) {
-      const keys = Object.values(MEU_SISTEMA.COMPENDIUM).filter(c => c.type === "Item").map(c => `world.${c.key}`);
+      const keys = Object.values(NIHILITY.COMPENDIUM).filter(c => c.type === "Item").map(c => `world.${c.key}`);
       for (const key of keys) {
         const pack = game.packs.get(key);
         if (!pack) continue;

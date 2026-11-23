@@ -6,7 +6,7 @@
  * O catálogo é uma LISTA (`heritagesData`); aqui vira objeto {id: entrada} para reaproveitar toda a
  * edição de species-config.js, e volta a lista ao salvar.
  */
-import { SYSTEM_ID, MEU_SISTEMA, getActiveHeritages, getActiveSpeciesPresets } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, getActiveHeritages, getActiveSpeciesPresets } from "../core/config.js";
 import { SpeciesConfigApp } from "./species-config.js";
 import { normalizeSpeciesEntry } from "../species/species-rules.js";
 import { wirePickerField, pickFromChecklist } from "./checklist-picker.js";
@@ -50,7 +50,7 @@ export class HeritagesConfigApp extends SpeciesConfigApp {
 
   async _writeCatalog(catalog) {
     const list = Object.entries(catalog).map(([id, entry]) => ({ ...entry, id }));
-    await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.heritagesData, JSON.stringify(list, null, 2));
+    await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.heritagesData, JSON.stringify(list, null, 2));
   }
 
   _tabs() {
@@ -77,7 +77,7 @@ export class HeritagesConfigApp extends SpeciesConfigApp {
 
   _defaultCatalog() {
     const out = {};
-    for (const h of MEU_SISTEMA.DEFAULT_HERITAGES) out[h.id] = normalizeSpeciesEntry(h);
+    for (const h of NIHILITY.DEFAULT_HERITAGES) out[h.id] = normalizeSpeciesEntry(h);
     return out;
   }
 
@@ -135,7 +135,7 @@ export class HeritagesConfigApp extends SpeciesConfigApp {
         for (const o of source()) (groups[o.group] ??= []).push({ id: o.id, label: o.label });
         return pickFromChecklist({
           title: kind === "species" ? "Espécies" : "Heranças",
-          groups: Object.entries(groups).map(([g, options]) => ({ label: MEU_SISTEMA.SPECIES_GROUP_LABELS[g] ?? "Outras", options })),
+          groups: Object.entries(groups).map(([g, options]) => ({ label: NIHILITY.SPECIES_GROUP_LABELS[g] ?? "Outras", options })),
           selected: ids
         });
       }

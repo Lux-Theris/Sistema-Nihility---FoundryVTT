@@ -6,7 +6,7 @@ import "./setup.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { MEU_SISTEMA, resolveActorTraits, isMagicUse, antimagicSurcharge } from "../module/core/config.js";
+import { NIHILITY, resolveActorTraits, isMagicUse, antimagicSurcharge } from "../module/core/config.js";
 import { splitShieldDamage } from "../module/combat/damage-apply.js";
 import {
   splitDamageParts,
@@ -414,9 +414,9 @@ test("Elementos: subtipo herda efeitos e vantagens do pai (os dele mandam)", () 
 });
 
 test("Elementos: Físico de fábrica tem Cortante, Perfurante e Contundente; validador acusa Subtipo inválido", () => {
-  const subs = MEU_SISTEMA.DEFAULT_DAMAGE_ELEMENTS.filter(el => el.parent === "physical").map(el => el.id);
+  const subs = NIHILITY.DEFAULT_DAMAGE_ELEMENTS.filter(el => el.parent === "physical").map(el => el.id);
   assert.deepEqual(subs, ["slashing", "piercing", "blunt"]);
-  assert.ok(MEU_SISTEMA.DEFAULT_DAMAGE_ELEMENTS.find(el => el.id === "slashing").effects.some(e => e.type === "sever"));
+  assert.ok(NIHILITY.DEFAULT_DAMAGE_ELEMENTS.find(el => el.id === "slashing").effects.some(e => e.type === "sever"));
   const broken = { ...VALIDATOR_CATALOGS, elements: [...(VALIDATOR_CATALOGS.elements ?? []), { id: "x", label: "X", parent: "nao-existe" }, { id: "y", label: "Y", parent: "y" }] };
   const issues = validateCatalogs(broken).flatMap(group => group.items ?? [group]).flatMap(item => item.issues ?? [item]);
   const text = JSON.stringify(validateCatalogs(broken));

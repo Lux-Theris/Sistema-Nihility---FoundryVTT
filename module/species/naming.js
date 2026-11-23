@@ -1,4 +1,4 @@
-import { SYSTEM_ID, MEU_SISTEMA, isNamingEnabled, getNamingConfig, getXpForNextLevel, getFeatureOption, getEnergyLabelForActor, getCharacterEnergyLabel } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, isNamingEnabled, getNamingConfig, getXpForNextLevel, getFeatureOption, getEnergyLabelForActor, getCharacterEnergyLabel } from "../core/config.js";
 import { runAsGm } from "../helpers/gm-relay.js";
 import { RELAY_REASONS, refuse } from "../helpers/gm-relay-rules.js";
 import { escapeHtml } from "../helpers/html.js";
@@ -63,7 +63,7 @@ function skillInputs(actor) {
 /** Soma dos `total` dos atributos de combate (o que mede a "força" do nomeado). */
 function attributeTotals(actor) {
   const combat = actor.system.attributes?.combat ?? {};
-  return MEU_SISTEMA.COMBAT_ATTRIBUTES.map(key => Number(combat[key]?.total) || 0);
+  return NIHILITY.COMBAT_ATTRIBUTES.map(key => Number(combat[key]?.total) || 0);
 }
 
 /** A prévia do que a Nomeação faria agora (cliente ou Mestre). */
@@ -396,7 +396,7 @@ async function evolveWithEditor(actor, skillId) {
   const { evolveSkill } = await import("../skills/skill-economy.js");
   const source = actor.items.get(skillId)?.system;
   if (!source) return null;
-  const tierChoices = MEU_SISTEMA.SKILL_TIERS.filter(t => t !== "racial");
+  const tierChoices = NIHILITY.SKILL_TIERS.filter(t => t !== "racial");
   const seed = source.weaponMastery ? { weaponMastery: source.weaponMastery, masteryRank: (Number(source.masteryRank) || 1) + 1 } : {};
   const data = await openSkillEditorDialog(seed, { tierChoices, levelReadonly: false });
   if (!data) return null;

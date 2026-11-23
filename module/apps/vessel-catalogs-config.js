@@ -2,13 +2,13 @@
  * Catálogos de Nave editáveis no jogo: Categorias de Módulo, Classes de Nave, Classes de Veículo
  * e Postos de Tripulação. Todos em cartão/lista (factories), salvos como JSON nas settings.
  */
-import { MEU_SISTEMA, getModuleCategories, getVesselClasses, getVesselSizes, getCrewRoles, getAmmoTypes } from "../core/config.js";
+import { NIHILITY, getModuleCategories, getVesselClasses, getVesselSizes, getCrewRoles, getAmmoTypes } from "../core/config.js";
 import { createCardListConfigApp, escapeHtml, optionsHtml } from "./card-list-config-factory.js";
 import { createListConfigApp } from "./list-config-app-factory.js";
 
 /* ------------------------------------------------------------------ Categorias de Módulo */
 
-const roleOptions = () => Object.entries(MEU_SISTEMA.MODULE_ROLES).map(([id, role]) => [id, role.label]);
+const roleOptions = () => Object.entries(NIHILITY.MODULE_ROLES).map(([id, role]) => [id, role.label]);
 const COMBINE_LABELS = { sum: "somam", independent: "cada uma por si", single: "só uma ativa", none: "sem mecânica" };
 
 function renderCategory(values) {
@@ -21,14 +21,14 @@ function renderCategory(values) {
     <div class="card-config-row">
       <label>Função <select data-field="role">${optionsHtml(roleOptions(), role)}</select></label>
       <label>Vagas por Nave <input type="number" data-field="slots" min="0" value="${values.slots ?? 1}"/></label>
-      <span class="hint-inline role-combine">várias da mesma Função: ${COMBINE_LABELS[MEU_SISTEMA.MODULE_ROLES[role]?.combine] ?? ""}</span>
+      <span class="hint-inline role-combine">várias da mesma Função: ${COMBINE_LABELS[NIHILITY.MODULE_ROLES[role]?.combine] ?? ""}</span>
     </div>`;
 }
 
 function wireCategory(card) {
   const select = card.querySelector('[data-field="role"]');
   select.addEventListener("change", () => {
-    card.querySelector(".role-combine").textContent = `várias da mesma Função: ${COMBINE_LABELS[MEU_SISTEMA.MODULE_ROLES[select.value]?.combine] ?? ""}`;
+    card.querySelector(".role-combine").textContent = `várias da mesma Função: ${COMBINE_LABELS[NIHILITY.MODULE_ROLES[select.value]?.combine] ?? ""}`;
   });
 }
 
@@ -61,7 +61,7 @@ export const ModuleCategoriesConfigApp = createCardListConfigApp({
 /* ------------------------------------------------------------------ Classes */
 
 function sizeOptions() {
-  return [["", "— sem limite —"], ...MEU_SISTEMA.MODULE_SIZES.map(s => [s, MEU_SISTEMA.MODULE_SIZE_LABELS[s]])];
+  return [["", "— sem limite —"], ...NIHILITY.MODULE_SIZES.map(s => [s, NIHILITY.MODULE_SIZE_LABELS[s]])];
 }
 
 function renderClass(values, kind) {
@@ -171,7 +171,7 @@ const SIZE_FIELDS = [
 ];
 
 function renderSize(values) {
-  const rankOptions = MEU_SISTEMA.MODULE_SIZES.map((s, i) => [String(i), MEU_SISTEMA.MODULE_SIZE_LABELS[s]]);
+  const rankOptions = NIHILITY.MODULE_SIZES.map((s, i) => [String(i), NIHILITY.MODULE_SIZE_LABELS[s]]);
   const numbers = SIZE_FIELDS
     .map(([field, label, hint]) => `<label title="${escapeHtml(hint)}">${label} <input type="number" min="0" data-field="${field}" value="${values[field] ?? 0}"/></label>`)
     .join("");

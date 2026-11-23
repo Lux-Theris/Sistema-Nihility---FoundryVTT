@@ -9,7 +9,7 @@
  *
  * **Quem recebe não pode alterar o resultado** (é o mesmo objeto para todo mundo) — copie antes
  * (`foundry.utils.deepClone`), como os editores de catálogo já fazem. O caminho sem setting salva
- * já devolvia os objetos compartilhados de MEU_SISTEMA, então a regra não é nova.
+ * já devolvia os objetos compartilhados de NIHILITY, então a regra não é nova.
  */
 
 /**

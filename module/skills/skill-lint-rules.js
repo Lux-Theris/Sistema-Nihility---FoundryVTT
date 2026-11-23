@@ -7,7 +7,7 @@
  * `level`: "hard" (não faz nada / não se aplica) ou "soft" (confira).
  * `tab`: "general" | "mechanic" — onde o campo mora na ficha. `effect`: índice do card, ou null.
  */
-import { MEU_SISTEMA } from "../core/config/constants.js";
+import { NIHILITY } from "../core/config/constants.js";
 import { complexityVerdict } from "./skill-complexity-rules.js";
 import { combinedIssues } from "./combined-rules.js";
 import { rerollLint } from "./reroll-rules.js";
@@ -21,7 +21,7 @@ const INSTANT_TARGETS = ["heal", "restoreEnergy", "shield", "antimagic", "emp", 
 /** Alvos em que o valor não importa (liga/desliga, troca de elemento, Antimagia pelo nível). */
 const VALUELESS_TARGETS = ["weaponElement", "bodyElement", "weaponMagic", "weaponAbsolute", "unarmedType", "antimagic", "emp", "mark", "dispelMagic", "magicDampen", "luck", "timeRate", "flight", "burrow", "createSurface", "senseTremor", "senseInvisible", "senseTrue", "senseAll"];
 
-const groupTargets = actor => new Set(MEU_SISTEMA.EFFECT_TARGET_GROUPS.filter(g => g.actor === actor).flatMap(g => g.targets));
+const groupTargets = actor => new Set(NIHILITY.EFFECT_TARGET_GROUPS.filter(g => g.actor === actor).flatMap(g => g.targets));
 
 /**
  * @param {object} mech - a Skill (ou Sub-Skill) no formato do schema
@@ -80,7 +80,7 @@ export function lintSkill(mech, ctx = {}) {
   // Complexidade por Tier (8c.1): só avisa.
   if (ctx.complexityCaps && m.tier) {
     const verdict = complexityVerdict(m, m.tier, ctx.complexityCaps);
-    if (verdict.over) push("complexity", "soft", "general", `Complexa demais para ${MEU_SISTEMA.SKILL_TIER_LABELS[m.tier] ?? m.tier}: ${verdict.score} de ${verdict.cap}. Dá para salvar assim; o Mestre decide.`);
+    if (verdict.over) push("complexity", "soft", "general", `Complexa demais para ${NIHILITY.SKILL_TIER_LABELS[m.tier] ?? m.tier}: ${verdict.score} de ${verdict.cap}. Dá para salvar assim; o Mestre decide.`);
   }
 
   // --- Alcance (H4): só avisos "confira"; nada trava.

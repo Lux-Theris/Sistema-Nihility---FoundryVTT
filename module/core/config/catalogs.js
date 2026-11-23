@@ -7,7 +7,7 @@ import { buildAffinityMatrix, elementAncestors } from "../../combat/damage-rules
 import { normalizeReactions } from "../../combat/reaction-rules.js";
 import { normalizeSurface } from "../../environment/surface-rules.js";
 import { fillMapStatus } from "../../combat/senses-rules.js";
-import { MEU_SISTEMA, SYSTEM_ID } from "./constants.js";
+import { NIHILITY, SYSTEM_ID } from "./constants.js";
 import { getFeatureOption, isFeatureEnabled } from "./features.js";
 import { normalizeLightConfig } from "./rules.js";
 import { structureMaterial, structureManaPowered } from "../../structures/structure-geometry.js";
@@ -21,14 +21,14 @@ const rawCache = createRawCache();
  * Lê a setting de catálogo `settingKey` e devolve `build(raw)`, guardado enquanto o texto salvo
  * não mudar (ver cache.js — quem recebe NÃO altera o resultado; copie antes). Setting que ainda não
  * existe (carga do Foundry, testes): reconstrói sempre, como antes do cache.
- * @param {string} settingKey - chave em MEU_SISTEMA.SETTINGS
+ * @param {string} settingKey - chave em NIHILITY.SETTINGS
  * @param {(raw: unknown) => unknown} build
  * @param {string} [cacheKey] - quando duas leituras da mesma setting montam coisas diferentes
  */
 function cachedCatalog(settingKey, build, cacheKey = settingKey) {
   let raw;
   try {
-    raw = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[settingKey]);
+    raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS[settingKey]);
   } catch (err) {
     return build(undefined);
   }
@@ -49,7 +49,7 @@ export function getActiveCurrencies() {
     } catch (err) {
       console.warn(`${SYSTEM_ID} | JSON de moedas inválido, usando padrão.`, err);
     }
-    return MEU_SISTEMA.DEFAULT_CURRENCIES;
+    return NIHILITY.DEFAULT_CURRENCIES;
   });
 }
 
@@ -76,7 +76,7 @@ export function getActiveDamageElements() {
 
 /** O catálogo de elementos normalizado a partir do texto salvo (ver getActiveDamageElements). */
 function buildDamageElements(raw) {
-  let list = MEU_SISTEMA.DEFAULT_DAMAGE_ELEMENTS;
+  let list = NIHILITY.DEFAULT_DAMAGE_ELEMENTS;
   try {
     if (raw) {
       const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
@@ -89,7 +89,7 @@ function buildDamageElements(raw) {
   // elemento padrão de mesmo id (Fogo → Fantasia, Phaser → Energia…); só o que o Mestre criou
   // sem grupo cai em "Outros".
   const knownGroups = new Map(
-    [...MEU_SISTEMA.DEFAULT_DAMAGE_ELEMENTS, ...MEU_SISTEMA.SCIFI_DAMAGE_ELEMENTS].map(el => [el.id, el.group])
+    [...NIHILITY.DEFAULT_DAMAGE_ELEMENTS, ...NIHILITY.SCIFI_DAMAGE_ELEMENTS].map(el => [el.id, el.group])
   );
   return list.map(el => ({
     ...el,
@@ -114,7 +114,7 @@ export function getElementAffinityMatrix() {
 export function getAffinityConfig() {
   const read = (key, fallback) => {
     try {
-      const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[key]));
+      const value = Number(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS[key]));
       return Number.isFinite(value) && value >= 0 ? value : fallback;
     } catch (err) {
       return fallback;
@@ -142,7 +142,7 @@ export function getActiveTraits() {
     } catch (err) {
       /* setting ausente/inválida — cai no padrão */
     }
-    return MEU_SISTEMA.DEFAULT_TRAITS;
+    return NIHILITY.DEFAULT_TRAITS;
   });
 }
 
@@ -160,7 +160,7 @@ export function getScaleConfig() {
     } catch (err) {
       /* setting ausente/inválida — cai no padrão */
     }
-    const fallback = MEU_SISTEMA.DEFAULT_SCALES;
+    const fallback = NIHILITY.DEFAULT_SCALES;
     const scales = Array.isArray(saved?.scales) && saved.scales.length ? saved.scales : fallback.scales;
     return {
       scales,
@@ -187,7 +187,7 @@ export function getActiveStatusConditions() {
       if (raw) {
         const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
         if (Array.isArray(parsed) && parsed.length) {
-          const defaults = Object.fromEntries(MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS.map(c => [c.id, c]));
+          const defaults = Object.fromEntries(NIHILITY.DEFAULT_STATUS_CONDITIONS.map(c => [c.id, c]));
           return parsed.map(c => {
             if (!c) return c;
             const withText = c.explanation === undefined && defaults[c.id]?.explanation ? { ...c, explanation: defaults[c.id].explanation } : c;
@@ -200,7 +200,7 @@ export function getActiveStatusConditions() {
     } catch (err) {
       console.warn(`${SYSTEM_ID} | JSON de condições de status inválido, usando padrão.`, err);
     }
-    return MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS;
+    return NIHILITY.DEFAULT_STATUS_CONDITIONS;
   });
 }
 
@@ -245,7 +245,7 @@ export function getActiveBodyFunctions() {
     } catch (err) {
       /* setting ausente/inválida — cai no padrão */
     }
-    return MEU_SISTEMA.DEFAULT_BODY_FUNCTIONS;
+    return NIHILITY.DEFAULT_BODY_FUNCTIONS;
   });
 }
 
@@ -253,7 +253,7 @@ export function getActiveBodyFunctions() {
  * Catálogo de Heranças (o que ACONTECEU com o personagem: Vampirizado, Meio-Dragão…), que vale
  * para qualquer Espécie. Lista `{id, label, group, description, traits, removesTraits, elements,
  * passives, parts, skills, replaces, allowedSpecies:{mode, list}, excludes, announce}`.
- * Setting salva > padrão (MEU_SISTEMA.DEFAULT_HERITAGES).
+ * Setting salva > padrão (NIHILITY.DEFAULT_HERITAGES).
  */
 export function getActiveHeritages() {
   return cachedCatalog("heritagesData", raw => {
@@ -265,12 +265,12 @@ export function getActiveHeritages() {
     } catch (err) {
       /* setting ausente/inválida — cai no padrão */
     }
-    return MEU_SISTEMA.DEFAULT_HERITAGES;
+    return NIHILITY.DEFAULT_HERITAGES;
   });
 }
 
 /**
- * Arquétipos do Gerador de NPC (setting > padrão, MEU_SISTEMA.DEFAULT_NPC_ARCHETYPES), cada um
+ * Arquétipos do Gerador de NPC (setting > padrão, NIHILITY.DEFAULT_NPC_ARCHETYPES), cada um
  * normalizado (pesos de todos os atributos, chaves das Skills/itens). Não altere o que volta.
  * @returns {object[]}
  */
@@ -285,11 +285,11 @@ export function getActiveNpcArchetypes() {
     } catch (err) {
       /* setting inválida — cai no padrão */
     }
-    return defaultNpcArchetypes(list ?? MEU_SISTEMA.DEFAULT_NPC_ARCHETYPES);
+    return defaultNpcArchetypes(list ?? NIHILITY.DEFAULT_NPC_ARCHETYPES);
   });
 }
 
-/** Modelos de Skill (setting > padrão, MEU_SISTEMA.DEFAULT_SKILL_TEMPLATES), normalizados. Não altere o que volta. */
+/** Modelos de Skill (setting > padrão, NIHILITY.DEFAULT_SKILL_TEMPLATES), normalizados. Não altere o que volta. */
 export function getActiveSkillTemplates() {
   return cachedCatalog("skillTemplatesData", raw => {
     let list = null;
@@ -301,19 +301,19 @@ export function getActiveSkillTemplates() {
     } catch (err) {
       /* setting inválida — cai no padrão */
     }
-    return defaultSkillTemplates(list ?? MEU_SISTEMA.DEFAULT_SKILL_TEMPLATES);
+    return defaultSkillTemplates(list ?? NIHILITY.DEFAULT_SKILL_TEMPLATES);
   });
 }
 
 /** Modelos (de fábrica, se nada vier) normalizados. */
-export function defaultSkillTemplates(list = MEU_SISTEMA.DEFAULT_SKILL_TEMPLATES) {
+export function defaultSkillTemplates(list = NIHILITY.DEFAULT_SKILL_TEMPLATES) {
   return list.map(normalizeSkillTemplate);
 }
 
 /** "Mana por ponto" do custo sugerido (Regras da Mesa). */
 export function getSkillCostManaPerPoint() {
   try {
-    const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.skillCostManaPerPoint));
+    const value = Number(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.skillCostManaPerPoint));
     return Number.isFinite(value) && value > 0 ? value : 0.9;
   } catch (err) {
     return 0.9;
@@ -324,7 +324,7 @@ export function getSkillCostManaPerPoint() {
 export function getComplexityCaps() {
   const read = (key, fallback) => {
     try {
-      const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[key]));
+      const value = Number(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS[key]));
       return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
     } catch (err) {
       return fallback;
@@ -337,7 +337,7 @@ export function getComplexityCaps() {
 export function getNamingConfig() {
   const read = (key, fallback, min) => {
     try {
-      const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[key]));
+      const value = Number(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS[key]));
       return Number.isFinite(value) ? Math.max(min, value) : fallback;
     } catch (err) {
       return fallback;
@@ -349,7 +349,7 @@ export function getNamingConfig() {
 /** Análise (7b): de quantos pontos de diferença entre Percepção e Furtividade vale 1 degrau (Regras da Mesa, padrão 10). */
 export function getAnalysisAttrStep() {
   try {
-    const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.analysisAttrStep));
+    const value = Number(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.analysisAttrStep));
     return Number.isFinite(value) ? Math.max(1, Math.floor(value)) : 10;
   } catch (err) {
     return 10;
@@ -359,7 +359,7 @@ export function getAnalysisAttrStep() {
 /** Predação (7b): % dos atributos do alvo que viram pontos permanentes (Regras da Mesa, padrão 5). */
 export function getPredationAttrPercent() {
   try {
-    const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.predationAttrPercent));
+    const value = Number(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.predationAttrPercent));
     return Number.isFinite(value) ? Math.max(0, value) : 5;
   } catch (err) {
     return 5;
@@ -369,7 +369,7 @@ export function getPredationAttrPercent() {
 /** Predação: quanto cada nível de diferença entre a Skill alvo e a Predação muda a chance (Regras da Mesa, padrão 5). */
 export function getPredationLevelStep() {
   try {
-    const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.predationLevelStep));
+    const value = Number(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.predationLevelStep));
     return Number.isFinite(value) ? Math.max(0, value) : 5;
   } catch (err) {
     return 5;
@@ -377,8 +377,8 @@ export function getPredationLevelStep() {
 }
 
 /** Lista de arquétipos (de fábrica, se nada vier) normalizada. */
-export function defaultNpcArchetypes(list = MEU_SISTEMA.DEFAULT_NPC_ARCHETYPES) {
-  return list.map(a => normalizeArchetype(a, MEU_SISTEMA.COMBAT_ATTRIBUTES));
+export function defaultNpcArchetypes(list = NIHILITY.DEFAULT_NPC_ARCHETYPES) {
+  return list.map(a => normalizeArchetype(a, NIHILITY.COMBAT_ATTRIBUTES));
 }
 
 /**
@@ -397,7 +397,7 @@ export function getActiveSpeciesPresets() {
     } catch (err) {
       console.warn(`${SYSTEM_ID} | JSON de presets de espécie inválido, usando padrão.`, err);
     }
-    return MEU_SISTEMA.DEFAULT_SPECIES_PRESETS;
+    return NIHILITY.DEFAULT_SPECIES_PRESETS;
   });
 }
 
@@ -417,12 +417,12 @@ export function getSpeciesForCreation() {
 /** Rótulo atual do sistema de energia de Personagens/Criaturas (setting > default). */
 export function getCharacterEnergyLabel() {
   try {
-    const label = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.characterEnergyLabel);
+    const label = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.characterEnergyLabel);
     if (label && String(label).trim().length) return label;
   } catch (err) {
     /* settings ainda não registradas (fora do hook init/ready) */
   }
-  return MEU_SISTEMA.DEFAULT_CHARACTER_ENERGY_LABEL;
+  return NIHILITY.DEFAULT_CHARACTER_ENERGY_LABEL;
 }
 
 /**
@@ -432,7 +432,7 @@ export function getCharacterEnergyLabel() {
  */
 export function getStarshipEnergyAbbr() {
   try {
-    const abbr = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.starshipEnergyAbbr);
+    const abbr = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.starshipEnergyAbbr);
     if (abbr && String(abbr).trim().length) return String(abbr).trim();
   } catch (err) {
     /* setting ainda não registrada */
@@ -443,12 +443,12 @@ export function getStarshipEnergyAbbr() {
 /** Rótulo atual do sistema de energia de Naves Espaciais (setting > default). */
 export function getStarshipEnergyLabel() {
   try {
-    const label = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.starshipEnergyLabel);
+    const label = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.starshipEnergyLabel);
     if (label && String(label).trim().length) return label;
   } catch (err) {
     /* settings ainda não registradas (fora do hook init/ready) */
   }
-  return MEU_SISTEMA.DEFAULT_STARSHIP_ENERGY_LABEL;
+  return NIHILITY.DEFAULT_STARSHIP_ENERGY_LABEL;
 }
 
 /**
@@ -461,11 +461,11 @@ export function getStarshipEnergyLabel() {
 export function getModuleSizePreset(category, moduleSize) {
   const preset = {};
   // Presets são por Função (a Categoria "Manobradores" usa a linha de Propulsão/"engine").
-  const presetKey = MEU_SISTEMA.MODULE_ROLES[moduleRole(category)]?.presetKey ?? category;
-  for (const [field, value] of Object.entries(MEU_SISTEMA.MODULE_SIZE_PRESETS[presetKey]?.[moduleSize] ?? {})) {
+  const presetKey = NIHILITY.MODULE_ROLES[moduleRole(category)]?.presetKey ?? category;
+  for (const [field, value] of Object.entries(NIHILITY.MODULE_SIZE_PRESETS[presetKey]?.[moduleSize] ?? {})) {
     preset[`system.${field}`] = value;
   }
-  const hp = MEU_SISTEMA.MODULE_HP_BY_SIZE[moduleSize];
+  const hp = NIHILITY.MODULE_HP_BY_SIZE[moduleSize];
   if (hp) {
     preset["system.hp.max"] = hp;
     preset["system.hp.value"] = hp;
@@ -499,7 +499,7 @@ function cachedList(settingKey, fallback, normalize) {
  * o que volta (é o mesmo objeto para todo mundo). Cai no de fábrica se vazio/inválido.
  */
 export function getActiveWeaponTypes() {
-  return cachedList("weaponTypesData", MEU_SISTEMA.DEFAULT_WEAPON_TYPES, list => list.map(t => ({
+  return cachedList("weaponTypesData", NIHILITY.DEFAULT_WEAPON_TYPES, list => list.map(t => ({
     id: t.id,
     label: t.label || t.id,
     parent: typeof t.parent === "string" ? t.parent : ""
@@ -513,10 +513,10 @@ export function getWeaponType(id) {
 
 /** Catálogo de Categorias de Módulo (setting > padrão), com Função válida em toda entrada. */
 export function getModuleCategories() {
-  return cachedList("moduleCategoriesData", MEU_SISTEMA.DEFAULT_MODULE_CATEGORIES, list => list.map(c => ({
+  return cachedList("moduleCategoriesData", NIHILITY.DEFAULT_MODULE_CATEGORIES, list => list.map(c => ({
     ...c,
     label: c.label || c.id,
-    role: MEU_SISTEMA.MODULE_ROLES[c.role] ? c.role : "utility",
+    role: NIHILITY.MODULE_ROLES[c.role] ? c.role : "utility",
     slots: Math.max(0, Math.round(Number(c.slots) || 0))
   })));
 }
@@ -527,28 +527,28 @@ export function getModuleCategories() {
  */
 export function moduleRole(categoryId) {
   const found = getModuleCategories().find(c => c.id === categoryId)
-    ?? MEU_SISTEMA.DEFAULT_MODULE_CATEGORIES.find(c => c.id === categoryId);
+    ?? NIHILITY.DEFAULT_MODULE_CATEGORIES.find(c => c.id === categoryId);
   return found?.role ?? "utility";
 }
 
 /** Rótulo de uma Categoria (cai no id). */
 export function moduleCategoryLabel(categoryId) {
   return getModuleCategories().find(c => c.id === categoryId)?.label
-    ?? MEU_SISTEMA.STARSHIP_MODULE_CATEGORY_LABELS[categoryId] ?? categoryId;
+    ?? NIHILITY.STARSHIP_MODULE_CATEGORY_LABELS[categoryId] ?? categoryId;
 }
 
 /* ------------------------------------------------------------------ Inventário */
 
 /** Catálogo de Tipos de Munição. */
 export function getAmmoTypes() {
-  return cachedList("ammoTypesData", MEU_SISTEMA.DEFAULT_AMMO_TYPES, list => list.map(a => ({ ...a, label: a.label || a.id })));
+  return cachedList("ammoTypesData", NIHILITY.DEFAULT_AMMO_TYPES, list => list.map(a => ({ ...a, label: a.label || a.id })));
 }
 
 /** Catálogo de Classes: `"ship"` (Nave) ou `"vehicle"` (Veículo). */
 export function getVesselClasses(kind) {
   return kind === "vehicle"
-    ? cachedList("vehicleClassesData", MEU_SISTEMA.DEFAULT_VEHICLE_CLASSES, normalizeVesselClasses)
-    : cachedList("shipClassesData", MEU_SISTEMA.DEFAULT_SHIP_CLASSES, normalizeVesselClasses);
+    ? cachedList("vehicleClassesData", NIHILITY.DEFAULT_VEHICLE_CLASSES, normalizeVesselClasses)
+    : cachedList("shipClassesData", NIHILITY.DEFAULT_SHIP_CLASSES, normalizeVesselClasses);
 }
 
 function normalizeVesselClasses(list) {
@@ -582,7 +582,7 @@ function nonNegative(value, fallback) {
  */
 export function getVesselSizes(kind) {
   const isVehicle = kind === "vehicle";
-  const defaults = isVehicle ? MEU_SISTEMA.DEFAULT_VEHICLE_SIZES : MEU_SISTEMA.DEFAULT_SHIP_SIZES;
+  const defaults = isVehicle ? NIHILITY.DEFAULT_VEHICLE_SIZES : NIHILITY.DEFAULT_SHIP_SIZES;
   const suffix = { mini: "Mini", pequeno: "Pequeno", medio: "Medio", grande: "Grande", capital: "Capital" };
   const seeded = defaults.map(s => (suffix[s.id]
     ? { ...s, move: getFeatureOption("shipManeuver", `shipMove${suffix[s.id]}`), evasion: getFeatureOption("shipManeuver", `shipEvasion${suffix[s.id]}`) }
@@ -613,7 +613,7 @@ function normalizeVesselSize(s, base) {
 export function vesselSizeFor(kind, sizeId) {
   const found = getVesselSizes(kind).find(s => s.id === sizeId);
   if (found) return found;
-  const defaults = kind === "vehicle" ? MEU_SISTEMA.DEFAULT_VEHICLE_SIZES : MEU_SISTEMA.DEFAULT_SHIP_SIZES;
+  const defaults = kind === "vehicle" ? NIHILITY.DEFAULT_VEHICLE_SIZES : NIHILITY.DEFAULT_SHIP_SIZES;
   const fallback = defaults.find(s => s.id === sizeId) ?? getVesselSizes(kind)[0] ?? defaults[0];
   return normalizeVesselSize(fallback, fallback);
 }
@@ -625,10 +625,10 @@ export function vesselSizeLabel(kind, sizeId) {
 
 /** Catálogo de Estruturas (setting > padrão), com números saneados. */
 export function getStructures() {
-  return cachedList("structuresData", MEU_SISTEMA.DEFAULT_STRUCTURES, list => list.map(s => ({
+  return cachedList("structuresData", NIHILITY.DEFAULT_STRUCTURES, list => list.map(s => ({
     ...s,
     label: s.label || s.id,
-    shape: MEU_SISTEMA.STRUCTURE_SHAPES.includes(s.shape) ? s.shape : "line",
+    shape: NIHILITY.STRUCTURE_SHAPES.includes(s.shape) ? s.shape : "line",
     size: Math.max(0.5, Number(s.size) || 1),
     hp: Math.max(0, Math.round(Number(s.hp) || 0)),
     durationRounds: Math.max(0, Math.round(Number(s.durationRounds) || 0)),
@@ -667,7 +667,7 @@ export function getStructures() {
 export function getAntimagicConfig() {
   const read = (key, fallback) => {
     try {
-      const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[key]));
+      const value = Number(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS[key]));
       return Number.isFinite(value) ? value : fallback;
     } catch (err) {
       return fallback;
@@ -679,7 +679,7 @@ export function getAntimagicConfig() {
 /** Teto de rodadas do Reverter o tempo (Regras da Mesa; 1 a 100, padrão 10). */
 export function getTimeRewindRounds() {
   try {
-    const value = Math.floor(Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.timeRewindRounds)));
+    const value = Math.floor(Number(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.timeRewindRounds)));
     return Number.isFinite(value) && value >= 1 ? Math.min(100, value) : 10;
   } catch (err) {
     return 10;
@@ -689,7 +689,7 @@ export function getTimeRewindRounds() {
 /** Alcance da Antimagia (prancha 8): nível × isto = até onde ela corta, desliga e suprime. Padrão 1,5. */
 export function getAntimagicReach() {
   try {
-    const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.antimagicReach));
+    const value = Number(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.antimagicReach));
     return Number.isFinite(value) && value > 0 ? value : 1.5;
   } catch (err) {
     return 1.5;
@@ -700,7 +700,7 @@ export function getAntimagicReach() {
 export function getShipActionConfig() {
   const read = (key, fallback) => {
     try {
-      const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[key]));
+      const value = Number(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS[key]));
       return Number.isFinite(value) ? value : fallback;
     } catch (err) {
       return fallback;
@@ -713,7 +713,7 @@ export function getShipActionConfig() {
     // Vida extra que quem está no posto de Engenharia restaura no reparo (fórmula; vazio = nada).
     repairEngineerFormula: (() => {
       try {
-        return String(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.shipRepairEngineerFormula) ?? "").trim();
+        return String(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.shipRepairEngineerFormula) ?? "").trim();
       } catch (err) {
         return "1d6";
       }
@@ -726,8 +726,8 @@ export function getShipTargetingConfig() {
   let ask = true;
   let share = 0.75;
   try {
-    ask = Boolean(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.shipTargetAsk));
-    const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.shipTargetShare));
+    ask = Boolean(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.shipTargetAsk));
+    const value = Number(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.shipTargetShare));
     if (Number.isFinite(value)) share = Math.min(1, Math.max(0, value / 100));
   } catch (err) {
     /* setting ainda não registrada — padrão */
@@ -739,7 +739,7 @@ export function getShipTargetingConfig() {
 export function getHealingRules() {
   const read = (key, fallback) => {
     try {
-      const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[key]));
+      const value = Number(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS[key]));
       return Number.isFinite(value) ? value : fallback;
     } catch (err) {
       return fallback;
@@ -757,7 +757,7 @@ export function getHealingRules() {
 export function getManaInvestConfig() {
   const read = (key, fallback) => {
     try {
-      const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[key]));
+      const value = Number(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS[key]));
       return Number.isFinite(value) ? value : fallback;
     } catch (err) {
       return fallback;
@@ -773,7 +773,7 @@ export function getManaInvestConfig() {
 /** Multiplicador de poder do uso tecnomágico (Regras da Mesa; padrão 2, nunca menos que 1). */
 export function getTechnomagicPower() {
   try {
-    const value = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.technomagicPower));
+    const value = Number(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.technomagicPower));
     return Number.isFinite(value) ? Math.max(1, value) : 2;
   } catch (err) {
     return 2;
@@ -782,7 +782,7 @@ export function getTechnomagicPower() {
 
 /** Catálogo de Funções de Tripulação. */
 export function getCrewRoles() {
-  return cachedList("crewRolesData", MEU_SISTEMA.DEFAULT_CREW_ROLES, list => list.map(r => ({ ...r, label: r.label || r.id })));
+  return cachedList("crewRolesData", NIHILITY.DEFAULT_CREW_ROLES, list => list.map(r => ({ ...r, label: r.label || r.id })));
 }
 
 /*
@@ -805,7 +805,7 @@ export function getCrewRoles() {
  * `visible: false` some o atributo da ficha e da rolagem, mas o valor salvo continua existindo e
  * continua contando em toda conta que já o usava (inclusive a fórmula de HP/Mana) — reexibir
  * devolve o atributo exatamente como estava. Desligar nunca destrói dado, mesma regra de
- * MEU_SISTEMA.FEATURES.
+ * NIHILITY.FEATURES.
  * @returns {Array<{key:string,label:string,visible:boolean}>} sempre na ordem de COMBAT_ATTRIBUTES
  */
 export function getActiveAttributes() {
@@ -818,9 +818,9 @@ export function getActiveAttributes() {
       /* setting ausente/inválida — cai nos padrões do código abaixo */
     }
 
-    return MEU_SISTEMA.COMBAT_ATTRIBUTES.map(key => ({
+    return NIHILITY.COMBAT_ATTRIBUTES.map(key => ({
       key,
-      label: saved[key]?.label?.trim() || MEU_SISTEMA.COMBAT_ATTRIBUTE_LABELS[key],
+      label: saved[key]?.label?.trim() || NIHILITY.COMBAT_ATTRIBUTE_LABELS[key],
       visible: saved[key]?.visible !== false
     }));
   });
@@ -836,17 +836,17 @@ export function getAttributeLabel(key) {
   return getActiveAttributes().find(a => a.key === key)?.label ?? key;
 }
 
-/** Mapa chave→rótulo, substituto direto de MEU_SISTEMA.COMBAT_ATTRIBUTE_LABELS. */
+/** Mapa chave→rótulo, substituto direto de NIHILITY.COMBAT_ATTRIBUTE_LABELS. */
 export function getAttributeLabels() {
   return Object.fromEntries(getActiveAttributes().map(a => [a.key, a.label]));
 }
 
 /**
- * MEU_SISTEMA.EFFECT_TARGET_LABELS com os atributos trocados pelos rótulos ativos — os
+ * NIHILITY.EFFECT_TARGET_LABELS com os atributos trocados pelos rótulos ativos — os
  * alvos que não são atributo (hp/energy/shield/os de Nave) ficam como estão.
  */
 export function getEffectTargetLabels() {
-  return { ...MEU_SISTEMA.EFFECT_TARGET_LABELS, ...getAttributeLabels() };
+  return { ...NIHILITY.EFFECT_TARGET_LABELS, ...getAttributeLabels() };
 }
 
 /**
@@ -863,7 +863,7 @@ export function getEffectTargetGroups(current) {
   const senses = isFeatureEnabled("senses");
   const mastery = isFeatureEnabled("weaponMastery");
   const surfaces = isFeatureEnabled("surfaces");
-  return MEU_SISTEMA.EFFECT_TARGET_GROUPS.map(group => ({
+  return NIHILITY.EFFECT_TARGET_GROUPS.map(group => ({
     label: group.label,
     options: group.targets
       .filter(t => t !== "emp" || emp || t === current)
@@ -874,7 +874,7 @@ export function getEffectTargetGroups(current) {
       .filter(t => t !== "createSurface" || surfaces || t === current)
       .filter(t => !["flight", "burrow"].includes(t) || elevation || t === current)
       .filter(t => !t.startsWith("sense") || senses || t === current)
-      .filter(t => !MEU_SISTEMA.COMBAT_ATTRIBUTES.includes(t) || visible.has(t) || t === current)
+      .filter(t => !NIHILITY.COMBAT_ATTRIBUTES.includes(t) || visible.has(t) || t === current)
       .map(t => ({ value: t, label: labels[t] ?? t, selected: t === current }))
   })).filter(group => group.options.length);
 }

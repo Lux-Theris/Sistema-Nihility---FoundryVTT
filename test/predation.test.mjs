@@ -9,7 +9,7 @@ import { skillSummary } from "../module/skills/skill-summary.js";
 import { skillUseMode } from "../module/skills/skill-use-mode.js";
 import { borrowableSkill } from "../module/skills/borrowed-rules.js";
 import { suggestSkillCost } from "../module/skills/skill-cost-rules.js";
-import { MEU_SISTEMA } from "../module/core/config.js";
+import { NIHILITY } from "../module/core/config.js";
 
 test("rank pelo Tier e chance 50 ± 25 por rank, entre 0 e 100", () => {
   assert.deepEqual(["extra", "normal", "racial", "unique", "ultimate"].map(tierRank), [0, 1, 1, 2, 3]);
@@ -118,8 +118,8 @@ test("a Skill absorvida vem inteira no nível 1, sem estado nem marcas de origem
 });
 
 test("Mecânica Predação: tipo, uso, frase, custo e empréstimo", () => {
-  assert.ok(MEU_SISTEMA.SKILL_EFFECT_TYPES.includes("predation"));
-  assert.ok(MEU_SISTEMA.SKILL_EFFECT_TYPE_LABELS.predation && MEU_SISTEMA.SKILL_EFFECT_TYPE_SHORT_LABELS.predation);
+  assert.ok(NIHILITY.SKILL_EFFECT_TYPES.includes("predation"));
+  assert.ok(NIHILITY.SKILL_EFFECT_TYPE_LABELS.predation && NIHILITY.SKILL_EFFECT_TYPE_SHORT_LABELS.predation);
   assert.equal(skillUseMode({ effectType: "predation", targetType: "targeted" }), "targeted");
   assert.match(skillSummary({ effectType: "predation", targetType: "targeted" }), /preda um alvo derrotado/);
   assert.equal(borrowableSkill({ effectType: "predation" }), false);

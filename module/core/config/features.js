@@ -1,9 +1,9 @@
 /**
- * Blocos liga/desliga (MEU_SISTEMA.FEATURES), presets de campanha, migrações já feitas e o log de debug.
+ * Blocos liga/desliga (NIHILITY.FEATURES), presets de campanha, migrações já feitas e o log de debug.
  * (Parte de core/config.js, dividido em 1.68.0 sem mudar nenhuma função; importe de
  * `core/config.js`, que reexporta tudo.)
  */
-import { MEU_SISTEMA, SYSTEM_ID } from "./constants.js";
+import { NIHILITY, SYSTEM_ID } from "./constants.js";
 
 /**
  * Chaves de migração única (ver runMigrationIfNeeded em nihility-rpg-system.js) já executadas
@@ -12,7 +12,7 @@ import { MEU_SISTEMA, SYSTEM_ID } from "./constants.js";
  */
 export function getCompletedMigrations() {
   try {
-    const parsed = JSON.parse(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.completedMigrations) || "[]");
+    const parsed = JSON.parse(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.completedMigrations) || "[]");
     return Array.isArray(parsed) ? parsed : [];
   } catch (err) {
     console.warn(`${SYSTEM_ID} | JSON de migrações concluídas inválido, tratando como nenhuma migração feita.`, err);
@@ -24,7 +24,7 @@ export function getCompletedMigrations() {
 export async function markMigrationCompleted(key) {
   const current = getCompletedMigrations();
   if (current.includes(key)) return;
-  await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.completedMigrations, JSON.stringify([...current, key]));
+  await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.completedMigrations, JSON.stringify([...current, key]));
 }
 
 /**
@@ -36,7 +36,7 @@ export async function markMigrationCompleted(key) {
  */
 export function debugLog(...args) {
   try {
-    if (!game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.debugMode)) return;
+    if (!game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.debugMode)) return;
   } catch (err) {
     return;
   }
@@ -141,7 +141,7 @@ export function isCalendarEnabled() {
 }
 
 /**
- * Leitor ÚNICO de todo bloco ligável/desligável do sistema (ver MEU_SISTEMA.FEATURES) — use
+ * Leitor ÚNICO de todo bloco ligável/desligável do sistema (ver NIHILITY.FEATURES) — use
  * isto, e não `game.settings.get` direto, pra gatear qualquer coisa: só aqui a cadeia de
  * `parent` é respeitada (uma sub-feature do PAD com a chave-mestra desligada conta como
  * desligada, mesmo que a setting dela esteja `true`).
@@ -149,11 +149,11 @@ export function isCalendarEnabled() {
  * Cai no `default` da tabela quando as settings ainda não foram registradas — isso acontece de
  * verdade quando um Data Model prepara dados cedo demais no boot, e um `throw` aqui derrubaria
  * a preparação inteira da ficha.
- * @param {keyof MEU_SISTEMA["FEATURES"]} key
+ * @param {keyof NIHILITY["FEATURES"]} key
  * @returns {boolean}
  */
 export function isFeatureEnabled(key) {
-  const feature = MEU_SISTEMA.FEATURES[key];
+  const feature = NIHILITY.FEATURES[key];
   if (!feature) return true;
   if (feature.parent && !isFeatureEnabled(feature.parent)) return false;
   try {
@@ -168,7 +168,7 @@ export function isFeatureEnabled(key) {
  * não existe, pelo mesmo motivo de `isFeatureEnabled`, e nunca devolve abaixo do `min` declarado.
  */
 export function getFeatureOption(featureKey, optionKey) {
-  const option = MEU_SISTEMA.FEATURES[featureKey]?.options?.[optionKey];
+  const option = NIHILITY.FEATURES[featureKey]?.options?.[optionKey];
   if (!option) return undefined;
   let value;
   try {
@@ -183,38 +183,38 @@ export function getFeatureOption(featureKey, optionKey) {
 }
 
 /**
- * Aplica um preset de campanha (MEU_SISTEMA.CAMPAIGN_PRESETS) de uma vez só. Blocos que o preset
+ * Aplica um preset de campanha (NIHILITY.CAMPAIGN_PRESETS) de uma vez só. Blocos que o preset
  * não menciona ficam como estão. Não toca em dado nenhum do mundo — só nas settings de exibição.
- * @param {keyof MEU_SISTEMA["CAMPAIGN_PRESETS"]} presetKey
+ * @param {keyof NIHILITY["CAMPAIGN_PRESETS"]} presetKey
  */
 /**
  * Conteúdo que um preset carrega, já resolvido: `{settingKey: lista}`, com as listas de
- * MEU_SISTEMA juntadas na ordem e sem id repetido (a primeira vence). Pura.
+ * NIHILITY juntadas na ordem e sem id repetido (a primeira vence). Pura.
  */
 export function presetContent(presetKey) {
-  const content = MEU_SISTEMA.CAMPAIGN_PRESETS[presetKey]?.content ?? {};
+  const content = NIHILITY.CAMPAIGN_PRESETS[presetKey]?.content ?? {};
   const out = {};
   for (const [settingKey, names] of Object.entries(content)) {
     const seen = new Set();
     out[settingKey] = names
-      .flatMap(name => MEU_SISTEMA[name] ?? [])
+      .flatMap(name => NIHILITY[name] ?? [])
       .filter(entry => entry?.id && !seen.has(entry.id) && seen.add(entry.id));
   }
   return out;
 }
 
 export async function applyCampaignPreset(presetKey) {
-  const preset = MEU_SISTEMA.CAMPAIGN_PRESETS[presetKey];
+  const preset = NIHILITY.CAMPAIGN_PRESETS[presetKey];
   if (!preset) throw new Error(`Preset de campanha desconhecido: "${presetKey}".`);
 
   for (const [featureKey, enabled] of Object.entries(preset.features)) {
-    const feature = MEU_SISTEMA.FEATURES[featureKey];
+    const feature = NIHILITY.FEATURES[featureKey];
     if (!feature) continue;
     await game.settings.set(SYSTEM_ID, feature.setting, Boolean(enabled));
   }
   // Conteúdo do preset (elementos de energia, categorias estilo Star Trek…): SUBSTITUI o catálogo.
   for (const [settingKey, lists] of Object.entries(presetContent(presetKey))) {
-    await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS[settingKey], JSON.stringify(lists, null, 2));
+    await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS[settingKey], JSON.stringify(lists, null, 2));
   }
   return preset;
 }
@@ -317,7 +317,7 @@ export function isPadMessagingEnabled() {
  */
 export function isEnergyPoolEnabled() {
   try {
-    return Boolean(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.energyPoolEnabled));
+    return Boolean(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.energyPoolEnabled));
   } catch (err) {
     return true;
   }

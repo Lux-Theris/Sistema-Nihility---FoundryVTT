@@ -4,7 +4,7 @@
  * só empilham em `proposals`, pra passar pela tela de revisão antes de qualquer coisa ser
  * criada/editada (ver Parte 3.5 do plano).
  */
-import { MEU_SISTEMA, getActiveDamageElements } from "../core/config.js";
+import { NIHILITY, getActiveDamageElements } from "../core/config.js";
 import { getCompendiumForItemType } from "../core/compendium.js";
 import { sanitizeDocumentPatch } from "./ai-generation.js";
 import { mechanicsGuide, sanitizeSkillMechanics, currentAICatalogs, foundryFormulaCheck, originGuide, sanitizeOriginEntry } from "./ai-mechanics.js";
@@ -65,11 +65,11 @@ export function createAgentTools() {
         "disponíveis) — use pra gerar dados coerentes com o schema real antes de propor Skills/Personagens.",
       parameters: { type: "object", properties: {} },
       handler: async () => ({
-        skillTiers: MEU_SISTEMA.SKILL_TIERS,
-        skillTierLabels: MEU_SISTEMA.SKILL_TIER_LABELS,
-        skillEffectTypes: MEU_SISTEMA.SKILL_EFFECT_TYPES,
-        effectTargets: MEU_SISTEMA.EFFECT_TARGETS,
-        combatAttributes: MEU_SISTEMA.COMBAT_ATTRIBUTES,
+        skillTiers: NIHILITY.SKILL_TIERS,
+        skillTierLabels: NIHILITY.SKILL_TIER_LABELS,
+        skillEffectTypes: NIHILITY.SKILL_EFFECT_TYPES,
+        effectTargets: NIHILITY.EFFECT_TARGETS,
+        combatAttributes: NIHILITY.COMBAT_ATTRIBUTES,
         damageElements: getActiveDamageElements().map(e => e.id),
         // Formato completo da mecânica de Skill e os ids válidos deste mundo (ver ai-mechanics.js).
         skillMechanicsGuide: mechanicsGuide(currentAICatalogs()),
@@ -99,7 +99,7 @@ export function createAgentTools() {
           name: data?.name || "Habilidade Sem Nome",
           type: "skill",
           system: {
-            tier: MEU_SISTEMA.SKILL_TIERS.includes(data?.tier) && !["racial", "ultimate"].includes(data?.tier) ? data.tier : "normal",
+            tier: NIHILITY.SKILL_TIERS.includes(data?.tier) && !["racial", "ultimate"].includes(data?.tier) ? data.tier : "normal",
             level: Math.min(10, Math.max(1, Number(data?.level) || 1)),
             description: data?.description || "",
             isFused: false,

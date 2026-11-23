@@ -6,7 +6,7 @@
  */
 import {
   SYSTEM_ID,
-  MEU_SISTEMA,
+  NIHILITY,
   isFeatureEnabled,
   getFeatureOption,
   getVitalFormula,
@@ -23,7 +23,7 @@ import { surfaceSentence } from "../environment/surface-rules.js";
 
 const setting = (key, fallback) => {
   try {
-    const value = game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS[key] ?? key);
+    const value = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS[key] ?? key);
     return value ?? fallback;
   } catch (err) {
     return fallback;
@@ -35,7 +35,7 @@ export function gatherTableRules() {
   const vital = getVitalFormula();
   const elements = getActiveDamageElements();
   const byId = Object.fromEntries(elements.map(e => [e.id, e.label]));
-  const features = Object.fromEntries(Object.keys(MEU_SISTEMA.FEATURES).map(key => [key, isFeatureEnabled(key)]));
+  const features = Object.fromEntries(Object.keys(NIHILITY.FEATURES).map(key => [key, isFeatureEnabled(key)]));
   return {
     date: new Date().toLocaleDateString("pt-BR"),
     systemVersion: game.system.version,
@@ -94,7 +94,7 @@ export function gatherTableRules() {
     conditions: getActiveStatusConditions().map(c => ({ label: c.label, sentence: conditionSentence(c, { attributeLabel: getAttributeLabel, energyLabel: getCharacterEnergyLabel() }), explanation: c.explanation ?? "" })),
     elements: elements.map(e => ({ label: e.label, parent: e.parent ? byId[e.parent] ?? "" : "" })),
     // Só os blocos de cima (um sub-bloco desligado com o pai desligado não repete).
-    disabled: Object.entries(MEU_SISTEMA.FEATURES)
+    disabled: Object.entries(NIHILITY.FEATURES)
       .filter(([key, f]) => !features[key] && (!f.parent || features[f.parent]) && f.group !== "gm")
       .map(([, f]) => f.name)
   };

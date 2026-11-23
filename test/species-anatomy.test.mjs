@@ -6,7 +6,7 @@ import "./setup.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { MEU_SISTEMA } from "../module/core/config.js";
+import { NIHILITY } from "../module/core/config.js";
 import {
   speciesSlug,
   normalizeSpeciesEntry,
@@ -298,7 +298,7 @@ test("Evolução: as Skills Raciais antigas ficam, o corpo muda", () => {
   assert.equal(diff.skills.create[0].key, "adaptabilidade");
 });
 
-const BODY_FNS = MEU_SISTEMA.DEFAULT_BODY_FUNCTIONS;
+const BODY_FNS = NIHILITY.DEFAULT_BODY_FUNCTIONS;
 
 const leg = (id, hp, max = 10, extra = {}) => ({ id, name: id, slot: "leg", hpValue: hp, hpMax: max, functions: ["locomocao"], ...extra });
 

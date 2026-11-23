@@ -5,7 +5,7 @@
  * parte e a cura por tipo (Cura / Regeneração / Reparo). A conta é pura (anatomy-rules.js) e o estado do corpo sai da preparação da ficha
  * (`system.bodyState`, ver deriveBodyState em character-model.js).
  */
-import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions, getActiveBodyFunctions, getFeatureOption, getHealingRules, isAnatomyEnabled, isBodyInjuryEnabled } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, getActiveStatusConditions, getActiveBodyFunctions, getFeatureOption, getHealingRules, isAnatomyEnabled, isBodyInjuryEnabled } from "../core/config.js";
 import { itemNature, itemIsTech } from "../core/magic-rules.js";
 import { healBlockFactor } from "../core/magic-rules.js";
 import { implantFits, legacyFunctionsFor, partDamage, partHealing, pickHitPart, healCap, partHealable } from "./anatomy-rules.js";
@@ -463,7 +463,7 @@ export function anatomyContext(actor) {
         hpPct: sys.hp.max > 0 ? Math.round((sys.hp.value / sys.hp.max) * 100) : 0,
         hpPercent: Number(sys.hpPercent) || 0,
         state,
-        stateLabel: MEU_SISTEMA.BODY_PART_STATUS_LABELS[state] ?? state,
+        stateLabel: NIHILITY.BODY_PART_STATUS_LABELS[state] ?? state,
         isLost: state === "lost",
         showState: injury && state !== "intact",
         // Quem conserta (prancha 5): prótese só com Reparo; parte inutilizada com Cura.

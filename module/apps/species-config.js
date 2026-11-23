@@ -8,7 +8,7 @@
  * a versão subindo onde partes/Skills mudaram (species-rules.js#bumpSpeciesVersions). Chaves são
  * estrutura: a da Espécie, das partes e das Linhagens travam depois de salvas.
  */
-import { SYSTEM_ID, MEU_SISTEMA, getActiveSpeciesPresets, debugLog, speciesCarry, getActiveAttributes, getActiveDamageElements, getScaleConfig, getActiveTraits, getActiveStatusConditions, isSensesEnabled } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, getActiveSpeciesPresets, debugLog, speciesCarry, getActiveAttributes, getActiveDamageElements, getScaleConfig, getActiveTraits, getActiveStatusConditions, isSensesEnabled } from "../core/config.js";
 import { openSkillEditorDialog, mechanicSummaryFor } from "./skill-editor-dialog.js";
 import { wireTraitPickerField, wireElementPickerField, selectedTraitChips, selectedElementChips } from "./checklist-picker.js";
 import { normalizeSpeciesCatalog, bumpSpeciesVersions, speciesSlug } from "../species/species-rules.js";
@@ -78,7 +78,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
 
   /** Grava o catálogo (já normalizado e versionado). */
   async _writeCatalog(catalog) {
-    await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.speciesPresetsData, JSON.stringify(catalog, null, 2));
+    await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.speciesPresetsData, JSON.stringify(catalog, null, 2));
   }
 
   _tabs() {
@@ -91,7 +91,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
 
   /** O catálogo de fábrica (para "Trazer do padrão…"). */
   _defaultCatalog() {
-    return normalizeSpeciesCatalog(MEU_SISTEMA.DEFAULT_SPECIES_PRESETS);
+    return normalizeSpeciesCatalog(NIHILITY.DEFAULT_SPECIES_PRESETS);
   }
 
   /** Fichas afetadas por esta entrada (contagem no rodapé e sincronização). */
@@ -127,7 +127,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
 
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
-    const groupLabels = MEU_SISTEMA.SPECIES_GROUP_LABELS;
+    const groupLabels = NIHILITY.SPECIES_GROUP_LABELS;
     const groups = {};
     for (const [id, entry] of Object.entries(this.catalog)) {
       const key = entry.group || "";
@@ -247,7 +247,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
     context.senseModes = SENSE_TARGETS.map(id => ({ id, label: SENSE_LABELS[id] }));
     context.sensesOn = isSensesEnabled();
     context.scales = getScaleConfig().scales;
-    context.groupOptions = Object.entries(MEU_SISTEMA.SPECIES_GROUP_LABELS).map(([key, label]) => ({ key, label }));
+    context.groupOptions = Object.entries(NIHILITY.SPECIES_GROUP_LABELS).map(([key, label]) => ({ key, label }));
     context.otherSpecies = Object.entries(this.catalog).filter(([o]) => o !== id).map(([o, e]) => ({ id: o, label: e.label || o }));
     context.whenKinds = WHEN_KINDS.map(k => ({ key: k, label: WHEN_LABELS[k] }));
     Object.assign(context, this._extraContext(entry, id));
@@ -379,7 +379,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
     const path = target.dataset.list;
     const list = clone(foundry.utils.getProperty(entry, path) ?? []);
     const templates = {
-      part: () => ({ key: "", label: "", slot: "body", hpMax: 10, hpPercent: MEU_SISTEMA.PART_HP_PERCENT_BY_SLOT.default, tags: [] }),
+      part: () => ({ key: "", label: "", slot: "body", hpMax: 10, hpPercent: NIHILITY.PART_HP_PERCENT_BY_SLOT.default, tags: [] }),
       bonus: () => ({ attribute: "strength", amount: 1 }),
       resistance: () => ({ target: "general", amount: 10 }),
       sense: () => ({ mode: "senseTremor", range: 0 }),
@@ -408,7 +408,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
 
   /** "% pelo slot": partes sem % ganham o padrão do slot (cabeça 30, braço 20…); as com % ficam. */
   static #onFillPartPercent() {
-    const table = MEU_SISTEMA.PART_HP_PERCENT_BY_SLOT;
+    const table = NIHILITY.PART_HP_PERCENT_BY_SLOT;
     const parts = clone(this.entry?.parts ?? []);
     let changed = 0;
     for (const part of parts) {

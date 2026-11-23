@@ -1,5 +1,5 @@
 /**
- * SYSTEM_ID e MEU_SISTEMA: os catálogos e tabelas padrão (dados). Nenhuma função aqui.
+ * SYSTEM_ID e NIHILITY: os catálogos e tabelas padrão (dados). Nenhuma função aqui.
  * (Parte de core/config.js, dividido em 1.68.0 sem mudar nenhuma função; importe de
  * `core/config.js`, que reexporta tudo.)
  */
@@ -18,7 +18,7 @@ export { PHYSICAL_SUBTYPES, RADIATION_ELEMENT, DEFAULT_ELEMENT_REACTIONS, DEFAUL
 export const SYSTEM_ID = "nihility-rpg-system";
 
 
-export const MEU_SISTEMA = {
+export const NIHILITY = {
   id: SYSTEM_ID,
 
   /** Chaves usadas em game.settings.register/get/set */
@@ -73,7 +73,7 @@ export const MEU_SISTEMA = {
     vehicleClassesData: "vehicleClassesData",
     crewRolesData: "crewRolesData",
     structuresData: "structuresData",
-    // Blocos ligáveis/desligáveis por campanha (ver MEU_SISTEMA.FEATURES). As chaves dos blocos
+    // Blocos ligáveis/desligáveis por campanha (ver NIHILITY.FEATURES). As chaves dos blocos
     // que já existiam mantêm o nome original de storage de propósito — mundos que já tinham
     // essas settings configuradas não perdem o valor ao atualizar.
     attributesData: "attributesData",
@@ -751,11 +751,11 @@ export const MEU_SISTEMA = {
  * personagem, pelo slot (PART_HP_PERCENT_BY_SLOT), quando a parte não diz o próprio. O `hpMax`
  * fica como a Vida fixa de antes (catálogo salvo sem % continua usando ele).
  */
-for (const entry of [...Object.values(MEU_SISTEMA.DEFAULT_SPECIES_PRESETS), ...(MEU_SISTEMA.DEFAULT_HERITAGES ?? [])]) {
+for (const entry of [...Object.values(NIHILITY.DEFAULT_SPECIES_PRESETS), ...(NIHILITY.DEFAULT_HERITAGES ?? [])]) {
   const layers = [entry, ...(entry.lineages ?? [])];
   for (const layer of layers) {
     for (const part of layer.parts ?? []) {
-      part.hpPercent ??= MEU_SISTEMA.PART_HP_PERCENT_BY_SLOT[part.slot] ?? MEU_SISTEMA.PART_HP_PERCENT_BY_SLOT.default;
+      part.hpPercent ??= NIHILITY.PART_HP_PERCENT_BY_SLOT[part.slot] ?? NIHILITY.PART_HP_PERCENT_BY_SLOT.default;
     }
   }
 }

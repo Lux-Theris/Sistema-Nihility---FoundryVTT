@@ -14,7 +14,7 @@
  *  3. O resto do mundo só existe atrás da busca, e com teto — é o que impede a lista de virar
  *     centenas de linhas num mundo com muitos NPCs.
  */
-import { SYSTEM_ID, MEU_SISTEMA, sceneActorCandidates, sameActor, actorDisplayName } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, sceneActorCandidates, sameActor, actorDisplayName } from "../core/config.js";
 import { escapeHtml } from "./html.js";
 import { tokenElevation } from "./foundry-compat.js";
 import { actorPerceivedByUser } from "../combat/senses.js";
@@ -30,7 +30,7 @@ const SEARCH_MIN = 2;
 /** A setting que libera alvos sem Token na cena (padrão desligado — o comportamento de sempre). */
 function offSceneAllowed() {
   try {
-    return Boolean(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.allowOffSceneTargets));
+    return Boolean(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.allowOffSceneTargets));
   } catch (err) {
     return false;
   }

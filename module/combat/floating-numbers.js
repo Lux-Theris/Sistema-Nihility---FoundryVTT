@@ -12,7 +12,7 @@
  * Tudo isto obedece também ao "texto de status flutuante" do core (world), porque passa por
  * `canvas.interface.createScrollingText`; a opção `floatingNumbers` (client) desliga só os nossos.
  */
-import { SYSTEM_ID, MEU_SISTEMA, getEnergyLabelForActor } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, getEnergyLabelForActor } from "../core/config.js";
 import { VITAL_TRACKS, vitalSnapshot, vitalDeltas } from "./vital-deltas.js";
 
 /** uuid do Ator → última leitura. */
@@ -29,7 +29,7 @@ function remember(actor) {
 
 function enabledForMe() {
   try {
-    return game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.floatingNumbers) !== false;
+    return game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.floatingNumbers) !== false;
   } catch {
     return true;
   }

@@ -10,7 +10,7 @@ import {
   allowedTicks, simulateTicks, spendExtra, reserveAfterSpend, reserveCovers, describeTimeFactor, timeStateLabel,
   reserveText, scaledMovement, advanceState, turnNoticeText, scaledCadence, cooldownReserveCost, prepReserveCost
 } from "../module/combat/time-rate-rules.js";
-import { MEU_SISTEMA } from "../module/core/config.js";
+import { NIHILITY } from "../module/core/config.js";
 import { resolveEffectChange } from "../module/skills/effect-targets.js";
 import { skillSummary } from "../module/skills/skill-summary.js";
 import { lintSkill } from "../module/skills/skill-lint-rules.js";
@@ -174,8 +174,8 @@ test("Deslocamento e cadência do Simulador × o fator", () => {
 });
 
 test("o efeito timeRate: alvo, grupo Tempo, flag no Active Effect e recusa em Nave", () => {
-  assert.ok(MEU_SISTEMA.EFFECT_TARGETS.includes("timeRate"));
-  const group = MEU_SISTEMA.EFFECT_TARGET_GROUPS.find(g => g.label === "Tempo");
+  assert.ok(NIHILITY.EFFECT_TARGETS.includes("timeRate"));
+  const group = NIHILITY.EFFECT_TARGET_GROUPS.find(g => g.label === "Tempo");
   assert.ok(group?.targets.includes("timeRate"));
   const char = { type: "character" };
   const change = resolveEffectChange({ target: "timeRate", timeFactor: 3 }, char);
@@ -188,7 +188,7 @@ test("o efeito timeRate: alvo, grupo Tempo, flag no Active Effect e recusa em Na
 });
 
 test("o bloco timeManipulation existe com grupo e frase curta (o toggle liga o grupo Tempo)", () => {
-  const feature = MEU_SISTEMA.FEATURES.timeManipulation;
+  const feature = NIHILITY.FEATURES.timeManipulation;
   assert.ok(feature);
   assert.equal(feature.group, "combat");
   assert.ok(feature.short);

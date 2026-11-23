@@ -1,4 +1,4 @@
-import { SYSTEM_ID, MEU_SISTEMA, moduleRole, tractorHold, getShipActionConfig, focusGroupAssignments } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, moduleRole, tractorHold, getShipActionConfig, focusGroupAssignments } from "../core/config.js";
 import { splitTargetedStructural, hardenedChance } from "../combat/damage-rules.js";
 import { deleteKeyUpdate } from "../helpers/foundry-compat.js";
 
@@ -268,21 +268,21 @@ async function tickShipSystemEffects(actor) {
  */
 /**
  * Limiar de `powerAllocationPercent` (%) a partir do qual o Módulo sofre dano por sobrecarga, pela
- * Função da Categoria (MEU_SISTEMA.MODULE_ROLES[role].overload). `null` = nunca sobrecarrega
+ * Função da Categoria (NIHILITY.MODULE_ROLES[role].overload). `null` = nunca sobrecarrega
  * (Armazenamento/Distribuição não têm throttle; Arma troca sobrecarga por Recarga mais longa).
  */
 function overloadThreshold(category) {
   const role = moduleRole(category);
-  if (role === "power") return MEU_SISTEMA.OVERLOAD_THRESHOLD_REACTOR;
-  if (role === "shield") return MEU_SISTEMA.OVERLOAD_THRESHOLD_SHIELD;
-  const threshold = MEU_SISTEMA.MODULE_ROLES[role]?.overload;
-  return threshold === null ? null : MEU_SISTEMA.OVERLOAD_THRESHOLD_DEFAULT;
+  if (role === "power") return NIHILITY.OVERLOAD_THRESHOLD_REACTOR;
+  if (role === "shield") return NIHILITY.OVERLOAD_THRESHOLD_SHIELD;
+  const threshold = NIHILITY.MODULE_ROLES[role]?.overload;
+  return threshold === null ? null : NIHILITY.OVERLOAD_THRESHOLD_DEFAULT;
 }
 
 /**
  * Calcula o patch de update de UM Módulo pro tick por rodada (Overhaul de Naves, Fase 3):
  * decrementa Carga de Salto FTL e Recarga de Arma, aplica dano por sobrecarga
- * (MEU_SISTEMA.OVERLOAD_DAMAGE_PERCENT_OF_MAX_PER_ROUND, hoje 0.5 = ~5% da Vida Máxima por
+ * (NIHILITY.OVERLOAD_DAMAGE_PERCENT_OF_MAX_PER_ROUND, hoje 0.5 = ~5% da Vida Máxima por
  * rodada a cada 10 pontos de throttle acima do limiar da categoria) e desliga sozinho qualquer
  * Módulo cuja Vida chegue a 0. `null` se nada mudou.
  */
@@ -307,7 +307,7 @@ function computeModuleTickPatch(module) {
   if (sys.status === "online" && threshold !== null) {
     const excess = sys.powerAllocationPercent - threshold;
     if (excess > 0) {
-      const damage = Math.round((excess / 100) * sys.hp.max * MEU_SISTEMA.OVERLOAD_DAMAGE_PERCENT_OF_MAX_PER_ROUND);
+      const damage = Math.round((excess / 100) * sys.hp.max * NIHILITY.OVERLOAD_DAMAGE_PERCENT_OF_MAX_PER_ROUND);
       if (damage > 0) {
         hpValue = Math.max(0, hpValue - damage);
         patch["system.hp.value"] = hpValue;
@@ -378,7 +378,7 @@ export async function tickStarshipPower(actor) {
 export function moduleCanRestart(module) {
   if (!module.system.hp.max) return true;
   const percent = (module.system.hp.value / module.system.hp.max) * 100;
-  return percent >= MEU_SISTEMA.MODULE_RESTART_HP_THRESHOLD_PERCENT;
+  return percent >= NIHILITY.MODULE_RESTART_HP_THRESHOLD_PERCENT;
 }
 
 /* ------------------------------------------------------------------ Raio Trator */
@@ -399,7 +399,7 @@ export async function tractorRefusal({ moduleUuid, targetUuid }) {
   if (!module || moduleRole(module.system?.category) !== "tractor") return "o Módulo não é um Raio Trator";
   if (!target?.system?.modules) return "o alvo não é uma Nave ou Veículo";
   if (module.system.status !== "online") return "o Raio Trator está desligado";
-  const moduleRank = MEU_SISTEMA.MODULE_SIZE_RANK[module.system.moduleSize] ?? 0;
+  const moduleRank = NIHILITY.MODULE_SIZE_RANK[module.system.moduleSize] ?? 0;
   const targetRank = target.system.vesselSize?.rank ?? 0;
   if (tractorHold(moduleRank, targetRank, (module.system.powerAllocationPercent ?? 100) / 100) <= 0) return "o alvo é grande demais para este Raio Trator";
   return null;
@@ -410,7 +410,7 @@ export async function engageTractorAsGm({ moduleUuid, targetUuid }) {
   const target = typeof targetUuid === "string" ? await fromUuid(targetUuid) : null;
   if (!module || !target?.system?.modules || module.system?.status !== "online") return 0;
   if (moduleRole(module.system.category) !== "tractor") return 0;
-  const moduleRank = MEU_SISTEMA.MODULE_SIZE_RANK[module.system.moduleSize] ?? 0;
+  const moduleRank = NIHILITY.MODULE_SIZE_RANK[module.system.moduleSize] ?? 0;
   const targetRank = target.system.vesselSize?.rank ?? 0;
   const hold = tractorHold(moduleRank, targetRank, (module.system.powerAllocationPercent ?? 100) / 100);
   await releaseTractorAsGm({ moduleUuid });
@@ -468,7 +468,7 @@ export async function applyPowerFocus(ship, focus) {
   const updates = focusModules.map(({ module, role }) => {
     let throttle = 100;
     if (focusRole && role === focusRole) {
-      const threshold = MEU_SISTEMA.MODULE_ROLES[role]?.overload;
+      const threshold = NIHILITY.MODULE_ROLES[role]?.overload;
       throttle = threshold ? Math.min(focusBoost, threshold) : focusBoost;
     } else if (focusRole) {
       throttle = focusCut;

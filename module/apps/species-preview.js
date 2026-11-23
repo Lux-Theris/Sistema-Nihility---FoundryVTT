@@ -214,7 +214,7 @@ export async function pickSpeciesDialog(current = {}, { lineageOnly = false } = 
  * @returns {Promise<{id:string, source:string}|null>}
  */
 export async function pickHeritageDialog(actor) {
-  const { getActiveHeritages, MEU_SISTEMA } = await import("../core/config.js");
+  const { getActiveHeritages, NIHILITY } = await import("../core/config.js");
   const owned = new Set((actor.system.heritages ?? []).map(h => h.id));
   const groups = {};
   for (const h of getActiveHeritages()) {
@@ -222,7 +222,7 @@ export async function pickHeritageDialog(actor) {
     (groups[h.group || ""] ??= []).push(h);
   }
   const options = Object.entries(groups)
-    .map(([g, list]) => `<optgroup label="${esc(MEU_SISTEMA.SPECIES_GROUP_LABELS[g] ?? "Outras")}">${list.map(h => `<option value="${esc(h.id)}">${esc(h.label || h.id)}</option>`).join("")}</optgroup>`)
+    .map(([g, list]) => `<optgroup label="${esc(NIHILITY.SPECIES_GROUP_LABELS[g] ?? "Outras")}">${list.map(h => `<option value="${esc(h.id)}">${esc(h.label || h.id)}</option>`).join("")}</optgroup>`)
     .join("");
   if (!options) {
     ui.notifications.info("Não há Heranças no catálogo que esta ficha ainda não tenha.");

@@ -1,4 +1,4 @@
-import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions, isEnvironmentEnabled } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, getActiveStatusConditions, isEnvironmentEnabled } from "../core/config.js";
 import { pickerFieldHtml, readPickerField, wireTraitPickerField } from "./checklist-picker.js";
 import { sceneEnvironment, availableFxPresets, availableFxParticles, availableFxFilters, syncSceneFx } from "../environment/environment.js";
 import { normalizeHazard, normalizeDensity } from "../environment/environment-rules.js";
@@ -108,7 +108,7 @@ export class EnvironmentConfigApp extends HandlebarsApplicationMixin(Application
     ];
     let worldDensity = 1;
     try {
-      worldDensity = Number(game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.manaDensityDefault));
+      worldDensity = Number(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.manaDensityDefault));
     } catch (err) {
       /* sem setting */
     }

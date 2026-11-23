@@ -7,7 +7,7 @@
  */
 import {
   SYSTEM_ID,
-  MEU_SISTEMA,
+  NIHILITY,
   getActiveSpeciesPresets,
   getModuleSizePreset,
   getVesselSizes
@@ -27,10 +27,10 @@ import { mechanicsGuide, sanitizeSkillMechanics, sanitizeWeapon, sanitizeItemBon
 /** Lê as settings de IA atualmente configuradas. */
 export function getAISettingsValues() {
   return {
-    provider: game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.aiProvider),
-    endpoint: game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.aiEndpointUrl),
-    model: game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.aiModel),
-    apiKey: game.settings.get(SYSTEM_ID, MEU_SISTEMA.SETTINGS.aiApiKey)
+    provider: game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.aiProvider),
+    endpoint: game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.aiEndpointUrl),
+    model: game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.aiModel),
+    apiKey: game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.aiApiKey)
   };
 }
 
@@ -325,7 +325,7 @@ export async function editDocumentWithAI(doc, instruction) {
  */
 const ATTRIBUTE_POINTS_FORMAT =
   '"attributes": {' +
-  MEU_SISTEMA.COMBAT_ATTRIBUTES.map(a => `"${a}": number`).join(", ") +
+  NIHILITY.COMBAT_ATTRIBUTES.map(a => `"${a}": number`).join(", ") +
   "}";
 
 const NPC_SYSTEM_PROMPT_BASE =
@@ -366,7 +366,7 @@ export async function generateActorFromAI(prompt, options = {}) {
 
   // Pontos por atributo, saneados: a IA pode devolver texto, negativo ou chave inventada.
   const combat = {};
-  for (const key of MEU_SISTEMA.COMBAT_ATTRIBUTES) {
+  for (const key of NIHILITY.COMBAT_ATTRIBUTES) {
     const points = Math.max(0, Math.round(Number(parsed?.attributes?.[key]) || 0));
     combat[key] = { points };
   }
@@ -437,7 +437,7 @@ export async function describeNpcWithAI(draft, archetype) {
  * Prompt compartilhado pelas duas (Nave/Veículo compartilham o mesmo `ShipSystemsDataModel`
  * desde o Overhaul de Naves — Porte + Módulos de slot único + Grid de Energia + Armas). A IA só
  * escolhe Categoria/Porte/nome/descrição de cada Módulo — NUNCA os números de stat (Vida/
- * Consumo/Dano/etc.): esses vêm de `MEU_SISTEMA.MODULE_SIZE_PRESETS`/`getModuleSizePreset()`,
+ * Consumo/Dano/etc.): esses vêm de `NIHILITY.MODULE_SIZE_PRESETS`/`getModuleSizePreset()`,
  * a mesma fonte usada pelo autopreenchimento do editor de Item, pra nunca ter dois lugares
  * "inventando" o mesmo número de forma inconsistente.
  */
@@ -446,7 +446,7 @@ function buildVesselSystemPrompt(sizeChoices) {
   const categories = getModuleCategories();
   const limited = categories.filter(c => categorySlotLimit(c, null) > 0);
   const free = categories.filter(c => categorySlotLimit(c, null) === 0);
-  const describe = c => `"${c.id}" (${c.label} — ${MEU_SISTEMA.MODULE_ROLES[c.role]?.label ?? c.role})`;
+  const describe = c => `"${c.id}" (${c.label} — ${NIHILITY.MODULE_ROLES[c.role]?.label ?? c.role})`;
   return (
     "Você é o motor de regras de um RPG de Foundry VTT (Sci-Fi Arcano), gerando uma Nave/Veículo " +
     "para o sistema de Overhaul de Naves (Porte + Módulos por Categoria + Grid de Energia). " +
@@ -506,7 +506,7 @@ export async function generateVesselFromAI(prompt, vesselType, options = {}) {
           return true;
         })
         .map(m => {
-          const moduleSize = MEU_SISTEMA.MODULE_SIZES.includes(m.moduleSize) ? m.moduleSize : "standard";
+          const moduleSize = NIHILITY.MODULE_SIZES.includes(m.moduleSize) ? m.moduleSize : "standard";
           return {
             name: m.name || categories.find(c => c.id === m.category)?.label || m.category,
             type: "starship_module",
@@ -617,7 +617,7 @@ export async function generateItemFromAI(prompt, options = {}) {
  * @returns {Promise<Folder>}
  */
 export async function getAIGeneratedFolder(documentType) {
-  const name = MEU_SISTEMA.AI_GENERATED_FOLDER_NAME;
+  const name = NIHILITY.AI_GENERATED_FOLDER_NAME;
   let folder = game.folders.find(f => f.name === name && f.type === documentType);
   if (!folder) folder = await Folder.create({ name, type: documentType, color: "#c084fc" });
   return folder;
@@ -660,7 +660,7 @@ export async function ingestExternalSkillJSON(actor, json, options = {}) {
  * @param {{kind?: "species"|"heritage"}} [options]
  */
 export async function generateOriginFromAI(prompt, { kind = "species" } = {}) {
-  const { getActiveSpeciesPresets, getActiveHeritages, MEU_SISTEMA, SYSTEM_ID } = await import("../core/config.js");
+  const { getActiveSpeciesPresets, getActiveHeritages, NIHILITY, SYSTEM_ID } = await import("../core/config.js");
   const { normalizeSpeciesCatalog, normalizeSpeciesEntry } = await import("../species/species-rules.js");
   const catalogs = currentAICatalogs();
   const parsed = await generateJSON("Você é o motor de regras de um RPG de Foundry VTT.\n" + originGuide(catalogs, { kind }), prompt);
@@ -670,13 +670,13 @@ export async function generateOriginFromAI(prompt, { kind = "species" } = {}) {
     let id = baseId;
     for (let n = 2; list.some(h => h.id === id); n++) id = `${baseId}_${n}`;
     list.push({ ...normalizeSpeciesEntry(entry), id });
-    await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.heritagesData, JSON.stringify(list, null, 2));
+    await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.heritagesData, JSON.stringify(list, null, 2));
     return { name: entry.label, uuid: `heritage:${id}` };
   }
   const catalog = normalizeSpeciesCatalog(getActiveSpeciesPresets());
   let id = baseId;
   for (let n = 2; catalog[id]; n++) id = `${baseId}_${n}`;
   catalog[id] = normalizeSpeciesEntry(entry);
-  await game.settings.set(SYSTEM_ID, MEU_SISTEMA.SETTINGS.speciesPresetsData, JSON.stringify(catalog, null, 2));
+  await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.speciesPresetsData, JSON.stringify(catalog, null, 2));
   return { name: entry.label, uuid: `species:${id}` };
 }

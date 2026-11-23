@@ -27,10 +27,10 @@ import {
   mergeSurfaceDefaults,
   surfaceProblems
 } from "../module/environment/surface-rules.js";
-import { MEU_SISTEMA, DEFAULT_ELEMENT_SURFACES } from "../module/core/config.js";
+import { NIHILITY, DEFAULT_ELEMENT_SURFACES } from "../module/core/config.js";
 import { normalizeReactions } from "../module/combat/reaction-rules.js";
 
-const elements = MEU_SISTEMA.DEFAULT_DAMAGE_ELEMENTS.map(e => ({ ...e, reactions: normalizeReactions(e.reactions) }));
+const elements = NIHILITY.DEFAULT_DAMAGE_ELEMENTS.map(e => ({ ...e, reactions: normalizeReactions(e.reactions) }));
 const chainOf = id => {
   const byId = new Map(elements.map(e => [e.id, e]));
   const out = [];
@@ -170,7 +170,7 @@ test("Antimagia: só a mágica some", () => {
 });
 
 test("de fábrica: Água, Óleo, Fogo e Gelo deixam algo, com a natureza e a altura combinadas", () => {
-  const byId = Object.fromEntries(MEU_SISTEMA.DEFAULT_DAMAGE_ELEMENTS.map(e => [e.id, e]));
+  const byId = Object.fromEntries(NIHILITY.DEFAULT_DAMAGE_ELEMENTS.map(e => [e.id, e]));
   assert.equal(byId.water.surface.label, "Poça d'água");
   assert.equal(byId.water.surface.conditionId, "wet");
   assert.equal(byId.water.surface.height, 0);
@@ -181,7 +181,7 @@ test("de fábrica: Água, Óleo, Fogo e Gelo deixam algo, com a natureza e a alt
   assert.equal(byId.fire.surface.height, 2);
   assert.equal(byId.fire.surface.nature, "origin");
   assert.equal(byId.ice.surface.conditionId, "slow");
-  const conditionIds = new Set(MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS.map(c => c.id).concat(MEU_SISTEMA.REACTION_CONDITIONS?.map(c => c.id) ?? [], ["wet", "oiled"]));
+  const conditionIds = new Set(NIHILITY.DEFAULT_STATUS_CONDITIONS.map(c => c.id).concat(NIHILITY.REACTION_CONDITIONS?.map(c => c.id) ?? [], ["wet", "oiled"]));
   for (const [id, def] of Object.entries(DEFAULT_ELEMENT_SURFACES)) {
     assert.deepEqual(surfaceProblems(id, normalizeSurface(def), { conditionIds, traitIds: new Set() }), [], `${id}: referência quebrada de fábrica`);
     assert.equal(leavesSurface(normalizeSurface(def)), true);
@@ -212,12 +212,12 @@ test("frase 'Na mesa' e Validar Mundo", () => {
 });
 
 test("bloco Superfícies: desligado por padrão, pesado e do grupo Combate", () => {
-  const f = MEU_SISTEMA.FEATURES.surfaces;
+  const f = NIHILITY.FEATURES.surfaces;
   assert.equal(f.default, false);
   assert.equal(f.heavy, true);
   assert.equal(f.group, "combat");
-  assert.ok(MEU_SISTEMA.EFFECT_TARGETS.includes("createSurface"));
-  assert.ok(MEU_SISTEMA.EFFECT_TARGET_GROUPS.some(g => g.targets.includes("createSurface")));
+  assert.ok(NIHILITY.EFFECT_TARGETS.includes("createSurface"));
+  assert.ok(NIHILITY.EFFECT_TARGET_GROUPS.some(g => g.targets.includes("createSurface")));
 });
 
 test("J9b: os minutos da superfície valem na linha da cena (ritmo)", () => {

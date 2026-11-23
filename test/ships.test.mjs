@@ -7,7 +7,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  MEU_SISTEMA,
+  NIHILITY,
   getModuleSizePreset,
   engineRatio,
   shipMovementCells,
@@ -50,7 +50,7 @@ test("preset de Módulo: devolve chaves já no formato system.* e inclui a Vida 
   const preset = getModuleSizePreset("shield", "standard");
   assert.equal(preset["system.shieldCapacity"], 200);
   assert.equal(preset["system.powerConsumption"], 60);
-  assert.equal(preset["system.hp.max"], MEU_SISTEMA.MODULE_HP_BY_SIZE.standard);
+  assert.equal(preset["system.hp.max"], NIHILITY.MODULE_HP_BY_SIZE.standard);
   assert.equal(preset["system.hp.value"], preset["system.hp.max"]);
 });
 
@@ -73,7 +73,7 @@ test("preset de Módulo: categoria/Porte desconhecido não quebra — só não s
   // Categoria que não está no catálogo vira Utilidade (Módulo órfão perde a mecânica, nunca
   // quebra a Nave) — e a Vida continua vindo do Porte.
   assert.deepEqual(getModuleSizePreset("categoria-que-nao-existe", "standard"), getModuleSizePreset("utility", "standard"));
-  assert.equal(getModuleSizePreset("categoria-que-nao-existe", "standard")["system.hp.max"], MEU_SISTEMA.MODULE_HP_BY_SIZE.standard);
+  assert.equal(getModuleSizePreset("categoria-que-nao-existe", "standard")["system.hp.max"], NIHILITY.MODULE_HP_BY_SIZE.standard);
   // Porte inexistente: não há nem stats nem Vida a sugerir.
   assert.deepEqual(getModuleSizePreset("shield", "porte-que-nao-existe"), {});
 });
@@ -83,7 +83,7 @@ test("preset de Módulo: categoria/Porte desconhecido não quebra — só não s
 /* -------------------------------------------- */
 
 test("capacitor: todo Porte tem um mínimo de conduíte (nenhuma Nave fica com reserva zero)", () => {
-  for (const size of [...MEU_SISTEMA.DEFAULT_SHIP_SIZES, ...MEU_SISTEMA.DEFAULT_VEHICLE_SIZES]) {
+  for (const size of [...NIHILITY.DEFAULT_SHIP_SIZES, ...NIHILITY.DEFAULT_VEHICLE_SIZES]) {
     assert.ok(size.conduitCapacitor > 0, `Porte "${size.id}" ficou sem mínimo de conduíte`);
   }
 });
@@ -92,8 +92,8 @@ test("capacitor: instalar a MENOR Bateria nunca pode piorar a reserva de nenhum 
   // O Módulo de Bateria SUBSTITUI o mínimo dos conduítes (não soma). Essa invariante é o que
   // impede o absurdo de instalar uma Bateria e a Nave ficar com MENOS reserva do que tinha —
   // por isso toda a tabela de conduíte tem que caber abaixo da menor Bateria instalável.
-  const smallestBattery = getModuleSizePreset("battery", MEU_SISTEMA.MODULE_SIZES[0])["system.batteryCapacity"];
-  for (const size of [...MEU_SISTEMA.DEFAULT_SHIP_SIZES, ...MEU_SISTEMA.DEFAULT_VEHICLE_SIZES]) {
+  const smallestBattery = getModuleSizePreset("battery", NIHILITY.MODULE_SIZES[0])["system.batteryCapacity"];
+  for (const size of [...NIHILITY.DEFAULT_SHIP_SIZES, ...NIHILITY.DEFAULT_VEHICLE_SIZES]) {
     assert.ok(
       size.conduitCapacitor <= smallestBattery,
       `Porte "${size.id}": conduíte (${size.conduitCapacitor}) passou da menor Bateria (${smallestBattery})`

@@ -7,7 +7,7 @@
  * prévia: a ficha acabou de nascer), igual à geração por IA.
  */
 import {
-  MEU_SISTEMA,
+  NIHILITY,
   getActiveNpcArchetypes,
   getActiveSpeciesPresets,
   getActiveDamageElements,
@@ -78,7 +78,7 @@ export function draftNpc(archetype, options, rng = Math.random) {
   const catalog = getActiveSpeciesPresets();
   const species = options.species && catalog[options.species] ? options.species : pickSpecies(archetype.species, availableSpecies(), rng);
   const budget = attributeBudget(level, pointsConfig(), archetype.pointsPercent);
-  const points = distributePoints(budget, archetype.weights, MEU_SISTEMA.COMBAT_ATTRIBUTES, { luck: archetype.luck, rng });
+  const points = distributePoints(budget, archetype.weights, NIHILITY.COMBAT_ATTRIBUTES, { luck: archetype.luck, rng });
   const tiers = getNpcTierConfig();
   const tier = tiers.enabled ? options.tier || "normal" : "normal";
   const extra = tierExtraSkills(tier, { elite: tiers.eliteSkills, boss: tiers.bossSkills });
@@ -86,7 +86,7 @@ export function draftNpc(archetype, options, rng = Math.random) {
   const items = pickItems(archetype.items, rng);
   const culture = nameCulture(archetype.group, catalog[species]?.group);
   const name =
-    options.names === "numbered" ? `${archetype.label} ${options.index + 1}` : randomName(MEU_SISTEMA.NPC_NAME_TABLES[culture] ?? MEU_SISTEMA.NPC_NAME_TABLES.fantasia, rng);
+    options.names === "numbered" ? `${archetype.label} ${options.index + 1}` : randomName(NIHILITY.NPC_NAME_TABLES[culture] ?? NIHILITY.NPC_NAME_TABLES.fantasia, rng);
   return {
     id: foundry.utils.randomID(),
     archetypeId: archetype.id,
@@ -122,7 +122,7 @@ export function archetypeSkillItem(skill, level) {
     damageElements: keepKnownIds(e.damageElements, known),
     conditionId: conditions.has(e.conditionId) ? e.conditionId : ""
   }));
-  const tier = MEU_SISTEMA.SKILL_TIERS.includes(rest.tier) && rest.tier !== "racial" ? rest.tier : "normal";
+  const tier = NIHILITY.SKILL_TIERS.includes(rest.tier) && rest.tier !== "racial" ? rest.tier : "normal";
   return {
     name: name || "Habilidade",
     type: "skill",
@@ -133,8 +133,8 @@ export function archetypeSkillItem(skill, level) {
       level: Math.max(1, Number(level) || 1),
       xp: 0,
       active: false,
-      effectType: MEU_SISTEMA.SKILL_EFFECT_TYPES.includes(rest.effectType) ? rest.effectType : "none",
-      targetType: MEU_SISTEMA.SKILL_TARGET_TYPES.includes(rest.targetType) ? rest.targetType : "targeted",
+      effectType: NIHILITY.SKILL_EFFECT_TYPES.includes(rest.effectType) ? rest.effectType : "none",
+      targetType: NIHILITY.SKILL_TARGET_TYPES.includes(rest.targetType) ? rest.targetType : "targeted",
       damageElements: keepKnownIds(rest.damageElements, known),
       effects,
       description: rest.description || ""
@@ -172,7 +172,7 @@ export async function createNpcs(drafts, { folder = "NPCs gerados" } = {}) {
     const archetype = archetypes.find(a => a.id === draft.archetypeId);
     if (!archetype) continue;
     try {
-      const combat = Object.fromEntries(MEU_SISTEMA.COMBAT_ATTRIBUTES.map(key => [key, { points: draft.points[key] ?? 0 }]));
+      const combat = Object.fromEntries(NIHILITY.COMBAT_ATTRIBUTES.map(key => [key, { points: draft.points[key] ?? 0 }]));
       const actor = await Actor.create({
         name: draft.name,
         type: "character",

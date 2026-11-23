@@ -7,7 +7,7 @@
 The owner approved the Design artifact "Gerador de NPC" with all three boards; build to it. The work is behind `FEATURES.npcGenerator` and `FEATURES.npcTiers`, both on by default.
 
 **Catalog.** `npcArchetypesData`:
-- The defaults are `MEU_SISTEMA.DEFAULT_NPC_ARCHETYPES` in `core/config/defaults/npc.js`: 14 archetypes in the groups Comum, Fantasia and Sci-Fi, plus `NPC_NAME_TABLES`.
+- The defaults are `NIHILITY.DEFAULT_NPC_ARCHETYPES` in `core/config/defaults/npc.js`: 14 archetypes in the groups Comum, Fantasia and Sci-Fi, plus `NPC_NAME_TABLES`.
 - Read the catalog through `getActiveNpcArchetypes()`, which is cached and normalized through `normalizeArchetype`.
 - Fields of an entry: `{id, label, group, img, description, species[], pointsPercent, weights{attr: 0–3}, luck, skillsMin/Max, skillLevel "follow"|"one", skills[], items[]}`.
 - Skills use the loose Racial-Skill format (`key`, `always`).

@@ -1,5 +1,5 @@
 import {
-  SYSTEM_ID, MEU_SISTEMA, isAnalysisEnabled, isMagicUse, getAnalysisAttrStep, getActiveSpeciesPresets, getActiveHeritages, getActiveTraits, getActiveDamageElements,
+  SYSTEM_ID, NIHILITY, isAnalysisEnabled, isMagicUse, getAnalysisAttrStep, getActiveSpeciesPresets, getActiveHeritages, getActiveTraits, getActiveDamageElements,
   getDamageElement, damageElementChain, getElementAffinityMatrix, getAffinityConfig, actorElements, actorTraits, actorConcealment, getVisibleAttributes, getEnergyLabelForActor
 } from "../core/config.js";
 import { chainedResistance, elementVsDefender } from "../combat/damage-rules.js";
@@ -134,7 +134,7 @@ export function gatherAnalysis(target, sections) {
     const sentences = has("skillSentences") ? skillSummariesFor(target) : {};
     const lines = target.items
       .filter(i => i.type === "skill")
-      .map(skill => `${skill.name} (${MEU_SISTEMA.SKILL_TIER_LABELS[skill.system.tier] ?? skill.system.tier})${sentences[skill.id] ? ` — ${sentences[skill.id]}` : ""}`);
+      .map(skill => `${skill.name} (${NIHILITY.SKILL_TIER_LABELS[skill.system.tier] ?? skill.system.tier})${sentences[skill.id] ? ` — ${sentences[skill.id]}` : ""}`);
     out.push({ title: "Habilidades", lines: lines.length ? lines : ["Nenhuma"], list: true });
   }
   if (has("attributes")) {

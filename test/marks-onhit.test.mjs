@@ -11,7 +11,7 @@ import { resolveAttributePercent, ATTRIBUTE_PERCENT_TARGETS, PERCENT_AMOUNT_TARG
 import { skillComplexity, complexityCap, complexityVerdict } from "../module/skills/skill-complexity-rules.js";
 import { lintSkill } from "../module/skills/skill-lint-rules.js";
 import { skillSummary } from "../module/skills/skill-summary.js";
-import { MEU_SISTEMA, getActiveStatusConditions } from "../module/core/config.js";
+import { NIHILITY, getActiveStatusConditions } from "../module/core/config.js";
 import { sanitizeOnlyIf, sanitizeSkillMechanics } from "../module/ai/ai-mechanics.js";
 
 const ME = "Actor.me";
@@ -182,9 +182,9 @@ test("a frase da Skill fala do Só se… e do ao acertar", () => {
 });
 
 test("catálogo: a Condição Marcado de fábrica é uma marca", () => {
-  assert.equal(MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS.find(c => c.id === "marked")?.isMark, true);
+  assert.equal(NIHILITY.DEFAULT_STATUS_CONDITIONS.find(c => c.id === "marked")?.isMark, true);
   assert.equal(getActiveStatusConditions().find(c => c.id === "marked")?.isMark, true);
-  assert.ok(!MEU_SISTEMA.DEFAULT_STATUS_CONDITIONS.find(c => c.id === "burn")?.isMark);
+  assert.ok(!NIHILITY.DEFAULT_STATUS_CONDITIONS.find(c => c.id === "burn")?.isMark);
 });
 
 test("IA: o Só se… aceita os tipos de marca, só com ids que existem", () => {

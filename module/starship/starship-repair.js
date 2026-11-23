@@ -5,7 +5,7 @@
  * livre, julga por fora se passou (filosofia do sistema: o Mestre adjudica, o sistema só
  * calcula números) e, se decidir que sim, aplica a fórmula de reparo na Vida do alvo.
  */
-import { SYSTEM_ID, MEU_SISTEMA, sceneActorCandidates, getCrewRoles, actorDisplayName, getShipActionConfig } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, sceneActorCandidates, getCrewRoles, actorDisplayName, getShipActionConfig } from "../core/config.js";
 import { rollAttribute } from "../core/dice.js";
 import { renderSystemTemplate } from "../helpers/foundry-compat.js";
 import { escapeHtml } from "../helpers/html.js";
@@ -231,7 +231,7 @@ export async function approveShipRepairRoll(message, modifier = 0) {
 
 /**
  * Botão "Restaurar Vida" — só aparece depois da rolagem, GM-only. Rola a fórmula de reparo
- * (`MEU_SISTEMA.REPAIR_ROLL_FORMULA`, "2d6" — mesma pra qualquer alvo, sem escalar pelo tamanho
+ * (`NIHILITY.REPAIR_ROLL_FORMULA`, "2d6" — mesma pra qualquer alvo, sem escalar pelo tamanho
  * dele, ver Fase 8 do overhaul) e aplica o resultado no alvo escolhido, clampado em [0, max].
  */
 export async function restoreShipRepairTarget(message) {
@@ -248,7 +248,7 @@ export async function restoreShipRepairTarget(message) {
   if (!resolved) return;
 
   // Engenharia restaura mais: a fórmula extra guardada no pedido soma no 2d6.
-  const base = MEU_SISTEMA.REPAIR_ROLL_FORMULA ?? "0";
+  const base = NIHILITY.REPAIR_ROLL_FORMULA ?? "0";
   const extra = typeof req.engineerBonus === "string" && req.engineerBonus && Roll.validate(req.engineerBonus) ? req.engineerBonus : "";
   const roll = new Roll(extra ? `${base} + (${extra})` : base);
   await roll.evaluate();

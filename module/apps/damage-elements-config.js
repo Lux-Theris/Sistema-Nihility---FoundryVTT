@@ -2,6 +2,7 @@ import { MEU_SISTEMA, getActiveDamageElements, getActiveStatusConditions, getAct
 import { normalizeSurface } from "../environment/surface-rules.js";
 import { cycleAffinityLevel, clampAffinityLevel, affinityMultiplier } from "../combat/damage-rules.js";
 import { createCardListConfigApp, escapeHtml, optionsHtml } from "./card-list-config-factory.js";
+import { cssColor } from "../helpers/html.js";
 import { normalizeReaction, normalizeReactions, reactionTag, reactionSentence, permanentMarkSources, timedConditionIds } from "../combat/reaction-rules.js";
 
 /**
@@ -343,8 +344,8 @@ export class DamageElementsConfigApp extends DamageElementsCards {
     wrap.innerHTML = elements.length
       ? `<p class="hint-inline">Linha = elemento do <strong>golpe</strong>; coluna = o que o alvo <strong>carrega</strong> (uma marca: Condição com "Elemento do corpo"). Toque numa célula para editar. O elemento da Espécie só conduz, quando a célula diz "conduz".</p>
         <div class="affinity-scroll"><table class="affinity-matrix reaction-matrix">
-          <thead><tr><th class="affinity-corner">golpe ↓ · alvo carrega →</th>${elements.map(e => `<th class="affinity-col"><span style="border-color:${esc(e.color)}">${esc(e.label)}</span></th>`).join("")}</tr></thead>
-          <tbody>${elements.map(a => `<tr><th class="affinity-row"><span class="dot" style="background:${esc(a.color)}"></span>${esc(a.label)}</th>${elements.map(d => cellHtml(a, d)).join("")}</tr>`).join("")}</tbody>
+          <thead><tr><th class="affinity-corner">golpe ↓ · alvo carrega →</th>${elements.map(e => `<th class="affinity-col"><span style="border-color:${esc(cssColor(e.color))}">${esc(e.label)}</span></th>`).join("")}</tr></thead>
+          <tbody>${elements.map(a => `<tr><th class="affinity-row"><span class="dot" style="background:${esc(cssColor(a.color))}"></span>${esc(a.label)}</th>${elements.map(d => cellHtml(a, d)).join("")}</tr>`).join("")}</tbody>
         </table></div>`
       : `<p class="hint-inline">Crie elementos (com id) para montar a tabela.</p>`;
     const byId = new Map(elements.map(e => [e.id, e]));
@@ -485,10 +486,10 @@ export class DamageElementsConfigApp extends DamageElementsCards {
       ? `<p class="hint-inline">Linha = elemento que <strong>ataca</strong>; coluna = elemento que <strong>defende</strong> (o corpo, o Escudo ou a Estrutura). Defensor com dois elementos: os multiplicadores se multiplicam. Multiplicadores em Regras da Mesa.</p>
         <div class="affinity-scroll"><table class="affinity-matrix">
           <thead><tr><th class="affinity-corner">ataca ↓ · defende →</th>${elements
-            .map(e => `<th class="affinity-col"><span style="border-color:${esc(e.color)}">${esc(e.label)}</span></th>`)
+            .map(e => `<th class="affinity-col"><span style="border-color:${esc(cssColor(e.color))}">${esc(e.label)}</span></th>`)
             .join("")}</tr></thead>
           <tbody>${elements
-            .map(a => `<tr><th class="affinity-row"><span class="dot" style="background:${esc(a.color)}"></span>${esc(a.label)}</th>${elements.map(d => cell(a, d)).join("")}</tr>`)
+            .map(a => `<tr><th class="affinity-row"><span class="dot" style="background:${esc(cssColor(a.color))}"></span>${esc(a.label)}</th>${elements.map(d => cell(a, d)).join("")}</tr>`)
             .join("")}</tbody>
         </table></div>
         <div class="affinity-legend">${legend}</div>`

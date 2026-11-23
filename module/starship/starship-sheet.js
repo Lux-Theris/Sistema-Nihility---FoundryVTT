@@ -189,6 +189,53 @@ async function promptDialog({ title, content, confirmLabel = "Confirmar", onConf
  * (Veículo tem Peças/Velocidade/Combustível, que não existem em Nave).
  */
 class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
+  /**
+   * Form, ações e template comuns às duas fichas. ApplicationV2 junta o DEFAULT_OPTIONS de toda a
+   * cadeia de herança (o da base vale nas filhas; `classes` repetidas são deduplicadas), então as
+   * filhas declaram só o que é delas (classes e position).
+   */
+  static DEFAULT_OPTIONS = {
+    // DocumentSheetV2 não liga auto-save por padrão — ver mesmo comentário em actor-sheet.js.
+    form: { submitOnChange: true, closeOnSubmit: false },
+    actions: {
+      selectTab: TabbedActorSheetV2.onSelectTab,
+      createItem: TabbedActorSheetV2.onItemCreate,
+      editItem: TabbedActorSheetV2.onItemEdit,
+      deleteItem: TabbedActorSheetV2.onItemDelete,
+      toggleModulePower: TabbedActorSheetV2.onToggleModulePower,
+      adjustThrottle: TabbedActorSheetV2.onAdjustThrottle,
+      powerGridTick: TabbedActorSheetV2.onPowerGridTick,
+      useSkill: TabbedActorSheetV2.onUseSkill,
+      fireWeapon: TabbedActorSheetV2.onFireWeapon,
+      removeTrait: TabbedActorSheetV2.onRemoveTrait,
+      pickTraits: TabbedActorSheetV2.onPickTraits,
+      pickPowerGroup: TabbedActorSheetV2.onPickPowerGroup,
+      addPowerGroup: TabbedActorSheetV2.onAddPowerGroup,
+      renamePowerGroup: TabbedActorSheetV2.onRenamePowerGroup,
+      movePowerGroup: TabbedActorSheetV2.onMovePowerGroup,
+      deletePowerGroup: TabbedActorSheetV2.onDeletePowerGroup,
+      setPowerFocus: TabbedActorSheetV2.onSetPowerFocus,
+      shipBrace: TabbedActorSheetV2.onShipBrace,
+      shipAuxShields: TabbedActorSheetV2.onShipAuxShields,
+      shipEmergencyRepair: TabbedActorSheetV2.onShipEmergencyRepair,
+      shipRestartSystems: TabbedActorSheetV2.onShipRestartSystems,
+      shipModulateFrequency: TabbedActorSheetV2.onShipModulateFrequency,
+      splitStack: TabbedActorSheetV2.onSplitStack,
+      openEffectsList: TabbedActorSheetV2.onOpenEffectsList,
+      engageTractor: TabbedActorSheetV2.onEngageTractor,
+      releaseTractor: TabbedActorSheetV2.onReleaseTractor,
+      toggleModuleVitalAdjust: TabbedActorSheetV2.onToggleModuleVitalAdjust,
+      adjustModuleVital: TabbedActorSheetV2.onAdjustModuleVital,
+      editImage: TabbedActorSheetV2.onEditImage,
+      editPortraitFrame: editPortraitFrameAction,
+      removeCrew: TabbedActorSheetV2.onRemoveCrew
+    }
+  };
+
+  static PARTS = {
+    body: { template: `systems/${SYSTEM_ID}/templates/starship-sheet.hbs`, scrollable: [".sheet-body"] }
+  };
+
   constructor(options = {}) {
     super(options);
     this.activeTab = "sistemas";
@@ -203,6 +250,26 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     event.preventDefault();
     this.activeTab = target.dataset.tab;
     this.render();
+  }
+
+  /**
+   * @override
+   * Campos comuns às duas fichas. Cada filha chama este método e acrescenta os seus campos.
+   */
+  async _prepareContext(options) {
+    const context = await super._prepareContext(options);
+    const actor = this.actor;
+
+    context.actor = actor;
+    context.owner = actor.isOwner;
+    context.activeTab = this.activeTab;
+    context.system = actor.system;
+    context.config = MEU_SISTEMA;
+    context.shipManeuverEnabled = isShipManeuverEnabled();
+    context.traits = traitContext(actor);
+    context.isGM = game.user.isGM;
+    context.evasionPercent = Math.round(actor.system.evasion * 100);
+    return context;
   }
 
   /**
@@ -1212,62 +1279,13 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
     classes: [SYSTEM_ID, "sheet", "actor", "starship"],
     // 780 e não 700: a grade de Módulos tem colunas com mínimo garantido, e abaixo disso o
     // nome do Módulo começa a ser espremido.
-    position: { width: 780, height: 760 },
-    // DocumentSheetV2 não liga auto-save por padrão — ver mesmo comentário em actor-sheet.js.
-    form: { submitOnChange: true, closeOnSubmit: false },
-    actions: {
-      selectTab: TabbedActorSheetV2.onSelectTab,
-      createItem: TabbedActorSheetV2.onItemCreate,
-      editItem: TabbedActorSheetV2.onItemEdit,
-      deleteItem: TabbedActorSheetV2.onItemDelete,
-      toggleModulePower: TabbedActorSheetV2.onToggleModulePower,
-      adjustThrottle: TabbedActorSheetV2.onAdjustThrottle,
-      powerGridTick: TabbedActorSheetV2.onPowerGridTick,
-      useSkill: TabbedActorSheetV2.onUseSkill,
-      fireWeapon: TabbedActorSheetV2.onFireWeapon,
-      removeTrait: TabbedActorSheetV2.onRemoveTrait,
-      pickTraits: TabbedActorSheetV2.onPickTraits,
-      pickPowerGroup: TabbedActorSheetV2.onPickPowerGroup,
-      addPowerGroup: TabbedActorSheetV2.onAddPowerGroup,
-      renamePowerGroup: TabbedActorSheetV2.onRenamePowerGroup,
-      movePowerGroup: TabbedActorSheetV2.onMovePowerGroup,
-      deletePowerGroup: TabbedActorSheetV2.onDeletePowerGroup,
-      setPowerFocus: TabbedActorSheetV2.onSetPowerFocus,
-      shipBrace: TabbedActorSheetV2.onShipBrace,
-      shipAuxShields: TabbedActorSheetV2.onShipAuxShields,
-      shipEmergencyRepair: TabbedActorSheetV2.onShipEmergencyRepair,
-      shipRestartSystems: TabbedActorSheetV2.onShipRestartSystems,
-      shipModulateFrequency: TabbedActorSheetV2.onShipModulateFrequency,
-      splitStack: TabbedActorSheetV2.onSplitStack,
-      openEffectsList: TabbedActorSheetV2.onOpenEffectsList,
-      engageTractor: TabbedActorSheetV2.onEngageTractor,
-      releaseTractor: TabbedActorSheetV2.onReleaseTractor,
-      toggleModuleVitalAdjust: TabbedActorSheetV2.onToggleModuleVitalAdjust,
-      adjustModuleVital: TabbedActorSheetV2.onAdjustModuleVital,
-      editImage: TabbedActorSheetV2.onEditImage,
-      editPortraitFrame: editPortraitFrameAction,
-      removeCrew: TabbedActorSheetV2.onRemoveCrew
-    }
-  };
-
-  static PARTS = {
-    body: { template: `systems/${SYSTEM_ID}/templates/starship-sheet.hbs`, scrollable: [".sheet-body"] }
+    position: { width: 780, height: 760 }
   };
 
   /** @override */
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
     const actor = this.actor;
-
-    context.actor = actor;
-    context.owner = actor.isOwner;
-    context.activeTab = this.activeTab;
-    context.system = actor.system;
-    context.config = MEU_SISTEMA;
-    context.shipManeuverEnabled = isShipManeuverEnabled();
-    context.traits = traitContext(actor);
-    context.isGM = game.user.isGM;
-    context.evasionPercent = Math.round(actor.system.evasion * 100);
 
     this._prepareShipSystemsContext(context);
 
@@ -1284,46 +1302,7 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
 export class NihilityVehicleSheet extends TabbedActorSheetV2 {
   static DEFAULT_OPTIONS = {
     classes: [SYSTEM_ID, "sheet", "actor", "vehicle"],
-    position: { width: 780, height: 780 },
-    // DocumentSheetV2 não liga auto-save por padrão — ver mesmo comentário em actor-sheet.js.
-    form: { submitOnChange: true, closeOnSubmit: false },
-    actions: {
-      selectTab: TabbedActorSheetV2.onSelectTab,
-      createItem: TabbedActorSheetV2.onItemCreate,
-      editItem: TabbedActorSheetV2.onItemEdit,
-      deleteItem: TabbedActorSheetV2.onItemDelete,
-      toggleModulePower: TabbedActorSheetV2.onToggleModulePower,
-      adjustThrottle: TabbedActorSheetV2.onAdjustThrottle,
-      powerGridTick: TabbedActorSheetV2.onPowerGridTick,
-      useSkill: TabbedActorSheetV2.onUseSkill,
-      fireWeapon: TabbedActorSheetV2.onFireWeapon,
-      removeTrait: TabbedActorSheetV2.onRemoveTrait,
-      pickTraits: TabbedActorSheetV2.onPickTraits,
-      pickPowerGroup: TabbedActorSheetV2.onPickPowerGroup,
-      addPowerGroup: TabbedActorSheetV2.onAddPowerGroup,
-      renamePowerGroup: TabbedActorSheetV2.onRenamePowerGroup,
-      movePowerGroup: TabbedActorSheetV2.onMovePowerGroup,
-      deletePowerGroup: TabbedActorSheetV2.onDeletePowerGroup,
-      setPowerFocus: TabbedActorSheetV2.onSetPowerFocus,
-      shipBrace: TabbedActorSheetV2.onShipBrace,
-      shipAuxShields: TabbedActorSheetV2.onShipAuxShields,
-      shipEmergencyRepair: TabbedActorSheetV2.onShipEmergencyRepair,
-      shipRestartSystems: TabbedActorSheetV2.onShipRestartSystems,
-      shipModulateFrequency: TabbedActorSheetV2.onShipModulateFrequency,
-      splitStack: TabbedActorSheetV2.onSplitStack,
-      openEffectsList: TabbedActorSheetV2.onOpenEffectsList,
-      engageTractor: TabbedActorSheetV2.onEngageTractor,
-      releaseTractor: TabbedActorSheetV2.onReleaseTractor,
-      toggleModuleVitalAdjust: TabbedActorSheetV2.onToggleModuleVitalAdjust,
-      adjustModuleVital: TabbedActorSheetV2.onAdjustModuleVital,
-      editImage: TabbedActorSheetV2.onEditImage,
-      editPortraitFrame: editPortraitFrameAction,
-      removeCrew: TabbedActorSheetV2.onRemoveCrew
-    }
-  };
-
-  static PARTS = {
-    body: { template: `systems/${SYSTEM_ID}/templates/starship-sheet.hbs`, scrollable: [".sheet-body"] }
+    position: { width: 780, height: 780 }
   };
 
   /** @override */
@@ -1331,16 +1310,7 @@ export class NihilityVehicleSheet extends TabbedActorSheetV2 {
     const context = await super._prepareContext(options);
     const actor = this.actor;
 
-    context.actor = actor;
-    context.owner = actor.isOwner;
-    context.activeTab = this.activeTab;
-    context.system = actor.system;
-    context.config = MEU_SISTEMA;
     context.isVehicle = true;
-    context.shipManeuverEnabled = isShipManeuverEnabled();
-    context.traits = traitContext(actor);
-    context.isGM = game.user.isGM;
-    context.evasionPercent = Math.round(actor.system.evasion * 100);
     context.parts = actor.system.parts;
     context.fuelPercent = percentOf(actor.system.fuel.value, actor.system.fuel.max);
 

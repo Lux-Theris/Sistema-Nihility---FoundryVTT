@@ -1115,36 +1115,68 @@ Hooks.on("updateCombat", async (combat, changed, options) => {
   try {
     // Contágio (contagion.js): Condições com "espalha" passam para quem está no raio.
     if (!dead) await tickContagion(combatant);
+  } catch (err) {
+    reportError("Falha no Contágio no início do turno.", err, { gmOnly: true });
+  }
+  try {
     // Ambiente (environment.js): confere os perigos da cena/área antes dos ticks da rodada.
     if (combatant.token) await syncTokenEnvironment(combatant.token);
+  } catch (err) {
+    reportError("Falha ao conferir o Ambiente no início do turno.", err, { gmOnly: true });
+  }
+  try {
     // Radiação (radiation.js): acumula/cai e causa o dano da rodada. Morto não.
     if (!dead && combatant.token && steps > 0) await tickRadiation(combatant.token);
+  } catch (err) {
+    reportError("Falha na Radiação no início do turno.", err, { gmOnly: true });
+  }
+  try {
     if (!dead && steps > 1) {
       const rows = await passRadiationTimeFor([actor], steps - 1);
       for (const r of rows ?? []) timeNotes.push({ label: "Radiação", text: `irradiação ${r.before} → ${r.after} · −${r.damage} Vida` });
     }
+  } catch (err) {
+    reportError("Falha na Radiação acumulada do tempo acelerado no início do turno.", err, { gmOnly: true });
+  }
+  try {
     // Muralha que queima: quem continua encostado nela (ou dentro) queima de novo.
     if (!dead) await tickStructureContact(combatant);
+  } catch (err) {
+    reportError("Falha no contato com Estrutura no início do turno.", err, { gmOnly: true });
+  }
+  try {
     // Campo de antimagia: quem começa o turno dentro dele perde o que é mágico.
     if (!dead && combatant.token) await endMagicInsideFields(combatant.token);
   } catch (err) {
-    reportError("Falha no Contágio/Ambiente no início do turno.", err, { gmOnly: true });
+    reportError("Falha no campo de Antimagia no início do turno.", err, { gmOnly: true });
   }
 
+  // Na V14 o Combate não tem Cena por padrão: as Cenas vêm dos Tokens dos combatentes.
+  // Zonas contam pelo turno de quem lançou (ver advanceZones); Estruturas, pela rodada.
+  const roundChanged = changed.round !== undefined;
   try {
-    // Na V14 o Combate não tem Cena por padrão: as Cenas vêm dos Tokens dos combatentes.
-    // Zonas contam pelo turno de quem lançou (ver advanceZones); Estruturas, pela rodada.
-    const roundChanged = changed.round !== undefined;
     for (const scene of combatScenes(combat)) {
       await advanceZones(scene, { combat, combatant, roundChanged });
       if (roundChanged) await advanceStructures(scene);
     }
+  } catch (err) {
+    reportError("Falha ao processar Zonas e Estruturas no início do turno.", err, { gmOnly: true });
+  }
+  try {
     if (!dead) await tickZonesForCombatant(combatant);
+  } catch (err) {
+    reportError("Falha ao processar a Zona do combatente no início do turno.", err, { gmOnly: true });
+  }
+  try {
     // Superfícies (8.2): sem dono, contam pela virada da rodada; quem começa o turno em cima sofre.
     if (roundChanged) for (const scene of combatScenes(combat)) await advanceSurfaces(scene);
+  } catch (err) {
+    reportError("Falha ao processar Superfícies no início do turno.", err, { gmOnly: true });
+  }
+  try {
     if (!dead) await tickSurfacesForCombatant(combatant);
   } catch (err) {
-    reportError("Falha ao processar Zonas no início do turno.", err, { gmOnly: true });
+    reportError("Falha ao processar a Superfície do combatente no início do turno.", err, { gmOnly: true });
   }
 
   try {

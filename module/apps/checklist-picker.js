@@ -7,7 +7,7 @@
  * janela. É a prancheta 6 do redesenho da Ficha de Item.
  */
 import { getActiveDamageElements, getActiveTraits } from "../core/config.js";
-import { escapeHtml } from "../helpers/html.js";
+import { escapeHtml, cssColor } from "../helpers/html.js";
 
 const { DialogV2 } = foundry.applications.api;
 
@@ -35,7 +35,7 @@ export async function pickFromChecklist({ title, groups, selected = [], manageHi
               opt => `
             <label class="picker-option" data-search="${escapeHtml(String(opt.label).toLowerCase())}">
               <input type="checkbox" value="${escapeHtml(opt.id)}" ${chosen.has(opt.id) ? "checked" : ""}/>
-              ${opt.color ? `<span class="dot" style="background:${escapeHtml(opt.color)}"></span>` : ""}
+              ${opt.color ? `<span class="dot" style="background:${escapeHtml(cssColor(opt.color))}"></span>` : ""}
               <span class="picker-option-label">${escapeHtml(opt.label)}</span>
             </label>`
             )
@@ -159,7 +159,7 @@ export function selectedElementChips(selected) {
     total: catalog.length,
     chips: (selected ?? []).map(id => {
       const el = byId.get(id);
-      return { id, label: el?.label ?? `${id} (removido)`, color: el?.color ?? "#6b7294" };
+      return { id, label: el?.label ?? `${id} (removido)`, color: cssColor(el?.color, "#6b7294") };
     })
   };
 }
@@ -208,7 +208,7 @@ export function wirePickerField(container, { pick, describe, noun, onChange = nu
       ? chips
           .map(
             c =>
-              `<span class="element-chip checked">${c.color ? `<span class="dot" style="background:${escapeHtml(c.color)}"></span>` : ""}${escapeHtml(c.label)}` +
+              `<span class="element-chip checked">${c.color ? `<span class="dot" style="background:${escapeHtml(cssColor(c.color))}"></span>` : ""}${escapeHtml(c.label)}` +
               `<a class="element-chip-remove" data-id="${escapeHtml(c.id)}" title="Tirar ${escapeHtml(c.label)}" aria-label="Tirar ${escapeHtml(c.label)}"><i class="fas fa-times"></i></a></span>`
           )
           .join("")

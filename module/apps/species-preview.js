@@ -4,10 +4,9 @@
  * applySpeciesPreview (species.js) depois do "Aplicar".
  */
 import { SYSTEM_ID } from "../core/config.js";
+import { escapeHtml as esc } from "../helpers/html.js";
 
 const { DialogV2 } = foundry.applications.api;
-
-const esc = value => foundry.utils.escapeHTML?.(String(value ?? "")) ?? String(value ?? "").replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 
 function row(op, text, note = "") {
   const cls = { "+": "add", "−": "del", "~": "chg", "=": "keep", "↪": "mov" }[op] ?? "keep";

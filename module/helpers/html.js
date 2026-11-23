@@ -12,3 +12,21 @@ const ENTITIES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "
 export function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, ch => ENTITIES[ch]);
 }
+
+const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+const FUNC_COLOR = /^(?:rgba?|hsla?)\([0-9\s,.%/]*\)$/i;
+const NAMED_COLOR = /^[a-z]+$/i;
+
+/**
+ * Cor vinda de catálogo, validada para entrar num atributo `style`. O escape de HTML não impede
+ * CSS extra (`red;background:url(...)`), então só passa hexadecimal (#rgb, #rgba, #rrggbb,
+ * #rrggbbaa), rgb/rgba/hsl/hsla simples ou um nome só de letras. Qualquer outra coisa (inclusive
+ * vazio, `null` e `undefined`) vira `fallback`.
+ * @param {unknown} value
+ * @param {string} [fallback=""]
+ * @returns {string}
+ */
+export function cssColor(value, fallback = "") {
+  const text = String(value ?? "").trim();
+  return HEX_COLOR.test(text) || FUNC_COLOR.test(text) || NAMED_COLOR.test(text) ? text : fallback;
+}

@@ -117,14 +117,23 @@ Sistema customizado para [Foundry VTT](https://foundryvtt.com/) (requer **V13+**
 No Foundry VTT, aba **Game Systems → Install System**, cole esta URL de manifesto:
 
 ```text
-https://raw.githubusercontent.com/Lux-Theris/Sistema-Nihility---FoundryVTT/main/system.json
+https://github.com/Lux-Theris/Sistema-Nihility---FoundryVTT/releases/latest/download/system.json
 ```
+
+O manifesto antigo (`https://raw.githubusercontent.com/Lux-Theris/Sistema-Nihility---FoundryVTT/main/system.json`) continua funcionando: mundos que já estavam instalados com ele acham a versão nova, baixam o zip da Release e, depois de atualizar, passam a usar o manifesto acima.
 
 ### Manual (upload direto)
 
-1. Copie `system.json`, `module/`, `templates/`, `styles/` e `lang/` deste repositório para `Data/systems/nihility-rpg-system/` na instalação do seu Foundry VTT.
+1. Baixe o `nihility-rpg-system.zip` da [última Release](https://github.com/Lux-Theris/Sistema-Nihility---FoundryVTT/releases/latest) e descompacte em `Data/systems/nihility-rpg-system/` na instalação do seu Foundry VTT (o `system.json` tem que ficar direto dentro dessa pasta).
 2. Reinicie o Foundry (ou atualize a lista de sistemas).
 3. Crie um novo Mundo selecionando **Nihility RPG System** como sistema.
+
+## Livros
+
+Os links abaixo sempre baixam a versão mais recente dos PDFs:
+
+- [Livro do Jogador](https://github.com/Lux-Theris/Sistema-Nihility---FoundryVTT/raw/main/output/pdf/Nihility-Livro-do-Jogador-Edicao-Editorial.pdf)
+- [Livro do Mestre](https://github.com/Lux-Theris/Sistema-Nihility---FoundryVTT/raw/main/output/pdf/Nihility-Livro-do-Mestre-Edicao-Editorial.pdf)
 
 ## Estrutura do projeto
 

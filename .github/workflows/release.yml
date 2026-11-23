@@ -1,0 +1,58 @@
+name: Release
+
+# Publica uma Release quando o "version" do system.json muda na main.
+on:
+  push:
+    branches: [main]
+    paths: [system.json]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check
+        run: node scripts/check.mjs
+
+      - name: Ler a versão
+        id: ver
+        run: echo "version=$(node -p "require('./system.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Ver se a Release já existe
+        id: exists
+        run: |
+          if gh release view "v${{ steps.ver.outputs.version }}" >/dev/null 2>&1; then
+            echo "Release v${{ steps.ver.outputs.version }} já existe; nada a fazer."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Montar o pacote
+        if: steps.exists.outputs.exists == 'false'
+        run: node scripts/build-release.mjs
+
+      - name: Zipar
+        if: steps.exists.outputs.exists == 'false'
+        run: cd dist/nihility-rpg-system && zip -r ../nihility-rpg-system.zip .
+
+      - name: Criar a Release
+        if: steps.exists.outputs.exists == 'false'
+        run: >
+          gh release create "v${{ steps.ver.outputs.version }}"
+          dist/nihility-rpg-system.zip dist/system.json
+          --title "v${{ steps.ver.outputs.version }}" --generate-notes

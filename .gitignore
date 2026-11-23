@@ -13,3 +13,10 @@ temp/
 # Cache do gerador de PDF e pacotes grandes (o GitHub recusa arquivos acima de 100 MB)
 tmp/
 output/*.zip
+
+# Pacote de Release montado por scripts/build-release.mjs (o workflow zipa e publica)
+dist/
+
+# Arquivos de trabalho do gerador docs/build-manuals.py: docs/package-manuals.py os copia para os
+# "Livro-do-…-Edicao-Editorial", que são os que ficam no git (os dois "Manual" eram cópias idênticas)
+output/pdf/Nihility-Manual-do-*.pdf

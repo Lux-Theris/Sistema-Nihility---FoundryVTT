@@ -2,7 +2,7 @@
   "id": "nihility-rpg-system",
   "title": "Nihility RPG System",
   "description": "Sistema customizado modular para Foundry VTT, compatível com Fantasia/Isekai e Sci-Fi Arcano. Blocos do sistema (Naves, Títulos, Anatomia, Fusão, PAD...) ligam e desligam por campanha, com presets prontos. Suporta economia dinâmica, títulos, anatomia detalhada por espécie, fusão avançada de habilidades e automações via IA. Requer Foundry V13+.",
-  "version": "1.107.2",
+  "version": "1.107.3",
   "compatibility": {
     "minimum": "13",
     "verified": "14"
@@ -87,8 +87,8 @@
   },
   "primaryTokenAttribute": "attributes.hp",
   "url": "https://github.com/Lux-Theris/Sistema-Nihility---FoundryVTT",
-  "manifest": "https://raw.githubusercontent.com/Lux-Theris/Sistema-Nihility---FoundryVTT/main/system.json",
-  "download": "https://github.com/Lux-Theris/Sistema-Nihility---FoundryVTT/archive/refs/heads/main.zip",
+  "manifest": "https://github.com/Lux-Theris/Sistema-Nihility---FoundryVTT/releases/latest/download/system.json",
+  "download": "https://github.com/Lux-Theris/Sistema-Nihility---FoundryVTT/releases/latest/download/nihility-rpg-system.zip",
   "readme": "README.md",
   "socket": true,
   "flags": {

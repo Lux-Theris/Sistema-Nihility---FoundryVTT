@@ -82,6 +82,7 @@ import { openLightConfigDialog, describeLight } from "../combat/lights.js";
 import { pickImageFile, filePickerClass } from "../helpers/foundry-compat.js";
 import { sequencerAvailable } from "../core/vfx.js";
 import { AREA_AFFECTS_OPTIONS } from "../combat/area-geometry.js";
+import { clampTimeFactor, describeTimeFactor } from "../combat/time-rate-rules.js";
 import { isSenseTarget, SENSE_LABELS, describeSenseRange, senseRangeValue } from "../combat/senses-rules.js";
 import { isWeaponMasteryEnabled, masteryConfig, masterySentenceFor, weaponTypeChoices, weaponTypeDisplay } from "../combat/weapon-mastery.js";
 import { masteryLevelUpBlock } from "../combat/weapon-mastery-rules.js";
@@ -779,6 +780,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       else if (entry.target === "push") summary = `${{ pull: "Puxa", choose: "Empurra ou puxa" }[entry.pushDirection] ?? "Empurra"} ${amount} m`;
       else if (["flight", "burrow"].includes(entry.target)) summary = targetLabel;
       else if (entry.target === "luck") summary = `Sorte ${describeLuck(luckFromScopes(amount, entry.luckScopes)) || "(sem escopo)"}`;
+      else if (entry.target === "timeRate") summary = `${Number(entry.timeFactor ?? 2) < 1 ? "Desacelerar" : "Acelerar"} ${describeTimeFactor(entry.timeFactor ?? 2)}`;
       else if (entry.target === "dispelMagic") summary = `Dissipar: ${entry.dispelScope === "condition" ? `só ${condition?.label ?? "uma Condição"}` : entry.dispelScope === "marks" ? "só marcas" : "todo efeito mágico"} (nv ≤ ${Number(sys.level) || 0})`;
       else if (entry.target === "magicDampen") summary = `Magia enfraquecida: ${Number(entry.chance ?? 100)}% das magias saem com ${amount}% da força`;
       else if (isSenseTarget(entry.target)) summary = `${SENSE_LABELS[entry.target]} ${describeSenseRange(senseRangeValue(amount))}`;
@@ -841,13 +843,15 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         index,
         amount,
         durationRounds: entry.durationRounds,
-        durationUnit: entry.target === "push" ? "" : entry.target === "createSurface" ? "rod. (0 = a do elemento)" : ["flight", "burrow"].includes(entry.target) ? (sys.hasUpkeep ? "ativa" : "rod. (0 = até desfeito)") : isSenseTarget(entry.target) ? (sys.hasUpkeep ? "ativa" : "rod. (0 = até desfeito)") : entry.target === "mark" ? "rod. (0 = até desfeita)" : ["antimagic", "emp"].includes(entry.target) ? "rod. de supressão (0 = até tirar)" : sys.hasUpkeep ? "ativa" : periodic ? "ticks" : "rod.",
+        durationUnit: entry.target === "push" ? "" : entry.target === "createSurface" ? "rod. (0 = a do elemento)" : ["flight", "burrow", "timeRate"].includes(entry.target) ? (sys.hasUpkeep ? "ativa" : "rod. (0 = até desfeito)") : isSenseTarget(entry.target) ? (sys.hasUpkeep ? "ativa" : "rod. (0 = até desfeito)") : entry.target === "mark" ? "rod. (0 = até desfeita)" : ["antimagic", "emp"].includes(entry.target) ? "rod. de supressão (0 = até tirar)" : sys.hasUpkeep ? "ativa" : periodic ? "ticks" : "rod.",
         isAntimagic: ["antimagic", "emp"].includes(entry.target),
         isMark: entry.target === "mark",
         isDispel: entry.target === "dispelMagic",
         dispelScopeOptions: DISPEL_SCOPES.map(sc => ({ value: sc, label: DISPEL_SCOPE_LABELS[sc], selected: sc === (entry.dispelScope || "all") })),
         dispelNeedsCondition: entry.dispelScope === "condition",
         dispelLevel: Number(sys.level) || 0,
+        isTimeRate: entry.target === "timeRate",
+        timeFactor: Number(entry.timeFactor ?? 2),
         isLuck: entry.target === "luck",
         luckScopeAttributes: Boolean(entry.luckScopes?.attributes),
         luckScopeDamage: Boolean(entry.luckScopes?.damage),
@@ -1311,6 +1315,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       return;
     }
     if (input.type === "checkbox") entry[field] = input.checked;
+    else if (field === "timeFactor") entry[field] = clampTimeFactor(input.value);
     else if (input.type === "number") entry[field] = Number(input.value) || 0;
     else entry[field] = input.value.trim();
 

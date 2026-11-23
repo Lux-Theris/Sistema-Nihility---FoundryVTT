@@ -336,6 +336,11 @@ function effectEntrySchema() {
      */
     dispelScope: new fields.StringField({ required: false, initial: "all", blank: true, choices: ["all", "marks", "condition"] }),
     /**
+     * Só no alvo "timeRate" (Ritmo do tempo, 8e): o fator. Maior que 1 acelera (×N), menor que 1 desacelera;
+     * 1 não muda nada. A duração é a `durationRounds` do efeito (0 numa Ativa = enquanto ligada). Ver combat/time-rate.js.
+     */
+    timeFactor: new fields.NumberField({ required: false, initial: 2, min: 0.01, max: 1000 }),
+    /**
      * "Só se…" (8.1a): o efeito só pega quando isto vale no alvo (ou em quem usou). `kind` vazio =
      * sempre. Mesma linguagem do "Quando" do "Quando → Então"; ver skills/only-if-rules.js.
      */

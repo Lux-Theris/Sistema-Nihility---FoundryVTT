@@ -19,7 +19,8 @@ import { afterSkillStrike, strikeBlockReason } from "../combat/weapon-mastery.js
 import { resolveWeaponStrike } from "../combat/weapon-mastery-rules.js";
 import { blockIfIncapacitated, knockUnconscious } from "../combat/incapacitation.js";
 import { skillOnlyIfBlock } from "./skill-only-if.js";
-import { useBlockReason, startPreparation, applyCooldownAfterUse, inStartedCombat } from "./preparation.js";
+import { useBlockReason, startPreparation, applyCooldownAfterUse, inStartedCombat, settleTimersByReserve } from "./preparation.js";
+import { prepCoveredByReserve, spendReserve, noteReservePrep } from "../combat/time-rate.js";
 import { packUseOptions, preparationPayments, overdrawInfo, investCeiling } from "./cooldown-rules.js";
 import { playSkillAnimation } from "../core/vfx.js";
 import { requestStructure, dispelStructuresInArea } from "../structures/structures.js";
@@ -152,6 +153,12 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
     return null;
   }
 
+  // Acelerado (8e.2): a reserva de tempo paga a Recarga ou o Preparo em andamento, quando basta.
+  if (!options.prepaid && !options.borrowedSkill) {
+    const settled = await settleTimersByReserve(sourceActor, skill, options.subSkillIndex ?? null);
+    if (settled?.prepaid) options = { ...options, prepaid: settled.prepaid };
+  }
+
   // Recarga ou Preparo em andamento (H3). O disparo de um Preparo (`prepaid`) já passou por aqui.
   if (!options.prepaid) {
     const blocked = useBlockReason(sourceActor, skill, options.subSkillIndex ?? null) ?? strikeBlockReason(sourceActor, skill, options.subSkillIndex ?? null);
@@ -223,7 +230,9 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
   let overdraw = null;
   const investConfig = getManaInvestConfig();
   const canInvest = cost > 0 && !isShipLike(sourceActor);
-  const preparing = Number(mech.prepTurns) > 0 && !options.prepaid && !combined && inStartedCombat(sourceActor);
+  // Acelerado (8e.2): com reserva de tempo que cubra o Preparo, a Skill sai na hora pagando o Custo inteiro.
+  const prepByReserve = Number(mech.prepTurns) > 0 && !options.prepaid && !combined && !options.borrowedSkill && inStartedCombat(sourceActor) ? prepCoveredByReserve(sourceActor, mech.prepTurns) : 0;
+  const preparing = Number(mech.prepTurns) > 0 && !options.prepaid && !combined && inStartedCombat(sourceActor) && !prepByReserve;
   if (options.prepaid) {
     // Disparo de um Preparo (H3): o Custo já foi pago, parte por turno; só a força do investimento vale.
     paid = 0;
@@ -306,6 +315,10 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
   if (hold.resisted) {
     await creditManipulation(hold.skill);
     if (hold.extra > 0) await postAntimagicPaid(sourceActor, label, ` — Manipulação no campo: +${hold.extra} ${getEnergyLabelForActor(sourceActor)}`);
+  }
+  if (prepByReserve) {
+    await spendReserve(sourceActor, prepByReserve);
+    await noteReservePrep(sourceActor, label, prepByReserve);
   }
   if (mech.hasUpkeep) {
     // A razão investida fica guardada: o Custo por rodada é cobrado vezes ela enquanto ligada.

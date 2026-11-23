@@ -9,6 +9,7 @@
  */
 import { ATTRIBUTE_PERCENT_TARGETS } from "../economy/consumable-rules.js";
 import { sanitizeRerollFields } from "../skills/reroll-rules.js";
+import { clampTimeFactor, isTimeFactorActive } from "../combat/time-rate-rules.js";
 import {
   MEU_SISTEMA,
   getActiveTraits,
@@ -61,6 +62,7 @@ export function mechanicsGuide(catalogs = {}) {
     '  Sorte (grupo "Sorte", só Personagem): {"target":"luck","amount": % de sorte nos dados (negativo = azar; 100 = d20 de média 13,8),"luckScopes":{"attributes":true,"damage":true,"chances":true},"durationRounds": rodadas}.',
     '  Dissipar (grupo "Magia"): {"target":"dispelMagic","dispelScope":"all"|"marks"|"condition","conditionId": id de Condição (só no escopo condition)} termina efeitos MÁGICOS do alvo de nível ≤ o da Skill (sem suprimir nem desligar nada).',
     '  Mecânica "reroll" (usada no chat depois de ver uma rolagem; não é Ativa): "rerollWho": "own"|"allies"|"any", "rerollKeep": "new"|"best"|"worst" (|"choose" só em Skill Ultimate), "rerollKinds": {"attribute":bool,"initiative":bool,"damage":bool,"chances":bool}.',
+    '  Ritmo do tempo (grupo "Tempo", só Personagem; só se o bloco Manipulação do tempo estiver ligado): {"target":"timeRate","timeFactor": fator (2 = Acelerado ×2; 0.5 = Desacelerado ×½; 1 não muda nada),"durationRounds": rodadas (0 numa Habilidade Ativa = enquanto ligada)}.',
     '  Magia enfraquecida (grupo "Magia"): {"target":"magicDampen","amount": % da força que sobra (50 = metade),"chance": % de cada uso mágico do alvo ser enfraquecido,"durationRounds": rodadas}.',
     '  Terreno: {"target":"createSurface","elementId": id de elemento que deixa superfície no chão (só vale se o bloco Superfícies estiver ligado),"amount": raio em metros (0 = o do elemento),"durationRounds": rodadas (0 = as do elemento)}.',
     '  Efeitos de sentido (grupo "Sentidos", só Personagem): {"target":"senseTremor"|"senseInvisible"|"senseTrue"|"senseAll","amount": alcance em metros (0 = sem limite),"durationRounds": rodadas} — Sentido sísmico, Ver o invisível, Visão verdadeira, Sentir tudo.',
@@ -165,7 +167,7 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
     for (const e of Array.isArray(m.effects) ? m.effects.slice(0, 4) : []) {
       if (!e || !MEU_SISTEMA.EFFECT_TARGETS.includes(e.target) || String(e.target).startsWith("ship")) continue;
       const conditionId = conditions.has(e.conditionId) ? e.conditionId : "";
-      const movementOnly = ["flight", "burrow", "unarmedType", "dispelMagic"].includes(e.target);
+      const movementOnly = ["flight", "burrow", "unarmedType", "dispelMagic", "timeRate"].includes(e.target);
       const surfaceEntry = e.target === "createSurface";
       const senseOnly = String(e.target).startsWith("sense");
       // Empurrar/Puxar: metros, sempre positivos (a direção é o campo pushDirection).
@@ -198,6 +200,11 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
         entry.luckScopes = Object.values(picked).some(Boolean) ? picked : { attributes: true, damage: true, chances: true };
       }
       if (e.target === "magicDampen") entry.chance = clampInt(e.chance, 0, 100, 100);
+      // Ritmo do tempo (8e): o fator, nos limites; 1 não muda nada e o efeito cai.
+      if (e.target === "timeRate") {
+        entry.timeFactor = clampTimeFactor(e.timeFactor);
+        if (!isTimeFactorActive(entry.timeFactor)) continue;
+      }
       // Dissipar (8d.2): o que termina; uma Condição que não existe aqui derruba o efeito.
       if (e.target === "dispelMagic") {
         entry.dispelScope = ["all", "marks", "condition"].includes(e.dispelScope) ? e.dispelScope : "all";

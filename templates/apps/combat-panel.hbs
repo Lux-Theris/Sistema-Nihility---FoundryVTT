@@ -3,7 +3,7 @@
     {{#if hasCombat}}
     <p class="cp-head">Rodada {{round}}{{#if turnName}} · vez de <b>{{turnName}}</b>{{/if}}{{#if clockEnabled}} <button type="button" data-action="openClock" title="Relógio do mundo"><i class="fa-solid fa-clock"></i> Relógio</button>{{/if}}</p>
     <table class="cp-table">
-      <thead><tr><th>Init.</th><th>Quem</th><th>Vida</th><th>Escudo</th><th>Mana</th><th>Condições</th><th>Skills Ativas</th><th>Desloc.</th><th></th></tr></thead>
+      <thead><tr><th>Init.</th><th>Quem</th><th>Vida</th><th>Escudo</th><th>Mana</th><th>Condições</th><th>Skills Ativas</th><th>Tempo</th><th>Desloc.</th><th></th></tr></thead>
       <tbody>
         {{#each rows as |r|}}
         <tr class="{{#if r.isTurn}}turn{{/if}} {{#if r.defeated}}defeated{{/if}} {{#if r.fallen}}down{{/if}}" data-action="focusToken" data-token-id="{{r.tokenId}}" data-scene-id="{{r.sceneId}}">
@@ -22,6 +22,7 @@
           <td>{{#if r.energyText}}<span class="cp-bar mp"><i style="width: {{r.energyPercent}}%;"></i></span><span class="cp-n">{{r.energyText}}</span>{{else}}<span class="cp-dim">—</span>{{/if}}</td>
           <td class="cp-effects">{{#each r.effects as |e|}}<span class="cp-ic" title="{{e.name}}"><img src="{{e.img}}" alt="">{{#if e.badge}}<b class="{{e.tone}}">{{e.badge}}</b>{{/if}}</span>{{else}}<span class="cp-dim">—</span>{{/each}}</td>
           <td class="cp-act">{{#each r.actives as |a|}}<div>{{a.label}} {{#if a.prep}}<em>({{a.prep}})</em>{{else}}<em>−{{a.cost}}/rod.</em>{{/if}}</div>{{else}}<span class="cp-dim">—</span>{{/each}}</td>
+          <td class="cp-time">{{#if r.time}}<span class="cp-time-pill {{#if r.time.fast}}fast{{else}}slow{{/if}}" title="{{r.time.title}}">{{r.time.pill}}</span>{{#if r.time.fast}} <span class="cp-n">{{#if r.time.reserve}}{{r.time.reserve}}{{else}}fora do turno{{/if}}</span>{{#if r.time.reserve}} <button type="button" data-action="spendReserve" data-actor-uuid="{{r.actorUuid}}" data-amount="1" title="Gastou 1 de tempo">−1</button> <button type="button" data-action="spendReserve" data-actor-uuid="{{r.actorUuid}}" data-amount="0" title="Gastou X de tempo nas outras ações">−X…</button>{{/if}}{{else}} <span class="cp-dim">{{r.time.slow}}</span>{{/if}}{{else}}<span class="cp-dim">—</span>{{/if}}</td>
           <td class="cp-n">{{#if r.movement}}{{r.movement}}{{else}}—{{/if}}</td>
           <td><button type="button" data-action="openEffects" data-actor-uuid="{{r.actorUuid}}">Efeitos</button></td>
         </tr>

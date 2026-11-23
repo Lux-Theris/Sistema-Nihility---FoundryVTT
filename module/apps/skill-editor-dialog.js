@@ -39,6 +39,7 @@ import { getCompendiumForItemType } from "../core/compendium.js";
 import { isWeaponMasteryEnabled, weaponTypeChoices } from "../combat/weapon-mastery.js";
 import { REROLL_WHO, REROLL_WHO_LABELS, REROLL_KEEP, REROLL_KEEP_LABELS, REROLL_KIND_KEYS, REROLL_KIND_LABELS, normalizeRerollKinds, rerollKeepOptions } from "../skills/reroll-rules.js";
 import { DISPEL_SCOPES, DISPEL_SCOPE_LABELS } from "../core/magic-rules.js";
+import { clampTimeFactor } from "../combat/time-rate-rules.js";
 import { skillAssist, warningsBoxHtml, costChipHtml, templateGroups, templateFillSentence, skillFromTemplate } from "../skills/skill-assist.js";
 
 const { DialogV2 } = foundry.applications.api;
@@ -99,8 +100,9 @@ function buildEffectRowHtml(entry) {
       <select class="se-effect-target">${options}</select>
       <select class="se-effect-element-id" title="Elemento (das armas, ou que o alvo passa a ser)" style="display:${["weaponElement", "bodyElement", "createSurface"].includes(entry.target) ? "inline-block" : "none"};">${elementIdOptions}</select>
       <select class="se-effect-weapon-type" title="O ataque desarmado passa a contar como este tipo de arma (Maestria, XP e aprendizado)" style="display:${entry.target === "unarmedType" ? "inline-block" : "none"};">${weaponTypeIdOptions}</select>
-      <input type="number" class="se-effect-amount" value="${entry.amount}" placeholder="${entry.target === "push" ? "Metros" : entry.target === "createSurface" ? "Raio m (0 = o do elemento)" : String(entry.target).startsWith("sense") ? "Alcance m (0 = sem limite)" : "Qtd."}" style="display:${["antimagic", "emp", "mark", "dispelMagic", "flight", "burrow", "unarmedType"].includes(entry.target) ? "none" : ""};"/>
+      <input type="number" class="se-effect-amount" value="${entry.amount}" placeholder="${entry.target === "push" ? "Metros" : entry.target === "createSurface" ? "Raio m (0 = o do elemento)" : String(entry.target).startsWith("sense") ? "Alcance m (0 = sem limite)" : "Qtd."}" style="display:${["antimagic", "emp", "mark", "dispelMagic", "flight", "burrow", "unarmedType", "timeRate"].includes(entry.target) ? "none" : ""};"/>
       <select class="se-effect-amount-mode" title="Pontos, ou % do máximo do alvo (Vida, Mana, Escudo) / % do total do atributo (−100% tira o total inteiro)" style="display:${PERCENT_AMOUNT_TARGETS.includes(entry.target) ? "inline-block" : "none"};"><option value="flat" ${entry.amountMode === "percentMax" ? "" : "selected"}>pts</option><option value="percentMax" ${entry.amountMode === "percentMax" ? "selected" : ""}>${ATTRIBUTE_PERCENT_TARGETS.includes(entry.target) ? "% total" : "% máx."}</option></select>
+      <input type="number" class="se-effect-time-factor" value="${Number(entry.timeFactor ?? 2)}" min="0.01" max="1000" step="0.1" title="Ritmo do tempo: o fator. 3 = Acelerado ×3 (3 de tempo por turno); 0,5 = Desacelerado ×½. Mana investida aumenta o fator. Alvo de nível maior que a Skill sente menos." style="width:4.5em;display:${entry.target === "timeRate" ? "inline-block" : "none"};"/>
       <input type="number" class="se-effect-chance" value="${Number(entry.chance ?? 100)}" min="0" max="100" title="Magia enfraquecida: chance (%) de cada uso mágico do alvo sair com a força indicada em Qtd. (% da força que sobra)" style="width:4.5em;display:${entry.target === "magicDampen" ? "inline-block" : "none"};"/>
       <span class="se-effect-luck" title="Sorte: Qtd. = % de sorte (negativo = azar). Marque onde vale." style="display:${entry.target === "luck" ? "inline-flex" : "none"};gap:.4em;">${["attributes", "Atributos", "damage", "Dano", "chances", "Chances"].reduce((acc, v, i, a) => (i % 2 ? acc : acc + `<label class="checkbox-line small"><input type="checkbox" class="se-effect-luck-scope" data-scope="${v}" ${entry.luckScopes?.[v] ? "checked" : ""}/> ${a[i + 1]}</label>`), "")}</span>
       <select class="se-effect-dispel-scope" title="Dissipar: o que termina (só efeitos mágicos do alvo de nível até o desta Skill). Em &quot;só uma Condição&quot;, escolha a Condição abaixo." style="display:${entry.target === "dispelMagic" ? "inline-block" : "none"};">${DISPEL_SCOPES.map(sc => `<option value="${sc}" ${sc === (entry.dispelScope || "all") ? "selected" : ""}>${escapeHtml(DISPEL_SCOPE_LABELS[sc])}</option>`).join("")}</select>
@@ -890,7 +892,7 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
     targetSelect.addEventListener("change", applyPeriodicVisibility);
     // Antimagia não tem quantidade: a força é o nível da Skill; a duração é a da supressão.
     targetSelect.addEventListener("change", () => {
-      li.querySelector(".se-effect-amount").style.display = ["antimagic", "emp", "mark", "dispelMagic", "flight", "burrow", "unarmedType"].includes(targetSelect.value) ? "none" : "";
+      li.querySelector(".se-effect-amount").style.display = ["antimagic", "emp", "mark", "dispelMagic", "flight", "burrow", "unarmedType", "timeRate"].includes(targetSelect.value) ? "none" : "";
     });
     targetSelect.addEventListener("change", () => {
       const luckBox = li.querySelector(".se-effect-luck");
@@ -900,6 +902,9 @@ function setupSkillEditorInteractivity(root, data, { lockTier = null, actor = nu
     });
     targetSelect.addEventListener("change", () => {
       li.querySelector(".se-effect-dispel-scope").style.display = targetSelect.value === "dispelMagic" ? "inline-block" : "none";
+    });
+    targetSelect.addEventListener("change", () => {
+      li.querySelector(".se-effect-time-factor").style.display = targetSelect.value === "timeRate" ? "inline-block" : "none";
     });
     targetSelect.addEventListener("change", () => {
       li.querySelector(".se-effect-chance").style.display = targetSelect.value === "magicDampen" ? "inline-block" : "none";
@@ -1194,6 +1199,7 @@ function readSkillEditorForm(root, lockTier) {
             pushDirection: row.querySelector(".se-effect-push-direction")?.value || "push",
             dispelScope: row.querySelector(".se-effect-target").value === "dispelMagic" ? row.querySelector(".se-effect-dispel-scope")?.value || "all" : "all",
             luckScopes: Object.fromEntries(["attributes", "damage", "chances"].map(scope => [scope, Boolean(row.querySelector(`.se-effect-luck-scope[data-scope="${scope}"]`)?.checked)])),
+            timeFactor: row.querySelector(".se-effect-target").value === "timeRate" ? clampTimeFactor(row.querySelector(".se-effect-time-factor")?.value) : 2,
             chance: row.querySelector(".se-effect-target").value === "magicDampen" ? Math.min(100, Math.max(0, Number(row.querySelector(".se-effect-chance")?.value))) || (row.querySelector(".se-effect-chance")?.value === "0" ? 0 : 100) : 100,
             immuneTraits: row.querySelector(".se-effect-target").value === "push" ? readPickerField(row.querySelector(".se-effect-immune-traits")) : [],
             shieldRegen: row.querySelector(".se-effect-target").value === "shield" ? Math.max(0, Number(row.querySelector(".se-effect-shield-regen")?.value) || 0) : 0,

@@ -130,6 +130,11 @@ export function isWorldClockEnabled() {
   return isFeatureEnabled("worldClock");
 }
 
+/** Manipulação do tempo (8e): o efeito "Ritmo do tempo" (Acelerar/Desacelerar) e o grupo Tempo do editor. */
+export function isTimeManipulationEnabled() {
+  return isFeatureEnabled("timeManipulation");
+}
+
 /** Calendário, linhas do tempo e tempo pessoal (J9b). Desligado: o tempo pessoal é o do mundo. */
 export function isCalendarEnabled() {
   return isFeatureEnabled("calendar");

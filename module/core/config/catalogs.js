@@ -860,6 +860,7 @@ export function getEffectTargetGroups(current) {
       .filter(t => t !== "unarmedType" || mastery || t === current)
       .filter(t => t !== "push" || push || t === current)
       .filter(t => t !== "luck" || isFeatureEnabled("luck") || t === current)
+      .filter(t => t !== "timeRate" || isFeatureEnabled("timeManipulation") || t === current)
       .filter(t => t !== "createSurface" || surfaces || t === current)
       .filter(t => !["flight", "burrow"].includes(t) || elevation || t === current)
       .filter(t => !t.startsWith("sense") || senses || t === current)

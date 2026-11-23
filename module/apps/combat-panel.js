@@ -10,6 +10,8 @@ import { badgeFor } from "../combat/effect-badges.js";
 import { preparationsOf } from "../skills/preparation.js";
 import { collectActiveUpkeepSources } from "../skills/upkeep.js";
 import { NPC_TIER_LABELS } from "../npc/npc-generator-rules.js";
+import { actorTimeFactor, reserveOf, adjustReserve } from "../combat/time-rate.js";
+import { timeStateLabel, reserveText, isTimeFactorActive, describeTimeFactor } from "../combat/time-rate-rules.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -26,7 +28,8 @@ export class CombatPanelApp extends HandlebarsApplicationMixin(ApplicationV2) {
       openSheet: CombatPanelApp.#onOpenSheet,
       focusToken: CombatPanelApp.#onFocusToken,
       openEffects: CombatPanelApp.#onOpenEffects,
-      openClock: CombatPanelApp.#onOpenClock
+      openClock: CombatPanelApp.#onOpenClock,
+      spendReserve: CombatPanelApp.#onSpendReserve
     }
   };
 
@@ -70,7 +73,20 @@ export class CombatPanelApp extends HandlebarsApplicationMixin(ApplicationV2) {
       const total = Number(sys.movement?.total) || 0;
       const used = Number(c.getFlag(SYSTEM_ID, "movementUsed")) || 0;
       const dash = Boolean(c.getFlag(SYSTEM_ID, "movementDash"));
+      // Ritmo do tempo (8e.2): Acelerado mostra a reserva e os botões −1/−X; Desacelerado, o que anda à metade.
+      const timeFactor = actor && !ship ? actorTimeFactor(actor) : 1;
+      const timeReserve = timeFactor > 1 ? reserveOf(actor) : null;
+      const time = isTimeFactorActive(timeFactor)
+        ? {
+            pill: describeTimeFactor(timeFactor),
+            title: timeStateLabel(timeFactor),
+            fast: timeFactor > 1,
+            reserve: timeReserve ? reserveText(timeReserve.value, timeReserve.max) : "",
+            slow: timeFactor < 1 ? "Recarga, Preparo e números por turno andam em parte dos turnos" : ""
+          }
+        : null;
       return {
+        time,
         id: c.id,
         actorUuid: actor?.uuid ?? "",
         tokenId: c.tokenId,
@@ -140,6 +156,24 @@ export class CombatPanelApp extends HandlebarsApplicationMixin(ApplicationV2) {
     event.stopPropagation();
     const { openWorldClock } = await import("./world-clock-app.js");
     openWorldClock();
+  }
+
+  /** −1 / −X na reserva de tempo (só o Mestre). */
+  static async #onSpendReserve(event, target) {
+    event.stopPropagation();
+    const actor = await fromUuid(target.dataset.actorUuid);
+    if (!actor) return;
+    let amount = Number(target.dataset.amount) || 0;
+    if (!amount) {
+      const answer = await foundry.applications.api.DialogV2.prompt({
+        window: { title: `Gastar tempo de ${actor.name}` },
+        content: `<div class="nihility-config-app"><p>Quanto da reserva de tempo ele gastou nas outras ações?</p><input type="number" name="amount" min="1" value="2" autofocus/></div>`,
+        ok: { label: "Gastar", callback: (ev, button) => Number(button.form.elements.amount.value) || 0 },
+        rejectClose: false
+      });
+      amount = Number(answer) || 0;
+    }
+    if (amount > 0) await adjustReserve(actor, amount);
   }
 
   static async #onOpenEffects(event, target) {

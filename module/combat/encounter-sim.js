@@ -28,6 +28,14 @@ import { unitHp, cadenceFactor } from "./encounter-rules.js";
 import { weaponMasteryHit, strikeMasteryBonus, unarmedWeaponItem } from "./weapon-mastery.js";
 import { resolveWeaponStrike, masteryFactor, formatMasteryPercent } from "./weapon-mastery-rules.js";
 import { isCombinedSkill, combinedPartMech } from "../skills/combined-rules.js";
+import { actorTimeFactor } from "./time-rate.js";
+import { scaledCadence } from "./time-rate-rules.js";
+
+/** Usos que cabem na Mana, divididos pelo fator de quem está Acelerado (0 continua 0). */
+function usesForTime(uses, factor) {
+  if (!(uses > 0)) return uses;
+  return Math.max(1, Math.floor(uses / Math.max(1, Number(factor) || 1)));
+}
 
 /** Alvos que um ataque em área acerta, por padrão (o canvas: "até 3"). */
 export const DEFAULT_AREA_TARGETS = 3;
@@ -196,6 +204,8 @@ export function unitFor(actor, { key, count = 1, tier = null, npc = false } = {}
     hpBase: hpBaseOf(actor),
     shield: Math.max(0, Number(actor.system?.attributes?.shield?.value) || 0),
     energyMax: Math.max(0, Number(actor.system?.attributes?.energy?.max) || 0),
+    // Ritmo do tempo (8e): quem está Acelerado age ×N por rodada (Desacelerado, ÷N): a cadência vezes o fator.
+    timeFactor: actorTimeFactor(actor),
     options: attackOptions(actor)
   };
 }
@@ -221,7 +231,7 @@ export function buildSides({ allies, foes }, { choices = {}, areaTargets = {} } 
         const total = enemies.reduce((sum, e) => sum + hit(unit, option, e).damage * (e.count ?? 1), 0);
         const count = enemies.reduce((sum, e) => sum + (e.count ?? 1), 0) || 1;
         // Recarga/Preparo: o golpe cai só em parte das rodadas (cadenceFactor).
-        return (total / count) * Math.min(targets(option), count) * cadenceFactor({ cooldown: option.mech.cooldown, prep: option.mech.prepTurns });
+        return scaledCadence((total / count) * Math.min(targets(option), count) * cadenceFactor({ cooldown: option.mech.cooldown, prep: option.mech.prepTurns }), unit.timeFactor ?? 1);
       };
       const ranked = [...unit.options].sort((a, b) => perRound(b) - perRound(a));
       const chosen = unit.options.find(o => o.id === choices[unit.key]) ?? ranked[0] ?? null;
@@ -232,10 +242,11 @@ export function buildSides({ allies, foes }, { choices = {}, areaTargets = {} } 
               id: option.id,
               label: option.label,
               targets: targets(option),
-              uses: option.cost > 0 ? Math.floor(unit.energyMax / option.cost) : Infinity,
+              // Acelerado gasta ×N a Mana por rodada: os usos que cabem rendem menos rodadas (÷N).
+              uses: option.cost > 0 ? usesForTime(Math.floor(unit.energyMax / option.cost), unit.timeFactor) : Infinity,
               cooldown: Math.max(0, Number(option.mech.cooldown) || 0),
               prep: Math.max(0, Number(option.mech.prepTurns) || 0),
-              perTarget: Object.fromEntries(enemies.map(e => [e.key, hit(unit, option, e).damage]))
+              perTarget: Object.fromEntries(enemies.map(e => [e.key, scaledCadence(hit(unit, option, e).damage, unit.timeFactor ?? 1)]))
             }
           : null;
       const attack = toAttack(chosen);

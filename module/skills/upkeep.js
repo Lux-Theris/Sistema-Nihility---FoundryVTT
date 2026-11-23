@@ -287,22 +287,34 @@ async function deactivateUpkeepSource(source) {
  * quando não sobra pra todas. A Energia nunca fica negativa: se não cobrir o Custo por Rodada
  * inteiro, drena só o que tem (até 0) e desativa a Skill sozinha.
  */
-async function drainCharacterUpkeep(actor, sources) {
+async function drainCharacterUpkeep(actor, sources, steps = 1) {
+  // Acelerado (8e.2): `steps` turnos de custo, simulados em memória (as Ativas disputam o mesmo pool, na ordem
+  // da ficha, volta a volta) e gravados uma vez; quem não é coberto desliga ali e para de pagar.
+  let energy = currentEnergyValue(actor);
+  const start = energy;
+  const drained = new Map(sources.map(source => [source, 0]));
+  const dropped = new Set();
+  for (let turn = 0; turn < Math.max(1, steps); turn++) {
+    let paying = 0;
+    for (const source of sources) {
+      if (dropped.has(source)) continue;
+      if (energy <= 0) {
+        dropped.add(source);
+        continue;
+      }
+      paying++;
+      const drain = Math.min(source.upkeepCost, energy);
+      energy -= drain;
+      drained.set(source, drained.get(source) + drain);
+      if (drain < source.upkeepCost) dropped.add(source);
+    }
+    if (!paying) break;
+  }
+  if (energy !== start) await actor.update({ [energyValuePath(actor)]: energy });
   const results = [];
   for (const source of sources) {
-    const currentEnergy = currentEnergyValue(actor);
-    if (currentEnergy <= 0) {
-      await deactivateUpkeepSource(source);
-      results.push({ label: source.label, drained: 0, deactivated: true });
-      continue;
-    }
-
-    const drain = Math.min(source.upkeepCost, currentEnergy);
-    await actor.update({ [energyValuePath(actor)]: currentEnergy - drain });
-
-    const insufficient = drain < source.upkeepCost;
-    if (insufficient) await deactivateUpkeepSource(source);
-    results.push({ label: source.label, drained: drain, deactivated: insufficient });
+    if (dropped.has(source)) await deactivateUpkeepSource(source);
+    results.push({ label: source.label, drained: drained.get(source), deactivated: dropped.has(source) });
   }
   return results;
 }
@@ -343,7 +355,9 @@ async function enforceShipUpkeepCapacity(actor, sources) {
  * meta-informação de recurso, não algo pra narrar na mesa).
  * @param {Actor} actor
  */
-export async function tickActorUpkeepSkills(actor) {
+export async function tickActorUpkeepSkills(actor, { steps = 1, notes = null } = {}) {
+  // Desacelerado: num turno em que o tempo dele não anda, a manutenção não é cobrada.
+  if (steps <= 0) return [];
   let sources = collectActiveUpkeepSources(actor);
   if (!sources.length) return [];
 
@@ -408,7 +422,7 @@ export async function tickActorUpkeepSkills(actor) {
       if (!sources.length) return [];
     }
   }
-  const results = shipLike ? await enforceShipUpkeepCapacity(actor, sources) : await drainCharacterUpkeep(actor, sources);
+  const results = shipLike ? await enforceShipUpkeepCapacity(actor, sources) : await drainCharacterUpkeep(actor, sources, steps);
   // Depois do dreno: Skill que caiu por falta de Mana já tirou os Escudos dela, e não regenera.
   await regenerateSustainedShields(actor);
   await regenerateSustainedStructures(actor);
@@ -417,7 +431,8 @@ export async function tickActorUpkeepSkills(actor) {
   // Nave não "perde" a energia do upkeep — ela fica reservada enquanto a Skill estiver ligada
   // (e volta sozinha ao desligar), então o verbo no chat é outro.
   const rows = results.map(r => {
-    const amount = shipLike ? `${r.drained} ${energyLabel} reservado(s) do Reator` : `-${r.drained} ${energyLabel}`;
+    const amount = shipLike ? `${r.drained} ${energyLabel} reservado(s) do Reator` : `-${r.drained} ${energyLabel}${steps > 1 ? ` em ${steps} turnos` : ""}`;
+    if (notes && !shipLike && r.drained) notes.push({ label: r.label, text: `−${r.drained} ${getEnergyLabelForActor(actor)}${r.deactivated ? " · desligou" : ""}` });
     const reason = shipLike ? "Reator não sustenta" : `${energyLabel} insuficiente`;
     return `<li><strong>${escapeHtml(r.label)}</strong>: ${amount}${r.deactivated ? ` (desativada — ${reason})` : ""}</li>`;
   });

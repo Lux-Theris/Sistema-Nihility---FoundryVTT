@@ -19,7 +19,7 @@ export const PERIODIC_TARGETS = ["hp", "energy", "shipCasco", "shipHull"];
 const INSTANT_TARGETS = ["heal", "restoreEnergy", "shield", "antimagic", "emp", "mark", "dispelMagic", "push", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"];
 
 /** Alvos em que o valor não importa (liga/desliga, troca de elemento, Antimagia pelo nível). */
-const VALUELESS_TARGETS = ["weaponElement", "bodyElement", "weaponMagic", "weaponAbsolute", "unarmedType", "antimagic", "emp", "mark", "dispelMagic", "magicDampen", "luck", "flight", "burrow", "createSurface", "senseTremor", "senseInvisible", "senseTrue", "senseAll"];
+const VALUELESS_TARGETS = ["weaponElement", "bodyElement", "weaponMagic", "weaponAbsolute", "unarmedType", "antimagic", "emp", "mark", "dispelMagic", "magicDampen", "luck", "timeRate", "flight", "burrow", "createSurface", "senseTremor", "senseInvisible", "senseTrue", "senseAll"];
 
 const groupTargets = actor => new Set(MEU_SISTEMA.EFFECT_TARGET_GROUPS.filter(g => g.actor === actor).flatMap(g => g.targets));
 
@@ -105,6 +105,12 @@ export function lintSkill(mech, ctx = {}) {
     if (e?.target === "luck") {
       if (!Object.values(e.luckScopes ?? {}).some(Boolean)) push("luckNoScope", "hard", "mechanic", "Sorte sem nenhum escopo marcado (atributos, dano, chances): não faz nada.", i);
       else if (!(Number(e.amount) || 0)) push("luckZero", "hard", "mechanic", "Sorte de 0%: não faz nada.", i);
+    }
+    if (e?.target === "timeRate") {
+      const factor = Number(e.timeFactor ?? 2);
+      if (!(Math.abs(factor - 1) > 1e-6)) push("timeRateOne", "hard", "mechanic", "Ritmo do tempo com fator 1: não muda nada.", i);
+      else if (!active && !(Number(e.durationRounds) > 0)) push("timeRateForever", "soft", "mechanic", "Ritmo do tempo sem duração numa Skill que não é Ativa: fica no alvo para sempre (até alguém tirar). Era isso?", i);
+      if (m.targetType === "self" && ctx.actorType === "ship") push("timeRateShip", "hard", "mechanic", "Ritmo do tempo numa Nave: o tempo é de quem vive, o efeito não se aplica.", i);
     }
     if (e?.target === "magicDampen" && Number(e.chance ?? 100) <= 0) push("magicDampenNever", "hard", "mechanic", "Magia enfraquecida com chance 0%: nunca pega.", i);
   });

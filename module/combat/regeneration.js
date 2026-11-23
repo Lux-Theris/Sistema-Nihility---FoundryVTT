@@ -54,9 +54,12 @@ export function collectRegenSources(actor) {
   return sources;
 }
 
-/** Início do turno (Mestre): aplica a regeneração por rodada e posta uma linha no chat. */
-export async function tickRegeneration(actor) {
-  if (actor?.type !== "character") return null;
+/**
+ * Início do turno (Mestre): aplica a regeneração por rodada e posta uma linha no chat. Acelerado (8e.2): `steps`
+ * turnos de uma vez (o ganho de cada um é o mesmo e o teto trava no máximo); 0 = o tempo dele não andou.
+ */
+export async function tickRegeneration(actor, { steps = 1, notes = null } = {}) {
+  if (actor?.type !== "character" || steps <= 0) return null;
   // Morto não regenera nada; Caído/Inconsciente não regenera Mana (manter a Mana é ação), mas o
   // corpo segue curando a Vida — é o que pode tirá-lo do 0 (ver incapacitation.js).
   const { isDead, isIncapacitated } = await import("./incapacitation.js");
@@ -71,10 +74,11 @@ export async function tickRegeneration(actor) {
 
   const energy = actor.system.attributes.energy;
   if (total.energy > 0 && isEnergyPoolEnabled() && energy.value < energy.max) {
-    const next = Math.min(energy.max, energy.value + regenAmount(energy.max, total.energy));
+    const next = Math.min(energy.max, energy.value + regenAmount(energy.max, total.energy) * steps);
     if (next > energy.value) {
       update["system.attributes.energy.value"] = next;
-      parts.push(`+${next - energy.value} ${getCharacterEnergyLabel()} (${Math.round(total.energy * 10) / 10}%)`);
+      parts.push(`+${next - energy.value} ${getCharacterEnergyLabel()} (${Math.round(total.energy * 10) / 10}%${steps > 1 ? ` × ${steps} turnos` : ""})`);
+      notes?.push({ label: "Regeneração", text: `+${next - energy.value} ${getCharacterEnergyLabel()}` });
     }
   }
   if (Object.keys(update).length) await actor.update(update);
@@ -85,7 +89,7 @@ export async function tickRegeneration(actor) {
     if (hp.value >= hp.max) break;
     const plan = healPlan(actor, { kind: heal.kind, level: heal.level });
     const ceiling = Math.max(hp.value, Math.floor(hp.max * plan.cap + 1e-9));
-    const gain = Math.floor(regenAmount(hp.max, heal.percent) * plan.bodyFactor);
+    const gain = Math.floor(regenAmount(hp.max, heal.percent) * plan.bodyFactor) * steps;
     const next = Math.min(ceiling, hp.value + gain);
     if (next <= hp.value) {
       if (plan.bodyFactor < 1) parts.push(`${heal.kind === "regeneracao" ? "Regeneração" : "Cura"} bloqueada`);
@@ -94,6 +98,7 @@ export async function tickRegeneration(actor) {
     await actor.update({ "system.attributes.hp.value": next });
     const note = await healBodyParts(actor, next - hp.value, { kind: heal.kind, level: heal.level });
     parts.push(`+${next - hp.value} Vida${note ? ` (${note})` : ""}`);
+    notes?.push({ label: "Regeneração", text: `+${next - hp.value} Vida${next >= hp.max ? " · Vida cheia" : ""}` });
   }
 
   if (!parts.length) return null;

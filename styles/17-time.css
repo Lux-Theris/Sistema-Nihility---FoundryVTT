@@ -90,3 +90,20 @@
 
 .nihility-sheet .age-pill { display: inline-flex; align-items: center; padding: 2px 9px; border: 1px solid var(--nihility-border-soft); border-radius: 999px; background: var(--nihility-bg-panel-alt); color: var(--nihility-text-dim); font-size: 12px; }
 .nihility-sheet .age-start input[type=number] { width: 64px; }
+
+/* Manipulação do tempo (8e): pílula na ficha, aviso do turno e painel do combate. */
+.nihility-sheet .time-pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border: 1px solid var(--nihility-accent); border-radius: 999px; background: var(--nihility-bg-dark); color: var(--nihility-accent); font-size: 12px; }
+.nihility-sheet .time-pill.slow { border-color: var(--nihility-gold); color: var(--nihility-gold); }
+.nihility-sheet .time-pill .time-bar { display: inline-block; width: 56px; height: 6px; border-radius: 3px; background: var(--nihility-bg-panel-alt); overflow: hidden; }
+.nihility-sheet .time-pill .time-bar i { display: block; height: 100%; background: var(--nihility-accent); }
+.nihility-sheet .time-pill .time-num { font-family: var(--nihility-font-data); color: var(--nihility-text); }
+.nihility-time-notice { padding: 8px 10px; border: 1px solid var(--nihility-gold); border-radius: 8px; background: var(--nihility-bg-panel); color: var(--nihility-text); }
+.nihility-time-notice strong { color: var(--nihility-gold); }
+.nihility-time-notice p { margin: 4px 0; color: var(--nihility-text); }
+.nihility-time-notice .hint { color: var(--nihility-text-dim); font-size: 12px; }
+.nihility-time-notice table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.nihility-time-notice td { padding: 3px 6px; border-bottom: 1px solid var(--nihility-border-soft); color: var(--nihility-text); }
+.nihility-time-notice td.mono { font-family: var(--nihility-font-data); text-align: right; }
+.nihility-combat-panel .cp-time-pill { display: inline-block; padding: 1px 8px; border: 1px solid var(--nihility-accent); border-radius: 999px; color: var(--nihility-accent); font-size: 12px; }
+.nihility-combat-panel .cp-time-pill.slow { border-color: var(--nihility-gold); color: var(--nihility-gold); }
+.nihility-combat-panel .cp-time button { height: auto; min-height: 0; line-height: normal; padding: 1px 7px; font-size: 11px; }

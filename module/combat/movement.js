@@ -27,6 +27,8 @@ import { SYSTEM_ID, isMovementEnabled, isShipManeuverEnabled, getMovementConfig,
 import { isDesignatedGm, runAsGm } from "../helpers/gm-relay.js";
 import { relayFailureMessage } from "../helpers/gm-relay-rules.js";
 import { movementSpentText, shouldNotifyAgain } from "./forced-movement-rules.js";
+import { actorTimeFactor } from "./time-rate.js";
+import { scaledMovement } from "./time-rate-rules.js";
 
 const USED_FLAG = "movementUsed";
 /** Correr: dobra o deslocamento do turno. Zera junto com o gasto. */
@@ -59,7 +61,8 @@ function limitEnabledFor(actor) {
 function baseAllowance(tokenDocument) {
   const system = tokenDocument.actor?.system;
   if (isShipLike(tokenDocument.actor)) return system.movementCells * (tokenDocument.parent?.grid?.distance ?? 1);
-  return system?.movement?.total;
+  // Acelerado anda ×N (Desacelerado ÷N): o tempo dele (8e.2).
+  return scaledMovement(system?.movement?.total, actorTimeFactor(tokenDocument.actor));
 }
 
 /**

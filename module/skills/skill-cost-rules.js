@@ -17,6 +17,7 @@
  */
 import { luckMean } from "../combat/luck-rules.js";
 import { isSenseTarget } from "../combat/senses-rules.js";
+import { clampTimeFactor } from "../combat/time-rate-rules.js";
 import { hasOnlyIf, ONLY_IF_COST_FACTOR } from "./only-if-rules.js";
 
 /** Pesos da conta. Ficam aqui (e não em settings) para a conta ser legível linha a linha. */
@@ -36,6 +37,8 @@ export const COST_WEIGHTS = {
   antimagic: 8,
   pushPerMeter: 0.8,
   movementMode: 5,
+  /** Ritmo do tempo (8e): o piso do efeito; cresce com a distância do fator até 1 (em potências de 2) e com a duração. */
+  timeFlat: 4,
   // Sentido (J4b): valor fixo por sentido (+ um pouco pela duração); o alcance em metros não pesa.
   senseFlat: 3,
   // Sorte (8d.1): pontos por (% de sorte × escopo × rodada).
@@ -157,6 +160,11 @@ export function suggestSkillCost(mech, ctx = {}) {
         const rounds = active ? w.activeTicks : Math.max(1, Math.min(w.maxRounds, Number(e?.durationRounds) || w.foreverRounds));
         p = w.senseFlat + rounds * 0.25;
         text = `${name} por ${active ? "rodada ativa" : `${rounds} rodada(s)`}`;
+      } else if (target === "timeRate") {
+        const factor = clampTimeFactor(e?.timeFactor);
+        const rounds = active ? w.activeTicks : Math.max(1, Math.min(w.maxRounds, Number(e?.durationRounds) || w.foreverRounds));
+        p = w.timeFlat * (1 + Math.abs(Math.log2(factor))) + rounds * 0.5;
+        text = `Ritmo do tempo ×${String(Math.round(factor * 100) / 100).replace(".", ",")} por ${active ? "rodada ativa" : `${rounds} rodada(s)`}`;
       } else if (target === "flight" || target === "burrow") {
         const rounds = active ? w.activeTicks : Math.max(1, Math.min(w.maxRounds, Number(e?.durationRounds) || w.foreverRounds));
         p = w.movementMode + rounds * 0.5;

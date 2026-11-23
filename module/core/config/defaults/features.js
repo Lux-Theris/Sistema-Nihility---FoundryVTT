@@ -359,6 +359,12 @@ export const FEATURES = {
     hint: "O Relógio do mundo ganha um calendário editável (meses, semana, eras, data estelar) e linhas do tempo: cada cena escolhe a sua (a porta para 500 anos atrás, uma nave em dobra). O personagem tem tempo pessoal e o PAD mostra a data que ELE acha que é, com \"Atualizar\" aprovado pelo Mestre. Desligar volta ao relógio simples (o tempo pessoal é o do mundo); nada salvo se perde.",
     default: true
   },
+  timeManipulation: {
+    setting: "timeManipulationEnabled",
+    name: "Manipulação do tempo (Acelerar e Desacelerar)",
+    hint: "Habilita o grupo de efeito \"Tempo\" no editor de Skill, com o efeito \"Ritmo do tempo\": Acelerar (fator maior que 1) e Desacelerar (menor que 1), em si, num alvo ou em área. Em combate, quem está Acelerado ×N tem uma reserva de N de tempo por turno (números por turno, como Veneno e regeneração, passam até N vezes de uma vez; Recarga e Preparo são pagos pela reserva) e anda N vezes o Deslocamento; fora de combate o tempo pessoal anda ×N. Alvo de nível maior que a Skill sofre menos o efeito. Desligar só esconde o grupo e deixa de aplicar efeitos novos; o que já está salvo ou ativo não é apagado.",
+    default: true
+  },
   skillUndo: {
     setting: "skillUndoEnabled",
     name: "Desfazer uso de Skill",
@@ -547,6 +553,7 @@ const FEATURE_LAYOUT = {
   reroll: ["combat", "Skill Rerrolar: refaz uma rolagem do chat (atributo, iniciativa, dano, d100)."],
   worldClock: ["world", "Relógio do mundo: dia/noite, escuro e o Descanso que passa o tempo."],
   calendar: ["world", "Calendário e linhas do tempo: época por cena, tempo pessoal e a data do PAD."],
+  timeManipulation: ["combat", "Skills que aceleram ou desaceleram o tempo de alguém (Ritmo do tempo)."],
   vessels: ["world", "Naves e Veículos com Módulos, Grid de Energia e tripulação."],
   shipManeuver: ["world", "Naves se movem por casas e esquivam pela Rotação.", true],
   pad: ["world", "O \"celular\" do personagem: Nave, Biblioteca e Mensagens."],

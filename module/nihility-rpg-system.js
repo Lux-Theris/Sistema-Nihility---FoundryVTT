@@ -78,7 +78,8 @@ import { registerWeaponMastery, renderMasterySuggestion, unarmedAttackFromHotbar
 import { registerIncapacitation, tickIncapacitation, isDead } from "./combat/incapacitation.js";
 import { tickContagion } from "./combat/contagion.js";
 import { registerEnvironment, syncTokenEnvironment } from "./environment/environment.js";
-import { registerRadiation, tickRadiation } from "./environment/radiation.js";
+import { registerRadiation, tickRadiation, passRadiationTimeFor } from "./environment/radiation.js";
+import { registerTimeRate, beginTimeTurn, endTimeTurn, previousActorOf, announceTimeTurn } from "./combat/time-rate.js";
 import { registerTraps } from "./environment/traps.js";
 import { registerTimeChamber } from "./core/time-chamber.js";
 import { registerWorldClock } from "./core/world-clock.js";
@@ -251,6 +252,7 @@ Hooks.once("init", () => {
   registerWeaponMastery();
   registerIncapacitation();
   registerSkillTimers();
+  registerTimeRate();
   registerEnvironment();
   registerEnvironmentSceneMenu();
   registerRadiation();
@@ -1044,17 +1046,31 @@ Hooks.on("updateCombat", async (combat, changed, options) => {
   const actor = combatant?.actor;
   if (!actor) return;
 
+  // Manipulação do tempo (8e.2): quem acabou o turno gasta a reserva que sobrou nos estados; quem começa recebe a
+  // dele. `steps` = quantas vezes os números por turno (Veneno, regeneração, custo das Ativas, Radiação, Vida 0)
+  // passam neste turno: 1 normal, N Acelerado, 0 ou 1 Desacelerado. `notes` junta o que passou para o aviso.
+  let timePlan = { kind: "normal", factor: 1, steps: 1 };
+  const timeNotes = [];
+  try {
+    const finished = previousActorOf(combat);
+    if (finished) await endTimeTurn(combat, finished);
+    timePlan = await beginTimeTurn(combat, actor);
+  } catch (err) {
+    reportError("Falha ao começar o turno do tempo (reserva).", err, { gmOnly: true });
+  }
+  const steps = timePlan.steps;
+
   try {
     // Vida 0 (incapacitation.js): contador de morte do Caído e rodadas do Inconsciente — ANTES de
     // Zonas, ticks e regeneração, para quem sair do 0 neste turno não perder já uma rodada.
-    await tickIncapacitation(actor);
+    await tickIncapacitation(actor, { steps });
   } catch (err) {
     reportError("Falha ao contar Caído/Inconsciente no início do turno.", err, { gmOnly: true });
   }
   try {
     // Recarga e Preparo (H3): logo depois do Vida 0 (quem caiu perde o preparo), antes de qualquer
     // regeneração ou manutenção — a parte do Custo do turno é a primeira coisa paga. Morto não.
-    if (!isDead(actor)) await tickSkillTimers(actor);
+    if (!isDead(actor) && steps > 0) await tickSkillTimers(actor);
   } catch (err) {
     reportError("Falha ao andar recarga e preparo das Habilidades no início do turno.", err, { gmOnly: true });
   }
@@ -1069,7 +1085,11 @@ Hooks.on("updateCombat", async (combat, changed, options) => {
     // Ambiente (environment.js): confere os perigos da cena/área antes dos ticks da rodada.
     if (combatant.token) await syncTokenEnvironment(combatant.token);
     // Radiação (radiation.js): acumula/cai e causa o dano da rodada. Morto não.
-    if (!dead && combatant.token) await tickRadiation(combatant.token);
+    if (!dead && combatant.token && steps > 0) await tickRadiation(combatant.token);
+    if (!dead && steps > 1) {
+      const rows = await passRadiationTimeFor([actor], steps - 1);
+      for (const r of rows ?? []) timeNotes.push({ label: "Radiação", text: `irradiação ${r.before} → ${r.after} · −${r.damage} Vida` });
+    }
     // Muralha que queima: quem continua encostado nela (ou dentro) queima de novo.
     if (!dead) await tickStructureContact(combatant);
     // Campo de antimagia: quem começa o turno dentro dele perde o que é mágico.
@@ -1095,7 +1115,7 @@ Hooks.on("updateCombat", async (combat, changed, options) => {
   }
 
   try {
-    if (!dead) await tickCombatRoundEffects(actor);
+    if (!dead) await tickCombatRoundEffects(actor, { steps, notes: timeNotes });
   } catch (err) {
     reportError("Falha ao ticar Efeitos Periódicos no início do turno.", err, { gmOnly: true });
   }
@@ -1105,7 +1125,7 @@ Hooks.on("updateCombat", async (combat, changed, options) => {
     // Regeneração por rodada (natural + passivos de Skill/Título/Item/Espécie) — antes da manutenção
     // das Habilidades Ativas, para uma regeneração alta poder bancar uma Ativa barata.
     const { tickRegeneration } = await import("./combat/regeneration.js");
-    await tickRegeneration(actor);
+    await tickRegeneration(actor, { steps, notes: timeNotes });
   } catch (err) {
     reportError("Falha na regeneração por rodada.", err, { gmOnly: true });
   }
@@ -1118,7 +1138,7 @@ Hooks.on("updateCombat", async (combat, changed, options) => {
   }
 
   try {
-    if (!dead) await tickActorUpkeepSkills(actor);
+    if (!dead) await tickActorUpkeepSkills(actor, { steps, notes: timeNotes });
   } catch (err) {
     reportError("Falha ao drenar Energia de Habilidades Ativas no início do turno.", err, { gmOnly: true });
   }
@@ -1129,6 +1149,12 @@ Hooks.on("updateCombat", async (combat, changed, options) => {
     if (!dead) await tickCurses(actor);
   } catch (err) {
     reportError("Falha ao processar Maldições no início do turno.", err, { gmOnly: true });
+  }
+
+  try {
+    await announceTimeTurn(actor, timePlan, timeNotes);
+  } catch (err) {
+    reportError("Falha ao avisar o ritmo do tempo.", err, { gmOnly: true });
   }
 
   if (["starship", "vehicle"].includes(actor.type)) {

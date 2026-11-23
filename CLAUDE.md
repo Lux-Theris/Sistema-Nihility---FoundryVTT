@@ -60,6 +60,7 @@ This file holds only what applies to every change. Each subsystem is documented 
 | [alcance-movimento-sentidos.md](docs/claude/alcance-movimento-sentidos.md) | Range and Marks, push/pull, flight/elevation/burrowing, senses and visibility |
 | [armas-maestria.md](docs/claude/armas-maestria.md) | Weapon types, Maestria, unarmed attack, weapon strikes |
 | [mundo.md](docs/claude/mundo.md) | Region traps, world clock / day-night / Dormindo, sheet restore points |
+| [tempo-espaco.md](docs/claude/tempo-espaco.md) | Time manipulation (8e): Acelerar/Desacelerar, the time reserve in combat, weakening against stronger targets |
 | [formas-nomeacao-predacao.md](docs/claude/formas-nomeacao-predacao.md) | Forms, Naming / soul link / Pact, Analysis / Concealment / Predation |
 | [reacoes-superficies.md](docs/claude/reacoes-superficies.md) | Elemental reactions, "Só se…", surfaces |
 | [marcas-combinada-sorte-rerrolar.md](docs/claude/marcas-combinada-sorte-rerrolar.md) | Marks and "ao acertar", attribute %, complexity, Combinada and the duel bubble, luck, reroll, dissipate |

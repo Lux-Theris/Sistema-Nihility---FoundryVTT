@@ -22,6 +22,7 @@ import { escapeHtml } from "../helpers/html.js";
 import { reportError } from "../helpers/report.js";
 import { refreshMark } from "../combat/range.js";
 import { skillStateUpdate, energyValuePath, currentEnergyValue } from "./skill-state.js";
+import { prepCoveredByReserve, cooldownCoveredByReserve, spendReserve, noteReservePrep, payCooldownFromReserve } from "../combat/time-rate.js";
 import {
   cooldownMessage,
   cooldownToStore,
@@ -73,8 +74,48 @@ export function preparationFor(actor, skill, subSkillIndex = null) {
 export function useBlockReason(actor, skill, subSkillIndex = null) {
   const { mech, label } = mechOf(skill, subSkillIndex);
   if (mech.hasUpkeep && mech.active) return null;
-  if (preparationFor(actor, skill, subSkillIndex)) return `${label} ainda está em preparo.`;
-  if (onCooldown(mech.cooldownRemaining)) return cooldownMessage(label, mech.cooldownRemaining);
+  // Acelerado (8e.2): a reserva de tempo paga o preparo ou a recarga que faltam, quando basta (`settleTimersByReserve`).
+  const entry = preparationFor(actor, skill, subSkillIndex);
+  if (entry) return fastForwardCost(actor, entry) ? null : `${label} ainda está em preparo.`;
+  if (onCooldown(mech.cooldownRemaining)) return cooldownCoveredByReserve(actor, mech.cooldownRemaining) ? null : cooldownMessage(label, mech.cooldownRemaining);
+  return null;
+}
+
+/** O que falta pagar das parcelas de um Preparo em andamento (a 1ª já saiu). */
+function remainingDue(entry) {
+  return (entry.payments ?? []).slice(entry.paid ?? 1).reduce((sum, n) => sum + (Number(n) || 0), 0);
+}
+
+/** Custo em reserva para disparar o Preparo em andamento agora (0 = a reserva ou a Mana não bastam). */
+function fastForwardCost(actor, entry) {
+  const cost = prepCoveredByReserve(actor, entry.turnsLeft);
+  return cost && currentEnergyValue(actor) >= remainingDue(entry) ? cost : 0;
+}
+
+/**
+ * Acelerado (8e.2): antes do bloqueio de Recarga/Preparo de um uso, a reserva de tempo paga o que falta.
+ *  - Preparo em andamento: paga as parcelas que faltam e os turnos (−turnos); o uso sai como disparo (`prepaid`).
+ *  - Recarga (nova ou de antes): paga o que falta e liga a Skill de novo.
+ * Devolve `{prepaid: {ratio}}` num disparo de Preparo, `{}` numa Recarga paga, ou null (nada a fazer).
+ */
+export async function settleTimersByReserve(actor, skill, subSkillIndex = null) {
+  const { mech, label } = mechOf(skill, subSkillIndex);
+  if (mech.hasUpkeep && mech.active) return null;
+  const entry = preparationFor(actor, skill, subSkillIndex);
+  if (entry) {
+    const cost = fastForwardCost(actor, entry);
+    if (!cost) return null;
+    const due = remainingDue(entry);
+    if (due > 0) await actor.update({ [energyValuePath(actor)]: currentEnergyValue(actor) - due });
+    await spendReserve(actor, cost);
+    await noteReservePrep(actor, label, cost);
+    await dropEntry(actor, entry);
+    return { prepaid: { ratio: entry.investRatio ?? 1 } };
+  }
+  if (onCooldown(mech.cooldownRemaining) && cooldownCoveredByReserve(actor, mech.cooldownRemaining)) {
+    const paid = await payCooldownFromReserve(actor, skill, mech.cooldownRemaining, skillStateUpdate(skill, subSkillIndex, { cooldownRemaining: 0 }));
+    return paid ? {} : null;
+  }
   return null;
 }
 
@@ -86,8 +127,9 @@ export function skillTimersFor(actor) {
     if (skill.system.subSkills?.length) continue;
     if (skill.system.hasUpkeep && skill.system.active) continue;
     const entry = prep.find(e => e.skillUuid === skill.uuid && e.subSkillIndex == null);
-    if (entry) out[skill.id] = `preparando (${entry.turnsLeft})`;
-    else if (onCooldown(skill.system.cooldownRemaining)) out[skill.id] = (skill.system.cooldownRemaining === 1 ? "livre no próximo turno" : `livre em ${skill.system.cooldownRemaining} turnos`);
+    if (entry) {
+      if (!fastForwardCost(actor, entry)) out[skill.id] = `preparando (${entry.turnsLeft})`;
+    } else if (onCooldown(skill.system.cooldownRemaining) && !cooldownCoveredByReserve(actor, skill.system.cooldownRemaining)) out[skill.id] = (skill.system.cooldownRemaining === 1 ? "livre no próximo turno" : `livre em ${skill.system.cooldownRemaining} turnos`);
   }
   return out;
 }

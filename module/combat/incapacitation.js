@@ -239,9 +239,18 @@ export async function releaseEmpShutdown(actor, { field = false } = {}) {
  * Início do turno do personagem (Mestre, do `updateCombat`): contador de morte do Caído e as
  * rodadas do Inconsciente. Chamado ANTES da regeneração do turno.
  */
-export async function tickIncapacitation(actor) {
+export async function tickIncapacitation(actor, { steps = 1 } = {}) {
   // O hook de combate roda em todo cliente de Mestre: o contador anda num só.
   if (!isDesignatedGm() || !actor || actor.type !== "character" || !isIncapacitationEnabled()) return;
+  // Acelerado (8e.2): o contador anda `steps` vezes (para quando acorda ou chega ao fim); 0 = o tempo dele não andou.
+  for (let i = 0; i < Math.max(0, steps); i++) {
+    if (!(await tickIncapacitationOnce(actor))) break;
+  }
+}
+
+/** Um passo do contador. Devolve true se ainda há contador correndo. */
+async function tickIncapacitationOnce(actor) {
+  let running = false;
   for (const id of ["fallen", "unconscious"]) {
     const effect = effectWith(actor, id);
     const state = effect?.getFlag(SYSTEM_ID, FLAG);
@@ -253,6 +262,7 @@ export async function tickIncapacitation(actor) {
       continue;
     }
     await effect.setFlag(SYSTEM_ID, FLAG, next);
+    if (event !== "death") running = true;
     if (event === "death") {
       await ChatMessage.create({
         whisper: gmIds(),
@@ -268,6 +278,7 @@ export async function tickIncapacitation(actor) {
       });
     }
   }
+  return running;
 }
 
 /* ------------------------------------------------------------------ Card: Estabilizar / Marcar morto */

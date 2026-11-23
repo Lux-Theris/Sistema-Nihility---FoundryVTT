@@ -83,6 +83,8 @@ import { EffectsListApp } from "../apps/effects-list.js";
 import { enableHotbarDrag, enableUnarmedHotbarDrag } from "../core/hotbar.js";
 import { skillSummariesFor } from "../skills/skill-summary-ui.js";
 import { skillTimersFor } from "../skills/preparation.js";
+import { actorTimeFactor, reserveOf } from "../combat/time-rate.js";
+import { isTimeFactorActive, timeStateLabel } from "../combat/time-rate-rules.js";
 import { useConsumable, reloadWeapon, weaponCanFire } from "../economy/consumables.js";
 import { openItemClockDialog } from "../apps/item-clock-dialog.js";
 import { magazineState } from "../economy/consumable-rules.js";
@@ -552,6 +554,14 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.ageEnabled = isWorldClockEnabled() && isCalendarEnabled();
     context.age = actorAge(actor);
     context.ageShown = context.age !== null;
+    // Ritmo do tempo (8e): a pílula "Acelerado ×N" com a reserva do turno (só em combate).
+    {
+      const factor = actorTimeFactor(actor);
+      const reserve = factor > 1 ? reserveOf(actor) : null;
+      context.timePill = isTimeFactorActive(factor)
+        ? { label: timeStateLabel(factor), fast: factor > 1, reserve: reserve && reserve.max > 0 ? { value: reserve.value, max: reserve.max, percent: Math.round((reserve.value / reserve.max) * 100) } : null }
+        : null;
+    }
     // Nível de NPC (M6): select só do Mestre, só em NPC, só com o bloco ligado.
     context.npcTierOptions =
       game.user.isGM && !this.actor.system.isPlayerCharacter && isFeatureEnabled("npcTiers")

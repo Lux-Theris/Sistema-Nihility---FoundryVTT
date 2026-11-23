@@ -77,6 +77,7 @@
           <input type="number" name="system.attributes.level" value="{{system.attributes.level}}" {{#unless isGM}}readonly{{/unless}}/>
           {{#if isGM}}<button type="button" class="level-up-button" data-action="levelUpActor" title="Level Up (Voz do Mundo avisa)">+</button>{{/if}}
         </label>
+        {{#if timePill}}<span class="time-pill {{#unless timePill.fast}}slow{{/unless}}" title="Ritmo do tempo: Acelerado tem uma reserva de tempo por turno (os números por turno passam de uma vez); Desacelerado vive o tempo mais devagar.">{{timePill.label}}{{#if timePill.reserve}} <span class="time-bar"><i style="width: {{timePill.reserve.percent}}%;"></i></span> <span class="time-num">{{timePill.reserve.value}} / {{timePill.reserve.max}}</span> de tempo{{/if}}</span>{{/if}}
         {{#if ageEnabled}}
         {{#if ageShown}}<span class="age-pill" title="Sobe com o tempo pessoal do personagem (não com o tempo do mundo).">Idade {{age}}</span>{{/if}}
         {{#if isGM}}

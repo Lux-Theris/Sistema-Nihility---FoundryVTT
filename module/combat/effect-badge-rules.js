@@ -43,6 +43,9 @@ function positiveInt(value) {
  * @returns {{text: string, tone: "time"|"anchor"|"radiation"|"danger"|"prep"}|null}
  */
 export function effectBadge(info = {}) {
+  // Ritmo do tempo (8e): "×3" e, em combate, o que sobra da reserva ("×3 · 2").
+  if (info.timeRate?.text) return { text: String(info.timeRate.text), tone: "anchor" };
+
   // Preparando: X (H3) — o número é quantos turnos faltam para disparar.
   const preparing = positiveInt(info.preparing);
   if (preparing) return { text: String(preparing), tone: "prep" };

@@ -2,7 +2,7 @@
  * Efeitos Temporários: criar/renovar Active Effects e Condições num alvo, e os ticks periódicos (Veneno, cura).
  * (Separado de skill-effects.js na reorganização de pastas — mesma lógica de antes.)
  */
-import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions, getActiveTraits, getEffectTargetLabels, skillLevelBonuses, getDamageElement, getWeaponType, isInterferenceEnabled, isSkillRangeEnabled, sameActor } from "../core/config.js";
+import { SYSTEM_ID, MEU_SISTEMA, getActiveStatusConditions, getActiveTraits, getEffectTargetLabels, skillLevelBonuses, getDamageElement, getWeaponType, isInterferenceEnabled, isSkillRangeEnabled, isTimeManipulationEnabled, sameActor } from "../core/config.js";
 import { makeAnchor, addAnchor, effectAnchors, finiteRemaining, serializeFinite, durationRemaining, refreshFiniteRounds, PERMANENT, ANCHORED_TARGETS_FLAG, recordAnchoredTarget } from "../combat/effect-anchors.js";
 import { escapeHtml } from "../helpers/html.js";
 import { applyStructuralDamage, damageCasco, repairModules } from "../starship/starship-power.js";
@@ -27,6 +27,7 @@ import { resolveEffectAmount, resolveAttributePercent, ATTRIBUTE_PERCENT_TARGETS
 import { hasOnlyIf, onlyIfOutcome } from "./only-if-rules.js";
 import { buildModifierContext } from "../combat/conditional-context.js";
 import { describeLuck, luckFromScopes } from "../combat/luck-rules.js";
+import { clampTimeFactor, isTimeFactorActive, timeStrength, weakenTimeFactor, timeStateLabel, allowedTicks, simulateTicks } from "../combat/time-rate-rules.js";
 
 /** Nome curto dos efeitos de movimento (J4), para o Active Effect e o resumo. */
 const MOVEMENT_MODE_NAMES = { flight: "Voando", burrow: "Escavando" };
@@ -145,7 +146,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
       ? rawEntries
       : rawEntries.map(entry =>
           // Sentido: o alcance em metros não cresce com o Poder do nível nem com o investimento.
-          entry.modifierType === "multiplier" || isSenseTarget(entry.target) || entry.target === "magicDampen"
+          entry.modifierType === "multiplier" || isSenseTarget(entry.target) || entry.target === "magicDampen" || entry.target === "timeRate"
             ? entry
             : {
                 ...entry,
@@ -206,6 +207,11 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
     }
     if (shielded(entry)) {
       summary.push(`${getEffectTargetLabels()[entry.target] ?? entry.target}: sem efeito (${targetActor.name} está Suprimido)`);
+      continue;
+    }
+    // Ritmo do tempo (8e): Acelerar/Desacelerar; o fator enfraquece contra alvo mais forte que a Skill.
+    if (entry.target === "timeRate") {
+      summary.push(await applyTimeRateEntry(entry, { mech, label, originSkill, origin, targetActor, subSkillIndex, sourceLevel, sourceMagic, sourceTech, appliedBy, xp }));
       continue;
     }
     // Marcar (H4): quem usou passa a poder lançar Skills a partir do alvo.
@@ -564,6 +570,76 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
 }
 
 /**
+ * Ritmo do tempo (8e.1/8e.3): põe (ou renova) o efeito Acelerado/Desacelerado no alvo. O fator guardado já vem
+ * enfraquecido pelo nível do alvo (`timeStrength`: cheio até o nível da Skill, zero no dobro) e reforçado pela
+ * Mana investida. Nave/Veículo recusam; com o bloco desligado nada novo nasce (o que existe segue).
+ * Devolve a linha do resumo.
+ */
+async function applyTimeRateEntry(entry, { mech, label, originSkill, origin, targetActor, subSkillIndex, sourceLevel, sourceMagic, sourceTech, appliedBy, xp }) {
+  if (!isTimeManipulationEnabled()) return "Ritmo do tempo: o bloco Manipulação do tempo está desligado";
+  if (isShipLike(targetActor) || targetActor.type !== "character") return `Ritmo do tempo: não se aplica a ${targetActor.name}`;
+  let base = clampTimeFactor(entry.timeFactor);
+  if (!isTimeFactorActive(base)) return "Ritmo do tempo: fator 1 não muda nada";
+  const invest = Number(mech.investPower ?? 1);
+  if (Number.isFinite(invest) && invest > 0 && invest !== 1) base = clampTimeFactor(1 + (base - 1) * invest);
+  const targetLevel = Number(targetActor.system?.attributes?.level) || 0;
+  const strength = timeStrength(sourceLevel, targetLevel);
+  const factor = weakenTimeFactor(base, strength);
+  if (!isTimeFactorActive(factor)) return `Ritmo do tempo: ${targetActor.name} é forte demais (nível ${targetLevel} contra nível ${sourceLevel}): sem efeito`;
+  const stateName = timeStateLabel(factor);
+  const weakNote = strength < 1 ? `, enfraquecido (${Math.round(strength * 100)}%)` : "";
+  const rounds = Math.max(0, Math.floor(Number(entry.durationRounds) || 0));
+  const tiedToActive = Boolean(mech.hasUpkeep);
+  const anchor = makeAnchor({ skillUuid: origin.uuid, skillId: origin.id, subSkillIndex });
+  if (tiedToActive) await rememberAnchoredTarget(originSkill?.parent, anchor, targetActor.uuid);
+  const existing = targetActor.effects.find(e => e.flags?.[SYSTEM_ID]?.timeRate && (e.flags[SYSTEM_ID].appliedBy ?? "") === appliedBy && (e.flags[SYSTEM_ID].sourceSkillId ?? null) === (origin.id ?? null));
+  xp.push({ flat: true });
+  const condition = entry.conditionId ? getActiveStatusConditions().find(c => c.id === entry.conditionId) : null;
+  if (existing) {
+    const flags = existing.flags[SYSTEM_ID];
+    const patch = {
+      name: `${label}: ${stateName}`,
+      [`flags.${SYSTEM_ID}.timeRate`]: { factor },
+      [`flags.${SYSTEM_ID}.sourceLevel`]: Math.max(sourceLevel, Number(flags.sourceLevel) || 0),
+      [`flags.${SYSTEM_ID}.magic`]: Boolean(sourceMagic || flags.magic),
+      [`flags.${SYSTEM_ID}.tech`]: Boolean(sourceTech || flags.tech)
+    };
+    if (tiedToActive) {
+      const anchors = flags.activeAnchors ?? [];
+      Object.assign(patch, effectRoundsUpdate(0), { [`flags.${SYSTEM_ID}.activeAnchors`]: addAnchor(anchors, anchor), [`flags.${SYSTEM_ID}.tiedToActive`]: true });
+    } else if (!(flags.activeAnchors ?? []).length) Object.assign(patch, effectRoundsUpdate(rounds, { combat: game.combat }));
+    await existing.update(patch);
+    return `${stateName}: renovado${tiedToActive ? " (até desativar)" : rounds > 0 ? ` (${rounds} rodada(s))` : ""}${weakNote}`;
+  }
+  await createActiveEffects(targetActor, [
+    {
+      name: `${label}: ${stateName}`,
+      img: entry.icon || condition?.icon || origin.img || "icons/svg/clockwork.svg",
+      origin: origin.uuid ?? undefined,
+      statuses: entry.conditionId ? [entry.conditionId] : [],
+      duration: !tiedToActive && rounds > 0 ? { rounds } : {},
+      flags: {
+        [SYSTEM_ID]: {
+          skillEffect: true,
+          conditionId: entry.conditionId || "",
+          tiedToActive,
+          activeAnchors: tiedToActive ? [anchor] : [],
+          sourceSkillId: origin.id,
+          sourceSubSkillIndex: subSkillIndex,
+          timeRate: { factor },
+          sourceLevel,
+          magic: sourceMagic,
+          tech: sourceTech,
+          appliedBy,
+          healBlockPartId: ""
+        }
+      }
+    }
+  ]);
+  return `${stateName}${tiedToActive ? " (até desativar)" : rounds > 0 ? ` (${rounds} ${rounds === 1 ? "rodada" : "rodadas"})` : ""}${weakNote}`;
+}
+
+/**
  * Põe a Marca de `caster` em `targetActor` (H4): a Condição "Marcado" com o flag `markedBy`. É um efeito
  * MÁGICO (a Antimagia desfaz, e dentro de um campo ele acaba). Marcar de novo renova o prazo e o nível.
  * `rounds` 0 = até ser desfeita.
@@ -647,10 +723,14 @@ export async function applyManualCondition(actor, conditionId, entry) {
  * mágico; decisão de balanceamento deliberada, diferente do dano "normal" de `rollSkillDamage`).
  * Tick de CURA (`tickAmount` positivo) sempre aplica o valor cheio, sem redução nenhuma — não
  * existe conceito de "resistir à própria cura" neste sistema.
+ * Acelerado (8e.2): com `steps` > 1 o número passa até `steps` ticks de uma vez, limitado ao que resta do
+ * prazo (uma Ativa segurando o efeito não tem limite), simulado em memória (`simulateTicks`, para na Vida 0)
+ * e gravado uma vez. Com `steps` 1 é o tick de sempre.
  * @param {Actor} actor
  * @param {ActiveEffect} effect
+ * @param {{steps?: number}} [options]
  */
-export async function tickPeriodicEffect(actor, effect) {
+export async function tickPeriodicEffect(actor, effect, { steps = 1 } = {}) {
   const flags = effect.flags?.[SYSTEM_ID];
   if (!flags?.periodic) return null;
   // XP por uso: cada tick credita à Skill que aplicou (`origin` é o uuid dela) o que fez agora.
@@ -690,6 +770,8 @@ export async function tickPeriodicEffect(actor, effect) {
   const attrKey = flags.tickTarget === "energy" ? "energy" : "hp";
   const attr = actor.system.attributes[attrKey];
 
+  const anchoredNow = (flags.activeAnchors ?? []).length > 0;
+  const ticks = steps > 1 ? Math.max(1, allowedTicks({ steps, remaining: flags.ticksRemaining ?? 1, anchored: anchoredNow })) : 1;
   let delta = flags.tickAmount;
   let appliedReductions = [];
   let note = "";
@@ -707,15 +789,17 @@ export async function tickPeriodicEffect(actor, effect) {
     delta = -reduction.finalDamage;
     appliedReductions = reduction.appliedReductions;
     await grantResistanceXp(reduction.defenders, actor);
-    await registerResistanceExposure(actor, mech.damageElements, reduction.finalDamage);
+    await registerResistanceExposure(actor, mech.damageElements, reduction.finalDamage * ticks);
   }
 
   // Cura de Vida com Ferimentos por parte: uma parte a 0% que este tipo de cura não conserta
   // bloqueia o % dela (braço perdido: a Cura para em 80%; a Regeneração não para). Nunca desce.
   let ceiling = attr.max;
   if (delta > 0 && plan) ceiling = Math.max(attr.value, Math.floor(attr.max * plan.cap + 1e-9));
-  const newValue = Math.clamp(attr.value + delta, 0, ceiling);
-  await actor.update({ [`system.attributes.${attrKey}.value`]: newValue });
+  const sim = simulateTicks({ value: attr.value, delta, ticks, ceiling: Math.max(ceiling, attr.value) });
+  const newValue = ticks > 1 ? sim.value : Math.clamp(attr.value + delta, 0, ceiling);
+  const done = ticks > 1 ? sim.done : 1;
+  if (newValue !== attr.value) await actor.update({ [`system.attributes.${attrKey}.value`]: newValue });
   // O que a Vida de fato subiu vai para as Partes do Corpo (a focada primeiro, o resto proporcional).
   if (delta > 0 && heal) {
     const parts = await healBodyParts(actor, newValue - attr.value, { ...heal, focusPartId: flags.focusPartId || null });
@@ -729,7 +813,7 @@ export async function tickPeriodicEffect(actor, effect) {
   // em 0, só expira de verdade se NENHUMA âncora sobrar — senão fica tickando no piso até
   // `removeUpkeepLinkedEffects` remover a(s) âncora(s) restante(s).
   const anchored = (flags.activeAnchors ?? []).length > 0;
-  const ticksRemaining = Math.max(0, (flags.ticksRemaining ?? 1) - 1);
+  const ticksRemaining = Math.max(0, (flags.ticksRemaining ?? 1) - done);
   const expired = ticksRemaining <= 0 && !anchored;
 
   if (expired) await effect.delete();
@@ -739,9 +823,10 @@ export async function tickPeriodicEffect(actor, effect) {
   // zeraram e só a âncora está segurando — enquanto ainda há ticks finitos contando, mostra o
   // número normal mesmo que exista uma âncora em paralelo.
   const displayTicks = anchored && ticksRemaining <= 0 ? null : ticksRemaining;
+  if (ticks > 1) delta = newValue - attr.value;
   if (delta && xpSource) await grantSkillUseXp(xpSource, [{ value: delta, base: attr.max }]);
 
-  return { attrKey, delta, newValue, ticksRemaining: displayTicks, expired, effectName: effect.name, appliedReductions, note };
+  return { attrKey, delta, newValue, ticksRemaining: displayTicks, expired, effectName: effect.name, appliedReductions, note, ticks: done };
 }
 
 /**
@@ -779,11 +864,12 @@ async function restoreVital(actor, key, amount, { level = 0, focusPartId = null 
  * "Aplicar Tick" da ficha, actor-sheet.js).
  * @param {Actor} actor
  */
-export async function tickCombatRoundEffects(actor) {
+export async function tickCombatRoundEffects(actor, { steps = 1, notes = null } = {}) {
+  if (steps <= 0) return [];
   const effects = actor.effects.filter(e => e.flags?.[SYSTEM_ID]?.periodic && e.flags[SYSTEM_ID].tickUnit !== "manual");
   const results = [];
   for (const effect of effects) {
-    const result = await tickPeriodicEffect(actor, effect);
+    const result = await tickPeriodicEffect(actor, effect, { steps });
     if (result) results.push(result);
   }
 
@@ -792,8 +878,9 @@ export async function tickCombatRoundEffects(actor) {
       const attrLabel = { hp: "HP", casco: "Casco", hull: "Integridade" }[r.attrKey] ?? getEffectTargetLabels().energy;
       const statusText = r.expired ? "encerrou" : r.ticksRemaining === null ? "até desativar" : `${r.ticksRemaining} tick(s) restante(s)`;
       // Nunca revela NO CHAT que/quanto de Resistência foi aplicada no tick — só o delta final.
-      return `<li><strong>${escapeHtml(r.effectName)}</strong>: ${r.delta >= 0 ? "+" : ""}${r.delta} ${escapeHtml(attrLabel)} (${statusText})${r.note ? ` — ${escapeHtml(r.note)}` : ""}</li>`;
+      return `<li><strong>${escapeHtml(r.effectName)}</strong>: ${r.delta >= 0 ? "+" : ""}${r.delta} ${escapeHtml(attrLabel)}${r.ticks > 1 ? ` em ${r.ticks} turnos` : ""} (${statusText})${r.note ? ` — ${escapeHtml(r.note)}` : ""}</li>`;
     });
+    if (notes) for (const r of results) notes.push({ label: r.effectName, text: `${r.delta >= 0 ? "+" : ""}${r.delta} ${{ hp: "Vida", casco: "Casco", hull: "Integridade" }[r.attrKey] ?? getEffectTargetLabels().energy}${r.expired ? " · acabou" : ""}` });
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor }),
       content: `<p><strong>${escapeHtml(actor.name)}</strong> — início de turno, Condições ativas:</p><ul>${rows.join("")}</ul>`

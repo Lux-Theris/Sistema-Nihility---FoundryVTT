@@ -23,6 +23,7 @@ import { combatScenes } from "../helpers/foundry-compat.js";
 import { escapeHtml } from "../helpers/html.js";
 import { reportError } from "../helpers/report.js";
 import { itemIsTech } from "./magic-rules.js";
+import { actorTimeFactor } from "../combat/time-rate.js";
 import { showVoiceBanner } from "./voice-banner.js";
 import { suppressionState, sourceSuppressed } from "./suppression.js";
 import { formatClock, formatHour } from "./world-clock-rules.js";
@@ -251,12 +252,12 @@ export function listChambers() {
 
 /**
  * Os fatores do ritmo pessoal: o ritmo da linha da cena × o das Regiões de ritmo onde o Token está (8b.2).
- * Os efeitos de Skill de tempo (8e) entram aqui também; o produto sai por `composeRate`. `opts` =
+ * Os efeitos de Skill de tempo (8e: Acelerar/Desacelerar, `actorTimeFactor`) entram aqui também; o produto sai por `composeRate`. `opts` =
  * `{enter, exit}` do evento de Região (ver `tokenChambers`).
  */
 export function personalRateFactors(actor, opts = {}) {
   if (!calendarOn()) return [];
-  return [actorLine(actor).rate, actorChambers(actor, opts).rate];
+  return [actorLine(actor).rate, actorChambers(actor, opts).rate, actorTimeFactor(actor)];
 }
 
 export function personalRate(actor, opts = {}) {
@@ -707,7 +708,8 @@ async function onCombatClock(combat, changed, options) {
     const actor = combatant.actor;
     if (!actor || seen.has(actor.uuid)) continue;
     seen.add(actor.uuid);
-    await addPersonalSeconds(actor, delta);
+    // Acelerado/Desacelerado (8e): quem vive o tempo ×N soma a rodada ×N ao tempo pessoal.
+    await addPersonalSeconds(actor, delta * actorTimeFactor(actor));
   }
   const { wakeDueSleepers, checkGroupSleep } = await import("./world-clock.js");
   await wakeDueSleepers();

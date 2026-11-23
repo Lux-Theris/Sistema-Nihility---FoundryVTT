@@ -5,6 +5,7 @@
 import { getEffectTargetLabels } from "../core/config.js";
 import { effectModes } from "../helpers/foundry-compat.js";
 import { isShipLike, shipWeaponPenetration } from "../starship/ship-damage.js";
+import { clampTimeFactor, isTimeFactorActive } from "../combat/time-rate-rules.js";
 import { isSenseTarget, senseChangeKeys, senseRangeValue, describeSenseChange } from "../combat/senses-rules.js";
 
 const EFFECT_TARGET_PATHS = {
@@ -112,6 +113,11 @@ export function resolveEffectChange(entry, targetActor) {
       const scopes = { attributes: Boolean(entry.luckScopes?.attributes), damage: Boolean(entry.luckScopes?.damage), chances: Boolean(entry.luckScopes?.chances) };
       return ship ? null : { key: null, luck: { value: Number(amount) || 0, scopes }, isMultiplier: false };
     }
+    case "timeRate":
+      // Ritmo do tempo (8e): não mexe em campo; o efeito só carrega o flag `timeRate` ({factor}), lido por
+      // combat/time-rate.js (reserva, ticks, Deslocamento) e por personalRateFactors (tempo pessoal).
+      // Nave/Veículo (e Estrutura, que nem é Ator) recusam: o tempo é de quem vive.
+      return ship || !isTimeFactorActive(entry.timeFactor) ? null : { key: null, timeRate: { factor: clampTimeFactor(entry.timeFactor) }, isMultiplier: false };
     case "magicDampen":
       // Magia enfraquecida (8c.2): não mexe em campo; o efeito só carrega o flag `magicDampen` ({chance, percent}),
       // lido em cada uso mágico de quem o tem (useSkillEffect).

@@ -11,6 +11,7 @@ import { onlyIfClause } from "./only-if-rules.js";
 import { normalizeOnHit } from "./marks-rules.js";
 import { combinedSentence } from "./combined-rules.js";
 import { rerollSentence } from "./reroll-rules.js";
+import { clampTimeFactor, describeTimeFactor } from "../combat/time-rate-rules.js";
 import { strikeSentence } from "../combat/weapon-mastery-rules.js";
 import { isSenseTarget, SENSE_LABELS, describeSenseRange, senseRangeValue } from "../combat/senses-rules.js";
 
@@ -39,6 +40,12 @@ function describeEffectCore(entry, ctx) {
     return `deixa ${label} no chão${meters > 0 ? ` (raio ${String(meters).replace(".", ",")} m)` : ""}`;
   }
   if (entry.target === "flight") return "voo";
+  // Ritmo do tempo (8e): "Acelerado ×3 (3 de tempo por turno, Deslocamento ×3)" / "Desacelerado ×½".
+  if (entry.target === "timeRate") {
+    const factor = clampTimeFactor(entry.timeFactor);
+    if (Math.abs(factor - 1) < 1e-6) return "ritmo do tempo sem mudança";
+    return factor > 1 ? `Acelerado ${describeTimeFactor(factor)} (${Math.floor(factor)} de tempo por turno, Deslocamento ${describeTimeFactor(factor)})` : `Desacelerado ${describeTimeFactor(factor)} (Deslocamento ${describeTimeFactor(factor)}, contadores mais lentos)`;
+  }
   // Sorte (8d.1): "sorte +30% nos dados (atributos, dano)".
   if (entry.target === "luck") return `sorte ${luckPercentText(Number(entry.amount) || 0)} nos dados (${LUCK_SCOPES.filter(k => entry.luckScopes?.[k]).map(k => LUCK_SCOPE_LABELS[k].toLowerCase()).join(", ") || "sem escopo"})`;
   // Magia enfraquecida (8c.2): "50% das magias do alvo saem com 50% da força".

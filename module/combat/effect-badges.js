@@ -16,6 +16,8 @@
 import { SYSTEM_ID, MEU_SISTEMA } from "../core/config.js";
 import { effectAnchors, finiteRemaining } from "./effect-anchors.js";
 import { effectBadge, BADGE_COLORS, roundsLeftFromStart } from "./effect-badge-rules.js";
+import { describeTimeFactor } from "./time-rate-rules.js";
+import { reserveOf, TIME_FLAG } from "./time-rate.js";
 
 function enabledForMe() {
   try {
@@ -60,7 +62,10 @@ function foundryRounds(effect, combat = null) {
 export function badgeFor(effect, { combat = null } = {}) {
   const f = effect.flags?.[SYSTEM_ID] ?? {};
   const anchors = effectAnchors(f, effect.origin);
+  const timeFactor = f[TIME_FLAG]?.factor;
+  const reserve = timeFactor ? reserveOf(effect.parent) : null;
   return effectBadge({
+    timeRate: timeFactor ? { text: `${describeTimeFactor(timeFactor)}${reserve && reserve.max > 0 ? ` · ${reserve.value}` : ""}` } : null,
     radiationLevel: f.radiation?.level ?? 0,
     preparing: f.preparing?.turnsLeft ?? 0,
     incapacitation: f.incapacitation ?? null,
@@ -206,6 +211,10 @@ export function registerEffectBadges() {
     if (actor?.documentName === "Actor") refreshActorBadges(actor);
   };
   Hooks.on("updateActiveEffect", onEffect);
+  // A reserva de tempo (flag do Ator) muda a cada gasto: o número do Token acompanha.
+  Hooks.on("updateActor", (actor, changed) => {
+    if (foundry.utils.hasProperty(changed ?? {}, `flags.${SYSTEM_ID}.timeReserve`)) refreshActorBadges(actor);
+  });
   Hooks.on("updateCombat", () => refreshAllBadges());
   Hooks.on("deleteCombat", () => refreshAllBadges());
 }

@@ -31,6 +31,7 @@ import { energyValuePath, currentEnergyValue } from "../skills/skill-state.js";
 import { moveTokenForced } from "./forced-movement.js";
 import { timeStrength } from "./time-rate-rules.js";
 import { roundsLeft, startedCombatOf } from "./time-rate.js";
+import { turnPosition, turnStartKind } from "./turn-start-rules.js";
 import {
   EFFECT_LOG_FLAG, rewindRoundsFor, rewindSeconds, pushPhoto, pickPhoto, formChanged, bondPartnerUuids, bondCost, effectLogWorthy,
   logEffectEvent, effectLogPlan, effectLogAfterRewind, roundsText, changeRows, mechHasRewind
@@ -419,7 +420,11 @@ export function registerTimeRewind() {
   Hooks.on("updateCombat", (combat, changed, options) => {
     if (!game.user.isGM || !combat.started) return;
     if (changed.turn === undefined && changed.round === undefined) return;
-    if (options?.direction < 0) return;
+    // Mesma decisão do início de turno (turn-start-rules.js): só fotografa turno NOVO. Voltar e avançar de novo
+    // caía num turno já processado e regravava a foto com os ticks já aplicados (o Reverter devolvia o pós-tick).
+    // O flag ainda tem o valor de antes aqui: o `setFlag` do início de turno só chega depois da volta do servidor.
+    const position = turnPosition(combat.round, combat.turn);
+    if (turnStartKind({ position, processed: combat.getFlag(SYSTEM_ID, "turnProcessed"), direction: options?.direction }) !== "new") return;
     try {
       takePhoto(combat, combat.combatant);
     } catch (err) {

@@ -241,6 +241,20 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     this.activeTab = "sistemas";
   }
 
+  /**
+   * @override
+   * Igual à ficha de Personagem (1.25.5): o retrato só muda pelo FilePicker (`editImage`). O
+   * `data-edit="img"` do retrato faz o formulário mandar `img` de volta, e um caminho sem extensão de
+   * arquivo válida reprovava a validação e impedia salvar QUALQUER campo (Registro, Classe, Combustível).
+   */
+  _prepareSubmitData(event, form, formData, updateData) {
+    // Tem que sair ANTES do super: é ele quem valida o diff inteiro contra o schema.
+    if (formData?.object) delete formData.object.img;
+    const data = super._prepareSubmitData(event, form, formData, updateData);
+    delete data.img;
+    return data;
+  }
+
   /** @override — só o nome, sem o "TYPES.Actor.starship: nome" cru quando falta tradução do label. */
   get title() {
     return this.actor.name;

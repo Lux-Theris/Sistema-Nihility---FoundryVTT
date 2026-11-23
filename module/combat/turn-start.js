@@ -28,7 +28,7 @@ import { tickRadiation, passRadiationTimeFor } from "../environment/radiation.js
 import { beginTimeTurn, endTimeTurn, previousActorOf, announceTimeTurn } from "./time-rate.js";
 import { isTimeStopped, advanceTimeStops, freezeStoppedEffects, stoppedTurnNotice } from "./time-stop.js";
 import { tickSurfacesForCombatant, advanceSurfaces } from "../environment/surfaces.js";
-import { turnPosition, alreadyProcessed, runTurnSteps, TURN_STEP_IDS, STOPPED_STEP_IDS } from "./turn-start-rules.js";
+import { turnPosition, turnStartKind, runTurnSteps, TURN_STEP_IDS, STOPPED_STEP_IDS } from "./turn-start-rules.js";
 
 const report = (label, err) => reportError(label, err, { gmOnly: true });
 
@@ -233,13 +233,14 @@ export async function onCombatTurnStart(combat, changed, options) {
   if (changed.turn === undefined && changed.round === undefined) return;
   // "Turno anterior"/"Rodada anterior" do Foundry (direction −1): o turno já começou uma vez.
   // Tudo daqui é início de turno e rodaria DE NOVO — o Mestre que volta um turno por engano cobraria tudo duas vezes.
-  if (options?.direction < 0) return;
   // Voltar e avançar de novo cai num turno que já começou: só processa turno NOVO (rodada/turno
   // além do último já processado, guardado no próprio Combate pelo Mestre designado).
+  // Edição à mão para trás (sem direction) só reinicia o contador. Ver `turnStartKind`.
   const position = turnPosition(combat.round, combat.turn);
-  const processed = combat.getFlag(SYSTEM_ID, "turnProcessed");
-  if (alreadyProcessed(position, processed)) return;
+  const kind = turnStartKind({ position, processed: combat.getFlag(SYSTEM_ID, "turnProcessed"), direction: options?.direction });
+  if (kind === "back" || kind === "again") return;
   await combat.setFlag(SYSTEM_ID, "turnProcessed", position);
+  if (kind === "reset") return;
 
   // O combatente deste turno, guardado já: o resto é assíncrono, e ler `combat.combatant` depois
   // de um await pegava o PRÓXIMO (Mestre avançando rápido) ou null (combate encerrado no meio).

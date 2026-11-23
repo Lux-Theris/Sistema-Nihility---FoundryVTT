@@ -443,6 +443,23 @@ test("Início de turno: posição do turno e turno já processado", async () => 
   assert.equal(alreadyProcessed(3003, 3002), false);
 });
 
+test("Início de turno: turnStartKind (anterior, novo, de novo, edição à mão)", async () => {
+  const { turnStartKind } = await import("../module/combat/turn-start-rules.js");
+  // "Turno/Rodada anterior" do Foundry: nunca roda, nem em turno novo.
+  assert.equal(turnStartKind({ position: 9000, processed: 3002, direction: -1 }), "back");
+  // Combate começando (sem flag) e avanço normal.
+  assert.equal(turnStartKind({ position: 1000, processed: undefined, direction: undefined }), "new");
+  assert.equal(turnStartKind({ position: 3003, processed: 3002, direction: 1 }), "new");
+  // Voltou e avançou de novo: o turno já começou uma vez.
+  assert.equal(turnStartKind({ position: 3002, processed: 3002, direction: 1 }), "again");
+  assert.equal(turnStartKind({ position: 3001, processed: 3002, direction: 1 }), "again");
+  // Rodada editada à mão para trás (6 → 1): reinicia o contador, e o próximo avanço é "new".
+  assert.equal(turnStartKind({ position: 1000, processed: 6000, direction: undefined }), "reset");
+  assert.equal(turnStartKind({ position: 1001, processed: 1000, direction: 1 }), "new");
+  // Edição à mão PARA FRENTE é turno novo, como avançar.
+  assert.equal(turnStartKind({ position: 7000, processed: 6000, direction: undefined }), "new");
+});
+
 test("Início de turno: runTurnSteps (ordem, when na hora, erro isolado)", async () => {
   const { runTurnSteps } = await import("../module/combat/turn-start-rules.js");
   const log = [];

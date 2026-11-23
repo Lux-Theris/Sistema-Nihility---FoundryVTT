@@ -1,0 +1,110 @@
+<section class="tab sheet-body {{tabs.general.cssClass}}" data-group="primary" data-tab="general">
+  {{#if system.isItemGranted}}
+  <div class="strip info"><i class="fas fa-link"></i><span>Concedida por um Item/Módulo e fixa: não ganha XP, não sobe de nível, não funde nem evolui. Para mudá-la, edite a Habilidade Concedida na fonte. Some se a fonte sair.</span></div>
+  {{/if}}
+  {{#if system.evolvedFrom}}
+  <div class="strip gold"><i class="fas fa-level-up-alt"></i><span>Evoluiu de: {{system.evolvedFrom}}</span></div>
+  {{/if}}
+  {{> nihility.skillWarnings warnings=assistGeneral}}
+  {{#if canSaveTemplate}}
+  <div class="sa-template-row"><button type="button" class="sa-template-btn" data-action="saveAsTemplate" title="Põe uma cópia desta Skill nos Modelos de Skill, para começar outras a partir dela."><i class="fas fa-clone"></i> Salvar como modelo</button></div>
+  {{/if}}
+
+  <div class="sec">
+    <div class="sec-head">Progressão</div>
+    <div class="strip {{#if skillComplexity.over}}gold{{else}}dim{{/if}}" title="Pontuação de complexidade: 1 por efeito, +1 Condição, +2 &quot;Só se…&quot;, +2 área ou Zona, +3 Estrutura, +2 empurrão, +1 Ativa, +1 &quot;ao acertar&quot;, +1 por Sub-Skill. O teto de cada Tier está em Regras da Mesa. Só informa: nunca impede nada.">{{skillComplexity.text}}{{#if skillComplexity.over}} — complexa demais para este Tier{{/if}}</div>
+    <div class="sec-body g2">
+      <div class="fld">
+        <span class="fld-label">Tier {{#unless isRacialSkill}}<span class="help" title="Ultimate só aparece para o jogador se o Ator já possuir uma Skill Ultimate. O Mestre sempre vê.">?</span>{{/unless}}</span>
+        {{#if isRacialSkill}}
+        <span class="locked-chip" title="Tier travado: Skill Racial vem da Espécie"><i class="fas fa-lock"></i> {{lookup config.SKILL_TIER_LABELS system.tier}}</span>
+        {{else}}
+        <select name="system.tier" aria-label="Tier">
+          {{#each skillTierOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+        </select>
+        {{/if}}
+      </div>
+      <div class="fld">
+        <span class="fld-label">Nível</span>
+        <span class="fld-row">
+          <input class="num narrow" type="number" name="system.level" value="{{system.level}}" min="1" aria-label="Nível" {{#unless isGM}}readonly{{/unless}}{{#if system.isItemGranted}} readonly{{/if}}/>
+          {{#unless system.isItemGranted}}
+          {{#if isGM}}<button type="button" class="btn gm" data-action="levelUpSkill" title="Level Up (Voz do Mundo avisa)">+ Nível</button>{{/if}}
+          {{#if isGM}}{{#if item.parent}}<button type="button" class="btn gm" data-action="evolveSkill" title="Vira uma Skill nova; fica só o registro histórico">Evoluir</button>{{/if}}{{/if}}
+          {{#if canSpendPointLevel}}<button type="button" class="btn" data-action="spendPointLevelUp" title="Gasta 1 Ponto de Habilidade do tier desta Skill ({{levelPointBalance}} disponível)">Subir nível (1 Ponto)</button>{{/if}}
+          {{/unless}}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-head">Custo e ativação</div>
+    <div class="sec-body g3">
+      <div class="fld"><span class="fld-label">Custo de {{energyLabel}}</span><span class="sa-costrow"><input class="num" type="number" name="system.cost" value="{{system.cost}}" min="0" aria-label="Custo de {{energyLabel}}"/>{{{costChipHtml}}}</span></div>
+      <div class="fld">
+        <span class="fld-label">Habilidade Ativa <span class="help" title="Liga/desliga. O Custo é pago ao ligar e o Custo por Rodada drena enquanto ela estiver ligada.">?</span></span>
+        <label class="toggle"><input type="checkbox" name="system.hasUpkeep" {{#if system.hasUpkeep}}checked{{/if}}/><span class="toggle-track"></span><span>{{#if system.hasUpkeep}}Sim{{else}}Não{{/if}}</span></label>
+      </div>
+      {{#if system.hasUpkeep}}
+      <div class="fld"><span class="fld-label">{{energyLabel}} por Rodada</span><span class="sa-costrow"><input class="num" type="number" name="system.upkeepCost" value="{{system.upkeepCost}}" min="0" aria-label="{{energyLabel}} por Rodada"/>{{{upkeepChipHtml}}}</span></div>
+      {{/if}}
+      <div class="fld"><span class="fld-label">Recarga (rodadas) <span class="help" title="Depois de usada, a Skill fica bloqueada por este tanto de turnos seus (só em combate). 0 = sem recarga. Investir mais de 2× o Custo soma recarga (curva em Regras da Mesa).">?</span></span><input class="num" type="number" name="system.cooldown" value="{{system.cooldown}}" min="0" step="1" aria-label="Recarga em rodadas"/></div>
+      <div class="fld"><span class="fld-label">Fica pronta em (rodadas) <span class="help" title="Preparo: a Skill só dispara este tanto de turnos seus depois. O Custo é pago em partes iguais, uma ao começar e uma no início de cada turno de preparo; faltou {{energyLabel}} numa parte, a Skill falha. 0 = dispara na hora. Fora de combate dispara na hora, pagando tudo.">?</span></span><input class="num" type="number" name="system.prepTurns" value="{{system.prepTurns}}" min="0" step="1" aria-label="Fica pronta em rodadas"/></div>
+    </div>
+    <details class="adv" data-adv-key="cost" {{#if advCost.open}}open{{/if}}>
+      {{> nihility.advSummary fold=advCost}}
+      <div class="adv-body g2">
+        <div class="fld span-all">
+          <span class="fld-label">Só se… (a Skill inteira) <span class="help" title="Conferido depois de escolher o alvo e ANTES de pagar o Custo: se não vale, a Skill nem sai (e nada se gasta). Desligar uma Skill Ativa nunca é barrado. Sem alvo único (área, Estrutura), só valem as condições sobre quem usa.">?</span></span>
+          <span class="fld-row">
+            <select name="system.onlyIf.kind" aria-label="Só se (a Skill inteira)">
+              {{#each skillOnlyIf.kindOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+            </select>
+            {{#if skillOnlyIf.needsCondition}}
+            <select name="system.onlyIf.value" aria-label="Condição">
+              {{#each skillOnlyIf.conditionOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+            </select>
+            {{/if}}
+            {{#if skillOnlyIf.needsTrait}}
+            <select name="system.onlyIf.value" aria-label="Traço">
+              {{#each skillOnlyIf.traitOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+            </select>
+            {{/if}}
+            {{#if skillOnlyIf.needsThreshold}}
+            <input class="num narrow" type="number" name="system.onlyIf.threshold" value="{{skillOnlyIf.threshold}}" min="0" max="100" aria-label="Limite em %"/>
+            {{/if}}
+          </span>
+        </div>
+        <div class="fld span-all">
+          <label class="toggle"><input type="checkbox" name="system.variableMana" {{#if system.variableMana}}checked{{/if}}/><span class="toggle-track"></span><span>Aceita variar a {{energyLabel}}</span><span class="help" title="Ao usar, escolhe quanta {{energyLabel}} investir. Menos que o Custo enfraquece na mesma proporção; mais fortalece sem teto, mas cada {{energyLabel}} a mais rende menos que a anterior (curva e mínimo em Regras da Mesa). Numa Habilidade Ativa, o custo por rodada acompanha o investimento.">?</span></label>
+        </div>
+        <div class="fld"><span class="fld-label">Natureza <span class="help" title="Mágico: a Antimagia o alcança (e quem usa paga {{energyLabel}} extra ao atravessar um campo antimagia). Tecnológico: o PEM o alcança. As duas = tecnomágico (sofre as duas, mas sai mais forte); nenhuma = analógico, imune aos dois. Sem mexer, vale o automático: mágico quando custa {{energyLabel}} ou tem Dano Mágico.">?</span></span>
+          <label class="toggle"><input type="checkbox" name="system.isMagic" {{#if natureMagic}}checked{{/if}}/><span class="toggle-track"></span><span>Mágico</span></label>
+          <label class="toggle"><input type="checkbox" name="system.isTech" {{#if natureTech}}checked{{/if}}/><span class="toggle-track"></span><span>Tecnológico</span></label>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <div class="sec">
+    <div class="sec-head">Apresentação</div>
+    <div class="sec-body">
+      <div class="fld"><span class="fld-label">Animação (Sequencer) <span class="help" title="Um efeito do banco do Sequencer (ex.: jb2a.fireball.beam.orange) ou um arquivo de vídeo (.webm). Toca de quem usa até o alvo. Sem o módulo Sequencer, o campo é ignorado.">?</span></span>
+        <span class="anim-row">
+          <input class="mono" type="text" name="system.animationPath" value="{{system.animationPath}}" placeholder="jb2a.fireball.beam.orange ou modules/.../efeito.webm"/>
+          {{#if editable}}
+          {{#if sequencerActive}}<button type="button" class="btn" data-action="browseAnimations" title="Navegador do Sequencer: pesquise, veja a prévia e copie o caminho">Ver animações</button>{{/if}}
+          <button type="button" class="btn" data-action="pickAnimationFile" title="Escolher um arquivo de vídeo">Arquivo…</button>
+          {{/if}}
+        </span>
+      </div>
+    </div>
+    <details class="adv" data-adv-key="presentation" {{#if advPresentation.open}}open{{/if}}>
+      {{> nihility.advSummary fold=advPresentation}}
+      <div class="adv-body">
+        <label class="fld"><span class="fld-label">Gatilho Emocional</span><input type="text" name="system.emotionTrigger" value="{{system.emotionTrigger}}"/></label>
+      </div>
+    </details>
+  </div>
+</section>

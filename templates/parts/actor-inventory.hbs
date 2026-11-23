@@ -1,0 +1,67 @@
+{{#*inline "nihilityInvRow"}}
+<li class="item-row inventory-row {{#if row.equipped}}is-equipped{{/if}}" data-item-id="{{row.id}}" data-name="{{row.name}}" draggable="true">
+  <img src="{{row.img}}" width="24" height="24"/>
+  <span class="item-name">{{row.name}}</span>
+  <span class="item-qty" title="{{row.stacks}} slot(s) — pilhas de {{row.stackSize}}">x{{row.quantity}}{{#if row.isContainer}} · contêiner{{/if}}{{#if row.isAmmo}} · munição{{#if row.ammoRounds}} aberta ({{row.ammoRounds}}){{/if}}{{/if}}</span>
+  <span class="inv-weight" title="Peso total da pilha">{{row.weight}} kg</span>
+  {{#if row.clock}}<span class="inv-clock" title="Hora do mundo"><i class="fa-regular fa-clock"></i> {{row.clock}}</span>{{#if row.clockAnalog}}<button type="button" class="skill-use-button" data-action="setItemClock" title="Acertar o relógio (data e hora que você quiser)">Acertar</button>{{/if}}{{/if}}
+  {{#if row.isWeapon}}{{#if row.augmentsUnarmed}}{{#if row.equipped}}<span class="hint-inline" title="Equipado: a fórmula soma ao ataque desarmado">reforça o desarmado</span>{{/if}}{{else}}{{#if row.equipped}}<button type="button" class="skill-use-button" data-action="attackWithWeapon" title="Atacar com {{row.name}}">⚔</button><button type="button" class="skill-use-button" data-action="weaponAttackRoll" title="Rolar o ataque (atributo de escala + Maestria)">🎲</button>{{/if}}{{/if}}{{/if}}
+  {{#if row.magazine.uses}}<span class="inv-mag {{#if row.magazine.empty}}is-empty{{/if}}" title="Disparos no carregador">🔋 {{row.magazine.loaded}}/{{row.magazine.max}}</span><button type="button" class="skill-use-button" data-action="reloadWeapon" title="Recarregar / trocar munição (o que estava dentro volta para o inventário)">⟳</button>{{/if}}
+  {{#if row.isConsumable}}{{#if row.chargesText}}<span class="inv-charges" title="Cargas da unidade aberta">{{row.chargesText}}</span>{{/if}}<button type="button" class="skill-use-button" data-action="useConsumable" title="Usar {{row.name}}">Usar</button>{{/if}}
+  {{#if row.hasContainers}}
+  <select class="inventory-container-select" title="Guardar em">{{#each row.containerOptions as |opt|}}<option value="{{opt.id}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}</select>
+  {{/if}}
+  <a class="inv-equip {{#if row.equipped}}is-on{{/if}}" data-action="toggleEquip" title="{{#if row.equipped}}Desequipar{{else}}Equipar{{/if}}"><i class="fas fa-shirt"></i></a>
+  {{#if row.canSplit}}<a data-action="splitStack" title="Dividir pilha"><i class="fas fa-code-branch"></i></a>{{/if}}
+  <a class="item-edit" data-action="editItem" title="Editar"><i class="fas fa-edit"></i></a>
+  <a class="item-delete" data-action="deleteItem" title="Excluir"><i class="fas fa-trash"></i></a>
+</li>
+{{/inline}}
+<section class="tab sheet-body {{tabs.inventory.cssClass}}" data-group="primary" data-tab="inventory">
+  <div class="inventory-tab">
+    <div class="block inventory-summary">
+      <div class="inv-meter {{#if inventory.slotsOver}}is-over{{/if}}">
+        <span class="inv-meter-label">Slots</span>
+        <span class="inv-bar"><span style="width: {{inventory.slotsPercent}}%"></span></span>
+        <span class="inv-meter-value">{{inventory.summary.usedSlots}} / {{inventory.summary.slots}}</span>
+      </div>
+      <div class="inv-meter {{#if inventory.summary.over}}is-over{{/if}}">
+        <span class="inv-meter-label">Peso</span>
+        <span class="inv-bar"><span style="width: {{inventory.weightPercent}}%"></span></span>
+        <span class="inv-meter-value">{{inventory.summary.weight}} / {{inventory.summary.capacity}} kg</span>
+      </div>
+      {{#if inventory.summary.penalty}}<p class="inv-penalty"><i class="fas fa-weight-hanging"></i> Sobrecarga: −{{inventory.summary.penalty}}% de Deslocamento</p>{{/if}}
+      <p class="hint-inline">Slots e carga base vêm da Espécie; Força e Defesa aumentam a carga. Contêineres ocupam 1 slot e guardam os próprios. Arraste um Item igual para somar na pilha.</p>
+      {{#if isGM}}
+      <div class="inv-gm">
+        <label>Slots extras <input type="number" name="system.attributes.bonusSlots" value="{{system.attributes.bonusSlots}}"/></label>
+        <label>Carga extra (kg) <input type="number" step="any" name="system.attributes.bonusCarry" value="{{system.attributes.bonusCarry}}"/></label>
+      </div>
+      {{/if}}
+    </div>
+
+    <div class="inventory-toolbar">
+      <input type="search" class="inventory-search" placeholder="Buscar item…" aria-label="Buscar item"/>
+      <select class="inventory-filter" aria-label="Filtrar">{{#each inventory.filters as |f|}}<option value="{{f.id}}" {{#if f.selected}}selected{{/if}}>{{f.label}}</option>{{/each}}</select>
+      <select class="inventory-sort" aria-label="Ordenar">{{#each inventory.sorts as |f|}}<option value="{{f.id}}" {{#if f.selected}}selected{{/if}}>{{f.label}}</option>{{/each}}</select>
+    </div>
+
+    <div class="block inventory-drop" data-container-id="loose">
+      <p class="block-title">Carregando <span class="hint-inline">(equipados primeiro)</span></p>
+      <ol class="item-list inventory-list">
+        {{#each inventory.loose as |row|}}{{> nihilityInvRow row=row}}{{else}}<li class="empty-note">Nada solto.</li>{{/each}}
+      </ol>
+      {{#if isGM}}<a class="item-create" data-action="createItem" data-type="item">+ Novo Item</a>{{/if}}
+    </div>
+
+    {{#each inventory.groups as |group|}}
+    <div class="block inventory-container {{#if group.full}}is-over{{/if}}" data-container-id="{{group.id}}">
+      <p class="block-title"><i class="fas {{#if group.isSkill}}fa-hat-wizard{{else}}fa-box-open{{/if}}"></i> {{group.label}}
+        <span class="hint-inline">{{group.used}}/{{#if group.unlimited}}∞{{else}}{{group.slots}}{{/if}} slots{{#if group.weightReduction}} · −{{group.weightReduction}}% de peso{{/if}}</span></p>
+      <ol class="item-list inventory-list">
+        {{#each group.rows as |row|}}{{> nihilityInvRow row=row}}{{else}}<li class="empty-note">Vazio — arraste Itens pra cá.</li>{{/each}}
+      </ol>
+    </div>
+    {{/each}}
+  </div>
+</section>

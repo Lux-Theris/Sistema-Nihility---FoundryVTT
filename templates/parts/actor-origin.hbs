@@ -1,0 +1,143 @@
+<section class="tab sheet-body {{tabs.origin.cssClass}}" data-group="primary" data-tab="origin">
+  <div class="origin-tab">
+    {{#if creation}}
+    {{#with creation.picker as |pk|}}
+    <div class="creation-origin">
+      <div class="co-main">
+        <div class="co-head">
+          <span class="co-title">Que tipo de ser você é?</span>
+          <input type="search" class="co-search" placeholder="Buscar…" aria-label="Buscar Espécie"/>
+        </div>
+        {{#if pk.groups.length}}
+        <div class="co-groups"><a class="co-group on" data-group="">Todas</a>{{#each pk.groups as |g|}}<a class="co-group" data-group="{{g.id}}">{{g.label}}</a>{{/each}}</div>
+        {{/if}}
+        <div class="co-grid">
+          {{#each pk.cards as |c|}}
+          <button type="button" class="co-card {{#if c.selected}}sel{{/if}}" data-action="originPick" data-species="{{c.key}}" data-group="{{c.group}}" data-name="{{c.nameLower}}">
+            <b>{{c.label}}</b>{{#if c.blurb}}<span>{{c.blurb}}</span>{{/if}}{{#if c.lineages}}<em>{{c.lineages}} Linhagem(ns)</em>{{/if}}{{#if c.applied}}<em class="co-applied">a sua</em>{{/if}}
+          </button>
+          {{else}}
+          <p class="hint-inline">Nenhuma Espécie liberada para criação neste mundo.</p>
+          {{/each}}
+        </div>
+        {{#if pk.lineages.length}}
+        <p class="co-sub">Linhagem</p>
+        <div class="co-lineages">
+          {{#each pk.lineages as |l|}}
+          <button type="button" class="co-lin {{#if l.selected}}sel{{/if}}" data-action="originPickLineage" data-lineage="{{l.id}}"><b>{{l.label}}</b>{{#if l.blurb}}<span>{{l.blurb}}</span>{{/if}}</button>
+          {{/each}}
+        </div>
+        {{/if}}
+      </div>
+      <aside class="co-detail">
+        {{#if pk.selectedLabel}}
+        <p class="co-sub">{{pk.selectedLabel}} traz</p>
+        {{#each pk.lines as |line|}}<div class="co-line {{#if line.later}}later{{/if}}">{{line.label}} <em>{{line.value}}</em></div>{{/each}}
+        <span class="co-sp"></span>
+        {{#if pk.appliedHere}}
+        <p class="co-done">✓ É a sua Espécie.</p>
+        {{else if pk.needsLineage}}
+        <p class="hint-inline">Escolha uma Linhagem.</p>
+        {{else}}
+        <button type="button" class="co-apply" data-action="originApply">Ficar com {{pk.selectedLabel}}</button>
+        {{/if}}
+        <p class="hint-inline">Dá para trocar até o Mestre liberar o personagem.</p>
+        {{else}}
+        <p class="hint-inline">Clique numa Espécie para ver o que ela traz.</p>
+        {{/if}}
+      </aside>
+    </div>
+    {{/with}}
+    {{else}}
+    {{#if origin.outdated}}
+    <div class="origin-warn"><span>{{origin.speciesLabel}} foi editada no catálogo desde que esta ficha foi aplicada.</span><button type="button" data-action="originSync">Ver e sincronizar…</button></div>
+    {{/if}}
+    {{#if origin.speciesId}}
+    <div class="origin-layer species">
+      <div class="origin-layer-head"><b>Espécie · {{origin.speciesLabel}}</b>
+        {{#if origin.isGM}}<span class="origin-sp"></span><button type="button" data-action="originChange">Trocar…</button>{{#if origin.canEvolve}}<button type="button" data-action="originEvolve">Evoluir…</button>{{/if}}{{/if}}
+      </div>
+      {{#if origin.description}}<p class="origin-desc">{{origin.description}}</p>{{/if}}
+      <dl class="origin-gives">
+        {{#if origin.live}}<dt>Ao vivo</dt><dd><span class="origin-badge live">ao vivo</span> {{origin.live}}</dd>{{/if}}
+        {{#if origin.partsSummary}}<dt>Partes</dt><dd><span class="origin-badge copy">copiado</span> {{origin.partsSummary}} {{#if tabs.anatomy}}<a data-action="tab" data-group="primary" data-tab="anatomy">→ Anatomia</a>{{/if}}</dd>{{/if}}
+        <dt>Skills Raciais</dt><dd>{{#if origin.racial.length}}<span class="origin-badge copy">copiado</span> {{#each origin.racial as |s|}}{{s.name}} Nv {{s.level}}{{#unless @last}} · {{/unless}}{{/each}}{{else}}nenhuma{{/if}}{{#each origin.locked_text as |t|}} · <span class="origin-later">{{t}}</span>{{/each}}</dd>
+      </dl>
+    </div>
+    {{#if origin.hasLineages}}
+    <div class="origin-layer lineage">
+      <div class="origin-layer-head"><b>Linhagem · {{#if origin.lineageLabel}}{{origin.lineageLabel}}{{else}}nenhuma{{/if}}</b>
+        {{#if origin.isGM}}<span class="origin-sp"></span><button type="button" data-action="originLineage">Trocar…</button>{{/if}}
+      </div>
+      {{#if origin.lineageLabel}}
+      <dl class="origin-gives">
+        {{#if origin.lineageAdds}}<dt>Soma</dt><dd>{{origin.lineageAdds}}</dd>{{/if}}
+        {{#if origin.lineageReplaces}}<dt>Substitui</dt><dd>{{origin.lineageReplaces}}</dd>{{/if}}
+      </dl>
+      {{/if}}
+    </div>
+    {{/if}}
+    {{else}}
+    <p class="origin-empty">Sem Espécie. Escolha no cabeçalho.</p>
+    {{/if}}
+
+    {{#if (or origin.heritages.length origin.isGM)}}
+    <div class="origin-layer heritage">
+      <div class="origin-layer-head"><b>Heranças</b>
+        {{#if origin.isGM}}<span class="origin-sp"></span><button type="button" data-action="heritageAdd">+ Herança…</button>{{/if}}
+      </div>
+      <ul class="origin-heritages">
+        {{#each origin.heritages as |h|}}
+        <li><span class="origin-hchip">{{h.label}}</span><span class="origin-hgives">{{h.gives}}{{#if h.date}} · desde {{h.date}}{{/if}}{{#if h.source}} ("{{h.source}}"){{/if}}</span>
+          {{#if @root.origin.isGM}}<button type="button" data-action="heritageRemove" data-heritage="{{h.id}}">Retirar…</button>{{/if}}</li>
+        {{else}}
+        <li class="origin-empty">Nenhuma. Heranças são o que aconteceu com o personagem (Vampirizado, Meio-Dragão, Convertido em Ciborgue…).</li>
+        {{/each}}
+      </ul>
+    </div>
+    {{/if}}
+
+    {{#if (or links.any links.canCreatePact naming)}}
+    <div class="origin-layer links">
+      <div class="origin-layer-head"><b>Vínculos</b>
+        {{#if links.canCreatePact}}<span class="origin-sp"></span><button type="button" data-action="createPact">Criar Pacto…</button>{{/if}}
+      </div>
+      {{#if naming}}
+      {{#if naming.namedBy}}<p class="origin-desc">Nomeado por <b>{{naming.namedBy.name}}</b> (Corredor de alma).</p>{{/if}}
+      {{#each naming.named as |n|}}<p class="origin-desc">Nomeou <b>{{n.name}}</b> (Corredor de alma).</p>{{/each}}
+      {{#if naming.lost}}<p class="origin-desc">Mana máxima perdida pela Nomeação: −{{naming.lost}}.</p>{{/if}}
+      {{#if naming.showBank}}<p class="origin-desc">XP da Nomeação guardado: <b>{{naming.bank}}</b> <button type="button" data-action="openNamingBank">Evoluir uma Skill…</button></p>{{/if}}
+      {{/if}}
+      {{#each links.asOwner as |l|}}
+      <div class="origin-link">
+        <p class="origin-desc"><b>{{l.kindLabel}}</b> · {{l.borrowerName}} usa as suas Skills{{#if l.isPact}} liberadas{{/if}}, com a Mana dele; o XP é seu.</p>
+        <button type="button" data-action="toggleAcceptRequests" data-kind="{{l.kind}}" data-borrower="{{l.borrowerUuid}}">{{#if l.accepting}}Aceitando pedidos · parar{{else}}Não aceita pedidos · voltar a aceitar{{/if}}</button>
+        {{#if l.canCut}}<button type="button" data-action="cutLink" data-kind="{{l.kind}}" data-owner="{{@root.actor.uuid}}" data-borrower="{{l.borrowerUuid}}">{{#if l.isPact}}Cortar Pacto{{else}}Cortar Corredor de alma{{/if}}</button>{{/if}}
+        {{#if l.isPact}}
+        <div class="origin-pact-skills">
+          {{#each l.skills as |s|}}<label><input type="checkbox" data-action="togglePactSkill" data-borrower="{{l.borrowerUuid}}" data-skill="{{s.id}}" {{#if s.checked}}checked{{/if}}/> {{s.name}}</label>{{else}}<span class="hint-inline">Nenhuma Skill sua pode ser emprestada.</span>{{/each}}
+        </div>
+        {{/if}}
+      </div>
+      {{/each}}
+      {{#each links.asBorrower as |l|}}
+      <div class="origin-link">
+        <p class="origin-desc"><b>{{l.kindLabel}}</b> · você usa as Skills de {{l.ownerName}} (aba Ficha), com a sua Mana.</p>
+        {{#if l.canCut}}<button type="button" data-action="cutLink" data-kind="{{l.kind}}" data-owner="{{l.ownerUuid}}" data-borrower="{{@root.actor.uuid}}">{{#if (eq l.kind "pact")}}Cortar Pacto{{else}}Cortar Corredor de alma{{/if}}</button>{{/if}}
+      </div>
+      {{/each}}
+    </div>
+    {{/if}}
+
+    {{#if origin.history.length}}
+    <div class="origin-layer history">
+      <div class="origin-layer-head"><b>Histórico da origem</b></div>
+      <ul class="origin-history">{{#each origin.history as |h|}}<li><span class="op">{{h.op}}</span><span>{{h.text}}</span><span class="by">{{h.by}}</span></li>{{/each}}</ul>
+    </div>
+    {{/if}}
+    {{#if origin.isGM}}{{#if origin.locked}}
+    <div class="origin-foot"><button type="button" data-action="originUnlock">Destravar escolha do jogador</button></div>
+    {{/if}}{{/if}}
+    {{/if}}
+  </div>
+</section>

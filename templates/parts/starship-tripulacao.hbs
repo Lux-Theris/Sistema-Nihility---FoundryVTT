@@ -1,0 +1,30 @@
+<section class="tab sheet-body {{tabs.tripulacao.cssClass}}" data-group="primary" data-tab="tripulacao">
+      <div class="block">
+        <p class="block-title">Tripulação</p>
+        <ol class="item-list crew-list">
+          {{#each crewRows as |entry|}}
+          <li class="item-row crew-row">
+            <img src="{{entry.actor.img}}" width="24" height="24"/>
+            <span class="item-name">{{entry.actor.name}}</span>
+            {{#if entry.canChangeRole}}
+            <select class="crew-role-input" data-actor-uuid="{{entry.actorUuid}}" title="Posto atual — qualquer tripulante troca o próprio">
+              <option value="">— sem posto —</option>
+              {{#each entry.roleOptions as |opt|}}<option value="{{opt.id}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+            </select>
+            {{else}}
+            {{#if entry.roleLabel}}<span class="cat-pill">{{entry.roleLabel}}</span>{{/if}}
+            {{/if}}
+            {{#if ../isGM}}
+            <a class="item-delete" data-action="removeCrew" data-actor-uuid="{{entry.actorUuid}}" title="Remover tripulante"><i class="fas fa-trash"></i></a>
+            {{/if}}
+          </li>
+          {{/each}}
+        </ol>
+        {{#unless crewActors.length}}<p class="hint-inline">Nenhum tripulante designado.</p>{{/unless}}
+        <p class="hint-inline">O posto só diz quem está onde. Qualquer tripulante opera a Nave inteira (move, dispara, ajusta a energia) e troca o próprio posto na hora.</p>
+
+        {{#if isGM}}
+        <div class="crew-dropzone">Arraste um Personagem (PJ ou NPC) aqui pra designá-lo como tripulante.</div>
+        {{/if}}
+      </div>
+</section>

@@ -1,0 +1,145 @@
+<section class="tab sheet-body {{tabs.spec.cssClass}}" data-group="primary" data-tab="spec">
+  <div class="sec">
+    <div class="sec-head">Identidade</div>
+    <div class="sec-body">
+      <div class="fld">
+        <span class="fld-label">Categoria <span class="help" title="O número no bloco é quantas cabem por Nave (vagas). Categorias e Funções ficam em Configurações Gerais › Categorias de Módulo.">?</span></span>
+        <div class="tiles" role="radiogroup" aria-label="Categoria">
+          {{#each moduleCategoryOptions as |cat|}}
+          <label class="tile {{#if cat.selected}}on{{/if}}" title="Função: {{cat.roleLabel}}"><input type="radio" name="system.category" value="{{cat.id}}" {{#if cat.selected}}checked{{/if}}/>{{cat.label}}{{#if cat.slots}}<span class="tile-slots">{{cat.slots}}</span>{{/if}}</label>
+          {{/each}}
+        </div>
+      </div>
+      <div class="fld">
+        <span class="fld-label">Porte do Módulo</span>
+        <div class="seg" role="radiogroup" aria-label="Porte do Módulo">
+          {{#each moduleSizeSeg as |opt|}}
+          <label class="seg-opt {{#if opt.checked}}on{{/if}}"><input type="radio" name="system.moduleSize" value="{{opt.value}}" {{#if opt.checked}}checked{{/if}}/>{{opt.label}}</label>
+          {{/each}}
+        </div>
+      </div>
+      <div class="strip info"><i class="fas fa-sync-alt"></i><span>Trocar a Categoria ou o Porte sugere de novo os valores que ainda estão no padrão. Valor editado à mão não muda.</span></div>
+    </div>
+  </div>
+
+  <div class="strip dim">Especificação de fábrica. Vida atual, throttle, ligado/desligado, prioridade de energia e recarga são estado e se editam na ficha da Nave.</div>
+
+  <div class="sec">
+    <div class="sec-head">Energia e estrutura</div>
+    <div class="sec-body g2">
+      <label class="fld"><span class="fld-label">Consumo de Energia</span><span class="suffix"><input type="number" name="system.powerConsumption" value="{{system.powerConsumption}}" aria-label="Consumo"/><span>{{energyAbbr}}</span></span></label>
+      <label class="fld"><span class="fld-label">Vida Máx.</span><input class="num" type="number" name="system.hp.max" value="{{system.hp.max}}" min="0"/></label>
+      <label class="fld"><span class="fld-label">Slot</span><input type="text" name="system.slot" value="{{system.slot}}"/></label>
+      <label class="fld"><span class="fld-label">Endurecimento <span class="help" title="Reduz a chance de efeitos de sistema de elemento pegarem neste Módulo (derrubar, drenar energia, baixar resistência). A Classe da Nave soma o dela. 30% transforma 20% de chance em 14%.">?</span></span><span class="suffix"><input type="number" name="system.hardening" value="{{system.hardening}}" min="0" max="100" aria-label="Endurecimento"/><span>%</span></span></label>
+    </div>
+  </div>
+
+  <div class="sec var">
+    <div class="sec-head">Parâmetros · {{moduleRoleLabel}}<span class="sp"></span><span class="depends">muda com a Categoria</span></div>
+    {{#if (eq moduleRole "power")}}
+    <div class="sec-body g2">
+      <label class="fld"><span class="fld-label">Output (a 100% de clock)</span><span class="suffix"><input type="number" name="system.reactorOutput" value="{{system.reactorOutput}}" min="0" aria-label="Output"/><span>{{energyAbbr}}</span></span></label>
+    </div>
+    {{/if}}
+    {{#if (eq moduleRole "storage")}}
+    <div class="sec-body g2">
+      <label class="fld"><span class="fld-label">Capacidade de Armazenamento</span><span class="suffix"><input type="number" name="system.batteryCapacity" value="{{system.batteryCapacity}}" min="0" aria-label="Capacidade"/><span>{{energyAbbr}}</span></span></label>
+    </div>
+    {{/if}}
+    {{#if (eq moduleRole "distribution")}}
+    <div class="sec-body">
+      <label class="fld narrow-fld"><span class="fld-label">Fator de Distribuição <span class="help" title="Multiplica o baseline do Porte da Nave.">?</span></span><span class="suffix prefix"><span>×</span><input type="number" name="system.transferFactor" value="{{system.transferFactor}}" min="0" step="0.1" aria-label="Fator"/></span></label>
+      {{#if distributorPreview}}
+      <div class="factor-preview">
+        <p class="factor-preview-title">Capacidade de Transferência que este Fator entrega</p>
+        <table>
+          <thead><tr><th>Porte da Nave</th><th>Baseline</th><th>Resultado</th></tr></thead>
+          <tbody>
+            {{#each distributorPreview.rows as |row|}}
+            <tr class="{{#if row.current}}is-current{{/if}}">
+              <td>{{row.label}}{{#if row.current}} <span class="factor-here">instalado aqui</span>{{/if}}</td>
+              <td class="num">{{row.baseline}}</td>
+              <td class="num strong">{{row.result}} {{../distributorPreview.abbr}}/rodada</td>
+            </tr>
+            {{/each}}
+          </tbody>
+        </table>
+        <p class="empty-note">É o teto da Nave inteira por rodada, não de cada Módulo.</p>
+      </div>
+      {{/if}}
+    </div>
+    {{/if}}
+    {{#if (eq moduleRole "shield")}}
+    <div class="sec-body g3">
+      <label class="fld"><span class="fld-label">Vida Máxima <span class="help" title="A 100% de throttle.">?</span></span><input class="num" type="number" name="system.shieldCapacity" value="{{system.shieldCapacity}}" min="0"/></label>
+      <label class="fld"><span class="fld-label">Regen por Rodada <span class="help" title="A 100% de throttle.">?</span></span><input class="num" type="number" name="system.shieldRegen" value="{{system.shieldRegen}}" min="0"/></label>
+      <label class="fld"><span class="fld-label">Recarga <span class="help" title="Rodadas sem proteção depois que o Escudo zera.">?</span></span><span class="suffix"><input type="number" name="system.shieldRechargeRounds" value="{{system.shieldRechargeRounds}}" min="0" aria-label="Recarga"/><span>rod.</span></span></label>
+      <label class="fld"><span class="fld-label">Resistência à Penetração <span class="help" title="Tirada da Penetração da arma no estágio do Escudo (Penetração 40% contra 15% = 25%). Com vários Escudos, vale a maior entre os ligados. A Classe soma a dela.">?</span></span><span class="suffix"><input type="number" name="system.penetrationResist" value="{{system.penetrationResist}}" min="0" max="100" aria-label="Resistência à Penetração"/><span>%</span></span></label>
+      <div class="fld span-all"><span class="fld-label">Elemento do escudo <span class="help" title="Escudo de plasma, de antiprótons…: a vantagem entre elementos vale contra a camada de Escudo. Vários Escudos ligados somam os elementos.">?</span></span>{{> nihility.elementChips field=shieldElementField path="system.shieldElements" editable=editable}}</div>
+      <label class="toggle span-all"><input type="checkbox" name="system.adaptive" {{#if system.adaptive}}checked{{/if}}/><span class="toggle-track"></span><span>Adaptativo</span><span class="help" title="Cada golpe que chega no Escudo de pé ensina o Escudo: +X% de resistência àquele elemento, na frequência das armas de quem atacou, até o teto. Perde tudo quando o Escudo cai ou o Módulo desliga. Quem atacou pode Modular frequência para recomeçar do zero.">?</span></label>
+      {{#if system.adaptive}}
+      <label class="fld"><span class="fld-label">Adapta por golpe</span><span class="suffix"><input type="number" name="system.adaptStep" value="{{system.adaptStep}}" min="0" max="95" aria-label="Adapta por golpe"/><span>%</span></span></label>
+      <label class="fld"><span class="fld-label">Teto <span class="help" title="Nunca acima de 95%: sempre passa algo.">?</span></span><span class="suffix"><input type="number" name="system.adaptCap" value="{{system.adaptCap}}" min="0" max="95" aria-label="Teto da adaptação"/><span>%</span></span></label>
+      <p class="hint-inline span-all">{{#if adaptationRows.length}}Adaptado agora: {{#each adaptationRows as |row|}}{{row.label}} {{row.percent}}%{{#unless @last}} · {{/unless}}{{/each}}{{else}}Ainda sem adaptação.{{/if}}</p>
+      {{/if}}
+    </div>
+    {{/if}}
+    {{#if (eq moduleRole "propulsion")}}
+    <div class="sec-body g2">
+      <label class="fld"><span class="fld-label">Aceleração <span class="help" title="A 100% de throttle. Vários Motores somam.">?</span></span><input class="num" type="number" name="system.acceleration" value="{{system.acceleration}}" min="0"/></label>
+      <label class="fld"><span class="fld-label">Rotação <span class="help" title="A 100% de throttle. Vários Motores somam.">?</span></span><input class="num" type="number" name="system.rotation" value="{{system.rotation}}" min="0"/></label>
+    </div>
+    {{/if}}
+    {{#if (eq moduleRole "armor")}}
+    <div class="sec-body g2">
+      <label class="fld"><span class="fld-label">Redução de Dano <span class="help" title="Reduz esse percentual do dano que passa pelo Casco enquanto ele tiver Vida.">?</span></span><span class="suffix"><input type="number" name="system.armorReduction" value="{{system.armorReduction}}" min="0" max="100" aria-label="Redução de Dano"/><span>%</span></span></label>
+      <label class="fld"><span class="fld-label">Resistência à Penetração <span class="help" title="Tirada da Penetração da arma no estágio do Casco. A Classe soma a dela.">?</span></span><span class="suffix"><input type="number" name="system.penetrationResist" value="{{system.penetrationResist}}" min="0" max="100" aria-label="Resistência à Penetração"/><span>%</span></span></label>
+    </div>
+    {{/if}}
+    {{#if (eq moduleRole "weapon")}}
+    <div class="sec-body g3">
+      <label class="fld"><span class="fld-label">Fórmula de Dano</span><input class="mono" type="text" name="system.damageFormula" value="{{system.damageFormula}}" placeholder="3d10"/></label>
+      <label class="fld"><span class="fld-label">Penetração <span class="help" title="Valor a 100% de throttle.">?</span></span><span class="suffix"><input type="number" name="system.penetration" value="{{system.penetration}}" min="0" max="100" aria-label="Penetração"/><span>%</span></span></label>
+      <label class="fld"><span class="fld-label">Recarga <span class="help" title="Rodadas, a 100% de throttle. 0 = sempre disponível para disparar.">?</span></span><span class="suffix"><input type="number" name="system.cooldownRounds" value="{{system.cooldownRounds}}" min="0" aria-label="Recarga"/><span>rod.</span></span></label>
+      {{#if skillRangeOn}}
+      <label class="fld"><span class="fld-label">Alcance <span class="help" title="Em quadrados da cena (0 = sem limite). Fora dele a arma não dispara.">?</span></span><span class="suffix"><input type="number" name="system.range" value="{{system.range}}" min="0" aria-label="Alcance"/><span>quad.</span></span></label>
+      {{/if}}
+      <label class="toggle span-all"><input type="checkbox" name="system.isAbsoluteDamage" {{#if system.isAbsoluteDamage}}checked{{/if}}/><span class="toggle-track"></span><span>Dano Absoluto</span><span class="help" title="Passa por Escudo e Casco direto pra Integridade Estrutural. A Evasão do alvo ainda vale.">?</span></label>
+      <div class="fld span-all"><span class="fld-label">Elemento(s)</span>{{> nihility.elementChips field=moduleElementField path="system.damageElements" editable=editable}}</div>
+      <label class="toggle span-all"><input type="checkbox" name="system.usesAmmo" {{#if system.usesAmmo}}checked{{/if}}/><span class="toggle-track"></span><span>Usa munição (lançador)</span><span class="help" title="Dispara Munição do Porão: a fórmula, os elementos e o Absoluto vêm da munição; a Penetração soma. Sem munição compatível, não dispara.">?</span></label>
+      {{#if system.usesAmmo}}
+      <div class="fld span-all"><span class="fld-label">Aceita</span>
+        <span class="element-field">{{#each launcherAmmoChips as |chip|}}<a class="element-chip {{#if chip.checked}}checked{{/if}}" data-action="toggleAmmoType" data-ammo-type="{{chip.id}}">{{chip.label}}</a>{{/each}}</span></div>
+      {{/if}}
+    </div>
+    {{/if}}
+    {{#if (eq moduleRole "cargo")}}
+    <div class="sec-body g2">
+      <label class="fld"><span class="fld-label">Multiplicador de slots <span class="help" title="Porão compactado 1,5; carga frágil 0,75. Slots = tabela do Porte × isto.">?</span></span><input class="num" type="number" step="0.05" min="0" name="system.cargoMultiplier" value="{{system.cargoMultiplier}}"/></label>
+      <p class="empty-note">Slots deste Porão: <strong>{{cargoSlotsPreview}}</strong> (Compacto 10 · Standard 20 · Robusto 40 · Industrial 80 · Colossal 160, × o multiplicador). Vários Porões somam.</p>
+    </div>
+    {{/if}}
+    {{#if (eq moduleRole "tractor")}}
+    <div class="sec-body"><p class="empty-note">Ligado, ganha o botão 🧲 na ficha da Nave para prender outra Nave/Veículo (força pela diferença de Porte; throttle acima de 100% segura mais).</p></div>
+    {{/if}}
+    {{#if (eq moduleRole "ftl")}}
+    <div class="sec-body">
+      <div class="seg" role="radiogroup" aria-label="Sub-tipo de FTL">
+        <label class="seg-opt {{#if (eq system.ftlType "warp")}}on{{/if}}"><input type="radio" name="system.ftlType" value="warp" {{#if (eq system.ftlType "warp")}}checked{{/if}}/>Dobra Espacial</label>
+        <label class="seg-opt {{#if (eq system.ftlType "jump")}}on{{/if}}"><input type="radio" name="system.ftlType" value="jump" {{#if (eq system.ftlType "jump")}}checked{{/if}}/>Salto</label>
+      </div>
+      {{#if (eq system.ftlType "jump")}}
+      <div class="g2 inner-grid">
+        <label class="fld"><span class="fld-label">Alcance de Salto</span><input class="num" type="number" name="system.jumpRange" value="{{system.jumpRange}}" min="0"/></label>
+        <label class="fld"><span class="fld-label">Tempo de Carga</span><span class="suffix"><input type="number" name="system.chargeTime" value="{{system.chargeTime}}" min="0" aria-label="Tempo de Carga"/><span>rod.</span></span></label>
+      </div>
+      {{else}}
+      <label class="fld narrow-fld"><span class="fld-label">Fator de Dobra <span class="help" title="A 100% de throttle.">?</span></span><input class="num" type="number" name="system.warpFactor" value="{{system.warpFactor}}" min="0" step="0.1"/></label>
+      {{/if}}
+    </div>
+    {{/if}}
+    {{#if (eq moduleRole "utility")}}
+    <div class="sec-body"><p class="empty-note">Sem parâmetros próprios: Vida, consumo e a <a data-action="tab" data-group="primary" data-tab="grant">Habilidade Concedida</a>.</p></div>
+    {{/if}}
+  </div>
+</section>

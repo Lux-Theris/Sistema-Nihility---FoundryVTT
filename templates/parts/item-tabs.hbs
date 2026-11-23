@@ -1,0 +1,7 @@
+<nav class="sheet-tabs tabs item-tabs">
+  {{#each tabs as |tab|}}
+  <a class="item {{tab.cssClass}}" data-action="tab" data-group="primary" data-tab="{{tab.id}}">
+    {{#if tab.led}}<span class="tab-led {{#if tab.ledOn}}on{{/if}}"></span>{{/if}}{{tab.label}}{{#if tab.count}}<span class="tab-count">{{tab.count}}</span>{{/if}}{{#if tab.warn}}<span class="tab-warn" title="{{tab.warn}} aviso(s) nesta aba">{{tab.warn}}</span>{{/if}}
+  </a>
+  {{/each}}
+</nav>

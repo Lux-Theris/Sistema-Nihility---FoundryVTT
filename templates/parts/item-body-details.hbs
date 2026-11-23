@@ -1,0 +1,27 @@
+<section class="tab sheet-body {{tabs.details.cssClass}}" data-group="primary" data-tab="details">
+  <div class="sec">
+    <div class="sec-head">Identidade</div>
+    <div class="sec-body g2">
+      <label class="fld"><span class="fld-label">Slot</span><input type="text" name="system.slot" value="{{system.slot}}"/></label>
+      <label class="fld"><span class="fld-label">Origem (Espécie)</span><input type="text" name="system.speciesOrigin" value="{{system.speciesOrigin}}"/></label>
+    </div>
+  </div>
+  <div class="sec">
+    <div class="sec-head">Vida</div>
+    <div class="sec-body g3">
+      <label class="fld"><span class="fld-label">% da Vida <span class="help" title="Vida da parte em % da Vida máxima do personagem (com buffs): cresce junto, e subir de nível ou ganhar um buff mantém a proporção. 0 = Vida fixa (o máximo ao lado).">?</span></span><input class="num" type="number" min="0" step="1" name="system.hpPercent" value="{{system.hpPercent}}"/></label>
+      <div class="fld">
+        <span class="fld-label">Vida</span>
+        <span class="fld-row"><input class="num" type="number" name="system.hp.value" value="{{system.hp.value}}" aria-label="Vida atual"/><span class="of">/</span><input class="num" type="number" name="system.hp.max" value="{{system.hp.max}}" aria-label="Vida máxima" {{#if system.hpPercent}}readonly title="Calculada pelo % da Vida do personagem"{{/if}}/></span>
+      </div>
+      <div class="fld">
+        <span class="fld-label">Prótese</span>
+        <label class="toggle"><input type="checkbox" name="system.isProsthetic" {{#if system.isProsthetic}}checked{{/if}}/><span class="toggle-track"></span><span>{{#if system.isProsthetic}}Protética{{else}}Natural{{/if}}</span></label>
+      </div>
+      <div class="fld">
+        <span class="fld-label">Perdida <span class="help" title="A parte não existe mais (decepada). Cura não traz de volta; só Regeneração. Com prótese instalada, vale a prótese.">?</span></span>
+        <label class="toggle"><input type="checkbox" name="system.lost" {{#if system.lost}}checked{{/if}}/><span class="toggle-track"></span><span>{{#if system.lost}}Perdida{{else}}Presente{{/if}}</span></label>
+      </div>
+    </div>
+  </div>
+</section>

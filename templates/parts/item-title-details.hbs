@@ -1,0 +1,64 @@
+<section class="tab sheet-body {{tabs.details.cssClass}}" data-group="primary" data-tab="details">
+  <div class="sec">
+    <div class="sec-head">Origem</div>
+    <div class="sec-body g2">
+      <label class="fld"><span class="fld-label">Concedido por</span><input type="text" name="system.grantedBy" value="{{system.grantedBy}}"/></label>
+      <label class="fld"><span class="fld-label">Raridade</span><input type="text" name="system.rarity" value="{{system.rarity}}"/></label>
+    </div>
+  </div>
+
+  {{> nihility.regenBlock regen=system.regen energyLabel=energyLabel note="sempre ativo"}}
+  {{#if luckEnabled}}
+  <div class="sec">
+    <div class="sec-head">Sorte<span class="sp"></span><span class="sec-head-note">sempre ativa</span><span class="help" title="% de inclinação nos dados (negativo = azar), por escopo. Soma com as outras fontes de sorte. 0 = nada.">?</span></div>
+    <div class="sec-body g3">
+      <label class="fld"><span class="fld-label">Atributos e iniciativa (%)</span><input class="num" type="number" step="any" name="system.luck.attributes" value="{{system.luck.attributes}}"/></label>
+      <label class="fld"><span class="fld-label">Dano (%)</span><input class="num" type="number" step="any" name="system.luck.damage" value="{{system.luck.damage}}"/></label>
+      <label class="fld"><span class="fld-label">Chances d100 (%)</span><input class="num" type="number" step="any" name="system.luck.chances" value="{{system.luck.chances}}"/></label>
+    </div>
+  </div>
+  {{/if}}
+  <div class="sec">
+    <div class="sec-head">Bônus permanentes<span class="sp"></span><span class="sec-head-note">sempre ativos</span></div>
+    <div class="sec-body tight">
+      {{#if titleBonusRows.length}}<div class="col-head pair-cols"><span>Alvo</span><span>Valor</span><span></span></div>{{/if}}
+      {{#each titleBonusRows as |row|}}
+      <div class="pair-row" data-index="{{row.index}}">
+        <select name="system.bonuses.{{row.index}}.attribute" aria-label="Alvo">
+          {{#each row.groups as |group|}}
+          <optgroup label="{{group.label}}">
+            {{#each group.options as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+          </optgroup>
+          {{/each}}
+        </select>
+        <input class="num" type="number" name="system.bonuses.{{row.index}}.amount" value="{{row.amount}}" aria-label="Valor"/>
+        <a class="row-delete" data-action="deleteTitleBonus" title="Remover" aria-label="Remover"><i class="fas fa-trash"></i></a>
+      </div>
+      {{/each}}
+      {{#if editable}}<a class="link-add" data-action="addTitleBonus">+ Bônus</a>{{/if}}
+    </div>
+  </div>
+
+  {{#if resistancesEnabled}}
+  <div class="sec">
+    <div class="sec-head">Resistência a dano<span class="sp"></span><span class="sec-head-note">% fixo, sem nível</span></div>
+    <div class="sec-body tight">
+      {{#each titleResistances as |res index|}}
+      <div class="pair-row" data-index="{{index}}">
+        <select name="system.resistances.{{index}}.target" aria-label="Alvo">
+          {{#each res.targetOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+        </select>
+        <span class="suffix"><input type="number" name="system.resistances.{{index}}.amount" value="{{res.amount}}" min="0" max="100" aria-label="Percentual"/><span>%</span></span>
+        <a class="row-delete" data-action="deleteTitleResistance" title="Remover" aria-label="Remover"><i class="fas fa-trash"></i></a>
+      </div>
+      {{/each}}
+      {{#if editable}}<a class="link-add" data-action="addTitleResistance">+ Resistência</a>{{/if}}
+    </div>
+  </div>
+  {{/if}}
+
+  <div class="sec">
+    <div class="sec-head">Bônus condicionais<span class="sp"></span><span class="sec-head-note">Quando → Então</span></div>
+    <div class="sec-body">{{> nihility.conditionalModifiers rows=conditionalRows editable=editable}}</div>
+  </div>
+</section>

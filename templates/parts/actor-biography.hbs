@@ -1,0 +1,24 @@
+<section class="tab sheet-body {{tabs.biography.cssClass}}" data-group="primary" data-tab="biography">
+    {{#unless creation}}
+    <label class="bio-concept">Conceito <span class="hint-inline" style="margin:0">(uma frase: quem é este personagem)</span>
+      <input type="text" name="system.concept" value="{{system.concept}}" placeholder="Ex.: Dragoide exilado que quer reconquistar a ilha do pai"/>
+    </label>
+    {{/unless}}
+    <h3>Personalidade <span class="hint-inline" style="margin:0">(insumo para Skills Únicas/Ultimate)</span></h3>
+    <label>Traços
+      <input type="text" name="system.personality.traits" value="{{system.personality.traits}}"/>
+    </label>
+    <label>Desejos
+      <input type="text" name="system.personality.desires" value="{{system.personality.desires}}"/>
+    </label>
+    <label>Estado Emocional
+      <input type="text" name="system.personality.emotionalState" value="{{system.personality.emotionalState}}"/>
+    </label>
+
+    <h3>Biografia</h3>
+    {{#if owner}}
+    <prose-mirror name="system.biography" value="{{system.biography}}"></prose-mirror>
+    {{else}}
+    <div class="rich-text-readonly">{{{system.biography}}}</div>
+    {{/if}}
+</section>

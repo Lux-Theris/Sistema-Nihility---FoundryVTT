@@ -1,0 +1,77 @@
+<section class="tab sheet-body {{tabs.consumable.cssClass}}" data-group="primary" data-tab="consumable">
+  <div class="sec">
+    <div class="sec-body">
+      <label class="toggle"><input type="checkbox" name="system.consumable.enabled" {{#if system.consumable.enabled}}checked{{/if}}/><span class="toggle-track"></span><span>Este item é um consumível</span><span class="help" title="Põe o botão Usar na linha do inventário (não precisa estar equipado). Cada uso gasta 1 da pilha, ou 1 carga. A última unidade some da ficha.">?</span></label>
+    </div>
+  </div>
+  {{#if system.consumable.enabled}}
+  <div class="fld">
+    <span class="fld-label">O que faz ao usar</span>
+    <div class="seg" role="radiogroup" aria-label="O que faz ao usar">
+      {{#each consumableEffectTypeSeg as |opt|}}
+      <label class="seg-opt {{#if opt.checked}}on{{/if}}"><input type="radio" name="system.consumable.effectType" value="{{opt.value}}" {{#if opt.checked}}checked{{/if}}/>{{opt.label}}</label>
+      {{/each}}
+    </div>
+  </div>
+  <div class="sec">
+    <div class="sec-head">Em quem</div>
+    <div class="sec-body">
+      <div class="seg" role="radiogroup" aria-label="Em quem">
+        {{#each consumableTargetSeg as |opt|}}
+        <label class="seg-opt {{#if opt.checked}}on{{/if}}" title="{{opt.title}}"><input type="radio" name="system.consumable.targetType" value="{{opt.value}}" {{#if opt.checked}}checked{{/if}}/>{{opt.label}}</label>
+        {{/each}}
+      </div>
+      {{#if consumableIsArea}}
+      <div class="area-box">
+        <div class="fld area-shape">
+          <span class="fld-label">Formato de Área</span>
+          <div class="seg" role="radiogroup" aria-label="Formato de Área">
+            {{#each consumableAreaSeg as |opt|}}
+            <label class="seg-opt {{#if opt.checked}}on{{/if}}"><input type="radio" name="system.consumable.areaShape" value="{{opt.value}}" {{#if opt.checked}}checked{{/if}}/>{{opt.label}}</label>
+            {{/each}}
+          </div>
+        </div>
+        <label class="fld"><span class="fld-label">Distância <span class="help" title="Raio do Círculo, ou alcance do Cone/Linha, em unidades de grid. Sem mapa, vira um alvo só.">?</span></span><input class="num" type="number" name="system.consumable.areaDistance" value="{{system.consumable.areaDistance}}" min="0"/></label>
+        {{#if (eq system.consumable.areaShape "cone")}}
+        <label class="fld"><span class="fld-label">Ângulo (°)</span><input class="num" type="number" name="system.consumable.areaAngle" value="{{system.consumable.areaAngle}}" min="1" max="360"/></label>
+        {{/if}}
+      </div>
+      {{/if}}
+    </div>
+  </div>
+  {{#if consumableIsDamage}}
+  <div class="sec">
+    <div class="sec-head">Dano<span class="sp"></span><span class="depends">O que faz = Dano</span></div>
+    <div class="sec-body g2">
+      <label class="fld"><span class="fld-label">Fórmula de Dano</span><input class="mono" type="text" name="system.consumable.damageFormula" value="{{system.consumable.damageFormula}}" placeholder="3d6"/></label>
+      <label class="fld"><span class="fld-label">Atributo de Escala <span class="help" title="Multiplica o dano por (Atributo de quem usa)² ÷ divisor, igual a arma e Skill — é o que faz uma granada continuar valendo em nível alto. Sem escala, a fórmula vale como escrita.">?</span></span>
+        <select name="system.consumable.scalingAttribute">
+          {{#each consumableScalingOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+        </select>
+      </label>
+      <label class="toggle span-all"><input type="checkbox" name="system.consumable.isMagicDamage" {{#if system.consumable.isMagicDamage}}checked{{/if}}/><span class="toggle-track"></span><span>Dano Mágico</span><span class="help" title="Defesa Mágica reduz, e a Antimagia alcança.">?</span></label>
+      <div class="fld span-all"><span class="fld-label">Elemento(s)</span>{{> nihility.elementChips field=consumableElementField path="system.consumable.damageElements" editable=editable}}</div>
+    </div>
+  </div>
+  {{else}}
+  {{> nihility.effectCards effects=consumableEffects hasUpkeep=false}}
+  {{/if}}
+  <div class="sec">
+    <div class="sec-head">Usos</div>
+    <div class="sec-body g2">
+      {{#if skillRangeOn}}
+      <label class="toggle span-all" title="Granada e afins: o alcance é a base mais a Força de quem arremessa. Vale nos modos Num alvo e Área."><input type="checkbox" name="system.consumable.thrown" {{#if system.consumable.thrown}}checked{{/if}}/><span class="toggle-track"></span><span>Arremessável</span></label>
+      {{#if system.consumable.thrown}}
+      <label class="fld"><span class="fld-label">Alcance base <span class="help" title="Metros sem contar a Força. A Força soma ⌊Força ÷ passo⌋ metros (o passo está em Módulos do Sistema › Alcance de Skill e Marcas).">?</span></span><span class="suffix"><input type="number" name="system.consumable.throwBase" value="{{system.consumable.throwBase}}" min="0" step="0.5" aria-label="Alcance base"/><span>m</span></span></label>
+      {{/if}}
+      {{/if}}
+      <label class="fld"><span class="fld-label">Cargas por unidade <span class="help" title="Kit médico de 5 usos = 5. Cada Usar gasta 1 carga; ao zerar, sai 1 da pilha e a próxima começa cheia. 0 ou 1 = cada uso gasta uma unidade.">?</span></span><input class="num" type="number" min="0" name="system.consumable.charges" value="{{system.consumable.charges}}"/></label>
+      {{#if (gt system.consumable.charges 1)}}
+      <label class="fld"><span class="fld-label">Cargas gastas da unidade aberta</span><input class="num" type="number" min="0" name="system.consumable.chargesUsed" value="{{system.consumable.chargesUsed}}"/></label>
+      {{/if}}
+    </div>
+  </div>
+  {{else}}
+  <div class="strip dim">Desligado, o item não tem botão Usar. Os valores já salvos continuam guardados.</div>
+  {{/if}}
+</section>

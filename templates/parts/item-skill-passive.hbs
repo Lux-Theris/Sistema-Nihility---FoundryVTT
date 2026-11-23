@@ -1,0 +1,106 @@
+<section class="tab sheet-body {{tabs.passive.cssClass}}" data-group="primary" data-tab="passive">
+  <div class="strip dim">Tudo nesta aba vale enquanto a Skill estiver na ficha, sem usar e sem escolher alvo (Habilidade Ativa: enquanto ligada).</div>
+
+  {{#if inventoryEnabled}}
+  <div class="sec">
+    <div class="sec-head">Contêiner</div>
+    <div class="sec-body g3">
+      <label class="toggle span-all"><input type="checkbox" name="system.grantsContainer.enabled" {{#if system.grantsContainer.enabled}}checked{{/if}}/><span class="toggle-track"></span><span>Dá um contêiner (bolsa dimensional, estômago)</span><span class="help" title="Aparece na aba Inventário do dono, com slots próprios. Não ocupa slot.">?</span></label>
+      {{#if system.grantsContainer.enabled}}
+      <label class="fld"><span class="fld-label">Slots</span><input class="num" type="number" name="system.grantsContainer.slots" value="{{system.grantsContainer.slots}}" min="0"/></label>
+      <label class="fld"><span class="fld-label">Redução de peso</span><span class="suffix"><input type="number" name="system.grantsContainer.weightReduction" value="{{system.grantsContainer.weightReduction}}" min="0" max="100" aria-label="Redução de peso"/><span>%</span></span></label>
+      <label class="toggle"><input type="checkbox" name="system.grantsContainer.unlimited" {{#if system.grantsContainer.unlimited}}checked{{/if}}/><span class="toggle-track"></span><span>Ilimitado</span></label>
+      {{/if}}
+    </div>
+  </div>
+  {{/if}}
+
+  <div class="sec">
+    <div class="sec-head">Ao acertar (qualquer golpe seu)</div>
+    <div class="sec-body g3">
+      <label class="fld span-all"><span class="fld-label">Condição que o golpe põe <span class="help" title="Todo golpe de dano seu (soco, arma, Skill de dano, consumível; não ticks nem Estruturas) põe esta Condição no alvo, junto do dano: ela entra quando o dano é aplicado no card e o Desfazer a tira. É como se pode marcar alguém ao bater.">?</span></span>
+        <select name="system.onHit.conditionId">
+          {{#each skillOnHit.conditionOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+        </select>
+      </label>
+      {{#if skillOnHit.set}}
+      <label class="fld"><span class="fld-label">Chance</span><span class="suffix"><input type="number" name="system.onHit.chance" value="{{skillOnHit.chance}}" min="0" max="100" aria-label="Chance"/><span>%</span></span></label>
+      <label class="fld"><span class="fld-label">Rodadas <span class="help" title="0 = a duração que a própria Condição tem.">?</span></span><input class="num" type="number" name="system.onHit.rounds" value="{{skillOnHit.rounds}}" min="0" aria-label="Rodadas"/></label>
+      {{#if skillOnHit.showWhen}}
+      <div class="fld">
+        <span class="fld-label">Vale</span>
+        <div class="seg" role="radiogroup" aria-label="Quando vale">
+          {{#each skillOnHit.whenSeg as |opt|}}
+          <label class="seg-opt {{#if opt.checked}}on{{/if}}"><input type="radio" name="system.onHit.when" value="{{opt.value}}" {{#if opt.checked}}checked{{/if}}/>{{opt.label}}</label>
+          {{/each}}
+        </div>
+      </div>
+      {{/if}}
+      {{/if}}
+    </div>
+  </div>
+
+  {{#if resistancesEnabled}}
+  <div class="sec">
+    <div class="sec-head">Resistência / Imunidade</div>
+    <div class="sec-body">
+      <label class="fld"><span class="fld-label">Alvo <span class="help" title="Independente da Mecânica ao Usar: a Skill pode ter as duas coisas. Geral chega a 50% (nível 5); um Elemento chega a 100% (Imunidade) no nível 10.">?</span></span>
+        <select name="system.resistanceTarget">
+          {{#each skillResistanceOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+        </select>
+      </label>
+      {{#if isResistanceSkill}}
+      <div class="strip gold split"><span>{{skillResistanceName}} — {{resistancePercent}}%</span><span class="mono">nível {{system.level}} / {{resistanceMaxLevel}}</span></div>
+      {{/if}}
+    </div>
+  </div>
+  {{/if}}
+
+  {{#if showMasterySection}}
+  <div class="sec">
+    <div class="sec-head">Maestria de arma</div>
+    <div class="sec-body">
+      <label class="fld"><span class="fld-label">Tipo <span class="help" title="Uma Maestria é passiva: sem botão Usar, fora do ciclo de Poder/Desconto. Dá +% de dano com as armas daquele tipo (e o nível dela soma no 🎲 de ataque). Uma Maestria de grupo vale para todos os subtipos; a de subtipo, só para ele (e rende mais por nível).">?</span></span>
+        <select name="system.weaponMastery">
+          {{#each skillMasteryOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+        </select>
+      </label>
+      {{#if isMasterySkill}}
+      <div class="strip gold split"><span>{{masterySentence}}</span><span class="mono">{{#if masteryEvolved}}evoluída · sem níveis{{else}}nível {{system.level}} / {{masteryMaxLevel}}{{/if}}</span></div>
+      <div class="strip dim">Depois do nível máximo, o próximo passo é a Evolução (botão do Mestre na ficha), que dá o bônus fixo da Maestria evoluída.</div>
+      {{/if}}
+    </div>
+  </div>
+  {{/if}}
+
+  <div class="sec">
+    <div class="sec-head">Modificador permanente</div>
+    <div class="sec-body g2">
+      <label class="fld"><span class="fld-label">HP Máximo</span><input class="num" type="number" name="system.statModifiers.hp" value="{{system.statModifiers.hp}}"/></label>
+      <label class="fld"><span class="fld-label">{{energyLabel}} Máxima</span><input class="num" type="number" name="system.statModifiers.energy" value="{{system.statModifiers.energy}}"/></label>
+    </div>
+  </div>
+  {{> nihility.regenBlock regen=system.regen energyLabel=energyLabel note="sempre; escala com o nível"}}
+
+  <div class="sec">
+    <div class="sec-head">Bônus de atributo<span class="sp"></span><span class="sec-head-note">rolagem, nunca HP/{{energyLabel}}</span></div>
+    <div class="sec-body tight">
+      {{#if system.attributeBonuses.length}}<div class="col-head pair-cols"><span>Atributo</span><span>Valor</span><span></span></div>{{/if}}
+      {{#each system.attributeBonuses as |bonus index|}}
+      <div class="pair-row" data-index="{{index}}">
+        <select name="system.attributeBonuses.{{index}}.attribute" aria-label="Atributo">
+          {{#each ../visibleAttributes as |attr|}}<option value="{{attr.key}}" {{#if (eq attr.key bonus.attribute)}}selected{{/if}}>{{attr.label}}</option>{{/each}}
+        </select>
+        <input class="num" type="number" name="system.attributeBonuses.{{index}}.amount" value="{{bonus.amount}}" aria-label="Valor"/>
+        <a class="row-delete" data-action="deleteItemAttrBonus" title="Remover" aria-label="Remover"><i class="fas fa-trash"></i></a>
+      </div>
+      {{/each}}
+      {{#if editable}}<a class="link-add" data-action="addItemAttrBonus">+ Bônus de Atributo</a>{{/if}}
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-head">Bônus condicionais<span class="sp"></span><span class="sec-head-note">Quando → Então</span></div>
+    <div class="sec-body">{{> nihility.conditionalModifiers rows=conditionalRows editable=editable}}</div>
+  </div>
+</section>

@@ -1,0 +1,39 @@
+<section class="tab sheet-body {{tabs.mods.cssClass}}" data-group="primary" data-tab="mods">
+  {{#each system.installedMods as |mod index|}}
+  <div class="sec mod-card" data-index="{{index}}">
+    <div class="sec-head">
+      <input class="sec-head-input" type="text" name="system.installedMods.{{index}}.name" value="{{mod.name}}" placeholder="Nome da modificação" aria-label="Nome da modificação"/>
+      <span class="sp"></span>
+      <a class="row-delete" data-action="deleteInstalledMod" title="Remover modificação" aria-label="Remover modificação"><i class="fas fa-trash"></i></a>
+    </div>
+    <div class="sec-body">
+      <label class="fld"><span class="fld-label">Descrição</span><input type="text" name="system.installedMods.{{index}}.description" value="{{mod.description}}"/></label>
+      <div class="fld">
+        <span class="fld-label">Habilidade Concedida</span>
+        {{> nihility.grantedSkill grant=(lookup ../modGrantSummaries index) editable=../editable}}
+        <button type="button" class="btn" data-action="toggleModGrant" data-index="{{index}}">{{#if mod.skillGranted}}Remover Habilidade da ficha{{else}}Conceder Habilidade à ficha{{/if}}</button>
+      </div>
+      <div class="g2 inner-grid">
+        <label class="fld"><span class="fld-label">HP Máximo</span><input class="num" type="number" name="system.installedMods.{{index}}.statModifiers.hp" value="{{mod.statModifiers.hp}}"/></label>
+        <label class="fld"><span class="fld-label">{{../energyLabel}} Máxima</span><input class="num" type="number" name="system.installedMods.{{index}}.statModifiers.energy" value="{{mod.statModifiers.energy}}"/></label>
+      </div>
+      <div class="fld">
+        <span class="fld-label">Bônus de atributo <span class="help" title="Soma na rolagem; nunca entra no HP/Mana.">?</span></span>
+        {{#each mod.attributeBonuses as |bonus bIndex|}}
+        <div class="pair-row" data-index="{{index}}" data-bonus-index="{{bIndex}}">
+          <select name="system.installedMods.{{index}}.attributeBonuses.{{bIndex}}.attribute" aria-label="Atributo">
+            {{#each ../../visibleAttributes as |attr|}}<option value="{{attr.key}}" {{#if (eq attr.key bonus.attribute)}}selected{{/if}}>{{attr.label}}</option>{{/each}}
+          </select>
+          <input class="num" type="number" name="system.installedMods.{{index}}.attributeBonuses.{{bIndex}}.amount" value="{{bonus.amount}}" aria-label="Valor"/>
+          <a class="row-delete" data-action="deleteModAttrBonus" title="Remover" aria-label="Remover"><i class="fas fa-trash"></i></a>
+        </div>
+        {{/each}}
+        {{#if ../editable}}<a class="link-add" data-action="addModAttrBonus" data-index="{{index}}">+ Bônus de Atributo</a>{{/if}}
+      </div>
+    </div>
+  </div>
+  {{else}}
+  <p class="empty-note">Nenhuma modificação ou prótese instalada.</p>
+  {{/each}}
+  {{#if editable}}<a class="link-add" data-action="addInstalledMod">+ Modificação/Prótese</a>{{/if}}
+</section>

@@ -1,0 +1,41 @@
+<section class="tab sheet-body {{tabs.implant.cssClass}}" data-group="primary" data-tab="implant">
+  <div class="sec">
+    <div class="sec-body">
+      <label class="toggle"><input type="checkbox" name="system.implant.enabled" {{#if system.implant.enabled}}checked{{/if}}/><span class="toggle-track"></span><span>Este Item é um implante ou prótese</span><span class="help" title="Arraste o Item para uma Parte do Corpo na aba Anatomia para instalar. Remover devolve o Item ao inventário.">?</span></label>
+    </div>
+  </div>
+  {{#if system.implant.enabled}}
+  <div class="fld"><span class="fld-label">Tipo</span>
+    <div class="seg">
+      <label class="seg-opt {{#if implantIsProsthesis}}on{{/if}}"><input type="radio" name="system.implant.kind" value="prosthesis" {{#if implantIsProsthesis}}checked{{/if}}/>Prótese · substitui a parte</label>
+      <label class="seg-opt {{#unless implantIsProsthesis}}on{{/unless}}"><input type="radio" name="system.implant.kind" value="implant" {{#unless implantIsProsthesis}}checked{{/unless}}/>Implante · aprimora a parte</label>
+    </div>
+  </div>
+  <div class="sec">
+    <div class="sec-head">Onde encaixa</div>
+    <div class="sec-body g2">
+      <div class="fld span-all"><span class="fld-label">Serve nos slots <span class="help" title="Os slots vêm das partes de todas as Espécies (head, arm, leg, tail, wing…). Nenhum marcado = cabe em qualquer parte.">?</span></span>
+        <span class="element-field">{{#each implantSlotChips as |chip|}}<a class="element-chip {{#if chip.checked}}checked{{/if}}" data-action="toggleImplantList" data-list="fitsSlots" data-value="{{chip.id}}">{{chip.id}}</a>{{/each}}</span></div>
+      <label class="fld"><span class="fld-label">Onde, dentro da parte</span><input type="text" name="system.implant.location" value="{{system.implant.location}}" placeholder="Mão"/></label>
+      {{#if implantIsProsthesis}}<label class="fld"><span class="fld-label">Vida da prótese <span class="help" title="Vira a Vida da parte enquanto instalada. Prótese não é curada nem regenerada: só Reparo (ou a Regeneração de uma Skill Única ou Ultimate).">?</span></span><input class="num" type="number" min="1" name="system.implant.hp" value="{{system.implant.hp}}"/></label>
+      <div class="fld-row span-all">
+        <span class="fld-label">Vida conta como <span class="help" title="% do portador: a Vida é esse % da Vida máxima de quem usa, e cresce com ele (padrão). Fixa: pontos que não crescem — uma perna de pau vira papel em nível alto, de propósito.">?</span></span>
+        <div class="seg compact" role="radiogroup" aria-label="Vida conta como">
+          <label class="seg-opt {{#unless implantHpFixed}}on{{/unless}}"><input type="radio" name="system.implant.hpMode" value="percent" {{#unless implantHpFixed}}checked{{/unless}}/>% da Vida do portador</label>
+          <label class="seg-opt {{#if implantHpFixed}}on{{/if}}"><input type="radio" name="system.implant.hpMode" value="fixed" {{#if implantHpFixed}}checked{{/if}}/>Fixa</label>
+        </div>
+      </div>{{/if}}
+    </div>
+  </div>
+  <div class="sec">
+    <div class="sec-head">Funções <span class="depends">muda com Tipo</span></div>
+    <div class="sec-body">
+      <span class="element-field">{{#each implantFunctionChips as |chip|}}<a class="element-chip {{#if chip.checked}}checked{{/if}}" data-action="toggleImplantList" data-list="functions" data-value="{{chip.id}}">{{chip.label}}</a>{{/each}}</span>
+      <p class="hint-inline">{{#if implantIsProsthesis}}Prótese: estas são as Funções da parte (as naturais saem).{{else}}Implante: estas se somam às da parte natural, e param se ela for destruída.{{/if}}</p>
+    </div>
+  </div>
+  <div class="strip info">Bônus de atributo, Vida/Mana e Habilidade Concedida ficam na aba "Enquanto instalado".</div>
+  {{else}}
+  <div class="strip dim">Desligado, o Item não pode ser instalado numa Parte do Corpo.</div>
+  {{/if}}
+</section>

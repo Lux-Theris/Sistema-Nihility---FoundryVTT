@@ -1,0 +1,92 @@
+<section class="tab sheet-body {{tabs.weapon.cssClass}}" data-group="primary" data-tab="weapon">
+  <div class="sec">
+    <div class="sec-body">
+      <label class="toggle"><input type="checkbox" name="system.weapon.enabled" {{#if system.weapon.enabled}}checked{{/if}}/><span class="toggle-track"></span><span>Este item é uma arma</span><span class="help" title="Põe o botão Atacar na ficha do dono, só enquanto o item estiver equipado.">?</span></label>
+    </div>
+  </div>
+  {{#if system.weapon.enabled}}
+  <div class="sec">
+    <div class="sec-head">Tipo e desarmado</div>
+    <div class="sec-body g2">
+      {{#if weaponMasteryOn}}
+      <label class="fld"><span class="fld-label">Tipo de arma <span class="help" title="A Maestria do tipo (ou do grupo dele) dá +% de dano com esta arma, e o 🎲 de ataque soma o nível dela. Sem tipo, nenhuma Maestria vale.">?</span></span>
+        <select name="system.weapon.weaponType">
+          {{#each weaponTypeOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+        </select>
+      </label>
+      {{/if}}
+      <label class="toggle"><input type="checkbox" name="system.weapon.augmentsUnarmed" {{#if system.weapon.augmentsUnarmed}}checked{{/if}}/><span class="toggle-track"></span><span>Reforça o desarmado</span><span class="help" title="Soco-inglês, manopla, garra: equipado, o item NÃO ganha botão Atacar; a fórmula dele soma à do ataque desarmado, os elementos dele (se houver) trocam o elemento e o tipo dele (se houver) vira o tipo do desarmado.">?</span></label>
+    </div>
+  </div>
+  {{#if weaponModeOn}}
+  <div class="sec">
+    <div class="sec-head">Modo <span class="help" title="Dano rola dano. Gravidade é uma arma dedicada a empurrar e puxar (tipo gravity gun): cada disparo pergunta Empurrar ou Puxar, gasta carregador/munição e respeita alcance e Interferência, mas não rola dano.">?</span></div>
+    <div class="sec-body">
+      <div class="seg" role="radiogroup" aria-label="Modo da arma">
+        {{#each weaponModeSeg as |opt|}}
+        <label class="seg-opt {{#if opt.checked}}on{{/if}}"><input type="radio" name="system.weapon.mode" value="{{opt.value}}" {{#if opt.checked}}checked{{/if}}/>{{opt.label}}</label>
+        {{/each}}
+      </div>
+    </div>
+  </div>
+  {{/if}}
+  {{#if weaponGravity}}
+  <div class="sec">
+    <div class="sec-head">Empurrão</div>
+    <div class="sec-body g2">
+      <label class="fld"><span class="fld-label">Metros <span class="help" title="Quanto o alvo anda, em linha reta. A Defesa Mágica (se mágica), a Resistência do elemento e os Traços imunes reduzem; quem vence o teste de Defesa anda só metade.">?</span></span><span class="suffix"><input type="number" name="system.weapon.pushMeters" value="{{system.weapon.pushMeters}}" min="0" step="0.5" aria-label="Metros"/><span>m</span></span></label>
+      <label class="fld"><span class="fld-label">Atributo do teste <span class="help" title="Quem dispara rola este atributo contra a Defesa do alvo. Vazio = Força (Magia, se a arma for mágica).">?</span></span>
+        <select name="system.weapon.scalingAttribute">
+          {{#each weaponScalingOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+        </select>
+      </label>
+      <label class="toggle span-all"><input type="checkbox" name="system.weapon.isMagicDamage" {{#if system.weapon.isMagicDamage}}checked{{/if}}/><span class="toggle-track"></span><span>Mágica</span><span class="help" title="A Defesa Mágica do alvo reduz os metros e o teste usa Magia.">?</span></label>
+      <div class="fld span-all"><span class="fld-label">Elemento(s)</span>{{> nihility.elementChips field=weaponElementField path="system.weapon.damageElements" editable=editable}}</div>
+    </div>
+  </div>
+  {{else}}
+  <div class="sec">
+    <div class="sec-head">Dano</div>
+    <div class="sec-body g2">
+      <label class="fld"><span class="fld-label">Fórmula de Dano</span><input class="mono" type="text" name="system.weapon.damageFormula" value="{{system.weapon.damageFormula}}" placeholder="1d8+2"/></label>
+      <label class="fld"><span class="fld-label">Atributo de Escala <span class="help" title="Multiplica o dano por (Atributo.Total)² ÷ divisor, igual às Skills. Sem escala, a fórmula vale como escrita.">?</span></span>
+        <select name="system.weapon.scalingAttribute">
+          {{#each weaponScalingOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+        </select>
+      </label>
+      <label class="toggle span-all"><input type="checkbox" name="system.weapon.isMagicDamage" {{#if system.weapon.isMagicDamage}}checked{{/if}}/><span class="toggle-track"></span><span>Dano Mágico</span></label>
+      <label class="toggle span-all"><input type="checkbox" name="system.weapon.isAbsoluteDamage" {{#if system.weapon.isAbsoluteDamage}}checked{{/if}}/><span class="toggle-track"></span><span>Dano Absoluto</span><span class="help" title="Não pode ser resistido (Defesa Mágica, Resistências, Imunidade, Escudo pessoal). Contra Nave, a Evasão ainda vale.">?</span></label>
+      {{#if scaleEnabled}}
+      <label class="fld"><span class="fld-label">Escala do golpe <span class="help" title="Uma bazuca anti-tanque pode ser Veículo mesmo na mão de uma pessoa.">?</span></span>
+        <select name="system.weapon.damageScale">
+          {{#each weaponScaleOptions as |opt|}}<option value="{{opt.id}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+        </select>
+      </label>
+      {{/if}}
+      <div class="fld span-all"><span class="fld-label">Elemento(s)</span>{{> nihility.elementChips field=weaponElementField path="system.weapon.damageElements" editable=editable}}</div>
+    </div>
+  </div>
+  {{/if}}
+  {{#if skillRangeOn}}
+  <div class="sec">
+    <div class="sec-head">Alcance</div>
+    <div class="sec-body g2">
+      <label class="fld"><span class="fld-label">Alcance <span class="help" title="Em metros (0 = sem limite). Fora dele a arma não ataca (o Mestre pode usar mesmo assim). Sem mapa ou sem Token, não é conferido.">?</span></span><span class="suffix"><input type="number" name="system.weapon.range" value="{{system.weapon.range}}" min="0" step="0.5" aria-label="Alcance"/><span>m</span></span></label>
+    </div>
+  </div>
+  {{/if}}
+  <div class="sec">
+    <div class="sec-head">Carregador<span class="sp"></span>{{#if weaponLoadedLabel}}<span class="sec-head-note">carregado: {{weaponLoadedLabel}}</span>{{/if}}</div>
+    <div class="sec-body g2">
+      <label class="fld"><span class="fld-label">Disparos por carga <span class="help" title="0 = sem carregador: ataca sem limite, como sempre. Com carregador, cada Atacar gasta 1; o Recarregar gasta 1 munição compatível do inventário. A munição com Carga própria (Célula de 20) enche até a Carga dela; sem Carga, até este número.">?</span></span><input class="num" type="number" min="0" name="system.weapon.magazineSize" value="{{system.weapon.magazineSize}}"/></label>
+      {{#if system.weapon.magazineSize}}
+      <label class="fld"><span class="fld-label">Disparos agora</span><input class="num" type="number" min="0" name="system.weapon.loaded" value="{{system.weapon.loaded}}"/></label>
+      <div class="fld span-all"><span class="fld-label">Munição aceita <span class="help" title="Itens Gerais marcados como Munição (aba Geral) de um destes tipos. Nenhum marcado = aceita qualquer munição. A fórmula, os elementos e o Dano Absoluto da munição carregada valem nos disparos.">?</span></span>
+        <span class="element-field">{{#each weaponAmmoChips as |chip|}}<a class="element-chip {{#if chip.checked}}checked{{/if}}" data-action="toggleWeaponAmmoType" data-ammo-type="{{chip.id}}">{{chip.label}}</a>{{else}}<span class="hint-inline">Nenhum tipo de munição no catálogo (Configurações Gerais › Munição).</span>{{/each}}</span></div>
+      {{/if}}
+    </div>
+  </div>
+  {{else}}
+  <div class="strip dim">Desligado, o item não ataca. Os valores de arma já salvos continuam guardados.</div>
+  {{/if}}
+</section>

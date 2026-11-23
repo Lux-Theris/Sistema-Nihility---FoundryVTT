@@ -1,0 +1,325 @@
+<section class="tab sheet-body {{tabs.ficha.cssClass}}" data-group="primary" data-tab="ficha">
+  <div class="ficha-grid">
+
+    <!-- Rail esquerda: Atributos + Títulos -->
+    <div class="rail">
+      <div class="block attr-block">
+        <p class="block-title">Atributos</p>
+        <p class="hint-inline">
+          A cada +10 de Bônus a rolagem ganha +1d20 (todos somados). Arma/equipamento nunca
+          entram nessa conta — somam por fora, na hora da rolagem.
+        </p>
+        {{#if attributePoolEnabled}}
+        <div class="attr-pool-banner">
+          <span class="attr-pool-readout">{{system.attributePointsPool.remaining}}<span class="of"> / {{system.attributePointsPool.total}} livres</span></span>
+          <span class="attr-pool-track"><span class="attr-pool-fill" style="width:{{attributePoolPercent}}%"></span></span>
+        </div>
+        {{#if isGM}}
+        <label class="attr-pool-gm" title="Pontos de Atributo extras para este personagem, somados ao orçamento do nível. Use um valor negativo para retirar.">
+          Pontos extras (Mestre)
+          <input type="number" name="system.attributes.bonusAttributePoints" value="{{system.attributes.bonusAttributePoints}}" step="1"/>
+        </label>
+        {{/if}}
+        {{/if}}
+
+        {{#if quickSpreads}}
+        <div class="attr-quick">
+          <span class="hint-inline">Começar de um jeito:</span>
+          {{#each quickSpreads as |q|}}<button type="button" class="btn-mini" data-action="quickSpread" data-spread="{{q.id}}" title="Preenche os pontos pendentes com uma distribuição pronta. Não é classe: dá para mudar depois.">{{q.label}}</button>{{/each}}
+        </div>
+        {{/if}}
+
+        {{#each attributeLabels as |attr|}}
+        <div class="attr-row-v2 {{#if attr.data.pendingPoints}}is-pending{{/if}}" data-attribute="{{attr.key}}">
+          <div class="attr-row-top">
+            <div class="attr-name">
+              <span class="label">{{attr.label}}</span>
+              {{#if attr.purpose}}<span class="attr-purpose">{{attr.purpose}}</span>{{/if}}
+              <span class="pts">{{attr.data.points}} pts{{#if attr.data.pendingPoints}}<span class="pending-add"> +{{attr.data.pendingPoints}}</span>{{/if}}</span>
+            </div>
+            {{#if ../attributePoolEnabled}}
+            <div class="stepper">
+              <button type="button" class="step-btn minus" data-action="decrementAttributePoint" title="Desfazer 1 ponto pendente" {{#unless attr.data.pendingPoints}}disabled{{/unless}}>&minus;</button>
+              <span class="step-readout {{#if attr.data.pendingPoints}}has-pending{{/if}}">{{#if attr.data.pendingPoints}}+{{attr.data.pendingPoints}}{{else}}0{{/if}}</span>
+              <button type="button" class="step-btn plus" data-action="incrementAttributePoint" title="Alocar 1 ponto livre" {{#unless ../system.attributePointsPool.remaining}}disabled{{/unless}}>+</button>
+            </div>
+            {{else}}
+            <!-- Pool de Pontos de Atributo desligado nesta campanha: os pontos viram um campo
+                 de digitação livre, sem orçamento nem etapa de confirmação. -->
+            <div class="stepper free-entry">
+              <input type="number" name="system.attributes.combat.{{attr.key}}.points" value="{{attr.data.points}}" min="0"/>
+            </div>
+            {{/if}}
+          </div>
+          <div class="attr-formula">
+            <span class="dice-pill current {{#if attr.data.pendingPoints}}will-change{{/if}}">{{attr.formula}}</span>
+            {{#if attr.previewFormula}}
+            <span class="formula-arrow">&rarr;</span>
+            <span class="dice-pill preview">{{attr.previewFormula}}</span>
+            {{/if}}
+            {{#if attr.movement}}<span class="move-chip" title="{{attr.movement.title}}">🏃 {{attr.movement.total}} m/rodada</span>{{/if}}
+            {{#if attr.data.itemBonus}}<span class="attr-item-bonus" title="Bônus de Item/Modificação — soma por fora na rolagem, não entra no Pool de d20">+{{attr.data.itemBonus}} item</span>{{/if}}
+            <a class="stat-explain" data-action="explainStat" data-stat="{{attr.key}}" title="De onde vem {{attr.label}}"><i class="fas fa-circle-info"></i></a>
+            <button type="button" class="attribute-roll" data-action="rollAttribute" title="Rolar (Bônus de Item incluso como número fixo)">🎲</button>
+          </div>
+        </div>
+        {{/each}}
+
+        {{#if attributePoolEnabled}}{{#if isGM}}
+        <button type="button" class="btn-mini reset gm-attr-reset" data-action="gmResetAllAttributePoints" title="Devolve TODOS os pontos alocados (confirmados e pendentes) ao Pool livre, pro jogador redistribuir">↺ Zerar pontos (Mestre)</button>
+        {{/if}}{{/if}}
+
+        {{#if luckLine}}
+        <div class="attr-luck" title="Sorte: inclina os dados a seu favor (ou contra, se negativa)"><span class="al-label">Sorte</span><span class="al-text">{{luckLine}}</span><a class="stat-explain" data-action="explainStat" data-stat="luck" title="De onde vem a Sorte"><i class="fas fa-circle-info"></i></a></div>
+        {{/if}}
+
+        {{#if vitalPreview}}
+        <div class="attr-preview" aria-label="Ao confirmar">
+          <p class="ap-title">Ao confirmar</p>
+          {{#with vitalPreview.hp as |v|}}
+          <div class="ap-row"><span class="ap-label">{{v.label}}</span><span class="ap-num">{{#if v.changed}}<s>{{v.now}}</s>{{/if}}<b>{{v.next}}</b></span></div>
+          <p class="ap-formula">{{v.formula}}</p>
+          {{/with}}
+          {{#with vitalPreview.energy as |v|}}
+          <div class="ap-row energy"><span class="ap-label">{{v.label}}</span><span class="ap-num">{{#if v.changed}}<s>{{v.now}}</s>{{/if}}<b>{{v.next}}</b></span></div>
+          <p class="ap-formula">{{v.formula}}</p>
+          {{/with}}
+          <p class="ap-line">Iniciativa: <b>{{vitalPreview.initiative}}</b></p>
+          {{#if vitalPreview.movement}}<p class="ap-line">Deslocamento: <b>{{vitalPreview.movement}}</b></p>{{/if}}
+          <p class="ap-hint">O riscado é o valor de agora; o grande é o que fica com estes pontos.</p>
+        </div>
+        {{/if}}
+
+        {{#if attributePoolEnabled}}{{#if attributePointsPending}}
+        <div class="attr-action-bar visible">
+          <span class="summary"><strong>{{attributePointsPending}}</strong> pts pendentes</span>
+          <span class="buttons">
+            <button type="button" class="btn-mini reset" data-action="resetAttributePoints">Resetar</button>
+            {{#if creation}}
+            <span class="hint-inline attr-wait" title="No modo criação os pontos ficam pendentes até o Mestre liberar o personagem; a liberação confirma tudo.">confirma quando o Mestre liberar</span>
+            {{else}}
+            <button type="button" class="btn-mini confirm" data-action="confirmAttributePoints">Confirmar</button>
+            {{/if}}
+          </span>
+        </div>
+        {{/if}}{{/if}}
+      </div>
+
+      {{#if titlesEnabled}}{{#unless trim.titles.hide}}
+      <div class="block {{#if trim.titles.gmEmpty}}is-empty-gm{{/if}}">
+        <p class="block-title">Títulos <span class="hint-inline" style="margin:0">sempre ativos</span>{{#if trim.titles.gmEmpty}}<span class="trim-tag">nenhum · o jogador não vê</span>{{/if}}</p>
+        <ol class="item-list title-list">
+          {{#each titles as |title|}}
+          <li class="item-row" data-item-id="{{title.id}}">
+            <img src="{{title.img}}" width="24" height="24"/>
+            <span class="item-name">{{title.name}}</span>
+            <span class="item-rarity">{{title.system.rarity}}</span>
+            <a class="item-edit" data-action="editItem" title="Editar"><i class="fas fa-edit"></i></a>
+            <a class="item-delete" data-action="deleteItem" title="Excluir"><i class="fas fa-trash"></i></a>
+          </li>
+          {{/each}}
+        </ol>
+        {{#if isGM}}<a class="item-create" data-action="createItem" data-type="title">+ Novo Título</a>{{/if}}
+      </div>
+      {{/unless}}{{/if}}
+    </div>
+
+    <!-- Coluna direita: Pontos de Habilidade, Habilidades, Itens, Economia -->
+    <div class="col-right">
+
+      {{#if isGM}}
+      <div class="block xp-block">
+        <div class="row-between">
+          <p class="block-title" style="margin:0">Experiência <span class="gm-only-tag">só Mestre</span></p>
+          <button type="button" class="xp-grant-button" data-action="grantXp" title="Conceder XP ao Personagem ou a uma Habilidade">+ XP</button>
+        </div>
+        <p class="hint-inline">O XP trava no teto do nível — subir de nível continua sendo clique seu.</p>
+        <ol class="xp-list">
+          {{#each xpEntries as |entry|}}
+          <li class="xp-row {{#if entry.ready}}is-ready{{/if}}">
+            <span class="xp-name">{{entry.name}} <span class="xp-detail">{{entry.detail}}</span></span>
+            <span class="xp-track"><span class="xp-fill" style="width:{{entry.percent}}%"></span></span>
+            <span class="xp-value">{{entry.xp}}/{{entry.xpMax}}</span>
+          </li>
+          {{/each}}
+        </ol>
+      </div>
+      {{/if}}
+
+      {{#if skillPointsEnabled}}{{#unless trim.skillPoints.hide}}
+      <div class="block {{#if trim.skillPoints.gmEmpty}}is-empty-gm{{/if}}">
+        <p class="block-title">Pontos de Habilidade{{#if trim.skillPoints.gmEmpty}}<span class="trim-tag">todos em 0 · o jogador não vê</span>{{/if}}</p>
+        <div class="sp-ledger">
+          {{#each config.SKILL_POINT_TIERS as |tier|}}
+          <div class="sp-item" data-tier="{{tier}}">
+            <span class="sp-label">{{lookup ../tierLabels tier}}</span>
+            <span class="sp-value">{{lookup ../system.skillPoints tier}}</span>
+            <div class="sp-actions">
+              <button type="button" class="sp-break" data-action="breakSkillPoints" title="Quebrar 1 em 3 do tier abaixo">▼</button>
+              <button type="button" class="sp-merge" data-action="mergeSkillPoints" title="Fundir 3 em 1 do tier acima">▲</button>
+            </div>
+            {{#if ../isGM}}
+            <div class="sp-actions sp-gm-actions">
+              <button type="button" data-action="adjustSkillPoints" data-delta="-1" title="Mestre: tirar 1 ponto">−</button>
+              <button type="button" data-action="adjustSkillPoints" data-delta="1" title="Mestre: dar 1 ponto">+</button>
+            </div>
+            {{/if}}
+          </div>
+          {{/each}}
+        </div>
+      </div>
+      {{/unless}}{{/if}}
+
+      <div class="block skills-block">
+        <div class="row-between">
+          <p class="block-title" style="margin:0">Habilidades</p>
+          {{#if skillFusionEnabled}}{{#if isGM}}<button type="button" class="skill-fuse-button" data-action="fuseSkills">⚡ Fundir Selecionadas</button>{{/if}}{{/if}}
+        </div>
+
+        {{#each skillTierList as |tier|}}
+        <fieldset class="skill-tier-group tier-{{tier}}">
+          <legend>{{lookup ../tierLabels tier}}</legend>
+          <ol class="item-list">
+            {{#each (lookup ../skillsByTier tier) as |skill|}}
+            <li class="item-row" data-item-id="{{skill.id}}">
+              {{#if skill.system.isItemGranted}}
+              <span class="item-granted-badge" title="Concedida por Item/Módulo — não pode ser fundida">⚙</span>
+              {{else if ../../isGM}}
+              {{#if ../../skillFusionEnabled}}<input type="checkbox" class="skill-fuse-checkbox" data-item-id="{{skill.id}}"/>{{/if}}
+              {{/if}}
+              <img src="{{skill.img}}" width="24" height="24"/>
+              <span class="item-name">{{skill.name}}<span class="skill-summary">{{lookup ../../skillSummaries skill.id}}</span></span>
+              {{#if skill.system.active}}
+              <button type="button" class="skill-use-button active" data-action="useSkill" title="Desativar (drenando {{skill.system.upkeepCost}} de {{../../energyLabel}} por rodada)">🔥 Desativar</button>
+              {{else if (lookup ../../masterySkills skill.id)}}
+              <span class="hint-inline skill-passive-tag" title="Passiva: vale sozinha (Maestria de arma: nos ataques com armas do tipo; Ocultação: contra a Análise)">passiva</span>
+              {{else if (lookup ../../skillTimers skill.id)}}
+              <button type="button" class="skill-use-button" disabled title="{{skill.name}}: {{lookup ../../skillTimers skill.id}} — não dá para usar agora">⏳ {{lookup ../../skillTimers skill.id}}</button>
+              {{else if skill.system.subSkills.length}}
+              <button type="button" class="skill-use-button" data-action="useSkill" title="Usar Habilidade (escolhe qual Sub-Skill disparar)">🧩 Usar</button>
+              {{else if (eq skill.system.effectType "damage")}}
+              <button type="button" class="skill-use-button" data-action="useSkill" title="Usar Habilidade">🎲 Usar</button>
+              {{else}}
+              <button type="button" class="skill-use-button" data-action="useSkill" title="Usar Habilidade{{#if skill.system.hasUpkeep}} (Ativa — drena {{../../energyLabel}} por rodada até desativar){{/if}}">✨ Usar</button>
+              {{/if}}
+              <a class="item-edit" data-action="editItem" title="Editar"><i class="fas fa-edit"></i></a>
+              {{#unless skill.system.isItemGranted}}{{#if ../../isGM}}
+              <a class="item-evolve" data-action="evolveSkill" data-item-id="{{skill.id}}" title="Evoluir (vira uma Skill nova, mantém só o registro histórico)"><i class="fas fa-arrow-up"></i></a>
+              {{/if}}{{/unless}}
+              <a class="item-delete" data-action="deleteItem" title="Excluir"><i class="fas fa-trash"></i></a>
+            </li>
+            {{/each}}
+            {{#each (lookup ../requestsByTier tier) as |req|}}
+            <li class="item-row skill-request-row {{#if req.changes}}is-changes{{/if}}" data-message-id="{{req.messageId}}">
+              <span class="item-name">{{req.name}}<span class="skill-summary">{{#if req.changes}}"{{req.gmNote}}" — Mestre{{else}}{{req.sentence}}{{/if}}</span></span>
+              <span class="sr-tag">{{#if req.changes}}ajustar{{else}}aguardando{{/if}}</span>
+              {{#if req.canEdit}}<a class="sr-edit" data-action="editSkillRequest" title="Editar o pedido">editar</a>{{/if}}
+            </li>
+            {{/each}}
+          </ol>
+        </fieldset>
+        {{else}}
+        <p class="hint-inline">Nenhuma Habilidade ainda.</p>
+        {{/each}}
+
+        {{#if isGM}}<a class="item-create" data-action="createItem" data-type="skill">+ Nova Habilidade (direto)</a>{{/if}}
+        {{#if skillPointsEnabled}}<button type="button" class="skill-request-button" data-action="requestSkillCreation" {{#unless freeSkillPoints}}disabled title="Sem Pontos de Habilidade livres (os pedidos abertos já reservam os seus)"{{/unless}}>+ Pedir Skill ao Mestre · {{freeSkillPoints}} ponto(s) livre(s)</button>
+        <p class="hint-inline">Um pedido aparece na lista como "aguardando" e só gasta o ponto quando o Mestre aprova.</p>{{/if}}
+      </div>
+
+      {{#each borrowed as |sec|}}
+      <div class="block borrowed-block">
+        <p class="block-title">{{sec.title}}{{#unless sec.accepting}} <span class="hint-inline">{{sec.refusal}}</span>{{/unless}}</p>
+        <ol class="item-list">
+          {{#each sec.rows as |row|}}
+          <li class="item-row borrowed-row" data-kind="{{sec.kind}}" data-owner-uuid="{{sec.ownerUuid}}" data-skill-id="{{row.id}}">
+            <img src="{{row.img}}" width="24" height="24"/>
+            <span class="item-name">{{row.name}}<span class="skill-summary">{{row.sentence}}</span></span>
+            <button type="button" class="skill-use-button" data-action="useBorrowedSkill" {{#if row.disabled}}disabled title="{{#if row.timer}}{{row.timer}}{{else}}{{sec.refusal}}{{/if}}"{{else}} title="Usar com a sua Mana; o XP vai para {{sec.ownerName}}"{{/if}}>✨ Usar</button>
+          </li>
+          {{else}}
+          <li class="hint-inline">{{sec.emptyText}}</li>
+          {{/each}}
+        </ol>
+      </div>
+      {{/each}}
+
+      {{#if unarmed}}
+      <div class="block unarmed-block">
+        <p class="block-title">Ataque desarmado</p>
+        <ol class="item-list">
+          <li class="item-row unarmed-row" data-unarmed="{{actor.uuid}}">
+            <span class="item-name">👊 {{unarmed.name}}<span class="skill-summary">{{unarmed.summary}}</span></span>
+            <button type="button" class="skill-use-button" data-action="unarmedAttack" title="Atacar desarmado (Shift: modificadores de rolagem). Arraste para a hotbar.">⚔ Atacar</button>
+            <button type="button" class="skill-use-button" data-action="unarmedAttackRoll" title="Rolar o ataque (atributo de escala + Maestria)">🎲</button>
+          </li>
+        </ol>
+      </div>
+      {{/if}}
+
+      {{#unless trim.gear.hide}}
+      <div class="block {{#if trim.gear.gmEmpty}}is-empty-gm{{/if}}">
+        <p class="block-title">{{#if inventoryEnabled}}Equipados <a class="hint-inline" data-action="tab" data-group="primary" data-tab="inventory">(abrir o Inventário)</a>{{else}}Itens Gerais{{/if}}{{#if trim.gear.gmEmpty}}<span class="trim-tag">nada · o jogador não vê</span>{{/if}}</p>
+        <ol class="item-list">
+          {{#each fichaGear as |item|}}
+          <li class="item-row" data-item-id="{{item.id}}">
+            <img src="{{item.img}}" width="24" height="24"/>
+            <span class="item-name">{{item.name}}</span>
+            <span class="item-qty">x{{item.system.quantity}}</span>
+            {{#if item.system.weapon.enabled}}
+            <span class="item-weapon-formula" title="Fórmula de dano">🗡 {{item.system.weapon.damageFormula}}</span>
+            {{#if item.system.equipped}}
+            {{#if item.system.weapon.augmentsUnarmed}}
+            <span class="hint-inline" title="Equipado: a fórmula soma ao ataque desarmado">reforça o desarmado</span>
+            {{else}}
+            <button type="button" class="skill-use-button" data-action="attackWithWeapon" title="Atacar com {{item.name}}">⚔ Atacar</button>
+            <button type="button" class="skill-use-button" data-action="weaponAttackRoll" title="Rolar o ataque (atributo de escala + Maestria)">🎲</button>
+            {{/if}}
+            {{else}}
+            <span class="hint-inline" title="Equipe o item pra poder atacar com ele">(desequipada)</span>
+            {{/if}}
+            {{#if item.system.weapon.magazineSize}}
+            {{#with (lookup ../gearMagazines item.id) as |mag|}}<span class="inv-mag {{#if mag.empty}}is-empty{{/if}}" title="Disparos no carregador">🔋 {{mag.loaded}}/{{mag.max}}</span>{{/with}}
+            <button type="button" class="skill-use-button" data-action="reloadWeapon" title="Recarregar / trocar munição (o que estava dentro volta para o inventário)">⟳</button>
+            {{/if}}
+            {{/if}}
+            {{#if item.system.consumable.enabled}}
+            <button type="button" class="skill-use-button" data-action="useConsumable" title="Usar {{item.name}}">Usar</button>
+            {{/if}}
+            <a class="item-edit" data-action="editItem" title="Editar"><i class="fas fa-edit"></i></a>
+            <a class="item-delete" data-action="deleteItem" title="Excluir"><i class="fas fa-trash"></i></a>
+          </li>
+          {{/each}}
+        </ol>
+        {{#if isGM}}<a class="item-create" data-action="createItem" data-type="item">+ Novo Item</a>{{/if}}
+      </div>
+      {{/unless}}
+
+      {{#if economyEnabled}}{{#unless trim.economy.hide}}
+      <div class="block {{#if trim.economy.gmEmpty}}is-empty-gm{{/if}}">
+        <p class="block-title">Economia{{#if trim.economy.gmEmpty}}<span class="trim-tag">sem moedas · o jogador não vê</span>{{/if}}</p>
+        <ol class="currency-list">
+          {{#each currencies as |currency|}}
+          <li class="currency-row">
+            <img src="{{currency.icon}}" width="20" height="20"/>
+            <label>{{currency.label}}</label>
+            <input type="number" name="system.currencies.{{currency.id}}" value="{{lookup ../system.currencies currency.id}}" {{#unless ../isGM}}readonly{{/unless}}/>
+            <span class="currency-weight" title="Peso desta moeda no total carregado">{{currency.weight}}</span>
+          </li>
+          {{/each}}
+        </ol>
+        <p class="currency-weight-total">Peso total em moedas <strong>{{currencyWeightTotal}}</strong></p>
+        <button type="button" class="currency-convert" data-action="convertCurrency">🔄 Converter</button>
+        <button type="button" class="currency-send" data-action="sendCurrency">📤 Enviar Dinheiro</button>
+        {{#unless isGM}}<p class="hint-inline">Valores só editáveis pelo Mestre — use Converter/Enviar.</p>{{/unless}}
+      </div>
+      {{/unless}}{{/if}}
+
+      {{#if trim.hiddenCount}}
+      <p class="trim-foot">{{trim.hiddenCount}} bloco(s) vazio(s) escondido(s) · <a data-action="toggleShowEmpty">mostrar</a></p>
+      {{else if trim.showAll}}{{#if trim.emptyCount}}
+      <p class="trim-foot"><a data-action="toggleShowEmpty">esconder os blocos vazios</a></p>
+      {{/if}}{{/if}}
+    </div>
+  </div>
+</section>

@@ -1,0 +1,35 @@
+<section class="tab sheet-body {{tabs.equipped.cssClass}}" data-group="primary" data-tab="equipped">
+  <div class="strip dim">{{#if system.implant.enabled}}Vale enquanto o implante estiver instalado numa Parte do Corpo. Instalar concede a Habilidade; remover tira.{{else}}Vale só enquanto o item estiver equipado. Equipar concede a Habilidade; desequipar remove.{{/if}}</div>
+  <div class="sec">
+    <div class="sec-head">Habilidade Concedida</div>
+    <div class="sec-body">{{> nihility.grantedSkill grant=grantSummary editable=editable}}</div>
+  </div>
+  <div class="sec">
+    <div class="sec-head">Modificador permanente</div>
+    <div class="sec-body g2">
+      <label class="fld"><span class="fld-label">HP Máximo</span><input class="num" type="number" name="system.statModifiers.hp" value="{{system.statModifiers.hp}}"/></label>
+      <label class="fld"><span class="fld-label">{{energyLabel}} Máxima</span><input class="num" type="number" name="system.statModifiers.energy" value="{{system.statModifiers.energy}}"/></label>
+    </div>
+  </div>
+  {{> nihility.regenBlock regen=system.regen energyLabel=energyLabel note="enquanto equipado"}}
+  <div class="sec">
+    <div class="sec-head">Bônus de atributo<span class="sp"></span><span class="sec-head-note">rolagem, nunca HP/{{energyLabel}}</span></div>
+    <div class="sec-body tight">
+      {{#if system.attributeBonuses.length}}<div class="col-head pair-cols"><span>Atributo</span><span>Valor</span><span></span></div>{{/if}}
+      {{#each system.attributeBonuses as |bonus index|}}
+      <div class="pair-row" data-index="{{index}}">
+        <select name="system.attributeBonuses.{{index}}.attribute" aria-label="Atributo">
+          {{#each ../visibleAttributes as |attr|}}<option value="{{attr.key}}" {{#if (eq attr.key bonus.attribute)}}selected{{/if}}>{{attr.label}}</option>{{/each}}
+        </select>
+        <input class="num" type="number" name="system.attributeBonuses.{{index}}.amount" value="{{bonus.amount}}" aria-label="Valor"/>
+        <a class="row-delete" data-action="deleteItemAttrBonus" title="Remover" aria-label="Remover"><i class="fas fa-trash"></i></a>
+      </div>
+      {{/each}}
+      {{#if editable}}<a class="link-add" data-action="addItemAttrBonus">+ Bônus de Atributo</a>{{/if}}
+    </div>
+  </div>
+  <div class="sec">
+    <div class="sec-head">Bônus condicionais<span class="sp"></span><span class="sec-head-note">Quando → Então</span></div>
+    <div class="sec-body">{{> nihility.conditionalModifiers rows=conditionalRows editable=editable}}</div>
+  </div>
+</section>

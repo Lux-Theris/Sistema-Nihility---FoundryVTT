@@ -70,6 +70,7 @@ import { describeShieldPools } from "../combat/shield-pools.js";
 import { useSkillFlow } from "../skills/skill-use-flow.js";
 import { reportError } from "../helpers/report.js";
 import { escapeHtml } from "../helpers/html.js";
+import { markVisibleEditorParts, refreshEditorOnTabShow } from "../helpers/sheet-tabs.js";
 import { useWeaponAttack } from "../combat/damage-roll.js";
 import { tickPeriodicEffect } from "../skills/effects-apply.js";
 import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
@@ -202,7 +203,6 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     // linha em item-sheet.js, que já tinha isso corretamente).
     form: { submitOnChange: true, closeOnSubmit: false },
     actions: {
-      selectTab: NihilityActorSheet.#onSelectTab,
       toggleShowEmpty: NihilityActorSheet.#onToggleShowEmpty,
       createItem: NihilityActorSheet.#onItemCreate,
       editItem: NihilityActorSheet.#onItemEdit,
@@ -279,15 +279,29 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     }
   };
 
+  /**
+   * Cada aba é uma parte própria (templates/parts/actor-*.hbs, a raiz é `section.tab.sheet-body`) e a
+   * troca de aba é do núcleo (`changeTab`, sem re-renderizar). Quando a Anatomia some (ficha enxuta,
+   * recurso desligado, modo criação) a parte sai de `_configureRenderParts` e da lista de abas.
+   */
   static PARTS = {
-    body: { template: `systems/${SYSTEM_ID}/templates/actor-sheet.hbs`, scrollable: [".sheet-body"] }
+    header: { template: `systems/${SYSTEM_ID}/templates/parts/actor-header.hbs` },
+    strip: { template: `systems/${SYSTEM_ID}/templates/parts/actor-strip.hbs` },
+    nav: { template: `systems/${SYSTEM_ID}/templates/parts/actor-nav.hbs` },
+    ficha: { template: `systems/${SYSTEM_ID}/templates/parts/actor-ficha.hbs`, scrollable: [""] },
+    inventory: { template: `systems/${SYSTEM_ID}/templates/parts/actor-inventory.hbs`, scrollable: [""] },
+    anatomy: { template: `systems/${SYSTEM_ID}/templates/parts/actor-anatomy.hbs`, scrollable: [""] },
+    origin: { template: `systems/${SYSTEM_ID}/templates/parts/actor-origin.hbs`, scrollable: [""] },
+    biography: { template: `systems/${SYSTEM_ID}/templates/parts/actor-biography.hbs`, scrollable: [""] }
+  };
+
+  /** A lista real de abas é `_getTabsConfig` (as abas variam); aqui só o grupo e a aba inicial. */
+  static TABS = {
+    primary: { tabs: [{ id: "ficha", label: "Ficha" }], initial: "ficha" }
   };
 
   constructor(options = {}) {
     super(options);
-    // ApplicationV2 não herda o mixin de abas do AppV1 — mesmo padrão manual usado nas
-    // outras Sheets/Apps já migradas (activeTab + ação "selectTab").
-    this.activeTab = "ficha";
     // Estado de tela da aba Inventário (não é salvo).
     this.inventoryFilter = "all";
     this.inventorySort = "name";
@@ -529,14 +543,82 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     new NihilityPadApp({ actor: this.actor }).render(true);
   }
 
-  /** @override */
+  /** O recorte da ficha enxuta (K3): usado pelas abas, pelo cabeçalho e pela Ficha. Barato; sem Documentos novos. */
+  #computeTrim() {
+    const actor = this.actor;
+    const inventoryEnabled = isInventoryEnabled();
+    const gear = actor.items.filter(i => i.type === "item");
+    const fichaGear = inventoryEnabled ? gear.filter(i => i.system.equipped) : gear;
+    // K3: o jogador vê só os blocos que têm alguma coisa; o Mestre vê tudo, marcado.
+    return sheetTrim({
+      isGM: game.user.isGM,
+      showAll: this.#showEmptyBlocks(),
+      empty: {
+        titles: Boolean(isTitlesEnabled()) && !actor.system.titles.length,
+        skillPoints: Boolean(isSkillPointsEnabled()) && allZero(actor.system.skillPoints),
+        gear: !fichaGear.length,
+        economy: Boolean(isEconomyEnabled()) && allZero(actor.system.currencies),
+        anatomy: Boolean(isAnatomyEnabled()) && !actor.items.some(i => i.type === "body_part")
+      }
+    });
+  }
+
+  /**
+   * Abas desta ficha agora. A Anatomia some na ficha enxuta, com o recurso desligado e em modo criação
+   * (prancha 1 D; volta quando o personagem é liberado); o Inventário só com o recurso ligado.
+   */
+  #availableTabs() {
+    const ids = ["ficha"];
+    if (isInventoryEnabled()) ids.push("inventory");
+    if (isAnatomyEnabled() && !this.#computeTrim().anatomy.hide && !inCreation(this.actor)) ids.push("anatomy");
+    ids.push("origin", "biography");
+    return ids;
+  }
+
+  /** @override A lista de abas varia (Anatomia, Inventário): é montada aqui, com o selo "vazio para o jogador" da Anatomia. */
+  _getTabsConfig(group) {
+    if (group !== "primary") return super._getTabsConfig(group);
+    const labels = { ficha: "Ficha", inventory: "Inventário", anatomy: "Anatomia", origin: "Origem", biography: "Biografia" };
+    const gmEmpty = this.#computeTrim().anatomy.gmEmpty;
+    return {
+      initial: "ficha",
+      tabs: this.#availableTabs().map(id =>
+        id === "anatomy" && gmEmpty
+          ? { id, label: labels[id], extraClass: "is-empty-gm", hint: "Sem partes do corpo: o jogador não vê esta aba" }
+          : { id, label: labels[id] }
+      )
+    };
+  }
+
+  /** A parte de uma aba que não existe nesta ficha (ver _configureRenderParts). */
+  #partGone(partId) {
+    return (partId === "inventory" || partId === "anatomy") && !this.#availableTabs().includes(partId);
+  }
+
+  /** @override Tira as partes das abas que não existem nesta ficha. */
+  _configureRenderParts(options) {
+    const parts = super._configureRenderParts(options);
+    const available = this.#availableTabs();
+    for (const id of ["inventory", "anatomy"]) if (!available.includes(id)) delete parts[id];
+    return parts;
+  }
+
+  /** @override A janela vira o "painel" da ficha (fundo, fonte e cor da classe .nihility-sheet), como o antigo contêiner único. */
+  async _renderFrame(options) {
+    const frame = await super._renderFrame(options);
+    frame.querySelector(".window-content")?.classList.add("nihility-sheet", "actor-sheet");
+    return frame;
+  }
+
+  /** @override Comuns a mais de uma parte (cabeçalho, faixa, abas, Origem, Biografia); o que só uma aba usa fica em `_preparePartContext`. */
   async _prepareContext(options) {
+    // Aba ativa que deixou de existir (Anatomia escondida, recurso desligado, modo criação): volta à Ficha.
+    if (!this.#availableTabs().includes(this.tabGroups.primary)) this.tabGroups.primary = "ficha";
     const context = await super._prepareContext(options);
     const actor = this.actor;
 
     context.actor = actor;
     context.owner = actor.isOwner;
-    context.activeTab = this.activeTab;
     context.system = actor.system;
     context.config = NIHILITY;
     context.energyLabel = getCharacterEnergyLabel();
@@ -549,6 +631,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.attributePoolEnabled = isAttributePoolEnabled() && !actor.getFlag(SYSTEM_ID, "formOf");
     context.energyPoolEnabled = isEnergyPoolEnabled();
     context.isGM = game.user.isGM;
+    context.inventoryEnabled = isInventoryEnabled();
     // Idade (J9b 8b.2): sobe com o tempo pessoal; vazio (ou calendário desligado) = a ficha não mostra nada.
     context.ageEnabled = isWorldClockEnabled() && isCalendarEnabled();
     context.age = actorAge(actor);
@@ -572,6 +655,76 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     // Badge de não lidas no botão do PAD — as mensagens ficam fora do log de chat, então sem
     // isto (e sem o aviso da Voz do Mundo) só quem abre o PAD por acaso descobre que chegou algo.
     context.padUnread = context.showPadButton && isPadMessagingEnabled() ? await getTotalUnread(actor) : 0;
+    // Só as espécies oferecidas na criação (o Mestre vê todas) — ver getSpeciesForCreation.
+    context.speciesOptions = getSpeciesForCreation();
+    // Depois do primeiro "Confirmar" de pontos, só o Mestre troca a Espécie.
+    context.speciesLocked = !game.user.isGM && isSpeciesLocked(actor.system);
+    // Origem (Espécie · Linhagem · Heranças): cabeçalho e aba Origem — ver originContext em species.js.
+    context.origin = originContext(actor);
+    // Modo criação (J10): faixa "Criando", grade de Espécies na Origem, "Confirmar" guardado.
+    context.creation = inCreation(actor) ? await this.#creationContext() : null;
+    context.canUpload = canUploadImages();
+    context.canUseGallery = canUseGallery();
+    context.initiativeLabel = getInitiativeLabel();
+    context.movementDash = getMovementDashStatus(actor);
+    context.traits = traitContext(actor);
+    // Escala do Ator: só o Mestre escolhe, e só com o bloco ligado (um dragão pode ser "Veículo").
+    context.scaleOptions = isScaleEnabled()
+      ? getScaleConfig().scales.map((s, i) => ({ id: i === 0 ? "" : s.id, label: s.label, selected: (actor.system.scale || "") === (i === 0 ? "" : s.id) }))
+      : null;
+    context.hpPercent = percentOf(actor.system.attributes.hp.value, actor.system.attributes.hp.max);
+    context.energyPercent = percentOf(actor.system.attributes.energy.value, actor.system.attributes.energy.max);
+    context.shieldValue = actor.system.attributes.shield.value;
+    // Um pool por Skill de Escudo (o mais recente apanha primeiro) — ver shield-pools.js.
+    context.shieldPoolsText = (actor.system.attributes.shield.pools ?? []).length ? describeShieldPools(actor) : "";
+    context.canSeeEffects = actor.isOwner || game.user.isGM;
+    context.effectsCount = actor.effects.size;
+    context.titles = actor.system.titles;
+    context.trim = this.#computeTrim();
+
+    // Condições ativas: só os Active Effects que este sistema criou (skillEffect: true) —
+    // Active Effects de outras origens (módulos, core) não entram nessa lista. Periódicas com
+    // tickUnit "manual" (cura/dano de longo prazo fora de combate) ganham o botão de tick;
+    // "combatRound" tica sozinho pelo hook updateCombat, sem precisar de botão nenhum aqui.
+    const combatNow = game.combat?.started ? { round: game.combat.round ?? 0, combatId: game.combat.id } : {};
+    context.activeConditions = actor.effects
+      .filter(e => e.flags?.[SYSTEM_ID]?.skillEffect)
+      .map(e => {
+        const flags = e.flags[SYSTEM_ID];
+        // "Até desativar" só quando nenhum prazo finito corre junto com a âncora (ver
+        // effect-anchors.js): periódico com os ticks finitos zerados; comum sem `finite` sobrando.
+        const anchors = effectAnchors(flags, e.origin);
+        const ticksExhausted = flags.periodic && (flags.ticksRemaining ?? 0) <= 0;
+        const finite = !flags.periodic && anchors.length ? finiteRemaining(flags.finite, combatNow) : 0;
+        return {
+          id: e.id,
+          name: e.name,
+          img: e.img,
+          periodic: Boolean(flags.periodic),
+          manual: flags.tickUnit === "manual",
+          tiedToActive: flags.periodic ? anchors.length > 0 && ticksExhausted : anchorLifetime({ anchors, finite }).untilOff,
+          ticksRemaining: flags.ticksRemaining,
+          roundsRemaining: anchors.length ? (finite > 0 && finite !== PERMANENT ? finite : null) : e.duration?.rounds ?? null
+        };
+      });
+
+    debugLog(`${SYSTEM_ID} | NihilityActorSheet._prepareContext:`, actor.name);
+    return context;
+  }
+
+  /** @override O que só uma aba usa é calculado só quando a parte dela é renderizada. */
+  async _preparePartContext(partId, context, options) {
+    await super._preparePartContext(partId, context, options);
+    if (partId === "ficha") await this.#prepareFichaContext(context);
+    else if (partId === "inventory") this.#prepareInventoryContext(context);
+    else if (partId === "anatomy") this.#prepareAnatomyContext(context);
+    else if (partId === "origin") this.#prepareOriginContext(context);
+    return context;
+  }
+
+  /** Aba Ficha: atributos, Experiência, Pontos de Habilidade, Habilidades, Itens e Economia. */
+  async #prepareFichaContext(context) {
+    const actor = this.actor;
     // Peso por moeda e total — cada moeda já tinha `weight` configurável e nada usava o número.
     // É só exibição: não existe limite de carga nem penalidade por excesso.
     const currencyTotals = { weight: 0 };
@@ -582,15 +735,6 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       return { ...currency, amount, weight: weight.toFixed(2) };
     });
     context.currencyWeightTotal = currencyTotals.weight.toFixed(2);
-    // Só as espécies oferecidas na criação (o Mestre vê todas) — ver getSpeciesForCreation.
-    context.speciesOptions = getSpeciesForCreation();
-    // Depois do primeiro "Confirmar" de pontos, só o Mestre troca a Espécie.
-    context.speciesLocked = !game.user.isGM && isSpeciesLocked(actor.system);
-    // Origem (Espécie · Linhagem · Heranças): cabeçalho e aba Origem — ver originContext em species.js.
-    context.origin = originContext(actor);
-    // Nomeação e vínculos (7a): Corredor de alma e Pacto na aba Origem; Skills emprestadas na lista de Habilidades.
-    context.naming = namingContext(actor);
-    context.links = { ...linkRowsFor(actor), canCreatePact: game.user.isGM && isPactEnabled() && actor.type === "character" };
     context.borrowed = actor.type === "character" ? borrowedSectionsFor(actor) : [];
     // Só os atributos que a campanha exibe (ver getActiveAttributes em config.js). Um atributo
     // oculto continua valendo por baixo — só não aparece nem é rolável.
@@ -614,10 +758,6 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       (sum, key) => sum + (actor.system.attributes.combat[key].pendingPoints ?? 0),
       0
     );
-    // Modo criação (J10): faixa "Criando", grade de Espécies na Origem, "Confirmar" guardado.
-    context.creation = inCreation(actor) ? await this.#creationContext() : null;
-    context.canUpload = canUploadImages();
-    context.canUseGallery = canUseGallery();
     // "Ao confirmar" (prancha 2 B): Vida/Mana/iniciativa com os pendentes, dentro e fora da criação.
     // Sorte (8d.1): a linha só aparece quando há alguma (≠ 0).
     context.luckLine = describeLuck(actor.system.luck);
@@ -631,13 +771,6 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       actor.system.attributePointsPool.spent,
       actor.system.attributePointsPool.total
     );
-    context.initiativeLabel = getInitiativeLabel();
-    context.movementDash = getMovementDashStatus(actor);
-    context.traits = traitContext(actor);
-    // Escala do Ator: só o Mestre escolhe, e só com o bloco ligado (um dragão pode ser "Veículo").
-    context.scaleOptions = isScaleEnabled()
-      ? getScaleConfig().scales.map((s, i) => ({ id: i === 0 ? "" : s.id, label: s.label, selected: (actor.system.scale || "") === (i === 0 ? "" : s.id) }))
-      : null;
 
     // Experiência — bloco SÓ do Mestre (o jogador nem sabe que existe). Uma linha pro Personagem
     // e uma por Skill, todas já com o teto do nível atual calculado em prepareDerivedData.
@@ -669,37 +802,6 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
           }))
       ];
     }
-    context.hpPercent = percentOf(actor.system.attributes.hp.value, actor.system.attributes.hp.max);
-    context.energyPercent = percentOf(actor.system.attributes.energy.value, actor.system.attributes.energy.max);
-    context.shieldValue = actor.system.attributes.shield.value;
-    // Um pool por Skill de Escudo (o mais recente apanha primeiro) — ver shield-pools.js.
-    context.shieldPoolsText = (actor.system.attributes.shield.pools ?? []).length ? describeShieldPools(actor) : "";
-
-    // Condições ativas: só os Active Effects que este sistema criou (skillEffect: true) —
-    // Active Effects de outras origens (módulos, core) não entram nessa lista. Periódicas com
-    // tickUnit "manual" (cura/dano de longo prazo fora de combate) ganham o botão de tick;
-    // "combatRound" tica sozinho pelo hook updateCombat, sem precisar de botão nenhum aqui.
-    const combatNow = game.combat?.started ? { round: game.combat.round ?? 0, combatId: game.combat.id } : {};
-    context.activeConditions = actor.effects
-      .filter(e => e.flags?.[SYSTEM_ID]?.skillEffect)
-      .map(e => {
-        const flags = e.flags[SYSTEM_ID];
-        // "Até desativar" só quando nenhum prazo finito corre junto com a âncora (ver
-        // effect-anchors.js): periódico com os ticks finitos zerados; comum sem `finite` sobrando.
-        const anchors = effectAnchors(flags, e.origin);
-        const ticksExhausted = flags.periodic && (flags.ticksRemaining ?? 0) <= 0;
-        const finite = !flags.periodic && anchors.length ? finiteRemaining(flags.finite, combatNow) : 0;
-        return {
-          id: e.id,
-          name: e.name,
-          img: e.img,
-          periodic: Boolean(flags.periodic),
-          manual: flags.tickUnit === "manual",
-          tiedToActive: flags.periodic ? anchors.length > 0 && ticksExhausted : anchorLifetime({ anchors, finite }).untilOff,
-          ticksRemaining: flags.ticksRemaining,
-          roundsRemaining: anchors.length ? (finite > 0 && finite !== PERMANENT ? finite : null) : e.duration?.rounds ?? null
-        };
-      });
 
     // "Ultimate" só fica escondida do jogador — o Mestre sempre vê/pode escolher,
     // já que às vezes precisa conceder ou ajustar uma na mão.
@@ -738,47 +840,38 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.fusableTiers = FUSABLE_TARGET_TIERS.filter(t => t !== "ultimate" || ultimateVisible);
     context.hasUltimateSkill = actor.system.hasUltimateSkill;
 
-    context.bodyParts = actor.items.filter(i => i.type === "body_part");
-    // Anatomia (board 5): Funções, implantes e o que as partes perdidas estão causando.
-    context.anatomy = anatomyContext(actor);
-    context.statusLabels = NIHILITY.BODY_PART_STATUS_LABELS;
-    context.titles = actor.system.titles;
     context.gear = actor.items.filter(i => i.type === "item");
     // Com o Inventário ligado, a aba Ficha mostra só os equipados (as armas atacam dali) e o resto
     // mora na aba Inventário.
-    context.inventoryEnabled = isInventoryEnabled();
-    context.canSeeEffects = actor.isOwner || game.user.isGM;
-    context.effectsCount = actor.effects.size;
     context.fichaGear = context.inventoryEnabled ? context.gear.filter(i => i.system.equipped) : context.gear;
     // Carregador de cada arma da lista: o máximo é a Carga da munição que está dentro (ver magazineState).
     context.gearMagazines = Object.fromEntries(
       (context.fichaGear ?? []).filter(i => i.system?.weapon?.enabled).map(i => [i.id, magazineState({ size: i.system.weapon.magazineSize, loaded: i.system.weapon.loaded, capacity: i.system.weapon.loadedAmmo?.capacity })])
     );
-    if (context.inventoryEnabled) context.inventory = inventoryContext(actor, { filter: this.inventoryFilter, sort: this.inventorySort });
-
-    // K3: o jogador vê só os blocos que têm alguma coisa; o Mestre vê tudo, marcado.
-    context.trim = sheetTrim({
-      isGM: game.user.isGM,
-      showAll: this.#showEmptyBlocks(),
-      empty: {
-        titles: Boolean(context.titlesEnabled) && !context.titles.length,
-        skillPoints: Boolean(context.skillPointsEnabled) && allZero(actor.system.skillPoints),
-        gear: !context.fichaGear.length,
-        economy: Boolean(context.economyEnabled) && allZero(actor.system.currencies),
-        anatomy: Boolean(context.anatomyEnabled) && !actor.items.some(i => i.type === "body_part")
-      }
-    });
     context.skillTierList = shownSkillTiers(
       context.visibleTiers,
       Object.fromEntries(Object.entries(context.skillsByTier).map(([tier, list]) => [tier, list.length + (context.requestsByTier[tier]?.length ?? 0)])),
       { isGM: game.user.isGM, showAll: context.trim.showAll }
     );
-    if (context.trim.anatomy.hide && this.activeTab === "anatomy") context.activeTab = this.activeTab = "ficha";
-    // Em criação a Anatomia some (prancha 1 D); volta quando o personagem é liberado.
-    if (context.creation && this.activeTab === "anatomy") context.activeTab = this.activeTab = "ficha";
+  }
 
-    debugLog(`${SYSTEM_ID} | NihilityActorSheet._prepareContext:`, actor.name);
-    return context;
+  /** Aba Inventário: encaixes, peso, contêineres. */
+  #prepareInventoryContext(context) {
+    if (context.inventoryEnabled) context.inventory = inventoryContext(this.actor, { filter: this.inventoryFilter, sort: this.inventorySort });
+  }
+
+  /** Aba Anatomia (board 5): Funções, implantes e o que as partes perdidas estão causando. */
+  #prepareAnatomyContext(context) {
+    context.bodyParts = this.actor.items.filter(i => i.type === "body_part");
+    context.anatomy = anatomyContext(this.actor);
+    context.statusLabels = NIHILITY.BODY_PART_STATUS_LABELS;
+  }
+
+  /** Aba Origem: Nomeação e vínculos (7a) — Corredor de alma e Pacto. */
+  #prepareOriginContext(context) {
+    const actor = this.actor;
+    context.naming = namingContext(actor);
+    context.links = { ...linkRowsFor(actor), canCreatePact: game.user.isGM && isPactEnabled() && actor.type === "character" };
   }
 
   /** O que a faixa e a aba Origem mostram em modo criação. */
@@ -822,7 +915,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       this.element.querySelector(".creation-concept-input")?.focus();
       return;
     }
-    this.activeTab = step === "origin" ? "origin" : "ficha";
+    this.tabGroups.primary = step === "origin" ? "origin" : "ficha";
     await this.render();
     const anchor = step === "points" ? ".attr-block" : step === "skills" ? ".skills-block" : null;
     if (anchor) this.element.querySelector(anchor)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -973,28 +1066,37 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
   _onRender(context, options) {
     super._onRender(context, options);
-    this._onRenderInventory();
+    markVisibleEditorParts(this.element);
+    // Partes de abas que deixaram de existir (Anatomia/Inventário escondidos) continuam no DOM: o núcleo não as remove.
+    for (const part of this.element.querySelectorAll("[data-application-part]")) {
+      if (this.#partGone(part.dataset.applicationPart)) part.remove();
+    }
+    // Só liga os ouvintes das partes que acabaram de ser redesenhadas (as outras já têm os seus).
+    const rendered = id => !options.parts || options.parts.includes(id);
+    if (rendered("inventory")) this._onRenderInventory();
     enableHotbarDrag(this.element, this.actor);
     enableUnarmedHotbarDrag(this.element, this.actor);
     if (!this.isEditable) return;
 
-    this.element.querySelector(".species-select")?.addEventListener("change", this._onSpeciesChange.bind(this));
-    this._onRenderOriginGrid();
-    // Ficha em criação: "Enviar imagem…" (retrato e Token), sem navegador de arquivos (H5).
-    wireUploadButton(this.element, "portrait", async file => {
-      const path = await uploadDocumentImage(this.actor, file);
-      if (path) await this.actor.update({ img: path });
-    });
-    wireUploadButton(this.element, "token", async file => {
-      const path = await uploadDocumentImage(this.actor, file);
-      if (path) await this.actor.update({ "prototypeToken.texture.src": path });
-    });
-    // "Minhas imagens…": o que o jogador já enviou para a pasta dele (1.94.1).
-    wireGalleryButton(this.element, "portrait", path => this.actor.update({ img: path }));
-    wireGalleryButton(this.element, "token", path => this.actor.update({ "prototypeToken.texture.src": path }));
-    this.element.querySelector(".lineage-select")?.addEventListener("change", this._onLineageChange.bind(this));
+    if (rendered("header")) {
+      this.element.querySelector(".species-select")?.addEventListener("change", this._onSpeciesChange.bind(this));
+      // Ficha em criação: "Enviar imagem…" (retrato e Token), sem navegador de arquivos (H5).
+      wireUploadButton(this.element, "portrait", async file => {
+        const path = await uploadDocumentImage(this.actor, file);
+        if (path) await this.actor.update({ img: path });
+      });
+      wireUploadButton(this.element, "token", async file => {
+        const path = await uploadDocumentImage(this.actor, file);
+        if (path) await this.actor.update({ "prototypeToken.texture.src": path });
+      });
+      // "Minhas imagens…": o que o jogador já enviou para a pasta dele (1.94.1).
+      wireGalleryButton(this.element, "portrait", path => this.actor.update({ img: path }));
+      wireGalleryButton(this.element, "token", path => this.actor.update({ "prototypeToken.texture.src": path }));
+      this.element.querySelector(".lineage-select")?.addEventListener("change", this._onLineageChange.bind(this));
+    }
+    if (rendered("origin")) this._onRenderOriginGrid();
     // Arrastando um implante: verde onde cabe, vermelho onde não cabe (o motivo aparece na linha).
-    this.element.querySelectorAll("[data-part-id]").forEach(row => {
+    if (rendered("anatomy")) this.element.querySelectorAll("[data-part-id]").forEach(row => {
       row.addEventListener("dragenter", () => {
         const dragged = currentDraggedImplant();
         if (!dragged) return;
@@ -1024,10 +1126,25 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     await changeTrait(this.actor, target.dataset.trait, "restore");
   }
 
-  static #onSelectTab(event, target) {
+  /**
+   * @override O botão da aba (e os links "abrir o Inventário"/pílula de Origem) pode ter filhos; o
+   * núcleo lê `event.target.dataset.tab` e não faz nada se o clique cair num filho. Aqui sobe até o
+   * elemento que carrega `data-tab`, e ignora uma aba que não existe nesta ficha.
+   */
+  /** Abrir a Descrição/Biografia pela 1ª vez redesenha o editor já visível (ver helpers/sheet-tabs.js). */
+  changeTab(tab, group, options = {}) {
+    super.changeTab(tab, group, options);
+    refreshEditorOnTabShow(this, tab, group);
+  }
+
+  _onClickTab(event) {
+    const button = event.target?.closest?.("[data-tab]");
+    const tab = button?.dataset.tab;
+    if (!tab || event.button !== 0) return;
+    if (!this.#availableTabs().includes(tab)) return;
     event.preventDefault();
-    this.activeTab = target.dataset.tab;
-    this.render();
+    if (this.tabGroups.primary === tab) return;
+    this.changeTab(tab, button.dataset.group || "primary", { event, navElement: button.closest(".tabs") ?? undefined });
   }
 
   /* -------------------------------------------- */

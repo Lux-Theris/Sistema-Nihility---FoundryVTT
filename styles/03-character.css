@@ -291,3 +291,8 @@
 .nihility-config-app .racial-skill-edit:hover { color: var(--nihility-accent); }
 .nihility-config-app .racial-skill-delete:hover { color: var(--nihility-danger); }
 
+
+/* Ficha de Personagem em partes (Lote 5.2): cada aba é uma <section class="tab sheet-body">. O núcleo
+   só esconde a aba inativa; para a ativa o `.standard-form .tab.active` do núcleo põe display:flex com
+   espaçamento, e a aba sempre foi um bloco comum (o conteúdo dela é que decide o próprio layout). */
+.nihility-sheet.actor-sheet .sheet-body.tab.active { display: block; }

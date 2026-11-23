@@ -29,9 +29,13 @@
 .nihility-sheet .tab-led { width: 7px; height: 7px; border-radius: 50%; background: var(--nihility-border); }
 .nihility-sheet .tab-led.on { background: var(--nihility-ok); box-shadow: 0 0 5px var(--nihility-ok); }
 
-/* Cada aba é uma coluna de seções. `.hidden` precisa ganhar do `display:flex` daqui. */
-.nihility-sheet.item-sheet .tab { display: flex; flex-direction: column; gap: 12px; }
-.nihility-sheet.item-sheet .tab.hidden { display: none; }
+/* Cada aba é uma peça do template: uma <section class="tab sheet-body"> irmã das outras dentro do
+   .window-content (que leva .nihility-sheet.item-sheet — ver _renderFrame). O núcleo troca a classe
+   `.active` ao clicar na aba; a inativa some, a ativa é uma coluna de seções e é ela que rola. */
+.nihility-sheet.item-sheet .tab:not(.active) { display: none; }
+.nihility-sheet.item-sheet .tab.active { display: flex; flex-direction: column; gap: 12px; }
+/* A aba agora é o próprio contêiner de rolagem, com altura fixa: sem isso as seções (.sec tem overflow) encolhem em vez de rolar. */
+.nihility-sheet.item-sheet .tab > * { flex-shrink: 0; }
 .nihility-sheet.item-sheet .tab-description prose-mirror { min-height: 320px; }
 
 .nihility-sheet.item-sheet .sec {

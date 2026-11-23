@@ -1,0 +1,69 @@
+<section class="tab sheet-body {{tabs.general.cssClass}}" data-group="primary" data-tab="general">
+  <div class="sec">
+    <div class="sec-head">Inventário</div>
+    <div class="sec-body inventory-grid">
+      <label class="fld"><span class="fld-label">Quantidade</span><input class="num" type="number" name="system.quantity" value="{{system.quantity}}"/></label>
+      <label class="fld"><span class="fld-label">Peso</span><input class="num" type="number" name="system.weight" value="{{system.weight}}" step="any"/></label>
+      <label class="fld"><span class="fld-label">Empilha até <span class="help" title="Quantos cabem num slot do inventário. Quantidade acima disso ocupa mais slots.">?</span></span><input class="num" type="number" name="system.stackSize" value="{{system.stackSize}}" min="1"/></label>
+      <div class="fld">
+        <span class="fld-label">Valor</span>
+        <span class="joined">
+          <input class="num" type="number" name="system.value.amount" value="{{system.value.amount}}" aria-label="Valor"/>
+          <select name="system.value.currency" aria-label="Moeda">
+            {{#each currencies as |currency|}}<option value="{{currency.id}}" {{#if (eq currency.id ../system.value.currency)}}selected{{/if}}>{{currency.label}}</option>{{/each}}
+          </select>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-head">Uso</div>
+    <div class="sec-body">
+      <label class="toggle"><input type="checkbox" class="item-equip-toggle" name="system.equipped" {{#if system.equipped}}checked{{/if}}/><span class="toggle-track"></span><span>Equipado</span></label>
+      <p class="empty-note">Ligado: concede a Habilidade, ativa os bônus da aba <a data-action="tab" data-group="primary" data-tab="equipped">Enquanto equipado</a> e, se for arma, libera o Atacar. Desligado: remove a Habilidade.</p>
+      <label class="toggle"><input type="checkbox" name="system.magic" {{#if system.magic}}checked{{/if}}/><span class="toggle-track"></span><span>Mágico</span><span class="help" title="A Antimagia (Condição Suprimido) desliga os bônus deste Item enquanto durar — e os do implante feito dele. Sem a marca, o Item é mundano: a Antimagia não o alcança.">?</span></label>
+      <label class="toggle"><input type="checkbox" name="system.tech" {{#if itemTech}}checked{{/if}}/><span class="toggle-track"></span><span>Tecnológico</span><span class="help" title="O PEM (Suprimido: Tecnologia) desliga os bônus deste Item e do implante feito dele; também desliga o aparelho do PAD. Implante, prótese e aparelho do PAD já vêm marcados. Uma arma Tecnológica não dispara através de um campo de interferência. As duas marcas = tecnomágico.">?</span></label>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-head">Contêiner</div>
+    <div class="sec-body g3">
+      <label class="toggle span-all"><input type="checkbox" name="system.container.enabled" {{#if system.container.enabled}}checked{{/if}}/><span class="toggle-track"></span><span>Este item guarda outros (mochila, bolsa, cinto)</span><span class="help" title="Ocupa sempre 1 slot de quem o carrega, vestido ou não. O que está dentro usa os slots dele e pesa menos.">?</span></label>
+      {{#if system.container.enabled}}
+      <label class="fld"><span class="fld-label">Slots</span><input class="num" type="number" name="system.container.slots" value="{{system.container.slots}}" min="0"/></label>
+      <label class="fld"><span class="fld-label">Redução de peso</span><span class="suffix"><input type="number" name="system.container.weightReduction" value="{{system.container.weightReduction}}" min="0" max="100" aria-label="Redução de peso"/><span>%</span></span></label>
+      {{/if}}
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-head">Munição</div>
+    <div class="sec-body g3">
+      <label class="toggle span-all"><input type="checkbox" name="system.ammo.enabled" {{#if system.ammo.enabled}}checked{{/if}}/><span class="toggle-track"></span><span>Este item é munição</span><span class="help" title="Nave: fica no Porão; um lançador que aceita o tipo dela rola a fórmula DELA, soma a Penetração dela e gasta 1 da pilha. Arma pessoal com Carregador: o Recarregar gasta 1 desta pilha se o Tipo estiver entre os aceitos pela arma; fórmula, elementos e Dano Absoluto preenchidos aqui substituem os da arma até a próxima recarga.">?</span></label>
+      {{#if system.ammo.enabled}}
+      <label class="fld"><span class="fld-label">Carga (disparos) <span class="help" title="Quantos disparos uma unidade cheia dá numa arma pessoal com Carregador: Célula grande = 20, pequena = 10. 0 = enche até o carregador da arma.">?</span></span><input class="num" type="number" min="0" name="system.ammo.capacity" value="{{system.ammo.capacity}}"/></label>
+      <label class="fld"><span class="fld-label">Disparos (aberta) <span class="help" title="0 = cheia (dá a Carga inteira). Maior que 0 = unidade aberta, tirada de uma arma numa troca: dá só esses disparos e não empilha com as cheias.">?</span></span><input class="num" type="number" min="0" name="system.ammo.rounds" value="{{system.ammo.rounds}}"/></label>
+      <label class="fld"><span class="fld-label">Tipo</span>
+        <select name="system.ammo.type">{{#each ammoTypeOptions as |opt|}}<option value="{{opt.id}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}</select></label>
+      <label class="fld"><span class="fld-label">Fórmula de Dano</span><input class="mono" type="text" name="system.ammo.damageFormula" value="{{system.ammo.damageFormula}}" placeholder="4d10"/></label>
+      <label class="fld"><span class="fld-label">Penetração extra</span><span class="suffix"><input type="number" name="system.ammo.penetrationBonus" value="{{system.ammo.penetrationBonus}}" min="0" max="100" aria-label="Penetração extra"/><span>%</span></span></label>
+      <label class="fld"><span class="fld-label">Lançador mínimo <span class="help" title="Torpedo pesado só em lançador Robusto ou maior.">?</span></span>
+        <select name="system.ammo.minLauncherSize">{{#each ammoSizeOptions as |opt|}}<option value="{{opt.id}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}</select></label>
+      <label class="toggle"><input type="checkbox" name="system.ammo.isAbsoluteDamage" {{#if system.ammo.isAbsoluteDamage}}checked{{/if}}/><span class="toggle-track"></span><span>Dano Absoluto</span></label>
+      <div class="fld span-all"><span class="fld-label">Elemento(s) <span class="help" title="Os efeitos por camada (Escudo, Casco, Integridade) vêm dos elementos. Vazio = os do lançador.">?</span></span>{{> nihility.elementChips field=ammoElementField path="system.ammo.damageElements" editable=editable}}</div>
+      {{/if}}
+    </div>
+  </div>
+
+  {{#if isGM}}
+  <div class="sec gm-sec">
+    <div class="sec-head"><i class="fas fa-lock"></i> Mestre<span class="sp"></span><span class="sec-head-note">só o Mestre vê</span></div>
+    <div class="sec-body">
+      <label class="toggle"><input type="checkbox" name="system.isPadDevice" {{#if system.isPadDevice}}checked{{/if}}/><span class="toggle-track"></span><span>Dispositivo PAD</span><span class="help" title="Quem tiver ao menos um Item PAD ganha o botão Abrir PAD na própria ficha. Não precisa estar equipado.">?</span></label>
+      <label class="toggle"><input type="checkbox" name="system.marksTime" {{#if system.marksTime}}checked{{/if}}/><span class="toggle-track"></span><span>Marca o tempo</span><span class="help" title="Relógio do mundo: a linha deste Item no inventário mostra a hora (o jogador só vê a hora no PAD e em itens assim). Se for tecnológico e estiver suprimido (PEM, campo), mostra --:--.">?</span></label>
+    </div>
+  </div>
+  {{/if}}
+</section>

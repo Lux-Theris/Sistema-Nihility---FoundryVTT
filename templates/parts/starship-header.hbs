@@ -1,0 +1,104 @@
+  <header class="sheet-header">
+    <div class="profile-frame" data-edit="img" data-action="editImage" title="{{actor.name}} — clique para trocar a imagem">
+      <img class="profile-frame-img" src="{{actor.img}}" style="{{portraitStyle actor}}"/>
+      <button type="button" class="profile-frame-adjust" data-action="editPortraitFrame" title="Ajustar enquadramento (zoom e posição)"><i class="fas fa-crop-simple"></i></button>
+    </div>
+    <div class="header-fields">
+      <input name="name" type="text" value="{{actor.name}}" placeholder="Nome"/>
+      <div class="header-row">
+        <span class="chip">{{#if isVehicle}}Veículo{{else}}Nave Espacial{{/if}}</span>
+        <label class="ship-size-field">Porte
+          <select name="system.shipSize" {{#unless isGM}}disabled{{/unless}}>
+            {{#each shipSizeOptions as |opt|}}
+            <option value="{{opt.id}}" {{#if (eq opt.id ../system.shipSize)}}selected{{/if}}>{{opt.label}}{{#if opt.outOfRange}} (fora da faixa){{/if}}</option>
+            {{/each}}
+          </select>
+        </label>
+        <label class="ship-size-field">Classe
+          <select name="system.shipClass" {{#unless isGM}}disabled{{/unless}}>
+            {{#each classOptions as |opt|}}
+            <option value="{{opt.id}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+            {{/each}}
+          </select>
+        </label>
+        {{#unless isGM}}<span class="hint-inline" style="margin:0;">(só o Mestre edita)</span>{{/unless}}
+        <button type="button" class="effects-list-button" data-action="openEffectsList" title="Efeitos de sistema, efeitos ativos, Raio Trator, Escudo adaptativo, Skills Ativas">✦ Efeitos</button>
+      </div>
+      {{#if vesselClass.description}}<p class="hint-inline vessel-class-note">{{vesselClass.label}}: {{vesselClass.description}}</p>{{/if}}
+      {{#if isGM}}{{#if classRangeWarning}}<p class="vessel-class-warning"><i class="fas fa-exclamation-triangle"></i> {{classRangeWarning}}</p>{{/if}}{{/if}}
+      {{> nihility.traits traits=traits isGM=isGM}}
+    </div>
+
+    <div class="resources">
+      <div class="vital-row">
+        <span class="vital-label">Escudos</span>
+        <span class="vital-track"><span class="vital-fill energy state-{{shieldState}}" style="width:{{shieldPercent}}%"></span></span>
+        <span class="vital-value">
+          <input type="number" name="system.shields.value" value="{{system.shields.value}}"/>/{{system.shields.max}}<span class="vital-percent">{{shieldPercent}}%</span>
+        </span>
+        {{#unless shieldModule}}<span class="hint-inline" style="margin-left:4px;">(sem Escudo instalado)</span>{{/unless}}
+        {{#if system.shields.rechargeRemaining}}<span class="hint-inline" style="margin-left:4px;">(Recarga: {{system.shields.rechargeRemaining}})</span>{{/if}}
+        {{#if isGM}}
+        <a class="vital-adjust-toggle" data-action="toggleModuleVitalAdjust" data-key="shields" title="Ajustar Escudos/Recarga"><i class="fas fa-plus"></i></a>
+        {{/if}}
+      </div>
+      {{#if isGM}}
+      <div class="vital-adjust-popover" data-key="shields">
+        <input type="number" class="vital-adjust-input" min="0" placeholder="Valor"/>
+        <button type="button" class="vital-adjust-btn dmg" data-action="adjustModuleVital" data-scope="actor" data-field="shields.value" data-max-field="shields.max" data-dir="-1">− Dano</button>
+        <button type="button" class="vital-adjust-btn heal" data-action="adjustModuleVital" data-scope="actor" data-field="shields.value" data-max-field="shields.max" data-dir="1">+ Reparo</button>
+        <button type="button" class="vital-adjust-btn dmg" data-action="adjustModuleVital" data-scope="actor" data-field="shields.rechargeRemaining" data-dir="-1">− Recarga</button>
+        <button type="button" class="vital-adjust-btn heal" data-action="adjustModuleVital" data-scope="actor" data-field="shields.rechargeRemaining" data-dir="1">+ Recarga</button>
+      </div>
+      {{/if}}
+      <div class="vital-row">
+        <span class="vital-label">Casco</span>
+        <span class="vital-track"><span class="vital-fill hp state-{{cascoState}}" style="width:{{cascoPercent}}%"></span></span>
+        <span class="vital-value">
+          <span class="vital-derived">{{system.casco.value}}</span>/{{system.casco.max}}<span class="vital-percent">{{cascoPercent}}%</span>
+        </span>
+        {{#unless armorModule}}<span class="hint-inline" style="margin-left:4px;">(sem Casco instalado)</span>{{/unless}}
+        <span class="hint-inline vital-source" title="O Casco é a Vida do Módulo de armadura — ajuste na linha dele, logo abaixo em Módulos Especiais.">= Vida do Módulo de Casco</span>
+      </div>
+      <div class="vital-row">
+        <span class="vital-label">Integridade Estrutural</span>
+        <span class="vital-track"><span class="vital-fill hp state-{{structureState}}" style="width:{{structurePercent}}%"></span></span>
+        <span class="vital-value">
+          <span class="vital-derived">{{system.hull.value}}</span>/<span class="vital-derived">{{system.hull.max}}</span><span class="vital-percent">{{structurePercent}}%</span>
+        </span>
+        <span class="hint-inline vital-source" title="Soma da Vida dos Módulos estruturais (tudo menos Casco, Escudo e Armas) — ajuste na linha de cada Módulo.">= soma dos Módulos estruturais</span>
+      </div>
+      {{#if isVehicle}}
+      {{#unless shipManeuverEnabled}}
+      <div class="vital-row">
+        <span class="vital-label">Velocidade</span>
+        <span class="vital-value">{{system.speed}}{{#unless engineModule}}<span class="hint-inline" style="margin-left:4px;">(sem Motor instalado)</span>{{/unless}}</span>
+      </div>
+      {{/unless}}
+      <div class="vital-row">
+        <span class="vital-label">{{#if (eq system.fuel.type "battery")}}Bateria{{else}}Combustível{{/if}}</span>
+        <span class="vital-track"><span class="vital-fill energy" style="width:{{fuelPercent}}%"></span></span>
+        <span class="vital-value">
+          <input type="number" name="system.fuel.value" value="{{system.fuel.value}}"/>/<input type="number" name="system.fuel.max" value="{{system.fuel.max}}"/>
+        </span>
+      </div>
+      {{else}}
+      {{#unless shipManeuverEnabled}}
+      <div class="vital-row">
+        <span class="vital-label">Manobra</span>
+        <span class="vital-value">{{system.maneuverability}}{{#unless engineModule}}<span class="hint-inline" style="margin-left:4px;">(sem Motor instalado)</span>{{/unless}}</span>
+      </div>
+      {{/unless}}
+      {{/if}}
+      {{#if shipManeuverEnabled}}
+      <div class="vital-row" title="Casas por rodada em combate: o Porte dá o ritmo, o Motor define quão perto disso a nave chega (throttle, energia e Vida do Motor contam).">
+        <span class="vital-label">Movimento</span>
+        <span class="vital-value">{{system.movementCells}} casas por rodada{{#unless engineModule}}<span class="hint-inline" style="margin-left:4px;">(sem Motor instalado)</span>{{/unless}}</span>
+      </div>
+      <div class="vital-row" title="Percentual do dano de cada tiro que a nave evita, antes do Escudo.">
+        <span class="vital-label">Manobra</span>
+        <span class="vital-value">Evasão {{evasionPercent}}%</span>
+      </div>
+      {{/if}}
+    </div>
+  </header>

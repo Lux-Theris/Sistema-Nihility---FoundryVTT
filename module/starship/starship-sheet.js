@@ -30,6 +30,7 @@ import { createGrantedSkill, removeGrantedSkill } from "../skills/skill-economy.
 import { useSkillFlow } from "../skills/skill-use-flow.js";
 import { reportError } from "../helpers/report.js";
 import { escapeHtml } from "../helpers/html.js";
+import { markVisibleEditorParts, refreshEditorOnTabShow } from "../helpers/sheet-tabs.js";
 import { fireStarshipWeapon } from "./ship-damage.js";
 import {
   moduleCanRestart,
@@ -197,8 +198,11 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
   static DEFAULT_OPTIONS = {
     // DocumentSheetV2 não liga auto-save por padrão — ver mesmo comentário em actor-sheet.js.
     form: { submitOnChange: true, closeOnSubmit: false },
+    // O conteúdo da janela faz o papel do antigo <div class="nihility-sheet starship-sheet"> que
+    // embrulhava a ficha: as partes (cabeçalho, abas, corpo) são filhas diretas dele, então o CSS
+    // `.nihility-sheet .sheet-header` etc. continua casando sem mudança.
+    window: { contentClasses: ["nihility-sheet", "starship-sheet"] },
     actions: {
-      selectTab: TabbedActorSheetV2.onSelectTab,
       createItem: TabbedActorSheetV2.onItemCreate,
       editItem: TabbedActorSheetV2.onItemEdit,
       deleteItem: TabbedActorSheetV2.onItemDelete,
@@ -232,13 +236,44 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
   };
 
-  static PARTS = {
-    body: { template: `systems/${SYSTEM_ID}/templates/starship-sheet.hbs`, scrollable: [".sheet-body"] }
+  /** Cada aba é uma parte própria; a troca de aba é do núcleo (`changeTab`), sem re-renderizar. */
+  static TABS = {
+    primary: {
+      initial: "sistemas",
+      tabs: [
+        { id: "sistemas", label: "Sistemas" },
+        { id: "armas", label: "Armas" },
+        { id: "prioridade", label: "Prioridade" },
+        { id: "skills", label: "Habilidades" },
+        { id: "tripulacao", label: "Tripulação" },
+        { id: "biography", label: "Registro" }
+      ]
+    }
   };
 
-  constructor(options = {}) {
-    super(options);
-    this.activeTab = "sistemas";
+  static PARTS = {
+    header: { template: `systems/${SYSTEM_ID}/templates/parts/starship-header.hbs` },
+    tabs: { template: `systems/${SYSTEM_ID}/templates/parts/starship-tabs.hbs` },
+    sistemas: { template: `systems/${SYSTEM_ID}/templates/parts/starship-sistemas.hbs`, scrollable: [""] },
+    armas: { template: `systems/${SYSTEM_ID}/templates/parts/starship-armas.hbs`, scrollable: [""] },
+    prioridade: { template: `systems/${SYSTEM_ID}/templates/parts/starship-prioridade.hbs`, scrollable: [""] },
+    skills: { template: `systems/${SYSTEM_ID}/templates/parts/starship-skills.hbs`, scrollable: [""] },
+    tripulacao: { template: `systems/${SYSTEM_ID}/templates/parts/starship-tripulacao.hbs`, scrollable: [""] },
+    biography: { template: `systems/${SYSTEM_ID}/templates/parts/starship-biography.hbs`, scrollable: [""] }
+  };
+
+  /** @override A aba Tripulação só existe com o PAD de Nave ligado (a parte também some, ver abaixo). */
+  _getTabsConfig(group) {
+    const config = super._getTabsConfig(group);
+    if (group !== "primary" || isPadShipEnabled()) return config;
+    return { ...config, tabs: config.tabs.filter(tab => tab.id !== "tripulacao") };
+  }
+
+  /** @override */
+  _configureRenderParts(options) {
+    const parts = super._configureRenderParts(options);
+    if (!isPadShipEnabled()) delete parts.tripulacao;
+    return parts;
   }
 
   /**
@@ -260,29 +295,46 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     return this.actor.name;
   }
 
-  static onSelectTab(event, target) {
-    event.preventDefault();
-    this.activeTab = target.dataset.tab;
-    this.render();
-  }
-
   /**
    * @override
    * Campos comuns às duas fichas. Cada filha chama este método e acrescenta os seus campos.
    */
   async _prepareContext(options) {
+    // A aba ativa some quando a Tripulação é desligada: volta pra primeira antes de preparar as abas.
+    const config = this._getTabsConfig("primary");
+    if (!config.tabs.some(tab => tab.id === this.tabGroups.primary)) this.tabGroups.primary = config.initial;
     const context = await super._prepareContext(options);
     const actor = this.actor;
 
+    context.tabs = this._prepareTabs("primary");
     context.actor = actor;
     context.owner = actor.isOwner;
-    context.activeTab = this.activeTab;
     context.system = actor.system;
     context.config = NIHILITY;
     context.shipManeuverEnabled = isShipManeuverEnabled();
     context.traits = traitContext(actor);
     context.isGM = game.user.isGM;
     context.evasionPercent = Math.round(actor.system.evasion * 100);
+    context.energyLabel = getStarshipEnergyLabel();
+    context.energyAbbr = getStarshipEnergyAbbr();
+    context.canAdjustThrottle = canAdjustThrottle(actor);
+    return context;
+  }
+
+  /**
+   * @override
+   * O que só uma parte usa é preparado aqui, não no contexto comum.
+   */
+  async _preparePartContext(partId, context, options) {
+    context = await super._preparePartContext(partId, context, options);
+    switch (partId) {
+      case "header": this._prepareHeaderContext(context); break;
+      case "sistemas": this._prepareSistemasContext(context); break;
+      case "armas": this._prepareArmasContext(context); break;
+      case "prioridade": this._preparePrioridadeContext(context); break;
+      case "skills": this._prepareSkillsContext(context); break;
+      case "tripulacao": this._prepareTripulacaoContext(context); break;
+    }
     return context;
   }
 
@@ -291,8 +343,18 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
    * Eventos que não são clique-em-data-action (drop de tripulante, edição de cargo por linha)
    * precisam ser ligados manualmente a cada render — mesmo padrão de ai-assistant.js.
    */
+  /** Abrir a Descrição/Biografia pela 1ª vez redesenha o editor já visível (ver helpers/sheet-tabs.js). */
+  changeTab(tab, group, options = {}) {
+    super.changeTab(tab, group, options);
+    refreshEditorOnTabShow(this, tab, group);
+  }
+
   _onRender(context, options) {
     super._onRender(context, options);
+    markVisibleEditorParts(this.element);
+    // Redesenho só da Biografia (editor medido escondido, ver sheet-tabs.js): as outras partes não mudaram
+    // e os ouvintes abaixo seriam ligados de novo nelas.
+    if (options.parts?.length && options.parts.every(id => id === "biography")) return;
     enableHotbarDrag(this.element, this.actor);
     // O chip que abriu o seletor de grupo acabou de ser redesenhado: o menu solto ficaria órfão.
     this._closePowerGroupMenu();
@@ -983,36 +1045,15 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
-   * Preenche a parte do contexto compartilhada entre Nave e Veículo (Módulos, Grid de Energia,
-   * Skills concedidas) — cada Sheet concreta chama isso e só acrescenta o que é próprio dela.
+   * Linha da grade de um Módulo — cada linha já vem calculada daqui, o template não faz conta
+   * nenhuma. Foi o que permitiu trocar a frase corrida de estatísticas por colunas de verdade: cada
+   * célula tem um valor só, e todas alinham de uma linha pra outra. Devolve a função que monta a linha.
    */
-  _prepareShipSystemsContext(context) {
+  _moduleRowBuilder() {
     const actor = this.actor;
-    context.isGM = game.user.isGM;
-    context.energyLabel = getStarshipEnergyLabel();
-
-    // Módulos de sistema (toda Função menos Arma e Utilidade) ganham um bloco próprio — podem ser
-    // vários da mesma Função agora (dois Núcleos de Dobra, impulso + manobradores).
-    const SYSTEM_ROLES = ["power", "storage", "distribution", "shield", "propulsion", "armor", "ftl"];
-    const specialModules = actor.items.filter(
-      i => i.type === "starship_module" && SYSTEM_ROLES.includes(moduleRole(i.system.category))
-    );
-    context.specialModules = specialModules;
-    context.weaponModules = actor.system.weaponModules;
-    const excludedIds = new Set([...specialModules, ...context.weaponModules].map(m => m.id));
-    context.modules = actor.items.filter(i => i.type === "starship_module" && !excludedIds.has(i.id));
-
     const abbr = getStarshipEnergyAbbr();
-    context.energyAbbr = abbr;
-    context.canAdjustThrottle = canAdjustThrottle(actor);
     const powerGroups = actor.system.powerGroupList;
-
-    /**
-     * Cada linha da grade já vem calculada daqui — o template não faz conta nenhuma. Foi o que
-     * permitiu trocar a frase corrida de estatísticas por colunas de verdade: cada célula tem um
-     * valor só, e todas alinham de uma linha pra outra.
-     */
-    const buildRow = module => {
+    return module => {
       const sys = module.system;
       const hpPercent = percentOf(sys.hp.value, sys.hp.max);
       const throttle = sys.powerAllocationPercent ?? 100;
@@ -1061,25 +1102,51 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
         cooldownRounds: sys.cooldownRounds
       };
     };
+  }
 
+  /** Cabeçalho (retrato, Porte/Classe, Escudos/Casco/Integridade, Movimento) — a parte `header`. */
+  _prepareHeaderContext(context) {
+    const actor = this.actor;
+    // Classe (catálogo de Nave ou de Veículo) — só o Mestre troca.
+    const header = vesselHeaderOptions(actor);
+    context.shipSizeOptions = header.sizeOptions;
+    context.classOptions = header.classOptions;
+    context.classRangeWarning = header.warning;
+    context.vesselClass = actor.system.vesselClass;
+
+    // Reator/Bateria/Distribuidor/Escudo/Casco são 100% derivados do Módulo instalado — sem o
+    // Módulo, o valor é 0 (não um fallback editável), então esses campos do cabeçalho/Grid
+    // ficam sempre só-leitura (ver prepareDerivedData em starship-model.js).
+    context.shieldModule = actor.system.shieldModule;
+    context.engineModule = actor.system.engineModule;
+    context.armorModule = actor.system.armorModule;
+
+    // Cascata de dano Escudo→Casco→Estrutura (Fase 4) — as 3 barras compartilhadas do cabeçalho.
+    context.shieldPercent = percentOf(actor.system.shields.value, actor.system.shields.max);
+    context.cascoPercent = percentOf(actor.system.casco.value, actor.system.casco.max);
+    context.structurePercent = percentOf(actor.system.hull.value, actor.system.hull.max);
+    // Estado de cada pool, pra barra mudar de cor — "Escudo em 1%" precisa gritar mais que o texto.
+    context.shieldState = meterState(context.shieldPercent);
+    context.cascoState = meterState(context.cascoPercent);
+    context.structureState = meterState(context.structurePercent);
+  }
+
+  /** Aba Sistemas (Grid de Energia, Ações da Nave, Módulos, Porão/Peças) — a parte `sistemas`. */
+  _prepareSistemasContext(context) {
+    const actor = this.actor;
+    const buildRow = this._moduleRowBuilder();
+
+    // Módulos de sistema (toda Função menos Arma e Utilidade) ganham um bloco próprio — podem ser
+    // vários da mesma Função agora (dois Núcleos de Dobra, impulso + manobradores).
+    const SYSTEM_ROLES = ["power", "storage", "distribution", "shield", "propulsion", "armor", "ftl"];
+    const specialModules = actor.items.filter(
+      i => i.type === "starship_module" && SYSTEM_ROLES.includes(moduleRole(i.system.category))
+    );
+    context.specialModules = specialModules;
+    const excludedIds = new Set([...specialModules, ...actor.system.weaponModules].map(m => m.id));
+    context.modules = actor.items.filter(i => i.type === "starship_module" && !excludedIds.has(i.id));
     context.specialModuleRows = specialModules.map(buildRow);
     context.moduleRows = context.modules.map(buildRow);
-    context.weaponRows = context.weaponModules.map(buildRow);
-    this._preparePowerGroupContext(context, powerGroups, buildRow);
-
-    const budgetUsed = actor.system.weaponSpaceUsed;
-    const budget = actor.system.weaponSlotBudget;
-    context.weaponBudgetLabel = Number.isFinite(budget)
-      ? `${budgetUsed} / ${budget} espaço de Arma usado`
-      : `${budgetUsed} espaço de Arma usado`;
-
-    // Fome de energia (Fase 3, Distribuidor) — mapa id→percentual pra badge "⚠ Energia
-    // insuficiente" nas linhas de Módulo; 100 (sem badge) pra quem não tem déficit agora.
-    context.powerRatios = Object.fromEntries(
-      actor.items
-        .filter(i => i.type === "starship_module")
-        .map(m => [m.id, Math.round(actor.system.powerRatioFor(m) * 100)])
-    );
 
     // Foco de energia atual (atalhos Escudos/Armas/Motores/Equilibrado) e efeitos de sistema ativos.
     const focus = actor.getFlag(SYSTEM_ID, "powerFocus") ?? "balanced";
@@ -1101,16 +1168,50 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
       return { id: effect.id, text, rounds: effect.kind === "tractor" ? null : effect.rounds, restartable: ["moduleDisabled", "energyDrain", "resistanceDown"].includes(effect.kind) };
     });
 
-    // Classe (catálogo de Nave ou de Veículo) — só o Mestre troca.
     context.weaponFrequency = Number(actor.getFlag(SYSTEM_ID, "weaponFrequency")) || 0;
     context.inventoryEnabled = isInventoryEnabled();
     if (context.inventoryEnabled) context.cargo = cargoContext(actor);
-    const header = vesselHeaderOptions(actor);
-    context.shipSizeOptions = header.sizeOptions;
-    context.classOptions = header.classOptions;
-    context.classRangeWarning = header.warning;
-    context.vesselClass = actor.system.vesselClass;
 
+    context.reactorModule = actor.system.reactorModule;
+    context.batteryModule = actor.system.batteryModule;
+    context.distributorModule = actor.system.distributorModule;
+    // O número cru (a corrente do Grid mostra o valor sozinho, com o rótulo no cabeçalho da coluna).
+    context.transferCapacity = actor.system.transferCapacity;
+
+    this._preparePowerGridContext(context);
+  }
+
+  /** Aba Armas — a parte `armas`. */
+  _prepareArmasContext(context) {
+    const actor = this.actor;
+    const buildRow = this._moduleRowBuilder();
+    context.weaponModules = actor.system.weaponModules;
+    context.weaponRows = context.weaponModules.map(buildRow);
+    const budgetUsed = actor.system.weaponSpaceUsed;
+    const budget = actor.system.weaponSlotBudget;
+    context.weaponBudgetLabel = Number.isFinite(budget)
+      ? `${budgetUsed} / ${budget} espaço de Arma usado`
+      : `${budgetUsed} espaço de Arma usado`;
+  }
+
+  /** Aba Prioridade — a parte `prioridade`. */
+  _preparePrioridadeContext(context) {
+    this._preparePowerGridContext(context);
+    this._preparePowerGroupContext(context, this.actor.system.powerGroupList, this._moduleRowBuilder());
+  }
+
+  /** Aba Habilidades — a parte `skills`. */
+  _prepareSkillsContext(context) {
+    const actor = this.actor;
+    context.skills = actor.system.skills;
+    context.skillSummaries = skillSummariesFor(actor);
+    // Recarga e Preparo (H3): a Skill bloqueada mostra o motivo e o botão Usar fica desligado.
+    context.skillTimers = skillTimersFor(actor);
+  }
+
+  /** Aba Tripulação — a parte `tripulacao`. */
+  _prepareTripulacaoContext(context) {
+    const actor = this.actor;
     // Funções de Tripulação: catálogo + a função salva, mesmo se saiu do catálogo.
     const roles = getCrewRoles();
     context.crewRows = actor.system.crewActors.map(entry => {
@@ -1123,42 +1224,7 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
         canChangeRole: game.user.isGM || entry.actor.isOwner
       };
     });
-
-    context.skills = actor.system.skills;
-    context.skillSummaries = skillSummariesFor(actor);
-    // Recarga e Preparo (H3): a Skill bloqueada mostra o motivo e o botão Usar fica desligado.
-    context.skillTimers = skillTimersFor(actor);
-    context.padShipEnabled = isPadShipEnabled();
     context.crewActors = actor.system.crewActors;
-    context.totalConsumption = actor.system.totalConsumption;
-    context.availableEnergy = actor.system.availableEnergy;
-    context.isOverloaded = actor.system.powerGrid.isOverloaded;
-
-    // Reator/Bateria/Distribuidor/Escudo/Casco são 100% derivados do Módulo instalado — sem o
-    // Módulo, o valor é 0 (não um fallback editável), então esses campos do cabeçalho/Grid
-    // ficam sempre só-leitura (ver prepareDerivedData em starship-model.js).
-    context.reactorModule = actor.system.reactorModule;
-    context.shieldModule = actor.system.shieldModule;
-    context.engineModule = actor.system.engineModule;
-    context.armorModule = actor.system.armorModule;
-    context.batteryModule = actor.system.batteryModule;
-    context.distributorModule = actor.system.distributorModule;
-
-    // O número cru (a corrente do Grid mostra o valor sozinho, com o rótulo no cabeçalho da
-    // coluna); o label pronto continua pra onde a frase inteira ainda faz sentido.
-    context.transferCapacity = actor.system.transferCapacity;
-    context.transferCapacityLabel = `${actor.system.transferCapacity} ${context.energyLabel}/rodada`;
-
-    // Cascata de dano Escudo→Casco→Estrutura (Fase 4) — as 3 barras compartilhadas do cabeçalho.
-    context.shieldPercent = percentOf(actor.system.shields.value, actor.system.shields.max);
-    context.cascoPercent = percentOf(actor.system.casco.value, actor.system.casco.max);
-    context.structurePercent = percentOf(actor.system.hull.value, actor.system.hull.max);
-    // Estado de cada pool, pra barra mudar de cor — "Escudo em 1%" precisa gritar mais que o texto.
-    context.shieldState = meterState(context.shieldPercent);
-    context.cascoState = meterState(context.cascoPercent);
-    context.structureState = meterState(context.structurePercent);
-
-    this._preparePowerGridContext(context);
   }
 
   /**
@@ -1301,8 +1367,6 @@ export class NihilityStarshipSheet extends TabbedActorSheetV2 {
     const context = await super._prepareContext(options);
     const actor = this.actor;
 
-    this._prepareShipSystemsContext(context);
-
     debugLog(`${SYSTEM_ID} | NihilityStarshipSheet._prepareContext:`, actor.name);
     return context;
   }
@@ -1327,8 +1391,6 @@ export class NihilityVehicleSheet extends TabbedActorSheetV2 {
     context.isVehicle = true;
     context.parts = actor.system.parts;
     context.fuelPercent = percentOf(actor.system.fuel.value, actor.system.fuel.max);
-
-    this._prepareShipSystemsContext(context);
 
     debugLog(`${SYSTEM_ID} | NihilityVehicleSheet._prepareContext:`, actor.name);
     return context;

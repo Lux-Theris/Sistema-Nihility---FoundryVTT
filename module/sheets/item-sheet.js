@@ -87,6 +87,7 @@ import { isSenseTarget, SENSE_LABELS, describeSenseRange, senseRangeValue } from
 import { isWeaponMasteryEnabled, masteryConfig, masterySentenceFor, weaponTypeChoices, weaponTypeDisplay } from "../combat/weapon-mastery.js";
 import { masteryLevelUpBlock } from "../combat/weapon-mastery-rules.js";
 import { escapeHtml } from "../helpers/html.js";
+import { markVisibleEditorParts, refreshEditorOnTabShow } from "../helpers/sheet-tabs.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -379,6 +380,31 @@ function effectDurationUnit(entry, { hasUpkeep, periodic }) {
   return periodic ? { durationUnit: "ticks", durationHint: "Quantos ticks o Periódico dá" } : { durationUnit: "rod.", durationHint: "Rodadas" };
 }
 
+/**
+ * Liga um listener uma única vez por elemento: as peças são renderizadas separadamente, então
+ * `_onRender` pode passar de novo por um elemento que não foi trocado.
+ */
+function bindOnce(element, key, type, handler) {
+  const bound = (element._nihilityBound ??= new Set());
+  if (bound.has(key)) return;
+  bound.add(key);
+  element.addEventListener(type, handler);
+}
+
+/** Caminho do template de uma peça da ficha de Item. */
+const itemPart = name => `systems/${SYSTEM_ID}/templates/parts/item-${name}.hbs`;
+/** Peça de aba: a própria seção rola e o núcleo guarda a posição entre renderizações. */
+const tabPart = name => ({ template: itemPart(name), scrollable: [""] });
+
+/** Peças de cada tipo de Item, na ordem em que entram na janela (cabeçalho, abas, conteúdo). */
+const PARTS_BY_TYPE = {
+  skill: ["header", "tabs", "skillGeneral", "skillMechanic", "skillPassive", "skillSubskills", "description"],
+  item: ["header", "tabs", "itemGeneral", "itemWeapon", "itemConsumable", "itemImplant", "itemEquipped", "description"],
+  starship_module: ["header", "tabs", "moduleSpec", "moduleGrant", "description"],
+  body_part: ["header", "tabs", "bodyDetails", "bodyMods", "description"],
+  default: ["header", "tabs", "titleDetails", "description"]
+};
+
 export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   static DEFAULT_OPTIONS = {
     classes: [SYSTEM_ID, "sheet", "item"],
@@ -413,7 +439,6 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       deleteItemAttrBonus: NihilityItemSheet.#onItemAttrBonusDelete,
       addModAttrBonus: NihilityItemSheet.#onModAttrBonusAdd,
       deleteModAttrBonus: NihilityItemSheet.#onModAttrBonusDelete,
-      selectTab: NihilityItemSheet.#onSelectTab,
       levelUpSkill: NihilityItemSheet.#onLevelUpSkill,
       requestForm: NihilityItemSheet.#onRequestForm,
       spendPointLevelUp: NihilityItemSheet.#onSpendPointLevelUp,
@@ -430,9 +455,38 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     }
   };
 
+  /**
+   * Uma peça pro cabeçalho, uma pra barra de abas e uma por (tipo, aba): os ids de aba se repetem
+   * entre tipos ("general", "details"…) com conteúdo diferente, então cada combinação tem o seu
+   * arquivo e `_configureRenderParts` só deixa as do tipo do Item. A aba é um `<section class="tab
+   * sheet-body">` — o núcleo troca de aba sem renderizar (`changeTab`) e a própria seção rola
+   * (`scrollable: [""]`, o núcleo guarda a posição entre renderizações).
+   */
   static PARTS = {
-    body: { template: `systems/${SYSTEM_ID}/templates/item-sheet.hbs`, scrollable: [".sheet-body"] }
+    header: { template: itemPart("header") },
+    tabs: { template: itemPart("tabs") },
+    skillGeneral: tabPart("skill-general"),
+    skillMechanic: tabPart("skill-mechanic"),
+    skillPassive: tabPart("skill-passive"),
+    skillSubskills: tabPart("skill-subskills"),
+    itemGeneral: tabPart("general"),
+    itemWeapon: tabPart("weapon"),
+    itemConsumable: tabPart("consumable"),
+    itemImplant: tabPart("implant"),
+    itemEquipped: tabPart("equipped"),
+    moduleSpec: tabPart("module-spec"),
+    moduleGrant: tabPart("module-grant"),
+    titleDetails: tabPart("title-details"),
+    bodyDetails: tabPart("body-details"),
+    bodyMods: tabPart("body-mods"),
+    description: tabPart("description")
   };
+
+  /** As abas variam por tipo e têm contador/led: a lista vem de `_getTabsConfig` (`tabsFor`). */
+  static TABS = { primary: { tabs: [], initial: null } };
+
+  /** Lista de abas desta renderização (`tabsFor` + avisos), montada em `_prepareContext`. */
+  #tabsConfig = null;
 
   /**
    * Linhas de Efeito com "+ Condição" aberto (estado de tela, nada é salvo): a Condição e o Ícone
@@ -447,12 +501,48 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
    */
   #advOpen = new Map();
 
-  constructor(options = {}) {
-    super(options);
-    // ApplicationV2 não herda o mixin de abas do AppV1 — mesmo padrão manual já usado em
-    // NihilityMenuApp (activeTab + ação "selectTab"). `null` = a primeira aba do tipo (ver
-    // tabsFor), que é sempre a dos campos.
-    this.activeTab = null;
+  /**
+   * @override
+   * O layout da ficha (.nihility-sheet, flex em coluna) vivia numa <div> que envolvia cabeçalho,
+   * abas e corpo. Com as peças irmãs dentro do .window-content, as classes vão nele: o resto do CSS
+   * (todo descendente de .nihility-sheet.item-sheet) segue valendo sem mudar.
+   */
+  async _renderFrame(options) {
+    const frame = await super._renderFrame(options);
+    frame.querySelector(".window-content")?.classList.add("nihility-sheet", "item-sheet", `type-${this.item.type}`);
+    return frame;
+  }
+
+  /** @override Só as peças do tipo deste Item. */
+  _configureRenderParts(options) {
+    const parts = super._configureRenderParts(options);
+    const wanted = new Set(PARTS_BY_TYPE[this.item.type] ?? PARTS_BY_TYPE.default);
+    for (const id of Object.keys(parts)) if (!wanted.has(id)) delete parts[id];
+    return parts;
+  }
+
+  /** @override */
+  _getTabsConfig(group) {
+    if (group !== "primary") return null;
+    const tabs = this.#tabsConfig ?? tabsFor(this.item);
+    return { tabs, initial: tabs[0].id };
+  }
+
+  /**
+   * @override
+   * A aba tem filhos (contador, led, aviso): o alvo do clique pode ser um deles, e o núcleo lê o
+   * `data-tab` só do alvo. Sobe até o elemento da aba.
+   */
+  /** Abrir a Descrição/Biografia pela 1ª vez redesenha o editor já visível (ver helpers/sheet-tabs.js). */
+  changeTab(tab, group, options = {}) {
+    super.changeTab(tab, group, options);
+    refreshEditorOnTabShow(this, tab, group);
+  }
+
+  _onClickTab(event) {
+    const button = event.target.closest("[data-tab]");
+    if (!button || button.classList.contains("active") || event.button !== 0) return;
+    this.changeTab(button.dataset.tab, button.dataset.group, { event, navElement: button.closest(".tabs") });
   }
 
   /**
@@ -485,12 +575,6 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     current.push(entry);
     await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.skillTemplatesData, JSON.stringify(current, null, 2));
     ui.notifications.info(`"${this.item.name}" virou um Modelo de Skill (Configurações Gerais › Personagem › Modelos de Skill).`);
-  }
-
-  static #onSelectTab(event, target) {
-    event.preventDefault();
-    this.activeTab = target.dataset.tab;
-    this.render();
   }
 
   /** Clique no retrato abre o FilePicker de imagem — precisa de action explícita no ApplicationV2. */
@@ -537,21 +621,9 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.visibleAttributes = getVisibleAttributes();
     context.effectTargetLabels = getEffectTargetLabels();
 
-    const helpers = {
-      pick: (list, current) => list.map(([value, label]) => ({ value, label, selected: value === current })),
-      seg: (list, current) => list.map(([value, label, title]) => ({ value, label, title: title ?? "", checked: value === current })),
-      scaleOptions: current =>
-        [{ id: "", label: "— a de quem ataca —" }, ...getScaleConfig().scales].map(s => ({ ...s, selected: s.id === (current ?? "") })),
-      // Atributo escondido pela campanha continua listado se o dano JÁ escala por ele.
-      scalingOptions: current => {
-        const visible = context.visibleAttributes;
-        const choices = [["", "— sem escala —"], ...visible.map(a => [a.key, a.label])];
-        if (current && !visible.some(a => a.key === current)) choices.push([current, `${getAttributeLabel(current)} (oculto)`]);
-        return choices.map(([value, label]) => ({ value, label, selected: value === (current ?? "") }));
-      }
-    };
+    const helpers = this.#contextHelpers(context);
 
-    if (item.type === "skill") this.#prepareSkillContext(context, helpers);
+    if (item.type === "skill") this.#prepareSkillAssist(context);
     if (item.type === "item") this.#prepareGenericItemContext(context, helpers);
     if (item.type === "starship_module") this.#prepareModuleContext(context, helpers);
     if (item.type === "title") this.#prepareTitleContext(context);
@@ -565,19 +637,71 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     }
 
     context.headerChips = headerChipsFor(item);
-    context.tabs = tabsFor(item);
+    const tabList = tabsFor(item);
     // Avisos (L8): um número na aba que tem o problema.
-    if (context.assist) for (const tab of context.tabs) tab.warn = context.assist.byTab[tab.id] ?? 0;
+    if (context.assist) for (const tab of tabList) tab.warn = context.assist.byTab[tab.id] ?? 0;
+    this.#tabsConfig = tabList;
     // Aba guardada que não existe neste tipo (ou primeira abertura): cai na primeira, que é
     // sempre a dos campos — nunca a Descrição.
-    if (!context.tabs.some(tab => tab.id === this.activeTab)) this.activeTab = context.tabs[0].id;
-    context.activeTab = this.activeTab;
+    if (!tabList.some(tab => tab.id === this.tabGroups.primary)) this.tabGroups.primary = tabList[0].id;
+    context.tabs = this._prepareTabs("primary");
 
     debugLog(`${SYSTEM_ID} | NihilityItemSheet._prepareContext (${item.type}):`, item.name);
     return context;
   }
 
-  #prepareSkillContext(context, { pick, seg, scaleOptions, scalingOptions }) {
+  /**
+   * @override
+   * O que só uma aba usa é calculado aqui, na hora de renderizar a peça dela (o contexto é o mesmo
+   * objeto de `_prepareContext`). Hoje é o miolo das abas de Skill.
+   */
+  async _preparePartContext(partId, context, options) {
+    context = await super._preparePartContext(partId, context, options);
+    if (this.item.type !== "skill") return context;
+    const helpers = this.#contextHelpers(context);
+    switch (partId) {
+      case "skillGeneral": this.#prepareSkillGeneral(context, helpers); break;
+      case "skillMechanic": this.#prepareSkillMechanic(context, helpers); break;
+      case "skillPassive": this.#prepareSkillPassive(context, helpers); break;
+      case "skillSubskills": this.#prepareSkillSubskills(context); break;
+    }
+    return context;
+  }
+
+  /** Ajudantes de opções (`selected`/`checked` prontos) que os preparos de contexto compartilham. */
+  #contextHelpers(context) {
+    return {
+      pick: (list, current) => list.map(([value, label]) => ({ value, label, selected: value === current })),
+      seg: (list, current) => list.map(([value, label, title]) => ({ value, label, title: title ?? "", checked: value === current })),
+      scaleOptions: current =>
+        [{ id: "", label: "— a de quem ataca —" }, ...getScaleConfig().scales].map(s => ({ ...s, selected: s.id === (current ?? "") })),
+      // Atributo escondido pela campanha continua listado se o dano JÁ escala por ele.
+      scalingOptions: current => {
+        const visible = context.visibleAttributes;
+        const choices = [["", "— sem escala —"], ...visible.map(a => [a.key, a.label])];
+        if (current && !visible.some(a => a.key === current)) choices.push([current, `${getAttributeLabel(current)} (oculto)`]);
+        return choices.map(([value, label]) => ({ value, label, selected: value === (current ?? "") }));
+      }
+    };
+  }
+
+  /**
+   * Editor de Skill assistido (L8 avisos + L9 custo sugerido; canvas "Editor de Skill Assistido").
+   * Fica no contexto base: o número de avisos aparece na barra de abas e os avisos em duas peças.
+   */
+  #prepareSkillAssist(context) {
+    const owner = this.item.parent;
+    const assist = skillAssist(this.item.system, { actor: owner?.documentName === "Actor" ? owner : null });
+    if (!assist.enabled) return;
+    context.assist = assist;
+    context.assistGeneral = assist.warnings.filter(w => w.tab === "general");
+    context.assistMechanic = assist.warnings.filter(w => w.tab === "mechanic");
+    context.costChipHtml = costChipHtml(assist.cost, "system.cost");
+    context.upkeepChipHtml = costChipHtml(assist.upkeep && assist.cost ? { ...assist.cost, suggested: assist.upkeep.suggested, close: assist.upkeep.close, rows: [], holder: null } : null, "system.upkeepCost");
+  }
+
+  /** Aba Geral da Skill: Tier, "Só se…", Custo e Apresentação. */
+  #prepareSkillGeneral(context, { pick }) {
     const sys = this.item.system;
     const owner = this.item.parent;
 
@@ -591,6 +715,35 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const visibleTiers = NIHILITY.SKILL_TIERS.filter(t => t !== "ultimate" || hasUltimate || game.user.isGM);
     context.isRacialSkill = sys.tier === "racial";
     context.skillTierOptions = pick(visibleTiers.filter(t => t !== "racial").map(t => [t, NIHILITY.SKILL_TIER_LABELS[t]]), sys.tier);
+
+    // "Avançado ▸" das seções (K1): os campos raros, cada um dizendo se está em uso.
+    const adv = (key, fields) => advancedFold(fields, this.#advOpen.get(key));
+    // "Só se…" da Skill inteira (8c.1): antes de pagar o Custo, depois de escolher o alvo.
+    const skillOnlyIf = normalizeOnlyIf(sys.onlyIf) ?? { kind: "", value: "", threshold: 50 };
+    const onlyIfWants = onlyIfNeeds(skillOnlyIf.kind);
+    context.skillOnlyIf = {
+      kindOptions: [{ value: "", label: "— sempre —", selected: !skillOnlyIf.kind }].concat(ONLY_IF_KINDS.map(k => ({ value: k, label: ONLY_IF_LABELS[k], selected: k === skillOnlyIf.kind }))),
+      needsCondition: onlyIfWants === "condition",
+      needsTrait: onlyIfWants === "trait",
+      needsThreshold: onlyIfWants === "threshold",
+      conditionOptions: getActiveStatusConditions().map(c => ({ value: c.id, label: c.label, selected: c.id === skillOnlyIf.value })),
+      traitOptions: getActiveTraits().map(t => ({ value: t.id, label: t.label, selected: t.id === skillOnlyIf.value })),
+      threshold: skillOnlyIf.threshold
+    };
+    // Complexidade por Tier (8c.1): só informa; nunca trava.
+    context.skillComplexity = complexityVerdict(sys, sys.tier, getComplexityCaps());
+    context.advCost = adv("cost", [
+      { label: "Só se… (a Skill inteira)", used: hasOnlyIf(sys.onlyIf) },
+      { label: `Variar a ${context.energyLabel}`, used: Boolean(sys.variableMana) },
+      { label: "Mágico / Tecnológico", used: Boolean(sys.isTech) || sys.isMagic === false || sys.magicTag === "mundane" }
+    ]);
+    context.advPresentation = adv("presentation", [{ label: "Gatilho Emocional", used: Boolean(sys.emotionTrigger) }]);
+    context.canSaveTemplate = game.user.isGM;
+  }
+
+  /** Aba Mecânica da Skill: tipo, alvo, área, Forma, Estrutura, Rerrolar, dano e os cards de Efeito. */
+  #prepareSkillMechanic(context, { seg, scaleOptions, scalingOptions }) {
+    const sys = this.item.system;
 
     // Mecânica ao Usar: Estrutura é uma mecânica (não um Tipo de Alvo). Bloco desligado pela
     // campanha sai da lista, a não ser que a Skill já esteja nele.
@@ -676,6 +829,35 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.damageScaleOptions = scaleOptions(sys.damageScale);
     context.skillElementField = selectedElementChips(sys.damageElements);
 
+    // Golpe de arma (H6): o Tipo de arma que a Skill usa ao atacar.
+    context.weaponMasteryOn = isWeaponMasteryEnabled();
+    const strike = sys.weaponStrike ?? "";
+    context.skillStrikeIsWeapon = Boolean(strike) && strike !== "unarmed";
+    context.skillStrikeOptions = [{ value: "", label: "— nenhum —", selected: !strike }, ...weaponTypeChoices(strike).map(o => ({ ...o, selected: o.value === strike }))];
+
+    // "Avançado ▸" da seção Dano (K1).
+    context.advDamage = advancedFold(
+      [
+        { label: "Dano Absoluto", used: Boolean(sys.isAbsoluteDamage) },
+        context.scaleEnabled ? { label: "Escala do golpe", used: Boolean(sys.damageScale) } : null
+      ],
+      this.#advOpen.get("damage")
+    );
+
+    context.skillEffects = this.#effectCards(context);
+    // Avisos do editor assistido (L8) em cada card de Efeito.
+    if (context.assist) {
+      for (const card of context.skillEffects) {
+        card.warnings = context.assist.byEffect[card.index] ?? null;
+        card.warnLevel = card.warnings?.some(w => w.level === "hard") ? "hard" : "soft";
+      }
+    }
+  }
+
+  /** Aba Passivos da Skill: Resistência, Maestria e "Ao acertar". */
+  #prepareSkillPassive(context, { pick, seg }) {
+    const sys = this.item.system;
+
     context.skillResistanceOptions = pick(
       [["", "— nenhuma —"], ...getResistanceTargetOptions().map(o => [o.value, o.label])],
       sys.resistanceTarget ?? ""
@@ -690,13 +872,10 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
     // Maestria de arma (H6): passiva, de um Tipo de arma. Só se oferece com o recurso ligado (ou se a Skill já é uma).
     const masteryType = sys.weaponMastery ?? "";
-    context.weaponMasteryOn = isWeaponMasteryEnabled();
-    context.showMasterySection = context.weaponMasteryOn || Boolean(masteryType);
-    const strike = sys.weaponStrike ?? "";
-    context.skillStrikeIsWeapon = Boolean(strike) && strike !== "unarmed";
-    context.skillStrikeOptions = [{ value: "", label: "— nenhum —", selected: !strike }, ...weaponTypeChoices(strike).map(o => ({ ...o, selected: o.value === strike }))];
+    const masteryOn = isWeaponMasteryEnabled();
+    context.showMasterySection = masteryOn || Boolean(masteryType);
     context.skillMasteryOptions = [{ value: "", label: "— nenhuma —", selected: !masteryType }, ...weaponTypeChoices(masteryType).map(o => ({ ...o, selected: o.value === masteryType }))];
-    context.isMasterySkill = Boolean(masteryType) && context.weaponMasteryOn;
+    context.isMasterySkill = Boolean(masteryType) && masteryOn;
     if (context.isMasterySkill) {
       context.masterySentence = masterySentenceFor(sys);
       context.masteryMaxLevel = masteryConfig().maxLevel;
@@ -704,61 +883,21 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       context.masteryRank = Number(sys.masteryRank) || 1;
     }
 
-    // "Avançado ▸" das seções (K1): os campos raros, cada um dizendo se está em uso.
-    const adv = (key, fields) => advancedFold(fields, this.#advOpen.get(key));
-    // "Só se…" da Skill inteira (8c.1): antes de pagar o Custo, depois de escolher o alvo.
-    const skillOnlyIf = normalizeOnlyIf(sys.onlyIf) ?? { kind: "", value: "", threshold: 50 };
-    const onlyIfWants = onlyIfNeeds(skillOnlyIf.kind);
-    const skillConditions = getActiveStatusConditions();
-    context.skillOnlyIf = {
-      kindOptions: [{ value: "", label: "— sempre —", selected: !skillOnlyIf.kind }].concat(ONLY_IF_KINDS.map(k => ({ value: k, label: ONLY_IF_LABELS[k], selected: k === skillOnlyIf.kind }))),
-      needsCondition: onlyIfWants === "condition",
-      needsTrait: onlyIfWants === "trait",
-      needsThreshold: onlyIfWants === "threshold",
-      conditionOptions: skillConditions.map(c => ({ value: c.id, label: c.label, selected: c.id === skillOnlyIf.value })),
-      traitOptions: getActiveTraits().map(t => ({ value: t.id, label: t.label, selected: t.id === skillOnlyIf.value })),
-      threshold: skillOnlyIf.threshold
-    };
     // "Ao acertar" (8c.1): a Condição que todo golpe seu põe no alvo.
     const onHit = normalizeOnHit(sys.onHit) ?? { conditionId: "", chance: 100, rounds: 0, when: "always" };
     context.skillOnHit = {
       set: Boolean(onHit.conditionId),
-      conditionOptions: [{ value: "", label: "— nenhuma —", selected: !onHit.conditionId }].concat(skillConditions.map(c => ({ value: c.id, label: c.label, selected: c.id === onHit.conditionId }))),
+      conditionOptions: [{ value: "", label: "— nenhuma —", selected: !onHit.conditionId }].concat(getActiveStatusConditions().map(c => ({ value: c.id, label: c.label, selected: c.id === onHit.conditionId }))),
       chance: sys.onHit?.chance ?? 100,
       rounds: onHit.rounds,
       whenSeg: seg(ON_HIT_WHEN.map(w => [w, ON_HIT_WHEN_LABELS[w]]), onHit.when),
       showWhen: Boolean(sys.hasUpkeep)
     };
-    // Complexidade por Tier (8c.1): só informa; nunca trava.
-    context.skillComplexity = complexityVerdict(sys, sys.tier, getComplexityCaps());
-    context.advCost = adv("cost", [
-      { label: "Só se… (a Skill inteira)", used: hasOnlyIf(sys.onlyIf) },
-      { label: `Variar a ${context.energyLabel}`, used: Boolean(sys.variableMana) },
-      { label: "Mágico / Tecnológico", used: Boolean(sys.isTech) || sys.isMagic === false || sys.magicTag === "mundane" }
-    ]);
-    context.advPresentation = adv("presentation", [{ label: "Gatilho Emocional", used: Boolean(sys.emotionTrigger) }]);
-    context.advDamage = adv("damage", [
-      { label: "Dano Absoluto", used: Boolean(sys.isAbsoluteDamage) },
-      context.scaleEnabled ? { label: "Escala do golpe", used: Boolean(sys.damageScale) } : null
-    ]);
+  }
 
-    context.skillEffects = this.#effectCards(context);
-
-    // Editor de Skill assistido (L8 avisos + L9 custo sugerido; canvas "Editor de Skill Assistido").
-    const assist = skillAssist(sys, { actor: owner?.documentName === "Actor" ? owner : null });
-    if (assist.enabled) {
-      context.assist = assist;
-      context.assistGeneral = assist.warnings.filter(w => w.tab === "general");
-      context.assistMechanic = assist.warnings.filter(w => w.tab === "mechanic");
-      context.costChipHtml = costChipHtml(assist.cost, "system.cost");
-      context.upkeepChipHtml = costChipHtml(assist.upkeep && assist.cost ? { ...assist.cost, suggested: assist.upkeep.suggested, close: assist.upkeep.close, rows: [], holder: null } : null, "system.upkeepCost");
-      for (const card of context.skillEffects) {
-        card.warnings = assist.byEffect[card.index] ?? null;
-        card.warnLevel = card.warnings?.some(w => w.level === "hard") ? "hard" : "soft";
-      }
-    }
-    context.canSaveTemplate = game.user.isGM;
-    context.subSkillRows = (sys.subSkills ?? []).map((sub, index) => ({
+  /** Aba Sub-Skills da Skill. */
+  #prepareSkillSubskills(context) {
+    context.subSkillRows = (this.item.system.subSkills ?? []).map((sub, index) => ({
       index,
       name: sub.name,
       tier: sub.tier,
@@ -1207,10 +1346,11 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
   _onRender(context, options) {
     super._onRender(context, options);
+    markVisibleEditorParts(this.element);
     // "Avançado ▸" (K1): lembra o que o usuário abriu/fechou até a janela fechar. O clique no
     // <summary> ainda não mudou o `open` aqui — o novo estado é o inverso do atual.
     this.element.querySelectorAll("details.adv[data-adv-key] > summary").forEach(summary => {
-      summary.addEventListener("click", () => {
+      bindOnce(summary, "adv", "click", () => {
         const details = summary.parentElement;
         this.#advOpen.set(details.dataset.advKey, !details.open);
       });
@@ -1219,8 +1359,8 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     // Forma (H5): arrastar a ficha-molde para o campo.
     const formDrop = this.element.querySelector("[data-form-drop]");
     if (formDrop) {
-      formDrop.addEventListener("dragover", event => event.preventDefault());
-      formDrop.addEventListener("drop", async event => {
+      bindOnce(formDrop, "dragover", "dragover", event => event.preventDefault());
+      bindOnce(formDrop, "drop", "drop", async event => {
         event.preventDefault();
         const data = getDragEventData(event);
         const doc = data?.uuid ? await fromUuid(data.uuid) : null;
@@ -1231,7 +1371,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     }
     // "usar" do custo sugerido (L9): copia o número para o campo e salva como uma edição comum.
     this.element.querySelectorAll("[data-sa-use]").forEach(link =>
-      link.addEventListener("click", event => {
+      bindOnce(link, "saUse", "click", event => {
         event.preventDefault();
         const input = this.element.querySelector(`[name="${link.dataset.saUse}"]`);
         if (!input) return;
@@ -1241,11 +1381,11 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     );
 
     this.element.querySelectorAll(".item-equip-toggle").forEach(checkbox => {
-      checkbox.addEventListener("change", this._onEquipToggle.bind(this));
+      bindOnce(checkbox, "equip", "change", this._onEquipToggle.bind(this));
     });
 
     this.element.querySelectorAll(".skill-effect-input").forEach(input => {
-      input.addEventListener("change", this._onSkillEffectFieldChange.bind(this));
+      bindOnce(input, "effectField", "change", this._onSkillEffectFieldChange.bind(this));
     });
 
     if (this.item.type === "starship_module") {
@@ -1253,7 +1393,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       const presetChange = this._onModulePresetChange.bind(this);
       this.element
         .querySelectorAll('[name="system.category"], [name="system.moduleSize"]')
-        .forEach(input => input.addEventListener("change", presetChange));
+        .forEach(input => bindOnce(input, "preset", "change", presetChange));
     }
   }
 

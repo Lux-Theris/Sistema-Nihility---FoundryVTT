@@ -1,0 +1,300 @@
+<section class="tab sheet-body {{tabs.sistemas.cssClass}}" data-group="primary" data-tab="sistemas">
+      <div class="block">
+        <p class="block-title">Grid de Energia — {{energyLabel}}</p>
+        {{!-- Atalhos de energia (os "pips" do Elite): foco em um sistema, ver applyPowerFocus. --}}
+        <div class="power-focus" role="group" aria-label="Foco de energia">
+          {{#each powerFocusOptions as |opt|}}
+          {{#if ../canAdjustThrottle}}
+          <button type="button" class="power-focus-btn {{#if opt.active}}active{{/if}}" data-action="setPowerFocus" data-focus="{{opt.id}}" title="Foco em {{opt.label}}"><i class="fas {{opt.icon}}"></i> {{opt.label}}</button>
+          {{else}}
+          <span class="power-focus-btn {{#if opt.active}}active{{/if}}"><i class="fas {{opt.icon}}"></i> {{opt.label}}</span>
+          {{/if}}
+          {{/each}}
+        </div>
+        <div class="ship-power-block">
+        <div class="power-chain">
+          <div class="chain-node {{#if reactorNode.limiting}}is-bottleneck{{/if}}">
+            <span class="chain-label">Reator · geração{{#if reactorNode.limiting}}<span class="chain-badge">gargalo</span>{{/if}}</span>
+            <span class="chain-value">{{system.powerGrid.reactorOutput}}</span>
+            {{#if reactorNode.damaged}}
+            <span class="chain-health state-{{reactorNode.integrityState}}"><span class="chain-health-track"><span style="width:{{reactorNode.integrity}}%"></span></span>Vida {{reactorNode.integrity}}%</span>
+            {{/if}}
+            {{#if reactorNode.upkeep}}<span class="chain-cause">−{{reactorNode.upkeep}} reservados por Habilidades Ativas</span>{{/if}}
+            <span class="chain-sub">{{#if reactorModule}}{{reactorModule.name}}{{else}}sem Reator instalado{{/if}}</span>
+          </div>
+
+          <div class="chain-node {{#if distributorNode.limiting}}is-bottleneck{{/if}}">
+            <span class="chain-label">Distribuidor · teto{{#if distributorNode.limiting}}<span class="chain-badge">gargalo</span>{{/if}}</span>
+            <span class="chain-value">{{transferCapacity}}{{#if distributorNode.damaged}}<small>de {{distributorNode.intact}}</small>{{/if}}</span>
+            {{#if distributorNode.damaged}}
+            <span class="chain-health state-{{distributorNode.integrityState}}"><span class="chain-health-track"><span style="width:{{distributorNode.integrity}}%"></span></span>Vida {{distributorNode.integrity}}%</span>
+            <span class="chain-cause">Danificado: transfere só {{distributorNode.integrity}}% do que transferiria inteiro.</span>
+            {{/if}}
+            <span class="chain-sub">{{#if distributorModule}}{{distributorModule.name}}{{else}}sem Distribuidor instalado{{/if}}</span>
+          </div>
+
+          <div class="chain-node">
+            <span class="chain-label">Capacitor · reserva</span>
+            <span class="chain-value">
+              <input type="number" name="system.powerGrid.capacitor.value" value="{{system.powerGrid.capacitor.value}}"/>
+              <small>/ {{system.powerGrid.capacitor.max}}</small>
+            </span>
+            {{#if capacitorNode.damaged}}
+            <span class="chain-health state-{{capacitorNode.integrityState}}"><span class="chain-health-track"><span style="width:{{capacitorNode.integrity}}%"></span></span>Vida {{capacitorNode.integrity}}%</span>
+            <span class="chain-cause">O máximo cai com a Vida — inteira guardaria {{capacitorNode.intact}}.</span>
+            {{/if}}
+            <span class="chain-sub">{{#if batteryModule}}{{batteryModule.name}}{{else}}conduítes do casco — sem Bateria{{/if}}</span>
+          </div>
+        </div>
+
+        <div class="power-demand {{#if powerBudget.shortage}}overloaded{{/if}}">
+          <div class="demand-head">
+            <span class="chain-label">Energia desta rodada</span>
+            {{#if powerBudget.shortage}}
+            <span class="demand-figure"><b class="is-short">{{powerBudget.delivered}}</b> entregues de <b>{{powerBudget.demand}}</b> pedidos · <b class="is-short">{{powerBudget.percent}}%</b></span>
+            {{else}}
+            <span class="demand-figure"><b>{{powerBudget.demand}}</b> pedidos de <b>{{powerBudget.generation}}</b> {{energyAbbr}} · <b class="is-full">100%</b> entregue</span>
+            {{/if}}
+          </div>
+          <div class="demand-bar">
+            {{#if powerBudget.shortage}}
+            <i class="demand-reactor" style="width:{{powerBudget.reactorWidth}}%"></i>
+            <i class="demand-reserve" style="width:{{powerBudget.reserveWidth}}%"></i>
+            <i class="demand-missing" style="width:{{powerBudget.missingWidth}}%"></i>
+            {{else}}
+            <i class="demand-reactor" style="width:{{powerBudget.reactorWidth}}%"></i>
+            <i class="demand-slack" style="width:{{powerBudget.slackWidth}}%"></i>
+            {{/if}}
+          </div>
+          <div class="demand-legend">
+            {{#if powerBudget.shortage}}
+            <span><b class="swatch reactor"></b>{{#if distributorNode.limiting}}do Reator, pelo Distribuidor{{else}}do Reator{{/if}} <b class="num">{{powerBudget.fromReactor}}</b></span>
+            {{#if powerBudget.fromReserve}}<span><b class="swatch reserve"></b>da reserva <b class="num">{{powerBudget.fromReserve}}</b></span>{{/if}}
+            <span><b class="swatch missing"></b>faltando <b class="num is-short">{{powerBudget.missing}}</b></span>
+            {{else}}
+            <span><b class="swatch reactor"></b>consumo dos Módulos <b class="num">{{powerBudget.demand}}</b></span>
+            {{#if powerBudget.slack}}<span><b class="swatch slack"></b>sobra, vai pra reserva <b class="num">{{powerBudget.slack}}</b></span>{{/if}}
+            {{/if}}
+          </div>
+          <p class="power-forecast tone-{{powerForecast.tone}}">
+            <i class="fas {{#if (eq powerForecast.tone "danger")}}fa-exclamation-triangle{{else}}fa-clock{{/if}}"></i>
+            <span><strong>{{powerForecast.lead}}</strong> {{powerForecast.text}}</span>
+          </p>
+          <span class="demand-prio-note">Chip <b>P</b> em cada Módulo: clique pra escolher o grupo. A fila inteira fica na aba <b>Prioridade</b>.</span>
+        </div>
+        </div>
+
+        {{#if isGM}}
+        <div class="power-grid-tick-row">
+          <button type="button" class="power-grid-tick" data-action="powerGridTick"><i class="fas fa-step-forward"></i> Passar uma rodada de energia</button>
+          <span class="gm-tag"><i class="fas fa-lock"></i> Mestre</span>
+          <span class="hint-inline">Carrega ou gasta a reserva. Em combate isso já acontece sozinho no turno da Nave.</span>
+        </div>
+        {{/if}}
+
+      </div>
+
+      <div class="block ship-actions-block">
+        <p class="block-title">Ações da Nave <span class="hint-inline" style="margin:0">(o sistema aplica; quanto de ação gastam, a mesa decide)</span></p>
+        {{#if canAdjustThrottle}}
+        <div class="ship-actions">
+          <button type="button" data-action="shipBrace" title="−X% de todo dano recebido até o próximo turno da Nave (não vale contra Dano Absoluto)"><i class="fas fa-shield-alt"></i> Preparar para impacto</button>
+          <button type="button" data-action="shipAuxShields" title="Passa carga da Bateria para o Escudo, até o máximo"><i class="fas fa-bolt"></i> Energia auxiliar → Escudos</button>
+          <button type="button" data-action="shipEmergencyRepair" title="Pedido de Reparo ao Mestre, já com esta Nave"><i class="fas fa-tools"></i> Reparo de emergência</button>
+          <button type="button" data-action="shipRestartSystems" title="Encerra o primeiro efeito de sistema da lista (ou clique no ↺ de um específico)"><i class="fas fa-redo"></i> Reiniciar sistemas</button>
+          <button type="button" data-action="shipModulateFrequency" title="As armas desta Nave mudam de frequência: Escudos adaptativos do inimigo recomeçam do zero contra elas"><i class="fas fa-wave-square"></i> Modular frequência{{#if weaponFrequency}} ({{weaponFrequency}}){{/if}}</button>
+        </div>
+        {{/if}}
+        {{#if systemEffectRows.length}}
+        <ul class="ship-effects">
+          {{#each systemEffectRows as |row|}}
+          <li>
+            <span>{{row.text}}</span>
+            {{#if row.rounds}}<span class="hint-inline">{{row.rounds}} rodada(s)</span>{{/if}}
+            {{#if row.restartable}}{{#if ../canAdjustThrottle}}<a data-action="shipRestartSystems" data-effect-id="{{row.id}}" title="Reiniciar este sistema"><i class="fas fa-redo"></i></a>{{/if}}{{/if}}
+          </li>
+          {{/each}}
+        </ul>
+        {{else}}
+        <p class="hint-inline">Nenhum efeito de sistema ativo.</p>
+        {{/if}}
+      </div>
+
+      <div class="block">
+        <p class="block-title">Módulos de Sistema <span class="hint-inline" style="margin:0">(vagas por Categoria e Classe)</span></p>
+        <div class="module-grid">
+          <div class="module-grid-head">
+            <span>Categoria</span><span>Módulo</span><span>Vida</span><span>Consumo</span><span>Throttle</span><span class="acts-head">Ações</span>
+          </div>
+          {{#each specialModuleRows as |row|}}
+          <div class="module-grid-row {{#unless row.online}}is-offline{{/unless}} {{#if row.starved}}is-starved{{/if}} {{#if row.unpowered}}is-offline is-unpowered{{/if}}" data-item-id="{{row.id}}">
+            <span class="cat-pill cat-{{row.category}}" title="{{row.categoryLabel}} · Porte {{row.sizeLabel}}">{{row.categoryLabel}}</span>
+
+            <span class="module-name-cell">
+              <span class="module-name-line">
+                {{#if row.hasDemand}}{{#if ../canAdjustThrottle}}<button type="button" class="prio-chip {{row.priorityTone}}" data-action="pickPowerGroup" aria-haspopup="menu" title="Prioridade de energia: P{{row.priority}} · {{row.priorityLabel}} — clique para escolher o grupo">P{{row.priority}}</button>{{else}}<span class="prio-chip {{row.priorityTone}}" title="Prioridade de energia: P{{row.priority}} · {{row.priorityLabel}}">P{{row.priority}}</span>{{/if}}{{/if}}
+                <span class="module-name">{{row.name}}</span>
+              </span>
+              {{#if row.unpowered}}
+              <small class="module-unpowered"><i class="fas fa-power-off"></i> desligado · sem energia (grupo P{{row.priority}} não recebe nada)</small>
+              {{else if row.starved}}
+              <small class="module-starved">⚠ recebendo {{row.powerRatio}}% da energia pedida</small>
+              {{else}}
+              <small class="module-detail">{{row.detail}}{{#unless row.online}} · desligado{{/unless}}{{#if row.tractorTargetName}} · prendendo {{row.tractorTargetName}}{{/if}}</small>
+              {{/if}}
+            </span>
+
+            <span class="module-hp-cell" title="A Vida escala o desempenho: um Módulo a 50% entrega 50%.">
+              <span class="module-meter state-{{row.hpState}}"><span style="width:{{row.hpPercent}}%"></span></span>
+              {{#if ../isGM}}
+              <small class="module-hp-edit">
+                <input type="number" class="module-hp-input" value="{{row.hpValue}}" min="0" max="{{row.hpMax}}"/>/{{row.hpMax}}
+                <span class="module-hp-percent">{{row.hpPercent}}%</span>
+              </small>
+              {{else}}
+              <small>{{row.hpValue}}/{{row.hpMax}} <span class="module-hp-percent">{{row.hpPercent}}%</span></small>
+              {{/if}}
+            </span>
+
+            <span class="module-consumption">{{row.consumption}} {{../energyAbbr}}</span>
+
+            <span class="throttle {{row.throttleState}}">
+              {{#if ../canAdjustThrottle}}
+              <button type="button" data-action="adjustThrottle" data-step="-20" title="−20%">⏬</button>
+              <button type="button" data-action="adjustThrottle" data-step="-5" title="−5%">−</button>
+              <input type="number" class="throttle-input" value="{{row.throttle}}" min="0" step="5" title="Throttle (%) — abaixo de 100 economiza, acima sobrecarrega"/>
+              <button type="button" data-action="adjustThrottle" data-step="5" title="+5%">+</button>
+              <button type="button" data-action="adjustThrottle" data-step="20" title="+20%">⏫</button>
+              {{else}}
+              <span class="throttle-readonly">{{row.throttle}}%</span>
+              {{/if}}
+            </span>
+
+            <span class="module-acts">
+              {{#if row.isTractor}}{{#if ../canAdjustThrottle}}{{#if row.tractorTargetName}}<a data-action="releaseTractor" title="Soltar {{row.tractorTargetName}}"><i class="fas fa-unlink"></i></a>{{else}}<a data-action="engageTractor" title="Prender alvo (Raio Trator)"><i class="fas fa-magnet"></i></a>{{/if}}{{/if}}{{/if}}
+              <a class="module-toggle-power" data-action="toggleModulePower" title="Ligar/Desligar"><i class="fas fa-power-off"></i></a>
+              {{#if ../isGM}}<a class="vital-adjust-toggle" data-action="toggleModuleVitalAdjust" data-key="module-hp-{{row.id}}" title="Ajustar Vida"><i class="fas fa-plus"></i></a>{{/if}}
+              <a class="item-edit" data-action="editItem" title="Editar"><i class="fas fa-edit"></i></a>
+              <a class="item-delete" data-action="deleteItem" title="Excluir"><i class="fas fa-trash"></i></a>
+            </span>
+          </div>
+          {{#if ../isGM}}
+          <div class="vital-adjust-popover" data-key="module-hp-{{row.id}}">
+            <input type="number" class="vital-adjust-input" min="0" placeholder="Valor"/>
+            <button type="button" class="vital-adjust-btn dmg" data-action="adjustModuleVital" data-scope="item" data-item-id="{{row.id}}" data-field="hp.value" data-max-field="hp.max" data-dir="-1">− Dano</button>
+            <button type="button" class="vital-adjust-btn heal" data-action="adjustModuleVital" data-scope="item" data-item-id="{{row.id}}" data-field="hp.value" data-max-field="hp.max" data-dir="1">+ Reparo</button>
+          </div>
+          {{/if}}
+          {{/each}}
+        </div>
+        {{#unless specialModules.length}}<p class="hint-inline">Nenhum módulo especial (Reator/Bateria/Distribuidor/Escudo/Motor/Casco/FTL) instalado.</p>{{/unless}}
+      </div>
+
+      <div class="block">
+        <p class="block-title">Módulos</p>
+        <div class="module-grid">
+          <div class="module-grid-head">
+            <span>Categoria</span><span>Módulo</span><span>Vida</span><span>Consumo</span><span>Throttle</span><span class="acts-head">Ações</span>
+          </div>
+          {{#each moduleRows as |row|}}
+          <div class="module-grid-row {{#unless row.online}}is-offline{{/unless}} {{#if row.starved}}is-starved{{/if}} {{#if row.unpowered}}is-offline is-unpowered{{/if}}" data-item-id="{{row.id}}">
+            <span class="cat-pill cat-{{row.category}}" title="{{row.categoryLabel}} · Porte {{row.sizeLabel}}">{{row.categoryLabel}}</span>
+
+            <span class="module-name-cell">
+              <span class="module-name-line">
+                {{#if row.hasDemand}}{{#if ../canAdjustThrottle}}<button type="button" class="prio-chip {{row.priorityTone}}" data-action="pickPowerGroup" aria-haspopup="menu" title="Prioridade de energia: P{{row.priority}} · {{row.priorityLabel}} — clique para escolher o grupo">P{{row.priority}}</button>{{else}}<span class="prio-chip {{row.priorityTone}}" title="Prioridade de energia: P{{row.priority}} · {{row.priorityLabel}}">P{{row.priority}}</span>{{/if}}{{/if}}
+                <span class="module-name">{{row.name}}</span>
+              </span>
+              {{#if row.unpowered}}
+              <small class="module-unpowered"><i class="fas fa-power-off"></i> desligado · sem energia (grupo P{{row.priority}} não recebe nada)</small>
+              {{else if row.starved}}
+              <small class="module-starved">⚠ recebendo {{row.powerRatio}}% da energia pedida</small>
+              {{else}}
+              <small class="module-detail">{{row.detail}}{{#unless row.online}} · desligado{{/unless}}{{#if row.tractorTargetName}} · prendendo {{row.tractorTargetName}}{{/if}}</small>
+              {{/if}}
+            </span>
+
+            <span class="module-hp-cell" title="A Vida escala o desempenho: um Módulo a 50% entrega 50%.">
+              <span class="module-meter state-{{row.hpState}}"><span style="width:{{row.hpPercent}}%"></span></span>
+              {{#if ../isGM}}
+              <small class="module-hp-edit">
+                <input type="number" class="module-hp-input" value="{{row.hpValue}}" min="0" max="{{row.hpMax}}"/>/{{row.hpMax}}
+                <span class="module-hp-percent">{{row.hpPercent}}%</span>
+              </small>
+              {{else}}
+              <small>{{row.hpValue}}/{{row.hpMax}} <span class="module-hp-percent">{{row.hpPercent}}%</span></small>
+              {{/if}}
+            </span>
+
+            <span class="module-consumption">{{row.consumption}} {{../energyAbbr}}</span>
+
+            <span class="throttle {{row.throttleState}}">
+              {{#if ../canAdjustThrottle}}
+              <button type="button" data-action="adjustThrottle" data-step="-20" title="−20%">⏬</button>
+              <button type="button" data-action="adjustThrottle" data-step="-5" title="−5%">−</button>
+              <input type="number" class="throttle-input" value="{{row.throttle}}" min="0" step="5" title="Throttle (%) — abaixo de 100 economiza, acima sobrecarrega"/>
+              <button type="button" data-action="adjustThrottle" data-step="5" title="+5%">+</button>
+              <button type="button" data-action="adjustThrottle" data-step="20" title="+20%">⏫</button>
+              {{else}}
+              <span class="throttle-readonly">{{row.throttle}}%</span>
+              {{/if}}
+            </span>
+
+            <span class="module-acts">
+              {{#if row.isTractor}}{{#if ../canAdjustThrottle}}{{#if row.tractorTargetName}}<a data-action="releaseTractor" title="Soltar {{row.tractorTargetName}}"><i class="fas fa-unlink"></i></a>{{else}}<a data-action="engageTractor" title="Prender alvo (Raio Trator)"><i class="fas fa-magnet"></i></a>{{/if}}{{/if}}{{/if}}
+              <a class="module-toggle-power" data-action="toggleModulePower" title="Ligar/Desligar"><i class="fas fa-power-off"></i></a>
+              {{#if ../isGM}}<a class="vital-adjust-toggle" data-action="toggleModuleVitalAdjust" data-key="module-hp-{{row.id}}" title="Ajustar Vida"><i class="fas fa-plus"></i></a>{{/if}}
+              <a class="item-edit" data-action="editItem" title="Editar"><i class="fas fa-edit"></i></a>
+              <a class="item-delete" data-action="deleteItem" title="Excluir"><i class="fas fa-trash"></i></a>
+            </span>
+          </div>
+          {{#if ../isGM}}
+          <div class="vital-adjust-popover" data-key="module-hp-{{row.id}}">
+            <input type="number" class="vital-adjust-input" min="0" placeholder="Valor"/>
+            <button type="button" class="vital-adjust-btn dmg" data-action="adjustModuleVital" data-scope="item" data-item-id="{{row.id}}" data-field="hp.value" data-max-field="hp.max" data-dir="-1">− Dano</button>
+            <button type="button" class="vital-adjust-btn heal" data-action="adjustModuleVital" data-scope="item" data-item-id="{{row.id}}" data-field="hp.value" data-max-field="hp.max" data-dir="1">+ Reparo</button>
+          </div>
+          {{/if}}
+          {{/each}}
+        </div>
+        <a class="item-create" data-action="createItem" data-type="starship_module">+ Novo Módulo</a>
+      </div>
+
+      {{#if inventoryEnabled}}
+      <div class="block cargo-block {{#if cargo.full}}is-over{{/if}}" data-container-id="loose">
+        <p class="block-title">{{#if isVehicle}}Porão / Peças{{else}}Porão{{/if}}
+          <span class="hint-inline">{{cargo.used}}/{{cargo.slots}} slots · {{cargo.weight}} kg{{#if cargo.massFactor}} · massa ×{{cargo.massFactor}} (Motor −{{cargo.enginePenalty}}%){{/if}}</span></p>
+        {{#unless cargo.slots}}<p class="hint-inline">Sem Módulo de Porão: instale um (Função Porão de Carga) para ter slots. Arraste Itens de uma ficha para cá para carregar.</p>{{/unless}}
+        <ol class="item-list">
+          {{#each cargo.rows as |row|}}
+          <li class="item-row cargo-row" data-item-id="{{row.id}}" draggable="true">
+            <img src="{{row.img}}" width="24" height="24"/>
+            <span class="item-name">{{row.name}}</span>
+            <span class="item-qty" title="{{row.stacks}} slot(s) — pilhas de {{row.stackSize}}">x{{row.quantity}}{{#if row.isAmmo}} · munição{{/if}}</span>
+            <span class="inv-weight">{{row.weight}} kg</span>
+            {{#if row.canSplit}}<a data-action="splitStack" title="Dividir pilha"><i class="fas fa-code-branch"></i></a>{{/if}}
+            <a class="item-edit" data-action="editItem" title="Editar"><i class="fas fa-edit"></i></a>
+            <a class="item-delete" data-action="deleteItem" title="Excluir"><i class="fas fa-trash"></i></a>
+          </li>
+          {{else}}<li class="empty-note">Porão vazio.</li>
+          {{/each}}
+        </ol>
+        <a class="item-create" data-action="createItem" data-type="item">+ Novo Item</a>
+      </div>
+      {{else}}{{#if isVehicle}}
+      <div class="block">
+        <p class="block-title">Peças Instaladas</p>
+        <ol class="item-list">
+          {{#each parts as |part|}}
+          <li class="item-row" data-item-id="{{part.id}}">
+            <img src="{{part.img}}" width="24" height="24"/>
+            <span class="item-name">{{part.name}}</span>
+            <a class="item-edit" data-action="editItem" title="Editar"><i class="fas fa-edit"></i></a>
+            <a class="item-delete" data-action="deleteItem" title="Excluir"><i class="fas fa-trash"></i></a>
+          </li>
+          {{/each}}
+        </ol>
+        <a class="item-create" data-action="createItem" data-type="item">+ Nova Peça</a>
+      </div>
+      {{/if}}{{/if}}
+</section>

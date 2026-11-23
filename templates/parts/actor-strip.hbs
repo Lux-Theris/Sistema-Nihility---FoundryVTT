@@ -1,0 +1,21 @@
+{{#if creation}}
+<nav class="creation-strip status-{{creation.status}}" aria-label="O que falta na criação">
+  {{#if creation.ready}}
+  <span class="cs-title">Aguardando o Mestre</span>
+  <span class="cs-text">Você ainda pode mexer; ele vê a versão mais nova.</span>
+  {{#if creation.canAct}}<button type="button" class="cs-ghost" data-action="creationBack">Voltar a editar</button>{{/if}}
+  {{else if creation.adjust}}
+  <span class="cs-title">Ajuste pedido</span>
+  <span class="cs-text">"{{creation.gmNote}}"</span>
+  {{#if creation.canAct}}<button type="button" class="cs-go" data-action="creationReady" {{#unless creation.canReady}}disabled{{/unless}}>Pronto de novo</button>{{/if}}
+  {{else}}
+  <span class="cs-title">Criando</span>
+  {{#each creation.steps as |step|}}
+  <button type="button" class="cs-item {{#if step.done}}ok{{/if}} {{#if step.current}}now{{/if}} {{#if step.warn}}warn{{/if}}" data-action="creationGo" data-step="{{step.id}}"><i>{{#if step.done}}✓{{else if step.warn}}!{{else}}{{step.number}}{{/if}}</i>{{step.label}}</button>
+  {{/each}}
+  {{#if creation.canAct}}<button type="button" class="cs-go" data-action="creationReady" {{#unless creation.canReady}}disabled title="Falta o nome ou a Espécie"{{/unless}}>Pronto para jogar</button>{{/if}}
+  {{/if}}
+</nav>
+{{else}}
+<div class="creation-strip-empty" hidden></div>
+{{/if}}

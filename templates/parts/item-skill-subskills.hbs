@@ -1,0 +1,25 @@
+<section class="tab sheet-body {{tabs.subskills.cssClass}}" data-group="primary" data-tab="subskills">
+  <div class="sec">
+    <div class="sec-head">Componentes<span class="sp"></span><span class="sec-head-note">o jogador escolhe um ao usar</span></div>
+    <div class="sec-body tight">
+      {{#each subSkillRows as |sub|}}
+      <div class="subskill-row" data-index="{{sub.index}}">
+        <span class="tier-chip tier-{{sub.tier}}">{{sub.tierLabel}}</span>
+        <input type="text" name="system.subSkills.{{sub.index}}.name" value="{{sub.name}}" aria-label="Nome da Sub-Skill"/>
+        <span class="subskill-mechanic">{{sub.mechanic}}</span>
+        {{#if ../isGM}}<a data-action="editSubSkill" title="Editar mecânica e descrição" aria-label="Editar Sub-Skill"><i class="fas fa-edit"></i></a>{{/if}}
+        <a class="row-delete" data-action="deleteSubSkill" title="Remover" aria-label="Remover Sub-Skill"><i class="fas fa-trash"></i></a>
+      </div>
+      {{else}}
+      <p class="empty-note">Sem componentes. Uma Fusão preenche esta lista sozinha; também dá pra criar à mão.</p>
+      {{/each}}
+      {{#if editable}}<a class="link-add" data-action="addSubSkill">+ Sub-Skill</a>{{/if}}
+    </div>
+  </div>
+  {{#if system.fusionSources.length}}
+  <div class="sec">
+    <div class="sec-head">Linhagem de fusão<span class="sp"></span><span class="sec-head-note">só leitura</span></div>
+    <div class="sec-body"><div class="chip-row">{{#each system.fusionSources}}<span class="item-chip">{{this}}</span>{{/each}}</div></div>
+  </div>
+  {{/if}}
+</section>

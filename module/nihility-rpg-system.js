@@ -14,6 +14,8 @@ import {
   isVesselsEnabled
 } from "./core/config.js";
 import { CharacterDataModel } from "./data/character-model.js";
+import { PileDataModel } from "./data/pile-model.js";
+import { NihilityPileSheet } from "./sheets/pile-sheet.js";
 import { StarshipDataModel, VehicleDataModel } from "./starship/starship-model.js";
 import {
   SkillDataModel,
@@ -88,6 +90,8 @@ import { registerShieldLightHooks } from "./combat/lights.js";
 import { registerShieldPoolReconcile } from "./combat/shield-pools.js";
 import { registerStatusConditions, interceptManualCondition } from "./combat/conditions.js";
 import { registerModuleInstallRules } from "./starship/module-install.js";
+import { registerShops } from "./economy/shops.js";
+import { registerLoot } from "./economy/loot.js";
 import { runPendingMigrations } from "./core/migrations.js";
 import { registerDuelRules } from "./skills/duel.js";
 import { registerSurfaces } from "./environment/surfaces.js";
@@ -215,6 +219,10 @@ Hooks.once("init", () => {
   registerShieldAdaptationReset();
   registerStructureContact();
   registerModuleInstallRules();
+  // Lojas (G2): reabastecer pelo relógio do mundo e redesenhar a vitrine/avaliação abertas.
+  registerShops();
+  // Saque, pilhas no mapa, depósito de entregas e troca entre jogadores (G2, lote B).
+  registerLoot();
   registerDuelRules();
   registerFieldAntimagic();
   registerFloatingNumbers();
@@ -266,7 +274,8 @@ Hooks.once("init", () => {
     "nihility.conditionalModifiers": `systems/${SYSTEM_ID}/templates/parts/conditional-modifiers.hbs`,
     "nihility.effectCards": `systems/${SYSTEM_ID}/templates/parts/effect-cards.hbs`,
     "nihility.advSummary": `systems/${SYSTEM_ID}/templates/parts/adv-summary.hbs`,
-    "nihility.skillWarnings": `systems/${SYSTEM_ID}/templates/parts/skill-warnings.hbs`
+    "nihility.skillWarnings": `systems/${SYSTEM_ID}/templates/parts/skill-warnings.hbs`,
+    "nihility.itemShop": `systems/${SYSTEM_ID}/templates/parts/item-shop.hbs`
   });
 
   // Deslocamento por rodada (ver module/movement.js). Instala a classe de Token e os hooks no
@@ -291,6 +300,7 @@ Hooks.once("init", () => {
   CONFIG.Actor.dataModels.character = CharacterDataModel;
   CONFIG.Actor.dataModels.starship = StarshipDataModel;
   CONFIG.Actor.dataModels.vehicle = VehicleDataModel;
+  CONFIG.Actor.dataModels.pile = PileDataModel;
 
   CONFIG.Item.dataModels.skill = SkillDataModel;
   CONFIG.Item.dataModels.body_part = BodyPartDataModel;
@@ -310,6 +320,7 @@ Hooks.once("init", () => {
   ActorsCollection.registerSheet(SYSTEM_ID, NihilityActorSheet, { types: ["character"], makeDefault: true });
   ActorsCollection.registerSheet(SYSTEM_ID, NihilityStarshipSheet, { types: ["starship"], makeDefault: true });
   ActorsCollection.registerSheet(SYSTEM_ID, NihilityVehicleSheet, { types: ["vehicle"], makeDefault: true });
+  ActorsCollection.registerSheet(SYSTEM_ID, NihilityPileSheet, { types: ["pile"], makeDefault: true });
 
   ItemsCollection.unregisterSheet("core", coreItemSheetClass());
   ItemsCollection.registerSheet(SYSTEM_ID, NihilityItemSheet, {
@@ -367,6 +378,15 @@ Hooks.once("ready", async () => {
  * do grant de Pontos de Habilidade na criação, logo abaixo).
  */
 function defaultPrototypeToken(type) {
+  // Pilha/Depósito (Lojas, lote B): sem barras, sem visão; o nome aparece ao passar o mouse.
+  if (type === "pile") {
+    return {
+      "prototypeToken.actorLink": false,
+      "prototypeToken.displayName": CONST.TOKEN_DISPLAY_MODES.HOVER,
+      "prototypeToken.sight.enabled": false,
+      "prototypeToken.disposition": CONST.TOKEN_DISPOSITIONS.NEUTRAL
+    };
+  }
   if (["starship", "vehicle"].includes(type)) {
     return {
       "prototypeToken.bar1.attribute": "shields",

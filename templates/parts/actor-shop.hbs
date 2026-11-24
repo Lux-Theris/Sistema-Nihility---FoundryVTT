@@ -1,0 +1,92 @@
+<section class="tab sheet-body {{tabs.shop.cssClass}}" data-group="primary" data-tab="shop">
+  <div class="nihility-shop-tab">
+    <div class="shop-top">
+      <label class="shop-toggle"><input type="checkbox" name="system.shop.enabled" {{#if shopTab.cfg.enabled}}checked{{/if}}/><span>Esta ficha é uma loja</span></label>
+      <label class="shop-f shop-kind">Tipo de loja
+        <select name="system.shop.kind">
+          {{#each shopTab.kindOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+        </select>
+      </label>
+      <span class="shop-hint grow">{{#if shopTab.isVendor}}Vendedor NPC: sem compra de volta automática; o Mestre define o valor vendo o preço padrão (janela de avaliação).{{else}}Ponto automático (máquina, balcão, online): compra de volta pela fração e venda direta.{{/if}}</span>
+      {{#if shopTab.isAuto}}<label class="shop-f shop-kind">Aparência
+        <select name="system.shop.style">{{#each shopTab.styleOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}</select>
+      </label>{{/if}}
+      <button type="button" class="pri" data-action="shopShow" title="Abre a Vitrine para os jogadores que você escolher (nunca a ficha)">Mostrar aos jogadores</button>
+      <button type="button" data-action="shopHide" title="Limpa a lista de quem vê esta loja">Esconder dos jogadores</button>
+      <button type="button" data-action="shopOpenStorefront" title="Abre a vitrine como o jogador a vê">Abrir vitrine</button>
+    </div>
+    {{#unless shopTab.cfg.enabled}}<div class="shop-strip">A loja está fechada: os jogadores veem esta ficha como qualquer outra. Marque "Esta ficha é uma loja" e arraste Itens para o estoque. Depois use "Mostrar aos jogadores": quem você escolher recebe a Vitrine (nunca a ficha), sem mudar permissão nenhuma.</div>{{/unless}}
+
+    <div class="shop-cols">
+      <div class="shop-sec">
+        <h4>Preços</h4>
+        <label class="shop-fld"><span>Multiplicador da loja</span><input type="number" min="0" step="0.05" name="system.shop.multiplier" value="{{shopTab.cfg.multiplier}}"/></label>
+        <label class="shop-fld"><span>Sorteio de preço (até, em %)</span><input type="number" min="0" max="100" step="1" name="system.shop.randomizer" value="{{shopTab.cfg.randomizer}}"/></label>
+        <label class="shop-fld {{#unless shopTab.isAuto}}off{{/unless}}"><span>Compra de volta (% do preço padrão)</span><input type="number" min="0" max="100" step="1" data-shop-buyback value="{{shopTab.buybackPercent}}" {{#unless shopTab.isAuto}}disabled{{/unless}}/></label>
+        <label class="shop-fld {{#unless shopTab.isVendor}}off{{/unless}}"><span>Moedas do vendedor limitadas</span><input type="checkbox" name="system.shop.limitedFunds" {{#if shopTab.cfg.limitedFunds}}checked{{/if}} {{#unless shopTab.isVendor}}disabled{{/unless}}/></label>
+        <div class="shop-hint">{{#if shopTab.cfg.limitedFunds}}Caixa da loja: {{shopTab.fundsText}} (as moedas da aba Ficha). Ela só paga o que tiver.{{else}}Sem limite: a loja paga o que o Mestre decidir. As moedas da ficha só guardam o que ela recebe.{{/if}}</div>
+      </div>
+      <div class="shop-sec">
+        <h4>Reposição</h4>
+        <label class="shop-fld"><span>Reabastecer a cada (dias, 0 = não)</span><input type="number" min="0" step="1" name="system.shop.restockDays" value="{{shopTab.cfg.restockDays}}"/></label>
+        <div class="shop-row"><button type="button" data-action="shopRestock">Reabastecer agora</button></div>
+        <div class="shop-row"><button type="button" data-action="shopReroll">Sortear preços de novo</button></div>
+        <div class="shop-hint">O sorteio só muda ao reabastecer. {{shopTab.restockNote}} Itens com "Repor para" voltam a esse estoque.</div>
+      </div>
+      <div class="shop-sec">
+        <h4>Visibilidade</h4>
+        <div class="shop-hint">{{#if shopTab.shownNames}}Mostrada a: {{shopTab.shownNames}}.{{else}}Ninguém vê esta loja ainda{{#if shopTab.isMachine}} (a máquina também abre para quem clica nela a até 2 m){{/if}}.{{/if}}</div>
+        <label class="shop-ck"><input type="checkbox" name="system.shop.online" {{#if shopTab.cfg.online}}checked{{/if}}/> Aparece na internet (PAD)</label>
+        <label class="shop-fld {{#unless shopTab.cfg.online}}off{{/unless}}"><span>Prazo de entrega (horas do mundo, 0 = na hora)</span><input type="number" min="0" step="any" name="system.shop.deliveryHours" value="{{shopTab.cfg.deliveryHours}}"/></label>
+        <div class="shop-hint">{{#if shopTab.cfg.online}}Aparece no app Compras do PAD de quem está numa cena com rede, mesmo sem "Mostrar aos jogadores". Item físico vai para o depósito do lugar depois do prazo; item marcado Digital chega na hora no inventário.{{else}}Marque para a loja aparecer no app Compras do PAD (precisa de rede e de um depósito em "Entregas vão para").{{/if}}</div>
+        {{#if shopTab.isVendor}}
+        <h4>Avaliações</h4>
+        <div class="shop-row"><button type="button" data-action="shopOpenAppraisal">Abrir avaliações{{#if shopTab.pendingTrades}} ({{shopTab.pendingTrades}}){{/if}}</button></div>
+        {{/if}}
+      </div>
+    </div>
+
+    <div class="shop-sec shop-stock">
+      <div class="shop-row"><h4 class="grow">Estoque</h4><span class="shop-hint">Arraste Itens para a ficha · {{shopTab.shown}} de {{shopTab.total}} itens</span></div>
+      <div class="shop-tools">
+        <input type="search" placeholder="Buscar item…" data-shop-search class="shop-search"/>
+        {{#each shopTab.categories as |cat|}}<button type="button" class="shop-chip {{#if cat.on}}on{{/if}}" data-action="shopSetTag" data-tag="{{cat.name}}">{{cat.name}}</button>{{/each}}
+        <span class="grow"></span>
+        <input type="number" min="0" step="any" class="shop-batch" placeholder="ajuste" data-shop-batch/>
+        <select class="shop-batch-cur" data-shop-batch-currency>{{#each shopTab.currencyOptions as |c|}}<option value="{{c.id}}">{{c.label}}</option>{{/each}}</select>
+        <button type="button" class="pri" data-action="shopApplyAdjust">Aplicar ajuste</button>
+        <button type="button" data-action="shopClearAdjust">Limpar ajuste</button>
+      </div>
+      <div class="shop-scroll">
+        <table class="shop-table">
+          <thead><tr><th class="c-sel"></th><th>Item</th><th class="c-qty">Qtd.</th><th class="c-std">Preço padrão</th><th class="c-price">Preço da loja</th><th class="c-adj">Ajuste</th><th class="c-act"></th></tr></thead>
+          <tbody>
+            {{#each shopTab.rows as |r|}}
+            <tr data-shop-row data-item-id="{{r.id}}" data-name="{{r.name}}">
+              <td><input type="checkbox" data-shop-select/></td>
+              <td><img src="{{r.img}}" width="20" height="20"/> {{r.name}} <span class="shop-tg">{{r.kind}}</span>{{#if r.noPrice}} <span class="shop-tg d" title="Sem preço base: sai de graça">sem preço</span>{{/if}}</td>
+              <td><input type="number" min="0" class="shop-qty" data-shop-stock value="{{r.qtyValue}}" placeholder="∞" title="Vazio = infinito"/></td>
+              <td class="mono dim">{{r.stdText}}</td>
+              <td><span class="mono">{{r.priceText}}</span> {{#if r.diffText}}<span class="{{r.diffCls}}">{{r.diffText}}</span>{{/if}} {{#if r.fixed}}<span class="shop-tg g">fixo</span>{{/if}}</td>
+              <td><input type="number" min="0" step="any" class="shop-adj" data-shop-adjust value="{{r.adjustValue}}" placeholder="auto" title="Preço fixo em {{r.currencyLabel}}; vazio = automático"/></td>
+              <td class="shop-acts"><a data-action="shopEditItem" title="Abrir o Item"><i class="fas fa-edit"></i></a> <a data-action="shopRemoveItem" title="Tirar da loja"><i class="fas fa-trash"></i></a></td>
+            </tr>
+            {{else}}
+            <tr><td colspan="7" class="shop-empty">Nenhum item. Arraste Itens do Diretório para esta ficha.</td></tr>
+            {{/each}}
+          </tbody>
+        </table>
+      </div>
+      <div class="shop-hint">Preço da loja = preço padrão × multiplicador × sorteio (fixo até reabastecer). O ajuste vence tudo e marca o item como "fixo". Qtd. vazia = infinito. O jogador vê só o preço da loja.</div>
+    </div>
+
+    <div class="shop-sec">
+      <div class="shop-row"><h4 class="grow">Últimas vendas</h4><span class="shop-hint">só o Mestre vê</span></div>
+      {{#each shopTab.history as |h|}}
+      <div class="shop-log {{#if h.undone}}undone{{/if}}"><span class="mono dim">{{h.time}}</span><span class="grow">{{h.label}}{{#if h.undone}} <i>(desfeita)</i>{{/if}}</span>{{#if h.canUndo}}<button type="button" data-action="shopUndo" data-entry-id="{{h.id}}">Desfazer</button>{{/if}}</div>
+      {{else}}
+      <div class="shop-hint">Nenhuma venda ainda.</div>
+      {{/each}}
+    </div>
+  </div>
+</section>

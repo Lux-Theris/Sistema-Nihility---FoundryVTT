@@ -57,6 +57,8 @@
     </div>
   </div>
 
+  {{#if shopsEnabled}}{{> nihility.itemShop}}{{/if}}
+
   {{#if isGM}}
   <div class="sec gm-sec">
     <div class="sec-head"><i class="fas fa-lock"></i> Mestre<span class="sp"></span><span class="sec-head-note">só o Mestre vê</span></div>

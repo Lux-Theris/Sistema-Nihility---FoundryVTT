@@ -1,7 +1,7 @@
 import { SYSTEM_ID, NIHILITY, getActiveStatusConditions, isEnvironmentEnabled } from "../core/config.js";
 import { pickerFieldHtml, readPickerField, wireTraitPickerField } from "./checklist-picker.js";
 import { availableFxPresets, availableFxParticles, availableFxFilters } from "../environment/environment.js";
-import { isSceneFoldersEnabled } from "../core/config.js";
+import { isSceneFoldersEnabled, isShopsEnabled } from "../core/config.js";
 import { escapeHtml } from "../helpers/html.js";
 import { sceneOwnValues, folderOwn, inheritanceChain, scenesWithOwnUnder, scenesUnderFolder, subfoldersOf, writeOwn } from "../environment/scene-config.js";
 import { copyFoundrySettings, settleFolderScenes } from "../environment/scene-config-apply.js";
@@ -10,6 +10,9 @@ import { SCENE_COPY_FIELDS, copyField } from "../environment/scene-copy-rules.js
 import { isRadiationEnabled, passRadiationTime } from "../environment/radiation.js";
 import { isWorldClockEnabled, isCalendarEnabled } from "../core/config.js";
 import { getTimelines, lineNow, localDateText } from "../core/world-time.js";
+import { createDepot, listDepots, pileSummaryFor, askClearPiles } from "../economy/loot.js";
+import { clearPilesSummary } from "../economy/loot-rules.js";
+import { lastUndoableTrade, askUndoLastTrade } from "../economy/player-trade.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -32,7 +35,10 @@ export class EnvironmentConfigApp extends HandlebarsApplicationMixin(Application
       newLine: EnvironmentConfigApp.#onNewLine,
       inherit: EnvironmentConfigApp.#onInherit,
       inheritAll: EnvironmentConfigApp.#onInheritAll,
-      applyCopy: EnvironmentConfigApp.#onApplyCopy
+      applyCopy: EnvironmentConfigApp.#onApplyCopy,
+      createDepot: EnvironmentConfigApp.#onCreateDepot,
+      clearPiles: EnvironmentConfigApp.#onClearPiles,
+      undoTrade: EnvironmentConfigApp.#onUndoTrade
     }
   };
 
@@ -130,6 +136,8 @@ export class EnvironmentConfigApp extends HandlebarsApplicationMixin(Application
     if (clockDark) v.clockDarkness = clockDark.checked;
     const timeLine = root.querySelector("[name=timeLine]");
     if (timeLine) v.lineId = timeLine.value || "main";
+    const depot = root.querySelector("[name=depotId]");
+    if (depot) v.depotId = depot.value;
     const network = root.querySelector("[name=timeNetwork]");
     if (network) v.network = network.checked;
     if (root.querySelector(".env-hazards")) {
@@ -215,6 +223,9 @@ export class EnvironmentConfigApp extends HandlebarsApplicationMixin(Application
       timeLines: getTimelines().map(line => ({ id: line.id, label: `${line.name} — ${localDateText(lineNow(line))}`, selected: line.id === v.lineId })),
       timeNetwork: Boolean(v.network),
       worldDensity,
+      shopsEnabled: isShopsEnabled(),
+      depotOptions: this.#depotOptions(v.depotId),
+      ...this.#lootContext(),
       fxActive,
       chips: inheritEnabled ? Object.fromEntries(SCENE_FIELD_KEYS.map(key => [key, this.#chipHtml(key)])) : {},
       bannerText: ownBannerText(this.#ownCount()),
@@ -234,6 +245,57 @@ export class EnvironmentConfigApp extends HandlebarsApplicationMixin(Application
     return Object.assign(context, extra);
   }
 
+  /** As opções do seletor "Entregas vão para": os depósitos do mundo (e o salvo que sumiu, para "Salvar" não apagar calado). */
+  #depotOptions(current) {
+    const list = listDepots().map(d => ({ id: d.uuid, label: d.name, selected: d.uuid === current }));
+    if (current && !list.some(o => o.id === current)) list.push({ id: current, label: "(depósito não encontrado)", selected: true });
+    return [{ id: "", label: "— sem endereço de entrega —", selected: !current }, ...list];
+  }
+
+  /** Pilhas da cena e a última troca entre jogadores (só na janela de uma cena, só o Mestre). */
+  #lootContext() {
+    if (this.isFolder || !this.scene || !game.user.isGM || !isShopsEnabled()) return { lootPanel: false };
+    const sum = pileSummaryFor(this.scene);
+    const last = lastUndoableTrade();
+    return { lootPanel: true, pileCount: sum.pileCount, pileItems: sum.itemCount, lastTradeLabel: last?.label ?? "" };
+  }
+
+  /** "+ Criar depósito": cria o Ator "Depósito: nome" e já liga ao campo (grava na hora só este campo). */
+  static async #onCreateDepot() {
+    const doc = this.target;
+    if (!doc) return;
+    this.#collect();
+    const depot = await createDepot(doc.name);
+    if (!depot) return;
+    const own = this.isFolder ? folderOwn(doc) : sceneOwnValues(doc);
+    await writeOwn(doc, { ...own, depotId: depot.uuid });
+    this.draft.own.depotId = true;
+    this.draft.values.depotId = depot.uuid;
+    ui.notifications.info(`${depot.name} criado e ligado. Arraste o Ator para o mapa se quiser um Token (armário, balcão, terminal).`);
+    this.render();
+  }
+
+  static async #onClearPiles() {
+    const scene = this.scene;
+    if (!scene) return;
+    const summary = clearPilesSummary(pileSummaryFor(scene));
+    if (summary.empty) return ui.notifications.info(summary.title);
+    const ok = await foundry.applications.api.DialogV2.confirm({
+      window: { title: summary.title },
+      content: `<div class="nihility-shop-confirm"><p>${escapeHtml(summary.body)}</p></div>`,
+      yes: { label: summary.confirm },
+      rejectClose: false
+    });
+    if (!ok) return;
+    const outcome = await askClearPiles(scene);
+    if (outcome?.ok) this.render();
+  }
+
+  static async #onUndoTrade() {
+    const outcome = await askUndoLastTrade();
+    if (outcome?.ok) this.render();
+  }
+
   /** Resumo das cenas com valor próprio e os campos da cópia "do Foundry". */
   #folderContext() {
     const folder = this.folder;
@@ -243,7 +305,7 @@ export class EnvironmentConfigApp extends HandlebarsApplicationMixin(Application
       const own = sceneOwnValues(game.scenes.get(row.id));
       return {
         name: row.name,
-        text: row.fields.map(key => fieldValueText(key, own[key], { lineName: key === "lineId" ? lines.find(l => l.id === own[key])?.name : null })).join(" · ")
+        text: row.fields.map(key => fieldValueText(key, own[key], { lineName: key === "lineId" ? lines.find(l => l.id === own[key])?.name : null, depotName: key === "depotId" ? fromUuidSync(own[key])?.name : null })).join(" · ")
       };
     });
     const copy = this.copyDraft ?? {};
@@ -394,6 +456,7 @@ export class EnvironmentConfigApp extends HandlebarsApplicationMixin(Application
     // Campos cuja seção não aparece (bloco desligado) ficam como estão.
     const hidden = new Set([
       ...(isRadiationEnabled() ? [] : ["radiation"]),
+      ...(isShopsEnabled() ? [] : ["depotId"]),
       ...(isWorldClockEnabled() ? [] : ["clockDarkness"]),
       ...(isWorldClockEnabled() && isCalendarEnabled() ? [] : ["lineId", "network"])
     ]);

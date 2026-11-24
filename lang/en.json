@@ -4,6 +4,7 @@
   "TYPES.Actor.character": "Character",
   "TYPES.Actor.starship": "Starship",
   "TYPES.Actor.vehicle": "Vehicle",
+  "TYPES.Actor.pile": "Pile / Depot",
   "TYPES.Item.skill": "Skill",
   "TYPES.Item.body_part": "Body Part",
   "TYPES.Item.title": "Title",

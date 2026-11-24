@@ -12,6 +12,7 @@
       {{#if (eq activeScreen "nave")}}Nave{{/if}}
       {{#if (eq activeScreen "biblioteca")}}Biblioteca{{/if}}
       {{#if (eq activeScreen "mensagens")}}{{#if activeThread}}{{threadTitle}}{{else}}Mensagens{{/if}}{{/if}}
+      {{#if (eq activeScreen "compras")}}Compras{{/if}}
     </h2>
     {{#if (and (eq activeScreen "mensagens") isGM)}}
     <button type="button" class="pad-gm-chip" data-action="togglePersonaPicker" title="Escolher com qual Personagem/NPC falar">
@@ -86,6 +87,13 @@
         <button type="button" class="pad-icon" data-action="openApp" data-pad="mensagens">
           <span class="pad-icon-tile"><i class="fas fa-comment-dots"></i></span>
           Mensagens
+        </button>
+        {{/if}}
+
+        {{#if padShop.available}}
+        <button type="button" class="pad-icon {{#unless padShop.net.ok}}disabled{{/unless}}" data-action="openApp" data-pad="compras" {{#unless padShop.net.ok}}title="Sem conexão: {{padShop.net.reason}}"{{/unless}}>
+          <span class="pad-icon-tile"><i class="fas fa-bag-shopping"></i></span>
+          Compras
         </button>
         {{/if}}
 
@@ -310,6 +318,132 @@
           <button type="button" class="pad-send-btn" data-action="sendMessage" title="Enviar"><i class="fas fa-paper-plane"></i></button>
         </div>
       </div>
+      {{/if}}
+    </section>
+
+    <section class="pad-screen pad-sp {{#unless (eq activeScreen "compras")}}hidden{{/unless}}">
+      {{#if padShop}}
+      {{#unless padShop.net.ok}}
+      <div class="pad-sp-center">
+        <i class="fa-solid {{#if (eq padShop.state "suppressed")}}fa-power-off{{else}}fa-signal{{/if}} pad-sp-bigicon"></i>
+        <b>Sem conexão</b>
+        <span class="pad-hint">{{#if (eq padShop.state "suppressed")}}O aparelho está sem energia (PEM ou campo de supressão).{{else}}Sem rede aqui. As compras voltam quando houver sinal.{{/if}}</span>
+        <button type="button" class="pad-sp-btn" data-action="padShopRetry">Tentar de novo</button>
+      </div>
+      {{else}}
+      {{#if padShop.notBuyer}}
+      <div class="pad-sp-center"><i class="fa-solid fa-store pad-sp-bigicon"></i><b>Escolha um comprador</b><span class="pad-hint">Esta ficha é uma loja. Abra o PAD de um personagem para comprar.</span></div>
+      {{else}}
+
+      {{#if padShop.product}}
+      <div class="pad-sp-product">
+        <div class="pad-sp-hero-img" style="background: linear-gradient(160deg, {{padShop.product.color}}, var(--nihility-bg-panel-alt))">
+          <img src="{{padShop.product.img}}" alt=""/>
+          <span class="pad-sp-tag {{padShop.product.tagClass}}">{{#if padShop.product.digital}}software · na hora{{else}}{{padShop.product.deliveryLabel}}{{/if}}</span>
+          <button type="button" class="pad-sp-close" data-action="padShopCloseProduct" title="Voltar"><i class="fa-solid fa-chevron-left"></i></button>
+        </div>
+        <div class="pad-sp-pbody">
+          <span class="pad-hint">{{padShop.product.shopName}}</span>
+          <b class="pad-sp-pname">{{padShop.product.name}}</b>
+          <span class="pad-sp-price big">{{padShop.product.priceText}}</span>
+          {{#if padShop.product.description}}<span class="pad-sp-desc">{{padShop.product.description}}</span>{{/if}}
+          <div class="pad-sp-row"><span class="pad-sp-tag o">{{padShop.product.stockText}}</span><span class="pad-hint">Pagável em qualquer moeda</span></div>
+          <div class="pad-sp-row between"><span>Quantidade</span>
+            <span class="pad-sp-stepper"><button type="button" data-action="padShopQty" data-delta="-1">−</button><b>{{padShop.product.qty}}</b><button type="button" data-action="padShopQty" data-delta="1">+</button></span>
+          </div>
+        </div>
+        <button type="button" class="pad-sp-cta" data-action="padShopAdd" {{#unless padShop.product.canBuy}}disabled{{/unless}}>{{#if padShop.product.canBuy}}Adicionar ao carrinho · {{padShop.product.totalText}}{{else}}Esgotado{{/if}}</button>
+      </div>
+      {{else}}
+
+      {{#if padShop.isHome}}
+      <label class="pad-sp-search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" class="pad-sp-search-input" placeholder="Buscar produtos e lojas"/></label>
+      {{#if padShop.shopFilter}}
+      <div class="pad-sp-filter"><span>Loja: <b>{{padShop.shopFilter}}</b></span><button type="button" data-action="padShopClearShop" title="Mostrar tudo"><i class="fa-solid fa-xmark"></i></button></div>
+      {{else}}
+      <div class="pad-sp-banner"><span class="pad-sp-tag a">{{padShop.shopCount}} {{#if (eq padShop.shopCount 1)}}loja online{{else}}lojas online{{/if}}</span><b>O que você procura?</b><span class="pad-hint">{{#if padShop.hasDigital}}Software chega na hora, direto no inventário. {{/if}}O resto vai para o depósito do lugar onde você está.</span></div>
+      {{/if}}
+      <div class="pad-sp-cats">
+        {{#each padShop.cats as |c|}}
+        <button type="button" class="pad-sp-cat {{#if c.on}}on{{/if}}" data-action="padShopCat" data-cat="{{c.name}}"><i class="fa-solid {{c.icon}}"></i><span>{{c.name}}</span></button>
+        {{/each}}
+      </div>
+      <div class="pad-sp-grid">
+        {{#each padShop.products as |p|}}
+        <button type="button" class="pad-sp-card" data-action="padShopProduct" data-key="{{p.key}}" data-search="{{p.searchName}}">
+          <span class="pad-sp-cimg" style="background: {{p.color}}"><img src="{{p.img}}" alt=""/><span class="pad-sp-tag {{p.tagClass}}">{{#if p.digital}}na hora{{else}}{{p.deliveryLabel}}{{/if}}</span></span>
+          <span class="pad-sp-cinfo"><span class="pad-sp-cname">{{p.name}}</span><span class="pad-sp-price">{{#if p.soldOut}}esgotado{{else}}{{p.priceText}}{{/if}}</span><span class="pad-hint">{{p.shopName}}</span></span>
+        </button>
+        {{/each}}
+      </div>
+      {{#unless padShop.products.length}}<p class="pad-hint">Nada nesta categoria.</p>{{/unless}}
+      {{/if}}
+
+      {{#if padShop.isShops}}
+      <b class="pad-sp-title">Lojas</b>
+      {{#each padShop.shops as |sh|}}
+      <button type="button" class="pad-sp-shop" data-action="padShopOpenShop" data-shop-id="{{sh.id}}">
+        <span class="pad-sp-shopbanner" style="background: linear-gradient(135deg, {{sh.color}}, var(--nihility-bg-panel-alt))"><span class="pad-sp-logo" style="background: {{sh.color}}">{{sh.initial}}</span></span>
+        <span class="pad-sp-shopinfo"><b>{{sh.name}}</b><span class="pad-hint">{{sh.hint}}</span><span class="pad-sp-tags">{{#each sh.tags as |t|}}<span class="pad-sp-tag {{t.cls}}">{{t.text}}</span>{{/each}}</span></span>
+      </button>
+      {{/each}}
+      {{/if}}
+
+      {{#if padShop.isCart}}
+      <b class="pad-sp-title">Carrinho</b>
+      {{#if padShop.cart.empty}}
+      <div class="pad-sp-center"><i class="fa-solid fa-cart-shopping pad-sp-bigicon"></i><span class="pad-hint">O carrinho está vazio.</span></div>
+      {{else}}
+      {{#each padShop.cart.lines as |l|}}
+      <div class="pad-sp-line">
+        <span class="pad-sp-thumb" style="background: {{l.color}}"><img src="{{l.img}}" alt=""/></span>
+        <span class="pad-sp-linebody"><span class="pad-sp-cname">{{l.name}}</span><span class="pad-sp-tag {{l.tagClass}}">{{#if l.digital}}na hora{{else}}{{l.deliveryLabel}}{{/if}}</span></span>
+        <span class="pad-sp-stepper"><button type="button" data-action="padShopStep" data-key="{{l.key}}" data-delta="-1">−</button><b>{{l.qty}}</b><button type="button" data-action="padShopStep" data-key="{{l.key}}" data-delta="1">+</button></span>
+        <b class="pad-sp-linetotal">{{l.totalText}}</b>
+      </div>
+      {{/each}}
+      {{#if padShop.cart.needsAddress}}
+      <span class="pad-hint">Entregar o item físico em:</span>
+      {{#each padShop.cart.destinations as |d|}}
+      <label class="pad-sp-opt {{#if d.selected}}on{{/if}} {{#if d.disabled}}off{{/if}}"><input type="radio" name="pad-sp-dest" value="{{d.value}}" {{#if d.selected}}checked{{/if}} {{#if d.disabled}}disabled{{/if}}/><span><b>{{d.label}}</b><br/><span class="{{#if d.disabled}}pad-sp-warn{{else}}pad-hint{{/if}}">{{d.hint}}</span></span></label>
+      {{/each}}
+      {{#if padShop.cart.noAddress}}
+      <div class="pad-sp-banner bad"><b>Sem endereço de entrega aqui</b><span class="pad-hint">Esta cena não aponta para um depósito, e não há nave atracada. Peça ao Mestre ou vá a outro lugar.</span></div>
+      {{/if}}
+      {{/if}}
+      <span class="pad-hint">O software vai direto para o inventário. Se o carrinho só tiver software, a entrega física some.</span>
+      <div class="pad-sp-row between pad-sp-total"><span>Total</span><b>{{padShop.cart.totalText}}</b></div>
+      <span class="pad-hint">Pago das suas moedas, em qualquer moeda, convertida. Saldo: {{padShop.cart.balanceText}}</span>
+      {{#unless padShop.cart.enough}}<div class="pad-sp-banner bad small">Saldo insuficiente para {{padShop.cart.totalText}} (faltam {{padShop.cart.shortText}})</div>{{/unless}}
+      <button type="button" class="pad-sp-cta gold" data-action="padShopBuy" {{#unless padShop.cart.canBuy}}disabled{{/unless}}>Comprar</button>
+      {{/if}}
+      {{/if}}
+
+      {{#if padShop.isOrders}}
+      <b class="pad-sp-title">Entregas</b>
+      {{#each padShop.orders as |o|}}
+      <div class="pad-sp-order">
+        <div class="pad-sp-row">
+          <span class="pad-sp-thumb" style="background: {{o.color}}"><img src="{{o.img}}" alt=""/></span>
+          <span class="pad-sp-linebody"><b>{{o.qtyText}}{{o.name}}</b><span class="pad-hint">{{o.shopName}}</span></span>
+          <span class="pad-sp-tag {{#if (eq o.state "transit")}}g{{else}}o{{/if}}">{{o.stateText}}</span>
+        </div>
+        {{#if (eq o.state "transit")}}<div class="pad-sp-bar"><i style="width: {{o.progress}}%"></i></div>{{/if}}
+        <div class="pad-sp-row between"><span class="pad-hint">{{o.note}}</span>{{#if o.showDest}}<span class="pad-hint">{{o.destName}}</span>{{/if}}</div>
+      </div>
+      {{/each}}
+      {{#unless padShop.orders.length}}<div class="pad-sp-center"><i class="fa-solid fa-truck pad-sp-bigicon"></i><span class="pad-hint">Nenhum pedido ainda.</span></div>{{/unless}}
+      {{/if}}
+
+      {{/if}}
+
+      <nav class="pad-sp-nav">
+        {{#each padShop.tabs as |t|}}
+        <button type="button" class="pad-sp-navbtn {{#if t.on}}on{{/if}}" data-action="padShopTab" data-tab="{{t.id}}"><i class="fa-solid {{t.icon}}"></i><span>{{t.label}}</span>{{#if t.badge}}<span class="pad-sp-badge">{{t.badge}}</span>{{/if}}</button>
+        {{/each}}
+      </nav>
+      {{/if}}
+      {{/unless}}
       {{/if}}
     </section>
 

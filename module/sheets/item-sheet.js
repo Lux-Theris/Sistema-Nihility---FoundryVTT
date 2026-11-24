@@ -1,4 +1,5 @@
 import { advancedFold } from "../helpers/advanced-fold.js";
+import { normalizeItemShop } from "../economy/shop-rules.js";
 import { describeLuck, luckFromScopes } from "../combat/luck-rules.js";
 import { ONLY_IF_KINDS, ONLY_IF_LABELS, onlyIfNeeds, normalizeOnlyIf, hasOnlyIf, onlyIfClause } from "../skills/only-if-rules.js";
 import { getAntimagicReach,
@@ -42,6 +43,7 @@ import { getAntimagicReach,
   isMagicUse,
   isTechUse,
   isInterferenceEnabled,
+  isShopsEnabled,
   getAmmoTypes,
   cargoSlotsFor,
   isInventoryEnabled,
@@ -615,6 +617,22 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.natureTech = isTechUse(sys, this.item.parent);
     context.itemTech = itemIsTech(sys);
     context.interferenceEnabled = isInterferenceEnabled();
+    // Lojas (G2): "Venda em lojas" no Item Geral e no Módulo de nave.
+    context.shopsEnabled = isShopsEnabled() && ["item", "starship_module"].includes(item.type);
+    if (context.shopsEnabled) {
+      const shop = normalizeItemShop(sys.shop);
+      context.shopTagsText = shop.tags.join(", ");
+      context.advShop = advancedFold(
+        [
+          { label: "Repor para", used: shop.restockTo !== null },
+          { label: "Preço fixo", used: shop.priceOverride !== null },
+          { label: "Digital", used: shop.digital },
+          { label: "Prazo de entrega", used: shop.deliveryHours !== null },
+          { label: "Etiquetas", used: shop.tags.length > 0 }
+        ],
+        this.#advOpen.get("shop")
+      );
+    }
     context.energyAbbr = getStarshipEnergyAbbr();
     // Seletores de bônus de Atributo (Título, Item, Modificação) usam os rótulos e a
     // visibilidade atuais — atributo oculto sai da lista de opções novas.
@@ -1382,6 +1400,14 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
     this.element.querySelectorAll(".item-equip-toggle").forEach(checkbox => {
       bindOnce(checkbox, "equip", "change", this._onEquipToggle.bind(this));
+    });
+
+    // Etiquetas da loja: texto separado por vírgula → lista (o campo é um array no Item).
+    this.element.querySelectorAll("[data-shop-tags]").forEach(input => {
+      bindOnce(input, "shopTags", "change", () => {
+        const tags = input.value.split(",").map(s => s.trim()).filter(Boolean);
+        this.document.update({ "system.shop.tags": tags });
+      });
     });
 
     this.element.querySelectorAll(".skill-effect-input").forEach(input => {

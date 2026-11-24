@@ -607,6 +607,31 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
       npcArchetype: new fields.StringField({ required: false, initial: "", blank: true }),
       /** Forma (H5): marca esta ficha como molde de forma (fora das listas dos jogadores e do Simulador). */
       formTemplate: new fields.BooleanField({ required: false, initial: false }),
+      /**
+       * Loja (G2): quando `enabled`, esta ficha é uma loja (aba "Loja", só do Mestre) e os Itens dela são
+       * o estoque. `kind`: "vendor" (NPC; o Mestre narra a compra de volta) ou "auto" (ponto automático,
+       * compra de volta pela fração). Moedas do vendedor = as da própria ficha. Ver economy/shop-rules.js.
+       */
+      shop: new fields.SchemaField({
+        enabled: new fields.BooleanField({ required: false, initial: false }),
+        kind: new fields.StringField({ required: false, initial: "vendor", choices: ["vendor", "auto"] }),
+        /** Aparência do ponto automático: "standard" (vitrine) ou "machine" (máquina de venda, lote B). */
+        style: new fields.StringField({ required: false, initial: "standard", choices: ["standard", "machine"] }),
+        multiplier: new fields.NumberField({ required: false, initial: 1, min: 0 }),
+        buybackFraction: new fields.NumberField({ required: false, initial: 0.5, min: 0, max: 1 }),
+        randomizer: new fields.NumberField({ required: false, initial: 25, min: 0, max: 100 }),
+        seed: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+        limitedFunds: new fields.BooleanField({ required: false, initial: false }),
+        restockDays: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+        lastRestock: new fields.NumberField({ required: false, nullable: true, initial: null }),
+        /** Aparece no app de compras do PAD (lote C). */
+        online: new fields.BooleanField({ required: false, initial: false }),
+        /** Prazo padrão de entrega dos itens físicos pelo app Compras, em horas do mundo (0 = chega na hora no depósito). */
+        deliveryHours: new fields.NumberField({ required: false, initial: 0, min: 0 }),
+        /** userIds a quem o Mestre "mostrou" a loja (Mostrar aos jogadores): só eles compram, vendem e pedem avaliação. */
+        shownTo: new fields.ArrayField(new fields.StringField({ required: true, blank: false }), { required: false, initial: [] }),
+        history: new fields.ArrayField(new fields.ObjectField(), { required: false, initial: [] })
+      }),
       /** Idade ao começar, em anos (J9b 8b.2; vazio = a ficha não mostra idade). */
       ageStart: new fields.NumberField({ required: false, nullable: true, integer: true, min: 0, initial: null }),
       /** O tempo pessoal (segundos) de quando `ageStart` foi preenchido: a idade sobe dali em diante. Preenchido sozinho. */

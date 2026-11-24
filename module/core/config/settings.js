@@ -834,6 +834,17 @@ function registerMigrationSettings() {
     type: String,
     default: "[]"
   });
+
+  // Trocas abertas entre jogadores (Lojas, lote B): o estado de cada troca (itens e moedas dos dois
+  // lados, aceites). Só o Mestre designado escreve (relay `playerTrade`); todos os clientes leem e
+  // redesenham a janela pelo `onChange`.
+  game.settings.register(SYSTEM_ID, S.playerTrades, {
+    scope: "world",
+    config: false,
+    type: String,
+    default: "{}",
+    onChange: () => Hooks.callAll("nihilityPlayerTradesChanged")
+  });
 }
 
 /** Log de debug e os avisos por navegador (números, Voz do Mundo, duração). */

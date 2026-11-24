@@ -208,7 +208,7 @@ async function reloadDialog(weapon, candidates, mag, current) {
 }
 
 /** Devolve ao inventário o que estava no carregador (cheio para a pilha, aberto à parte). */
-async function returnLoadedAmmo(actor, weapon, mag) {
+export async function returnLoadedAmmo(actor, weapon, mag) {
   const { returned } = reloadPlan({ size: weapon.system.weapon.magazineSize, loaded: mag.loaded, currentMax: mag.max });
   const source = weapon.system.weapon.loadedAmmo?.source;
   if (!returned || !source) return;

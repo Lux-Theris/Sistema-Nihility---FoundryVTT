@@ -29,6 +29,7 @@ import {
 } from "../pad/pad-messaging.js";
 import { getDragEventData } from "../helpers/foundry-compat.js";
 import { applyPowerFocus } from "../starship/starship-power.js";
+import { PAD_SHOP_ACTIONS, padShopContext, bindPadShop } from "../pad/pad-shop.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -65,7 +66,7 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
     options.id ??= `nihility-pad-${options.actor?.id ?? foundry.utils.randomID()}`;
     super(options);
     this.actor = options.actor;
-    this.activeScreen = "home"; // "home" | "nave" | "biblioteca" | "mensagens"
+    this.activeScreen = "home"; // "home" | "nave" | "biblioteca" | "mensagens" | "compras"
     this.selectedShipId = null; // usado só quando o Personagem tripula mais de uma Nave/Veículo
     this.shipMenuOpen = false;
     this.libraryTab = "pessoal"; // "pessoal" | "nave"
@@ -95,7 +96,8 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
       selectPersona: NihilityPadApp.#onSelectPersona,
       shareContact: NihilityPadApp.#onShareContact,
       addPendingContact: NihilityPadApp.#onAddPendingContact,
-      requestTimeSync: NihilityPadApp.#onRequestTimeSync
+      requestTimeSync: NihilityPadApp.#onRequestTimeSync,
+      ...PAD_SHOP_ACTIONS
     }
   };
 
@@ -324,6 +326,9 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
       context.padTime = { text: view.text, dateText: view.dateText, state: view.state, statusLine, canRequest: view.canRequest };
     }
 
+    // G2 Lojas (lote C): o app Compras (lojas online, carrinho, entregas). `null` com o bloco Lojas desligado.
+    context.padShop = await padShopContext(this, actor);
+
     const crewedShips = context.padShipEnabled ? findCrewedShipsForActor(actor) : [];
     context.crewedShips = crewedShips;
     context.hasMultipleShips = crewedShips.length > 1;
@@ -445,10 +450,12 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const bubbles = this.element.querySelector(".pad-bubbles");
     if (bubbles) bubbles.scrollTop = bubbles.scrollHeight;
 
+    bindPadShop(this);
+
     if (this._updateHook) return;
     // A própria ficha, a Nave escolhida, ou qualquer Nave cuja tripulação mudou (a aba "Da Nave" aparece/some).
     this._updateHook = (actor, changes) => {
-      if (actor.id === this.actor.id || actor.id === this.selectedShipId || changes?.system?.crewMembers !== undefined) this.render();
+      if (actor.id === this.actor.id || actor.id === this.selectedShipId || changes?.system?.crewMembers !== undefined || this.activeScreen === "compras") this.render();
     };
     Hooks.on("updateActor", this._updateHook);
     // C4 (sessão 4): a Biblioteca da Nave é um documento de compêndio: repinta quando ele muda (a Nave também avisa pelo updateActor).
@@ -456,6 +463,12 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
       if (doc?.flags?.[SYSTEM_ID]?.library || doc?.getFlag?.(SYSTEM_ID, "library")) this.render();
     };
     for (const hook of ["createJournalEntry", "updateJournalEntry", "deleteJournalEntry"]) Hooks.on(hook, this._libraryHook);
+
+    // Compras: estoque, depósito da cena, Token indo para outra cena (rede) e pedidos chegando.
+    this._shopHook = () => {
+      if (this.activeScreen === "compras") this.render();
+    };
+    for (const hook of ["createItem", "updateItem", "deleteItem", "updateScene", "updateToken", "createToken", "deleteToken"]) Hooks.on(hook, this._shopHook);
 
     // Efeitos do próprio Ator (supressão tecnológica/PEM muda a hora para "--:--").
     this._effectHook = effect => {
@@ -492,6 +505,10 @@ export class NihilityPadApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if (this._messageHook) {
       Hooks.off("createChatMessage", this._messageHook);
       this._messageHook = null;
+    }
+    if (this._shopHook) {
+      for (const hook of ["createItem", "updateItem", "deleteItem", "updateScene", "updateToken", "createToken", "deleteToken"]) Hooks.off(hook, this._shopHook);
+      this._shopHook = null;
     }
     if (this._effectHook) {
       for (const hook of ["createActiveEffect", "updateActiveEffect", "deleteActiveEffect"]) Hooks.off(hook, this._effectHook);

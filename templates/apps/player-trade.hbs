@@ -1,0 +1,55 @@
+<div class="nsh-app nsh-trade">
+  {{#if gone}}
+  <div class="nsh-empty">Esta troca já foi encerrada.</div>
+  {{else}}
+  <div class="nsh-head"><div class="nsh-grow"><div class="nsh-title">Troca — {{names.me}} e {{names.other}}</div><div class="nsh-hint">{{distanceText}}</div></div></div>
+  <div class="nsh-body">
+    <div class="nsh-banner {{banner.cls}}"><span class="nsh-grow">{{banner.text}}</span></div>
+    <div class="nsh-trade-cols">
+      <div class="nsh-sec nsh-pan me">
+        <h4>Você oferece</h4>
+        <div class="nsh-pan-list">
+          {{#each mine.rows as |r|}}
+          <div class="nsh-li" data-item-id="{{r.id}}"><span class="nsh-mini" style="background: {{r.color}}">{{#if r.img}}<img src="{{r.img}}" alt=""/>{{/if}}</span><span class="nsh-grow {{#if r.missing}}dim{{/if}}">{{r.name}}</span><span class="nsh-mono">× {{r.qty}}</span>{{#if ../open}}<button type="button" data-action="removeItem" title="Tirar da mesa">×</button>{{/if}}</div>
+          {{else}}<div class="nsh-hint">Nada ainda.</div>{{/each}}
+        </div>
+        {{#if open}}
+        <div class="nsh-row">
+          <select data-add-pick {{#unless addable.length}}disabled{{/unless}}>{{#each addable as |a|}}<option value="{{a.id}}" data-max="{{a.max}}">{{a.label}}</option>{{/each}}</select>
+          <input type="number" data-add-qty min="1" value="1" class="nsh-qty"/>
+          <button type="button" data-action="addItem" {{#unless addable.length}}disabled{{/unless}}>+ Adicionar</button>
+        </div>
+        {{/if}}
+        <div class="nsh-row nsh-coins"><span class="nsh-hint nsh-grow">Moedas</span>
+          <input type="number" class="nsh-mono nsh-qty" data-coins min="0" step="any" value="{{mine.coinsAmount}}" {{#unless open}}disabled{{/unless}}/>
+          <select data-coin-currency {{#unless open}}disabled{{/unless}}>{{#each currencyOptions as |c|}}<option value="{{c.id}}" {{#if c.selected}}selected{{/if}}>{{c.label}}</option>{{/each}}</select>
+        </div>
+      </div>
+      <div class="nsh-mid">
+        <div class="nsh-arrows">⇄</div>
+        <div class="nsh-row nsh-center"><span class="nsh-chk {{#if accepted.me}}y{{/if}}">{{#if accepted.me}}✓{{/if}}</span><span class="nsh-hint">{{names.me}}</span></div>
+        <div class="nsh-row nsh-center"><span class="nsh-chk {{#if accepted.other}}y{{/if}}">{{#if accepted.other}}✓{{/if}}</span><span class="nsh-hint">{{names.other}}</span></div>
+        <div class="nsh-hint">Qualquer mudança depois de um aceite apaga os dois.</div>
+      </div>
+      <div class="nsh-sec nsh-pan">
+        <h4>{{names.other}} oferece</h4>
+        <div class="nsh-pan-list">
+          {{#each theirs.rows as |r|}}
+          <div class="nsh-li"><span class="nsh-mini" style="background: {{r.color}}">{{#if r.img}}<img src="{{r.img}}" alt=""/>{{/if}}</span><span class="nsh-grow">{{r.name}}</span><span class="nsh-mono">× {{r.qty}}</span></div>
+          {{else}}<div class="nsh-hint">Nada ainda.</div>{{/each}}
+        </div>
+        <div class="nsh-hint">Só {{names.other}} edita este lado.</div>
+        <div class="nsh-row nsh-coins"><span class="nsh-hint nsh-grow">Moedas</span><span class="nsh-mono">{{#if theirs.coinsText}}{{theirs.coinsText}}{{else}}0{{/if}}</span></div>
+      </div>
+    </div>
+    <div class="nsh-row nsh-end">
+      {{#if open}}
+      <button type="button" class="dng lg" data-action="cancelTrade">Cancelar troca</button>
+      <button type="button" class="pri lg" data-action="acceptTrade">{{acceptLabel}}</button>
+      {{else}}
+      <button type="button" class="lg" data-action="closeTrade">Fechar</button>
+      {{/if}}
+    </div>
+  </div>
+  {{/if}}
+</div>

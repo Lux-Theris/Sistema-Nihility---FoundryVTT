@@ -20,5 +20,8 @@ Live updates come from `updateActor` + `createChatMessage` hooks registered in `
 
 Com `FEATURES.calendar` ligado a tela inicial do PAD mostra a hora e a data que **o personagem acha que é** (`deviceView` em `core/world-time.js`; flag `timeSync`, tempo pessoal desde o último acerto), não a do mundo; a barra de status leva a mesma hora. Estados do desenho: na rede (cena "tem rede"), sem rede com "acertado há X (seu tempo)" e **Atualizar**, pedido enviado ("Procurando sinal…"), recusado ("Sem sinal"), e "--:--" sob PEM/campo (Atualizar some). Atualizar vai ao Mestre por `runAsGm("timeSyncRequest")` e vira um card com Aprovar/Recusar. Se o tempo pessoal recuar (Skill de reverter, 8e), o aparelho volta junto. O PAD se redesenha no `updateWorldTime` e quando os flags do Ator mudam. Detalhes e limites em [mundo.md](mundo.md).
 
-
 - **Sessão 4 (1.103.1):** a aba "Da Nave" repinta no PAD de outro tripulante quando alguém grava (o Mestre toca `libraryTick` na Nave e o PAD escuta os JournalEntry da biblioteca); soltar um documento no PAD mostra uma notificação dizendo onde foi salvo (Pessoal ou Nave); "acertado há agora (seu tempo)" virou "acertado agora".
+
+## Compras (G2 Lojas, lote C, 1.112.0)
+
+Quinto app da tela inicial (ícone "Compras"), só com as Lojas ligadas e ao menos uma loja online visível. Código em `pad/pad-shop.js` (contexto `context.padShop`, ações `padShop*` espalhadas em `actions` do PAD, ouvintes de busca e de destino em `bindPadShop`) e `economy/shop-online.js` (regras de leitura e o relay). O PAD só ganhou a seção `pad-sp` no template, os ganchos de estoque, cena e Token (só redesenham com o app aberto) e o atalho no `updateActor`. Sem rede ou sob PEM (`networkFor`) a tela vira "Sem conexão". Detalhes (destino, prazo, relay `shopOrder`, limites) em [lojas.md](lojas.md).

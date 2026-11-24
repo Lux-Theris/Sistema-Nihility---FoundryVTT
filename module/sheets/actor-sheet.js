@@ -2,7 +2,7 @@ import { effectAnchors, finiteRemaining, anchorLifetime, PERMANENT } from "../co
 import { describeLuck } from "../combat/luck-rules.js";
 import { borrowedSectionsFor, useBorrowedSkill, linkRowsFor, cutLink, toggleAcceptRequests, setPactReleased, createPactDialog } from "../skills/borrowed-skills.js";
 import { namingContext, openNamingBank } from "../species/naming.js";
-import { isPactEnabled, isWorldClockEnabled, isCalendarEnabled } from "../core/config.js";
+import { isPactEnabled, isShopsEnabled, isWorldClockEnabled, isCalendarEnabled } from "../core/config.js";
 import { actorAge } from "../core/world-time.js";
 import { changeActorSpecies, originContext, openSpeciesSync, changeActorHeritage, openEvolution } from "../species/species.js";
 import { anatomyContext, installImplant, uninstallImplant, currentDraggedImplant, setBodyPartLost } from "../species/anatomy.js";
@@ -58,6 +58,7 @@ import {
   QUICK_SPREADS
 } from "../creation/creation.js";
 import { registerItemInCompendium } from "../core/compendium.js";
+import { shopTabAvailable, shopTabContext, bindShopTab, SHOP_TAB_ACTIONS } from "./shop-tab.js";
 import { convertActorCurrency, transferCurrency } from "../economy/currency.js";
 import { rollAttribute, buildAttributeRollFormula } from "../core/dice.js";
 import { rollInitiativeForActor, getInitiativeLabel } from "../combat/combat.js";
@@ -204,6 +205,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     form: { submitOnChange: true, closeOnSubmit: false },
     actions: {
       toggleShowEmpty: NihilityActorSheet.#onToggleShowEmpty,
+      openTrade: NihilityActorSheet.#onOpenTrade,
       createItem: NihilityActorSheet.#onItemCreate,
       editItem: NihilityActorSheet.#onItemEdit,
       deleteItem: NihilityActorSheet.#onItemDelete,
@@ -275,7 +277,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       originPick: NihilityActorSheet.#onOriginPick,
       originPickLineage: NihilityActorSheet.#onOriginPickLineage,
       originApply: NihilityActorSheet.#onOriginApply,
-      quickSpread: NihilityActorSheet.#onQuickSpread
+      quickSpread: NihilityActorSheet.#onQuickSpread,
+      ...SHOP_TAB_ACTIONS
     }
   };
 
@@ -292,6 +295,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     inventory: { template: `systems/${SYSTEM_ID}/templates/parts/actor-inventory.hbs`, scrollable: [""] },
     anatomy: { template: `systems/${SYSTEM_ID}/templates/parts/actor-anatomy.hbs`, scrollable: [""] },
     origin: { template: `systems/${SYSTEM_ID}/templates/parts/actor-origin.hbs`, scrollable: [""] },
+    shop: { template: `systems/${SYSTEM_ID}/templates/parts/actor-shop.hbs`, scrollable: [""] },
     biography: { template: `systems/${SYSTEM_ID}/templates/parts/actor-biography.hbs`, scrollable: [""] }
   };
 
@@ -321,6 +325,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       { icon: "fas fa-user-check", label: "Liberar personagem…", action: "creationRelease", visible: () => gmCharacter() && inCreation(this.actor) },
       { icon: "fas fa-comment", label: "Pedir ajuste…", action: "creationAdjust", visible: () => gmCharacter() && inCreation(this.actor) },
       // Pontos de restauração (H13): o Mestre guarda e devolve a ficha inteira.
+      // Troca entre jogadores (G2 Lojas, lote B): convida outro personagem de jogador a até 2 m.
+      { icon: "fas fa-right-left", label: "Trocar com…", action: "openTrade", visible: () => this.actor.type === "character" && this.actor.isOwner && isShopsEnabled() && !this.actor.system.shop?.enabled },
       { icon: "fas fa-floppy-disk", label: "Salvar estado", action: "snapshotSave", visible: () => game.user.isGM },
       { icon: "fas fa-clock-rotate-left", label: "Pontos de restauração…", action: "snapshotList", visible: () => game.user.isGM }
     );
@@ -340,6 +346,13 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       }
     }
     return handleItemDrop(this, event, item, () => super._onDropItem(event, item));
+  }
+
+  /** "Trocar com…": o menu dos outros jogadores perto (economy/player-trade.js). */
+  static async #onOpenTrade(event) {
+    event.preventDefault();
+    const { openTradeMenu } = await import("../economy/player-trade.js");
+    await openTradeMenu(this.actor);
   }
 
   /** Janela "Efeitos": tudo o que age sobre este personagem (ver apps/effects-list.js). */
@@ -571,14 +584,16 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     const ids = ["ficha"];
     if (isInventoryEnabled()) ids.push("inventory");
     if (isAnatomyEnabled() && !this.#computeTrim().anatomy.hide && !inCreation(this.actor)) ids.push("anatomy");
-    ids.push("origin", "biography");
+    ids.push("origin");
+    if (shopTabAvailable(this.actor)) ids.push("shop");
+    ids.push("biography");
     return ids;
   }
 
   /** @override A lista de abas varia (Anatomia, Inventário): é montada aqui, com o selo "vazio para o jogador" da Anatomia. */
   _getTabsConfig(group) {
     if (group !== "primary") return super._getTabsConfig(group);
-    const labels = { ficha: "Ficha", inventory: "Inventário", anatomy: "Anatomia", origin: "Origem", biography: "Biografia" };
+    const labels = { ficha: "Ficha", inventory: "Inventário", anatomy: "Anatomia", origin: "Origem", shop: "Loja", biography: "Biografia" };
     const gmEmpty = this.#computeTrim().anatomy.gmEmpty;
     return {
       initial: "ficha",
@@ -592,14 +607,14 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
   /** A parte de uma aba que não existe nesta ficha (ver _configureRenderParts). */
   #partGone(partId) {
-    return (partId === "inventory" || partId === "anatomy") && !this.#availableTabs().includes(partId);
+    return (partId === "inventory" || partId === "anatomy" || partId === "shop") && !this.#availableTabs().includes(partId);
   }
 
   /** @override Tira as partes das abas que não existem nesta ficha. */
   _configureRenderParts(options) {
     const parts = super._configureRenderParts(options);
     const available = this.#availableTabs();
-    for (const id of ["inventory", "anatomy"]) if (!available.includes(id)) delete parts[id];
+    for (const id of ["inventory", "anatomy", "shop"]) if (!available.includes(id)) delete parts[id];
     return parts;
   }
 
@@ -719,6 +734,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     else if (partId === "inventory") this.#prepareInventoryContext(context);
     else if (partId === "anatomy") this.#prepareAnatomyContext(context);
     else if (partId === "origin") this.#prepareOriginContext(context);
+    else if (partId === "shop") shopTabContext(this, context);
     return context;
   }
 
@@ -1074,6 +1090,7 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     // Só liga os ouvintes das partes que acabaram de ser redesenhadas (as outras já têm os seus).
     const rendered = id => !options.parts || options.parts.includes(id);
     if (rendered("inventory")) this._onRenderInventory();
+    if (rendered("shop") && this.#availableTabs().includes("shop")) bindShopTab(this);
     enableHotbarDrag(this.element, this.actor);
     enableUnarmedHotbarDrag(this.element, this.actor);
     if (!this.isEditable) return;

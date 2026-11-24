@@ -3,6 +3,28 @@ import { NIHILITY, getXpForNextLevel, migrateStructureTarget } from "../core/con
 const fields = foundry.data.fields;
 
 /**
+ * Bloco `shop` do Item (Lojas, G2): preço geral de referência, estoque, ajuste de preço e
+ * etiquetas. Vale para o Item como ele aparece NUMA LOJA (o Ator-loja guarda os Itens dela):
+ * `stock` vazio = infinito; `restockTo` = quanto o estoque volta a ter ao reabastecer (vazio =
+ * não repõe); `priceOverride` (na moeda do preço) vence preço base, multiplicador e sorteio.
+ * `currency` vazio = a moeda do "Valor" do Item (Item Geral) ou a primeira da lista (Módulo).
+ */
+function shopItemSchema() {
+  return new fields.SchemaField({
+    basePrice: new fields.NumberField({ required: false, initial: 0, min: 0 }),
+    currency: new fields.StringField({ required: false, initial: "", blank: true }),
+    stock: new fields.NumberField({ required: false, nullable: true, integer: true, initial: null, min: 0 }),
+    restockTo: new fields.NumberField({ required: false, nullable: true, integer: true, initial: null, min: 0 }),
+    priceOverride: new fields.NumberField({ required: false, nullable: true, initial: null, min: 0 }),
+    /** Software/digital (lote C): na compra online chega na hora direto no inventário, sem depósito nem prazo. */
+    digital: new fields.BooleanField({ required: false, initial: false }),
+    /** Prazo de entrega próprio, em horas do mundo (vazio = o prazo da loja). Só vale para item físico. */
+    deliveryHours: new fields.NumberField({ required: false, nullable: true, initial: null, min: 0 }),
+    tags: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] })
+  });
+}
+
+/**
  * Schema reaproveitado por Item Geral, Modificação de Parte do Corpo e Módulo de
  * Nave: uma Habilidade opcional concedida enquanto equipado/instalado/online.
  * Tier travado em NIHILITY.ITEM_GRANTABLE_SKILL_TIERS (nunca Único/Ultimate —
@@ -982,7 +1004,10 @@ export class StarshipModuleDataModel extends foundry.abstract.TypeDataModel {
       range: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
 
       /** Habilidade opcional concedida à Nave enquanto o módulo estiver "online" (ver grantedSkillSchema). */
-      grantsSkill: grantedSkillSchema()
+      grantsSkill: grantedSkillSchema(),
+
+      /** Preço e estoque numa loja (ver shopItemSchema). */
+      shop: shopItemSchema()
     };
   }
 }
@@ -1164,7 +1189,10 @@ export class GenericItemDataModel extends foundry.abstract.TypeDataModel {
       attributeBonuses: attributeBonusesSchema(),
 
       /** Bônus "Quando → Então" (ver conditionalModifiersSchema), só enquanto equipado. */
-      conditionalModifiers: conditionalModifiersSchema()
+      conditionalModifiers: conditionalModifiersSchema(),
+
+      /** Preço geral de referência, estoque e ajuste numa loja (ver shopItemSchema). */
+      shop: shopItemSchema()
     };
   }
 }

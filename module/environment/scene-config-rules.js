@@ -61,6 +61,13 @@ export const SCENE_FIELDS = {
     },
     legacyEmpty: v => !(Number(v) > 0)
   },
+  depotId: {
+    label: "Entregas vão para",
+    // uuid do Ator-depósito (G2 Lojas); vazio = sem endereço de entrega.
+    def: "",
+    clean: v => text(v) || undefined,
+    legacyEmpty: () => true
+  },
   hazards: {
     label: "Perigos",
     def: [],
@@ -201,13 +208,14 @@ export function diffOwn(previous = {}, next = {}) {
 }
 
 /** Texto curto de um valor, para o resumo ("Linha: Passado", "Mana ×2"). */
-export function fieldValueText(key, value, { lineName = null } = {}) {
+export function fieldValueText(key, value, { lineName = null, depotName = null } = {}) {
   switch (key) {
     case "lineId": return `linha ${lineName || value}`;
     case "network": return value ? "tem rede" : "sem rede";
     case "clockDarkness": return value ? "escurece com o relógio" : "não escurece com o relógio";
     case "manaDensity": return `Mana ×${value}`;
     case "radiation": return value > 0 ? `radiação ${value}` : "sem radiação";
+    case "depotId": return `entregas em ${depotName || "um depósito"}`;
     case "hazards": return value.length ? `${value.length} perigo(s)` : "sem perigos";
     default: return String(value);
   }

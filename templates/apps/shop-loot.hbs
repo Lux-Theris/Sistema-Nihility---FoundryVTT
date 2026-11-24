@@ -1,0 +1,53 @@
+<div class="nsh-app nlt-app">
+  {{#if gone}}
+  <div class="nsh-empty">Isto não existe mais.</div>
+  {{else}}
+  <div class="nsh-head">
+    <div class="nsh-grow"><div class="nsh-title">{{title}}</div><div class="nsh-hint">{{rangeText}}</div></div>
+    {{#if stateTag}}<span class="nsh-tg d">{{stateTag}}</span>{{/if}}
+    {{#if takerOptions}}<select data-taker>{{#each takerOptions as |o|}}<option value="{{o.value}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>{{/each}}</select>{{else if takerName}}<span class="nsh-hint">{{takerName}}</span>{{/if}}
+  </div>
+  <div class="nsh-body">
+    {{#if banner}}<div class="nsh-banner {{banner.cls}}"><span class="nsh-grow">{{banner.text}}</span></div>{{/if}}
+    {{#if who}}<div class="nsh-banner i"><span class="nsh-grow">{{who}}</span></div>{{/if}}
+    {{#unless hasTaker}}<div class="nsh-empty">Você não tem um personagem para pegar isto.</div>{{else}}
+    {{#unless near}}<div class="nsh-banner w"><span class="nsh-grow">{{farLine}}</span></div>{{/unless}}
+    <div class="nsh-sec">
+      <div class="nsh-row"><h4 class="nsh-grow">{{#if isDeposit}}No depósito{{else if isBody}}Itens do corpo{{else}}Itens da pilha{{/if}}</h4><button type="button" class="pri" data-action="takeAll" {{#if noAll}}disabled{{/if}} {{#unless near}}disabled{{/unless}}>{{takeAllLabel}}</button></div>
+      <div class="nlt-list">
+        {{#each rows as |r|}}
+        <div class="nlt-it" data-item-id="{{r.id}}">
+          <img class="nsh-ico" src="{{r.img}}" alt=""/>
+          <span class="nsh-meta"><span class="nsh-nm">{{r.name}}</span><span class="nsh-hint">{{r.hint}}{{#if r.from}} · {{r.from}}{{/if}}</span></span>
+          {{#if r.owner}}<span class="nsh-tg">{{r.owner}}</span>{{/if}}
+          <span class="nsh-mono">× {{r.qty}}</span>
+          {{#if (gt r.qty 1)}}<input type="number" class="nlt-want" data-want min="1" max="{{r.qty}}" value="{{r.want}}" title="Quantos pegar"/>{{/if}}
+          <button type="button" class="pri" data-action="takeOne" {{#unless ../near}}disabled{{/unless}}>Pegar</button>
+        </div>
+        {{/each}}
+        {{#if hasCoins}}
+        <div class="nlt-it">
+          <span class="nsh-ico nlt-coin">$</span>
+          <span class="nsh-meta"><span class="nsh-nm">Moedas</span><span class="nsh-hint">Vão para o seu saldo</span></span>
+          <span class="nsh-gold">{{coinsText}}</span>
+          <button type="button" class="pri" data-action="takeCoins" {{#unless near}}disabled{{/unless}}>Pegar</button>
+        </div>
+        {{/if}}
+        {{#if empty}}<div class="nsh-empty">{{emptyText}}</div>{{/if}}
+      </div>
+    </div>
+    {{#if isDeposit}}
+    <div class="nsh-sec">
+      <h4>A caminho</h4>
+      {{#each transit as |r|}}
+      <div class="nlt-it"><img class="nsh-ico" src="{{r.img}}" alt=""/><span class="nsh-meta"><span class="nsh-nm">{{r.name}}</span><span class="nsh-hint">{{#if r.owner}}{{r.owner}} · {{/if}}{{#if r.from}}{{r.from}}{{/if}}</span></span><span class="nsh-mono">× {{r.qty}}</span><span class="nsh-hint">{{r.eta}}</span></div>
+      {{else}}<div class="nsh-hint">Nada a caminho.</div>{{/each}}
+    </div>
+    <div class="nsh-hint">Cada item é do jogador que comprou. Só o dono (e o Mestre) pega. Dividir depois é entre vocês, pela Troca.</div>
+    {{else}}
+    <div class="nsh-hint">Qualquer jogador perto pode pegar; o Mestre vê tudo. {{#if isBody}}O corpo fica no mapa até o Mestre limpar.{{else}}A pilha some quando esvazia.{{/if}}</div>
+    {{/if}}
+    {{/unless}}
+  </div>
+  {{/if}}
+</div>

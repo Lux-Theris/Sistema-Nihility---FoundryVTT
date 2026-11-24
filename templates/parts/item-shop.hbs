@@ -1,0 +1,27 @@
+{{!-- Bloco "Venda em lojas" (G2). Contexto: system, currencies, shopsEnabled, advShop, shopTagsText. --}}
+<div class="sec">
+  <div class="sec-head">Venda em lojas <span class="help" title="Preço geral de referência: a loja parte dele (preço base × multiplicador da loja × sorteio). Vazio ou 0 usa o Valor do Item. Estoque vazio = infinito.">?</span></div>
+  <div class="sec-body g3">
+    <div class="fld">
+      <span class="fld-label">Preço base</span>
+      <span class="joined">
+        <input class="num" type="number" min="0" step="any" name="system.shop.basePrice" value="{{system.shop.basePrice}}" placeholder="{{system.value.amount}}" aria-label="Preço base"/>
+        <select name="system.shop.currency" aria-label="Moeda do preço">
+          <option value="" {{#unless system.shop.currency}}selected{{/unless}}>(a do Valor)</option>
+          {{#each currencies as |currency|}}<option value="{{currency.id}}" {{#if (eq currency.id ../system.shop.currency)}}selected{{/if}}>{{currency.label}}</option>{{/each}}
+        </select>
+      </span>
+    </div>
+    <label class="fld"><span class="fld-label">Estoque na loja <span class="help" title="Vazio = infinito. Só vale no Item que está numa loja.">?</span></span><input class="num" type="number" min="0" name="system.shop.stock" value="{{system.shop.stock}}" placeholder="∞"/></label>
+    <details class="adv span-all" data-adv-key="shop" {{#if advShop.open}}open{{/if}}>
+      {{> nihility.advSummary fold=advShop}}
+      <div class="adv-body g3">
+        <label class="fld"><span class="fld-label">Repor para <span class="help" title="Quanto estoque volta ao reabastecer a loja. Vazio = não repõe.">?</span></span><input class="num" type="number" min="0" name="system.shop.restockTo" value="{{system.shop.restockTo}}"/></label>
+        <label class="fld"><span class="fld-label">Preço fixo nesta loja <span class="help" title="Vence preço base, multiplicador e sorteio. Na moeda do preço. Vazio = automático.">?</span></span><input class="num" type="number" min="0" step="any" name="system.shop.priceOverride" value="{{system.shop.priceOverride}}"/></label>
+        <label class="fld"><span class="fld-label">Digital (software) <span class="help" title="Na compra online (app Compras do PAD) chega na hora, direto no inventário, sem depósito nem prazo.">?</span></span><input type="checkbox" name="system.shop.digital" {{#if system.shop.digital}}checked{{/if}}/></label>
+        <label class="fld"><span class="fld-label">Prazo de entrega (horas) <span class="help" title="Só para a compra online de item físico. Vazio = o prazo da loja. 0 = chega na hora no depósito.">?</span></span><input class="num" type="number" min="0" step="any" name="system.shop.deliveryHours" value="{{system.shop.deliveryHours}}" placeholder="da loja"/></label>
+        <label class="fld"><span class="fld-label">Etiquetas <span class="help" title="Separe por vírgula. Viram categorias na vitrine (além de Arma, Consumível, Munição…).">?</span></span><input class="shop-tags-input" type="text" data-shop-tags value="{{shopTagsText}}" placeholder="raro, ilegal"/></label>
+      </div>
+    </details>
+  </div>
+</div>

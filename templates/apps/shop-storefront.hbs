@@ -1,0 +1,63 @@
+<div class="nsh-app">
+  <div class="nsh-head">
+    <span class="nsh-portrait">{{#if shopImg}}<img src="{{shopImg}}" alt=""/>{{else}}{{initial}}{{/if}}</span>
+    <div class="nsh-grow">
+      <div class="nsh-title">{{shopName}}</div>
+      <div class="nsh-hint">{{#if closed}}Esta loja está fechada.{{else}}{{modeLine}}{{/if}}</div>
+    </div>
+    {{#if hasBuyer}}
+    <div class="nsh-bal">
+      <div class="nsh-hint">Seu saldo{{#if buyerOptions}}{{else}} ({{buyerName}}){{/if}}</div>
+      {{#if buyerOptions}}<select data-buyer>{{#each buyerOptions as |o|}}<option value="{{o.value}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>{{/each}}</select>{{/if}}
+      <b>{{balanceText}}</b>
+    </div>
+    {{/if}}
+  </div>
+
+  {{#if closed}}
+  <div class="nsh-empty">A loja fechou. Volte mais tarde.</div>
+  {{else if hasBuyer}}
+  <div class="nsh-tabs">
+    <button type="button" class="nsh-tab {{#if isBuy}}on{{/if}}" data-action="goTab" data-tab="buy">Comprar</button>
+    <button type="button" class="nsh-tab {{#if isSell}}on{{/if}}" data-action="goTab" data-tab="sell">Vender</button>
+  </div>
+  <div class="nsh-body">
+    {{#if banner}}
+    <div class="nsh-banner {{banner.cls}}"><span class="nsh-grow">{{banner.text}}</span>{{#each banner.actions as |a|}}<button type="button" class="{{#if a.primary}}pri{{/if}}" data-action="{{a.action}}">{{a.label}}</button>{{/each}}</div>
+    {{/if}}
+    <div class="nsh-row">
+      {{#each cats as |c|}}<button type="button" class="nsh-chip {{#if c.on}}on{{/if}}" data-action="pickCat" data-cat="{{c.name}}">{{c.name}}</button>{{/each}}
+      <span class="nsh-grow"></span>
+      <input type="search" placeholder="Buscar…" data-search class="nsh-search"/>
+    </div>
+    <div class="nsh-list">
+      {{#each rows as |r|}}
+      <div class="nsh-it {{#if r.sel}}sel{{/if}} {{#if r.disabled}}off{{/if}}" data-row data-name="{{r.name}}" data-item-id="{{r.id}}" data-action="selectRow">
+        <img class="nsh-ico" src="{{r.img}}" alt=""/>
+        <span class="nsh-meta"><span class="nsh-nm">{{r.name}}</span><span class="nsh-hint">{{r.desc}}</span></span>
+        <span class="nsh-hint nsh-right">{{r.stockText}}</span>
+        <span class="nsh-price">{{r.priceText}}</span>
+        <span class="nsh-step"><button type="button" data-action="qtyStep" data-dir="-1">−</button><span>{{r.qty}}</span><button type="button" data-action="qtyStep" data-dir="1">+</button></span>
+        {{#if ../isBuy}}<button type="button" class="pri" data-action="buyRow" {{#if r.disabled}}disabled{{/if}}>{{r.actLabel}}</button>{{else}}<span class="nsh-mark {{#if r.qty}}on{{/if}}">{{r.actLabel}}</span>{{/if}}
+      </div>
+      {{else}}
+      <div class="nsh-empty">{{#if isBuy}}Nada à venda nesta categoria.{{else}}Você não tem nada que dê para vender aqui.{{/if}}</div>
+      {{/each}}
+    </div>
+    <div class="nsh-det">
+      {{#if detail}}
+      <img class="nsh-ico big" src="{{detail.img}}" alt=""/>
+      <div class="nsh-grow"><div class="nsh-nm">{{detail.name}}</div><div class="nsh-hint">{{detail.desc}}</div></div>
+      <div class="nsh-dl"><div class="nsh-hint">{{#if isBuy}}Preço{{else}}Vale{{/if}}</div><div class="nsh-gold">{{detail.price}}</div>{{#if detail.facts}}<div class="nsh-hint">{{detail.facts}}</div>{{/if}}</div>
+      {{else}}<span class="nsh-hint">Selecione um item.</span>{{/if}}
+    </div>
+    <div class="nsh-row">
+      {{#if destOptions}}{{#if isBuy}}<label class="nsh-dest">Entregar em <select data-dest>{{#each destOptions as |o|}}<option value="{{o.value}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>{{/each}}</select></label>{{/if}}{{/if}}
+      <span class="nsh-hint nsh-grow">{{footer}}</span>
+      <button type="button" class="pri lg" data-action="{{bottom.action}}" {{#if bottom.disabled}}disabled{{/if}}>{{bottom.label}}</button>
+    </div>
+  </div>
+  {{else}}
+  <div class="nsh-empty">Você não tem um personagem para comprar aqui.</div>
+  {{/if}}
+</div>

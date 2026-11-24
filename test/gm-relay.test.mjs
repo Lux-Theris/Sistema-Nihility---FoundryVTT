@@ -74,18 +74,19 @@ test("Relay: sucesso pode levar a referência do que o Mestre criou", () => {
   assert.deepEqual(normalizeRelayOutcome({ ok: false, reason: "x", value: 1 }), { ok: false, reason: "x" });
 });
 
-test("Relay: a lista de ações está congelada (31 nomes, sem repetição, em ordem)", () => {
+test("Relay: a lista de ações está congelada (41 nomes, sem repetição, em ordem)", () => {
   const expected = [
     "antimagicStructures", "applySkillEffects", "borrowedCooldown", "clearShieldLights", "createCharacter",
     "createStructure", "createSurface", "createZone", "cutBorrowLink", "damageStructure", "engageTractor",
-    "ensureUploadFolder", "forcedMove", "listUploadFolder", "regenerateSustainedShields", "registerCompendiumItem",
+    "ensureUploadFolder", "forcedMove", "listUploadFolder", "lootTake", "pileDrop", "pilesClear", "playerTrade", "playerTradeUndo",
+    "regenerateSustainedShields", "registerCompendiumItem",
     "releaseSkillAnchors", "releaseTractor", "removeStructures", "removeZones", "rerollApply", "resistanceExposure",
-    "resistanceXp", "setMovementDash", "setShieldLight", "shipLibrary", "skillUseXp", "soulXp", "timePassedFor",
+    "resistanceXp", "setMovementDash", "setShieldLight", "shipLibrary", "shopBuy", "shopOrder", "shopSell", "shopTrade", "shopUndo", "skillUseXp", "soulXp", "timePassedFor",
     "timeSyncRequest", "transformActor"
   ];
   assert.deepEqual([...RELAY_ACTION_NAMES], expected);
-  assert.equal(RELAY_ACTION_NAMES.length, 31);
-  assert.equal(new Set(RELAY_ACTION_NAMES).size, 31);
+  assert.equal(RELAY_ACTION_NAMES.length, 41);
+  assert.equal(new Set(RELAY_ACTION_NAMES).size, 41);
   assert.equal(Object.isFrozen(RELAY_ACTION_NAMES), true);
 });
 

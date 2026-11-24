@@ -1,0 +1,62 @@
+<div class="nsh-app nsh-appraisal-root">
+  <div class="nsh-head"><div class="nsh-grow"><div class="nsh-title">Avaliação{{#if hasTrade}} — {{sellerName}} quer vender para {{shopName}}{{/if}}</div></div><span class="nsh-tg g">painel do Mestre</span></div>
+  <div class="nsh-body nsh-appraisal-scroll">
+    {{#if hasTrade}}
+    <div class="nsh-cols2">
+      <div class="nsh-sec">
+        <div class="nsh-row"><h4 class="nsh-grow">Itens do pedido</h4>
+          <label class="nsh-inline">Sugerir <input type="number" min="0" max="100" data-pct value="{{pct}}" class="nsh-pct"/> % do preço padrão <button type="button" data-action="reapply">Reaplicar</button></label>
+        </div>
+        <table class="nsh-table">
+          <thead><tr><th>Item</th><th class="c-qty">Qtd.</th><th class="c-std">Preço padrão</th><th class="c-val">Valor (total)</th></tr></thead>
+          <tbody>
+            {{#each rows as |r|}}
+            <tr class="{{#if r.missing}}missing{{/if}}">
+              <td>{{#if r.img}}<img src="{{r.img}}" width="20" height="20" alt=""/> {{/if}}{{r.name}}</td>
+              <td class="mono">{{r.qty}}</td>
+              <td class="mono dim">{{r.stdText}}</td>
+              <td><input type="number" min="0" step="any" class="mono nsh-val" data-line="{{r.id}}" value="{{r.value}}" {{#if r.missing}}disabled{{/if}}/> {{#if r.changed}}<span class="nsh-tg g">mudado</span>{{/if}}</td>
+            </tr>
+            {{/each}}
+          </tbody>
+        </table>
+        <div class="nsh-row nsh-total-row">
+          <span class="nsh-hint nsh-grow">{{sumText}}</span>
+          <label class="nsh-inline"><b>Total da oferta</b>
+            <input type="number" min="0" step="any" class="mono nsh-total" data-total value="{{total}}"/>
+            <select data-currency>{{#each currencyOptions as |c|}}<option value="{{c.id}}" {{#if c.selected}}selected{{/if}}>{{c.label}}</option>{{/each}}</select>
+          </label>
+        </div>
+        <div class="nsh-hint">Mexer num valor refaz o total; mexer no total não muda as linhas. Pagamento em qualquer moeda, convertida.</div>
+        {{#if offerNote}}<div class="nsh-banner {{#if playerAccepted}}k{{else}}i{{/if}}">{{offerNote}}</div>{{/if}}
+        {{#if note}}<div class="nsh-banner w">{{note}}</div>{{/if}}
+        <div class="nsh-row nsh-end"><button type="button" class="dng lg" data-action="refuseTrade">Recusar</button><button type="button" class="pri lg" data-action="offer">{{offerLabel}}</button></div>
+      </div>
+      <div class="nsh-col">
+        <div class="nsh-sec">
+          <h4>{{shopName}}</h4>
+          <div class="nsh-hint">{{fundsText}}</div>
+          <div class="nsh-hint">{{sellerName}} tem: {{sellerFunds}}</div>
+        </div>
+        <div class="nsh-sec">
+          <h4>O que o jogador vê</h4>
+          <div class="nsh-step1"><span class="n">1</span><span>Marca os itens e clica "Pedir avaliação". Fica: <b>Aguardando {{shopName}}…</b></span></div>
+          <div class="nsh-step1"><span class="n">2</span><span>Você oferece; ele vê <b class="ok">a oferta e Aceitar / Recusar</b>.</span></div>
+          <div class="nsh-step1"><span class="n">3</span><span>Se você mudar o valor depois, o aceite do jogador <b class="warn">cai</b> e ele vê o valor novo.</span></div>
+          <div class="nsh-step1"><span class="n">4</span><span>Aceitou: as moedas e os itens trocam de dono na hora. Card no chat com Desfazer na aba Loja.</span></div>
+        </div>
+      </div>
+    </div>
+    {{else}}
+    <div class="nsh-empty">Nenhum pedido de avaliação agora.</div>
+    {{/if}}
+    <div class="nsh-sec">
+      <h4>Fila de avaliações</h4>
+      {{#each queue as |q|}}
+      <div class="nsh-row"><span class="nsh-grow {{#unless q.on}}dim{{/unless}}">{{q.text}}</span><span class="nsh-tg {{#if q.on}}g{{/if}}">{{#if q.on}}em avaliação{{else}}aguardando{{/if}}</span>{{#unless q.on}}<button type="button" data-action="pickTrade" data-trade-id="{{q.id}}">Abrir</button>{{/unless}}</div>
+      {{else}}
+      <div class="nsh-hint">Vazia. Os pedidos chegam aqui sozinhos, um por jogador.</div>
+      {{/each}}
+    </div>
+  </div>
+</div>

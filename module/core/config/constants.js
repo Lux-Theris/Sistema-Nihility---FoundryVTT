@@ -139,6 +139,7 @@ export const NIHILITY = {
     vitalFormulaMultiplier: "vitalFormulaMultiplier",
     vitalFormulaFloor: "vitalFormulaFloor",
     completedMigrations: "completedMigrations",
+    playerTrades: "playerTrades",
     debugMode: "debugMode",
     floatingNumbers: "floatingNumbers",
     voiceBanner: "voiceBanner",

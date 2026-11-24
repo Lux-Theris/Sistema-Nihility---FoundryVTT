@@ -30,6 +30,16 @@ export const FEATURES = {
     hint: "Rastreamento de moedas nas fichas, conversão e transferência entre Personagens.",
     default: true
   },
+  shops: {
+    setting: "shopsEnabled",
+    parent: "economy",
+    name: "Lojas",
+    hint: "Qualquer ficha vira loja pela aba \"Loja\" (só do Mestre): estoque com preço base do Item × multiplicador da loja × um sorteio por loja que muda só ao reabastecer. O jogador compra na hora, em qualquer moeda; vender a um ponto automático paga uma fração do preço; vender a um vendedor NPC passa por uma avaliação do Mestre. A transação é feita pelo Mestre, com card no chat, aviso na tela e Desfazer. Também liga a máquina de venda, a troca entre jogadores, o saque no corpo, as pilhas no mapa e o depósito de entregas. Desligar esconde a aba, a vitrine e essas janelas; estoque, preços, pilhas e históricos salvos ficam como estão.",
+    default: true,
+    options: {
+      shopLootRange: { label: "Perto, em metros (saque, pilha, depósito e troca)", hint: "Até que distância um Token alcança um corpo caído, uma pilha, um depósito ou outro jogador para trocar. Conta da borda de um Token à do outro; encostados = 0 m.", type: "number", default: 2, min: 0.5 }
+    }
+  },
   titles: {
     setting: "titlesEnabled",
     name: "Títulos",
@@ -472,7 +482,7 @@ export const CAMPAIGN_PRESETS = {
     content: { damageElementsData: ["DEFAULT_DAMAGE_ELEMENTS"] },
     hint: "Isekai/fantasia: Títulos, Anatomia, Fusão e Magia ligados; nada de Naves, Veículos ou PAD.",
     features: {
-      economy: true, titles: true, anatomy: true, vessels: false, skillFusion: true,
+      economy: true, shops: true, titles: true, anatomy: true, vessels: false, skillFusion: true,
       skillPoints: true, attributePool: true, resistances: true, statusConditions: true,
       areaEffects: true, aiAssistant: true, pad: false, movement: true, shipManeuver: false, scale: false, structures: true, interference: false
     }
@@ -485,7 +495,7 @@ export const CAMPAIGN_PRESETS = {
     },
     hint: "Naves, Veículos e PAD ligados; Títulos e Fusão de Habilidades desligados (são convenções de isekai).",
     features: {
-      economy: true, titles: false, anatomy: true, vessels: true, skillFusion: false,
+      economy: true, shops: true, titles: false, anatomy: true, vessels: true, skillFusion: false,
       skillPoints: true, attributePool: true, resistances: true, statusConditions: true,
       areaEffects: true, aiAssistant: true, pad: true, movement: true, shipManeuver: true, scale: true, structures: true, interference: true
     }
@@ -498,7 +508,7 @@ export const CAMPAIGN_PRESETS = {
     },
     hint: "O sistema inteiro disponível — fantasia e sci-fi coexistindo na mesma campanha.",
     features: {
-      economy: true, titles: true, anatomy: true, vessels: true, skillFusion: true,
+      economy: true, shops: true, titles: true, anatomy: true, vessels: true, skillFusion: true,
       skillPoints: true, attributePool: true, resistances: true, statusConditions: true,
       areaEffects: true, aiAssistant: true, pad: true, movement: true, shipManeuver: true, scale: true, structures: true, interference: true
     }
@@ -545,6 +555,7 @@ const FEATURE_LAYOUT = {
   skillUndo: ["combat", "O Mestre desfaz o último uso de uma Skill até o turno acabar."],
   endOfCombat: ["combat", "Ao encerrar: tira efeitos que congelariam, dá XP e descanso."],
   economy: ["world", "Moedas, conversão e transferência entre personagens."],
+  shops: ["world", "Fichas viram lojas: comprar, vender e avaliar, pagando em qualquer moeda."],
   environment: ["world", "Perigos da cena ou de uma área, e a densidade de mana."],
   radiation: ["world", "Lugares irradiam; ficar ali acumula e machuca.", true],
   sceneFolders: ["world", "Pasta de cenas: o Ambiente e o tempo que as cenas herdam, e cópia dos ajustes do Foundry."],

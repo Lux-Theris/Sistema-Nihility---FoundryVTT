@@ -281,6 +281,16 @@ export function isInterferenceEnabled() {
 export function isEnvironmentEnabled() {
   return isFeatureEnabled("environment");
 }
+/** Lojas (G2): a aba Loja da ficha e a Vitrine. Filho da Economia. */
+export function isShopsEnabled() {
+  return isFeatureEnabled("shops");
+}
+
+/** "Perto", em metros, para saquear, pegar de uma pilha ou depósito e trocar com outro jogador (lote B das Lojas). */
+export function getShopLootRange() {
+  const value = Number(getFeatureOption("shops", "shopLootRange"));
+  return Number.isFinite(value) && value > 0 ? value : 2;
+}
 /** Configuração de cenas por pasta (H20). Desligado: vale só o valor da própria cena. */
 export function isSceneFoldersEnabled() {
   return isFeatureEnabled("sceneFolders");

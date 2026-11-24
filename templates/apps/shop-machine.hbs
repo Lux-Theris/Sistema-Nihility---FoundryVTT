@@ -1,0 +1,40 @@
+<div class="nsh-machine">
+  {{#if closed}}
+  <div class="nsh-empty">Esta máquina está fora de serviço.</div>
+  {{else}}
+  <div class="nsm-left">
+    <div class="nsm-brand">
+      <button type="button" class="nsm-arrow" data-action="pageStep" data-dir="-1">◀</button>
+      <span class="nsm-shelfname">{{shopName}} · PRATELEIRA {{pageLetter}} <span class="nsm-dim">{{pageNo}}/{{pageCount}}</span></span>
+      <button type="button" class="nsm-arrow" data-action="pageStep" data-dir="1">▶</button>
+    </div>
+    <div class="nsm-glass">
+      {{#each slots as |it|}}
+      <button type="button" class="nsm-slot {{#if it.sel}}sel{{/if}} {{#if it.out}}out{{/if}}" data-action="pickSlot" data-code="{{it.code}}" {{#if it.out}}disabled{{/if}} aria-label="{{it.code}} {{it.name}}">
+        <span class="nsm-shelf"><span class="nsm-prod" style="background: {{it.color}}"><img src="{{it.img}}" alt=""/></span><span class="nsm-spiral"></span>{{#if it.out}}<span class="nsm-outlbl">ESGOTADO</span>{{/if}}</span>
+        <span class="nsm-tag"><span class="nsm-code">{{it.code}}</span><span>{{it.price}}</span></span>
+        <span class="nsm-name">{{it.name}}</span>
+      </button>
+      {{/each}}
+      {{#each emptySlots}}<span class="nsm-slot empty"><span class="nsm-shelf"><span class="nsm-spiral"></span></span></span>{{/each}}
+    </div>
+    <div class="nsm-tray">
+      <span class="nsm-flap"></span>
+      {{#if hasTray}}
+      <div class="nsm-q">{{#each tray as |q|}}<span class="nsm-qi {{#if q.fresh}}fall{{/if}}"><span class="nsm-prod" style="background: {{q.color}}"><img src="{{q.img}}" alt=""/></span><span>{{q.name}}</span></span>{{/each}}</div>
+      <button type="button" class="nsm-take" data-action="takeTray">PEGAR<br><span>{{trayCount}} na gaveta</span></button>
+      {{else}}
+      <span class="nsm-hint">gaveta vazia: os produtos caem aqui e ficam até você pegar</span>
+      {{/if}}
+    </div>
+  </div>
+  <div class="nsm-right">
+    <div class="nsm-display"><span>{{line1}}</span><span class="nsm-big">{{line2}}</span><span>{{line3}}</span></div>
+    {{#if buyerOptions}}<select data-buyer class="nsm-buyer">{{#each buyerOptions as |o|}}<option value="{{o.value}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>{{/each}}</select>{{/if}}
+    <div class="nsm-pad">{{#each keys as |k|}}<button type="button" class="nsm-key {{k.cls}}" data-action="pressKey" data-key="{{k.key}}">{{k.label}}</button>{{/each}}</div>
+    <button type="button" class="nsm-buy" data-action="buyPicked" {{#if cantBuy}}disabled{{/if}}>Comprar</button>
+    <div class="nsm-coin"><span class="nsm-slotcoin"></span><span class="nsm-hint">Pago das moedas do personagem (qualquer moeda, convertida)</span></div>
+    <div class="nsm-hint">A letra muda a prateleira; depois 2 dígitos (ex.: A03). Esta máquina não compra de volta. Sem estoque: ESGOTADO.</div>
+  </div>
+  {{/if}}
+</div>

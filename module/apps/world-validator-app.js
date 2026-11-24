@@ -21,12 +21,15 @@ import {
   getCrewRoles,
   getModuleCategories,
   getVesselSizes,
-  getVesselClasses
+  getVesselClasses,
+  isShopsEnabled
 } from "../core/config.js";
 import { buildCatalogIndex, validateActor, validateItem, validateCatalogs, validateTrap, validateTimeSetup, CATALOG_LABELS } from "../world/world-validator.js";
 import { syncPreviewFor } from "../species/species.js";
 import { getRawTimelines, sceneTimeFlag, listChambers } from "../core/world-time.js";
-import { folderOwn } from "../environment/scene-config.js";
+import { folderOwn, sceneOwnValues } from "../environment/scene-config.js";
+import { collectLootValidation, depotForScene } from "../economy/loot.js";
+import { lootIssues } from "../economy/loot-rules.js";
 // Atores do Diretório + sintéticos dos Tokens não vinculados (cada Drone é um Ator diferente).
 import { worldActors } from "../helpers/world-actors.js";
 
@@ -136,8 +139,15 @@ export class WorldValidatorApp extends HandlebarsApplicationMixin(ApplicationV2)
 
     const documents = [];
     const actors = worldActors();
+    // Lojas online (lote C): existe alguma cena (ou pasta) que aponte um depósito para as entregas?
+    const depotAnywhere = !isShopsEnabled() || game.scenes.some(scene => depotForScene(scene));
     for (const actor of actors) {
-      const issues = validateActor(actor.toObject(), idx, { uuidExists, catalogs });
+      const issues = validateActor(actor.toObject(), idx, {
+        uuidExists,
+        catalogs,
+        shops: isShopsEnabled(),
+        depotAnywhere
+      });
       // Ficha atrás do catálogo (a Espécie foi editada depois de aplicada): só aviso, a origem
       // continua funcionando — sincronizar é pela aba Origem ou pelo editor de Espécies.
       if (actor.type === "character" && syncPreviewFor(actor)) {
@@ -177,6 +187,24 @@ export class WorldValidatorApp extends HandlebarsApplicationMixin(ApplicationV2)
       chambers: listChambers().map(c => ({ where: `${c.scene.name} › ${c.region.name}`, rate: c.behavior.system?.rate }))
     });
     if (timeIssues.length) documents.push({ uuid: "", img: "icons/svg/clockwork.svg", name: "Calendário e linhas do tempo", type: "Tempo", issues: timeIssues.map(i => ({ ...i, itemUuid: "" })) });
+
+    // Lojas, lote B: depósito que sumiu, pilha vazia esquecida no mapa, item sem dono no depósito.
+    if (isShopsEnabled()) {
+      const loot = collectLootValidation();
+      const lootList = lootIssues({
+        scenes: game.scenes.map(scene => {
+          const uuid = sceneOwnValues(scene).depotId ?? "";
+          return { name: scene.name, depotUuid: uuid, depotExists: loot.exists(uuid) };
+        }),
+        folders: game.folders.filter(f => f.type === "Scene").map(f => {
+          const uuid = folderOwn(f).depotId ?? "";
+          return { name: f.name, depotUuid: uuid, depotExists: loot.exists(uuid) };
+        }),
+        piles: loot.piles,
+        deposits: loot.deposits
+      });
+      if (lootList.length) documents.push({ uuid: "", img: "icons/svg/chest.svg", name: "Pilhas e depósitos de entregas", type: "Lojas", issues: lootList.map(i => ({ ...i, itemUuid: "" })) });
+    }
 
     let packCount = 0;
     if (this.includePacks) {

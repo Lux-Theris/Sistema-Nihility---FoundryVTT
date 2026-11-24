@@ -30,9 +30,13 @@ import { RELAY_HANDLERS as lights } from "../combat/lights.js";
 import { RELAY_HANDLERS as upkeep } from "../skills/upkeep.js";
 import { RELAY_HANDLERS as areaEffects } from "../combat/area-effects.js";
 import { RELAY_HANDLERS as surfaces } from "../environment/surfaces.js";
+import { RELAY_HANDLERS as shops } from "../economy/shops.js";
+import { RELAY_HANDLERS as shopOnline } from "../economy/shop-online.js";
+import { RELAY_HANDLERS as loot } from "../economy/loot.js";
+import { RELAY_HANDLERS as playerTrade } from "../economy/player-trade.js";
 
 /** Um objeto por subsistema; a ordem não importa. */
-const ALL_HANDLERS = [worldTime, padLibrary, resistance, skillXp, incapacitation, compendium, skillEffects, creation, playerUploads, forms, borrowedSkills, naming, reroll, structures, forcedMovement, sustainedShields, starshipPower, lights, upkeep, areaEffects, surfaces];
+const ALL_HANDLERS = [worldTime, padLibrary, resistance, skillXp, incapacitation, compendium, skillEffects, creation, playerUploads, forms, borrowedSkills, naming, reroll, structures, forcedMovement, sustainedShields, starshipPower, lights, upkeep, areaEffects, surfaces, shops, shopOnline, loot, playerTrade];
 
 /** Registra todas as ações e avisa o Mestre, na tela, se faltar ou sobrar alguma. */
 export function registerAllRelayActions() {

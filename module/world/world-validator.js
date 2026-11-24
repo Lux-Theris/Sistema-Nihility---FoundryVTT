@@ -12,6 +12,7 @@
  */
 import { sizeFitsClass } from "../core/config.js";
 import { weaponTypeCatalogIssues } from "../combat/weapon-mastery-rules.js";
+import { shopSetupIssues, normalizeItemShop } from "../economy/shop-rules.js";
 
 const ids = list => new Set((list ?? []).map(entry => (typeof entry === "string" ? entry : entry?.id ?? entry?.key)).filter(Boolean));
 
@@ -233,7 +234,7 @@ export function soulLinkIssues(flags, uuidExists = () => true) {
  * @param {{uuidExists?: (uuid:string) => boolean}} [options]
  * @returns {Array<{where:string, catalog:string, ref:string, message:string, itemId?:string}>}
  */
-export function validateActor(actor, idx, { uuidExists = () => true, catalogs = null } = {}) {
+export function validateActor(actor, idx, { uuidExists = () => true, catalogs = null, shops = false, depotAnywhere = true } = {}) {
   const s = actor?.system ?? {};
   const items = actor?.items ?? [];
   const issues = [];
@@ -260,6 +261,17 @@ export function validateActor(actor, idx, { uuidExists = () => true, catalogs = 
         issues.push({ where: at(item.name, "Guardado em"), catalog: "containers", ref: containerId, message: "aponta para um contêiner que não existe mais (o item conta como solto)", itemId: item._id });
       }
     }
+  }
+
+  // Loja (G2): aberta sem estoque, item à venda sem preço base, jogadores que não enxergam a ficha.
+  if (actor?.type === "character" && s.shop?.enabled) {
+    const stock = items
+      .filter(i => i.type === "item" || i.type === "starship_module")
+      .map(i => {
+        const shop = normalizeItemShop(i.system?.shop);
+        return { name: i.name, stock: shop.stock, digital: shop.digital, deliveryHours: shop.deliveryHours, hasPrice: shop.basePrice > 0 || (Number(i.system?.value?.amount) || 0) > 0 || shop.priceOverride !== null };
+      });
+    for (const issue of shopSetupIssues({ shop: s.shop, stock, shopsEnabled: shops, depotAnywhere })) issues.push({ where: issue.where, catalog: "shops", ref: "", message: issue.message });
   }
 
   if (actor?.type === "starship" || actor?.type === "vehicle") {

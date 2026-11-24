@@ -86,7 +86,7 @@ test("Textos curtos, padrões e aviso do Validar Mundo", () => {
   assert.equal(ownBannerText(3), "3 campos com valor próprio");
   assert.deepEqual(fieldDefault("hazards"), []);
   assert.notEqual(fieldDefault("hazards"), fieldDefault("hazards"), "cada chamada devolve uma lista nova");
-  assert.equal(SCENE_FIELD_KEYS.length, 6);
+  assert.equal(SCENE_FIELD_KEYS.length, 7);
   assert.equal(folderConfigIssues([{ name: "Kalis", cfg: { lineId: "morta" } }, { name: "Ok", cfg: { lineId: "main" } }], ["futuro"]).length, 1);
   const issues = validateTimeSetup({ timelines: [{ id: "futuro", name: "F", rate: 1 }], folders: [{ name: "Kalis", lineId: "morta" }, { name: "Ok", lineId: "futuro" }] });
   assert.equal(issues.length, 1);

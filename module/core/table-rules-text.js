@@ -60,6 +60,17 @@ export function buildTableRulesPages(d) {
     parts.push(`<h2>Vida, ${energy} e subir de nível</h2>`);
     parts.push(`<p>Vida máxima = ${vitalText(d.vital.hp, d.vital.multiplier)} (no mínimo ${esc(d.vital.floor)}).${d.vital.energyEnabled ? ` ${energy} máxima = ${vitalText(d.vital.energy, d.vital.multiplier)}.` : ` Esta campanha não usa ${energy}.`}</p>`);
     parts.push(`<p>XP para o próximo nível: ${num(d.xpFormula)}. ${d.attributePool ? `Você começa com <b>${esc(d.pointsStart)}</b> pontos de atributo e ganha <b>${esc(d.pointsPerLevel)}</b> por nível.` : ""} Quem sobe o nível é o Mestre.</p>`);
+    if (d.features.shops) {
+      parts.push("<h2>Lojas</h2>");
+      parts.push("<p>Uma <b>loja</b> é a ficha de um vendedor (ou um ponto de venda sem ninguém). O preço de cada item é o preço geral dele × o multiplicador da loja × um <b>sorteio</b> que cada loja faz (até 25% para mais ou para menos, o Mestre escolhe o teto); o sorteio só muda quando a loja reabastece. Comprar sai na hora, pagando em qualquer moeda (a conta converte sozinha). O Mestre confere o preço e o estoque, e pode desfazer a última venda.</p>");
+      parts.push("<p>Para <b>vender</b>: num ponto automático (máquina, balcão, internet) o item é comprado por uma fração do preço geral (padrão 50%; consumível com cargas vale pelo que resta, arma carregada é descarregada antes). Com um vendedor NPC você marca os itens e <b>pede uma avaliação</b>: o Mestre faz uma oferta e os dois aceitam. Item equipado e contêiner com coisas dentro não se vende.</p>");
+      parts.push("<p>O Mestre escolhe <b>quem vê cada loja</b> (Mostrar aos jogadores): quem foi escolhido recebe a Vitrine, nunca a ficha. Uma <b>máquina de venda</b> tem prateleiras e códigos (A03) e abre para quem clicar nela a até 2 m; ela não compra de volta.</p>");
+      parts.push("<h2>Trocar, saquear e largar</h2>");
+      parts.push("<p><b>Troca entre jogadores:</b> use \"Trocar com…\" no cabeçalho da ficha; os dois precisam estar a até 2 m, cada um põe itens e moedas do próprio personagem e os dois aceitam. Qualquer mudança depois de um aceite apaga os dois.</p>");
+      parts.push("<p><b>Saque:</b> perto (até 2 m) de um NPC caído ou morto, clique no corpo e pegue itens e moedas. <b>Largar:</b> arraste um item da ficha para o mapa; vira uma pilha que qualquer um perto pega e que some quando esvazia. <b>Entregas:</b> as compras online caem no depósito do lugar; você só vê (e só pega) o que é seu.</p>");
+      parts.push("<h2>Compras online (PAD)</h2>");
+      parts.push("<p>O app <b>Compras</b> do PAD mostra as lojas online. Precisa de <b>rede</b> (a cena \"tem rede\") e de energia no aparelho: sem rede, ou sob PEM, aparece \"Sem conexão\". Você junta itens de várias lojas no carrinho e paga em qualquer moeda. <b>Software</b> chega na hora, direto no inventário. O resto vai para o <b>depósito do lugar</b> onde você está, ou para o porão da sua nave se ela estiver atracada ali, e pode ter prazo de entrega pelo relógio do mundo. Sem depósito na cena não há \"endereço de entrega\" e a compra não sai. A aba <b>Entregas</b> mostra o que está a caminho e onde retirar.</p>");
+    }
     pages.push({ key: "basics", name: "Como se joga", html: parts.join("\n") });
   }
 

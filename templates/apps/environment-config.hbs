@@ -62,6 +62,18 @@
     </section>
     {{/if}}
 
+    {{#if shopsEnabled}}
+    <section class="env-sec">
+      <h3><i class="fas fa-box-open"></i> Entregas vão para</h3>
+      {{{chips.depotId}}}
+      <div class="env-line" data-field="depotId">
+        <select name="depotId">{{#each depotOptions as |o|}}<option value="{{o.id}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>{{/each}}</select>
+        <button type="button" data-action="createDepot">+ Criar depósito</button>
+      </div>
+      <p class="env-note">Onde caem as compras online de quem está {{#if isFolder}}nas cenas desta pasta{{else}}nesta cena{{/if}}. "Criar depósito" faz o Ator "Depósito: nome" e já liga. Opcional: arraste o Ator para o mapa (armário, balcão, terminal); o jogador a 2 m clica e vê só o que é dele. Sem Token o depósito existe do mesmo jeito (o Mestre abre a ficha e entrega narrando).</p>
+    </section>
+    {{/if}}
+
     <section class="env-sec env-hazards" data-field="hazards">
       <h3>Perigos</h3>
       {{{chips.hazards}}}
@@ -121,6 +133,15 @@
       <button type="button" data-action="addHazard"><i class="fas fa-plus"></i> Perigo</button>
     </section>
     {{#unless fxActive}}<p class="env-note"><i class="fas fa-circle-info"></i> Com o módulo <strong>FXMaster</strong> ativo, cada perigo pode ligar um visual na cena (clima pronto, partícula, filtro e cor).</p>{{/unless}}
+    {{#if lootPanel}}
+    <section class="env-sec">
+      <h3><i class="fas fa-bag-shopping"></i> Lojas e pilhas</h3>
+      <p class="env-note">Pilhas largadas nesta cena: <strong>{{pileCount}}</strong> ({{pileItems}} itens). Corpos e depósitos não entram.</p>
+      <button type="button" data-action="clearPiles" {{#unless pileCount}}disabled{{/unless}}><i class="fas fa-trash"></i> Limpar pilhas da cena</button>
+      <p class="env-note">Última troca entre jogadores: {{#if lastTradeLabel}}{{lastTradeLabel}}{{else}}nenhuma que dê para desfazer{{/if}}.</p>
+      <button type="button" data-action="undoTrade" {{#unless lastTradeLabel}}disabled{{/unless}}><i class="fas fa-rotate-left"></i> Desfazer última troca</button>
+    </section>
+    {{/if}}
     {{#if isFolder}}
     <section class="env-sec env-summary">
       <h3><i class="fas fa-list"></i> Cenas com valor próprio</h3>

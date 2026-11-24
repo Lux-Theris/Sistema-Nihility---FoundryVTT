@@ -21,6 +21,7 @@
 import { SYSTEM_ID, NIHILITY, getActiveStatusConditions, isWorldClockEnabled } from "./config.js";
 import { isDesignatedGm } from "../helpers/gm-relay.js";
 import { sceneDarkness, sceneDarknessUpdate, sceneStoredDarkness, sceneCycleOn } from "../helpers/foundry-compat.js";
+import { sceneField, sceneConfigChanged } from "../environment/scene-config.js";
 import { showVoiceBanner } from "./voice-banner.js";
 import {
   personalNow, personalRate, ensurePersonalTrack, localNowForActor, lineNow, sceneLine, getTimelines, dayLengthSeconds, localDateText, setWorldClockLocal,
@@ -139,7 +140,7 @@ export async function setWorldClock(localTime) {
 /* ------------------------------------------------------------------ Escuridão das cenas */
 
 function clockScenes() {
-  return game.scenes.filter(scene => scene.getFlag(SYSTEM_ID, "environment")?.clockDarkness);
+  return game.scenes.filter(scene => sceneField(scene, "clockDarkness"));
 }
 
 /** Põe a escuridão das cenas marcadas conforme a hora. Só o Mestre designado. */
@@ -368,7 +369,7 @@ export function registerWorldClock() {
   Hooks.on("updateScene", (scene, changed) => {
     const darkChanged = foundry.utils.hasProperty(changed, "environment.darknessLevel") || "darkness" in changed;
     if (darkChanged) scheduleRefresh();
-    if (foundry.utils.hasProperty(changed, `flags.${SYSTEM_ID}.environment`) || foundry.utils.hasProperty(changed, `flags.${SYSTEM_ID}.time`)) applySceneDarkness();
+    if (foundry.utils.hasProperty(changed, `flags.${SYSTEM_ID}.environment`) || foundry.utils.hasProperty(changed, `flags.${SYSTEM_ID}.time`) || sceneConfigChanged(changed)) applySceneDarkness();
   });
   Hooks.on("updateToken", (token, changed) => {
     if ("x" in changed || "y" in changed || "elevation" in changed || "level" in changed) scheduleRefresh();

@@ -36,6 +36,7 @@ import { saveTextToFile, readFileAsText } from "../helpers/foundry-compat.js";
 import { readTransferBundle, buildTransferBundle, diffTransfer, transferGroup } from "../core/config-transfer.js";
 import { reportError } from "../helpers/report.js";
 import { escapeHtml } from "../helpers/html.js";
+import { sceneEnvironment } from "../environment/environment.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 
@@ -505,12 +506,10 @@ async function importData() {
 
 /** Estado do Ambiente na cena aberta, para a linha do menu. */
 function environmentState() {
-  const raw = canvas?.scene?.getFlag?.(SYSTEM_ID, "environment");
   if (!canvas?.scene) return "sem cena aberta";
-  const hazards = (raw?.hazards ?? []).length;
-  const density = raw?.manaDensity;
-  const parts = [hazards ? `${hazards} perigo(s)` : "sem perigo"];
-  if (density !== null && density !== undefined && density !== "") parts.push(`mana ×${density}`);
+  const env = sceneEnvironment(canvas.scene);
+  const parts = [env.hazards.length ? `${env.hazards.length} perigo(s)` : "sem perigo"];
+  if (env.manaDensity !== null) parts.push(`mana ×${env.manaDensity}`);
   return parts.join(" · ");
 }
 

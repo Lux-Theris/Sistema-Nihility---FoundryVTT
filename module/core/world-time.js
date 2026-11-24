@@ -24,6 +24,7 @@ import { combatScenes } from "../helpers/foundry-compat.js";
 import { escapeHtml } from "../helpers/html.js";
 import { reportError } from "../helpers/report.js";
 import { itemIsTech } from "./magic-rules.js";
+import { sceneField, setSceneOwn, sceneConfigChanged } from "../environment/scene-config.js";
 import { actorTimeFactor } from "../combat/time-rate.js";
 import { isTimeStopped } from "../combat/time-stop-state.js";
 import { showVoiceBanner } from "./voice-banner.js";
@@ -131,10 +132,9 @@ export function localDateLong(local) {
 
 /* ------------------------------------------------------------------ Linhas e cenas */
 
-/** A flag de tempo de uma cena: `{lineId, network}`. */
+/** O tempo de uma cena: `{lineId, network}` — valor próprio, senão o da pasta (H20), senão a linha principal. */
 export function sceneTimeFlag(scene) {
-  const flag = scene?.getFlag?.(SYSTEM_ID, "time") ?? {};
-  return { lineId: typeof flag.lineId === "string" && flag.lineId ? flag.lineId : MAIN_LINE_ID, network: Boolean(flag.network) };
+  return { lineId: sceneField(scene, "lineId") || MAIN_LINE_ID, network: Boolean(sceneField(scene, "network")) };
 }
 
 /** A linha de uma cena. Bloco desligado ou sem cena: a principal com ritmo 1. */
@@ -599,6 +599,11 @@ export function settleDevices(actors, scene, { network: networkNow = null } = {}
   return Promise.allSettled(jobs);
 }
 
+/** A mudança de uma cena mexe no tempo dela? (flag antiga `time`, valor próprio novo ou mudança de pasta — H20). */
+function timeConfigChanged(changed) {
+  return foundry.utils.hasProperty(changed, `flags.${SYSTEM_ID}.time`) || sceneConfigChanged(changed);
+}
+
 /** Os Atores com Token numa cena. */
 export function actorsInScene(scene) {
   const seen = new Map();
@@ -621,8 +626,9 @@ export async function commitTimelines(lines, { lineId = null, sceneIds = null } 
     const keep = new Set(sceneIds);
     for (const scene of game.scenes) {
       const flag = sceneTimeFlag(scene);
-      if (keep.has(scene.id) && flag.lineId !== lineId) await scene.setFlag(SYSTEM_ID, "time", { ...flag, lineId });
-      else if (!keep.has(scene.id) && flag.lineId === lineId) await scene.setFlag(SYSTEM_ID, "time", { ...flag, lineId: MAIN_LINE_ID });
+      // Valor PRÓPRIO da cena (H20): a linha escolhida aqui vale por cima da pasta.
+      if (keep.has(scene.id) && flag.lineId !== lineId) await setSceneOwn(scene, { lineId });
+      else if (!keep.has(scene.id) && flag.lineId === lineId) await setSceneOwn(scene, { lineId: MAIN_LINE_ID });
     }
   }
   await syncAllPersonalTimes();
@@ -832,13 +838,13 @@ export function registerWorldTime() {
   // A cena trocou de linha ou de "tem rede": antes de mudar, guarda a data de quem está nela.
   Hooks.on("preUpdateScene", (scene, changed) => {
     if (!isDesignatedGm() || !calendarOn()) return;
-    if (!foundry.utils.hasProperty(changed, `flags.${SYSTEM_ID}.time`)) return;
+    if (!timeConfigChanged(changed)) return;
     settleDevices(actorsInScene(scene), scene);
   });
   Hooks.on("updateScene", (scene, changed) => {
     if (!isDesignatedGm() || !calendarOn()) return;
     // A cena ativa decide a linha de quem tem Token em duas cenas: trocar a ativa também reajusta.
-    if (!foundry.utils.hasProperty(changed, `flags.${SYSTEM_ID}.time`) && !("active" in changed)) return;
+    if (!timeConfigChanged(changed) && !("active" in changed)) return;
     syncAllPersonalTimes();
   });
   Hooks.on("updateActor", (actor, changed) => {

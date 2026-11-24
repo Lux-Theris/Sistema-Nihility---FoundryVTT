@@ -281,6 +281,10 @@ export function isInterferenceEnabled() {
 export function isEnvironmentEnabled() {
   return isFeatureEnabled("environment");
 }
+/** Configuração de cenas por pasta (H20). Desligado: vale só o valor da própria cena. */
+export function isSceneFoldersEnabled() {
+  return isFeatureEnabled("sceneFolders");
+}
 export function isIncapacitationEnabled() {
   return isFeatureEnabled("incapacitation");
 }

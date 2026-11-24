@@ -26,6 +26,7 @@ import {
 import { buildCatalogIndex, validateActor, validateItem, validateCatalogs, validateTrap, validateTimeSetup, CATALOG_LABELS } from "../world/world-validator.js";
 import { syncPreviewFor } from "../species/species.js";
 import { getRawTimelines, sceneTimeFlag, listChambers } from "../core/world-time.js";
+import { folderOwn } from "../environment/scene-config.js";
 // Atores do Diretório + sintéticos dos Tokens não vinculados (cada Drone é um Ator diferente).
 import { worldActors } from "../helpers/world-actors.js";
 
@@ -171,6 +172,7 @@ export class WorldValidatorApp extends HandlebarsApplicationMixin(ApplicationV2)
     const timeIssues = validateTimeSetup({
       timelines: getRawTimelines(),
       scenes: game.scenes.map(scene => ({ name: scene.name, lineId: sceneTimeFlag(scene).lineId })),
+      folders: game.folders.filter(f => f.type === "Scene").map(f => ({ name: f.name, lineId: folderOwn(f).lineId })),
       activeModules: game.modules.filter(m => m.active).map(m => m.id),
       chambers: listChambers().map(c => ({ where: `${c.scene.name} › ${c.region.name}`, rate: c.behavior.system?.rate }))
     });

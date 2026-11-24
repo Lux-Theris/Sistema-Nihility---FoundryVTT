@@ -83,6 +83,7 @@ import { registerSenses } from "./combat/senses.js";
 import { registerNaming } from "./species/naming.js";
 import { registerPredation } from "./skills/predation.js";
 import { registerEnvironmentSceneMenu } from "./apps/environment-config.js";
+import { registerSceneFolders } from "./environment/scene-config-apply.js";
 import { registerShieldLightHooks } from "./combat/lights.js";
 import { registerShieldPoolReconcile } from "./combat/shield-pools.js";
 import { registerStatusConditions, interceptManualCondition } from "./combat/conditions.js";
@@ -238,6 +239,7 @@ Hooks.once("init", () => {
   registerTimeRewind();
   registerEnvironment();
   registerEnvironmentSceneMenu();
+  registerSceneFolders();
   registerRadiation();
   // Armadilhas de Região (I1) e Relógio do mundo (J9).
   registerTraps();

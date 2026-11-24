@@ -21,20 +21,24 @@ import { SYSTEM_ID, NIHILITY, getActiveStatusConditions, getActiveTraits, actorT
 import { isDesignatedGm } from "../helpers/gm-relay.js";
 import { desiredEnvironmentConditions, environmentDiff, resolveManaDensity, normalizeHazard, normalizeDensity, wantedSceneFx, sceneFxPlan, fxPresetLabel } from "./environment-rules.js";
 import { reportError } from "../helpers/report.js";
+import { sceneField, sceneConfigChanged } from "./scene-config.js";
 
 export const BEHAVIOR_TYPE = "nihilityEnvironment";
 const FLAG = "environment";
 
-/** O ambiente salvo numa cena (limpo). */
+/**
+ * O ambiente de uma cena (limpo): valor próprio dela, senão o da pasta (H20), senão o padrão — pela
+ * leitura única de scene-config.js. `fxPlaying` é estado do visual, só da cena (não herda).
+ */
 export function sceneEnvironment(scene) {
   const raw = scene?.getFlag?.(SYSTEM_ID, FLAG) ?? {};
   return {
-    hazards: (raw.hazards ?? []).map(normalizeHazard).filter(Boolean),
-    manaDensity: normalizeDensity(raw.manaDensity),
+    hazards: sceneField(scene, "hazards").map(normalizeHazard).filter(Boolean),
+    manaDensity: normalizeDensity(sceneField(scene, "manaDensity")),
     // Nível de radiação da cena inteira (radiation.js); 0 = sem radiação.
-    radiation: Math.max(0, Number(raw.radiation) || 0),
+    radiation: Math.max(0, Number(sceneField(scene, "radiation")) || 0),
     // J9: a escuridão da cena segue o relógio do mundo (world-clock.js).
-    clockDarkness: Boolean(raw.clockDarkness),
+    clockDarkness: Boolean(sceneField(scene, "clockDarkness")),
     fxPlaying: Array.isArray(raw.fxPlaying) ? raw.fxPlaying : []
   };
 }
@@ -330,7 +334,7 @@ export function registerEnvironment() {
   });
   Hooks.on("deleteToken", token => leaveScene(token));
   Hooks.on("updateScene", (scene, changed) => {
-    if (foundry.utils.hasProperty(changed, `flags.${SYSTEM_ID}.${FLAG}`)) syncSceneEnvironment(scene);
+    if (foundry.utils.hasProperty(changed, `flags.${SYSTEM_ID}.${FLAG}`) || sceneConfigChanged(changed)) syncSceneEnvironment(scene);
   });
   const behaviorChanged = behavior => {
     if (behavior.type === BEHAVIOR_TYPE) syncSceneEnvironment(behavior.parent?.parent);

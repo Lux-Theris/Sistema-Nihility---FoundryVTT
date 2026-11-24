@@ -180,7 +180,8 @@ export function buildTableRulesPages(d) {
         "<p>O mundo tem um <b>calendário</b> próprio (meses, semana, eras). Cada cena está numa <b>linha do tempo</b>: ela diz que época é e a que velocidade o tempo corre ali. Atravessar uma porta para 500 anos atrás é trocar de cena para uma linha do passado.</p>",
         "<p>Cada personagem tem o seu <b>tempo pessoal</b>: é o que ele viveu, e é ele que conta o sono e o descanso. O relógio do seu <b>PAD</b> mostra a data que ele <i>acha</i> que é: depois de uma porta no tempo, ele continua mostrando a data antiga até você tocar em <b>Atualizar</b> e o Mestre aprovar (em lugares com rede o PAD acerta sozinho). Um relógio de bolso é acertado por quem o tem, à mão.</p>",
         "<p>Numa luta em lugar de tempo diferente, o resto do mundo fica parado até o combate acabar (ou passa tudo de uma vez no fim, conforme a linha).</p>",
-        "<p>Uma sala do mapa também pode ter o tempo diferente (uma <b>câmara do tempo</b>): quem entra vive no ritmo dela e sai com o relógio e a idade desencontrados do resto do grupo. Se os combatentes de uma luta estão em ritmos diferentes, vale o da maioria. Na ficha, a <b>idade</b> (quando o Mestre a preenche) sobe com o tempo pessoal, não com o tempo do mundo.</p>"
+        "<p>Uma sala do mapa também pode ter o tempo diferente (uma <b>câmara do tempo</b>): quem entra vive no ritmo dela e sai com o relógio e a idade desencontrados do resto do grupo. Se os combatentes de uma luta estão em ritmos diferentes, vale o da maioria. Na ficha, a <b>idade</b> (quando o Mestre a preenche) sobe com o tempo pessoal, não com o tempo do mundo.</p>",
+        ...(d.features.sceneFolders ? ["<p>As cenas de uma mesma <b>pasta</b> do Diretório de Cenas costumam dividir a linha do tempo e o ambiente (mana, radiação, perigos): a cena segue a pasta até o Mestre mudar algo só nela.</p>"] : [])
       ].join("\n")
     });
   }

@@ -315,11 +315,11 @@ export const CALENDAR_MODULES = ["seasons-and-stars", "foundryvtt-simple-calenda
 
 /**
  * Linhas do tempo e módulos de calendário (J9b). Pura.
- * @param {{timelines?: Array<{id:string,name?:string,rate?:number}>, scenes?: Array<{name:string, lineId:string}>, activeModules?: string[], chambers?: Array<{where:string, rate:number}>}} input
+ * @param {{timelines?: Array<{id:string,name?:string,rate?:number}>, scenes?: Array<{name:string, lineId:string}>, folders?: Array<{name:string, lineId:string}>, activeModules?: string[], chambers?: Array<{where:string, rate:number}>}} input
  *   `timelines` = a lista CRUA salva (antes de limitar o ritmo).
  * @returns {Array<{where:string, message:string}>}
  */
-export function validateTimeSetup({ timelines = [], scenes = [], activeModules = [], chambers = [] } = {}) {
+export function validateTimeSetup({ timelines = [], scenes = [], activeModules = [], chambers = [], folders = [] } = {}) {
   const issues = [];
   const ids = new Set((timelines ?? []).map(l => l?.id).concat("main"));
   for (const line of timelines ?? []) {
@@ -334,6 +334,10 @@ export function validateTimeSetup({ timelines = [], scenes = [], activeModules =
   }
   for (const scene of scenes ?? []) {
     if (scene?.lineId && !ids.has(scene.lineId)) issues.push({ where: `Cena "${scene.name}"`, message: `está numa linha do tempo que foi apagada ("${scene.lineId}"): conta como a linha principal` });
+  }
+  // Pasta de cenas (H20): o valor da pasta cita uma linha que não existe mais (as cenas dela herdam o erro).
+  for (const folder of folders ?? []) {
+    if (folder?.lineId && !ids.has(folder.lineId)) issues.push({ where: `Pasta de cenas "${folder.name}"`, message: `define uma linha do tempo que foi apagada ("${folder.lineId}"): as cenas dela que herdam contam como a linha principal` });
   }
   for (const id of CALENDAR_MODULES) {
     if ((activeModules ?? []).includes(id)) issues.push({ where: "Módulo de calendário", message: `"${id}" está ativo: o Nihility o ignora (a data vem da linha do tempo). O "definir data" dele volta o tempo do mundo, o que o aviso de retrocesso pega; só a linha principal aparece nele` });

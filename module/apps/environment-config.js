@@ -1,10 +1,15 @@
 import { SYSTEM_ID, NIHILITY, getActiveStatusConditions, isEnvironmentEnabled } from "../core/config.js";
 import { pickerFieldHtml, readPickerField, wireTraitPickerField } from "./checklist-picker.js";
-import { sceneEnvironment, availableFxPresets, availableFxParticles, availableFxFilters, syncSceneFx } from "../environment/environment.js";
-import { normalizeHazard, normalizeDensity } from "../environment/environment-rules.js";
+import { availableFxPresets, availableFxParticles, availableFxFilters } from "../environment/environment.js";
+import { isSceneFoldersEnabled } from "../core/config.js";
+import { escapeHtml } from "../helpers/html.js";
+import { sceneOwnValues, folderOwn, inheritanceChain, scenesWithOwnUnder, scenesUnderFolder, subfoldersOf, writeOwn } from "../environment/scene-config.js";
+import { copyFoundrySettings, settleFolderScenes } from "../environment/scene-config-apply.js";
+import { SCENE_FIELDS, SCENE_FIELD_KEYS, resolveAll, scenesWithOwn, fieldValueText, ownBannerText, normalizeCfg } from "../environment/scene-config-rules.js";
+import { SCENE_COPY_FIELDS, copyField } from "../environment/scene-copy-rules.js";
 import { isRadiationEnabled, passRadiationTime } from "../environment/radiation.js";
 import { isWorldClockEnabled, isCalendarEnabled } from "../core/config.js";
-import { getTimelines, sceneTimeFlag, lineNow, localDateText } from "../core/world-time.js";
+import { getTimelines, lineNow, localDateText } from "../core/world-time.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -17,14 +22,17 @@ export class EnvironmentConfigApp extends HandlebarsApplicationMixin(Application
   static DEFAULT_OPTIONS = {
     classes: [SYSTEM_ID, "nihility-config-app", "nihility-environment-config"],
     window: { title: "Ambiente da Cena", icon: "fa-solid fa-smog", resizable: true },
-    position: { width: 560, height: "auto" },
+    position: { width: 600, height: "auto" },
     actions: {
       addHazard: EnvironmentConfigApp.#onAddHazard,
       removeHazard: EnvironmentConfigApp.#onRemoveHazard,
       save: EnvironmentConfigApp.#onSave,
       passTime: EnvironmentConfigApp.#onPassTime,
       adjustLine: EnvironmentConfigApp.#onAdjustLine,
-      newLine: EnvironmentConfigApp.#onNewLine
+      newLine: EnvironmentConfigApp.#onNewLine,
+      inherit: EnvironmentConfigApp.#onInherit,
+      inheritAll: EnvironmentConfigApp.#onInheritAll,
+      applyCopy: EnvironmentConfigApp.#onApplyCopy
     }
   };
 
@@ -41,56 +49,136 @@ export class EnvironmentConfigApp extends HandlebarsApplicationMixin(Application
       ui.notifications.warn("Abra uma cena no mapa (ou clique com o direito numa cena da lista de Cenas → Ambiente).");
       return null;
     }
-    const existing = foundry.applications.instances.get(`nihility-environment-${scene.id}`);
+    return EnvironmentConfigApp.#show(`nihility-environment-${scene.id}`, { sceneId: scene.id });
+  }
+
+  /** A janela em modo PASTA (H20): grava nos valores da Pasta, que as cenas dela herdam. */
+  static openFolder(folder) {
+    if (!folder) return null;
+    return EnvironmentConfigApp.#show(`nihility-environment-folder-${folder.id}`, { folderId: folder.id });
+  }
+
+  static #show(id, options) {
+    const existing = foundry.applications.instances.get(id);
     if (existing) {
       existing.render({ force: true });
       existing.bringToFront?.();
       return existing;
     }
-    return new EnvironmentConfigApp({ id: `nihility-environment-${scene.id}`, sceneId: scene.id }).render({ force: true });
+    return new EnvironmentConfigApp({ id, ...options }).render({ force: true });
   }
 
   constructor(options = {}) {
     super(options);
-    this.sceneId = options.sceneId ?? canvas?.scene?.id ?? null;
+    this.folderId = options.folderId ?? null;
+    this.sceneId = this.folderId ? null : (options.sceneId ?? canvas?.scene?.id ?? null);
+  }
+
+  get isFolder() {
+    return Boolean(this.folderId);
   }
 
   get title() {
-    return `Ambiente — ${this.scene?.name ?? "cena"}`;
+    return this.isFolder ? `Ambiente da pasta — ${this.folder?.name ?? "pasta"}` : `Ambiente — ${this.scene?.name ?? "cena"}`;
   }
 
-  /** Cópia em edição: `{hazards, manaDensity}` (density como texto, "" = a do mundo). */
+  /** Cópia em edição: `{own: {campo: bool}, values: {campo: valor}}`. */
   draft = null;
 
+  /** Rascunho da cópia "do Foundry" (só na janela da pasta). */
+  copyDraft = null;
+
   get scene() {
-    return game.scenes.get(this.sceneId) ?? null;
+    return this.sceneId ? game.scenes.get(this.sceneId) ?? null : null;
+  }
+
+  get folder() {
+    return this.folderId ? game.folders.get(this.folderId) ?? null : null;
+  }
+
+  /** A cena ou a pasta que está sendo editada. */
+  get target() {
+    return this.isFolder ? this.folder : this.scene;
+  }
+
+  /** O que cada campo vale sem o valor próprio (herdado das pastas de cima, ou o padrão). */
+  #inherited() {
+    return resolveAll({ own: {}, chain: inheritanceChain(this.target) });
   }
 
   #loadDraft() {
-    const env = sceneEnvironment(this.scene);
-    this.draft = { hazards: env.hazards.map(h => ({ ...h })), manaDensity: env.manaDensity ?? "", radiation: env.radiation || 0, clockDarkness: Boolean(env.clockDarkness), time: sceneTimeFlag(this.scene) };
+    const own = this.isFolder ? folderOwn(this.folder) : sceneOwnValues(this.scene);
+    const inherited = this.#inherited();
+    this.draft = { own: {}, values: {} };
+    for (const key of SCENE_FIELD_KEYS) {
+      this.draft.own[key] = key in own;
+      const value = key in own ? own[key] : inherited[key].value;
+      this.draft.values[key] = Array.isArray(value) ? value.map(h => ({ ...h })) : value;
+    }
   }
 
   /** Lê o que está na tela para a cópia (antes de redesenhar, para não perder o que foi digitado). */
   #collect() {
     const root = this.element;
     if (!root || !this.draft) return;
+    const v = this.draft.values;
     const density = root.querySelector("[name=manaDensity]");
-    if (density) this.draft.manaDensity = density.value;
+    if (density) v.manaDensity = density.value === "" ? null : Number(density.value);
     const radiation = root.querySelector("[name=radiation]");
-    if (radiation) this.draft.radiation = Math.max(0, Number(radiation.value) || 0);
+    if (radiation) v.radiation = Math.max(0, Number(radiation.value) || 0);
     const clockDark = root.querySelector("[name=clockDarkness]");
-    if (clockDark) this.draft.clockDarkness = clockDark.checked;
+    if (clockDark) v.clockDarkness = clockDark.checked;
     const timeLine = root.querySelector("[name=timeLine]");
-    if (timeLine) this.draft.time = { lineId: timeLine.value || "main", network: Boolean(root.querySelector("[name=timeNetwork]")?.checked) };
-    this.draft.hazards = [...root.querySelectorAll(".env-hazard")].map(row => ({
-      conditionId: row.querySelector("[name=conditionId]")?.value ?? "",
-      immuneTraits: readPickerField(row.querySelector(".env-immune")),
-      fx: row.querySelector("[name=fx]")?.value ?? "",
-      fxParticle: row.querySelector("[name=fxParticle]")?.value ?? "",
-      fxFilter: row.querySelector("[name=fxFilter]")?.value ?? "",
-      fxColor: row.querySelector("[name=fxTint]")?.checked ? row.querySelector("[name=fxColor]")?.value ?? "" : ""
-    }));
+    if (timeLine) v.lineId = timeLine.value || "main";
+    const network = root.querySelector("[name=timeNetwork]");
+    if (network) v.network = network.checked;
+    if (root.querySelector(".env-hazards")) {
+      v.hazards = [...root.querySelectorAll(".env-hazard")].map(row => ({
+        conditionId: row.querySelector("[name=conditionId]")?.value ?? "",
+        immuneTraits: readPickerField(row.querySelector(".env-immune")),
+        fx: row.querySelector("[name=fx]")?.value ?? "",
+        fxParticle: row.querySelector("[name=fxParticle]")?.value ?? "",
+        fxFilter: row.querySelector("[name=fxFilter]")?.value ?? "",
+        fxColor: row.querySelector("[name=fxTint]")?.checked ? row.querySelector("[name=fxColor]")?.value ?? "" : ""
+      }));
+    }
+  }
+
+  /** O texto de "de onde vem" de um campo e o botão de voltar a herdar. */
+  #chip(key) {
+    const own = Boolean(this.draft.own[key]);
+    const inherited = this.#inherited()[key];
+    if (own) {
+      const back = inherited.source === "folder" ? "Voltar a herdar" : this.isFolder ? "Tirar o valor da pasta" : "Voltar ao padrão";
+      const from = inherited.source === "folder" ? ` (de ${inherited.from.name})` : "";
+      return { state: "own", text: this.isFolder ? "valor da pasta" : "valor próprio", back: back + from };
+    }
+    if (inherited.source === "folder") return { state: "inherit", text: `herdado de: ${inherited.from.name}`, back: "" };
+    return { state: "none", text: this.isFolder ? "sem valor — as cenas usam o padrão do sistema" : "sem valor — padrão do sistema", back: "" };
+  }
+
+  #chipHtml(key) {
+    const chip = this.#chip(key);
+    const button = chip.back ? ` <a class="env-chip-back" data-action="inherit" data-field="${escapeHtml(key)}"><i class="fas fa-rotate-left"></i> ${escapeHtml(chip.back)}</a>` : "";
+    return `<div class="env-chip env-chip-${chip.state}" data-chip="${escapeHtml(key)}"><span>${escapeHtml(chip.text)}</span>${button}</div>`;
+  }
+
+  /** Mexeu num campo: ele passa a ter valor próprio (a faixa muda na hora, sem redesenhar a janela). */
+  #markOwn(key) {
+    if (!key || !(key in SCENE_FIELDS) || this.draft.own[key]) return;
+    this.draft.own[key] = true;
+    const chip = this.element?.querySelector(`[data-chip="${key}"]`);
+    if (chip) chip.outerHTML = this.#chipHtml(key);
+    this.#updateBanner();
+  }
+
+  #ownCount() {
+    return SCENE_FIELD_KEYS.filter(key => this.draft.own[key]).length;
+  }
+
+  #updateBanner() {
+    const banner = this.element?.querySelector(".env-banner-count");
+    if (banner) banner.textContent = ownBannerText(this.#ownCount());
   }
 
   async _prepareContext(options) {
@@ -112,19 +200,26 @@ export class EnvironmentConfigApp extends HandlebarsApplicationMixin(Application
     } catch (err) {
       /* sem setting */
     }
-    return Object.assign(context, {
-      hasScene: Boolean(this.scene),
-      manaDensity: this.draft.manaDensity,
+    const v = this.draft.values;
+    const inheritEnabled = isSceneFoldersEnabled();
+    const extra = {
+      hasScene: Boolean(this.target),
+      isFolder: this.isFolder,
+      inheritEnabled,
+      manaDensity: v.manaDensity ?? "",
       radiationEnabled: isRadiationEnabled(),
-      radiation: this.draft.radiation,
+      radiation: v.radiation || 0,
       clockEnabled: isWorldClockEnabled(),
-      clockDarkness: Boolean(this.draft.clockDarkness),
+      clockDarkness: Boolean(v.clockDarkness),
       calendarEnabled: isWorldClockEnabled() && isCalendarEnabled(),
-      timeLines: getTimelines().map(line => ({ id: line.id, label: `${line.name} — ${localDateText(lineNow(line))}`, selected: line.id === this.draft.time?.lineId })),
-      timeNetwork: Boolean(this.draft.time?.network),
+      timeLines: getTimelines().map(line => ({ id: line.id, label: `${line.name} — ${localDateText(lineNow(line))}`, selected: line.id === v.lineId })),
+      timeNetwork: Boolean(v.network),
       worldDensity,
       fxActive,
-      hazards: this.draft.hazards.map((h, index) => ({
+      chips: inheritEnabled ? Object.fromEntries(SCENE_FIELD_KEYS.map(key => [key, this.#chipHtml(key)])) : {},
+      bannerText: ownBannerText(this.#ownCount()),
+      hasOwn: this.#ownCount() > 0,
+      hazards: v.hazards.map((h, index) => ({
         index,
         conditions: conditions.map(c => ({ id: c.id, label: c.label, selected: c.id === h.conditionId })),
         presetOptions: optionsFor(presets, h.fx),
@@ -134,23 +229,114 @@ export class EnvironmentConfigApp extends HandlebarsApplicationMixin(Application
         color: h.fxColor || "#33ff66",
         immuneHtml: pickerFieldHtml(h.immuneTraits ?? [], "env-immune")
       }))
+    };
+    if (this.isFolder && this.folder) Object.assign(extra, this.#folderContext());
+    return Object.assign(context, extra);
+  }
+
+  /** Resumo das cenas com valor próprio e os campos da cópia "do Foundry". */
+  #folderContext() {
+    const folder = this.folder;
+    const lines = getTimelines();
+    const scenes = scenesUnderFolder(folder);
+    const ownRows = scenesWithOwn(scenesWithOwnUnder(folder)).map(row => {
+      const own = sceneOwnValues(game.scenes.get(row.id));
+      return {
+        name: row.name,
+        text: row.fields.map(key => fieldValueText(key, own[key], { lineName: key === "lineId" ? lines.find(l => l.id === own[key])?.name : null })).join(" · ")
+      };
     });
+    const copy = this.copyDraft ?? {};
+    return {
+      sceneCount: scenes.length,
+      subfolderCount: subfoldersOf(folder).length,
+      ownScenes: ownRows,
+      ownSceneCount: ownRows.length,
+      copyFields: SCENE_COPY_FIELDS.map(field => {
+        const value = copy[field.key]?.value ?? field.def;
+        return {
+          key: field.key, label: field.label, hint: field.hint ?? "",
+          checked: Boolean(copy[field.key]?.on),
+          isBool: field.type === "bool", isNumber: field.type === "number", isScale: field.type === "scale", isPlaylist: field.type === "playlist",
+          boolValue: Boolean(value), numberValue: value, min: field.min, max: field.max, step: field.step,
+          distance: field.type === "scale" ? value.distance : "", units: field.type === "scale" ? value.units : "",
+          playlists: field.type === "playlist"
+            ? [{ id: "", label: "— nenhuma —", selected: !value }, ...game.playlists.map(p => ({ id: p.id, label: p.name, selected: p.id === value }))]
+            : []
+        };
+      })
+    };
   }
 
   _onRender(context, options) {
     super._onRender(context, options);
     for (const field of this.element.querySelectorAll(".env-immune")) wireTraitPickerField(field);
+    // Mexer num campo marca valor próprio (a cena ou a pasta deixa de herdar aquele campo).
+    const mark = event => {
+      const wrap = event.target.closest?.("[data-field]");
+      if (wrap && this.draft) this.#markOwn(wrap.dataset.field);
+    };
+    this.element.addEventListener("input", mark);
+    this.element.addEventListener("change", mark);
+  }
+
+  #collectCopy() {
+    const out = {};
+    if (!this.element || !this.isFolder) return out;
+    for (const row of this.element.querySelectorAll(".env-copy-row")) {
+      const key = row.dataset.copy;
+      const field = copyField(key);
+      if (!field) continue;
+      const on = row.querySelector("[name=copyOn]")?.checked ?? false;
+      let value;
+      if (field.type === "bool") value = row.querySelector("[name=copyValue]").checked;
+      else if (field.type === "number") value = Number(row.querySelector("[name=copyValue]").value) || 0;
+      else if (field.type === "scale") value = { distance: Number(row.querySelector("[name=copyDistance]").value) || 1, units: row.querySelector("[name=copyUnits]").value };
+      else value = row.querySelector("[name=copyValue]").value;
+      out[key] = { on, value };
+    }
+    return out;
+  }
+
+  static async #onApplyCopy() {
+    this.copyDraft = this.#collectCopy();
+    const picked = Object.fromEntries(Object.entries(this.copyDraft).filter(([, c]) => c.on).map(([key, c]) => [key, c.value]));
+    await copyFoundrySettings(this.folder, picked);
+    this.render();
+  }
+
+  static #onInherit(event, target) {
+    this.#collect();
+    const key = target.dataset.field;
+    if (!(key in SCENE_FIELDS)) return;
+    this.draft.own[key] = false;
+    const value = this.#inherited()[key].value;
+    this.draft.values[key] = Array.isArray(value) ? value.map(h => ({ ...h })) : value;
+    this.render();
+  }
+
+  static #onInheritAll() {
+    this.#collect();
+    const inherited = this.#inherited();
+    for (const key of SCENE_FIELD_KEYS) {
+      this.draft.own[key] = false;
+      const value = inherited[key].value;
+      this.draft.values[key] = Array.isArray(value) ? value.map(h => ({ ...h })) : value;
+    }
+    this.render();
   }
 
   static #onAddHazard() {
     this.#collect();
-    this.draft.hazards.push({ conditionId: getActiveStatusConditions()[0]?.id ?? "", immuneTraits: [], fx: "", fxParticle: "", fxFilter: "", fxColor: "" });
+    this.draft.values.hazards.push({ conditionId: getActiveStatusConditions()[0]?.id ?? "", immuneTraits: [], fx: "", fxParticle: "", fxFilter: "", fxColor: "" });
+    this.draft.own.hazards = true;
     this.render();
   }
 
   static #onRemoveHazard(event, target) {
     this.#collect();
-    this.draft.hazards.splice(Number(target.dataset.index), 1);
+    this.draft.values.hazards.splice(Number(target.dataset.index), 1);
+    this.draft.own.hazards = true;
     this.render();
   }
 
@@ -158,7 +344,7 @@ export class EnvironmentConfigApp extends HandlebarsApplicationMixin(Application
   static async #onAdjustLine() {
     this.#collect();
     const { openTimelineEditor } = await import("./timeline-editor.js");
-    openTimelineEditor(this.draft.time?.lineId || "main");
+    openTimelineEditor(this.draft.values.lineId || "main");
   }
 
   static async #onNewLine() {
@@ -201,20 +387,31 @@ export class EnvironmentConfigApp extends HandlebarsApplicationMixin(Application
   }
 
   static async #onSave() {
-    const scene = this.scene;
-    if (!scene) return;
+    const doc = this.target;
+    if (!doc) return;
     this.#collect();
-    const hazards = this.draft.hazards.map(normalizeHazard).filter(Boolean);
-    const manaDensity = normalizeDensity(this.draft.manaDensity);
-    const previous = sceneEnvironment(scene).fxPlaying;
-    const fxPlaying = await syncSceneFx(scene, hazards, previous);
-    // A troca da flag dispara a sincronização de todos os Tokens da cena (environment.js).
-    if (isWorldClockEnabled() && isCalendarEnabled() && this.draft.time) {
-      // Antes de a cena mudar de linha ou de "tem rede", o sistema guarda a data dos aparelhos (preUpdateScene).
-      await scene.setFlag(SYSTEM_ID, "time", { lineId: this.draft.time.lineId, network: Boolean(this.draft.time.network) });
+    const previous = this.isFolder ? folderOwn(doc) : sceneOwnValues(doc);
+    // Campos cuja seção não aparece (bloco desligado) ficam como estão.
+    const hidden = new Set([
+      ...(isRadiationEnabled() ? [] : ["radiation"]),
+      ...(isWorldClockEnabled() ? [] : ["clockDarkness"]),
+      ...(isWorldClockEnabled() && isCalendarEnabled() ? [] : ["lineId", "network"])
+    ]);
+    const next = {};
+    for (const key of SCENE_FIELD_KEYS) {
+      if (hidden.has(key)) {
+        if (key in previous) next[key] = previous[key];
+        continue;
+      }
+      if (!this.draft.own[key]) continue;
+      const clean = normalizeCfg({ [key]: this.draft.values[key] });
+      if (key in clean) next[key] = clean[key];
     }
-    await scene.setFlag(SYSTEM_ID, "environment", { hazards, manaDensity, radiation: this.draft.radiation || 0, clockDarkness: Boolean(this.draft.clockDarkness), fxPlaying });
-    ui.notifications.info(`Ambiente de "${scene.name}" salvo.`);
+    // Antes de a pasta mudar de linha ou de "tem rede", guarda a data dos aparelhos (a cena já faz isso por hook).
+    if (this.isFolder) await settleFolderScenes(doc);
+    // A troca da flag dispara Tokens, escuridão, tempo e visual (hooks de environment, world-clock, world-time e scene-config-apply).
+    await writeOwn(doc, next);
+    ui.notifications.info(this.isFolder ? `Ambiente da pasta "${doc.name}" salvo.` : `Ambiente de "${doc.name}" salvo.`);
     this.#loadDraft();
     this.render();
   }

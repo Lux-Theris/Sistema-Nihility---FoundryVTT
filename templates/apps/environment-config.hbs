@@ -1,14 +1,22 @@
 <div class="env-root">
   <div class="env-body">
+    {{#if isFolder}}
+    <p class="hint">
+      Vale para as <strong>{{sceneCount}} cena(s)</strong> desta pasta{{#if subfolderCount}} e de {{subfolderCount}} subpasta(s){{/if}}: cada cena <strong>herda</strong> o que a pasta define, até alguém editar a cena (aí ela passa a ter valor próprio). Campo sem valor não muda nada: a cena usa o padrão do sistema.
+    </p>
+    {{else}}
+    {{#if inheritEnabled}}{{#if hasOwn}}<div class="env-banner"><i class="fas fa-circle-info"></i> <span class="env-banner-count">{{bannerText}}</span> · <a data-action="inheritAll">Voltar a herdar tudo</a></div>{{/if}}{{/if}}
     <p class="hint">
       Vale para a <strong>cena inteira</strong> (outra cena: clique com o direito nela na lista de Cenas → Ambiente). Para um pedaço do mapa (uma sala sem ar, um nexo arcano), desenhe uma
       <strong>Região</strong> e adicione o comportamento <strong>Ambiente (Nihility)</strong> nela.
     </p>
+    {{/if}}
 
     {{#if hasScene}}
     <section class="env-sec">
       <h3>Densidade de mana</h3>
-      <div class="env-density">
+      {{{chips.manaDensity}}}
+      <div class="env-density" data-field="manaDensity">
         <input type="number" name="manaDensity" min="0" step="0.1" value="{{manaDensity}}" placeholder="{{worldDensity}}"/>
         <span class="env-note">Vazio = a do mundo ({{worldDensity}}). Multiplica a potência das Skills mágicas e a regeneração de Mana. <strong>0</strong> = magia não funciona.</span>
       </div>
@@ -17,7 +25,8 @@
     {{#if radiationEnabled}}
     <section class="env-sec">
       <h3><i class="fas fa-radiation"></i> Radiação</h3>
-      <div class="env-density">
+      {{{chips.radiation}}}
+      <div class="env-density" data-field="radiation">
         <input type="number" name="radiation" min="0" step="1" value="{{radiation}}"/>
         <span class="env-note">Nível da cena inteira (0 = nenhuma). Quem fica aqui vai sendo irradiado até este nível e leva dano por rodada. Áreas e Tokens (botão <i class="fas fa-radiation"></i> no HUD do Token) somam com isto.</span>
       </div>
@@ -27,7 +36,8 @@
     {{#if clockEnabled}}
     <section class="env-sec">
       <h3><i class="fas fa-sun"></i> Relógio do mundo</h3>
-      <label class="env-density env-check">
+      {{{chips.clockDarkness}}}
+      <label class="env-density env-check" data-field="clockDarkness">
         <input type="checkbox" name="clockDarkness" {{#if clockDarkness}}checked{{/if}}/>
         <span class="env-note"><strong>Escurece com o relógio.</strong> A escuridão desta cena é posta pelo Mestre conforme a hora (dia claro, noite escura, crepúsculo de 1 h). Deixe desmarcado em lugar fechado com lâmpadas: a escuridão desta cena nunca muda sozinha.</span>
       </label>
@@ -37,21 +47,24 @@
     {{#if calendarEnabled}}
     <section class="env-sec">
       <h3><i class="fas fa-hourglass-half"></i> Tempo da cena</h3>
-      <div class="env-line">
+      {{{chips.lineId}}}
+      <div class="env-line" data-field="lineId">
         <select name="timeLine">{{#each timeLines as |l|}}<option value="{{l.id}}" {{#if l.selected}}selected{{/if}}>{{l.label}}</option>{{/each}}</select>
         <button type="button" data-action="newLine">+ Nova linha…</button>
         <button type="button" data-action="adjustLine">Ajustar esta linha…</button>
       </div>
       <p class="env-note">"A porta para 500 anos atrás" = pôr a cena numa linha do passado. Data, ritmo e combate são da linha; várias cenas dividem a mesma linha.</p>
-      <label class="env-density env-check">
+      {{{chips.network}}}
+      <label class="env-density env-check" data-field="network">
         <input type="checkbox" name="timeNetwork" {{#if timeNetwork}}checked{{/if}}/>
         <span class="env-note"><strong>Tem rede.</strong> O PAD de quem está aqui acerta a data sozinho.</span>
       </label>
     </section>
     {{/if}}
 
-    <section class="env-sec">
+    <section class="env-sec env-hazards" data-field="hazards">
       <h3>Perigos</h3>
+      {{{chips.hazards}}}
       <p class="env-note">Cada perigo é uma Condição mantida em todo Personagem na cena, com o efeito padrão dela, enquanto ele estiver aqui. Quem tem um Traço imune escapa.</p>
       {{#each hazards as |h|}}
       <div class="env-hazard">
@@ -103,18 +116,45 @@
         {{/if}}
       </div>
       {{else}}
-      <p class="env-empty">Nenhum perigo nesta cena.</p>
+      <p class="env-empty">{{#if isFolder}}Nenhum perigo nesta pasta.{{else}}Nenhum perigo nesta cena.{{/if}}</p>
       {{/each}}
       <button type="button" data-action="addHazard"><i class="fas fa-plus"></i> Perigo</button>
     </section>
     {{#unless fxActive}}<p class="env-note"><i class="fas fa-circle-info"></i> Com o módulo <strong>FXMaster</strong> ativo, cada perigo pode ligar um visual na cena (clima pronto, partícula, filtro e cor).</p>{{/unless}}
+    {{#if isFolder}}
+    <section class="env-sec env-summary">
+      <h3><i class="fas fa-list"></i> Cenas com valor próprio</h3>
+      {{#if ownSceneCount}}
+      <p class="env-note">{{ownSceneCount}} cena(s) foram editadas depois e não seguem a pasta nesses campos.</p>
+      <ul class="env-own-list">{{#each ownScenes as |row|}}<li><strong>{{row.name}}</strong> — {{row.text}}</li>{{/each}}</ul>
+      {{else}}
+      <p class="env-empty">Nenhuma cena tem valor próprio: todas seguem a pasta.</p>
+      {{/if}}
+    </section>
+
+    <section class="env-sec env-copy">
+      <h3><i class="fas fa-copy"></i> Do Foundry — copiar uma vez</h3>
+      <p class="env-note">Configurações do próprio Foundry. Marque o que quer copiar e use <strong>Aplicar</strong>: é uma cópia única para as {{sceneCount}} cena(s) da pasta e subpastas, sem herança depois. Nada vem marcado.</p>
+      {{#each copyFields as |f|}}
+      <div class="env-copy-row" data-copy="{{f.key}}">
+        <label class="env-check"><input type="checkbox" name="copyOn" {{#if f.checked}}checked{{/if}}/> <strong>{{f.label}}</strong></label>
+        {{#if f.isBool}}<label class="env-check"><input type="checkbox" name="copyValue" {{#if f.boolValue}}checked{{/if}}/> ligado</label>{{/if}}
+        {{#if f.isNumber}}<input type="number" name="copyValue" min="{{f.min}}" max="{{f.max}}" step="{{f.step}}" value="{{f.numberValue}}"/>{{/if}}
+        {{#if f.isScale}}<input type="number" name="copyDistance" min="0" step="any" value="{{f.distance}}"/> <input type="text" name="copyUnits" value="{{f.units}}" size="4"/>{{/if}}
+        {{#if f.isPlaylist}}<select name="copyValue">{{#each f.playlists as |p|}}<option value="{{p.id}}" {{#if p.selected}}selected{{/if}}>{{p.label}}</option>{{/each}}</select>{{/if}}
+        {{#if f.hint}}<span class="env-note">{{f.hint}}</span>{{/if}}
+      </div>
+      {{/each}}
+      <button type="button" data-action="applyCopy"><i class="fas fa-copy"></i> Aplicar às {{sceneCount}} cena(s)</button>
+    </section>
+    {{/if}}
     {{else}}
-    <p class="env-empty">Esta cena não existe mais.</p>
+    <p class="env-empty">{{#if isFolder}}Esta pasta não existe mais.{{else}}Esta cena não existe mais.{{/if}}</p>
     {{/if}}
   </div>
   {{#if hasScene}}
   <footer class="env-footer">
-    {{#if radiationEnabled}}<button type="button" data-action="passTime" title="Fora de combate: aplica N rodadas de radiação de uma vez"><i class="fas fa-hourglass-half"></i> Passar tempo…</button>{{/if}}
+    {{#if radiationEnabled}}{{#unless isFolder}}<button type="button" data-action="passTime" title="Fora de combate: aplica N rodadas de radiação de uma vez"><i class="fas fa-hourglass-half"></i> Passar tempo…</button>{{/unless}}{{/if}}
     <button type="button" data-action="save"><i class="fas fa-save"></i> Salvar</button>
   </footer>
   {{/if}}

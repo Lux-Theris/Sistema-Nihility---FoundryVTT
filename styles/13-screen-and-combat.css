@@ -305,3 +305,17 @@ details.adv > .adv-body > .span-all { grid-column: 1 / -1; }
 
 /* Nome da ficha em janela estreita: reticências em vez de cortar seco (sessão 5). */
 .nihility-sheet .sheet-header input[name="name"] { text-overflow: ellipsis; min-width: 0; }
+
+/* Configuração de cenas por pasta (H20): azul = herdado, dourado = valor próprio, pontilhado = sem valor. */
+.nihility-environment-config .env-chip { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; padding: 2px 8px; border-radius: 4px; color: var(--nihility-text); }
+.nihility-environment-config .env-chip-inherit { border: 1px solid var(--nihility-accent); background: rgba(110, 231, 255, 0.08); color: var(--nihility-accent); }
+.nihility-environment-config .env-chip-own { border: 1px solid var(--nihility-gold); background: rgba(232, 193, 112, 0.1); color: var(--nihility-gold); }
+.nihility-environment-config .env-chip-none { border: 1px dashed var(--nihility-border); color: var(--nihility-text-faint); }
+.nihility-environment-config .env-chip-back { margin-left: auto; cursor: pointer; color: var(--nihility-text); text-decoration: underline; }
+.nihility-environment-config .env-banner { display: flex; gap: 6px; align-items: center; padding: 4px 8px; border: 1px solid var(--nihility-gold); border-radius: 4px; background: rgba(232, 193, 112, 0.08); color: var(--nihility-gold); font-size: 0.8rem; }
+.nihility-environment-config .env-banner a { cursor: pointer; text-decoration: underline; color: var(--nihility-text); }
+.nihility-environment-config .env-own-list { margin: 0; padding-left: 18px; color: var(--nihility-text); font-size: 0.8rem; }
+.nihility-environment-config .env-copy-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--nihility-text); }
+.nihility-environment-config .env-copy-row label { color: var(--nihility-text); }
+.nihility-scene-copy { color: var(--nihility-text); }
+.nihility-scene-copy li { color: var(--nihility-text); }

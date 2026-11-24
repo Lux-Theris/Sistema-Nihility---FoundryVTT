@@ -178,6 +178,12 @@ export const FEATURES = {
     hint: "Perigos de ambiente (vácuo, radiação, gravidade alta…): Condições que a cena inteira ou uma área desenhada (Region com o comportamento 'Ambiente (Nihility)') mantém em quem está lá, com Traços que imunizam e, na cena, visual opcional do FXMaster. E a densidade de mana do lugar, que multiplica a potência das Skills mágicas e a regeneração de Mana (0 = magia não funciona ali).",
     default: true
   },
+  sceneFolders: {
+    setting: "sceneFoldersEnabled",
+    name: "Configuração de cenas por pasta",
+    hint: "Clique direito numa pasta do Diretório de Cenas → \"Ambiente da pasta (Nihility)\": linha do tempo, tem rede, escurece com o relógio, densidade de Mana, radiação e perigos que cada cena da pasta (e das subpastas) herda. A cena só tem valor próprio se for editada depois, e pode voltar a herdar. A mesma janela copia, uma vez, as configurações do Foundry (Visão de Token, grade, escuridão, luz global, névoa, som) para todas as cenas da pasta. Desligar ignora a herança (vale só o valor da própria cena) e esconde o menu; nada salvo é apagado.",
+    default: true
+  },
   radiation: {
     setting: "radiationEnabled",
     parent: "environment",
@@ -541,6 +547,7 @@ const FEATURE_LAYOUT = {
   economy: ["world", "Moedas, conversão e transferência entre personagens."],
   environment: ["world", "Perigos da cena ou de uma área, e a densidade de mana."],
   radiation: ["world", "Lugares irradiam; ficar ali acumula e machuca.", true],
+  sceneFolders: ["world", "Pasta de cenas: o Ambiente e o tempo que as cenas herdam, e cópia dos ajustes do Foundry."],
   traps: ["world", "Regiões com armadilha: dano e Condição a quem pisa."],
   luck: ["combat", "Sorte e azar: inclinam os dados (atributos, dano e chances) a favor ou contra."],
   reactions: ["combat", "Fogo em quem está Molhado, raio na poça: o golpe reage com o que o alvo carrega."],

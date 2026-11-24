@@ -109,6 +109,7 @@ function renderCard(values) {
       <div class="cond-grid">
         <div class="cond-fld span-2"><span class="cond-label">Elemento do corpo <span class="help" title="Quem tem esta Condição passa a SER deste elemento (Encharcado = Água): a vantagem entre elementos vale contra ele. No Contágio, a Resistência a ele reduz a chance de pegar.">?</span></span>${pickerFieldHtml(values.elements ?? [], "condition-elements")}</div>
         ${fld("Selo de interferência (nível)", `<input type="number" data-field="interferenceLevel" min="0" value="${values.interferenceLevel ?? 0}"/>`, { help: "Quem tem esta Condição paga energia extra em todo uso tecnológico (maior quanto maior o nível), ou ele é anulado. 0 = não é selo." })}
+        ${fld("Âncora (nível)", `<input type="number" data-field="anchorLevel" min="0" value="${values.anchorLevel ?? 0}"/>`, { help: "Quem tem esta Condição não é teleportado nem teleporta (Saltar, Trocar), a não ser por uma Skill de nível maior que a Âncora. O nível é o da Skill que pôs a Condição; este vale quando ela é posta à mão. 0 = não é Âncora." })}
         ${fld("Selo antimagia (nível)", `<input type="number" data-field="antimagicLevel" min="0" value="${values.antimagicLevel ?? 0}"/>`, { help: "Quem tem esta Condição paga Mana extra em toda magia (maior quanto maior o nível), ou ela é anulada. 0 = não é selo." })}
       </div>
       ${fld("No mapa", `<select data-field="mapStatus">${optionsHtml(MAP_STATUSES, values.mapStatus ?? "")}</select>`, { help: "Põe o status do Foundry no Token: Invisível (só quem tem Ver o invisível, Visão verdadeira ou Sentir tudo o percebe) ou Cego (a visão dele falha). Vale com o bloco Sentidos e visibilidade ligado." })}
@@ -236,6 +237,8 @@ function readCard(card) {
   if (antimagicLevel) row.antimagicLevel = antimagicLevel;
   const interferenceLevel = Math.max(0, Math.round(Number(get("interferenceLevel")) || 0));
   if (interferenceLevel) row.interferenceLevel = interferenceLevel;
+  const anchorLevel = Math.max(0, Math.round(Number(get("anchorLevel")) || 0));
+  if (anchorLevel) row.anchorLevel = anchorLevel;
   // Sempre gravado (como a explicação): desmarcar de propósito não volta a ser o de fábrica.
   row.isMark = Boolean(card.querySelector('[data-field="isMark"]')?.checked);
   if (card.querySelector('[data-field="suppressesTech"]')?.checked) row.suppressesTech = true;

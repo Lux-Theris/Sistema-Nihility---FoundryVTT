@@ -10,6 +10,7 @@ import { itemNature } from "../core/magic-rules.js";
 import { itemClockText } from "../core/world-clock.js";
 import { itemClockAnalog } from "../core/world-time.js";
 import { createGrantedSkill, removeGrantedSkill } from "../skills/skill-economy.js";
+import { pocketOpenBlock } from "../combat/space.js";
 
 const { DialogV2 } = foundry.applications.api;
 
@@ -59,6 +60,12 @@ export async function handleItemDrop(sheet, event, dropped, fallback) {
   const target = containerEl?.dataset.containerId ?? null;
   const containerId = target && target !== "loose" ? target : "";
 
+  // Bolso (8f): quem está Ancorado não o abre (nem para pôr, nem para tirar). Nada se perde.
+  const sealed = pocketOpenBlock(actor, containerId) || (item.parent?.uuid === actor.uuid ? pocketOpenBlock(actor, item.system?.containerId) : "");
+  if (sealed) {
+    ui.notifications.warn(sealed);
+    return item.parent?.uuid === actor.uuid ? item : null;
+  }
   if (item.parent?.uuid === actor.uuid) {
     if (target === null || target === item.id) return fallback();
     await item.update({ "system.containerId": containerId });

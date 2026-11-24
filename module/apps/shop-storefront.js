@@ -37,7 +37,7 @@ export class ShopStorefrontApp extends HandlebarsApplicationMixin(ApplicationV2)
   constructor(shop, options = {}) {
     super({ id: appId(shop), ...options });
     this.shop = shop;
-    this.state = { tab: "buy", cat: "Todos", search: "", sel: "", buyQ: {}, sellQ: {}, buyerUuid: options.buyerUuid ?? "", dest: "" };
+    this.ui = { tab: "buy", cat: "Todos", search: "", sel: "", buyQ: {}, sellQ: {}, buyerUuid: options.buyerUuid ?? "", dest: "" };
   }
 
   static DEFAULT_OPTIONS = {
@@ -89,14 +89,14 @@ export class ShopStorefrontApp extends HandlebarsApplicationMixin(ApplicationV2)
 
   #buyer() {
     const list = buyerCandidates(this.shop);
-    const chosen = list.find(a => a.uuid === this.state.buyerUuid);
+    const chosen = list.find(a => a.uuid === this.ui.buyerUuid);
     return chosen ?? list[0] ?? null;
   }
 
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
     const shop = this.shop;
-    const s = this.state;
+    const s = this.ui;
     const currencies = getActiveCurrencies();
     context.closed = !isShopActor(shop);
     context.shopName = shop.name;
@@ -236,7 +236,7 @@ export class ShopStorefrontApp extends HandlebarsApplicationMixin(ApplicationV2)
   /** Os itens marcados para vender: `{item, qty}`. */
   #marked(buyer) {
     const out = [];
-    for (const [id, qty] of Object.entries(this.state.sellQ)) {
+    for (const [id, qty] of Object.entries(this.ui.sellQ)) {
       const item = buyer.items.get(id);
       if (!item || qty < 1 || itemSellBlock(buyer, item)) continue;
       out.push({ item, qty: Math.min(qty, Number(item.system.quantity) || 0) });
@@ -268,23 +268,23 @@ export class ShopStorefrontApp extends HandlebarsApplicationMixin(ApplicationV2)
     super._onRender(context, options);
     const root = this.element;
     root.querySelector("[data-buyer]")?.addEventListener("change", event => {
-      this.state.buyerUuid = event.currentTarget.value;
-      this.state.sel = "";
-      this.state.sellQ = {};
+      this.ui.buyerUuid = event.currentTarget.value;
+      this.ui.sel = "";
+      this.ui.sellQ = {};
       this.render();
     });
     root.querySelector("[data-dest]")?.addEventListener("change", event => {
-      this.state.dest = event.currentTarget.value;
+      this.ui.dest = event.currentTarget.value;
     });
     const search = root.querySelector("[data-search]");
     if (search) {
       const apply = () => {
-        this.state.search = search.value;
+        this.ui.search = search.value;
         root.querySelectorAll("[data-row]").forEach(row => {
-          row.hidden = !rowMatches({ name: row.dataset.name, kind: "Todos" }, { category: "Todos", search: this.state.search });
+          row.hidden = !rowMatches({ name: row.dataset.name, kind: "Todos" }, { category: "Todos", search: this.ui.search });
         });
       };
-      search.value = this.state.search;
+      search.value = this.ui.search;
       search.addEventListener("input", apply);
       apply();
     }
@@ -293,20 +293,20 @@ export class ShopStorefrontApp extends HandlebarsApplicationMixin(ApplicationV2)
   /* ------------------------------------------------------------------ Ações */
 
   static #onTab(event, target) {
-    this.state.tab = target.dataset.tab === "sell" ? "sell" : "buy";
-    this.state.cat = "Todos";
-    this.state.sel = "";
+    this.ui.tab = target.dataset.tab === "sell" ? "sell" : "buy";
+    this.ui.cat = "Todos";
+    this.ui.sel = "";
     this.render();
   }
 
   static #onCat(event, target) {
-    this.state.cat = target.dataset.cat || "Todos";
+    this.ui.cat = target.dataset.cat || "Todos";
     this.render();
   }
 
   static #onSelect(event, target) {
     if (event.target.closest("button, input, select")) return;
-    this.state.sel = target.closest("[data-item-id]")?.dataset.itemId ?? "";
+    this.ui.sel = target.closest("[data-item-id]")?.dataset.itemId ?? "";
     this.render();
   }
 
@@ -315,22 +315,22 @@ export class ShopStorefrontApp extends HandlebarsApplicationMixin(ApplicationV2)
     const id = target.closest("[data-item-id]")?.dataset.itemId;
     if (!id) return;
     const dir = Number(target.dataset.dir) || 0;
-    const key = this.state.tab === "buy" ? "buyQ" : "sellQ";
+    const key = this.ui.tab === "buy" ? "buyQ" : "sellQ";
     const buyer = this.#buyer();
     const max = key === "sellQ" ? Number(buyer?.items.get(id)?.system.quantity) || 0 : 999;
     const min = key === "buyQ" ? 1 : 0;
-    const now = this.state[key][id] ?? (key === "buyQ" ? 1 : 0);
-    this.state[key][id] = Math.min(max, Math.max(min, now + dir));
+    const now = this.ui[key][id] ?? (key === "buyQ" ? 1 : 0);
+    this.ui[key][id] = Math.min(max, Math.max(min, now + dir));
     this.render();
   }
 
   async #buy(itemId) {
     const buyer = this.#buyer();
     if (!buyer || !itemId) return;
-    const quantity = Math.max(1, this.state.buyQ[itemId] ?? 1);
-    const destination = this.state.dest ? await fromUuid(this.state.dest) : null;
+    const quantity = Math.max(1, this.ui.buyQ[itemId] ?? 1);
+    const destination = this.ui.dest ? await fromUuid(this.ui.dest) : null;
     const outcome = await askBuy({ shop: this.shop, buyer, itemId, quantity, destination });
-    if (outcome?.ok) this.state.buyQ[itemId] = 1;
+    if (outcome?.ok) this.ui.buyQ[itemId] = 1;
     this.render();
   }
 
@@ -340,7 +340,7 @@ export class ShopStorefrontApp extends HandlebarsApplicationMixin(ApplicationV2)
   }
 
   static #onBuySelected() {
-    return this.#buy(this.state.sel);
+    return this.#buy(this.ui.sel);
   }
 
   static async #onSellMarked() {
@@ -350,7 +350,7 @@ export class ShopStorefrontApp extends HandlebarsApplicationMixin(ApplicationV2)
     if (!items.length) return;
     const vendor = shopOf(this.shop).kind === "vendor";
     const outcome = vendor ? await askTrade("open", { shop: this.shop, seller: buyer, items }) : await askSell({ shop: this.shop, seller: buyer, items });
-    if (outcome?.ok && !vendor) this.state.sellQ = {};
+    if (outcome?.ok && !vendor) this.ui.sellQ = {};
     this.render();
   }
 
@@ -363,7 +363,7 @@ export class ShopStorefrontApp extends HandlebarsApplicationMixin(ApplicationV2)
     const trade = this.#trade();
     if (!trade) return;
     const outcome = await askTrade("accept", { shop: this.shop, tradeId: trade.id });
-    if (outcome?.ok) this.state.sellQ = {};
+    if (outcome?.ok) this.ui.sellQ = {};
   }
 
   static async #onRefuse() {

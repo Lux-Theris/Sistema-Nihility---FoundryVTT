@@ -74,7 +74,7 @@ function showNext() {
   // Aviso com botões (ex.: "Kael está pronto" para o Mestre): fica mais tempo e só fecha pelo
   // botão (ou pelo ×), para um clique no texto não perder a escolha.
   const actions = Array.isArray(next.actions) ? next.actions : [];
-  const duration = actions.length ? ACTION_DURATION_MS : DURATION_MS;
+  const duration = actions.length ? ACTION_DURATION_MS : (Number(next.durationMs) > 0 ? Math.min(Number(next.durationMs), ACTION_DURATION_MS) : DURATION_MS);
   if (actions.length) {
     card.classList.add("has-actions");
     const row = card.appendChild(document.createElement("div"));
@@ -128,13 +128,13 @@ function showNext() {
  * `label` troca o "Voz do Mundo" do topo; `actions` ([{label, primary, onClick}]) põe botões.
  * `key`: um aviso por vez com a mesma chave: o novo SUBSTITUI o que estiver na fila ou na tela (D6, sessão 4).
  */
-export function showVoiceBanner({ title = "", body = "", label = "", actions = null, key = null } = {}) {
+export function showVoiceBanner({ title = "", body = "", label = "", actions = null, key = null, durationMs = 0 } = {}) {
   if (!enabledForMe() || (!title && !body)) return;
   if (key) {
     for (let i = queue.length - 1; i >= 0; i--) if (queue[i].key === key) queue.splice(i, 1);
   }
   if (queue.length >= MAX_QUEUE) queue.shift();
-  const item = { title: String(title), body: plainText(body), label: String(label || ""), actions, key };
+  const item = { title: String(title), body: plainText(body), label: String(label || ""), actions, key, durationMs };
   if (key && showing && current?.key === key) {
     queue.unshift(item);
     current.close();
@@ -149,7 +149,7 @@ function onCreateMessage(message) {
   if (!flags?.voiceOfTheWorld) return;
   const whisper = message.whisper ?? [];
   if (whisper.length && !whisper.includes(game.user.id)) return;
-  showVoiceBanner({ title: flags.title ?? "", body: flags.body ?? "" });
+  showVoiceBanner({ title: flags.title ?? "", body: flags.body ?? "", durationMs: Number(flags.bannerMs) || 0 });
 }
 
 export function registerVoiceBanner() {

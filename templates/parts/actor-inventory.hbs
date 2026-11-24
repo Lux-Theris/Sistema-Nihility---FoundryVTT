@@ -56,8 +56,8 @@
 
     {{#each inventory.groups as |group|}}
     <div class="block inventory-container {{#if group.full}}is-over{{/if}}" data-container-id="{{group.id}}">
-      <p class="block-title"><i class="fas {{#if group.isSkill}}fa-hat-wizard{{else}}fa-box-open{{/if}}"></i> {{group.label}}
-        <span class="hint-inline">{{group.used}}/{{#if group.unlimited}}∞{{else}}{{group.slots}}{{/if}} slots{{#if group.weightReduction}} · −{{group.weightReduction}}% de peso{{/if}}</span></p>
+      <p class="block-title"><i class="fas {{#if group.isPocket}}fa-cube{{else if group.isSkill}}fa-hat-wizard{{else}}fa-box-open{{/if}}"></i> {{group.label}}
+        <span class="hint-inline">{{group.used}}/{{#if group.unlimited}}∞{{else}}{{group.slots}}{{/if}} {{#if group.isPocket}}espaços · sem peso{{else}}slots{{#if group.weightReduction}} · −{{group.weightReduction}}% de peso{{/if}}{{/if}}</span></p>
       <ol class="item-list inventory-list">
         {{#each group.rows as |row|}}{{> nihilityInvRow row=row}}{{else}}<li class="empty-note">Vazio — arraste Itens pra cá.</li>{{/each}}
       </ol>

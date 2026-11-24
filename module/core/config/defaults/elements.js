@@ -131,6 +131,10 @@ export const DEFAULT_STATUS_CONDITIONS = [
   { id: "antimagic-seal", label: "Selo Antimagia", icon: "icons/svg/padlock.svg", antimagicLevel: 1, explanation: "Toda magia dele custa mais; num selo forte, ela nem sai." },
   // Selo de Interferência (espelho tecnológico do Selo Antimagia): todo uso tecnológico dele paga energia extra.
   { id: "interference-seal", label: "Selo de Interferência", icon: "icons/svg/lightning.svg", interferenceLevel: 1, explanation: "Toda tecnologia dele custa mais energia; num selo forte, ela nem funciona." },
+  // Ancorado (8f): quem tem a Condição não é teleportado nem teleporta (Saltar, Trocar). O nível é o da Skill que ancorou (ou este, se posta à mão).
+  { id: "anchored", label: "Ancorado", icon: "icons/svg/net.svg", anchorLevel: 1, explanation: "Preso ao lugar: não pode ser teleportado nem teleportar (Saltar, Trocar), a não ser por uma Skill de nível maior que a Âncora." },
+  // Preso (8f, lote 5): quem está dentro de um Domínio. Também segura o teleporte (anchorLevel); o nível é o do Domínio (ou este, se posta à mão).
+  { id: "trapped", label: "Preso", icon: "icons/svg/net.svg", anchorLevel: 1, explanation: "Preso num Domínio: o movimento para fora da área é recusado e ele não teleporta, a não ser por uma Skill de teleporte de nível maior que o Domínio. O Mestre solta quem quiser tirando esta Condição." },
   { id: "poison", label: "Veneno", icon: "icons/svg/poison.svg",
     effect: { kind: "tick", tickTarget: "hp", tickSign: "damage", valueMode: "hitPercent", value: 5, durationRounds: 3, tickUnit: "combatRound" } },
   { id: "burn", label: "Queimadura", icon: "icons/svg/fire.svg", elements: ["fire"],

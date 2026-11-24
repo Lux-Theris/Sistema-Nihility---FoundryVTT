@@ -119,3 +119,12 @@ Mockup aprovado: Design "H20 Pastas e G2 Lojas", Pad.dc.html (quadros 1 a 7). C�
 
 - Do lote C ficou de fora: ver "Limites do lote C".
 - **Não feito de propósito:** atitude do vendedor (o dono recusou) e item misterioso (mais para frente). Comparação com o item equipado no detalhe da vitrine e "mercado negro" do mockup ficaram de fora.
+
+## Correções da sessão de teste 6 (1.114.1)
+
+- As janelas Vitrine, Máquina e Saque guardam o estado em `this.ui` (`this.state` é getter do `ApplicationV2`; ver achados-foundry.md).
+- Carrinho do PAD: total, saldo e falta aparecem na moeda das linhas quando todas cobram a mesma (antes caía em "Caco", a unidade base); a conversão de pagamento não mudou.
+- "Chegou ao Depósito": o cartão na tela fica 15 s (`bannerMs` na Voz do Mundo; antes 6 s, fácil de perder). O card no chat continua.
+- `askLoot` op `item`: a recusa agora diz o motivo (sem `itemId`: "faltou dizer qual item"; item que sumiu: "não está mais aqui"; de outro dono: "não é seu"). `itemId`/`qty` vão no argumento de cima de `askLoot`, não dentro de `payload`; foi isso que gerou o "já foi pego" falso do teste.
+- Troca: o Desfazer do Mestre marca a troca como cancelada ("O Mestre desfez esta troca"); a janela de uma troca encerrada (ou esquecida) fecha sozinha em 12 s e não mostra mais "(item sumiu)" (mostra "(item entregue)" / "(item devolvido)").
+- Bolso: o peso e os espaços dos itens dentro do contêiner do Bolso não entram no inventário principal (conferido em `inventoryLoad`); o "12/10" do teste era excesso de itens soltos, não bug.

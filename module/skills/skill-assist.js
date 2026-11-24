@@ -19,7 +19,8 @@ import {
   getSkillCostManaPerPoint,
   getComplexityCaps,
   getActiveSkillTemplates,
-  isSkillRangeEnabled
+  isSkillRangeEnabled,
+  isTimeManipulationEnabled
 } from "../core/config.js";
 import { lintSkill, lintIndex } from "./skill-lint-rules.js";
 import { isMagicUse, isTechUse, technomagicFactor, getTechnomagicPower } from "../core/config.js";
@@ -95,6 +96,7 @@ export function skillAssist(mech, { actor = null } = {}) {
     },
     energyLabel,
     skillRange: isSkillRangeEnabled(),
+    timeEnabled: isTimeManipulationEnabled(),
     complexityCaps: getComplexityCaps()
   });
   const { byTab, byEffect } = lintIndex(warnings);

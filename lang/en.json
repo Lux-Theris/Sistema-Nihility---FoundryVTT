@@ -12,5 +12,7 @@
   "TYPES.Item.item": "Item",
   "TYPES.RegionBehavior.nihilityEnvironment": "Environment (Nihility)",
   "TYPES.RegionBehavior.nihilityTrap": "Trap (Nihility)",
-  "TYPES.RegionBehavior.nihilityTimeRate": "Time rate (Nihility)"
+  "TYPES.RegionBehavior.nihilityTimeRate": "Time rate (Nihility)",
+  "TYPES.RegionBehavior.nihilityAnchor": "Anchor (Nihility)",
+  "TYPES.RegionBehavior.nihilityDomain": "Domain (Nihility)"
 }

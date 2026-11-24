@@ -141,7 +141,10 @@
     </div>
     {{/if}}
     {{#if (eq moduleRole "utility")}}
-    <div class="sec-body"><p class="empty-note">Sem parâmetros próprios: Vida, consumo e a <a data-action="tab" data-group="primary" data-tab="grant">Habilidade Concedida</a>.</p></div>
+    <div class="sec-body">
+      <label class="fld narrow-fld"><span class="fld-label">Interdição (alcance) <span class="help" title="Interdição (8f): ligado, este Módulo tecnológico impede o salto FTL das Naves cujo Token está neste alcance (em unidades do mapa). 0 = não interdita. O PEM o derruba junto com o Módulo.">?</span></span><span class="suffix"><input type="number" name="system.interdictRange" value="{{system.interdictRange}}" min="0" aria-label="Alcance de Interdição"/><span>m</span></span></label>
+      <p class="empty-note">Fora a Interdição, sem parâmetros próprios: Vida, consumo e a <a data-action="tab" data-group="primary" data-tab="grant">Habilidade Concedida</a>.</p>
+    </div>
     {{/if}}
   </div>
 </section>

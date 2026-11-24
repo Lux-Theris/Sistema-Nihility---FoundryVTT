@@ -241,7 +241,7 @@ async function playerTradeAsGm(payload, user) {
       await replace({ ...tradeAccept(next, side, false), text: result.reason });
       return refuse(result.reason);
     }
-    const entry = { id: newId(), ts: Date.now(), label: result.label, aUuid: A.uuid, bUuid: B.uuid, aDelta: result.netA, bDelta: result.netB, ops: result.ops, undone: false };
+    const entry = { id: newId(), tradeId: trade.id, ts: Date.now(), label: result.label, aUuid: A.uuid, bUuid: B.uuid, aDelta: result.netA, bDelta: result.netB, ops: result.ops, undone: false };
     await writeState({
       trades: state.trades.map(t => (t.id === trade.id ? { ...next, status: "done", closedAt: Date.now(), text: `Troca feita: ${result.label}.` } : t)),
       log: [...state.log, entry]
@@ -273,7 +273,9 @@ async function playerTradeUndoAsGm(payload, user) {
   await revertOps(entry.ops ?? []);
   if (Object.keys(backA.update).length) await A.update(backA.update);
   if (Object.keys(backB.update).length) await B.update(backB.update);
-  await writeState({ ...state, log: state.log.map(e => (e.id === entry.id ? { ...e, undone: true } : e)) });
+  // A janela da troca (se ainda aberta) passa a dizer que foi desfeita, em vez de seguir com "Troca feita".
+  const trades = state.trades.map(t => (t.id === entry.tradeId ? { ...t, status: "cancelled", closedAt: Date.now(), text: "O Mestre desfez esta troca. Tudo voltou ao que era." } : t));
+  await writeState({ trades, log: state.log.map(e => (e.id === entry.id ? { ...e, undone: true } : e)) });
   await announceTrade(A, B, `O Mestre desfez a troca: ${entry.label}.`, "Troca desfeita");
   return { ok: true };
 }

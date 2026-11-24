@@ -245,7 +245,9 @@ test("migrações: as 15 chaves e a ordem estão congeladas, sem repetida", () =
     "reactionsDefaults",
     "surfaceDefaults",
     "duelDefaults",
-    "luckDefaults"
+    "luckDefaults",
+    "spaceDefaults",
+    "spaceDomainDefaults"
   ]);
   assert.equal(new Set(MIGRATION_KEYS).size, MIGRATION_KEYS.length);
 });

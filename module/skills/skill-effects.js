@@ -30,6 +30,8 @@ import { rollSkillDamage, rollSkillDamageArea } from "../combat/damage-roll.js";
 import { markedCost } from "../combat/range-rules.js";
 import { rangeChecksActive } from "../combat/range.js";
 import { runSkillPushes, pushOriginFor } from "../combat/forced-movement.js";
+import { planSpaceUse, runSkillSpace } from "../combat/space.js";
+import { spaceEntriesOf } from "../combat/space-rules.js";
 import { runSkillSurfaces, surfaceEffectsOf } from "../environment/surfaces.js";
 import { applyEffectsToActor } from "./effects-apply.js";
 import { isShipLike } from "../starship/ship-damage.js";
@@ -122,7 +124,7 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
   if (!resolved) return null;
   const ctx = { sourceActor, skillId, options, timers, ...resolved };
 
-  for (const step of [toggleOffIfActive, checkUseBlocks, checkPlaceAndField]) {
+  for (const step of [toggleOffIfActive, checkUseBlocks, checkPlaceAndField, checkSpacePlan]) {
     const stop = await step(ctx);
     if (stop) return stop.value;
   }
@@ -268,6 +270,21 @@ async function checkPlaceAndField(ctx) {
     ui.notifications?.warn(earlyGate.blocked);
     return stopUse(null);
   }
+  return null;
+}
+
+/**
+ * Espaço (8f, Saltar e Trocar): o ponto de chegada (ou o outro Token) se escolhe ANTES de pagar. Recusa de alcance, parede, Parado ou
+ * Âncora é aviso na tela e nada é gasto. Pela Marca (a distância dobrada), o Custo sobe como nas formas (`options.viaMark`).
+ * Uma Skill com Preparo escolhe ao disparar (o disparo volta aqui com `prepaid`); sem plano, `runSkillSpace` planeja depois.
+ */
+async function checkSpacePlan(ctx) {
+  const { sourceActor, mech, label, options, combined } = ctx;
+  if (combined || !spaceEntriesOf(mech).length) return null;
+  if (Number(mech.prepTurns) > 0 && !options.prepaid) return null;
+  const planned = await planSpaceUse({ sourceActor, mech, label, options });
+  if (planned.stop) return stopUse(null);
+  ctx.options = { ...options, spacePlan: planned.plan, ...(planned.via && !options.viaMark ? { viaMark: planned.via } : {}) };
   return null;
 }
 
@@ -553,6 +570,8 @@ async function dispatchMechanic({ sourceActor, skill, skillId, mech, label, opti
     return result;
   }
   if (mech.effectType === "temporary") {
+    // Espaço (8f): o plano escolhido antes do Custo viaja na mecânica até applySkillEffects.
+    if (options.spacePlan) mech = { ...(typeof mech.toObject === "function" ? mech.toObject() : mech), spacePlan: options.spacePlan };
     return isEmission
       ? applySkillEffectsArea(sourceActor, skill, mech, label, options.targetActors ?? [], options.subSkillIndex ?? null)
       : applySkillEffects(sourceActor, skill, mech, label, options.targetActor ?? sourceActor, options.subSkillIndex ?? null);
@@ -749,6 +768,10 @@ export async function applySkillEffects(sourceActor, skill, mech, label, targetA
   const push = await runSkillPushes({ sourceActor, item: skill, mech: effective, label, subSkillIndex, targets: [targetActor], origin: pushOriginFor(sourceActor, effective) });
   summary.push(...push.lines);
   summary.xp = [...(summary.xp ?? []), ...Array.from({ length: Math.min(push.moved, 5) }, () => ({ flat: true }))];
+  // Espaço (8f): Saltar e Trocar, pelo Mestre; a linha do que aconteceu entra no mesmo card.
+  const space = await runSkillSpace({ sourceActor, item: skill, mech: effective, label, subSkillIndex, options: { targetActor } });
+  summary.push(...space.lines);
+  summary.xp.push(...Array.from({ length: Math.min(space.moved, 5) }, () => ({ flat: true })));
   // Cria superfície (8.2): no ponto do alvo, pelo Mestre; a XP é a fixa de um efeito de terreno.
   const surfaces = await runSkillSurfaces({ sourceActor, mech: effective, targets: [targetActor] });
   summary.push(...surfaces.lines);

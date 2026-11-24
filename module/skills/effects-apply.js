@@ -140,6 +140,8 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
     if (entry.target === "push") continue;
     // "Cria superfície" (8.2) também não fica no alvo: quem usa a Skill pede ao Mestre (environment/surfaces.js).
     if (entry.target === "createSurface") continue;
+    // "Espaço" (8f, Saltar e Trocar) também não fica no alvo: quem usa a Skill pede ao Mestre (combat/space.js).
+    if (entry.target === "space") continue;
     // "Só se…" (8.1a): o efeito só pega se o alvo (ou quem usou) está como a condição pede.
     if (hasOnlyIf(entry.onlyIf)) {
       const gate = onlyIfOutcome(entry.onlyIf, buildModifierContext(originSkill?.parent ?? null, targetActor), onlyIfLabelOf);

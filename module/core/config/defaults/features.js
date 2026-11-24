@@ -381,6 +381,12 @@ export const FEATURES = {
     hint: "Habilita o grupo de efeito \"Tempo\" no editor de Skill, com o efeito \"Ritmo do tempo\": Acelerar (fator maior que 1) e Desacelerar (menor que 1), em si, num alvo ou em área. Em combate, quem está Acelerado ×N tem uma reserva de N de tempo por turno (números por turno, como Veneno e regeneração, passam até N vezes de uma vez; Recarga e Preparo são pagos pela reserva) e anda N vezes o Deslocamento; fora de combate o tempo pessoal anda ×N. Alvo de nível maior que a Skill sofre menos o efeito. Desligar só esconde o grupo e deixa de aplicar efeitos novos; o que já está salvo ou ativo não é apagado.",
     default: true
   },
+  spaceManipulation: {
+    setting: "spaceManipulationEnabled",
+    name: "Manipulação do espaço (Saltar, Trocar, Portal, Bolso, Domínio e Âncora)",
+    hint: "Habilita o grupo de efeito \"Espaço\" no editor de Skill, com o efeito \"Espaço\": Saltar (teleporte de si ou de um aliado até um ponto dentro do alcance da Skill, ou até uma Marca) e Trocar (dois Tokens trocam de lugar), Portal (um par de Regiões que se levam uma à outra, com duração, podendo ligar duas cenas), Bolso (um contêiner sem peso, com espaços pelo nível) e Domínio (uma área onde quem está dentro fica Preso, com ritmo de tempo próprio opcional). A Skill ganha a marca \"espacial\": a Âncora (a Condição Ancorado, a Estrutura Campo de Âncora e o comportamento de Região \"Âncora (Nihility)\") bloqueia teleporte que comece, termine ou seja de quem está nela, e a Interdição (Módulo de Nave com alcance de interdição) impede o salto FTL das Naves no alcance. Desligar só esconde o grupo e deixa de aplicar teleportes novos; o que já está salvo não é apagado. Independente do bloco do tempo.",
+    default: true
+  },
   skillUndo: {
     setting: "skillUndoEnabled",
     name: "Desfazer uso de Skill",
@@ -572,6 +578,7 @@ const FEATURE_LAYOUT = {
   worldClock: ["world", "Relógio do mundo: dia/noite, escuro e o Descanso que passa o tempo."],
   calendar: ["world", "Calendário e linhas do tempo: época por cena, tempo pessoal e a data do PAD."],
   timeManipulation: ["combat", "Skills que aceleram ou desaceleram o tempo de alguém (Ritmo do tempo)."],
+  spaceManipulation: ["combat", "Skills de espaço: Saltar, Trocar, Portal, Bolso e Domínio; Âncora e Interdição."],
   vessels: ["world", "Naves e Veículos com Módulos, Grid de Energia e tripulação."],
   shipManeuver: ["world", "Naves se movem por casas e esquivam pela Rotação.", true],
   pad: ["world", "O \"celular\" do personagem: Nave, Biblioteca e Mensagens."],

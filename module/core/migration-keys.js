@@ -18,5 +18,7 @@ export const MIGRATION_KEYS = [
   "reactionsDefaults",
   "surfaceDefaults",
   "duelDefaults",
-  "luckDefaults"
+  "luckDefaults",
+  "spaceDefaults",
+  "spaceDomainDefaults"
 ];

@@ -70,8 +70,11 @@ import {
  * do Token (como no documento). Devolve se o movimento foi feito.
  * @param {TokenDocument} tokenDoc
  * @param {{x?:number, y?:number, elevation?:number}} place
+ * @param {{teleport?: boolean}} [mode] `teleport` (Espaço, 8f): sem deslize, o Token some e aparece (update com `teleport` e
+ *   sem animação), com os mesmos ganchos de fim de movimento (Âncora, Antimagia, contato de Estrutura, Regiões); a elevação
+ *   que não foi pedida não muda.
  */
-export async function moveTokenForced(tokenDoc, { x, y, elevation } = {}) {
+export async function moveTokenForced(tokenDoc, { x, y, elevation } = {}, { teleport = false } = {}) {
   // Parado no tempo (8e.4): nem empurrão nem teleporte o move.
   if (isTimeStopped(tokenDoc?.actor)) return false;
   const waypoint = {};
@@ -79,6 +82,14 @@ export async function moveTokenForced(tokenDoc, { x, y, elevation } = {}) {
   if (Number.isFinite(y)) waypoint.y = Math.round(y);
   if (Number.isFinite(elevation)) waypoint.elevation = elevation;
   if (!Object.keys(waypoint).length) return false;
+  if (teleport) {
+    try {
+      await tokenDoc.update(waypoint, { nihilityForced: true, teleport: true, animate: false, animation: { duration: 0 } });
+      return true;
+    } catch (err) {
+      console.warn(`${SYSTEM_ID} | Teleporte por update falhou; usando o movimento forçado.`, err);
+    }
+  }
   if (typeof tokenDoc.move === "function") {
     try {
       return Boolean(

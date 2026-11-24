@@ -647,6 +647,8 @@ export function getStructures() {
     // Natureza tecnológica (o PEM alcança) e campo de interferência (espelho de antimagicLevel).
     tech: Boolean(s.tech),
     interferenceLevel: Math.max(0, Math.round(Number(s.interferenceLevel) || 0)),
+    // Campo de Âncora (8f): bloqueia o teleporte (espelho de antimagicLevel para o que é "espacial").
+    anchorLevel: Math.max(0, Math.round(Number(s.anchorLevel) || 0)),
     contactDamage: typeof s.contactDamage === "string" ? s.contactDamage.trim() : "",
     // O duelo (8c.2): some junto com a Skill que a sustenta (mesmo física), leva dano diferente de fora e de
     // dentro da forma fechada (100 = normal) e, destruída, desliga essa Skill.
@@ -871,6 +873,7 @@ export function getEffectTargetGroups(current) {
       .filter(t => t !== "push" || push || t === current)
       .filter(t => t !== "luck" || isFeatureEnabled("luck") || t === current)
       .filter(t => t !== "timeRate" || isFeatureEnabled("timeManipulation") || t === current)
+      .filter(t => t !== "space" || isFeatureEnabled("spaceManipulation") || t === current)
       .filter(t => t !== "createSurface" || surfaces || t === current)
       .filter(t => !["flight", "burrow"].includes(t) || elevation || t === current)
       .filter(t => !t.startsWith("sense") || senses || t === current)

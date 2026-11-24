@@ -14,10 +14,11 @@ import { renderSystemTemplate } from "../helpers/foundry-compat.js";
  * @param {{kind?:string, title?:string, body?:string, whisper?:string[]}} data - `whisper`
  *   sobrescreve a lista de destinatários calculada a partir do Ator. Serve pro caso em que o
  *   anúncio é de VÁRIOS donos ao mesmo tempo (mensagem de grupo do PAD): sem isso seria preciso
- *   um card por membro, enchendo o chat de todo mundo.
+ *   um card por membro, enchendo o chat de todo mundo. `bannerMs`: quanto tempo o cartão na tela fica (aviso que o jogador
+ *   não pode perder, como "chegou ao Depósito"; o padrão é ~6 s).
  */
 export async function announceVoiceOfTheWorld(actor, data = {}) {
-  const { kind = "info", title = "", body = "", whisper: whisperOverride = null } = data;
+  const { kind = "info", title = "", body = "", whisper: whisperOverride = null, bannerMs = 0 } = data;
 
   const templateData = {
     kind,
@@ -43,7 +44,7 @@ export async function announceVoiceOfTheWorld(actor, data = {}) {
     whisper,
     speaker: ChatMessage.getSpeaker({ actor: actor ?? undefined }),
     // title/body também nas flags: o cartão na tela (voice-banner.js) lê daqui, sem raspar o HTML.
-    flags: { [SYSTEM_ID]: { voiceOfTheWorld: true, kind, title, body } }
+    flags: { [SYSTEM_ID]: { voiceOfTheWorld: true, kind, title, body, ...(bannerMs > 0 ? { bannerMs } : {}) } }
   });
 }
 

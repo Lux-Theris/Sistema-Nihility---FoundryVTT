@@ -53,6 +53,7 @@ import { getAntimagicReach,
   getActiveBodyFunctions,
   getActiveSkillTemplates,
   isFeatureEnabled,
+  isTimeManipulationEnabled,
 } from "../core/config.js";
 import { skillAssist, costChipHtml } from "../skills/skill-assist.js";
 import { ATTRIBUTE_PERCENT_TARGETS, PERCENT_AMOUNT_TARGETS } from "../economy/consumable-rules.js";
@@ -85,6 +86,7 @@ import { pickImageFile, filePickerClass } from "../helpers/foundry-compat.js";
 import { sequencerAvailable } from "../core/vfx.js";
 import { AREA_AFFECTS_OPTIONS } from "../combat/area-geometry.js";
 import { clampTimeFactor, describeTimeFactor } from "../combat/time-rate-rules.js";
+import { liveSpaceModes, normalizeSpaceMode, spaceShortLabel, skillIsSpatial, pocketSlots, POCKET_DEFAULTS } from "../combat/space-rules.js";
 import { isSenseTarget, SENSE_LABELS, describeSenseRange, senseRangeValue } from "../combat/senses-rules.js";
 import { isWeaponMasteryEnabled, masteryConfig, masterySentenceFor, weaponTypeChoices, weaponTypeDisplay } from "../combat/weapon-mastery.js";
 import { masteryLevelUpBlock } from "../combat/weapon-mastery-rules.js";
@@ -158,6 +160,7 @@ function headerChipsFor(item) {
       if (chipMagic && chipTech) add("Tecnomágica", "Sofre Antimagia e PEM", "violet");
       else if (chipMagic) add("Mágica", "Sofre Antimagia", "violet");
       else if (chipTech) add("Tecnológica", "Sofre PEM", "violet");
+      if (skillIsSpatial(sys)) add("Espacial", "Marca espacial: a Âncora (Condição, Campo ou Região) bloqueia o teleporte desta Skill", "violet");
       const target = NIHILITY.SKILL_TARGET_TYPE_SHORT_LABELS[sys.targetType] ?? "";
       if (isStructureMechanic(sys)) add("Estrutura", "Mecânica ao usar");
       else if (sys.effectType === "form") add("Forma", "Mecânica ao usar");
@@ -364,6 +367,14 @@ function grantedSkillSummary(grantsSkill, path) {
   };
 }
 
+/** A nota ao fim do efeito de Espaço, por modo (alcance, o que o Bolso dá agora, o corte da Âncora no Domínio). */
+function spaceNoteFor(entry, sys) {
+  const mode = normalizeSpaceMode(entry.spaceMode);
+  if (mode === "pocket") return `agora: ${pocketSlots({ base: entry.pocketBase ?? POCKET_DEFAULTS.base, perLevel: entry.pocketPerLevel ?? POCKET_DEFAULTS.perLevel, level: sys.level })} espaços (nível ${Number(sys.level) || 0}), sem peso`;
+  if (mode === "domain") return "Preso: quem tem uma Skill espacial de nível maior escapa";
+  return Number(sys.range) > 0 ? `alcance ${String(sys.range).replace(".", ",")} m` : "sem alcance: ponha o da Skill";
+}
+
 /**
  * Unidade da Duração no card de Efeito: curta, porque cabe numa coluna estreita ao lado da lixeira;
  * o que o 0 quer dizer em cada alvo vai no `title` (o texto longo passava por cima da lixeira).
@@ -371,6 +382,10 @@ function grantedSkillSummary(grantsSkill, path) {
 function effectDurationUnit(entry, { hasUpkeep, periodic }) {
   const t = entry.target;
   if (t === "push") return { durationUnit: "", durationHint: "" };
+  if (t === "space" && ["portal", "domain"].includes(normalizeSpaceMode(entry.spaceMode))) {
+    return hasUpkeep ? { durationUnit: "ativa", durationHint: "Dura enquanto a Habilidade Ativa estiver ligada" } : { durationUnit: "rod.", durationHint: "Rodadas que o Portal ou o Domínio dura (0 = até o Mestre fechar). Em combate conta pelo turno de quem abriu; fora dele, pelo relógio do mundo." };
+  }
+  if (t === "space") return { durationUnit: "", durationHint: "Instantâneo: Saltar e Trocar não têm duração (o Bolso é permanente)" };
   if (t === "createSurface") return { durationUnit: "rod.", durationHint: "Rodadas da superfície (0 = a duração do elemento)" };
   if (t === "timeRate" && entry.timeRewind) return { durationUnit: "voltam", durationHint: "Rodadas que voltam" };
   if (["flight", "burrow", "timeRate"].includes(t) || isSenseTarget(t)) {
@@ -956,6 +971,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       else if (entry.target === "push") summary = `${{ pull: "Puxa", choose: "Empurra ou puxa" }[entry.pushDirection] ?? "Empurra"} ${amount} m`;
       else if (["flight", "burrow"].includes(entry.target)) summary = targetLabel;
       else if (entry.target === "luck") summary = `Sorte ${describeLuck(luckFromScopes(amount, entry.luckScopes)) || "(sem escopo)"}`;
+      else if (entry.target === "space") summary = `Espaço: ${spaceShortLabel(entry)}${entry.spaceWalls && ["jump", "swap"].includes(normalizeSpaceMode(entry.spaceMode)) ? " (respeita paredes)" : ""}`;
       else if (entry.target === "timeRate" && entry.timeRewind) summary = `Reverter ${Math.max(0, Math.floor(Number(entry.durationRounds) || 0))} rod.`;
       else if (entry.target === "timeRate" && entry.timeStop) summary = "Parar o tempo";
       else if (entry.target === "timeRate") summary = `${Number(entry.timeFactor ?? 2) < 1 ? "Desacelerar" : "Acelerar"} ${describeTimeFactor(entry.timeFactor ?? 2)}`;
@@ -1028,6 +1044,23 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         dispelScopeOptions: DISPEL_SCOPES.map(sc => ({ value: sc, label: DISPEL_SCOPE_LABELS[sc], selected: sc === (entry.dispelScope || "all") })),
         dispelNeedsCondition: entry.dispelScope === "condition",
         dispelLevel: Number(sys.level) || 0,
+        isSpace: entry.target === "space",
+        isSwap: normalizeSpaceMode(entry.spaceMode) === "swap",
+        isTeleport: ["jump", "swap"].includes(normalizeSpaceMode(entry.spaceMode)),
+        isPortal: normalizeSpaceMode(entry.spaceMode) === "portal",
+        isPocket: normalizeSpaceMode(entry.spaceMode) === "pocket",
+        isDomain: normalizeSpaceMode(entry.spaceMode) === "domain",
+        spaceOtherScene: Boolean(entry.spaceOtherScene),
+        spaceRadius: Number(entry.spaceRadius) || 0,
+        spaceTimeRate: Number(entry.spaceTimeRate ?? 1),
+        pocketBase: Number(entry.pocketBase ?? POCKET_DEFAULTS.base),
+        pocketPerLevel: Number(entry.pocketPerLevel ?? POCKET_DEFAULTS.perLevel),
+        pocketNow: pocketSlots({ base: entry.pocketBase ?? POCKET_DEFAULTS.base, perLevel: entry.pocketPerLevel ?? POCKET_DEFAULTS.perLevel, level: sys.level }),
+        spaceTimeOn: isTimeManipulationEnabled(),
+        spaceModeOptions: liveSpaceModes().map(m => ({ value: m.id, label: m.label, selected: m.id === normalizeSpaceMode(entry.spaceMode) })),
+        spaceWalls: Boolean(entry.spaceWalls),
+        spaceSwapOther: Boolean(entry.spaceSwapOther),
+        spaceNote: spaceNoteFor(entry, sys),
         isTimeRate: entry.target === "timeRate",
         timeFactor: Number(entry.timeFactor ?? 2),
         timeStop: Boolean(entry.timeStop),

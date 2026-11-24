@@ -12,6 +12,7 @@ import { normalizeOnHit } from "./marks-rules.js";
 import { combinedSentence } from "./combined-rules.js";
 import { rerollSentence } from "./reroll-rules.js";
 import { clampTimeFactor, describeTimeFactor } from "../combat/time-rate-rules.js";
+import { spaceSentence } from "../combat/space-rules.js";
 import { strikeSentence } from "../combat/weapon-mastery-rules.js";
 import { isSenseTarget, SENSE_LABELS, describeSenseRange, senseRangeValue } from "../combat/senses-rules.js";
 
@@ -40,6 +41,8 @@ function describeEffectCore(entry, ctx) {
     return `deixa ${label} no chão${meters > 0 ? ` (raio ${String(meters).replace(".", ",")} m)` : ""}`;
   }
   if (entry.target === "flight") return "voo";
+  // Espaço (8f): "teleporta quem usa até 10 m, atravessando paredes" / "troca de lugar com o alvo".
+  if (entry.target === "space") return spaceSentence(entry, { range: ctx.range });
   // Ritmo do tempo (8e): "Acelerado ×3 (3 de tempo por turno, Deslocamento ×3)" / "Desacelerado ×½".
   if (entry.target === "timeRate" && entry.timeRewind) {
     const rounds = Math.max(0, Math.floor(Number(entry.durationRounds) || 0));
@@ -81,7 +84,7 @@ function describeMechanic(mech, ctx) {
     return `${formula}${elements.length ? ` de ${elements.join(" + ")}` : ""}${kind}`;
   }
   if (mech.effectType === "temporary") {
-    const effects = (mech.effects ?? []).map(e => describeEffect(e, ctx)).filter(Boolean);
+    const effects = (mech.effects ?? []).map(e => describeEffect(e, { ...ctx, range: Number(mech.range) || 0 })).filter(Boolean);
     if (!effects.length) return "efeito";
     const shown = effects.slice(0, 2).join(" e ");
     return effects.length > 2 ? `${shown} +${effects.length - 2}` : shown;

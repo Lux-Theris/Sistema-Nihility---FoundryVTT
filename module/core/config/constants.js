@@ -318,6 +318,8 @@ export const NIHILITY = {
     { id: "antimagic-field", label: "Campo Antimagia", img: "", color: "#9aa1c2", shape: "circle", size: 4, blocksMove: false, blocksSight: false, blocksAttacks: false, hp: 0, durationRounds: 3, antimagicLevel: 1, material: "ethereal", manaPowered: false },
     // Campo de Interferência: o mesmo para a tecnologia (uso tecnológico paga energia extra ou é anulado).
     { id: "interference-field", label: "Campo de Interferência", img: "", color: "#5eead4", shape: "circle", size: 4, blocksMove: false, blocksSight: false, blocksAttacks: false, hp: 0, durationRounds: 3, interferenceLevel: 1, material: "ethereal", manaPowered: false },
+    // Campo de Âncora (8f): o teleporte (Saltar, Trocar) que começa, termina ou é de quem está dentro falha, se a Âncora for de nível igual ou maior que o da Skill.
+    { id: "anchor-field", label: "Campo de Âncora", img: "", color: "#e8c170", shape: "circle", size: 4, blocksMove: false, blocksSight: false, blocksAttacks: false, hp: 0, durationRounds: 3, anchorLevel: 1, magic: true, material: "ethereal", manaPowered: false },
     // A bolha do duelo (8c.2): prende quem está dentro e segura quem tenta entrar. Apanha pouco de fora e muito de
     // dentro; some quando a Skill que a sustenta desliga e, destruída, desliga a Skill.
     { id: "duel-bubble", label: "Bolha do duelo", img: "", color: "#f59e0b", shape: "circle", size: 8, blocksMove: true, blocksSight: false, blocksAttacks: true, hp: 2000, durationRounds: 0, material: "physical", manaPowered: false, outsideDamagePercent: 25, insideDamagePercent: 200, vanishWithSkill: true, endsSkillOnDestroy: true }
@@ -556,6 +558,7 @@ export const NIHILITY = {
     "magicDampen",
     "luck",
     "timeRate",
+    "space",
     "push",
     "flight",
     "burrow",
@@ -575,6 +578,7 @@ export const NIHILITY = {
     magicDampen: "Magia enfraquecida (chance % × força %)",
     luck: "Sorte (% nos dados; negativo = azar)",
     timeRate: "Ritmo do tempo (fator: Acelerar > 1, Desacelerar < 1)",
+    space: "Espaço (Saltar, Trocar de lugar)",
     push: "Empurrar/Puxar (metros)",
     flight: "Voando (pode subir no mapa)",
     burrow: "Escavando (pode descer abaixo do chão)",
@@ -628,6 +632,7 @@ export const NIHILITY = {
     { label: "Magia", actor: "character", targets: ["antimagic", "dispelMagic", "mark", "magicDampen"] },
     { label: "Sorte", actor: "character", targets: ["luck"] },
     { label: "Tempo", actor: "character", targets: ["timeRate"] },
+    { label: "Espaço", actor: "character", targets: ["space"] },
     { label: "Movimento", actor: "character", targets: ["push", "flight", "burrow"] },
     { label: "Terreno", actor: "any", targets: ["createSurface"] },
     { label: "Sentidos", actor: "character", targets: ["senseTremor", "senseInvisible", "senseTrue", "senseAll"] },

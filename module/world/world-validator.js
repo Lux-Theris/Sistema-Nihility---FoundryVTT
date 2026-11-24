@@ -11,6 +11,7 @@
  * `game.*` — quem coleta é apps/world-validator-app.js.
  */
 import { sizeFitsClass } from "../core/config.js";
+import { pocketSlots, POCKET_DEFAULTS, pocketEntryOf, PRESO_CONDITION_ID } from "../combat/space-rules.js";
 import { weaponTypeCatalogIssues } from "../combat/weapon-mastery-rules.js";
 import { shopSetupIssues, normalizeItemShop } from "../economy/shop-rules.js";
 
@@ -25,6 +26,8 @@ const ids = list => new Set((list ?? []).map(entry => (typeof entry === "string"
 export function buildCatalogIndex(catalogs = {}) {
   return {
     conditions: ids(catalogs.conditions),
+    // Condições que ancoram (8f): `anchorLevel` maior que 0.
+    anchorConditions: ids((catalogs.conditions ?? []).filter(c => Number(c?.anchorLevel) > 0)),
     elements: ids(catalogs.elements),
     structures: ids(catalogs.structures),
     scales: ids(catalogs.scales),
@@ -107,6 +110,27 @@ export function checkMechanic(mech, idx, prefix = "") {
     // "Só se…" (8.1a): a Condição ou o Traço escolhido precisa existir.
     if (entry?.onlyIf?.kind === "otherCondition" || entry?.onlyIf?.kind === "otherConditionMine" || entry?.onlyIf?.kind === "selfCondition") checkRef(issues, idx, at(where, "Só se… › Condição"), "conditions", entry.onlyIf.value);
     if (entry?.onlyIf?.kind === "otherTrait") checkRef(issues, idx, at(where, "Só se… › Traço"), "traits", entry.onlyIf.value);
+    // Espaço (8f): Skill espacial sem alcance vale no mapa inteiro; o modo precisa existir; Âncora (Condição) sem duração nunca sai.
+    if (entry?.target === "space") {
+      const mode = entry.spaceMode || "jump";
+      if (!["jump", "swap", "portal", "pocket", "domain"].includes(mode)) issues.push({ where, catalog: "space", ref: String(mode), message: "o modo de Espaço não existe: o uso é recusado" });
+      if (!(Number(mech.range) > 0) && !["pocket", "domain"].includes(mode)) issues.push({ where, catalog: "space", ref: "", message: mode === "portal" ? "Portal sem alcance: as pontas valem em qualquer ponto do mapa" : "Skill espacial sem alcance: Saltar/Trocar vale em qualquer ponto do mapa" });
+      if (["emission", "zone"].includes(mech.targetType) && mode !== "pocket") issues.push({ where, catalog: "space", ref: "", message: "Espaço não vale em área ou Zona: o uso é recusado" });
+      // Portal e Domínio (8f, lotes 3 e 5): sem duração ficam até o Mestre fechar (ou, numa Ativa, até desligar).
+      if (["portal", "domain"].includes(mode) && !(Number(entry.durationRounds) > 0) && !mech.hasUpkeep) {
+        issues.push({ where, catalog: "space", ref: "", message: `${mode === "portal" ? "Portal" : "Domínio"} sem duração: fica aberto até o Mestre fechar` });
+      }
+      if (mode === "domain" && !(Number(entry.spaceRadius) > 0)) issues.push({ where, catalog: "space", ref: "", message: "Domínio sem área (raio): vale o padrão de 10 m" });
+      if (mode === "domain" && idx.conditions && !idx.conditions.has(PRESO_CONDITION_ID)) issues.push({ where, catalog: "conditions", ref: PRESO_CONDITION_ID, message: "o Domínio usa a Condição Preso, que não está no catálogo de Condições (o Domínio prende, mas sem o selo na ficha)" });
+      // Bolso (lote 4): sem nível ou sem espaços não guarda nada.
+      if (mode === "pocket") {
+        if (!(Number(mech.level) >= 1)) issues.push({ where, catalog: "space", ref: "", message: "Bolso sem nível: os espaços crescem pelo nível da Skill" });
+        else if (pocketSlots({ base: entry.pocketBase ?? POCKET_DEFAULTS.base, perLevel: entry.pocketPerLevel ?? POCKET_DEFAULTS.perLevel, level: mech.level }) <= 0) issues.push({ where, catalog: "space", ref: "", message: "Bolso sem espaços: o nível da Skill não dá nenhum" });
+      }
+    }
+    if (entry?.conditionId && idx.anchorConditions?.has(entry.conditionId) && !(Number(entry.durationRounds) > 0) && !mech.hasUpkeep) {
+      issues.push({ where, catalog: "space", ref: entry.conditionId, message: "Âncora sem duração: quem a recebe fica Ancorado até o Mestre tirar" });
+    }
     // Desarmado vira tipo de arma.
     if (entry?.target === "unarmedType") checkRef(issues, idx, at(where, "Tipo de arma"), "weaponTypes", entry?.weaponTypeId);
   });
@@ -253,7 +277,7 @@ export function validateActor(actor, idx, { uuidExists = () => true, catalogs = 
     checkRef(issues, idx, "Escala", "scales", s.scale);
     // Contêiner: Item Geral com `container.enabled` ou Skill com `grantsContainer.enabled`, do próprio Ator.
     const containers = new Set(
-      items.filter(i => (i.type === "item" && i.system?.container?.enabled) || (i.type === "skill" && i.system?.grantsContainer?.enabled)).map(i => i._id)
+      items.filter(i => (i.type === "item" && i.system?.container?.enabled) || (i.type === "skill" && (i.system?.grantsContainer?.enabled || pocketEntryOf(i.system)))).map(i => i._id)
     );
     for (const item of items) {
       const containerId = item.system?.containerId;
@@ -450,6 +474,8 @@ export function validateCatalogs(catalogs, idx = buildCatalogIndex(catalogs)) {
   for (const structure of catalogs.structures ?? []) {
     const list = [];
     checkRefs(list, idx, "Elementos", "elements", structure.elements);
+    // Campo de Âncora (8f) sem duração fica de pé até a Antimagia ou o Mestre o derrubar.
+    if (Number(structure.anchorLevel) > 0 && !(Number(structure.durationRounds) > 0)) list.push({ where: "Âncora", catalog: "space", ref: "", message: "Campo de Âncora sem duração: fica de pé até a Antimagia ou o Mestre o tirar" });
     push("structures", structure.label ?? structure.id, list);
   }
 

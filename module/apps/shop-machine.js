@@ -21,7 +21,7 @@ export class ShopMachineApp extends HandlebarsApplicationMixin(ApplicationV2) {
     super({ id: appId(shop), ...options });
     this.shop = shop;
     this.tokenUuid = options.tokenUuid ?? "";
-    this.state = { page: 0, picked: "", typed: "", msg: "", tray: [], buyerUuid: options.buyerUuid ?? "", busy: false };
+    this.ui = { page: 0, picked: "", typed: "", msg: "", tray: [], buyerUuid: options.buyerUuid ?? "", busy: false };
   }
 
   static DEFAULT_OPTIONS = {
@@ -65,7 +65,7 @@ export class ShopMachineApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   #buyer() {
     const list = buyerCandidates(this.shop);
-    return list.find(a => a.uuid === this.state.buyerUuid) ?? list[0] ?? null;
+    return list.find(a => a.uuid === this.ui.buyerUuid) ?? list[0] ?? null;
   }
 
   #layout() {
@@ -74,7 +74,7 @@ export class ShopMachineApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
-    const s = this.state;
+    const s = this.ui;
     const currencies = getActiveCurrencies();
     context.closed = !isShopActor(this.shop);
     context.shopName = this.shop.name;
@@ -130,26 +130,26 @@ export class ShopMachineApp extends HandlebarsApplicationMixin(ApplicationV2) {
   _onRender(context, options) {
     super._onRender(context, options);
     this.element.querySelector("[data-buyer]")?.addEventListener("change", event => {
-      this.state.buyerUuid = event.currentTarget.value;
+      this.ui.buyerUuid = event.currentTarget.value;
       this.render();
     });
   }
 
   static #onPage(event, target) {
     const pages = machinePageCount(shopStockItems(this.shop).length);
-    this.state.page = (this.state.page + (Number(target.dataset.dir) || 1) + pages) % pages;
+    this.ui.page = (this.ui.page + (Number(target.dataset.dir) || 1) + pages) % pages;
     this.render();
   }
 
   static #onPick(event, target) {
-    this.state.picked = target.dataset.code;
-    this.state.typed = "";
-    this.state.msg = "";
+    this.ui.picked = target.dataset.code;
+    this.ui.typed = "";
+    this.ui.msg = "";
     this.render();
   }
 
   static #onKey(event, target) {
-    const s = this.state;
+    const s = this.ui;
     s.typed = machinePress(s.typed, target.dataset.key);
     s.msg = "";
     const layout = this.#layout();
@@ -163,7 +163,7 @@ export class ShopMachineApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   static async #onBuy() {
-    const s = this.state;
+    const s = this.ui;
     const buyer = this.#buyer();
     const picked = this.#layout().find(e => e.code === s.picked);
     if (!buyer || !picked) return;
@@ -180,8 +180,8 @@ export class ShopMachineApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   static #onTake() {
-    this.state.tray = [];
-    this.state.msg = "Retirado da gaveta";
+    this.ui.tray = [];
+    this.ui.msg = "Retirado da gaveta";
     this.render();
   }
 }

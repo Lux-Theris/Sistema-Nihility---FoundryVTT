@@ -39,6 +39,14 @@ export const COST_WEIGHTS = {
   movementMode: 5,
   /** Ritmo do tempo (8e): o piso do efeito; cresce com a distância do fator até 1 (em potências de 2) e com a duração. */
   timeFlat: 4,
+  // Espaço (8f): Saltar pesa pouco (alcance e Custo já limitam); Trocar, um pouco mais (mexe com outra pessoa).
+  spaceJumpFlat: 5,
+  spaceSwapFlat: 6,
+  // Portal (lote 3), Domínio (lote 5) e Bolso (lote 4): o piso; Portal e Domínio sobem um pouco por rodada de duração, o Bolso por espaço (no nível da Skill).
+  spacePortalFlat: 8,
+  spaceDomainFlat: 12,
+  spacePocketFlat: 4,
+  spaceLifePerRound: 0.5,
   // Sentido (J4b): valor fixo por sentido (+ um pouco pela duração); o alcance em metros não pesa.
   senseFlat: 3,
   // Sorte (8d.1): pontos por (% de sorte × escopo × rodada).
@@ -160,6 +168,23 @@ export function suggestSkillCost(mech, ctx = {}) {
         const rounds = active ? w.activeTicks : Math.max(1, Math.min(w.maxRounds, Number(e?.durationRounds) || w.foreverRounds));
         p = w.senseFlat + rounds * 0.25;
         text = `${name} por ${active ? "rodada ativa" : `${rounds} rodada(s)`}`;
+      } else if (target === "space") {
+        const mode = e?.spaceMode;
+        const rounds = active ? w.activeTicks : Math.max(1, Math.min(w.maxRounds, Number(e?.durationRounds) || w.foreverRounds));
+        if (mode === "portal") {
+          p = w.spacePortalFlat + rounds * w.spaceLifePerRound;
+          text = `Portal por ${active ? "rodada ativa" : `${rounds} rodada(s)`}`;
+        } else if (mode === "domain") {
+          p = w.spaceDomainFlat + rounds * w.spaceLifePerRound;
+          text = `Domínio por ${active ? "rodada ativa" : `${rounds} rodada(s)`}`;
+        } else if (mode === "pocket") {
+          p = w.spacePocketFlat;
+          text = "Bolso dimensional";
+        } else {
+          const swap = mode === "swap";
+          p = swap ? w.spaceSwapFlat : w.spaceJumpFlat;
+          text = swap ? "Trocar de lugar" : "Saltar (teleporte)";
+        }
       } else if (target === "timeRate") {
         const factor = e?.timeStop ? 1000 : e?.timeRewind ? 100 : clampTimeFactor(e?.timeFactor);
         const rounds = active ? w.activeTicks : Math.max(1, Math.min(w.maxRounds, Number(e?.durationRounds) || w.foreverRounds));

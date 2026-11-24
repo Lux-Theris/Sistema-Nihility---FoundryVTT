@@ -63,6 +63,7 @@ export class PlayerTradeApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   _onClose(options) {
     super._onClose?.(options);
+    clearTimeout(this._autoCloseTimer);
     OPEN_SHOP_APPS.delete(this);
   }
 
@@ -83,7 +84,7 @@ export class PlayerTradeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const rowsOf = side =>
       (trade[side]?.items ?? []).map(entry => {
         const item = actors[side]?.items.get(entry.id);
-        return { id: entry.id, name: item?.name ?? "(item sumiu)", img: item?.img ?? "", qty: entry.qty, color: machineColor(item?.name ?? ""), missing: !item };
+        return { id: entry.id, name: item?.name ?? (trade.status === "done" ? "(item entregue)" : trade.status === "open" ? "(item sumiu)" : "(item devolvido)"), img: item?.img ?? "", qty: entry.qty, color: machineColor(item?.name ?? ""), missing: !item };
       });
     const coinsOf = side => {
       const c = trade[side]?.coins;
@@ -118,6 +119,10 @@ export class PlayerTradeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   _onRender(context, options) {
     super._onRender(context, options);
     const root = this.element;
+    // Troca encerrada (feita, cancelada, desfeita ou já esquecida): a janela se fecha sozinha depois de alguns segundos.
+    if ((context.closed || context.gone) && !this._autoCloseTimer) {
+      this._autoCloseTimer = setTimeout(() => this.close().catch(() => {}), 12000);
+    }
     const send = fields => askPlayerTrade("set", { tradeId: this.tradeId, side: this.side, ...fields });
     const sendCoins = () => {
       const amount = Number(String(root.querySelector("[data-coins]")?.value ?? "0").replace(",", "."));

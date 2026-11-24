@@ -63,6 +63,7 @@ export function mechanicsGuide(catalogs = {}) {
     '  Dissipar (grupo "Magia"): {"target":"dispelMagic","dispelScope":"all"|"marks"|"condition","conditionId": id de Condição (só no escopo condition)} termina efeitos MÁGICOS do alvo de nível ≤ o da Skill (sem suprimir nem desligar nada).',
     '  Mecânica "reroll" (usada no chat depois de ver uma rolagem; não é Ativa): "rerollWho": "own"|"allies"|"any", "rerollKeep": "new"|"best"|"worst" (|"choose" só em Skill Ultimate), "rerollKinds": {"attribute":bool,"initiative":bool,"damage":bool,"chances":bool}.',
     '  Ritmo do tempo (grupo "Tempo", só Personagem; só se o bloco Manipulação do tempo estiver ligado): {"target":"timeRate","timeFactor": fator (2 = Acelerado ×2; 0.5 = Desacelerado ×½; 1 não muda nada),"durationRounds": rodadas (0 numa Habilidade Ativa = enquanto ligada)}. Para PARAR o tempo do alvo use "timeStop": true (o fator é ignorado; durationRounds = rodadas de quem lança; sempre com duração ou numa Ativa). Para REVERTER o tempo do alvo (voltar N rodadas: Vida, energia, efeitos, Itens e lugar) use "timeRewind": true (o fator é ignorado; durationRounds = quantas rodadas voltam, de 1 em diante; nunca numa Habilidade Ativa).',
+    '  Espaço (grupo "Espaço", só Personagem; só se o bloco Manipulação do espaço estiver ligado; a Skill precisa de alvo único ou Si mesmo e de "range" em metros): {"target":"space","spaceMode":"jump"|"swap","spaceWalls": true respeita paredes (padrão false: atravessa),"spaceSwapOther": true (só swap: troca o alvo com outro Token à escolha)}. "jump" (Saltar) leva quem usa (ou o alvo) a um ponto do mapa dentro do alcance, ou até uma Marca; "swap" (Trocar) troca o alvo de lugar com quem usa. Instantâneo, sem durationRounds.',
     '  Magia enfraquecida (grupo "Magia"): {"target":"magicDampen","amount": % da força que sobra (50 = metade),"chance": % de cada uso mágico do alvo ser enfraquecido,"durationRounds": rodadas}.',
     '  Terreno: {"target":"createSurface","elementId": id de elemento que deixa superfície no chão (só vale se o bloco Superfícies estiver ligado),"amount": raio em metros (0 = o do elemento),"durationRounds": rodadas (0 = as do elemento)}.',
     '  Efeitos de sentido (grupo "Sentidos", só Personagem): {"target":"senseTremor"|"senseInvisible"|"senseTrue"|"senseAll","amount": alcance em metros (0 = sem limite),"durationRounds": rodadas} — Sentido sísmico, Ver o invisível, Visão verdadeira, Sentir tudo.',
@@ -167,7 +168,7 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
     for (const e of Array.isArray(m.effects) ? m.effects.slice(0, 4) : []) {
       if (!e || !NIHILITY.EFFECT_TARGETS.includes(e.target) || String(e.target).startsWith("ship")) continue;
       const conditionId = conditions.has(e.conditionId) ? e.conditionId : "";
-      const movementOnly = ["flight", "burrow", "unarmedType", "dispelMagic", "timeRate"].includes(e.target);
+      const movementOnly = ["flight", "burrow", "unarmedType", "dispelMagic", "timeRate", "space"].includes(e.target);
       const surfaceEntry = e.target === "createSurface";
       const senseOnly = String(e.target).startsWith("sense");
       // Empurrar/Puxar: metros, sempre positivos (a direção é o campo pushDirection).
@@ -207,6 +208,13 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
         entry.timeFactor = clampTimeFactor(e.timeFactor);
         if (entry.timeRewind && !(Number(entry.durationRounds) > 0)) continue;
         if (!entry.timeRewind && !entry.timeStop && !isTimeFactorActive(entry.timeFactor)) continue;
+      }
+      // Espaço (8f): só Saltar e Trocar existem; o resto do campo de modo fica para os próximos lotes.
+      if (e.target === "space") {
+        entry.spaceMode = e.spaceMode === "swap" ? "swap" : "jump";
+        entry.spaceWalls = Boolean(e.spaceWalls);
+        entry.spaceSwapOther = entry.spaceMode === "swap" && Boolean(e.spaceSwapOther);
+        entry.durationRounds = 0;
       }
       // Dissipar (8d.2): o que termina; uma Condição que não existe aqui derruba o efeito.
       if (e.target === "dispelMagic") {

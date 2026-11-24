@@ -56,6 +56,7 @@ import { EffectsListApp } from "../apps/effects-list.js";
 import { enableHotbarDrag } from "../core/hotbar.js";
 import { skillSummariesFor } from "../skills/skill-summary-ui.js";
 import { skillTimersFor } from "../skills/preparation.js";
+import { shipInterdiction } from "./interdiction.js";
 const { HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
 
@@ -128,10 +129,15 @@ function moduleDetail(actor, module, abbr) {
       return `aceleração ${stat("acceleration")} · rotação ${stat("rotation")}`;
     case "armor":
       return `redução ${sys.armorReduction}%`;
-    case "ftl":
-      return sys.ftlType === "jump"
+    case "ftl": {
+      const base = sys.ftlType === "jump"
         ? `Salto · alcance ${sys.jumpRange} · carga ${sys.chargeRemaining}/${sys.chargeTime}`
         : `Dobra · fator ×${sys.warpFactor}`;
+      // Interdição (8f.2): outro Módulo, de outra Nave perto, segura o salto FTL.
+      return shipInterdiction(actor) ? `${base} · INTERDITADO` : base;
+    }
+    case "utility":
+      return Number(sys.interdictRange) > 0 ? `interdição ${sys.interdictRange} m${module.system.status === "online" ? "" : " (desligado)"}` : "";
     default:
       return "";
   }

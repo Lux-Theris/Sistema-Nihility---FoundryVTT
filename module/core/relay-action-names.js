@@ -44,6 +44,8 @@ export const RELAY_ACTION_NAMES = Object.freeze([
   "shopUndo",
   "skillUseXp",
   "soulXp",
+  "spaceMove",
+  "spaceRegion",
   "timePassedFor",
   "timeSyncRequest",
   "transformActor"

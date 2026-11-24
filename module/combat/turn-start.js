@@ -23,6 +23,7 @@ import { advanceStructures, tickStructureContact } from "../structures/structure
 import { tickSkillTimers } from "../skills/preparation.js";
 import { tickIncapacitation, isDead } from "./incapacitation.js";
 import { tickContagion } from "./contagion.js";
+import { advanceSpaceRegions } from "./space.js";
 import { syncTokenEnvironment } from "../environment/environment.js";
 import { tickRadiation, passRadiationTimeFor } from "../environment/radiation.js";
 import { beginTimeTurn, endTimeTurn, previousActorOf, announceTimeTurn } from "./time-rate.js";
@@ -39,6 +40,8 @@ async function advanceZonesAndStructures(ctx) {
     await advanceZones(scene, { combat: ctx.combat, combatant: ctx.combatant, roundChanged: ctx.roundChanged });
     if (ctx.roundChanged) await advanceStructures(scene);
   }
+  // Portais e Domínios (8f): contam como as Zonas, pelo turno de quem os abriu (as duas pontas de um Portal, em qualquer cena).
+  await advanceSpaceRegions({ combat: ctx.combat, combatant: ctx.combatant, roundChanged: ctx.roundChanged });
 }
 
 // Superfícies (8.2): sem dono, contam pela virada da rodada.

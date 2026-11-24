@@ -112,6 +112,9 @@ export async function padShopContext(app, actor) {
   s.dest = picked?.value ?? "depot";
   const route = chooseDestination({ requested: s.dest, needsAddress, depot: ctx.depot, ships: ctx.ships });
   const enough = balance >= total;
+  // Total e saldo na moeda das linhas quando todas cobram a mesma (senão cairia tudo em "Caco", a unidade base).
+  const ids = new Set(lines.map(l => l.row.currencyId ?? ""));
+  const cartCurrency = ids.size === 1 ? [...ids][0] : "";
   out.cart = {
     count: lines.reduce((sum, l) => sum + l.qty, 0),
     lines: lines.map(l => ({
@@ -124,10 +127,10 @@ export async function padShopContext(app, actor) {
     destinations: needsAddress ? options : [],
     noAddress: needsAddress && !route.ok && !options.some(o => !o.disabled),
     addressReason: route.reason,
-    totalText: formatMoney(total, currencies),
-    balanceText: formatMoney(balance, currencies),
+    totalText: formatMoney(total, currencies, cartCurrency),
+    balanceText: formatMoney(balance, currencies, cartCurrency),
     enough,
-    shortText: enough ? "" : formatMoney(total - balance, currencies),
+    shortText: enough ? "" : formatMoney(total - balance, currencies, cartCurrency),
     canBuy: lines.length > 0 && enough && route.ok && !s.busy
   };
 

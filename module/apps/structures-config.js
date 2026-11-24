@@ -33,6 +33,7 @@ function renderStructure(values) {
       <label title="Para a Antimagia: Estrutura mágica dentro de um campo antimagia custa Mana extra por rodada a quem conjurou, ou se desfaz"><input type="checkbox" data-field="magic" ${values.magic ? "checked" : ""}/> Mágica</label>
       <label title="Para o PEM: Estrutura tecnológica dentro de um campo de interferência custa energia extra por rodada a quem conjurou, ou se desfaz. Mágica e Tecnológica juntas = tecnomágica"><input type="checkbox" data-field="tech" ${values.tech ? "checked" : ""}/> Tecnológica</label>
       <label title="Campo de interferência (o PEM): 0 = não é. Uso tecnológico que atravessa, sai de dentro ou mira alguém dentro paga energia extra (maior quanto maior o nível) ou é anulado; arma tecnológica não dispara através. Não afeta o mágico">Interferência (nível) <input type="number" min="0" data-field="interferenceLevel" value="${values.interferenceLevel ?? 0}"/></label>
+      <label title="Campo de Âncora (8f): 0 = não é. Teleporte (Saltar, Trocar) que começa, termina ou é de quem está dentro falha, se o nível da Âncora for igual ou maior que o da Skill. Mágica + Âncora = a Antimagia a desfaz">Âncora (nível) <input type="number" min="0" data-field="anchorLevel" value="${values.anchorLevel ?? 0}"/></label>
       <label title="Campo antimagia: 0 = não é. Magia que atravessa, sai de dentro ou mira alguém dentro paga Mana extra (maior quanto maior o nível) ou é anulada">Antimagia (nível) <input type="number" min="0" data-field="antimagicLevel" value="${values.antimagicLevel ?? 0}"/></label>
       <label title="Fórmula rolada contra quem atravessa ou termina o movimento dentro (ex: 2d6). Vazio = nenhum">Dano ao contato <input type="text" data-field="contactDamage" value="${escapeHtml(values.contactDamage ?? "")}" placeholder="ex: 2d6"/></label>
     </div>
@@ -106,6 +107,7 @@ function readStructure(card) {
     material: el("material").value === "ethereal" ? "ethereal" : "physical",
     manaPowered: el("manaPowered").checked,
     antimagicLevel: Math.max(0, Math.round(Number(el("antimagicLevel").value) || 0)),
+    anchorLevel: Math.max(0, Math.round(Number(el("anchorLevel").value) || 0)),
     contactDamage: el("contactDamage").value.trim(),
     outsideDamagePercent: Math.max(0, Math.round(Number(el("outsideDamagePercent").value))) || (el("outsideDamagePercent").value === "0" ? 0 : 100),
     insideDamagePercent: Math.max(0, Math.round(Number(el("insideDamagePercent").value))) || (el("insideDamagePercent").value === "0" ? 0 : 100),

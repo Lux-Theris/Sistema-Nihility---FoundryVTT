@@ -16,6 +16,7 @@ import { damageCardHits, undoDamageCard } from "../combat/damage-apply.js";
 import { structuresOnScene, removeStructureInstance } from "../structures/structures.js";
 import { zonesOnScene } from "../combat/area-effects.js";
 import { removeSurfacesOfUse } from "../environment/surfaces.js";
+import { removeSpaceRegionsOfUse, spaceRegionsOfUse } from "../combat/space.js";
 import { beginSkillUse, endSkillUse, currentSkillUseId } from "./skill-use-context.js";
 import { reportError } from "../helpers/report.js";
 import { mechHasRewind } from "../combat/time-rewind-rules.js";
@@ -146,7 +147,7 @@ export async function recordSkillUse(sourceActor, skillId, options, run) {
     return run();
   }
 
-  const context = beginSkillUse();
+  const context = beginSkillUse(snapshotActor);
   const startedAt = Date.now();
   let result;
   try {
@@ -157,14 +158,22 @@ export async function recordSkillUse(sourceActor, skillId, options, run) {
   if (!result) return result;
 
   try {
+    // Atores que o uso mexeu e que só se soube depois (o segundo Token de um Trocar): entram com a foto de antes do uso.
+    for (const extra of context.extras ?? []) {
+      if (actors.some(a => a.uuid === extra.actor.uuid)) continue;
+      actors.push(extra.actor);
+      before.push(extra.before);
+    }
     const entries = actors.map((actor, i) => actorEntry(actor, before[i], snapshotActor(actor), i === 0)).filter(actorEntryHasChanges);
     const messages = game.messages.filter(m => m.getFlag(SYSTEM_ID, "skillUseId") === context.id);
     const hasDamage = messages.some(m => damageCardHits(m).length);
     const placed = {
       structure: Boolean(options.structurePlacement),
-      zone: Boolean(options.zonePlacement)
+      zone: Boolean(options.zonePlacement),
+      // Portal ou Domínio (8f) aberto por este uso: o Desfazer o fecha.
+      space: spaceRegionsOfUse(context.id).length > 0
     };
-    if (!entries.length && !hasDamage && !placed.structure && !placed.zone) return result;
+    if (!entries.length && !hasDamage && !placed.structure && !placed.zone && !placed.space) return result;
 
     const combat = combatOf(sourceActor);
     const label = sub ? `${skill.name} — ${sub.name}` : skill.name;
@@ -382,6 +391,8 @@ async function performSkillUndo(message, record) {
     }
     // Superfícies (8.2) que este uso deixou no chão.
     await removeSurfacesOfUse(record.useId);
+    // Portais e Domínios (8f) que este uso abriu: somem, e quem estava Preso é solto.
+    await removeSpaceRegionsOfUse(record.useId);
   } catch (err) {
     reportError("Desfazer uso: parte não pôde ser revertida.", err);
   }

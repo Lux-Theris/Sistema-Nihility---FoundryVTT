@@ -261,9 +261,9 @@ async function writeShop(shop, extra, entry) {
   await shop.update({ ...extra, "system.shop.history": pushHistory(cfg.history, entry) });
 }
 
-export async function announce(actor, title, body) {
+export async function announce(actor, title, body, { bannerMs = 0 } = {}) {
   try {
-    await announceVoiceOfTheWorld(actor, { kind: "shop", title, body });
+    await announceVoiceOfTheWorld(actor, { kind: "shop", title, body, bannerMs });
   } catch (err) {
     console.warn(`${SYSTEM_ID} | Loja: não deu para publicar o aviso.`, err);
   }

@@ -16,10 +16,10 @@ import { rerollLint } from "./reroll-rules.js";
 export const PERIODIC_TARGETS = ["hp", "energy", "shipCasco", "shipHull"];
 
 /** Alvos que agem na hora e não ficam "para sempre" sem duração. */
-const INSTANT_TARGETS = ["heal", "restoreEnergy", "shield", "antimagic", "emp", "mark", "dispelMagic", "push", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"];
+const INSTANT_TARGETS = ["heal", "restoreEnergy", "shield", "antimagic", "emp", "mark", "dispelMagic", "push", "space", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"];
 
 /** Alvos em que o valor não importa (liga/desliga, troca de elemento, Antimagia pelo nível). */
-const VALUELESS_TARGETS = ["weaponElement", "bodyElement", "weaponMagic", "weaponAbsolute", "unarmedType", "antimagic", "emp", "mark", "dispelMagic", "magicDampen", "luck", "timeRate", "flight", "burrow", "createSurface", "senseTremor", "senseInvisible", "senseTrue", "senseAll"];
+const VALUELESS_TARGETS = ["weaponElement", "bodyElement", "weaponMagic", "weaponAbsolute", "unarmedType", "antimagic", "emp", "mark", "dispelMagic", "magicDampen", "luck", "timeRate", "space", "flight", "burrow", "createSurface", "senseTremor", "senseInvisible", "senseTrue", "senseAll"];
 
 const groupTargets = actor => new Set(NIHILITY.EFFECT_TARGET_GROUPS.filter(g => g.actor === actor).flatMap(g => g.targets));
 
@@ -125,6 +125,22 @@ export function lintSkill(mech, ctx = {}) {
       else if (e.timeStop && !active && !(Number(e.durationRounds) > 0)) push("timeStopForever", "hard", "mechanic", "Parar o tempo sem duração numa Skill que não é Ativa: o alvo ficaria Parado para sempre. Ponha as rodadas (de quem lança) ou faça a Skill Ativa.", i);
       else if (!e.timeStop && !active && !(Number(e.durationRounds) > 0)) push("timeRateForever", "soft", "mechanic", "Ritmo do tempo sem duração numa Skill que não é Ativa: fica no alvo para sempre (até alguém tirar). Era isso?", i);
       if (m.targetType === "self" && ctx.actorType === "ship") push("timeRateShip", "hard", "mechanic", "Ritmo do tempo numa Nave: o tempo é de quem vive, o efeito não se aplica.", i);
+    }
+    if (e?.target === "space") {
+      const mode = e.spaceMode ?? "jump";
+      if (!["jump", "swap", "portal", "pocket", "domain"].includes(mode)) push("spaceModeLater", "hard", "mechanic", "Este modo de Espaço não existe: o uso é recusado.", i);
+      if (["emission", "zone"].includes(m.targetType) && mode !== "pocket") push("spaceArea", "hard", "mechanic", "Espaço (Saltar, Trocar, Portal, Domínio) vale para si mesmo ou um alvo, não para área nem Zona.", i);
+      if (mode === "swap" && m.targetType === "self") push("spaceSwapSelf", "hard", "mechanic", "Trocar numa Skill \"Si mesmo\": falta o alvo para trocar de lugar. Use \"Alvo único\".", i);
+      if (["jump", "swap", "portal"].includes(mode) && !(Number(m.range) > 0) && ctx.skillRange !== false) push("spaceNoRange", "soft", "mechanic", mode === "swap" ? "Trocar sem alcance: troca com qualquer Token do mapa. Ponha o alcance da Skill (ficha, Avançado)." : mode === "portal" ? "Portal sem alcance: as pontas abrem em qualquer ponto do mapa. Ponha o alcance da Skill (ficha, Avançado)." : "Saltar sem alcance: salta para qualquer ponto do mapa. Ponha o alcance da Skill (ficha, Avançado).", i);
+      if (active && ["jump", "swap"].includes(mode)) push("spaceActive", "soft", "mechanic", "Espaço numa Habilidade Ativa: o teleporte acontece só ao ligar (desligar não repete).", i);
+      if (ctx.actorType === "ship") push("spaceShip", "hard", "mechanic", "Espaço numa Nave: Nave e Veículo não são teleportados (o salto FTL é do Módulo).", i);
+      // Portal e Domínio (8f, lotes 3 e 5): precisam de prazo; Bolso, de nível e de espaços.
+      if (["portal", "domain"].includes(mode) && !active && !(Number(e.durationRounds) > 0)) push("spaceNoDuration", "soft", "mechanic", `${mode === "portal" ? "Portal" : "Domínio"} sem duração numa Skill que não é Ativa: fica aberto até o Mestre fechar. Ponha as rodadas ou faça a Skill Ativa.`, i);
+      if (mode === "portal" && e.spaceOtherScene && m.targetType !== "self") push("spaceOtherSceneTarget", "soft", "mechanic", "Portal para outra cena: a Skill não precisa de alvo, use \"Si mesmo\".", i);
+      if (mode === "domain" && !(Number(e.spaceRadius) > 0)) push("spaceNoRadius", "soft", "mechanic", "Domínio sem raio: vale o padrão de 10 m. Ponha o raio no efeito.", i);
+      if (mode === "domain" && Number(e.spaceTimeRate ?? 1) !== 1 && ctx.timeEnabled === false) push("spaceTimeOff", "soft", "mechanic", "Ritmo próprio do Domínio com o bloco de Manipulação do tempo desligado: o Domínio prende, mas o tempo lá dentro não muda.", i);
+      if (mode === "pocket" && !(Number(m.level) >= 1)) push("spacePocketNoLevel", "hard", "mechanic", "Bolso sem nível: os espaços crescem pelo nível da Skill.", i);
+      if (mode === "pocket" && Number(e.pocketBase ?? 5) <= 0 && Number(e.pocketPerLevel ?? 5) <= 0) push("spacePocketEmpty", "hard", "mechanic", "Bolso sem espaços: ponha espaços no nível 1 ou por nível.", i);
     }
     if (e?.target === "magicDampen" && Number(e.chance ?? 100) <= 0) push("magicDampenNever", "hard", "mechanic", "Magia enfraquecida com chance 0%: nunca pega.", i);
   });

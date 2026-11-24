@@ -395,6 +395,7 @@ export async function createStructureAsGm(payload) {
     tech: structure.tech,
     antimagicLevel: structure.antimagicLevel,
     interferenceLevel: structure.interferenceLevel,
+    anchorLevel: structure.anchorLevel,
     contactDamage: structure.contactDamage,
     // O duelo (8c.2): copiados na criacao como o resto.
     vanishWithSkill: structure.vanishWithSkill,
@@ -566,6 +567,7 @@ export function instanceInfo(instance) {
     tech: Boolean(pick("tech", false)),
     antimagicLevel: Number(pick("antimagicLevel", 0)) || 0,
     interferenceLevel: Number(pick("interferenceLevel", 0)) || 0,
+    anchorLevel: Number(pick("anchorLevel", 0)) || 0,
     contactDamage: pick("contactDamage", "") ?? "",
     vanishWithSkill: Boolean(pick("vanishWithSkill", false)),
     endsSkillOnDestroy: Boolean(pick("endsSkillOnDestroy", false)),
@@ -597,7 +599,19 @@ function activeFieldKinds() {
 
 /** Uma Estrutura é um campo (de qualquer tipo)? Campos não sofrem campos. */
 function isAnyField(info) {
-  return info.antimagicLevel > 0 || info.interferenceLevel > 0;
+  return info.antimagicLevel > 0 || info.interferenceLevel > 0 || info.anchorLevel > 0;
+}
+
+/**
+ * Os Campos de Âncora (8f) fechados da Cena que contêm o ponto (pixels): `[{kind: "structure", level, label}]`. Só
+ * documentos, sem canvas (o Mestre confere no relay). Quem decide se o nível segura o teleporte é `space-rules.js`.
+ */
+export function anchorFieldsAtPoint(scene, point) {
+  if (!scene || !point) return [];
+  return structuresOnScene(scene)
+    .map(instance => ({ instance, info: instanceInfo(instance), segments: structureSegmentsOf(scene, instance) }))
+    .filter(f => f.info.anchorLevel > 0 && f.info.closed && f.segments.length && pointInSegments([point.x, point.y], f.segments))
+    .map(f => ({ kind: "structure", level: f.info.anchorLevel, label: f.instance.label || "um Campo de Âncora" }));
 }
 
 /** Campos do tipo `kind` da Cena, com os segmentos. */

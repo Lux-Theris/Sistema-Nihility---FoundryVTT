@@ -12,5 +12,7 @@
   "TYPES.Item.item": "Item",
   "TYPES.RegionBehavior.nihilityEnvironment": "Ambiente (Nihility)",
   "TYPES.RegionBehavior.nihilityTrap": "Armadilha (Nihility)",
-  "TYPES.RegionBehavior.nihilityTimeRate": "Ritmo do tempo (Nihility)"
+  "TYPES.RegionBehavior.nihilityTimeRate": "Ritmo do tempo (Nihility)",
+  "TYPES.RegionBehavior.nihilityAnchor": "Âncora (Nihility)",
+  "TYPES.RegionBehavior.nihilityDomain": "Domínio (Nihility)"
 }

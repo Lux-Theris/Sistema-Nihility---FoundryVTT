@@ -213,7 +213,7 @@ export function undoPreviewRows(record, { damage = [], skillLabel = "" } = {}) {
       if (rest.length) rows.push({ tag: "volta", tone: "effect", text: `${item.name} de ${actor.name} volta como estava` });
     }
     // Empurrão/queda: o Token volta ao lugar de antes.
-    if ((actor.positions ?? []).length) rows.push({ tag: "volta", tone: "effect", text: `${actor.name} volta ao lugar de antes (empurrão)` });
+    if ((actor.positions ?? []).length) rows.push({ tag: "volta", tone: "effect", text: `${actor.name} volta ao lugar de antes (empurrão ou teleporte)` });
     const flags = asFields(actor.flags);
     if (flags.sustainedShields) rows.push({ tag: "volta", tone: "effect", text: `Escudo mantido de ${actor.name}` });
     if (flags.preparing) rows.push({ tag: "volta", tone: "effect", text: `Preparo de ${actor.name}` });
@@ -222,5 +222,6 @@ export function undoPreviewRows(record, { damage = [], skillLabel = "" } = {}) {
   }
   if (record?.placed?.structure) rows.push({ tag: "some", tone: "effect", text: `Estrutura erguida por ${skillLabel || "este uso"}` });
   if (record?.placed?.zone) rows.push({ tag: "some", tone: "effect", text: `Zona criada por ${skillLabel || "este uso"}` });
+  if (record?.placed?.space) rows.push({ tag: "some", tone: "effect", text: `Portal ou Domínio aberto por ${skillLabel || "este uso"}` });
   return rows;
 }

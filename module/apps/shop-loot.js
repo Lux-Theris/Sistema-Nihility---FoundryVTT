@@ -23,7 +23,7 @@ export class ShopLootApp extends HandlebarsApplicationMixin(ApplicationV2) {
   constructor(ref, options = {}) {
     super({ id: appId(ref), ...options });
     this.ref = ref;
-    this.state = { takerUuid: "", banner: null, qty: {} };
+    this.ui = { takerUuid: "", banner: null, qty: {} };
   }
 
   static DEFAULT_OPTIONS = {
@@ -58,12 +58,12 @@ export class ShopLootApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   #taker() {
     const list = lootTakers();
-    return list.find(a => a.uuid === this.state.takerUuid) ?? list[0] ?? null;
+    return list.find(a => a.uuid === this.ui.takerUuid) ?? list[0] ?? null;
   }
 
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
-    const s = this.state;
+    const s = this.ui;
     const source = await resolveSource(this.ref);
     context.gone = !source;
     if (!source) return context;
@@ -146,13 +146,13 @@ export class ShopLootApp extends HandlebarsApplicationMixin(ApplicationV2) {
   _onRender(context, options) {
     super._onRender(context, options);
     this.element.querySelector("[data-taker]")?.addEventListener("change", event => {
-      this.state.takerUuid = event.currentTarget.value;
+      this.ui.takerUuid = event.currentTarget.value;
       this.render();
     });
     this.element.querySelectorAll("[data-want]").forEach(input =>
       input.addEventListener("change", () => {
         const id = input.closest("[data-item-id]")?.dataset.itemId;
-        if (id) this.state.qty[id] = Math.max(1, Math.floor(Number(input.value) || 1));
+        if (id) this.ui.qty[id] = Math.max(1, Math.floor(Number(input.value) || 1));
       })
     );
   }
@@ -160,7 +160,7 @@ export class ShopLootApp extends HandlebarsApplicationMixin(ApplicationV2) {
   async #ask(op, extra = {}) {
     const taker = this.#taker();
     const outcome = await askLoot({ source: this.ref, taker, op, ...extra });
-    if (!outcome?.ok) this.state.banner = { cls: "w", text: outcome?.reason ? `${outcome.reason}. A lista foi atualizada.` : "Não deu para pegar." };
+    if (!outcome?.ok) this.ui.banner = { cls: "w", text: outcome?.reason ? `${outcome.reason}. A lista foi atualizada.` : "Não deu para pegar." };
     else if (taker) setTimeout(() => this.#warnWeight(taker), 400);
     this.render();
     return outcome;

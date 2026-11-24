@@ -24,6 +24,7 @@ import { escapeHtml } from "../helpers/html.js";
 import { reportError } from "../helpers/report.js";
 import { effectDurationRounds, effectStartRound, effectRoundsUpdate, deleteKeyUpdate } from "../helpers/foundry-compat.js";
 import { zonesOnScene } from "./area-effects.js";
+import { setSpaceRegionsSuspended } from "./space.js";
 import { structuresOnScene } from "../structures/structures.js";
 import { releaseAccumulatedDamage } from "./damage-apply.js";
 import { isTimeStopped, timeStopEffectsOf } from "./time-stop-state.js";
@@ -132,6 +133,8 @@ function maintainedByActor(actor) {
 
 /** Suspende (ou religa) o que `actor` mantém por Ativa. Idempotente. Nada é apagado, nada é cobrado. */
 export async function setMaintainedSuspended(actor, suspended) {
+  // Portais e Domínios de Skill Ativa (8f) também ficam suspensos enquanto quem os mantém está Parado.
+  await setSpaceRegionsSuspended(actor, suspended);
   for (const item of maintainedByActor(actor)) {
     if (item.suspended === suspended) continue;
     try {

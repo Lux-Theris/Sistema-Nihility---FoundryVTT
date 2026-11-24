@@ -404,6 +404,9 @@ export const RELAY_HANDLERS = {
         }
       }
     }
+    // Portais e Domínios (8f) que a mesma Skill Ativa mantinha.
+    const { removeSpaceRegionsAsGm } = await import("./space.js");
+    await removeSpaceRegionsAsGm({ sourceUuid, skillId, subSkillIndex });
   },
 
   /**

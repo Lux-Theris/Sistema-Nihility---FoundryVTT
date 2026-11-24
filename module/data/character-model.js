@@ -27,6 +27,7 @@ import { originAttributeRows, originStatRows, originMovement, originScale } from
 import { sumConditionalModifiers, percentOfTotal } from "../combat/conditional-modifiers.js";
 import { sourceSuppressed, suppressionState } from "../core/suppression.js";
 import { totalLuck } from "../combat/luck-sources.js";
+import { pocketContainerOf } from "../combat/space-rules.js";
 import { npcTierHp, NPC_TIERS } from "../npc/npc-generator-rules.js";
 import { getNpcTierConfig } from "../core/config.js";
 
@@ -428,10 +429,11 @@ function deriveInventory(dataModel) {
       id: i.id, label: i.name, isSkill: false, unlimited: false,
       slots: i.system.container.slots, weightReduction: i.system.container.weightReduction
     })),
-    ...actor.items.filter(i => i.type === "skill" && i.system.grantsContainer?.enabled).map(i => ({
+    // Skill que dá contêiner: o Bolso (8f, espaços pelo nível, peso 100% reduzido) vale mais que o contêiner preenchido à mão.
+    ...actor.items.filter(i => i.type === "skill").map(i => pocketContainerOf(i.system, { id: i.id, label: i.name }) ?? (i.system.grantsContainer?.enabled ? ({
       id: i.id, label: i.name, isSkill: true, unlimited: Boolean(i.system.grantsContainer.unlimited),
       slots: i.system.grantsContainer.slots, weightReduction: i.system.grantsContainer.weightReduction
-    }))
+    }) : null)).filter(Boolean)
   ];
   const load = inventoryLoad(
     items.map(i => ({

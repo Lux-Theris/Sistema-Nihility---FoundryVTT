@@ -367,6 +367,25 @@ function effectEntrySchema() {
     /** Só no alvo "timeRate": REVERTER o tempo do alvo (8e.7/8e.8). Ignora `timeFactor`. `durationRounds` = quantas rodadas voltam (teto: Regras desta mesa). Ver combat/time-rewind.js. */
     timeRewind: new fields.BooleanField({ required: false, initial: false }),
     /**
+     * Só no alvo "space" (Espaço, 8f): o modo. "jump" = Saltar, "swap" = Trocar (lote 1), "portal" (lote 3), "pocket" = Bolso (lote 4) e
+     * "domain" = Domínio (lote 5). O alcance é o `range` da Skill; a duração do Portal e do Domínio é a `durationRounds`.
+     * Ver combat/space.js e combat/space-rules.js.
+     */
+    spaceMode: new fields.StringField({ required: false, initial: "jump", blank: true, choices: ["jump", "swap", "portal", "pocket", "domain"] }),
+    /** Só no alvo "space": o teleporte RESPEITA paredes (padrão falso: ignora, como o empurrão). Parede no caminho recusa o uso. */
+    spaceWalls: new fields.BooleanField({ required: false, initial: false }),
+    /** Só no alvo "space" modo Trocar: troca o alvo com OUTRO Token escolhido (em vez de com quem usa). */
+    spaceSwapOther: new fields.BooleanField({ required: false, initial: false }),
+    /** Só no alvo "space" modo Portal (lote 3): o portal pode levar a OUTRA cena (escolhida ao abrir). */
+    spaceOtherScene: new fields.BooleanField({ required: false, initial: false }),
+    /** Só no alvo "space" modos Portal e Domínio: o raio em metros (0 = o padrão: 1 m no Portal, 10 m no Domínio). A duração é a `durationRounds`. */
+    spaceRadius: new fields.NumberField({ required: false, initial: 0, min: 0 }),
+    /** Só no alvo "space" modo Domínio (lote 5): ritmo do tempo lá dentro (1 = o normal; só vale com o bloco de tempo ligado). */
+    spaceTimeRate: new fields.NumberField({ required: false, initial: 1, min: 0.0000000001, max: 1000000 }),
+    /** Só no alvo "space" modo Bolso (lote 4): espaços do Bolso no nível 1 e quantos a mais por nível. O peso dentro é sempre 100% reduzido. */
+    pocketBase: new fields.NumberField({ required: false, integer: true, initial: 5, min: 0 }),
+    pocketPerLevel: new fields.NumberField({ required: false, integer: true, initial: 5, min: 0 }),
+    /**
      * "Só se…" (8.1a): o efeito só pega quando isto vale no alvo (ou em quem usou). `kind` vazio =
      * sempre. Mesma linguagem do "Quando" do "Quando → Então"; ver skills/only-if-rules.js.
      */
@@ -978,6 +997,12 @@ export class StarshipModuleDataModel extends foundry.abstract.TypeDataModel {
       jumpRange: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
       chargeTime: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
       chargeRemaining: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
+      /**
+       * Interdição (8f.2): Módulo tecnológico (Função Utilitário) que, ONLINE, impede o salto FTL das Naves cujo Token está
+       * dentro deste alcance (unidades da cena). 0 = não interdita. Mesmo cálculo da Âncora, mas é outra coisa no jogo:
+       * tecnologia (o PEM o derruba junto com o Módulo) e só mexe com FTL. Ver combat/space.js `shipInterdiction`.
+       */
+      interdictRange: new fields.NumberField({ required: false, initial: 0, min: 0 }),
 
       /**
        * Só relevante pra category "weapon" (Overhaul de Naves, Fase 5) — dano/penetração/recarga

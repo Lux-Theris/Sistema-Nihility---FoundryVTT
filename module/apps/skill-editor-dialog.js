@@ -40,6 +40,7 @@ import { isWeaponMasteryEnabled, weaponTypeChoices } from "../combat/weapon-mast
 import { REROLL_WHO, REROLL_WHO_LABELS, REROLL_KEEP, REROLL_KEEP_LABELS, REROLL_KIND_KEYS, REROLL_KIND_LABELS, normalizeRerollKinds, rerollKeepOptions } from "../skills/reroll-rules.js";
 import { DISPEL_SCOPES, DISPEL_SCOPE_LABELS } from "../core/magic-rules.js";
 import { clampTimeFactor } from "../combat/time-rate-rules.js";
+import { liveSpaceModes, normalizeSpaceMode } from "../combat/space-rules.js";
 import { skillAssist, warningsBoxHtml, costChipHtml, templateGroups, templateFillSentence, skillFromTemplate } from "../skills/skill-assist.js";
 
 const { DialogV2 } = foundry.applications.api;
@@ -100,11 +101,12 @@ function buildEffectRowHtml(entry) {
       <select class="se-effect-target">${options}</select>
       <select class="se-effect-element-id" title="Elemento (das armas, ou que o alvo passa a ser)" style="display:${["weaponElement", "bodyElement", "createSurface"].includes(entry.target) ? "inline-block" : "none"};">${elementIdOptions}</select>
       <select class="se-effect-weapon-type" title="O ataque desarmado passa a contar como este tipo de arma (Maestria, XP e aprendizado)" style="display:${entry.target === "unarmedType" ? "inline-block" : "none"};">${weaponTypeIdOptions}</select>
-      <input type="number" class="se-effect-amount" value="${entry.amount}" placeholder="${entry.target === "push" ? "Metros" : entry.target === "createSurface" ? "Raio m (0 = o do elemento)" : String(entry.target).startsWith("sense") ? "Alcance m (0 = sem limite)" : "Qtd."}" style="display:${["antimagic", "emp", "mark", "dispelMagic", "flight", "burrow", "unarmedType", "timeRate"].includes(entry.target) ? "none" : ""};"/>
+      <input type="number" class="se-effect-amount" value="${entry.amount}" placeholder="${entry.target === "push" ? "Metros" : entry.target === "createSurface" ? "Raio m (0 = o do elemento)" : String(entry.target).startsWith("sense") ? "Alcance m (0 = sem limite)" : "Qtd."}" style="display:${["antimagic", "emp", "mark", "dispelMagic", "flight", "burrow", "unarmedType", "timeRate", "space"].includes(entry.target) ? "none" : ""};"/>
       <select class="se-effect-amount-mode" title="Pontos, ou % do máximo do alvo (Vida, Mana, Escudo) / % do total do atributo (−100% tira o total inteiro)" style="display:${PERCENT_AMOUNT_TARGETS.includes(entry.target) ? "inline-block" : "none"};"><option value="flat" ${entry.amountMode === "percentMax" ? "" : "selected"}>pts</option><option value="percentMax" ${entry.amountMode === "percentMax" ? "selected" : ""}>${ATTRIBUTE_PERCENT_TARGETS.includes(entry.target) ? "% total" : "% máx."}</option></select>
       <input type="number" class="se-effect-time-factor" value="${Number(entry.timeFactor ?? 2)}" min="0.01" max="1000" step="0.1" title="Ritmo do tempo: o fator. 3 = Acelerado ×3 (3 de tempo por turno); 0,5 = Desacelerado ×½. Mana investida aumenta o fator. Alvo de nível maior que a Skill sente menos." style="width:4.5em;display:${entry.target === "timeRate" ? "inline-block" : "none"};"/>
       <label class="checkbox-line small se-effect-time-stop-label" title="Parar o tempo do alvo (fator 0): ele não age nem se move e nada nele anda; o dano que leva cai quando o tempo volta. A duração é em rodadas de quem lança." style="display:${entry.target === "timeRate" ? "inline-flex" : "none"};"><input type="checkbox" class="se-effect-time-stop" ${entry.timeStop ? "checked" : ""}/> Parar</label>
       <label class="checkbox-line small se-effect-time-rewind-label" title="Reverter o tempo do alvo: ele volta ao que era N rodadas atrás (a duração ao lado). Em combate volta Vida, energia, Escudo, efeitos, partes do corpo, Itens e o lugar; fora dele, os efeitos de status e o tempo de vida. Ligado a alguém por Nomeação ou Pacto, volta os dois e custa o dobro. O teto de rodadas está nas Regras desta mesa." style="display:${entry.target === "timeRate" ? "inline-flex" : "none"};"><input type="checkbox" class="se-effect-time-rewind" ${entry.timeRewind ? "checked" : ""}/> Reverter</label>
+      <span class="se-effect-space" title="Espaço: Saltar leva quem usa (ou o alvo) a um ponto do mapa dentro do alcance da Skill, ou até uma Marca; Trocar troca o alvo de lugar com quem usa (ou com outro Token). A Âncora bloqueia." style="display:${entry.target === "space" ? "inline-flex" : "none"};gap:.4em;align-items:center;"><select class="se-effect-space-mode">${liveSpaceModes().map(m => `<option value="${m.id}" ${m.id === normalizeSpaceMode(entry.spaceMode) ? "selected" : ""}>${m.label}</option>`).join("")}</select><label class="checkbox-line small" data-space-modes="jump swap" title="Respeita paredes: parede no caminho recusa o uso."><input type="checkbox" class="se-effect-space-walls" ${entry.spaceWalls ? "checked" : ""}/> Respeita paredes</label><label class="checkbox-line small" data-space-modes="swap" title="Trocar com outro Token escolhido no mapa, em vez de com quem usa."><input type="checkbox" class="se-effect-space-other" ${entry.spaceSwapOther ? "checked" : ""}/> Com outro Token</label><label class="checkbox-line small" data-space-modes="portal" title="Ao abrir o portal você escolhe a cena de destino e o ponto (um Token marcado por você, ou o ponto inicial da cena)."><input type="checkbox" class="se-effect-space-scene" ${entry.spaceOtherScene ? "checked" : ""}/> Pode ligar outra cena</label><label class="checkbox-line small" data-space-modes="portal domain" title="Raio em metros (0 = 1 m no Portal, 10 m no Domínio). A duração é a do campo ao lado."><input type="number" class="se-effect-space-radius" value="${Number(entry.spaceRadius) || 0}" min="0" step="0.5" style="width:4.5em;"/> m de raio</label><label class="checkbox-line small" data-space-modes="domain" title="Ritmo do tempo lá dentro (1 = normal). Só age com o bloco de Manipulação do tempo, o Relógio e o calendário ligados."><input type="number" class="se-effect-space-rate" value="${Number(entry.spaceTimeRate ?? 1)}" min="0.0000000001" max="1000000" step="any" style="width:4.5em;"/> ritmo ×</label><label class="checkbox-line small" data-space-modes="pocket" title="Espaços do Bolso no nível 1 e quantos a mais por nível. O que está dentro não pesa."><input type="number" class="se-effect-pocket-base" value="${Number(entry.pocketBase ?? 5)}" min="0" step="1" style="width:4em;"/> espaços +<input type="number" class="se-effect-pocket-per" value="${Number(entry.pocketPerLevel ?? 5)}" min="0" step="1" style="width:4em;"/> por nível</label></span>
       <input type="number" class="se-effect-chance" value="${Number(entry.chance ?? 100)}" min="0" max="100" title="Magia enfraquecida: chance (%) de cada uso mágico do alvo sair com a força indicada em Qtd. (% da força que sobra)" style="width:4.5em;display:${entry.target === "magicDampen" ? "inline-block" : "none"};"/>
       <span class="se-effect-luck" title="Sorte: Qtd. = % de sorte (negativo = azar). Marque onde vale." style="display:${entry.target === "luck" ? "inline-flex" : "none"};gap:.4em;">${["attributes", "Atributos", "damage", "Dano", "chances", "Chances"].reduce((acc, v, i, a) => (i % 2 ? acc : acc + `<label class="checkbox-line small"><input type="checkbox" class="se-effect-luck-scope" data-scope="${v}" ${entry.luckScopes?.[v] ? "checked" : ""}/> ${a[i + 1]}</label>`), "")}</span>
       <select class="se-effect-dispel-scope" title="Dissipar: o que termina (só efeitos mágicos do alvo de nível até o desta Skill). Em &quot;só uma Condição&quot;, escolha a Condição abaixo." style="display:${entry.target === "dispelMagic" ? "inline-block" : "none"};">${DISPEL_SCOPES.map(sc => `<option value="${sc}" ${sc === (entry.dispelScope || "all") ? "selected" : ""}>${escapeHtml(DISPEL_SCOPE_LABELS[sc])}</option>`).join("")}</select>
@@ -1045,7 +1047,7 @@ function wireEffectRowTarget(li) {
   targetSelect.addEventListener("change", applyPeriodicVisibility);
   // Antimagia não tem quantidade: a força é o nível da Skill; a duração é a da supressão.
   targetSelect.addEventListener("change", () => {
-    li.querySelector(".se-effect-amount").style.display = ["antimagic", "emp", "mark", "dispelMagic", "flight", "burrow", "unarmedType", "timeRate"].includes(targetSelect.value) ? "none" : "";
+    li.querySelector(".se-effect-amount").style.display = ["antimagic", "emp", "mark", "dispelMagic", "flight", "burrow", "unarmedType", "timeRate", "space"].includes(targetSelect.value) ? "none" : "";
   });
   targetSelect.addEventListener("change", () => {
     const luckBox = li.querySelector(".se-effect-luck");
@@ -1061,6 +1063,18 @@ function wireEffectRowTarget(li) {
     li.querySelector(".se-effect-time-stop-label").style.display = targetSelect.value === "timeRate" ? "inline-flex" : "none";
     li.querySelector(".se-effect-time-rewind-label").style.display = targetSelect.value === "timeRate" ? "inline-flex" : "none";
   });
+  targetSelect.addEventListener("change", () => {
+    li.querySelector(".se-effect-space").style.display = targetSelect.value === "space" ? "inline-flex" : "none";
+  });
+  // Espaço: cada modo mostra só os campos dele.
+  const applySpaceModeVisibility = () => {
+    const mode = li.querySelector(".se-effect-space-mode")?.value;
+    li.querySelectorAll("[data-space-modes]").forEach(el => {
+      el.style.display = el.dataset.spaceModes.split(" ").includes(mode) ? "inline-flex" : "none";
+    });
+  };
+  li.querySelector(".se-effect-space-mode")?.addEventListener("change", applySpaceModeVisibility);
+  applySpaceModeVisibility();
   targetSelect.addEventListener("change", () => {
     li.querySelector(".se-effect-chance").style.display = targetSelect.value === "magicDampen" ? "inline-block" : "none";
   });
@@ -1361,6 +1375,14 @@ function readSkillEditorForm(root, lockTier) {
             luckScopes: Object.fromEntries(["attributes", "damage", "chances"].map(scope => [scope, Boolean(row.querySelector(`.se-effect-luck-scope[data-scope="${scope}"]`)?.checked)])),
             timeRewind: row.querySelector(".se-effect-target").value === "timeRate" && Boolean(row.querySelector(".se-effect-time-rewind")?.checked),
             timeStop: row.querySelector(".se-effect-target").value === "timeRate" && !row.querySelector(".se-effect-time-rewind")?.checked && Boolean(row.querySelector(".se-effect-time-stop")?.checked),
+            spaceMode: row.querySelector(".se-effect-target").value === "space" ? normalizeSpaceMode(row.querySelector(".se-effect-space-mode")?.value) : "jump",
+            spaceWalls: row.querySelector(".se-effect-target").value === "space" && Boolean(row.querySelector(".se-effect-space-walls")?.checked),
+            spaceSwapOther: row.querySelector(".se-effect-target").value === "space" && Boolean(row.querySelector(".se-effect-space-other")?.checked),
+            spaceOtherScene: row.querySelector(".se-effect-target").value === "space" && Boolean(row.querySelector(".se-effect-space-scene")?.checked),
+            spaceRadius: row.querySelector(".se-effect-target").value === "space" ? Math.max(0, Number(row.querySelector(".se-effect-space-radius")?.value) || 0) : 0,
+            spaceTimeRate: row.querySelector(".se-effect-target").value === "space" ? Math.max(1e-10, Number(row.querySelector(".se-effect-space-rate")?.value) || 1) : 1,
+            pocketBase: row.querySelector(".se-effect-target").value === "space" ? Math.max(0, Math.floor(Number(row.querySelector(".se-effect-pocket-base")?.value ?? 5)) || 0) : 5,
+            pocketPerLevel: row.querySelector(".se-effect-target").value === "space" ? Math.max(0, Math.floor(Number(row.querySelector(".se-effect-pocket-per")?.value ?? 5)) || 0) : 5,
             timeFactor: row.querySelector(".se-effect-target").value === "timeRate" ? clampTimeFactor(row.querySelector(".se-effect-time-factor")?.value) : 2,
             chance: row.querySelector(".se-effect-target").value === "magicDampen" ? Math.min(100, Math.max(0, Number(row.querySelector(".se-effect-chance")?.value))) || (row.querySelector(".se-effect-chance")?.value === "0" ? 0 : 100) : 100,
             immuneTraits: row.querySelector(".se-effect-target").value === "push" ? readPickerField(row.querySelector(".se-effect-immune-traits")) : [],

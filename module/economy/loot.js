@@ -173,8 +173,11 @@ async function lootTakeAsGm(payload, user) {
 
   try {
     if (op === "item") {
-      const entry = lootEntries(source).find(e => e.id === String(payload?.itemId ?? ""));
-      if (!entry || !visibleTo(entry, taker, user, kind)) return refuse("esse item já foi pego");
+      const wanted = String(payload?.itemId ?? "");
+      if (!wanted) return refuse("faltou dizer qual item pegar (itemId)");
+      const entry = lootEntries(source).find(e => e.id === wanted);
+      if (!entry) return refuse("esse item não está mais aqui (já foi pego)");
+      if (!visibleTo(entry, taker, user, kind)) return refuse("esse item não é seu");
       await takeEntry(entry, clampQty(payload?.qty ?? entry.qty));
     } else if (op === "all") {
       for (const entry of lootEntries(source)) {
@@ -332,7 +335,7 @@ export function listDepots() {
 }
 
 async function announceArrival(deposit, item, owner) {
-  await announce(owner, "Entrega", `Seu ${item.name} chegou ao ${deposit.name}.`);
+  await announce(owner, "Entrega", `Seu ${item.name} chegou ao ${deposit.name}.`, { bannerMs: 15000 });
 }
 
 /**

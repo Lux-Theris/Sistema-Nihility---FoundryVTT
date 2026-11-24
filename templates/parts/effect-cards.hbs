@@ -46,6 +46,36 @@
               <input class="num skill-effect-input" type="number" data-effect-field="timeFactor" value="{{eff.timeFactor}}" min="0.01" max="1000" step="0.1" aria-label="Fator do tempo" title="Maior que 1 acelera (3 = Acelerado ×3: 3 de tempo por turno); menor que 1 desacelera (0,5 = ×½). Mana investida aumenta o fator. Alvo de nível maior que a Skill sente menos."/>
               <span class="effect-note" title="Numa Habilidade Ativa, dura enquanto ligada; senão, as rodadas ao lado.">{{#if (eq eff.timeFactor 1)}}não muda nada{{else}}{{#if (gt eff.timeFactor 1)}}Acelerar{{else}}Desacelerar{{/if}}{{/if}}</span>
               {{/unless}}{{/unless}}
+              {{else if eff.isSpace}}
+              <select class="skill-effect-input" data-effect-field="spaceMode" aria-label="Modo do Espaço" title="Saltar: quem usa (ou o alvo) vai a um ponto do mapa dentro do alcance da Skill, ou até uma Marca. Trocar: o alvo e quem usa (ou outro Token) trocam de lugar. Portal: par de pontas que se levam uma à outra, pela duração. Bolso: contêiner sem peso, com espaços pelo nível. Domínio: área onde quem está dentro não sai. O alcance é o da Skill (ficha, Avançado).">
+                {{#each eff.spaceModeOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
+              </select>
+              {{#if eff.isTeleport}}
+              <label class="checkbox-line small" title="Marcado, o teleporte respeita paredes: se houver uma parede entre os dois pontos, o uso é recusado e nada é gasto. Desmarcado, atravessa (como o empurrão)."><input type="checkbox" class="skill-effect-input" data-effect-field="spaceWalls" {{#if eff.spaceWalls}}checked{{/if}}/> Respeita paredes</label>
+              {{#if eff.isSwap}}
+              <label class="checkbox-line small" title="Marcado, o alvo troca com outro Token que você clica no mapa, em vez de trocar com quem usa."><input type="checkbox" class="skill-effect-input" data-effect-field="spaceSwapOther" {{#if eff.spaceSwapOther}}checked{{/if}}/> Com outro Token</label>
+              {{/if}}
+              {{/if}}
+              {{#if eff.isPortal}}
+              <label class="checkbox-line small" title="Marcado, ao abrir o portal você escolhe a cena de destino (outra cena do mundo) e o ponto: um Token marcado por você nela, ou o ponto inicial da cena. Cena de outra linha do tempo (J9b) é viagem no tempo. O portal não deixa ver o outro lado."><input type="checkbox" class="skill-effect-input" data-effect-field="spaceOtherScene" {{#if eff.spaceOtherScene}}checked{{/if}}/> Pode ligar outra cena</label>
+              <input class="num skill-effect-input" type="number" data-effect-field="spaceRadius" value="{{eff.spaceRadius}}" min="0" step="0.5" aria-label="Raio de cada ponta (m)" title="Raio de cada ponta do portal em metros (0 = 1 m)."/>
+              <span class="effect-note">m de raio</span>
+              {{/if}}
+              {{#if eff.isDomain}}
+              <input class="num skill-effect-input" type="number" data-effect-field="spaceRadius" value="{{eff.spaceRadius}}" min="0" step="0.5" aria-label="Raio do Domínio (m)" title="Raio do Domínio em metros (0 = 10 m). Quem está dentro fica Preso: movimento para fora da área é recusado."/>
+              <span class="effect-note">m de raio</span>
+              {{#if eff.spaceTimeOn}}
+              <span class="effect-note">Ritmo ×</span>
+              <input class="num skill-effect-input" type="number" data-effect-field="spaceTimeRate" value="{{eff.spaceTimeRate}}" min="0.0000000001" max="1000000" step="any" aria-label="Ritmo do tempo dentro" title="1 = o tempo normal. Menor que 1 = mais lento por dentro (0,5 = ×½); maior = mais rápido. Reaproveita a câmara do tempo: só age com o Relógio do mundo e o calendário ligados."/>
+              {{/if}}
+              {{/if}}
+              {{#if eff.isPocket}}
+              <input class="num skill-effect-input" type="number" data-effect-field="pocketBase" value="{{eff.pocketBase}}" min="0" step="1" aria-label="Espaços no nível 1" title="Espaços do Bolso no nível 1 da Skill."/>
+              <span class="effect-note">espaços no nível 1, +</span>
+              <input class="num skill-effect-input" type="number" data-effect-field="pocketPerLevel" value="{{eff.pocketPerLevel}}" min="0" step="1" aria-label="Espaços por nível" title="Espaços a mais por nível da Skill."/>
+              <span class="effect-note">por nível</span>
+              {{/if}}
+              <span class="effect-note" title="A Âncora (Condição Ancorado, Campo de Âncora ou Região) bloqueia o que é espacial de nível igual ou menor (Saltar, Trocar, Portal, e o Bolso de quem está Ancorado).">{{eff.spaceNote}}</span>
               {{else if eff.isLuck}}
               <input class="num skill-effect-input" type="number" data-effect-field="amount" value="{{eff.amount}}" aria-label="Sorte (%)" title="% de sorte nos dados (negativo = azar). Sem teto: +100% leva o d20 à média 13,8."/>
               <span class="effect-note">% de sorte em</span>

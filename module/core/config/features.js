@@ -135,6 +135,11 @@ export function isTimeManipulationEnabled() {
   return isFeatureEnabled("timeManipulation");
 }
 
+/** Manipulação do espaço (8f): o efeito "Espaço" (Saltar, Trocar), a Âncora e a Interdição. Separada do tempo. */
+export function isSpaceManipulationEnabled() {
+  return isFeatureEnabled("spaceManipulation");
+}
+
 /** Calendário, linhas do tempo e tempo pessoal (J9b). Desligado: o tempo pessoal é o do mundo. */
 export function isCalendarEnabled() {
   return isFeatureEnabled("calendar");

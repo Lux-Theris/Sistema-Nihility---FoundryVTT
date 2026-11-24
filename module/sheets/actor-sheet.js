@@ -68,6 +68,7 @@ import { autoSnapshot } from "../world/auto-snapshot.js";
 import { rollOptionsFromEvent } from "../apps/roll-options-dialog.js";
 import { traitContext, changeTrait, pickActorTraits } from "../helpers/traits-ui.js";
 import { describeShieldPools } from "../combat/shield-pools.js";
+import { pocketOpenBlock } from "../combat/space.js";
 import { useSkillFlow } from "../skills/skill-use-flow.js";
 import { reportError } from "../helpers/report.js";
 import { escapeHtml } from "../helpers/html.js";
@@ -1047,7 +1048,15 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       select.addEventListener("change", async event => {
         event.stopPropagation();
         const item = this.actor.items.get(select.closest("[data-item-id]")?.dataset.itemId);
-        if (item && this.isEditable) await item.update({ "system.containerId": select.value });
+        if (!item || !this.isEditable) return;
+        // Bolso (8f): quem está Ancorado não o abre. Nada se perde; a escolha volta ao que era.
+        const sealed = pocketOpenBlock(this.actor, select.value) || pocketOpenBlock(this.actor, item.system?.containerId);
+        if (sealed) {
+          ui.notifications.warn(sealed);
+          select.value = item.system?.containerId ?? "";
+          return;
+        }
+        await item.update({ "system.containerId": select.value });
       });
     });
     root.querySelectorAll(".inventory-row[draggable]").forEach(row => {

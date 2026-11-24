@@ -217,6 +217,47 @@ async function migrateLuckDefaults() {
   registerStatusConditions();
 }
 
+/**
+ * Migração única (8f.2): os catálogos já salvos ganham a Condição "Ancorado" e a Estrutura "Campo de Âncora". Só
+ * acrescenta o que falta, pelo id; nada editado é sobrescrito.
+ */
+async function migrateSpaceDefaults() {
+  const targets = [
+    [NIHILITY.SETTINGS.statusConditionsData, NIHILITY.DEFAULT_STATUS_CONDITIONS, ["anchored"]],
+    [NIHILITY.SETTINGS.structuresData, NIHILITY.DEFAULT_STRUCTURES, ["anchor-field"]]
+  ];
+  for (const [key, defaults, wanted] of targets) {
+    const raw = game.settings.get(SYSTEM_ID, key);
+    if (!raw) continue;
+    let list;
+    try {
+      list = typeof raw === "string" ? JSON.parse(raw) : raw;
+    } catch (err) {
+      continue;
+    }
+    if (!Array.isArray(list)) continue;
+    const merged = addMissingById(list, defaults, wanted);
+    if (merged.changed) await game.settings.set(SYSTEM_ID, key, JSON.stringify(merged.list, null, 2));
+  }
+  registerStatusConditions();
+}
+
+/** Migração única (8f.5): os catálogos de Condições já salvos ganham a Condição "Preso" (só o que falta, pelo id). */
+async function migrateSpaceDomainDefaults() {
+  const raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.statusConditionsData);
+  if (!raw) return;
+  let list;
+  try {
+    list = typeof raw === "string" ? JSON.parse(raw) : raw;
+  } catch (err) {
+    return;
+  }
+  if (!Array.isArray(list)) return;
+  const merged = addMissingById(list, NIHILITY.DEFAULT_STATUS_CONDITIONS, ["trapped"]);
+  if (merged.changed) await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.statusConditionsData, JSON.stringify(merged.list, null, 2));
+  registerStatusConditions();
+}
+
 async function migrateDuelDefaults() {
   const targets = [
     [NIHILITY.SETTINGS.statusConditionsData, NIHILITY.DEFAULT_STATUS_CONDITIONS, ["duel-mark"]],
@@ -393,7 +434,9 @@ const MIGRATION_FUNCTIONS = {
   reactionsDefaults: migrateReactionsDefaults,
   surfaceDefaults: migrateSurfaceDefaults,
   duelDefaults: migrateDuelDefaults,
-  luckDefaults: migrateLuckDefaults
+  luckDefaults: migrateLuckDefaults,
+  spaceDefaults: migrateSpaceDefaults,
+  spaceDomainDefaults: migrateSpaceDomainDefaults
 };
 
 /** As migrações na ordem em que rodam: `[chave estável, função]`. */

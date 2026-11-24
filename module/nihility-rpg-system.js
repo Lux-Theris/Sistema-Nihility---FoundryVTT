@@ -77,6 +77,7 @@ import { registerTimeRewind, renderTimeRewind } from "./combat/time-rewind.js";
 import { registerTimeStop } from "./combat/time-stop.js";
 import { registerTraps } from "./environment/traps.js";
 import { registerTimeChamber } from "./core/time-chamber.js";
+import { registerSpace } from "./combat/space.js";
 import { registerWorldClock } from "./core/world-clock.js";
 import { registerElevation } from "./combat/elevation.js";
 import { registerForms } from "./skills/forms.js";
@@ -252,6 +253,7 @@ Hooks.once("init", () => {
   // Armadilhas de Região (I1) e Relógio do mundo (J9).
   registerTraps();
   registerTimeChamber();
+  registerSpace();
   // Superfícies (8.2): entrada por movimento, validade pelo relógio do mundo.
   registerSurfaces();
   registerWorldClock();

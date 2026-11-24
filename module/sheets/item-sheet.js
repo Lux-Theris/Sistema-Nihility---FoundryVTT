@@ -20,6 +20,9 @@ import { getAntimagicReach,
   isStatusConditionsEnabled,
   isAreaEffectsEnabled,
   isSkillRangeEnabled,
+  isVesselsEnabled,
+  isShipSensorsEnabled,
+  isBoardingEnabled,
   isLuckEnabled,
   isForcedMovementEnabled,
   getScaleConfig,
@@ -436,6 +439,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       pickEffectTraits: NihilityItemSheet.#onPickEffectTraits,
       removeEffectTrait: NihilityItemSheet.#onRemoveEffectTrait,
       toggleAmmoType: NihilityItemSheet.#onToggleAmmoType,
+      toggleModuleFunction: NihilityItemSheet.#onToggleModuleFunction,
       toggleImplantList: NihilityItemSheet.#onToggleImplantList,
       removeElement: NihilityItemSheet.#onRemoveElement,
       showEffectCondition: NihilityItemSheet.#onShowEffectCondition,
@@ -1203,6 +1207,27 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const accepted = new Set(sys.ammoTypes ?? []);
     context.launcherAmmoChips = getAmmoTypes().map(a => ({ id: a.id, label: a.label, checked: accepted.has(a.id) }));
     context.cargoSlotsPreview = cargoSlotsFor(sys.moduleSize, sys.cargoMultiplier);
+    // Funções extras (F1/F2): cada uma liga um bloco de campos. Só aparecem com o bloco ligado (o que está salvo fica).
+    const sensorsOn = isVesselsEnabled() && isShipSensorsEnabled();
+    const boardingOn = isVesselsEnabled() && isBoardingEnabled();
+    const chosen = new Set(sys.functions ?? []);
+    const available = [
+      ...(sensorsOn || chosen.has("sensor") ? [["sensor", "Sensor"]] : []),
+      ...(sensorsOn || chosen.has("camouflage") ? [["camouflage", "Camuflagem"]] : []),
+      ...(sensorsOn || chosen.has("scanBlock") ? [["scanBlock", "Bloqueio de varredura"]] : []),
+      ...(boardingOn || chosen.has("teleporter") ? [["teleporter", "Teletransportador"]] : []),
+      ...(boardingOn || chosen.has("dock") ? [["dock", "Eclusa (acoplagem)"]] : [])
+    ];
+    context.moduleFunctionChips = available.map(([id, label]) => ({ id, label, checked: chosen.has(id) }));
+    context.hasFunctionChips = available.length > 0;
+    context.fnSensor = chosen.has("sensor");
+    context.fnCamouflage = chosen.has("camouflage");
+    context.fnScanBlock = chosen.has("scanBlock");
+    context.fnTeleporter = chosen.has("teleporter");
+    context.fnDock = chosen.has("dock");
+    context.sensorsFeatureOn = sensorsOn;
+    context.moduleScanBlockRoles = sensorsOn && ["shield", "armor"].includes(context.moduleRole);
+    context.moduleFireSignature = sensorsOn && context.moduleRole === "weapon";
     context.grantSummary = grantedSkillSummary(sys.grantsSkill, "system.grantsSkill");
 
     if (context.moduleRole === "shield" && sys.adaptive) {
@@ -1650,6 +1675,17 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     if (list.has(type)) list.delete(type);
     else list.add(type);
     await this.item.update({ "system.weapon.ammoTypes": [...list] });
+  }
+
+  /** Liga/desliga uma função extra do Módulo (sensor, camuflagem…): cada uma liga um bloco de campos. */
+  static async #onToggleModuleFunction(event, target) {
+    event.preventDefault();
+    if (!this.isEditable) return;
+    const id = target.dataset.fn;
+    const list = new Set(this.item.system.functions ?? []);
+    if (list.has(id)) list.delete(id);
+    else list.add(id);
+    await this.item.update({ "system.functions": [...list] });
   }
 
   static async #onToggleAmmoType(event, target) {

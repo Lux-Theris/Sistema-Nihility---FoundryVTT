@@ -13,6 +13,7 @@ import { chargeAntimagic, fieldGate } from "../combat/antimagic.js";
 import { checkFlatRange } from "../combat/range.js";
 import { shipRangeUnits } from "../combat/range-rules.js";
 import { escapeHtml } from "../helpers/html.js";
+import { actorHiddenBySensors, registerShotSignature } from "./sensors.js";
 import { shipReactionFor, cardReactions, reactionLabel } from "../combat/reactions.js";
 
 /** Nave OU Veículo — os dois compartilham o mesmo `ShipSystemsDataModel` desde o overhaul de Porte. */
@@ -258,6 +259,11 @@ export async function fireStarshipWeapon(sourceActor, weaponModule, targetActor 
     return null;
   }
 
+  // Sensores (F1): não se mira o que o sensor não vê.
+  if (targetActor && actorHiddenBySensors(targetActor)) {
+    ui.notifications?.warn(`${targetActor.name} não está detectada pelos sensores.`);
+    return null;
+  }
   const options = normalizeRollOptions(rollOptions);
   const roll = new Roll(applyAdvantageToFormula(formula, options.advantage));
   await roll.evaluate();
@@ -352,6 +358,8 @@ export async function fireStarshipWeapon(sourceActor, weaponModule, targetActor 
     const scaledCooldown = Math.max(1, Math.ceil(sys.cooldownRounds * throttleRatio));
     await weaponModule.update({ "system.cooldownRemaining": scaledCooldown });
   }
+  // Sensores (F1): disparar sobe a Assinatura da nave por 1 rodada.
+  await registerShotSignature(sourceActor, weaponModule);
 
   return { roll, finalDamage };
 }

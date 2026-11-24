@@ -68,6 +68,16 @@ export const SCENE_FIELDS = {
     clean: v => text(v) || undefined,
     legacyEmpty: () => true
   },
+  sensorInterference: {
+    label: "Interferência de sensores",
+    // Percentual (0-100) que corta o alcance de todos os sensores de nave da cena (F1). 100 = todos cegos.
+    def: 0,
+    clean: v => {
+      const n = Number(v);
+      return Number.isFinite(n) && v !== "" && v !== null ? Math.min(100, Math.max(0, n)) : undefined;
+    },
+    legacyEmpty: () => true
+  },
   hazards: {
     label: "Perigos",
     def: [],
@@ -215,6 +225,7 @@ export function fieldValueText(key, value, { lineName = null, depotName = null }
     case "clockDarkness": return value ? "escurece com o relógio" : "não escurece com o relógio";
     case "manaDensity": return `Mana ×${value}`;
     case "radiation": return value > 0 ? `radiação ${value}` : "sem radiação";
+    case "sensorInterference": return value > 0 ? `interferência de sensores ${value}%` : "sem interferência de sensores";
     case "depotId": return `entregas em ${depotName || "um depósito"}`;
     case "hazards": return value.length ? `${value.length} perigo(s)` : "sem perigos";
     default: return String(value);

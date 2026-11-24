@@ -44,7 +44,8 @@ export const SHIP_PERCENT_PATHS = {
   shipShieldCapacity: "system.combatBonuses.shieldCapacityPercent",
   shipShieldRegen: "system.combatBonuses.shieldRegenPercent",
   shipReactorOutput: "system.combatBonuses.reactorOutputPercent",
-  shipPropulsion: "system.combatBonuses.propulsionPercent"
+  shipPropulsion: "system.combatBonuses.propulsionPercent",
+  shipSignature: "system.combatBonuses.signaturePercent"
 };
 
 /**

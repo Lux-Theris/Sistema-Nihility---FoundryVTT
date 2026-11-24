@@ -14,6 +14,7 @@ import { sizeFitsClass } from "../core/config.js";
 import { pocketSlots, POCKET_DEFAULTS, pocketEntryOf, PRESO_CONDITION_ID } from "../combat/space-rules.js";
 import { weaponTypeCatalogIssues } from "../combat/weapon-mastery-rules.js";
 import { shopSetupIssues, normalizeItemShop } from "../economy/shop-rules.js";
+import { moduleSensorIssues, shipSensorIssues } from "../starship/sensor-rules.js";
 
 const ids = list => new Set((list ?? []).map(entry => (typeof entry === "string" ? entry : entry?.id ?? entry?.key)).filter(Boolean));
 
@@ -214,6 +215,7 @@ export function validateItem(item, idx) {
       checkRefs(issues, idx, "Elementos de dano", "elements", s.damageElements);
       checkRefs(issues, idx, "Elementos do Escudo", "elements", s.shieldElements);
       issues.push(...checkGrant(s.grantsSkill, idx, ""));
+      for (const issue of moduleSensorIssues(s)) issues.push({ where: issue.where, catalog: "modules", ref: "", message: issue.message });
       break;
     case "body_part":
       if (idx.bodyFunctions?.size) checkRefs(issues, idx, "Funções", "bodyFunctions", s.functions);
@@ -317,6 +319,11 @@ export function validateActor(actor, idx, { uuidExists = () => true, catalogs = 
       }
       checkRef(issues, idx, at(where, "Posto"), "crewRoles", member?.role);
     });
+    for (const issue of shipSensorIssues(s, {
+      hasSensor: items.some(i => i.type === "starship_module" && (i.system?.functions ?? []).includes("sensor")),
+      dockExists: !s.dock?.withUuid || uuidExists(s.dock.withUuid),
+      boarderExists: uuidExists
+    })) issues.push({ where: issue.where, catalog: "sensors", ref: "", message: issue.message });
     // Grupo de prioridade: com a fila vazia valem os cinco grupos padrão (p1…p5).
     const groups = (s.powerGroups ?? []).length ? new Set(s.powerGroups.map(g => g?.id)) : new Set(["p1", "p2", "p3", "p4", "p5"]);
     for (const item of items) {

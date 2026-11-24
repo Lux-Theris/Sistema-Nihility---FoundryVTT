@@ -33,6 +33,17 @@
     </section>
     {{/if}}
 
+    {{#if sensorsEnabled}}
+    <section class="env-sec">
+      <h3><i class="fas fa-satellite-dish"></i> Interferência de sensores</h3>
+      {{{chips.sensorInterference}}}
+      <div class="env-density" data-field="sensorInterference">
+        <input type="number" name="sensorInterference" min="0" max="100" step="1" value="{{sensorInterference}}"/>
+        <span class="env-note">Corta o alcance de todos os sensores de nave desta cena, em %. Com 40%, um sensor de alcance 1000 passa a alcançar 600 (contra uma nave de Assinatura 100%). 100% deixa todos cegos. Vale também para a visão passiva. Agora: alcance 1000 vira {{sensorInterferenceExample}}.</span>
+      </div>
+    </section>
+    {{/if}}
+
     {{#if clockEnabled}}
     <section class="env-sec">
       <h3><i class="fas fa-sun"></i> Relógio do mundo</h3>

@@ -1,0 +1,80 @@
+<section class="tab sheet-body {{tabs.acoplagem.cssClass}}" data-group="primary" data-tab="acoplagem">
+  <div class="boarding-tab">
+    {{#if bd.docked}}
+    <div class="block">
+      <p class="block-title">Acoplagem</p>
+      <div class="boarding-docked">
+        <i class="fas fa-link"></i>
+        <div class="boarding-docked-text">
+          <b>Acoplada a: {{bd.docked.withName}}</b>
+          <span class="hint-inline">{{#if bd.docked.ownModule}}pelo Módulo {{bd.docked.ownModule}} de {{actor.name}}{{else}}sem Módulo de Eclusa daqui{{/if}}{{#if bd.docked.otherModule}} · ponto de acoplamento: {{bd.docked.otherModule}} de {{bd.docked.withName}}{{/if}}</span>
+        </div>
+        {{#if bd.isOwner}}<button type="button" class="boarding-undock" data-action="undockShip">Desacoplar</button>{{/if}}
+      </div>
+      <p class="hint-inline">Como a acoplagem foi permitida: <b>{{bd.docked.viaLabel}}</b>. Só acopla com uma destas três vias: Raio Trator segurando, Escudo do alvo em 0, ou o Mestre liberando.</p>
+      <p class="hint-inline"><b>Ao mover: teste resistido de propulsão.</b> Mover uma nave acoplada faz um teste resistido de propulsão com a outra (d20 + 1 a cada 20 de aceleração). Diferença até {{bd.dragMargin}}: arrasta a outra nave junto, sem dano. Maior: arranca um pedaço de quem perdeu (Casco e o Módulo do ponto de acoplamento) e desacopla.</p>
+    </div>
+    {{else}}
+    <div class="block">
+      <p class="block-title">Para acoplar</p>
+      <p class="hint-inline">Ação entre duas naves coladas. Só sai com o Raio Trator segurando, com o Escudo do alvo em 0, ou com o Mestre liberando (Veículo: só o Mestre libera).</p>
+      {{#if bd.hasNearby}}
+      <ul class="boarding-list">
+        {{#each bd.nearby as |n|}}
+        <li class="boarding-row">
+          <b>{{n.name}}</b>
+          {{#if n.ok}}
+          <span class="boarding-tag">{{#if n.via}}pode acoplar{{/if}}</span>
+          {{#if ../bd.isOwner}}<button type="button" data-action="dockShip" data-target-uuid="{{n.uuid}}">Acoplar a {{n.name}}</button>{{/if}}
+          {{else}}
+          <span class="hint-inline">{{n.reason}}</span>
+          {{#if n.canAsk}}{{#if ../bd.isOwner}}<button type="button" data-action="dockShip" data-target-uuid="{{n.uuid}}" data-ask="true">Pedir ao Mestre</button>{{/if}}{{/if}}
+          {{/if}}
+        </li>
+        {{/each}}
+      </ul>
+      {{else}}
+      <p class="hint-inline">Nenhuma outra nave neste mapa (ou esta nave não tem Token na cena aberta).</p>
+      {{/if}}
+    </div>
+    {{/if}}
+
+    <div class="block">
+      <p class="block-title">Grupo de abordagem</p>
+      {{#if bd.groupHosts.length}}
+      <ul class="boarding-list">
+        {{#each bd.groupHosts as |h|}}
+        <li class="boarding-row">
+          <b>{{#if h.own}}A bordo de {{h.name}}{{else}}A bordo de {{h.name}} (nave acoplada){{/if}}</b>
+          <span class="boarding-tag">{{h.count}} {{#if h.count}}personagem(ns){{/if}}</span>
+          <button type="button" data-action="openBoarding" data-host-uuid="{{h.uuid}}">Abrir grupo de abordagem</button>
+        </li>
+        {{/each}}
+      </ul>
+      {{else}}
+      <p class="hint-inline">Ninguém está a bordo de {{actor.name}} nem da nave acoplada. Quem passa para a outra nave entra no grupo dela (pela acoplagem, por teleporte ou por uma Região "A bordo" no mapa).</p>
+      {{/if}}
+      {{#if bd.ownBoarders.length}}
+      <p class="hint-inline">A bordo desta nave agora: {{#each bd.ownBoarders as |b|}}{{b.name}} ({{b.room}}){{#unless @last}}, {{/unless}}{{/each}}.</p>
+      {{/if}}
+    </div>
+
+    {{#if bd.hasTeleporters}}
+    <div class="block">
+      <p class="block-title">Abordar por teleporte</p>
+      {{#each bd.teleporters as |t|}}
+      <div class="boarding-tele">
+        <b>{{t.name}}</b> <span class="hint-inline">alcance {{t.range}}{{#unless t.operating}} · desligado ou sem energia{{/unless}}</span>
+        {{#if t.targets.length}}
+        <ul class="boarding-list">
+          {{#each t.targets as |x|}}<li class="boarding-row"><b>{{x.name}}</b> {{#if x.ok}}<span class="boarding-tag">alcançável</span>{{else}}<span class="hint-inline">{{x.reason}}</span>{{/if}}</li>{{/each}}
+        </ul>
+        {{/if}}
+        {{#if ../bd.isOwner}}<button type="button" data-action="teleportBoard" data-item-id="{{t.id}}" {{#unless t.anyOk}}disabled{{/unless}}>Abordar por teleporte…</button>{{/if}}
+      </div>
+      {{/each}}
+      <p class="hint-inline">Precisa ver o alvo no sensor. Interdição e Âncora bloqueiam; o PEM derruba o Módulo.</p>
+    </div>
+    {{/if}}
+  </div>
+</section>

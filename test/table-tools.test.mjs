@@ -111,3 +111,25 @@ test("Módulos do Sistema: todo bloco tem grupo e frase; 'Deixar leve' só desli
   // naturalRegen, bodyPartInjury, movement, radiation, encumbrance, scale, shipManeuver, elevation (J4) e surfaces (8.2).
   assert.equal(Object.keys(light.features).length, 9);
 });
+
+test("Regras desta mesa: a página das naves traz os números de Sensores e Abordagem", () => {
+  const base = {
+    date: "24/11/2026", systemVersion: "1.115.0", energyLabel: "Mana", attributes: [], vital: { hp: ["a", "b"], energy: ["c", "d"], multiplier: 10, floor: 50, energyEnabled: true },
+    xpFormula: "x", attributePool: false, skills: { powerPerLevel: 1, discountPerLevel: 1, cyclePower: 1, cycleDiscount: 1, costFloor: 1 }, initiative: "Destreza", movement: null,
+    incapacitation: null, conditions: [], elements: [], disabled: []
+  };
+  const off = buildTableRulesPages({ ...base, features: {} });
+  assert.equal(off.some(p => p.key === "ships"), false, "sem os blocos a página não existe");
+  const on = buildTableRulesPages({
+    ...base,
+    features: { shipSensors: true, boarding: true },
+    sensors: { passiveFactor: 50, energyActive: 20, energyPassive: 4, lostRounds: 5, cleanMargin: 3 },
+    boardingMargin: 4
+  });
+  const page = on.find(p => p.key === "ships");
+  assert.ok(page);
+  assert.match(page.html, /alcance do sensor de A × a Assinatura de B/);
+  assert.match(page.html, /tr-num">20<\/span>%/);
+  assert.match(page.html, /3 ou mais/);
+  assert.match(page.html, /até <b><span class="tr-num">4<\/span><\/b>/);
+});

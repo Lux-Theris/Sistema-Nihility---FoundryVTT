@@ -1,0 +1,84 @@
+<section class="tab sheet-body {{tabs.sensores.cssClass}}" data-group="primary" data-tab="sensores">
+  <div class="sensor-tab">
+    {{#unless sn.hasSensor}}
+    <div class="block">
+      <p class="block-title">Sensores</p>
+      <p class="hint-inline">Esta nave não tem um Módulo com a função Sensor. Sem sensor, a tripulação continua vendo tudo no mapa. Marque a função "Sensor" na ficha de um Módulo (alcance, Resolução e consumo) para ligar a regra.</p>
+    </div>
+    {{else}}
+    <div class="block sensor-head">
+      <div class="sensor-mod">
+        <span class="sensor-mod-ic"><i class="fas fa-satellite-dish"></i></span>
+        <div class="sensor-mod-text">
+          <b>{{sn.sensorName}}{{sn.sensorExtra}}</b>
+          <span class="hint-inline">Módulo com função Sensor · sempre ativo · <span class="{{#if sn.ready}}sensor-ok{{else}}sensor-bad{{/if}}">{{sn.stateLine}}</span></span>
+        </div>
+        <div class="sensor-seg" role="group" aria-label="Modo do sensor">
+          <button type="button" class="{{#if sn.isActive}}on{{/if}}" data-action="sensorMode" data-mode="active" {{#unless sn.canSwitch}}disabled{{/unless}}>Ativo</button>
+          <button type="button" class="{{#if sn.isPassive}}on{{/if}}" data-action="sensorMode" data-mode="passive" {{#unless sn.canSwitch}}disabled{{/unless}}>Passivo</button>
+        </div>
+      </div>
+      <div class="sensor-stats">
+        <div class="sensor-stat"><b>{{sn.range}}</b><span>Alcance</span><small>{{sn.rangeNote}}</small></div>
+        <div class="sensor-stat"><b>{{sn.resolution}}</b><span>Resolução</span><small>{{sn.resolutionNote}}</small></div>
+        <div class="sensor-stat"><b>{{sn.consumption}}</b><span>Consumo de {{sn.energyAbbr}}</span><small>por rodada</small></div>
+        <div class="sensor-stat"><b>{{sn.interference}}%</b><span>Interferência da cena</span><small>{{sn.interferenceNote}}</small></div>
+      </div>
+      <p class="hint-inline">Passivo: alcance reduzido, Resolução menor, gasta menos {{sn.energyAbbr}} e a Assinatura da própria nave cai junto. Sem energia, desligado, sob PEM ou em Interferência total o sensor fica cego.</p>
+    </div>
+
+    <div class="block" data-sensor-contacts>
+      <p class="block-title">Contatos</p>
+      <p class="hint-inline">Um contato é visto se a distância for no máximo o alcance ({{sn.range}}) × a Assinatura dele.{{#unless isGM}} Só a tripulação desta nave vê esta lista. Naves não detectadas (como uma camuflada) nem aparecem aqui. Contatos perdidos ficam como marcador cinza no mapa por algumas rodadas.{{/unless}}</p>
+      {{#if sn.hasRows}}
+      <table class="sensor-table">
+        <thead><tr><th>Nave</th><th>Distância</th><th>Assinatura</th><th>Vista até</th><th>Estado</th><th></th></tr></thead>
+        <tbody>
+          {{#each sn.rows as |r|}}
+          <tr class="{{#if r.lost}}lost{{/if}}">
+            <td>{{r.name}}</td>
+            <td>{{r.distance}}</td>
+            <td>{{r.signature}}</td>
+            <td>{{r.limit}}</td>
+            <td><span class="sensor-tag {{r.tagCls}}">{{r.tag}}</span>{{#if r.extra}} <small class="hint-inline">{{r.extra}}</small>{{/if}}</td>
+            <td>{{#if r.canScan}}<button type="button" class="sensor-scan" data-action="sensorScan" data-token-uuid="{{r.tokenUuid}}"><i class="fas fa-satellite-dish"></i> Escanear</button>{{/if}}</td>
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
+      {{else}}
+      <p class="hint-inline">Nenhum contato agora.{{#unless sn.hasToken}} (a nave não tem Token na cena aberta){{/unless}}</p>
+      {{/if}}
+    </div>
+    {{/unless}}
+
+    <div class="block">
+      <p class="block-title">Assinatura própria</p>
+      <div class="sensor-sig">
+        <span class="sensor-big">{{sn.signature}}%</span>
+        <span class="hint-inline">Quanto mais alta, de mais longe os outros sensores veem esta nave.</span>
+      </div>
+      <div class="sensor-bar">
+        {{#each sn.signatureSegments as |s|}}<span class="sensor-seg-{{s.id}}" style="flex: {{s.value}} 0 0" title="{{s.label}}: {{s.text}}"></span>{{/each}}
+      </div>
+      <ul class="sensor-legend">
+        {{#each sn.signatureSegments as |s|}}
+        <li><i class="sensor-sw sensor-seg-{{s.id}}"></i><span>{{s.label}} <small class="hint-inline">{{s.why}}</small></span><b>{{s.text}}</b></li>
+        {{/each}}
+      </ul>
+      {{#each sn.camouflage as |c|}}
+      <div class="sensor-camo">
+        <i class="fas fa-user-secret"></i>
+        <span>{{c.name}}: Camuflagem {{#if c.on}}<b class="sensor-ok">ligada</b>{{else}}desligada{{/if}} (alvo {{c.target}}%, gasta {{c.consumption}} {{../sn.energyAbbr}} por rodada)</span>
+        {{#if c.canToggle}}<button type="button" data-action="sensorCamo" data-item-id="{{c.id}}">{{#if c.on}}Desligar{{else}}Ligar{{/if}}</button>{{/if}}
+      </div>
+      {{/each}}
+    </div>
+
+    {{#if isGM}}
+    <div class="block">
+      <label class="sensor-check"><input type="checkbox" name="system.alwaysDetected" {{#if sn.alwaysDetected}}checked{{/if}}/> Sempre detectada pelos sensores (nave aliada ou combinada na história)</label>
+    </div>
+    {{/if}}
+  </div>
+</section>

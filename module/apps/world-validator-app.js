@@ -30,6 +30,7 @@ import { getRawTimelines, sceneTimeFlag, listChambers } from "../core/world-time
 import { folderOwn, sceneOwnValues } from "../environment/scene-config.js";
 import { collectLootValidation, depotForScene } from "../economy/loot.js";
 import { lootIssues } from "../economy/loot-rules.js";
+import { aboardRegionIssues } from "../starship/boarding-rules.js";
 // Atores do Diretório + sintéticos dos Tokens não vinculados (cada Drone é um Ator diferente).
 import { worldActors } from "../helpers/world-actors.js";
 
@@ -164,6 +165,21 @@ export class WorldValidatorApp extends HandlebarsApplicationMixin(ApplicationV2)
     for (const scene of game.scenes) {
       for (const region of scene.regions ?? []) {
         for (const behavior of region.behaviors ?? []) {
+          if (behavior.type === "nihilityAboard") {
+            // Região "A bordo" (F2): a nave e a sala ainda existem?
+            const ship = behavior.system.shipUuid ? fromUuidSync(behavior.system.shipUuid) : null;
+            const wanted = String(behavior.system.roomName ?? "").trim().toLowerCase();
+            const aboard = aboardRegionIssues({
+              shipUuid: behavior.system.shipUuid,
+              shipExists: Boolean(ship),
+              roomName: behavior.system.roomName,
+              roomFound: !wanted || Boolean(ship?.items?.some(i => i.type === "starship_module" && i.name.trim().toLowerCase() === wanted))
+            });
+            if (aboard.length) {
+              documents.push({ uuid: region.uuid, img: "icons/svg/door-exit.svg", name: `${scene.name} › ${region.name}`, type: "Região (A bordo)", issues: aboard.map(issue => ({ where: issue.where, message: issue.message, itemUuid: "" })) });
+            }
+            continue;
+          }
           if (behavior.type !== "nihilityTrap") continue;
           const issues = validateTrap(behavior.system, idx);
           if (!issues.length) continue;

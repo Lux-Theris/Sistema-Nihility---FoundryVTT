@@ -8,6 +8,9 @@
 export const RELAY_ACTION_NAMES = Object.freeze([
   "antimagicStructures",
   "applySkillEffects",
+  "boardingAction",
+  "boardingGroup",
+  "boardingTeleport",
   "borrowedCooldown",
   "clearShieldLights",
   "createCharacter",
@@ -36,6 +39,7 @@ export const RELAY_ACTION_NAMES = Object.freeze([
   "resistanceXp",
   "setMovementDash",
   "setShieldLight",
+  "shipDock",
   "shipLibrary",
   "shopBuy",
   "shopOrder",

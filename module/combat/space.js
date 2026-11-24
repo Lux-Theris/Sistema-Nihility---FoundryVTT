@@ -47,6 +47,7 @@ import { applyCondition } from "../environment/environment.js";
 import { inStartedCombat } from "../skills/preparation.js";
 import { TIME_RATE_BEHAVIOR } from "../core/calendar-rules.js";
 import { isShipLike } from "../starship/ship-damage.js";
+import { boardingJumpCheck, boardingJumpArrived } from "../starship/boarding.js";
 import { currentSkillUseId, noteUseActor } from "../skills/skill-use-context.js";
 import { anchorFieldsAtPoint } from "../structures/structures.js";
 import { pickCanvasPoint } from "../npc/npc-generator.js";
@@ -245,6 +246,12 @@ async function planJump({ sourceActor, mech, entry, index, options, scene, caste
   });
   if (anchor.blocked) {
     warn(anchor.text);
+    return { stop: true };
+  }
+  // Abordagem (F2): cair sobre uma nave exige vê-la no sensor e sem Interdição.
+  const board = boardingJumpCheck({ scene, dest: destCenter, casterActor: sourceActor, jumper: movedActor });
+  if (board.blocked) {
+    warn(board.text);
     return { stop: true };
   }
   noteUseActor(movedActor);
@@ -496,12 +503,16 @@ export async function spaceMoveAsGm(payload) {
     if (entry.spaceWalls && pathCrossesWalls(from, dest, walls)) return { ok: true, value: { lines: [`${label}: há uma parede no caminho`], moved: 0 } };
     const anchor = anchorCheck({ scene, skillLevel: mech.level, label, moves: [{ tokenDoc: first, destCenter: dest }], caster: { actor: source, tokenDoc: casterDoc } });
     if (anchor.blocked) return { ok: true, value: { lines: [anchor.text], moved: 0 } };
+    const board = boardingJumpCheck({ scene, dest, casterActor: source, jumper: first.actor });
+    if (board.blocked) return { ok: true, value: { lines: [board.text], moved: 0 } };
 
     const corner = cornerFor(dest, { w: (Number(first.width) || 1) * size, h: (Number(first.height) || 1) * size });
     const here = { x: first.x, y: first.y };
     const done = await moveTokenForced(first, corner, { teleport: true });
     if (!done) return { ok: true, value: { lines: [`${first.name || "Alvo"}: não saiu do lugar`], moved: 0 } };
     lines.push(`${first.name || "Alvo"} saltou ${meters(pointDistance({ x: here.x, y: here.y }, corner) / scale)}`);
+    // Abordagem (F2): se caiu sobre uma nave, o personagem entra no grupo de abordagem dela.
+    await boardingJumpArrived({ scene, destCenter: dest, actor: first.actor });
     return { ok: true, value: { lines, moved: 1 } };
   }
 

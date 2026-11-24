@@ -25,6 +25,9 @@ import {
   isInventoryEnabled
 } from "../core/config.js";
 import { syncShipOwnershipToCrew } from "./crew-ownership.js";
+import { sensorsOn, sensorsTabContext, scanWithSensor } from "./sensors.js";
+import { boardingOn } from "./boarding.js";
+import { boardingTabContext, onDock, onUndock, onOpenBoarding, onTeleportBoard } from "./boarding-sheet.js";
 import { registerItemInCompendium } from "../core/compendium.js";
 import { createGrantedSkill, removeGrantedSkill } from "../skills/skill-economy.js";
 import { useSkillFlow } from "../skills/skill-use-flow.js";
@@ -238,7 +241,14 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
       adjustModuleVital: TabbedActorSheetV2.onAdjustModuleVital,
       editImage: TabbedActorSheetV2.onEditImage,
       editPortraitFrame: editPortraitFrameAction,
-      removeCrew: TabbedActorSheetV2.onRemoveCrew
+      removeCrew: TabbedActorSheetV2.onRemoveCrew,
+      sensorMode: TabbedActorSheetV2.onSensorMode,
+      sensorScan: TabbedActorSheetV2.onSensorScan,
+      sensorCamo: TabbedActorSheetV2.onToggleModulePower,
+      dockShip: onDock,
+      undockShip: onUndock,
+      openBoarding: onOpenBoarding,
+      teleportBoard: onTeleportBoard
     }
   };
 
@@ -251,6 +261,8 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
         { id: "armas", label: "Armas" },
         { id: "prioridade", label: "Prioridade" },
         { id: "skills", label: "Habilidades" },
+        { id: "sensores", label: "Sensores" },
+        { id: "acoplagem", label: "Acoplagem" },
         { id: "tripulacao", label: "Tripulação" },
         { id: "biography", label: "Registro" }
       ]
@@ -264,6 +276,8 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
     armas: { template: `systems/${SYSTEM_ID}/templates/parts/starship-armas.hbs`, scrollable: [""] },
     prioridade: { template: `systems/${SYSTEM_ID}/templates/parts/starship-prioridade.hbs`, scrollable: [""] },
     skills: { template: `systems/${SYSTEM_ID}/templates/parts/starship-skills.hbs`, scrollable: [""] },
+    sensores: { template: `systems/${SYSTEM_ID}/templates/parts/starship-sensores.hbs`, scrollable: [""] },
+    acoplagem: { template: `systems/${SYSTEM_ID}/templates/parts/starship-acoplagem.hbs`, scrollable: [""] },
     tripulacao: { template: `systems/${SYSTEM_ID}/templates/parts/starship-tripulacao.hbs`, scrollable: [""] },
     biography: { template: `systems/${SYSTEM_ID}/templates/parts/starship-biography.hbs`, scrollable: [""] }
   };
@@ -271,14 +285,20 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
   /** @override A aba Tripulação só existe com o PAD de Nave ligado (a parte também some, ver abaixo). */
   _getTabsConfig(group) {
     const config = super._getTabsConfig(group);
-    if (group !== "primary" || isPadShipEnabled()) return config;
-    return { ...config, tabs: config.tabs.filter(tab => tab.id !== "tripulacao") };
+    if (group !== "primary") return config;
+    const hidden = new Set();
+    if (!isPadShipEnabled()) hidden.add("tripulacao");
+    if (!sensorsOn()) hidden.add("sensores");
+    if (!boardingOn()) hidden.add("acoplagem");
+    return hidden.size ? { ...config, tabs: config.tabs.filter(tab => !hidden.has(tab.id)) } : config;
   }
 
   /** @override */
   _configureRenderParts(options) {
     const parts = super._configureRenderParts(options);
     if (!isPadShipEnabled()) delete parts.tripulacao;
+    if (!sensorsOn()) delete parts.sensores;
+    if (!boardingOn()) delete parts.acoplagem;
     return parts;
   }
 
@@ -340,6 +360,8 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
       case "prioridade": this._preparePrioridadeContext(context); break;
       case "skills": this._prepareSkillsContext(context); break;
       case "tripulacao": this._prepareTripulacaoContext(context); break;
+      case "sensores": context.sn = sensorsTabContext(this.actor); break;
+      case "acoplagem": context.bd = boardingTabContext(this.actor); break;
     }
     return context;
   }
@@ -1020,6 +1042,27 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
   static async onPickTraits(event) {
     event.preventDefault();
     await pickActorTraits(this.actor);
+  }
+
+  /** Sensores (F1): troca o modo do sensor (ativo/passivo). Quem opera a nave pode. */
+  static async onSensorMode(event, target) {
+    event.preventDefault();
+    const mode = target.dataset.mode === "passive" ? "passive" : "active";
+    if (this.actor.system.sensorMode === mode) return;
+    await this.actor.update({ "system.sensorMode": mode });
+  }
+
+  /** Sensores (F1): escaneia um contato detectado (botão do sensor). */
+  static async onSensorScan(event, target) {
+    event.preventDefault();
+    const observer = this.actor.isToken ? this.actor.token : canvas?.scene?.tokens?.find(t => t.actorId === this.actor.id && (t.actorLink || t.actor?.uuid === this.actor.uuid));
+    const targetToken = fromUuidSync(target.dataset.tokenUuid);
+    if (!observer || !targetToken) return ui.notifications.warn("Sem Token desta nave (ou do contato) na cena aberta.");
+    try {
+      await scanWithSensor(observer, targetToken);
+    } catch (err) {
+      reportError("Falha ao escanear.", err);
+    }
   }
 
   /** Dispara uma Arma nativa (Overhaul de Naves, Fase 5) — sempre pede alvo, igual "damage" de Skill. */

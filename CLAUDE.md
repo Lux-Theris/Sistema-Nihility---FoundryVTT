@@ -55,6 +55,7 @@ This file holds only what applies to every change. Each subsystem is documented 
 | [combate.md](docs/claude/combate.md) | Initiative, apply-damage cards, Vida 0, Contágio, scene environment and mana density, radiation, Conditions on the token HUD, floating numbers, on-screen notices, end of combat, Desfazer uso, movement per round |
 | [achados-foundry.md](docs/claude/achados-foundry.md) | Everything the real-Foundry test sessions found (V14/core traps). **Read before writing anything that touches Active Effects, Tokens, combat or arrays** |
 | [naves.md](docs/claude/naves.md) | Ships and vehicles: Porte, classes, module categories and roles, power grid and priority queue, overload, damage cascade, weapons, crew, repair |
+| [sensores-abordagem.md](docs/claude/sensores-abordagem.md) | Ship sensors and stealth (F1: Sensor, Assinatura, Camuflagem, Escanear, último contato, Interferência de cena) and Boarding (F2: Acoplar, grupo de abordagem, Sabotar/Desligar/Hackear, teleporte, Região "A bordo"); also the "Trocar com…" within 2 m |
 | [pad.md](docs/claude/pad.md) | The in-game phone |
 | [ia.md](docs/claude/ia.md) | AI modules, generation, mechanics in generated content, Agent mode |
 | [npc-simulador-ferramentas.md](docs/claude/npc-simulador-ferramentas.md) | NPC generator and tiers, encounter simulator, grouped feature menu, "Deixar leve", trimmed sheet, Regras desta mesa, combat panel |

@@ -225,7 +225,7 @@ async function pileTemplate() {
   return template;
 }
 
-const isPileToken = token => Boolean(token?.getFlag?.(SYSTEM_ID, "pile"));
+export const isPileToken = token => Boolean(token?.getFlag?.(SYSTEM_ID, "pile"));
 
 /** As pilhas da cena (Tokens marcados). */
 export function pilesOf(scene) {

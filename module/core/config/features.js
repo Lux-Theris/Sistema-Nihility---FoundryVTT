@@ -260,6 +260,37 @@ export function isVesselsEnabled() {
   return isFeatureEnabled("vessels");
 }
 
+/** Sensores e furtividade de nave (F1). Filho de Naves e Veículos. */
+export function isShipSensorsEnabled() {
+  return isFeatureEnabled("shipSensors");
+}
+
+/** Abordagem de naves (F2). Filho de Naves e Veículos. */
+export function isBoardingEnabled() {
+  return isFeatureEnabled("boarding");
+}
+
+/** As afinações do F1 lidas das opções do bloco (os padrões valem fora do jogo). */
+export function getSensorTuning() {
+  const get = (key, fallback) => {
+    const value = Number(getFeatureOption("shipSensors", key));
+    return Number.isFinite(value) ? value : fallback;
+  };
+  return {
+    passiveFactor: get("sensorPassiveFactor", 50),
+    energyActive: get("signatureEnergyActive", 20),
+    energyPassive: get("signatureEnergyPassive", 4),
+    lostRounds: Math.max(1, Math.round(get("sensorLostRounds", 5))),
+    cleanMargin: Math.max(1, get("scanCleanMargin", 3))
+  };
+}
+
+/** Quanto de diferença no teste resistido de propulsão ainda só arrasta a nave acoplada. */
+export function getBoardingDragMargin() {
+  const value = Number(getFeatureOption("boarding", "boardingDragMargin"));
+  return Number.isFinite(value) ? Math.max(0, value) : 4;
+}
+
 export function isSkillFusionEnabled() {
   return isFeatureEnabled("skillFusion");
 }

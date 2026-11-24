@@ -14,6 +14,7 @@
  */
 import { SYSTEM_ID, getActiveStatusConditions, isElevationEnabled, isSensesEnabled, isStatusConditionsEnabled, sameActor } from "../core/config.js";
 import { foundryGeneration, tokenElevation } from "../helpers/foundry-compat.js";
+import { actorHiddenBySensors, combatantHiddenBySensors } from "../starship/sensors.js";
 import { groundStatuses, originSenses, mapStatusesToAdd, isHiddenBySense, combatantVisibleFor, visibleSetChanged } from "./senses-rules.js";
 
 /** Há Visão de Token na cena aberta? (sem ela todo mundo vê tudo e nada disto vale) */
@@ -115,7 +116,10 @@ export function tokenPlaceableVisible(tokenDoc) {
  * visível. Usado pelo seletor de alvo.
  */
 export function actorPerceivedByUser(actor, { self = null } = {}) {
-  if (game.user.isGM || !isSensesEnabled() || !tokenVisionOn() || !actor) return true;
+  if (game.user.isGM || !actor) return true;
+  // Sensores de nave (F1): a nave não detectada não é alvo para quem tripula uma nave com sensor.
+  if (actorHiddenBySensors(actor)) return false;
+  if (!isSensesEnabled() || !tokenVisionOn()) return true;
   if (self && sameActor(actor, self)) return true;
   if (actor.isOwner) return true;
   const tokens = canvas.scene?.tokens?.filter(t => t.actor && (actor.isToken ? t.actor.uuid === actor.uuid : t.actorId === actor.id)) ?? [];
@@ -131,6 +135,7 @@ export function actorPerceivedByUser(actor, { self = null } = {}) {
  */
 export function combatantVisibleByPerception(combatant, base) {
   try {
+    if (!game.user.isGM && base && combatantHiddenBySensors(combatant)) return false;
     if (game.user.isGM || !isSensesEnabled() || !base) return base;
     const tokenDoc = combatant.token;
     const onCanvasScene = Boolean(tokenDoc && canvas?.ready && tokenDoc.parent === canvas.scene);

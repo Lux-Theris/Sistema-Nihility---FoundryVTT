@@ -58,6 +58,30 @@ export const FEATURES = {
     hint: "Naves Espaciais e Veículos Terrestres: Porte, Módulos, Grid de Energia, cascata de dano e reparo. Desligado, nenhuma Nave/Veículo NOVO pode ser criado — as que já existem continuam intactas e abríveis.",
     default: true
   },
+  shipSensors: {
+    setting: "shipSensorsEnabled",
+    parent: "vessels",
+    name: "Sensores e furtividade de nave",
+    hint: "Módulos com função Sensor (alcance, Resolução, modo ativo e passivo), Assinatura da nave (Porte + consumo de energia + disparo de arma) e Camuflagem. Uma nave A vê a nave B se a distância for no máximo o alcance do sensor de A × a Assinatura de B (× o corte da Interferência da cena). Para os jogadores tripulantes de uma nave, a nave não detectada some do mapa, da lista de alvos e da iniciativa; o último contato fica como marcador cinza por algumas rodadas. Escanear (pelo sensor ou pela Skill Analisar) lê a nave alvo em degraus, e escudo, blindagem e Bloqueio de varredura distorcem ou bloqueiam a leitura. Desligar esconde a aba Sensores e os campos, e todo mundo volta a ver tudo; Módulos e valores salvos ficam como estão.",
+    default: true,
+    options: {
+      sensorPassiveFactor: { label: "Modo passivo: alcance (%)", hint: "O sensor em modo passivo alcança esta porcentagem do alcance cheio e lê no máximo o degrau 2 do Escanear.", type: "number", default: 50, min: 0 },
+      signatureEnergyActive: { label: "Assinatura por energia, modo ativo (%)", hint: "O quanto o consumo de energia soma na Assinatura com o consumo total no teto do que a nave gera (proporcional abaixo disso). Sensor ativo.", type: "number", default: 20, min: 0 },
+      signatureEnergyPassive: { label: "Assinatura por energia, modo passivo (%)", hint: "O mesmo, com o sensor em modo passivo (gasta menos, aparece menos).", type: "number", default: 4, min: 0 },
+      sensorLostRounds: { label: "Último contato some em (rodadas)", hint: "O marcador cinza onde uma nave foi vista pela última vez some depois de tantas rodadas de combate.", type: "number", default: 5, min: 1 },
+      scanCleanMargin: { label: "Escanear: margem da leitura limpa", hint: "Resolução do sensor − Bloqueio de leitura do alvo: igual ou acima disto a leitura é limpa; de 0 até aqui fica distorcida; abaixo de 0 é bloqueada.", type: "number", default: 3, min: 1 }
+    }
+  },
+  boarding: {
+    setting: "boardingEnabled",
+    parent: "vessels",
+    name: "Abordagem de naves",
+    hint: "Acoplar duas naves coladas (com Raio Trator segurando, Escudo do alvo em 0 ou o Mestre liberando), grupo de abordagem na ficha com Sabotar, Desligar e Hackear nos Módulos da outra nave, abordagem por teleporte (precisa ver o alvo no sensor; Interdição e Âncora bloqueiam) e a Região \"A bordo\" no mapa. Mover uma nave acoplada faz um teste resistido de propulsão. Desligar esconde tudo isto; pares acoplados e grupos salvos ficam.",
+    default: true,
+    options: {
+      boardingDragMargin: { label: "Acoplada que se move: diferença que ainda arrasta", hint: "No teste resistido de propulsão, uma diferença até este valor arrasta a outra nave; acima disto arranca um pedaço (dano em Casco e no Módulo do ponto de acoplamento) e desacopla.", type: "number", default: 4, min: 0 }
+    }
+  },
   skillFusion: {
     setting: "skillFusionEnabled",
     name: "Fusão de Habilidades",
@@ -580,6 +604,8 @@ const FEATURE_LAYOUT = {
   timeManipulation: ["combat", "Skills que aceleram ou desaceleram o tempo de alguém (Ritmo do tempo)."],
   spaceManipulation: ["combat", "Skills de espaço: Saltar, Trocar, Portal, Bolso e Domínio; Âncora e Interdição."],
   vessels: ["world", "Naves e Veículos com Módulos, Grid de Energia e tripulação."],
+  shipSensors: ["world", "Sensores e Assinatura: a tripulação só vê o que o sensor alcança."],
+  boarding: ["world", "Acoplar naves e abordar: Sabotar, Desligar e Hackear Módulos."],
   shipManeuver: ["world", "Naves se movem por casas e esquivam pela Rotação.", true],
   pad: ["world", "O \"celular\" do personagem: Nave, Biblioteca e Mensagens."],
   padShip: ["world", "Tela da Nave no PAD."],

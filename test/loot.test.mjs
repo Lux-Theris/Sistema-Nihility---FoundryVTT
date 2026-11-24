@@ -132,7 +132,14 @@ test("Troca entre jogadores: candidatos, lados, faixa e aceites", () => {
   assert.equal(list[0].uuid, "t");
   assert.equal(list[0].enabled, true);
   assert.equal(list.find(o => o.uuid === "m").enabled, false);
-  assert.match(list.find(o => o.uuid === "y").hint, /Vitrine/);
+  const shop = list.find(o => o.uuid === "y");
+  assert.equal(shop.kind, "shop");
+  assert.equal(shop.enabled, true, "loja a 1 m fica clicável (a até 2 m)");
+  assert.match(shop.hint, /loja/);
+  const far = tradeCandidates([{ uuid: "d", name: "Depósito", kind: "deposit", distance: 6 }, { uuid: "p", name: "Pilha", kind: "pile", distance: 0.5 }], 2);
+  assert.equal(far.find(o => o.uuid === "d").enabled, false, "depósito longe fica desabilitado com a distância");
+  assert.match(far.find(o => o.uuid === "d").hint, /longe/);
+  assert.equal(far.find(o => o.uuid === "p").enabled, true);
   assert.match(list.find(o => o.uuid === "n").hint, /sem Token/);
 
   const base = newTrade({ id: "x", status: "open", aUuid: "A", bUuid: "B", aName: "Kaito", bName: "Thiago", changedBy: "" });

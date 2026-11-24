@@ -1,5 +1,5 @@
 import {
-  SYSTEM_ID, NIHILITY, isAnalysisEnabled, isMagicUse, getAnalysisAttrStep, getActiveSpeciesPresets, getActiveHeritages, getActiveTraits, getActiveDamageElements,
+  SYSTEM_ID, NIHILITY, isVesselsEnabled, isShipSensorsEnabled, isAnalysisEnabled, isMagicUse, getAnalysisAttrStep, getActiveSpeciesPresets, getActiveHeritages, getActiveTraits, getActiveDamageElements,
   getDamageElement, damageElementChain, getElementAffinityMatrix, getAffinityConfig, actorElements, actorTraits, actorConcealment, getVisibleAttributes, getEnergyLabelForActor
 } from "../core/config.js";
 import { chainedResistance, elementVsDefender } from "../combat/damage-rules.js";
@@ -7,6 +7,8 @@ import { magicDefenseReduction, resistanceSourceFor } from "../combat/resistance
 import { escapeHtml } from "../helpers/html.js";
 import { skillSummariesFor } from "./skill-summary-ui.js";
 import { grantSkillUseXp } from "./skill-xp.js";
+import { isShipLike } from "../starship/ship-damage.js";
+import { actorHiddenBySensors, scanShipReading, scanReadingHtml, analysisShipResolution } from "../starship/sensors.js";
 import { analysisMargin, analysisTier, analysisSections, analysisTierLabel, weaknessRows, resistanceRows, resistanceText } from "./analysis-rules.js";
 
 /**
@@ -20,7 +22,13 @@ import { analysisMargin, analysisTier, analysisSections, analysisTierLabel, weak
 export function analysisBlockReason(targetActor) {
   if (!isAnalysisEnabled()) return "O bloco Análise está desligado nesta mesa.";
   if (!targetActor) return "Escolha um alvo para analisar.";
-  if (targetActor.type !== "character") return `${targetActor.name} não pode ser analisado (por ora só Personagens).`;
+  if (isShipLike(targetActor)) {
+    // F1: Nave/Veículo também podem ser analisados (a leitura em degraus do Escanear); precisa estar detectada.
+    if (!isVesselsEnabled() || !isShipSensorsEnabled()) return `${targetActor.name} não pode ser analisado (o bloco Sensores de nave está desligado).`;
+    if (actorHiddenBySensors(targetActor)) return `${targetActor.name} não está detectada pelos sensores.`;
+    return null;
+  }
+  if (targetActor.type !== "character") return `${targetActor.name} não pode ser analisado (só Personagens, Naves e Veículos).`;
   return null;
 }
 
@@ -160,6 +168,26 @@ function cardHtml(sourceActor, target, label, result, blocks) {
 }
 
 /**
+ * Análise de uma Nave/Veículo (F1): a Resolução vem do nível da Skill mais a Percepção e a leitura sai em degraus
+ * (`buildScanReading`), distorcida ou bloqueada pelo Escudo, pela blindagem e pelo Bloqueio de varredura do alvo.
+ * Mesmo card sussurrado a quem analisou e ao Mestre. O XP fixo só sai quando a leitura passa do degrau 1.
+ */
+async function useShipAnalysis(sourceActor, skill, mech, label, targetActor) {
+  const reading = scanShipReading(targetActor, { resolution: analysisShipResolution(sourceActor, mech), exact: false });
+  const gmIds = game.users.filter(u => u.isGM).map(u => u.id);
+  const ownerIds = game.users.filter(u => !u.isGM && sourceActor.testUserPermission(u, "OWNER")).map(u => u.id);
+  // O Mestre vê os números reais no card dele? O card é um só: o do jogador (o Mestre abre a ficha da nave se quiser o real).
+  await ChatMessage.create({
+    speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
+    whisper: Array.from(new Set([...gmIds, ...ownerIds])),
+    content: scanReadingHtml(reading, { observerName: sourceActor.name, targetName: targetActor.name, via: label }),
+    flags: { [SYSTEM_ID]: { analysis: { targetUuid: targetActor.uuid, quality: reading.quality, margin: reading.margin } } }
+  });
+  if (reading.quality !== "blocked") await grantSkillUseXp(skill, [{ flat: true }]);
+  return true;
+}
+
+/**
  * Usa a Análise: calcula, monta o card (sussurrado a quem analisou e aos Mestres) e credita o XP fixo.
  * Devolve true (saiu) ou false (alvo inválido).
  */
@@ -169,6 +197,7 @@ export async function useAnalysis(sourceActor, skill, mech, label, targetActor) 
     ui.notifications?.warn(reason);
     return false;
   }
+  if (isShipLike(targetActor)) return useShipAnalysis(sourceActor, skill, mech, label, targetActor);
   const result = computeAnalysis(sourceActor, mech, targetActor);
   const blocks = result.tier >= 1 ? gatherAnalysis(targetActor, analysisSections(result.tier)) : [];
   const gmIds = game.users.filter(u => u.isGM).map(u => u.id);

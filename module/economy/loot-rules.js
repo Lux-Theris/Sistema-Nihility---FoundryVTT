@@ -285,20 +285,28 @@ export function machineColor(name) {
 
 /* ------------------------------------------------------------------ Troca entre jogadores */
 
+/** Rótulo do tipo de alvo no menu "Trocar com…" (jogador não leva rótulo). */
+export const TRADE_KIND_LABELS = { shop: "loja", deposit: "depósito", pile: "pilha" };
+
 /**
- * Quem aparece no menu "Trocar com…": os outros Personagens de jogador, com a distância. Quem está
- * longe aparece desabilitado; um vendedor aparece com a dica de usar a Vitrine. `others`:
- * `[{uuid, name, isShop, distance}]`.
+ * Quem aparece no menu "Trocar com…": os outros Personagens de jogador **e** lojas, depósitos e
+ * pilhas do mapa, todos com a distância (dono, 24/11: "como guardar dentro do armário"). Quem está
+ * longe aparece desabilitado com a distância. Loja, depósito e pilha só ficam clicáveis a até `range`
+ * e abrem a janela que já existe para o alvo (Vitrine / saque), sem dar permissão na ficha.
+ * `others`: `[{uuid, name, kind?: "player"|"shop"|"deposit"|"pile", isShop?, distance}]` (`isShop` é o
+ * formato antigo de `kind: "shop"`).
  */
 export function tradeCandidates(others, range = DEFAULT_LOOT_RANGE) {
   return (others ?? [])
     .map(o => {
-      if (o.isShop) return { ...o, enabled: false, hint: "loja: use a Vitrine" };
-      if (o.distance === null || o.distance === undefined) return { ...o, enabled: false, hint: "sem Token neste mapa" };
+      const kind = o.kind || (o.isShop ? "shop" : "player");
+      const label = TRADE_KIND_LABELS[kind] ?? "";
+      if (o.distance === null || o.distance === undefined) return { ...o, kind, enabled: false, hint: "sem Token neste mapa" };
       const near = isNear(o.distance, range);
-      return { ...o, enabled: near, hint: `${metersText(o.distance)}${near ? "" : " (longe)"}` };
+      const where = `${metersText(o.distance)}${near ? "" : " (longe)"}`;
+      return { ...o, kind, enabled: near, hint: label ? `${label} · ${where}${near ? " · abre a janela" : ""}` : where };
     })
-    .sort((a, b) => Number(b.enabled) - Number(a.enabled) || String(a.name).localeCompare(String(b.name), "pt-BR"));
+    .sort((a, b) => Number(b.enabled) - Number(a.enabled) || (a.kind === "player" ? 0 : 1) - (b.kind === "player" ? 0 : 1) || String(a.name).localeCompare(String(b.name), "pt-BR"));
 }
 
 /** O lado da troca de uma pessoa (`"a"` quem abriu, `"b"` o convidado) pelo uuid do personagem dela. */

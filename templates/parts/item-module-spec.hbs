@@ -147,4 +147,80 @@
     </div>
     {{/if}}
   </div>
+
+  {{#if moduleScanBlockRoles}}
+  <div class="sec">
+    <div class="sec-head">Escudo e Blindagem <span class="new-tag">Novo</span></div>
+    <div class="sec-body">
+      <label class="fld narrow-fld"><span class="fld-label">Bloqueio de leitura <span class="help" title="0 a 10. Atrapalha o Escanear de outras naves. O Escudo só bloqueia enquanto de pé (Escudo acima de 0); a blindagem sempre. Na varredura conta a camada mais forte do alvo.">?</span></span><input class="num" type="number" name="system.scanBlock" value="{{system.scanBlock}}" min="0" max="10"/></label>
+    </div>
+  </div>
+  {{/if}}
+
+  {{#if moduleFireSignature}}
+  <div class="sec">
+    <div class="sec-head">Função Arma <span class="new-tag">Novo</span></div>
+    <div class="sec-body">
+      <label class="fld narrow-fld"><span class="fld-label">Assinatura do disparo <span class="help" title="Quando a arma dispara, a Assinatura da nave sobe esse valor durante 1 rodada. Padrão 50. Armas silenciosas podem ter 0; canhões pesados, mais.">?</span></span><span class="suffix"><input type="number" name="system.fireSignature" value="{{system.fireSignature}}" min="0" aria-label="Assinatura do disparo"/><span>% por 1 rodada</span></span></label>
+    </div>
+  </div>
+  {{/if}}
+
+  {{#if hasFunctionChips}}
+  <div class="sec">
+    <div class="sec-head">Funções do Módulo <span class="new-tag">Novo</span></div>
+    <div class="sec-body">
+      <p class="hint-inline">Cada função liga um bloco de campos abaixo. Um Módulo pode ter mais de uma (um canhão com sensor de mira, por exemplo); a Categoria continua mandando no que ele já faz.</p>
+      <span class="element-field">{{#each moduleFunctionChips as |chip|}}<a class="element-chip {{#if chip.checked}}checked{{/if}}" data-action="toggleModuleFunction" data-fn="{{chip.id}}">{{chip.label}}</a>{{/each}}</span>
+    </div>
+  </div>
+  {{/if}}
+
+  {{#if fnSensor}}
+  <div class="sec">
+    <div class="sec-head">Função Sensor <span class="new-tag">Novo</span></div>
+    <div class="sec-body g2">
+      <label class="fld"><span class="fld-label">Alcance <span class="help" title="Em unidades da cena. Uma nave de Assinatura 100% é vista até este alcance.">?</span></span><span class="suffix"><input type="number" name="system.sensorRange" value="{{system.sensorRange}}" min="0" aria-label="Alcance"/><span>unidades</span></span></label>
+      <label class="fld"><span class="fld-label">Resolução <span class="help" title="0 a 10. Resolução menos o Bloqueio de leitura do alvo: 3 ou mais lê limpo, de 0 a 2 distorce, abaixo de 0 só dá o Porte.">?</span></span><input class="num" type="number" name="system.sensorResolution" value="{{system.sensorResolution}}" min="0" max="10"/></label>
+      <label class="fld"><span class="fld-label">Consumo passivo</span><span class="suffix"><input type="number" name="system.sensorPassiveConsumption" value="{{system.sensorPassiveConsumption}}" min="0" aria-label="Consumo passivo"/><span>{{energyAbbr}}/rodada</span></span></label>
+      <p class="hint-inline span-all">O consumo ativo é o Consumo de Energia lá em cima. Sempre ativo. No modo passivo vale alcance × 50%, Resolução menor e o consumo passivo. Sem energia, desligado, sob PEM ou em Interferência o sensor fica cego.</p>
+    </div>
+  </div>
+  {{/if}}
+
+  {{#if fnCamouflage}}
+  <div class="sec">
+    <div class="sec-head">Função Camuflagem <span class="new-tag">Novo</span></div>
+    <div class="sec-body g2">
+      <label class="fld"><span class="fld-label">Assinatura alvo</span><span class="suffix"><input type="number" name="system.camoSignature" value="{{system.camoSignature}}" min="0" aria-label="Assinatura alvo"/><span>%</span></span></label>
+      <p class="hint-inline span-all">Consumo muito alto (ponha no Consumo de Energia lá em cima, em geral 60 por rodada): ligada, a Assinatura da nave cai para o alvo. Sem energia, volta ao normal na hora.</p>
+    </div>
+  </div>
+  {{/if}}
+
+  {{#if fnScanBlock}}
+  <div class="sec">
+    <div class="sec-head">Função Bloqueio de varredura <span class="new-tag">Novo</span></div>
+    <div class="sec-body">
+      <label class="fld narrow-fld"><span class="fld-label">Bloqueio de leitura <span class="help" title="0 a 10, em geral alto (8). Faz o papel da Ocultação de uma pessoa: dificulta Escanear e Analisar a nave.">?</span></span><input class="num" type="number" name="system.scanBlock" value="{{system.scanBlock}}" min="0" max="10"/></label>
+    </div>
+  </div>
+  {{/if}}
+
+  {{#if fnTeleporter}}
+  <div class="sec">
+    <div class="sec-head">Função Teletransportador <span class="new-tag">Novo</span></div>
+    <div class="sec-body">
+      <label class="fld narrow-fld"><span class="fld-label">Alcance</span><span class="suffix"><input type="number" name="system.teleportRange" value="{{system.teleportRange}}" min="0" aria-label="Alcance do teletransporte"/><span>unidades</span></span></label>
+      <p class="hint-inline">Tecnológico. Precisa de contato no sensor (a nave alvo tem de estar detectada) e é bloqueado por Interdição e por Âncora do alvo. Leva o grupo de abordagem até a nave alvo. O PEM o derruba junto com o Módulo.</p>
+    </div>
+  </div>
+  {{/if}}
+
+  {{#if fnDock}}
+  <div class="sec">
+    <div class="sec-head">Função Eclusa <span class="new-tag">Novo</span></div>
+    <div class="sec-body"><p class="hint-inline">Ponto de acoplamento: quando a nave acopla, este é o Módulo que sofre o dano se um arrancão tirar um pedaço. Sem Eclusa, o dano vai só ao Casco.</p></div>
+  </div>
+  {{/if}}
 </section>

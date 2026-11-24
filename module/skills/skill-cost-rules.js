@@ -66,7 +66,7 @@ export const COST_WEIGHTS = {
 };
 
 /** Alvos cujo valor já é uma porcentagem (+50% de Deslocamento ≠ +50 de Força). */
-const PERCENT_VALUE_TARGETS = ["movement", "shipShieldCapacity", "shipShieldRegen", "shipReactorOutput", "shipPropulsion", "shipDamageReduction"];
+const PERCENT_VALUE_TARGETS = ["movement", "shipShieldCapacity", "shipShieldRegen", "shipReactorOutput", "shipPropulsion", "shipSignature", "shipDamageReduction"];
 
 /**
  * Média de uma fórmula de dados simples: termos `NdM`, `dM`, números, `+`/`-`. Partes que não dá

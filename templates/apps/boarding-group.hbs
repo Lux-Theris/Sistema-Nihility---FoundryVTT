@@ -1,0 +1,72 @@
+<div class="boarding-body">
+  <header class="boarding-head">
+    <h2>Grupo de abordagem: a bordo de {{hostName}}</h2>
+    <p class="boarding-sub">{{entryText}}</p>
+    <p class="boarding-note">Sabotar é um ataque seu direto no Módulo. Desligar e Hackear pedem aprovação do Mestre. Tomar a nave não existe: isso é roleplay.</p>
+  </header>
+
+  <section class="boarding-sec">
+    <h3>Personagens a bordo</h3>
+    {{#if boarders.length}}
+    <ul class="boarding-list">
+      {{#each boarders as |b|}}
+      <li class="boarding-row {{#if b.acting}}on{{/if}}">
+        <img src="{{b.img}}" width="28" height="28" alt=""/>
+        <button type="button" class="boarding-pick" data-action="selectBoarder" data-uuid="{{b.uuid}}" {{#unless b.canAct}}disabled{{/unless}}><b>{{b.name}}</b></button>
+        {{#if b.canAct}}
+        <select data-room="{{b.uuid}}" aria-label="Sala de {{b.name}}">
+          {{#each b.roomOptions as |o|}}<option value="{{o.id}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>{{/each}}
+        </select>
+        {{else}}<span class="boarding-room">{{b.room}}</span>{{/if}}
+        <span class="boarding-tag">{{b.status}}</span>
+        {{#if b.source}}<span class="boarding-tag dim">{{b.source}}</span>{{/if}}
+        {{#if b.canAct}}<button type="button" data-action="leaveGroup" data-uuid="{{b.uuid}}">Voltar para a nave</button>{{/if}}
+      </li>
+      {{/each}}
+    </ul>
+    {{else}}
+    <p class="boarding-note">Ninguém a bordo ainda.</p>
+    {{/if}}
+    {{#if canAdd}}
+    <div class="boarding-add">
+      <select name="addBoarder" aria-label="Personagem a adicionar">
+        {{#each candidates as |c|}}<option value="{{c.uuid}}">{{c.name}}</option>{{/each}}
+      </select>
+      <button type="button" data-action="addBoarder">Adicionar personagem</button>
+    </div>
+    {{/if}}
+  </section>
+
+  <section class="boarding-sec">
+    <h3>Módulos inimigos <small>como o Escanear mostrou</small></h3>
+    <p class="boarding-note">{{qualityLabel}}.{{#if readNote}} {{readNote}}{{/if}}</p>
+    {{#if hasModules}}
+    <ul class="boarding-list">
+      {{#each modules as |m|}}
+      <li class="boarding-row {{#if m.selected}}on{{/if}}">
+        <button type="button" class="boarding-pick" data-action="selectModule" data-id="{{m.id}}"><b>{{m.name}}</b></button>
+        <span class="boarding-read">{{m.read}}</span>
+        {{#if m.tag}}<span class="boarding-tag">{{m.tag}}</span>{{/if}}
+      </li>
+      {{/each}}
+    </ul>
+    {{else}}
+    <p class="boarding-note">Esta nave não tem Módulos instalados.</p>
+    {{/if}}
+  </section>
+
+  {{#if hasActing}}
+  {{#if selectedName}}
+  <section class="boarding-sec boarding-act">
+    <h3>{{actingName}} · {{selectedName}} <small>{{selectedRead}}</small></h3>
+    {{#if fromRoom}}<p class="boarding-note">Está na sala deste Módulo: o painel age sobre ele sem perguntar.</p>{{/if}}
+    <div class="boarding-buttons">
+      <button type="button" class="pri" data-action="boardingSabotage" data-op="sabotage" {{#unless canSabotage}}disabled title="{{sabotageWhy}}"{{/unless}}>Sabotar</button>
+      <button type="button" data-action="boardingDisable" data-op="disable" {{#unless canDisable}}disabled title="{{disableWhy}}"{{/unless}}>Desligar</button>
+      <button type="button" data-action="boardingHack" data-op="hack" {{#unless canHack}}disabled title="{{hackWhy}}"{{/unless}}>Hackear</button>
+    </div>
+    <p class="boarding-note"><b>Sabotar:</b> ataque do personagem direto no Módulo. Dano direto, sem escala, sem Escudo nem Casco: está nos circuitos. Vida do Módulo: <b>{{selectedHp}}</b>. <b>Desligar e Hackear:</b> o pedido vai ao Mestre como card no chat.</p>
+  </section>
+  {{/if}}
+  {{/if}}
+</div>

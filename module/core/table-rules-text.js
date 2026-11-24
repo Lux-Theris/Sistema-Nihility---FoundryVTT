@@ -222,6 +222,26 @@ export function buildTableRulesPages(d) {
     });
   }
 
+  // Naves: sensores, furtividade e abordagem (F1/F2).
+  if (d.features.shipSensors || d.features.boarding) {
+    const parts = [];
+    const s = d.sensors;
+    if (s) {
+      parts.push("<h2>Sensores e Assinatura</h2>");
+      parts.push(`<p>Uma nave com um Módulo <b>Sensor</b> só vê as outras naves e veículos que ele <b>alcança</b>: a nave A vê a B se a distância for no máximo o <b>alcance do sensor de A × a Assinatura de B</b>. A <b>Assinatura</b> (%) começa pelo Porte (Médio = 100%), soma o consumo de ${energy} (até +${num(s.energyActive)}% no modo ativo e +${num(s.energyPassive)}% no passivo, proporcional ao quanto a nave gasta do que gera) e <b>sobe quando uma arma dispara</b> (+50% por 1 rodada, ou o valor da arma). Um Módulo de <b>Camuflagem</b> ligado troca isso pela Assinatura alvo dele e gasta muita ${energy}. Sem ${energy}, desligado, sob PEM ou numa Interferência, o sensor fica cego.</p>`);
+      parts.push(`<p>O sensor é sempre ativo; o <b>modo passivo</b> alcança ${num(`${s.passiveFactor}%`)} do alcance, lê com menos Resolução e gasta menos. A <b>Interferência da cena</b> (ou da pasta de cenas) corta o alcance em %: com 40%, um sensor de 1000 alcança 600.</p>`);
+      parts.push("<p>Para a <b>tripulação de uma nave com sensor</b>, a nave que o sensor não detecta <b>some</b> do mapa, da lista de alvos e da iniciativa. Quem não tripula nave vê tudo como sempre, e o Mestre vê tudo. Onde uma nave foi vista pela última vez fica um <b>marcador cinza</b> por algumas rodadas, e some depois.</p>");
+      parts.push("<h2>Escanear</h2>");
+      parts.push(`<p>O botão <b>Escanear</b> do sensor (ou a Habilidade <b>Analisar</b>) lê uma nave detectada em degraus: 1 Porte e classe; 2 Escudo, Casco e Integridade; 3 Módulos e estado; 4 armas e Penetração; 5 carga e tripulação. A <b>Resolução</b> do sensor menos o <b>Bloqueio de leitura</b> do alvo (a camada mais forte: o Escudo só conta de pé, a blindagem sempre, e um Módulo de Bloqueio de varredura) decide: <b>${num(`${s.cleanMargin} ou mais`)}</b> lê limpo; de <b>0</b> até aí a leitura sai <b>distorcida</b> (números em faixa, e um Módulo pode aparecer com o estado errado); abaixo de 0 fica <b>bloqueada</b> (só o Porte e a classe). No modo passivo a leitura vai no máximo até o degrau 2.</p>`);
+    }
+    if (d.features.boarding) {
+      parts.push("<h2>Acoplar e abordar</h2>");
+      parts.push(`<p>Duas naves com os Tokens colados podem <b>acoplar</b>, mas só com o <b>Raio Trator</b> de uma segurando a outra, com o <b>Escudo do alvo em 0</b> ou com o Mestre liberando (um Veículo só com o Mestre liberando). O par fica marcado até <b>Desacoplar</b>. Mover uma nave acoplada faz um teste resistido de propulsão: diferença até <b>${num(d.boardingMargin)}</b> arrasta a outra; maior arranca um pedaço (dano no Casco e no Módulo do ponto de acoplamento) e desacopla.</p>`);
+      parts.push("<p>Quem passa para a outra nave entra no <b>grupo de abordagem</b> dela. De lá: <b>Sabotar</b> (o ataque vai direto no Módulo, sem Escudo, sem Casco e sem escala: está nos circuitos), <b>Desligar</b> e <b>Hackear</b> (o Mestre aprova pelo chat). Tomar a nave fica por conta da história. Dá para abordar por <b>teleporte</b> (uma Habilidade de Espaço ou um Módulo Teletransportador) se o alvo estiver <b>detectado pelo sensor</b>; Interdição e Âncora bloqueiam, o PEM corta o teleporte tecnológico e a Antimagia o mágico. Uma <b>Região \"A bordo\"</b> desenhada no mapa põe quem entra no grupo daquela nave, e quem sai da Região sai do grupo.</p>");
+    }
+    pages.push({ key: "ships", name: "Naves: sensores e abordagem", html: parts.join("\n") });
+  }
+
   // 6. Desligado nesta campanha.
   pages.push({
     key: "off",

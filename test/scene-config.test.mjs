@@ -86,7 +86,7 @@ test("Textos curtos, padrões e aviso do Validar Mundo", () => {
   assert.equal(ownBannerText(3), "3 campos com valor próprio");
   assert.deepEqual(fieldDefault("hazards"), []);
   assert.notEqual(fieldDefault("hazards"), fieldDefault("hazards"), "cada chamada devolve uma lista nova");
-  assert.equal(SCENE_FIELD_KEYS.length, 7);
+  assert.equal(SCENE_FIELD_KEYS.length, 8);
   assert.equal(folderConfigIssues([{ name: "Kalis", cfg: { lineId: "morta" } }, { name: "Ok", cfg: { lineId: "main" } }], ["futuro"]).length, 1);
   const issues = validateTimeSetup({ timelines: [{ id: "futuro", name: "F", rate: 1 }], folders: [{ name: "Kalis", lineId: "morta" }, { name: "Ok", lineId: "futuro" }] });
   assert.equal(issues.length, 1);
@@ -129,4 +129,19 @@ test("Cópia do Foundry: o que muda em cada cena, por versão do Foundry", () =>
 test("Cópia do Foundry: texto da confirmação", () => {
   const plan = { fields: [{ label: "Visão de Token", changes: 3, same: 1 }, { label: "Luz global", changes: 0, same: 4 }] };
   assert.deepEqual(copyConfirmLines(plan, 4), ["Visão de Token: sobrescreve 3 de 4 cena(s)", "Luz global: nenhuma cena muda (as 4 já estão assim)"]);
+});
+
+test("Interferência de sensores: percentual de 0 a 100, herdado da pasta", () => {
+  assert.deepEqual(normalizeCfg({ sensorInterference: 40 }), { sensorInterference: 40 });
+  assert.deepEqual(normalizeCfg({ sensorInterference: 250 }), { sensorInterference: 100 }, "passa de 100 vira 100");
+  assert.deepEqual(normalizeCfg({ sensorInterference: -5 }), { sensorInterference: 0 });
+  assert.deepEqual(normalizeCfg({ sensorInterference: "" }), {}, "vazio = sem valor próprio");
+  assert.equal(fieldDefault("sensorInterference"), 0);
+  assert.equal(fieldValueText("sensorInterference", 40), "interferência de sensores 40%");
+  assert.equal(fieldValueText("sensorInterference", 0), "sem interferência de sensores");
+  const own = { sensorInterference: 40 };
+  const chain = [{ id: "f", name: "Nebulosa", cfg: { sensorInterference: 60 } }];
+  assert.equal(resolveField("sensorInterference", { own, chain }).value, 40, "o valor da cena vence a pasta");
+  assert.equal(resolveField("sensorInterference", { own: {}, chain }).value, 60, "sem valor próprio herda da pasta");
+  assert.equal(resolveField("sensorInterference", { own: {}, chain: [] }).value, 0);
 });

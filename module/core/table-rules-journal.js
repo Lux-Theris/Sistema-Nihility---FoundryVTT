@@ -15,7 +15,9 @@ import {
   getCharacterEnergyLabel,
   getActiveStatusConditions,
   getActiveDamageElements,
-  getActiveTraits
+  getActiveTraits,
+  getSensorTuning,
+  getBoardingDragMargin
 } from "./config.js";
 import { buildTableRulesPages, conditionSentence } from "./table-rules-text.js";
 import { reactionSentence } from "../combat/reaction-rules.js";
@@ -77,6 +79,9 @@ export function gatherTableRules() {
         }
       : null,
     features,
+    // Sensores e Abordagem de naves (F1/F2): os números desta mesa.
+    sensors: features.shipSensors ? getSensorTuning() : null,
+    boardingMargin: features.boarding ? getBoardingDragMargin() : null,
     // Reações elementais (8.1): uma frase por reação do catálogo, no que o jogador lê.
     reactions: features.reactions
       ? elements.flatMap(e =>

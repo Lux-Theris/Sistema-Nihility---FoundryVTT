@@ -83,6 +83,8 @@ import { registerElevation } from "./combat/elevation.js";
 import { registerForms } from "./skills/forms.js";
 import { renderFormRequestControls } from "./skills/form-request.js";
 import { registerSenses } from "./combat/senses.js";
+import { registerShipSensors } from "./starship/sensors.js";
+import { registerBoarding } from "./starship/boarding.js";
 import { registerNaming } from "./species/naming.js";
 import { registerPredation } from "./skills/predation.js";
 import { registerEnvironmentSceneMenu } from "./apps/environment-config.js";
@@ -123,6 +125,13 @@ Hooks.once("init", () => {
     openAssistant: () => new NihilityMenuApp().render(true),
     // Overhaul de Naves, Fase 7 — rode via macro na hotbar pra pedir reparo de Módulo/Nave.
     requestShipRepair: () => requestShipRepair(),
+    // Abordagem (F2): abre o grupo de abordagem de uma nave (uuid) ou o da primeira nave em que o seu personagem está a bordo.
+    openBoarding: async uuid => {
+      const { BoardingGroupApp } = await import("./apps/boarding-group.js");
+      const { boardingHostsOf } = await import("./starship/boarding.js");
+      const host = uuid ? uuid : boardingHostsOf(game.user.character ?? canvas?.tokens?.controlled?.[0]?.actor)[0];
+      return host ? BoardingGroupApp.open(host) : ui.notifications.info("Seu personagem não está no grupo de abordagem de nenhuma nave.");
+    },
     // Macro criada ao arrastar uma Skill/arma da ficha para a hotbar (ver core/hotbar.js).
     useItem: uuid => useItemFromHotbar(uuid),
     // Ataque desarmado (H6) pela hotbar: arrastar a linha "Ataque desarmado" da ficha cria esta macro.
@@ -261,6 +270,10 @@ Hooks.once("init", () => {
   registerElevation();
   registerForms();
   registerSenses();
+  // Sensores e furtividade de nave (F1): o Token de nave não detectado some para a tripulação.
+  registerShipSensors();
+  // Abordagem (F2): Região "A bordo", acoplagem, cards de Desligar/Hackear.
+  registerBoarding();
   // Nomeação e Corredor de alma (7a): botão "Nomear" no Token HUD, card do pedido e XP compartilhado.
   registerNaming();
   // Predação (7b): o card do Mestre com Confirmar/Cancelar.

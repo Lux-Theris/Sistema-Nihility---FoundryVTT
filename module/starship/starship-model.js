@@ -165,6 +165,8 @@ function shipSystemsSchema({ sizeChoices }) {
       // Podem vir de uma Skill da própria Nave OU de um tripulante mirando a Nave.
       shieldCapacityPercent: new fields.NumberField({ required: true, initial: 0 }),
       shieldRegenPercent: new fields.NumberField({ required: true, initial: 0 }),
+      /** Efeito de Skill "Assinatura da nave" (F1): % somado à Assinatura (negativo = mais furtiva). */
+      signaturePercent: new fields.NumberField({ required: false, initial: 0 }),
       reactorOutputPercent: new fields.NumberField({ required: true, initial: 0 }),
       propulsionPercent: new fields.NumberField({ required: true, initial: 0 })
     }),
@@ -182,6 +184,40 @@ function shipSystemsSchema({ sizeChoices }) {
       new fields.SchemaField({
         actorUuid: new fields.StringField({ required: true, blank: false }),
         role: new fields.StringField({ required: false, initial: "", blank: true })
+      }),
+      { required: false, initial: [] }
+    ),
+
+    /** Modo do sensor (F1): "active" (alcance cheio) ou "passive" (alcance e Resolução menores, gasta menos). */
+    sensorMode: new fields.StringField({ required: false, initial: "active", choices: ["active", "passive"] }),
+    /** O Mestre marcou: os sensores sempre a veem (nave aliada, ou uma combinada na história). */
+    alwaysDetected: new fields.BooleanField({ required: false, initial: false }),
+
+    /**
+     * Acoplagem (F2): a outra nave presa a esta, e os Módulos do ponto de acoplamento de cada lado. Gravado nos DOIS
+     * lados pelo Mestre (relay); "Desacoplar" limpa os dois. Vazio = solta.
+     */
+    dock: new fields.SchemaField({
+      withUuid: new fields.StringField({ required: false, initial: "", blank: true }),
+      withName: new fields.StringField({ required: false, initial: "", blank: true }),
+      ownModuleId: new fields.StringField({ required: false, initial: "", blank: true }),
+      otherModuleId: new fields.StringField({ required: false, initial: "", blank: true }),
+      via: new fields.StringField({ required: false, initial: "", blank: true }),
+      since: new fields.NumberField({ required: false, initial: 0, min: 0 })
+    }),
+
+    /**
+     * Grupo de abordagem (F2): quem do OUTRO lado está a bordo desta nave, com a sala (id de Módulo daqui, "" =
+     * corredor). `source`: "dock" (entrou pela acoplagem), "teleport" ou "region" (Região "A bordo").
+     */
+    boarders: new fields.ArrayField(
+      new fields.SchemaField({
+        actorUuid: new fields.StringField({ required: true, blank: false }),
+        fromUuid: new fields.StringField({ required: false, initial: "", blank: true }),
+        moduleId: new fields.StringField({ required: false, initial: "", blank: true }),
+        source: new fields.StringField({ required: false, initial: "dock", blank: true }),
+        tokenUuid: new fields.StringField({ required: false, initial: "", blank: true }),
+        regionUuid: new fields.StringField({ required: false, initial: "", blank: true })
       }),
       { required: false, initial: [] }
     )
@@ -242,11 +278,22 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
       .filter(entry => entry.actor !== null);
   }
 
+  /**
+   * O quanto este Módulo pede de energia agora (consumo × throttle). O Sensor em modo passivo (F1) pede o consumo
+   * passivo dele em vez do normal; é a única exceção, e é o único lugar que decide isso.
+   */
+  moduleDemand(module) {
+    const sys = module?.system ?? {};
+    const passive = this.sensorMode === "passive" && (sys.functions ?? []).includes("sensor");
+    const base = passive ? sys.sensorPassiveConsumption ?? 0 : sys.powerConsumption ?? 0;
+    return base * ((sys.powerAllocationPercent ?? 100) / 100);
+  }
+
   /** Soma do consumo de todos os módulos atualmente online, já escalado pelo throttle de cada um (Fase 3). */
   get totalConsumption() {
     return this.modules
       .filter(m => m.system.status === "online")
-      .reduce((sum, m) => sum + Math.round((m.system.powerConsumption ?? 0) * ((m.system.powerAllocationPercent ?? 100) / 100)), 0);
+      .reduce((sum, m) => sum + Math.round(this.moduleDemand(m)), 0);
   }
 
   /** Energia Disponível = min(Reator, Capacidade de Transferência) + Baterias - Consumo Total. */
@@ -552,7 +599,7 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
     const ratios = fundByPriority(
       online.map(module => ({
         id: module.id,
-        demand: (module.system.powerConsumption ?? 0) * ((module.system.powerAllocationPercent ?? 100) / 100),
+        demand: this.moduleDemand(module),
         priority: powerGroupIndex(groups, module.system.powerGroup, module.system.powerPriority)
       })),
       available
@@ -577,7 +624,7 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
    */
   isPowerStarved(module) {
     if (!module || module.system.status !== "online") return false;
-    if (!((module.system.powerConsumption ?? 0) * ((module.system.powerAllocationPercent ?? 100) / 100) > 0)) return false;
+    if (!(this.moduleDemand(module) > 0)) return false;
     return this.powerRatioFor(module) <= 0;
   }
 

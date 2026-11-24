@@ -316,7 +316,11 @@ export async function openTradeApp(tradeId, side = "") {
   return PlayerTradeApp.open(tradeId, side);
 }
 
-/** Menu "Trocar com…" (mockup 7): os outros personagens da cena, com a distância; longe ou loja aparecem desabilitados. */
+/**
+ * Menu "Trocar com…" (mockup 7): os outros personagens da cena com a distância; lojas, depósitos e
+ * pilhas do mapa também aparecem e só ficam clicáveis a até 2 m ("como guardar dentro do armário").
+ * Escolher um deles abre a janela que já existe (Vitrine / saque), sem dar permissão na ficha.
+ */
 export async function openTradeMenu(actor) {
   if (!isShopsEnabled()) return;
   const scene = canvas?.scene;
@@ -324,25 +328,49 @@ export async function openTradeMenu(actor) {
   const range = getShopLootRange();
   const others = game.actors
     .filter(a => a.type === "character" && !sameActor(a, actor) && (a.system.isPlayerCharacter || shopOf(a).enabled) && (a.hasPlayerOwner || shopOf(a).enabled))
-    .map(a => ({ uuid: a.uuid, name: a.name, isShop: shopOf(a).enabled, distance: distanceBetweenActors(scene, actor, a) }));
+    .filter(a => !shopOf(a).enabled)
+    .map(a => ({ key: a.uuid, uuid: a.uuid, name: a.name, kind: "player", distance: distanceBetweenActors(scene, actor, a) }));
+  const { isPileToken, openLoot } = await import("./loot.js");
+  const { openStorefront, isShopActor } = await import("./shops.js");
+  const { canUseShop } = await import("./shop-rules.js");
+  const { rectOf, distanceToRect } = await import("./token-geometry.js");
+  const places = new Map();
+  for (const token of scene.tokens) {
+    const target = token.actor;
+    if (!target || token.hidden) continue;
+    let kind = "";
+    if (isPileToken(token) || target.type === "pile") kind = target.type === "pile" && target.system?.kind === "deposit" ? "deposit" : "pile";
+    else if (target.type === "character" && isShopActor(target) && canUseShop(target.system?.shop, game.user.id)) kind = "shop";
+    if (!kind) continue;
+    places.set(token.uuid, { token, kind });
+    others.push({ key: token.uuid, uuid: token.uuid, name: token.name || target.name, kind, distance: distanceToRect(scene, actor, rectOf(token)) });
+  }
   const list = tradeCandidates(others, range);
-  if (!list.length) return ui.notifications.info("Não há outro personagem de jogador para trocar.");
+  if (!list.length) return ui.notifications.info("Não há outro personagem de jogador, loja nem pilha por perto para trocar.");
   const rows = list
     .map(
-      (o, i) => `<label class="nihility-show-row ${o.enabled ? "" : "off"}"><input type="radio" name="partner" value="${escapeHtml(o.uuid)}" ${o.enabled ? "" : "disabled"} ${i === 0 && o.enabled ? "checked" : ""}/> <b>${escapeHtml(o.name)}</b> <span class="hint">${escapeHtml(o.hint)}</span></label>`
+      (o, i) => `<label class="nihility-show-row ${o.enabled ? "" : "off"}"><input type="radio" name="partner" value="${escapeHtml(o.key)}" ${o.enabled ? "" : "disabled"} ${i === 0 && o.enabled ? "checked" : ""}/> <b>${escapeHtml(o.name)}</b> <span class="hint">${escapeHtml(o.hint)}</span></label>`
     )
     .join("");
   const target = await foundry.applications.api.DialogV2.wait({
     window: { title: `Trocar com… (${actor.name})`, icon: "fa-solid fa-right-left" },
     classes: ["nihility-condition-dialog"],
-    content: `<div class="nihility-show-shop"><p class="hint">Só dá para trocar com quem está a até ${metersText(range)}. Os dois montam a oferta e aceitam.</p>${rows}</div>`,
+    content: `<div class="nihility-show-shop"><p class="hint">Só dá para trocar (ou abrir loja, depósito e pilha) a até ${metersText(range)}. Com um personagem, os dois montam a oferta e aceitam.</p>${rows}</div>`,
     buttons: [
-      { action: "go", label: "Convidar", icon: "fa-solid fa-handshake", default: true, callback: (event, button, dialog) => dialog.element.querySelector("[name=partner]:checked")?.value ?? null },
+      { action: "go", label: "Abrir / convidar", icon: "fa-solid fa-handshake", default: true, callback: (event, button, dialog) => dialog.element.querySelector("[name=partner]:checked")?.value ?? null },
       { action: "cancel", label: "Cancelar", callback: () => null }
     ],
     rejectClose: false
   });
   if (!target) return;
+  const place = places.get(target);
+  if (place) {
+    const doc = place.token;
+    const still = tradeCandidates([{ uuid: doc.uuid, name: doc.name, kind: place.kind, distance: distanceToRect(scene, actor, rectOf(doc)) }], range)[0];
+    if (!still?.enabled) return ui.notifications.info(`Longe demais: ${still?.hint ?? ""}`);
+    if (place.kind === "shop") return openStorefront(doc.actor, { tokenUuid: doc.uuid });
+    return openLoot({ tokenUuid: doc.uuid, actorUuid: doc.actor?.uuid ?? "" });
+  }
   const outcome = await askPlayerTrade("open", { fromUuid: actor.uuid, toUuid: target, sceneId: scene.id });
   if (outcome?.ok && outcome.value?.id) openTradeApp(outcome.value.id, "a");
 }

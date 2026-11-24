@@ -547,6 +547,7 @@ export const NIHILITY = {
     "shipShieldRegen",
     "shipReactorOutput",
     "shipPropulsion",
+    "shipSignature",
     "shipShieldRestore",
     "shipCasco",
     "shipHull",
@@ -616,7 +617,8 @@ export const NIHILITY = {
     shipDamageReduction: "Preparar para impacto (Nave, % de redução)",
     shipShieldRegen: "Regeneração do Escudo (Nave, %)",
     shipReactorOutput: "Geração de Energia (Nave, %)",
-    shipPropulsion: "Propulsão (Nave, %)"
+    shipPropulsion: "Propulsão (Nave, %)",
+    shipSignature: "Assinatura da nave (%, negativo = mais furtiva)"
   },
 
   /**
@@ -637,7 +639,7 @@ export const NIHILITY = {
     { label: "Terreno", actor: "any", targets: ["createSurface"] },
     { label: "Sentidos", actor: "character", targets: ["senseTremor", "senseInvisible", "senseTrue", "senseAll"] },
     { label: "Tecnologia", actor: "any", targets: ["emp"] },
-    { label: "Nave", actor: "ship", targets: ["shipWeaponDamage", "shipWeaponPenetration", "shipShieldCapacity", "shipShieldRegen", "shipReactorOutput", "shipPropulsion", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"] }
+    { label: "Nave", actor: "ship", targets: ["shipWeaponDamage", "shipWeaponPenetration", "shipShieldCapacity", "shipShieldRegen", "shipReactorOutput", "shipPropulsion", "shipSignature", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"] }
   ],
 
   /** Alvos "de Nave" de EFFECT_TARGETS — só fazem sentido numa Skill usada por uma Nave. */

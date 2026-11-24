@@ -170,3 +170,5 @@ Glossário (`space` reescrito; `portal`, `pocket`, `domain` novos, com o bloco),
 - **Portal que atravessa, de Ancorado, em V13:** o `preMoveToken` existe só na V14; na V13 o Ancorado atravessa (a Âncora só impede *abrir*).
 
 **Portal e o limite do mapa (1.114.1):** as duas pontas têm de cair dentro da cena (`scene.dimensions.sceneRect`). Uma ponta fora do mapa faz o teleporte do core falhar em silêncio, e só um sentido "não funcionava" (A para B parava na borda de A). `planPortal` avisa e não gasta; `spaceRegionAsGm` revalida.
+
+**Saltar sobre uma nave (F2, 1.116.0):** um Saltar cujo ponto de chegada cai sobre o Token de uma nave é uma **abordagem por teleporte**: precisa ver a nave no sensor de quem usa (quando a nave dele tem sensor) e sem Interdição (`boardingJumpCheck`, antes do Custo e de novo no Mestre); chegando, o saltador entra no grupo de abordagem dela (`boardingJumpArrived`). Ver [sensores-abordagem.md](sensores-abordagem.md).

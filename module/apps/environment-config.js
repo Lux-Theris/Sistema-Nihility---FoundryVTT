@@ -1,7 +1,7 @@
 import { SYSTEM_ID, NIHILITY, getActiveStatusConditions, isEnvironmentEnabled } from "../core/config.js";
 import { pickerFieldHtml, readPickerField, wireTraitPickerField } from "./checklist-picker.js";
 import { availableFxPresets, availableFxParticles, availableFxFilters } from "../environment/environment.js";
-import { isSceneFoldersEnabled, isShopsEnabled } from "../core/config.js";
+import { isSceneFoldersEnabled, isShopsEnabled, isShipSensorsEnabled, isVesselsEnabled } from "../core/config.js";
 import { escapeHtml } from "../helpers/html.js";
 import { sceneOwnValues, folderOwn, inheritanceChain, scenesWithOwnUnder, scenesUnderFolder, subfoldersOf, writeOwn } from "../environment/scene-config.js";
 import { copyFoundrySettings, settleFolderScenes } from "../environment/scene-config-apply.js";
@@ -132,6 +132,8 @@ export class EnvironmentConfigApp extends HandlebarsApplicationMixin(Application
     if (density) v.manaDensity = density.value === "" ? null : Number(density.value);
     const radiation = root.querySelector("[name=radiation]");
     if (radiation) v.radiation = Math.max(0, Number(radiation.value) || 0);
+    const interference = root.querySelector("[name=sensorInterference]");
+    if (interference) v.sensorInterference = Math.min(100, Math.max(0, Number(interference.value) || 0));
     const clockDark = root.querySelector("[name=clockDarkness]");
     if (clockDark) v.clockDarkness = clockDark.checked;
     const timeLine = root.querySelector("[name=timeLine]");
@@ -217,6 +219,9 @@ export class EnvironmentConfigApp extends HandlebarsApplicationMixin(Application
       manaDensity: v.manaDensity ?? "",
       radiationEnabled: isRadiationEnabled(),
       radiation: v.radiation || 0,
+      sensorsEnabled: isVesselsEnabled() && isShipSensorsEnabled(),
+      sensorInterference: v.sensorInterference || 0,
+      sensorInterferenceExample: Math.round(1000 * (1 - Math.min(100, Math.max(0, Number(v.sensorInterference) || 0)) / 100)),
       clockEnabled: isWorldClockEnabled(),
       clockDarkness: Boolean(v.clockDarkness),
       calendarEnabled: isWorldClockEnabled() && isCalendarEnabled(),
@@ -456,6 +461,7 @@ export class EnvironmentConfigApp extends HandlebarsApplicationMixin(Application
     // Campos cuja seção não aparece (bloco desligado) ficam como estão.
     const hidden = new Set([
       ...(isRadiationEnabled() ? [] : ["radiation"]),
+      ...(isVesselsEnabled() && isShipSensorsEnabled() ? [] : ["sensorInterference"]),
       ...(isShopsEnabled() ? [] : ["depotId"]),
       ...(isWorldClockEnabled() ? [] : ["clockDarkness"]),
       ...(isWorldClockEnabled() && isCalendarEnabled() ? [] : ["lineId", "network"])

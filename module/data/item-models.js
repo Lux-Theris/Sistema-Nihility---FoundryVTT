@@ -1005,6 +1005,28 @@ export class StarshipModuleDataModel extends foundry.abstract.TypeDataModel {
       interdictRange: new fields.NumberField({ required: false, initial: 0, min: 0 }),
 
       /**
+       * Funções extras do Módulo (F1/F2): um mesmo Módulo pode ter mais de uma ("sensor", "camouflage", "scanBlock",
+       * "teleporter", "dock"). Cada uma liga um bloco de campos na ficha do Módulo; a Categoria continua mandando na
+       * Função mecânica de sempre (Escudo, Arma…). Ver starship/sensor-rules.js e boarding-rules.js.
+       */
+      functions: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),
+      /** Função Sensor: alcance (unidades da cena), Resolução (0 a 10) e consumo de energia no modo passivo (o ativo é o consumo normal). */
+      sensorRange: new fields.NumberField({ required: false, initial: 0, min: 0 }),
+      sensorResolution: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0, max: 10 }),
+      sensorPassiveConsumption: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+      /** Função Camuflagem: a Assinatura (%) da nave enquanto o Módulo está ligado e com energia. O consumo é o normal do Módulo. */
+      camoSignature: new fields.NumberField({ required: false, initial: 10, min: 0 }),
+      /**
+       * Bloqueio de leitura (0 a 10): o quanto o Módulo atrapalha o Escanear. Escudo conta só com Escudo acima de 0 e
+       * Blindagem sempre; um Módulo com a função "Bloqueio de varredura" conta como a Ocultação de uma nave.
+       */
+      scanBlock: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0, max: 10 }),
+      /** Arma: quanto a Assinatura da nave sobe (%) por 1 rodada quando ela dispara. */
+      fireSignature: new fields.NumberField({ required: false, initial: 50, min: 0 }),
+      /** Função Teletransportador (tecnológico): alcance da abordagem por teleporte, nas unidades da cena. */
+      teleportRange: new fields.NumberField({ required: false, initial: 0, min: 0 }),
+
+      /**
        * Só relevante pra category "weapon" (Overhaul de Naves, Fase 5) — dano/penetração/recarga
        * NA PRÓPRIA Módulo, disparado pela action `fireWeapon` (ver `fireStarshipWeapon` em
        * skill-effects.js), independente de qualquer Habilidade que ela conceda. `penetration` é

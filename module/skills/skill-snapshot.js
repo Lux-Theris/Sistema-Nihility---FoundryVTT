@@ -61,6 +61,8 @@ export function buildSubSkillsFromSources(sources) {
         strikeRequiresWeapon: source.system.strikeRequiresWeapon ?? true,
         onlyIf: foundry.utils.deepClone(source.system.onlyIf ?? { kind: "", value: "", threshold: 50 }),
         structurePlace: source.system.structurePlace ?? "click",
+        areaPerLevel: source.system.areaPerLevel ?? 0,
+        structureFollows: Boolean(source.system.structureFollows),
         endsWhenTargetFalls: Boolean(source.system.endsWhenTargetFalls),
         intruderRule: source.system.intruderRule ?? "",
         rerollWho: source.system.rerollWho ?? "own",
@@ -75,7 +77,7 @@ export function buildSubSkillsFromSources(sources) {
 const GRANTED_MECHANIC_FIELDS = [
   "level", "cost", "hasUpkeep", "upkeepCost", "variableMana", "cooldown", "prepTurns", "magicTag", "isMagic", "isTech", "animationPath", "description", "resistanceTarget",
   "effectType", "damageFormula", "scalingAttribute", "isMagicDamage", "isAbsoluteDamage", "damageScale", "damageElements", "effects",
-  "targetType", "structureId", "structureRegen", "structureRegenCost", "formActorUuid", "areaShape", "areaDistance", "areaAngle", "zoneRounds", "range", "areaOrigin", "areaFreeLevel", "areaAffects", "weaponStrike", "strikeRequiresWeapon", "onlyIf", "structurePlace", "endsWhenTargetFalls", "intruderRule", "rerollWho", "rerollKeep", "rerollKinds", "subSkills"
+  "targetType", "structureId", "structureRegen", "structureRegenCost", "formActorUuid", "areaShape", "areaDistance", "areaAngle", "zoneRounds", "range", "areaOrigin", "areaFreeLevel", "areaAffects", "weaponStrike", "strikeRequiresWeapon", "onlyIf", "structurePlace", "areaPerLevel", "structureFollows", "endsWhenTargetFalls", "intruderRule", "rerollWho", "rerollKeep", "rerollKinds", "subSkills"
 ];
 
 /**

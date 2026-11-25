@@ -116,3 +116,5 @@ The warnings and the suggested cost sit behind `FEATURES.skillAssist`, on by def
     - In the quick editor, **only for a new Skill** (`offerTemplates` = no `name` in `initialData`). Picking one clicks a hidden "template" dialog button, which closes the dialog and reopens it filled (`openSkillEditorDialog` loops through `__template`).
     - "Salvar como modelo" (GM) on the Skill sheet uses `templateFromSkill`.
   - The list editor is `apps/skill-templates-config.js`, found in Configurações Gerais › Personagem.
+
+- **Área por nível e aura (1.118.0):** campos novos de Skill `areaPerLevel` (m por nível, tamanho = base + por nível × (nível − 1), vale para Emissão, Zona e Estrutura) e `structureFollows` (efeito Estrutura: "Segue quem lançou"). Ambos estão nas listas de cópia (snapshot, `evolveSkill`, `REQUEST_MECHANIC_FIELDS`, IA, editor rápido, ficha). Frase, custo sugerido e lint usam o tamanho efetivo. Detalhes (Ctrl+roda, aura, campo do dono) em [estruturas.md](estruturas.md).

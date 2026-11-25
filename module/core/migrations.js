@@ -23,6 +23,8 @@ import { mergeReactionDefaults } from "../combat/reaction-rules.js";
 import { mergeSurfaceDefaults } from "../environment/surface-rules.js";
 import { addMissingById } from "../skills/combined-rules.js";
 import { normalizeSpeciesCatalog } from "../species/species-rules.js";
+import { planOriginDefenseMigration, originDefenseKeptNotice } from "../species/origin-defense-migration-rules.js";
+import { escapeHtml } from "../helpers/html.js";
 
 /**
  * Rework de Espécies: grava no catálogo salvo as chaves estáveis das Skills Raciais (antes só
@@ -243,6 +245,42 @@ async function migrateSpaceDefaults() {
 }
 
 /** Migração única (8f.5): os catálogos de Condições já salvos ganham a Condição "Preso" (só o que falta, pelo id). */
+/**
+ * 1.117.0: resistências, fraquezas e Condições de fábrica das Espécies/Linhagens/Heranças (tabela aprovada pelo
+ * dono). Só mexe no catálogo SALVO e só onde o campo ainda é o de fábrica anterior (`planOriginDefenseMigration`,
+ * pura); o que o Mestre editou fica e entra num aviso único, sussurrado aos Mestres. Catálogo nunca salvo usa o
+ * padrão novo direto.
+ */
+async function migrateOriginDefenses() {
+  const parse = raw => {
+    if (!raw || (typeof raw === "string" && !raw.trim())) return null;
+    try {
+      return typeof raw === "string" ? JSON.parse(raw) : raw;
+    } catch (err) {
+      return null;
+    }
+  };
+  const savedSpecies = parse(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.speciesPresetsData));
+  const savedHeritages = parse(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.heritagesData));
+  const hasSpecies = savedSpecies && typeof savedSpecies === "object" && !Array.isArray(savedSpecies);
+  const hasHeritages = Array.isArray(savedHeritages);
+  if (!hasSpecies && !hasHeritages) return;
+  const plan = planOriginDefenseMigration({
+    species: hasSpecies ? savedSpecies : {},
+    heritages: hasHeritages ? savedHeritages : [],
+    factory: { species: NIHILITY.DEFAULT_SPECIES_PRESETS, heritages: NIHILITY.DEFAULT_HERITAGES }
+  });
+  if (plan.changed.length) {
+    if (hasSpecies) await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.speciesPresetsData, JSON.stringify(plan.species, null, 2));
+    if (hasHeritages) await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.heritagesData, JSON.stringify(plan.heritages, null, 2));
+    console.log(`${SYSTEM_ID} | Defesas de origem atualizadas: ${plan.changed.join("; ")}.`);
+  }
+  const notice = originDefenseKeptNotice(plan.kept);
+  if (notice) {
+    await ChatMessage.create({ whisper: game.users.filter(u => u.isGM).map(u => u.id), content: `<p>${escapeHtml(notice)}</p>` });
+  }
+}
+
 async function migrateSpaceDomainDefaults() {
   const raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.statusConditionsData);
   if (!raw) return;
@@ -436,7 +474,8 @@ const MIGRATION_FUNCTIONS = {
   duelDefaults: migrateDuelDefaults,
   luckDefaults: migrateLuckDefaults,
   spaceDefaults: migrateSpaceDefaults,
-  spaceDomainDefaults: migrateSpaceDomainDefaults
+  spaceDomainDefaults: migrateSpaceDomainDefaults,
+  originDefenses: migrateOriginDefenses
 };
 
 /** As migrações na ordem em que rodam: `[chave estável, função]`. */

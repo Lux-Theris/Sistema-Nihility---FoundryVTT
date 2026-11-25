@@ -26,6 +26,8 @@ import { clampToRange, filterByReach, markCostFactor, pointDistance } from "./ra
 import { pointReach, viaMarkFrom, casterTokenOf } from "./range.js";
 import { isDead } from "./incapacitation.js";
 import { tokenElevation } from "./elevation.js";
+import { mechAreaSize, stepAreaSize, MIN_AREA_SIZE } from "./area-size-rules.js";
+import { showPlacementHint } from "./placement-hint.js";
 
 /**
  * O ponto está dentro da área? Com o recurso Voo, altura e escavação ligado, a altura também conta
@@ -81,7 +83,11 @@ function localPoint(event) {
 /**
  * Deixa o usuário posicionar a forma da Skill no canvas — segue o mouse, roda do mouse gira
  * Cone/Linha (Shift = passo fino), clique esquerdo confirma, clique direito ou Esc cancela.
- * Devolve `{area, via}` (`area-geometry.js`; `via` = a Marca usada, ou null) ou null se cancelado.
+ * Devolve `{area, via, size}` (`area-geometry.js`; `via` = a Marca usada, ou null; `size` = o tamanho escolhido, m) ou null se cancelado.
+ *
+ * **Tamanho (1.118.0):** a forma nasce no tamanho máximo do nível (`areaDistance` + `areaPerLevel` × (nível − 1)) e o
+ * Ctrl+roda a diminui de 1 em 1 m, até 1 m; o tracejado fraco mostra o máximo. O tamanho escolhido é o que vale
+ * (o custo não muda). A barra de dica do pé da tela mostra "Ctrl+roda: tamanho 4 / 6 m · …".
  *
  * `reach` (range.js, opcional; sem ele a forma é livre como sempre foi):
  *  - forma PRESA (`reach.free` falso): sai do Token de quem lança e só gira com a roda; com Marcas, a
@@ -129,7 +135,9 @@ async function placeArea(mech, reach = null, { caster = null } = {}) {
   // O centro da área fica na altura de quem lança (ou do Marcado, se a forma sai dele); sem Token, 0.
   const casterElevation = isElevationEnabled() && caster ? tokenElevation(actorToken(caster, canvas.tokens?.controlled ?? [])) : 0;
   const currentElevation = () => (!isElevationEnabled() ? 0 : via ? elevationOfActorUuid(via.uuid) : casterElevation);
-  const current = () => areaFromSkill(mech, origin, { ...scale, direction, elevation: currentElevation() });
+  const maxSize = mechAreaSize(mech);
+  let size = maxSize;
+  const current = () => areaFromSkill(mech, origin, { ...scale, direction, elevation: currentElevation(), size });
 
   const graphics = new PIXI.Graphics();
   canvas.controls.addChild(graphics);
@@ -141,6 +149,13 @@ async function placeArea(mech, reach = null, { caster = null } = {}) {
       graphics.lineStyle(2, color, 0.35).beginFill(color, 0.04).drawCircle(reach.anchor.x, reach.anchor.y, reach.rangePx).endFill();
       for (const m of reach.centers) graphics.lineStyle(2, 0xffd36b, 0.35).beginFill(0xffd36b, 0.04).drawCircle(m.point.x, m.point.y, reach.rangePx).endFill();
     }
+    // O máximo do nível, fraco, quando o tamanho escolhido é menor (mockup: tracejado = máximo; cheio = escolhido).
+    if (size < maxSize) {
+      const full = areaFromSkill(mech, origin, { ...scale, direction, elevation: currentElevation(), size: maxSize });
+      graphics.lineStyle(1.5, color, 0.35);
+      if (full.shape === "circle") graphics.drawCircle(full.x, full.y, full.radius);
+      else graphics.drawPolygon(areaPolygon(full));
+    }
     graphics.lineStyle(3, color, 0.9).beginFill(color, 0.2);
     if (area.shape === "circle") graphics.drawCircle(area.x, area.y, area.radius);
     else graphics.drawPolygon(areaPolygon(area));
@@ -148,9 +163,8 @@ async function placeArea(mech, reach = null, { caster = null } = {}) {
   };
   draw();
 
-  const turnHint = needsDirection(mech.areaShape) ? " · roda do mouse gira" : "";
-  const heldHint = held ? ` · sai de quem lança${anchors.length > 1 ? " · M troca para uma Marca" : ""}` : "";
-  ui.notifications.info(`Posicione a área: clique confirma${turnHint}${heldHint} · Esc ou clique direito cancela.`);
+  const heldExtras = held ? ["sai de quem lança", anchors.length > 1 ? "M troca para uma Marca" : ""] : [];
+  const hint = showPlacementHint({ size, max: maxSize, turn: needsDirection(mech.areaShape), extras: heldExtras });
 
   const placement = await new Promise(resolve => {
     let moveTime = 0;
@@ -165,6 +179,15 @@ async function placeArea(mech, reach = null, { caster = null } = {}) {
     };
 
     const onWheel = event => {
+      // Ctrl+roda: o tamanho (de 1 m até o máximo do nível); a roda sozinha gira Cone e Linha.
+      if (event.ctrlKey && maxSize > MIN_AREA_SIZE) {
+        event.preventDefault();
+        event.stopPropagation();
+        size = stepAreaSize(size, event.deltaY, maxSize);
+        hint.update({ size });
+        draw();
+        return;
+      }
       if (!needsDirection(mech.areaShape)) return;
       event.preventDefault();
       event.stopPropagation();
@@ -176,7 +199,7 @@ async function placeArea(mech, reach = null, { caster = null } = {}) {
     const onConfirm = event => {
       if ((event.button ?? event.data?.button) !== 0) return;
       event.stopPropagation();
-      finish({ area: current(), via });
+      finish({ area: current(), via, size });
     };
 
     const onCancel = event => {
@@ -199,6 +222,7 @@ async function placeArea(mech, reach = null, { caster = null } = {}) {
     };
 
     function finish(value) {
+      hint.remove();
       canvas.stage.off("mousemove", onMove);
       canvas.stage.off("mousedown", onConfirm);
       canvas.app.view.removeEventListener("contextmenu", onCancel);
@@ -283,7 +307,7 @@ export function reshapeAreaPlacement(mech, placed, { caster = null } = {}) {
   const scale = sceneScale(canvas.scene);
   const origin = { x: placed.area.x, y: placed.area.y };
   const elevation = Number(placed.area.elevation) || 0;
-  return { area: areaFromSkill(mech, origin, { ...scale, direction: placed.area.direction ?? 0, elevation }), via: placed.via ?? null };
+  return { area: areaFromSkill(mech, origin, { ...scale, direction: placed.area.direction ?? 0, elevation, size: placed.size ?? null }), via: placed.via ?? null, size: placed.size ?? null };
 }
 
 /**

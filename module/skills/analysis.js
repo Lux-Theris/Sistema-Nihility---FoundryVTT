@@ -4,6 +4,7 @@ import {
 } from "../core/config.js";
 import { chainedResistance, elementVsDefender } from "../combat/damage-rules.js";
 import { magicDefenseReduction, resistanceSourceFor } from "../combat/resistance.js";
+import { netResistance } from "../species/species-rules.js";
 import { escapeHtml } from "../helpers/html.js";
 import { skillSummariesFor } from "./skill-summary-ui.js";
 import { grantSkillUseXp } from "./skill-xp.js";
@@ -136,6 +137,13 @@ export function gatherAnalysis(target, sections) {
   }
   if (has("weaknesses")) {
     const lines = weaknessData(target).map(row => `${getDamageElement(row.id)?.label ?? row.id} (×${Math.round(row.factor * 100) / 100})`);
+    // Fraquezas da origem (valor negativo na Espécie/Linhagem/Herança), já descontadas das resistências.
+    for (const el of getActiveDamageElements()) {
+      const src = resistanceSourceFor(target, el.id);
+      if (!(src.weakness > 0)) continue;
+      const net = netResistance(src.percent, src.weakness);
+      if (net < 0) lines.push(`${el.label} (leva +${Math.round(-net * 100)}%)`);
+    }
     out.push({ title: "Fraquezas", lines: lines.length ? [lines.join(", ")] : ["Nenhuma"] });
   }
   if (has("skills")) {

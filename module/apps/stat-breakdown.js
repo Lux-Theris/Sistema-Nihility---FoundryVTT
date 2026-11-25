@@ -10,13 +10,14 @@
  */
 import { collectLuckSources } from "../combat/luck-sources.js";
 import { LUCK_SCOPES, LUCK_SCOPE_LABELS, luckPercentText } from "../combat/luck-rules.js";
-import { SYSTEM_ID, NIHILITY, getAttributeLabel, getVitalFormula, getEnergyLabelForActor, isMovementEnabled, describeMovement, getNpcTierConfig } from "../core/config.js";
+import { SYSTEM_ID, NIHILITY, getDamageElement, getAttributeLabel, getVitalFormula, getEnergyLabelForActor, isMovementEnabled, describeMovement, getNpcTierConfig } from "../core/config.js";
 import { NPC_TIER_LABELS } from "../npc/npc-generator-rules.js";
 import { readEffectChanges, effectModes } from "../helpers/foundry-compat.js";
 import { titleBonusSources, itemAttributeSources, statModifierSources, originBonusSources } from "../data/character-model.js";
 import { conditionalModifierSources, buildModifierContext } from "../combat/conditional-context.js";
 import { sumConditionalModifiers, percentOfTotal } from "../combat/conditional-modifiers.js";
-import { explainAttribute, explainVital } from "../combat/stat-explain.js";
+import { explainAttribute, explainVital, explainResistance } from "../combat/stat-explain.js";
+import { resistanceBreakdown } from "../combat/resistance.js";
 import { regenExplainRows } from "../combat/regeneration.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -116,6 +117,10 @@ export class StatBreakdownApp extends HandlebarsApplicationMixin(ApplicationV2) 
 
   #statLabel() {
     if (this.stat === "luck") return "Sorte";
+    if (this.stat.startsWith("resist:")) {
+      const target = this.stat.slice(7);
+      return `Resistência a ${target === "general" ? "tudo (Geral)" : getDamageElement(target)?.label ?? target}`;
+    }
     if (this.stat === "hp") return "Vida máxima";
     if (this.stat === "energy") return `${getEnergyLabelForActor(this.actor)} máxima`;
     return getAttributeLabel(this.stat);
@@ -124,8 +129,24 @@ export class StatBreakdownApp extends HandlebarsApplicationMixin(ApplicationV2) 
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
     context.statLabel = this.#statLabel();
-    context.sections = this.stat === "luck" ? this.#luckSections() : this.stat === "hp" || this.stat === "energy" ? this.#vitalSections() : this.#attributeSections();
+    context.sections = this.stat.startsWith("resist:") ? this.#resistSections() : this.stat === "luck" ? this.#luckSections() : this.stat === "hp" || this.stat === "energy" ? this.#vitalSections() : this.#attributeSections();
     return context;
+  }
+
+  /** Resistência (1.117.0): Skill + melhor Título/origem, fraquezas da origem por cima, sem piso. */
+  #resistSections() {
+    const ex = explainResistance(resistanceBreakdown(this.actor, this.stat.slice(7)));
+    const pct = value => `${value > 0 ? "" : value < 0 ? "−" : ""}${Math.round(Math.abs(value) * 100)}%`;
+    const rows = ex.rows.map(r => ({ label: r.label, detail: "", kind: r.kind === "skill" ? "Skill" : r.kind === "weak" ? "Fraqueza" : "Título/Origem", value: pct(r.value), uuid: "", unknown: false }));
+    const total = ex.immune ? "Imunidade" : ex.net < 0 ? `fraqueza −${Math.round(-ex.net * 100)}% (leva +${Math.round(-ex.net * 100)}%)` : `${Math.round(ex.net * 100)}%`;
+    return [
+      {
+        title: "Parcelas",
+        hint: "Skill de Resistência soma com o melhor Título/Espécie; as fraquezas da origem descontam por cima (sem piso: −100% dobra o dano, −200% triplica). Imunidade (100% ou mais) vale antes da fraqueza.",
+        rows: rows.length ? rows : [{ label: "Nenhuma fonte", detail: "", kind: "", value: "—", uuid: "", unknown: false }],
+        result: { label: "Total", value: total }
+      }
+    ];
   }
 
   /** Sorte (8d.1): cada fonte e o que ela dá em cada escopo, e o total (já com o teto da mesa, se houver). */

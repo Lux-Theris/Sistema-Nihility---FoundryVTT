@@ -225,6 +225,8 @@ function buildEditorData(initialData, { lockTier, offerTemplates }) {
     onHit: initialData.onHit ?? null,
     // Duelo (8c.2): a ficha da Skill edita; aqui passam intactos até o Salvar (a colocação da Estrutura é visível abaixo).
     structurePlace: initialData.structurePlace ?? "click",
+    areaPerLevel: Number(initialData.areaPerLevel) || 0,
+    structureFollows: Boolean(initialData.structureFollows),
     endsWhenTargetFalls: Boolean(initialData.endsWhenTargetFalls),
     intruderRule: initialData.intruderRule ?? "",
     rerollWho: REROLL_WHO.includes(initialData.rerollWho) ? initialData.rerollWho : "own",
@@ -518,6 +520,7 @@ function buildRangeSectionHtml(data, ctx) {
           <div class="form-group"><label>Formato de Área</label><select name="areaShape">${areaShapeOptions}</select></div>
           <div class="row-2">
             <div class="form-group"><label>Distância <span class="hint-inline" style="display:inline;">(unidades de grid)</span></label><input type="number" name="areaDistance" value="${data.areaDistance}" min="0"/></div>
+            <div class="form-group" title="Metros que a área ganha a cada nível além do primeiro. Tamanho no nível = Distância + este valor × (nível − 1). Na hora de usar dá para diminuir (Ctrl+roda)."><label>+ por nível <span class="hint-inline" style="display:inline;">(m)</span></label><input type="number" name="areaPerLevel" value="${data.areaPerLevel}" min="0" step="0.5"/></div>
             <div class="form-group se-area-angle-field"><label>Ângulo <span class="hint-inline" style="display:inline;">(graus)</span></label><input type="number" name="areaAngle" value="${data.areaAngle}" min="1" max="360"/></div>
           </div>
         </div>
@@ -557,6 +560,10 @@ function buildStructurePanelHtml(data, ctx) {
           <span class="hint-inline">Formato, tamanho e Vida vêm do catálogo (Configurações Gerais › Estruturas). Skill Ativa com Estrutura sem prazo: ela fica até a Skill ser desligada.</span>
         </div>
         <div class="form-group" title="Clicar no mapa: você põe a Estrutura. Em volta de quem usa ou do alvo: sem clique, o centro é ele (forma e tamanho do catálogo)."><label>De onde sai</label><select name="structurePlace">${STRUCTURE_PLACE_OPTIONS.map(([v, l]) => `<option value="${v}" ${v === data.structurePlace ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+        <div class="row-2">
+          <div class="form-group" title="Metros que a Estrutura ganha a cada nível da Skill além do primeiro (o tamanho base vem do catálogo). Na hora de pôr dá para diminuir (Ctrl+roda)."><label>+ por nível <span class="hint-inline" style="display:inline;">(m)</span></label><input type="number" name="areaPerLevel" value="${data.areaPerLevel}" min="0" step="0.5"/></div>
+          <label class="checkbox-line" title="O campo anda junto com o Token. Quem lançou fica de fora do próprio campo; aliados e inimigos dentro dele, não. A Antimagia nunca desliga a Skill que sustenta o próprio campo."><input type="checkbox" name="structureFollows" ${data.structureFollows ? "checked" : ""}/> Segue quem lançou</label>
+        </div>
         ${rangeOn ? `<div class="form-group" title="Até onde a Estrutura pode ser posta, em metros (0 = sem limite)."><label>Alcance <span class="hint-inline" style="display:inline;">(metros, 0 = sem limite)</span></label><input type="number" name="structureRange" value="${data.range}" min="0" step="0.5"/></div>` : `<input type="hidden" name="structureRange" value="${data.range}"/>`}
         <div class="row-2 se-regen-field" style="display:${data.hasUpkeep ? "flex" : "none"};">
           <div class="form-group"><label title="No início do seu turno, depois da manutenção, a Estrutura ferida recupera esta Vida, sem passar do teto">Regenera (Vida/rodada)</label><input type="number" name="structureRegen" value="${data.structureRegen}" min="0"/></div>
@@ -1331,6 +1338,8 @@ function readSkillEditorForm(root, lockTier) {
     structureRegenCost: effectType === "structure" && hasUpkeep ? Math.max(0, Number(root.querySelector('[name="structureRegenCost"]')?.value) || 0) : 0,
     areaShape: isEmission ? root.querySelector('[name="areaShape"]').value : "",
     areaDistance: isEmission ? Number(root.querySelector('[name="areaDistance"]').value) || 0 : 0,
+    areaPerLevel: (isEmission || effectType === "structure") ? Math.max(0, Number(root.querySelector('[name="areaPerLevel"]')?.value) || 0) : 0,
+    structureFollows: effectType === "structure" ? Boolean(root.querySelector('[name="structureFollows"]')?.checked) : false,
     areaAngle: isEmission ? Number(root.querySelector('[name="areaAngle"]').value) || 53 : 53,
     zoneRounds: targetType === "zone" ? Math.max(1, Number(root.querySelector('[name="zoneRounds"]').value) || 3) : 3,
     damageFormula: effectType === "damage" ? root.querySelector('[name="damageFormula"]').value.trim() : "",

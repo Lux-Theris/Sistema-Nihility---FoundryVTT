@@ -41,10 +41,19 @@ function ensureKeys(list, labelOf) {
 /** Os passivos de uma origem; `senses` (J4b) só aparece quando há algum, e sai normalizado. */
 function normalizePassives(passives) {
   if (!passives || typeof passives !== "object") return {};
-  if (!Array.isArray(passives.senses)) return passives;
-  const senses = normalizeSenses(passives.senses);
-  const { senses: _drop, ...rest } = passives;
-  return senses.length ? { ...rest, senses } : rest;
+  let out = passives;
+  if (Array.isArray(out.senses)) {
+    const senses = normalizeSenses(out.senses);
+    const { senses: _drop, ...rest } = out;
+    out = senses.length ? { ...rest, senses } : rest;
+  }
+  // Condições da origem (1.117.0): só entradas válidas; a lista some quando fica vazia.
+  if (Array.isArray(out.conditions)) {
+    const conditions = normalizeOriginConditions(out.conditions);
+    const { conditions: _c, ...rest } = out;
+    out = conditions.length ? { ...rest, conditions } : rest;
+  }
+  return out;
 }
 
 /** Uma entrada do catálogo com todos os campos do rework (dados antigos ganham os padrões). */
@@ -57,7 +66,7 @@ export function normalizeSpeciesEntry(entry = {}) {
     elements: Array.isArray(entry.elements) ? entry.elements : [],
     parts: ensureKeys(entry.parts, p => p?.label ?? p?.slot),
     skills: ensureKeys(entry.skills, s => s?.name),
-    lineages: Array.isArray(entry.lineages) ? entry.lineages : [],
+    lineages: Array.isArray(entry.lineages) ? entry.lineages.map(l => (l?.passives?.conditions ? { ...l, passives: normalizePassives(l.passives) } : l)) : [],
     evolvesTo: Array.isArray(entry.evolvesTo) ? entry.evolvesTo : [],
     passives: normalizePassives(entry.passives)
   };
@@ -428,6 +437,116 @@ export function originResistance(layers, target) {
   return best;
 }
 
+/**
+ * Fraqueza (fração ≥ 0) das camadas para um alvo: a soma dos valores NEGATIVOS das Resistências da
+ * origem (−20 = 0,2 = leva 20% a mais). Nunca entra em `originResistance` (esta só olha os ≥ 0).
+ */
+export function originWeakness(layers, target) {
+  let total = 0;
+  for (const layer of layers ?? []) {
+    for (const r of layer.passives?.resistances ?? []) {
+      const amount = Number(r?.amount) || 0;
+      if (r?.target === target && amount < 0) total += -amount / 100;
+    }
+  }
+  return total;
+}
+
+/** As linhas de fraqueza (uma por camada que tem) de um alvo — "De onde vem" e rastro de dano. */
+export function originWeaknessRows(layers, target) {
+  const rows = [];
+  for (const layer of layers ?? []) {
+    let value = 0;
+    for (const r of layer.passives?.resistances ?? []) {
+      const amount = Number(r?.amount) || 0;
+      if (r?.target === target && amount < 0) value += -amount / 100;
+    }
+    if (value > 0) rows.push({ label: `${layer.kindLabel}: ${layer.label}`, value, kind: layer.kind });
+  }
+  return rows;
+}
+
+/**
+ * Resistência final de um alvo/elemento: a MELHOR resistência positiva das fontes (`resist`, já
+ * escolhida por quem chama) menos a soma das fraquezas da origem, sem piso (dono, 24/11: −300% = o dano quadruplica).
+ * Imunidade (melhor fonte ≥ 100%) vale antes: a fraqueza não fura. Pura.
+ * @param {number} resist - fração ≥ 0 (1 = Imunidade)
+ * @param {number} weakness - fração ≥ 0 (0,2 = −20%)
+ */
+export function netResistance(resist, weakness) {
+  const r = Math.max(0, Number(resist) || 0);
+  if (r >= 1) return r;
+  return r - Math.max(0, Number(weakness) || 0);
+}
+
+/* ------------------------------------------------------------------ Condições na origem */
+
+export const ORIGIN_CONDITION_MODES = Object.freeze(["resist", "immune"]);
+
+/** Uma lista `passives.conditions` limpa: só `{conditionId, mode, amount}` válidos, sem repetir a mesma Condição+modo. */
+export function normalizeOriginConditions(list) {
+  const seen = new Set();
+  const out = [];
+  for (const c of Array.isArray(list) ? list : []) {
+    const conditionId = String(c?.conditionId ?? "").trim();
+    if (!conditionId) continue;
+    const mode = c?.mode === "immune" ? "immune" : "resist";
+    const amount = mode === "immune" ? 100 : Math.min(100, Math.max(0, Math.round(Number(c?.amount) || 0)));
+    const key = `${conditionId}|${mode}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ conditionId, mode, amount });
+  }
+  return out;
+}
+
+/**
+ * O que a origem diz de uma Condição: `immune` (alguma camada manda "Imune", ou uma Resistência de
+ * 100%) ou a MELHOR Resistência (0-100), e quais camadas deram. Pura.
+ * @returns {{immune:boolean, resist:number, sources:string[]}}
+ */
+export function originConditionRule(layers, conditionId) {
+  let immune = false;
+  let resist = 0;
+  const sources = [];
+  for (const layer of layers ?? []) {
+    for (const c of layer.passives?.conditions ?? []) {
+      if (c?.conditionId !== conditionId) continue;
+      const isImmune = c.mode === "immune" || (Number(c.amount) || 0) >= 100;
+      const amount = isImmune ? 100 : Math.max(0, Number(c.amount) || 0);
+      if (!amount) continue;
+      if (isImmune) immune = true;
+      resist = Math.max(resist, amount);
+      sources.push(`${layer.kindLabel}: ${layer.label}`);
+    }
+  }
+  return { immune, resist: immune ? 100 : resist, sources };
+}
+
+/**
+ * A Condição pega? Imune nunca; Resistência X% rola d100 e até X (inclusive) não pega. `roll` é o
+ * d100 já rolado (quem chama aplica a Sorte da vítima). Pura.
+ * @returns {{lands:boolean, kind:"none"|"immune"|"resist", amount:number, roll:number|null}}
+ */
+export function conditionLands(rule, roll = null) {
+  if (!rule || (!rule.immune && !(rule.resist > 0))) return { lands: true, kind: "none", amount: 0, roll: null };
+  if (rule.immune) return { lands: false, kind: "immune", amount: 100, roll: null };
+  const r = Number(roll);
+  if (!Number.isFinite(r)) return { lands: true, kind: "resist", amount: rule.resist, roll: null };
+  return { lands: !(r <= rule.resist), kind: "resist", amount: rule.resist, roll: r };
+}
+
+/** A frase do chat quando a Condição não pegou: "Veneno não pegou em Anão: resiste 30% (d100 = 12)". */
+export function conditionBlockText({ conditionLabel, actorName, outcome }) {
+  if (outcome.kind === "immune") return `${conditionLabel} não pegou em ${actorName}: imune`;
+  return `${conditionLabel} não pegou em ${actorName}: resiste ${outcome.amount}% (d100 = ${outcome.roll})`;
+}
+
+/** O texto que sobe do Token: "Imune: X" / "Resistiu: X". */
+export function conditionFloatText(kind, conditionLabel) {
+  return kind === "immune" ? `Imune: ${conditionLabel}` : `Resistiu: ${conditionLabel}`;
+}
+
 /** "Quando → Então" das camadas, agrupados pela camada (para "De onde vem"). */
 export function originConditionalSources(layers) {
   return (layers ?? [])
@@ -516,4 +635,32 @@ export function evolutionResistanceUpgrades(skills, maxElementLevel = 10) {
   return (skills ?? [])
     .filter(s => s.resistanceTarget && s.resistanceTarget !== "general" && (Number(s.level) || 1) < maxElementLevel)
     .map(s => ({ id: s.id, name: s.name, target: s.resistanceTarget, level: Number(s.level) || 1, toLevel: maxElementLevel }));
+}
+
+/**
+ * As defesas que a origem dá, uma linha por alvo/Condição, para a aba Origem: resistência (positiva),
+ * fraqueza (negativa) e Condição (imune/resiste). Pura: os rótulos vêm por parâmetro.
+ * @returns {Array<{key:string, target?:string, conditionId?:string, tone:"resist"|"weak"|"immune"|"condition", text:string, from:string}>}
+ */
+export function originProtectionRows(layers, { elementLabel = id => id, conditionLabel = id => id } = {}) {
+  const rows = [];
+  const targets = [];
+  for (const layer of layers ?? []) for (const r of layer.passives?.resistances ?? []) if (r?.target && !targets.includes(r.target)) targets.push(r.target);
+  for (const target of targets) {
+    const name = target === "general" ? "Geral" : elementLabel(target);
+    const resist = originResistance(layers, target);
+    const weak = originWeakness(layers, target);
+    const from = [...new Set((layers ?? []).filter(l => (l.passives?.resistances ?? []).some(r => r?.target === target && Number(r.amount))).map(l => `${l.kindLabel}: ${l.label}`))].join(", ");
+    if (resist >= 1) rows.push({ key: `resist:${target}`, target, tone: "immune", text: `Imune: ${name}`, from });
+    else if (resist > 0) rows.push({ key: `resist:${target}`, target, tone: "resist", text: `Resiste ${name} ${Math.round(resist * 100)}%`, from });
+    if (weak > 0 && !(resist >= 1)) rows.push({ key: `resist:${target}`, target, tone: "weak", text: `Fraqueza a ${name} −${Math.round(weak * 100)}%`, from });
+  }
+  const conditionIds = [];
+  for (const layer of layers ?? []) for (const c of layer.passives?.conditions ?? []) if (c?.conditionId && !conditionIds.includes(c.conditionId)) conditionIds.push(c.conditionId);
+  for (const conditionId of conditionIds) {
+    const rule = originConditionRule(layers, conditionId);
+    if (rule.immune) rows.push({ key: `cond:${conditionId}`, conditionId, tone: "condition", text: `Imune a ${conditionLabel(conditionId)}`, from: rule.sources.join(", ") });
+    else if (rule.resist > 0) rows.push({ key: `cond:${conditionId}`, conditionId, tone: "condition", text: `${conditionLabel(conditionId)}: resiste ${rule.resist}%`, from: rule.sources.join(", ") });
+  }
+  return rows;
 }

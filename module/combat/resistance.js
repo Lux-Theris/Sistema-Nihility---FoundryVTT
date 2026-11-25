@@ -6,7 +6,7 @@ import { SYSTEM_ID, NIHILITY, getActiveDamageElements, resistanceXpGain, getResi
 import { sourceSuppressed, suppressionState } from "../core/suppression.js";
 import { runAsGm } from "../helpers/gm-relay.js";
 import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
-import { originResistance } from "../species/species-rules.js";
+import { originResistance, originWeakness, originWeaknessRows, netResistance } from "../species/species-rules.js";
 
 /**
  * Percentual (0-1) de redução aplicado sobre dano mágico/elemental, com base na Defesa
@@ -64,10 +64,14 @@ function actorResistanceFor(targetActor, resistanceTarget) {
  * ganha XP ao defender (ver `grantResistanceXp`). Título não entra: Título não tem nível, então
  * não tem o que evoluir. Quando duas Skills cobrem o mesmo alvo só a melhor conta, e portanto só
  * a melhor aprende.
- * @returns {{percent:number, skill:Item|null}}
+ *
+ * **Fraqueza (1.117.0):** valores negativos da origem (Espécie/Linhagem/Herança) NÃO entram em `percent` (que
+ * continua ≥ 0 = a melhor resistência); voltam à parte em `weakness` (fração ≥ 0) e `weaknessRows`. Quem
+ * calcula o dano junta as duas com `netResistance` (species-rules.js).
+ * @returns {{percent:number, skill:Item|null, weakness:number, weaknessRows:Array<{label:string, value:number}>}}
  */
 export function resistanceSourceFor(targetActor, resistanceTarget) {
-  if (!targetActor) return { percent: 0, skill: null };
+  if (!targetActor) return { percent: 0, skill: null, weakness: 0, weaknessRows: [] };
 
   let bestSkill = 0;
   let bestSkillItem = null;
@@ -90,8 +94,38 @@ export function resistanceSourceFor(targetActor, resistanceTarget) {
   }
 
   // Resistência da Espécie/Linhagem/Heranças conta como uma fonte do tipo Título (fica a melhor).
-  bestTitle = Math.max(bestTitle, originResistance(targetActor.system?.originLayers ?? [], resistanceTarget));
-  return { percent: bestSkill + bestTitle, skill: bestSkillItem };
+  const layers = targetActor.system?.originLayers ?? [];
+  bestTitle = Math.max(bestTitle, originResistance(layers, resistanceTarget));
+  return { percent: bestSkill + bestTitle, skill: bestSkillItem, weakness: originWeakness(layers, resistanceTarget), weaknessRows: originWeaknessRows(layers, resistanceTarget) };
+}
+
+/**
+ * As parcelas de uma Resistência ("De onde vem", 1.117.0): a melhor Skill, o melhor Título, a melhor
+ * entrada da origem, as fraquezas da origem e o total final (`netResistance`). Só lê; o total vem da
+ * mesma `resistanceSourceFor` que o dano usa, então a janela nunca discorda do card.
+ */
+export function resistanceBreakdown(targetActor, resistanceTarget) {
+  const source = resistanceSourceFor(targetActor, resistanceTarget);
+  const layers = targetActor?.system?.originLayers ?? [];
+  const skill = source.skill ? { name: source.skill.name, level: Number(source.skill.system?.level) || 0, value: computeResistancePercent(resistanceTarget, source.skill.system?.level) } : null;
+  let title = null;
+  for (const item of targetActor?.items ?? []) {
+    if (item.type !== "title") continue;
+    for (const entry of item.system.resistances ?? []) {
+      const value = (Number(entry.amount) || 0) / 100;
+      if (entry.target === resistanceTarget && value > 0 && (!title || value > title.value)) title = { name: item.name, value };
+    }
+  }
+  let origin = null;
+  for (const layer of layers) {
+    for (const r of layer.passives?.resistances ?? []) {
+      const value = (Number(r?.amount) || 0) / 100;
+      if (r?.target === resistanceTarget && value > 0 && (!origin || value > origin.value)) origin = { name: `${layer.kindLabel}: ${layer.label}`, value };
+    }
+  }
+  // Título e origem são do mesmo tipo (fica a melhor); a Skill soma com ela.
+  const other = [title, origin].filter(Boolean).sort((a, b) => b.value - a.value)[0] ?? null;
+  return { skill, other, weaknesses: source.weaknessRows, resist: source.percent, weakness: source.weakness, net: netResistance(source.percent, source.weakness) };
 }
 
 /**

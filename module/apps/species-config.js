@@ -19,6 +19,22 @@ import { escapeHtml } from "../helpers/html.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
+/**
+ * Linhas de Resistência do editor: o número aceita negativo (fraqueza: −20 = leva 20% a mais, sem piso) e a etiqueta
+ * diz o que ele é.
+ */
+function resistRows(list) {
+  return (list ?? []).map((r, i) => {
+    const amount = Number(r.amount) || 0;
+    return { ...r, index: i, weak: amount < 0, tag: amount < 0 ? "fraqueza" : amount >= 100 ? "imunidade" : "resiste" };
+  });
+}
+
+/** Linhas de Condição do editor (Imune ou Resistência X%). */
+function conditionRows(list) {
+  return (list ?? []).map((c, i) => ({ ...c, index: i, immune: c.mode === "immune", amount: c.mode === "immune" ? 100 : Number(c.amount) || 0 }));
+}
+
 const TABS = [
   { id: "general", label: "Geral" },
   { id: "body", label: "Corpo" },
@@ -189,7 +205,8 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
       regen: { energyPercent: 0, hpPercent: 0, hpKind: "cura", ...(entry.passives.regen ?? {}) },
       luck: { attributes: 0, damage: 0, chances: 0, ...(entry.passives.luck ?? {}) },
       energyMod: entry.passives.statModifiers?.energy ?? 0,
-      resistances: (entry.passives.resistances ?? []).map((r, i) => ({ ...r, index: i })),
+      resistances: resistRows(entry.passives.resistances),
+      conditions: conditionRows(entry.passives.conditions),
       senses: (entry.passives.senses ?? []).map((s, i) => ({ ...s, index: i })),
       rules: (entry.passives.conditionalModifiers ?? []).map((r, i) => {
         const whenKind = r.when?.kind || "always";
@@ -221,6 +238,8 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
         open: i === this.openLineage,
         traitsJson: JSON.stringify(l.traits ?? []),
         elementsJson: JSON.stringify(l.elements ?? []),
+        resistances: resistRows(l.passives?.resistances),
+        conditions: conditionRows(l.passives?.conditions),
         replaceOptions: entry.skills.map(s => ({ key: s.key, name: s.name, checked: (l.replaces?.skills ?? []).includes(s.key) })),
         skills: (l.skills ?? []).map((s, j) => ({ index: j, name: s.name, summary: mechanicSummaryFor(s) })),
         summary: [
@@ -239,12 +258,13 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
     context.tabs = this._tabs().map(t => ({
       ...t,
       active: t.id === this.tab,
-      count: { body: entry.parts.length + (this._tabs().some(x => x.id === "skills") ? 0 : entry.skills.length), skills: entry.skills.length, rules: (entry.excludes?.length ?? 0) + (entry.allowedSpecies?.list?.length ?? 0), passives: (entry.passives.attributeBonuses?.length ?? 0) + (entry.passives.resistances?.length ?? 0) + (entry.passives.senses?.length ?? 0) + (entry.passives.conditionalModifiers?.length ?? 0), lineages: entry.lineages.length, evolution: entry.evolvesTo.length }[t.id] || ""
+      count: { body: entry.parts.length + (this._tabs().some(x => x.id === "skills") ? 0 : entry.skills.length), skills: entry.skills.length, rules: (entry.excludes?.length ?? 0) + (entry.allowedSpecies?.list?.length ?? 0), passives: (entry.passives.attributeBonuses?.length ?? 0) + (entry.passives.resistances?.length ?? 0) + (entry.passives.conditions?.length ?? 0) + (entry.passives.senses?.length ?? 0) + (entry.passives.conditionalModifiers?.length ?? 0), lineages: entry.lineages.length, evolution: entry.evolvesTo.length }[t.id] || ""
     }));
     context.tab = this.tab;
     context.attributes = attributes;
     context.elements = elements.map(e => ({ id: e.id, label: e.label }));
     context.resistanceTargets = [{ id: "general", label: "Geral" }, ...context.elements];
+    context.conditionOptions = getActiveStatusConditions().map(c => ({ id: c.id, label: c.label }));
     context.senseModes = SENSE_TARGETS.map(id => ({ id, label: SENSE_LABELS[id] }));
     context.sensesOn = isSensesEnabled();
     context.scales = getScaleConfig().scales;
@@ -291,7 +311,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
     const kind = el.dataset.kind ?? "text";
     let value = el.type === "checkbox" ? el.checked : el.value;
     if (kind === "int") value = Math.round(Number(value) || 0);
-    else if (kind === "number") value = Number(value) || 0;
+    if (kind === "number") value = Number(value) || 0;
     else if (kind === "optint") value = value === "" ? null : Math.max(0, Math.round(Number(value) || 0));
     else if (kind === "tags") value = String(value).split(",").map(t => t.trim()).filter(Boolean);
     else if (kind === "listToggle") {
@@ -383,6 +403,7 @@ export class SpeciesConfigApp extends HandlebarsApplicationMixin(ApplicationV2) 
       part: () => ({ key: "", label: "", slot: "body", hpMax: 10, hpPercent: NIHILITY.PART_HP_PERCENT_BY_SLOT.default, tags: [] }),
       bonus: () => ({ attribute: "strength", amount: 1 }),
       resistance: () => ({ target: "general", amount: 10 }),
+      condition: () => ({ conditionId: getActiveStatusConditions()[0]?.id ?? "", mode: "resist", amount: 30 }),
       sense: () => ({ mode: "senseTremor", range: 0 }),
       rule: () => ({ when: { kind: "always", value: "", threshold: 50 }, then: { kind: "attributeFlat", target: "any", value: 1 }, perEach: "" }),
       lineage: () => {

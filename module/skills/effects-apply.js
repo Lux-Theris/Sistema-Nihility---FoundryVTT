@@ -18,6 +18,7 @@ import { healBodyParts, healPlan } from "../species/anatomy.js";
 import { skillIsMagic, skillIsTech } from "../core/magic-rules.js";
 import { suppressionLevel, techSuppressionLevel } from "./dispel.js";
 import { applyCurse } from "./curses.js";
+import { checkOriginCondition } from "../combat/condition-guard.js";
 import { effectMeasuresFor, vitalBase, grantSkillUseXp } from "./skill-xp.js";
 import { resolveEffectAmount, resolveAttributePercent, ATTRIBUTE_PERCENT_TARGETS } from "../economy/consumable-rules.js";
 import { hasOnlyIf, onlyIfOutcome } from "./only-if-rules.js";
@@ -153,6 +154,17 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
     if (ctx.shielded(entry)) {
       summary.push(`${getEffectTargetLabels()[entry.target] ?? entry.target}: sem efeito (${targetActor.name} está Suprimido)`);
       continue;
+    }
+    // Condições na origem (1.117.0): Imunidade/Resistência da Espécie, Linhagem ou Herança. Ponto único por onde
+    // uma Condição pega (Skill, elemento por chance, "ao acertar", reação, superfície, duelo, Armadilha). A marca à
+    // mão do Mestre (`ignoreOriginConditions`) aplica mesmo assim.
+    if (entry.conditionId && !mech.ignoreOriginConditions) {
+      const outcome = await checkOriginCondition(targetActor, entry.conditionId);
+      if (!outcome.lands) {
+        const name = getActiveStatusConditions().find(c => c.id === entry.conditionId)?.label ?? entry.conditionId;
+        summary.push(`${name}: ${outcome.kind === "immune" ? "imune" : `resistiu (${outcome.amount}%, d100 = ${outcome.roll})`}`);
+        continue;
+      }
     }
     // Ritmo do tempo, Marcar, Dissipar, Antimagia e PEM (ver effect-target-handlers.js, estágio "pre").
     if (await runTargetHandler("pre", entry, ctx) === HANDLED) continue;
@@ -691,13 +703,15 @@ async function rememberAnchoredTarget(holder, anchor, targetUuid) {
  * @param {Actor} actor
  * @param {string} conditionId - id de getActiveStatusConditions()
  * @param {object} entry - uma entrada no formato de `effectEntrySchema` (ver data/item-models.js)
+ * @param {{force?: boolean}} [options] - `force: true` não consulta Imunidade/Resistência da origem
  */
-export async function applyManualCondition(actor, conditionId, entry) {
+export async function applyManualCondition(actor, conditionId, entry, { force = false } = {}) {
   const condition = getActiveStatusConditions().find(c => c.id === conditionId);
   if (!condition) return [];
 
   const origin = { id: `manual:${conditionId}`, img: condition.icon, uuid: undefined };
-  return applyEffectsToActor({ effects: [{ ...entry, conditionId }], hasUpkeep: false }, condition.label, origin, actor, null);
+  // `force`: marcada à mão pelo Mestre, ou posta pelo ambiente/Domínio — não consulta a origem (ver condition-guard.js).
+  return applyEffectsToActor({ effects: [{ ...entry, conditionId }], hasUpkeep: false, ignoreOriginConditions: force }, condition.label, origin, actor, null);
 }
 
 /**

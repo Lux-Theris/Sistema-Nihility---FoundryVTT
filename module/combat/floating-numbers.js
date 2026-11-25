@@ -27,7 +27,7 @@ function remember(actor) {
   lastSeen.set(actor.uuid, vitalSnapshot(actor.system, tracksFor(actor)));
 }
 
-function enabledForMe() {
+export function enabledForMe() {
   try {
     return game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.floatingNumbers) !== false;
   } catch {
@@ -71,6 +71,30 @@ function onUpdateActor(actor, _changed, options) {
     // Mesmo critério do core para as Condições: Token que este usuário não vê não ganha número.
     if (!token.visible || token.document.isSecret) continue;
     show(token, deltas);
+  }
+}
+
+/**
+ * Sobe um texto curto do Token de `actor` ("Resistiu: Veneno"), em todo cliente que enxerga o Token e não
+ * desligou os números flutuantes. Mesmo critério dos números de dano.
+ */
+export function floatTextOnActor(actor, text, { fill = "#ffffff", fontSize = 30, delay = 0 } = {}) {
+  if (!canvas?.ready || !actor || !text || !enabledForMe()) return;
+  for (const token of actor.getActiveTokens?.(true) ?? []) {
+    if (!token.visible || token.document.isSecret) continue;
+    setTimeout(() => {
+      if (token.destroyed || !token.visible) return;
+      canvas.interface.createScrollingText(token.center, text, {
+        anchor: CONST.TEXT_ANCHOR_POINTS.TOP,
+        direction: CONST.TEXT_ANCHOR_POINTS.TOP,
+        distance: 2.2 * token.h,
+        fontSize,
+        fill,
+        stroke: 0x000000,
+        strokeThickness: 5,
+        jitter: 0.2
+      });
+    }, delay);
   }
 }
 

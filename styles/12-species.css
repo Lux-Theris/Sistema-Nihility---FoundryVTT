@@ -26,6 +26,7 @@
 .nihility-damage-trace li { display: flex; justify-content: space-between; gap: 8px; padding: 1px 4px; }
 .nihility-damage-trace li.is-subtotal { border-top: 1px dotted currentColor; }
 .nihility-damage-trace li.is-total { border-top: 1px solid currentColor; font-weight: 600; }
+.nihility-damage-trace li.is-weak { color: var(--nihility-danger); }
 .nihility-damage-trace .trace-value { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* Prévia de mudança de origem (Espécie/Linhagem/Herança) — board 3 do canvas "Rework de Espécies". */
@@ -313,3 +314,13 @@
 .nihility-card-config .cond-note { margin: 0 0 6px; font-size: 0.76rem; color: var(--nihility-text-dim, #9aa1c2); }
 .nihility-card-config .cond-sec .curse-effect-list { margin-top: 6px; }
 
+
+/* Defesas da origem (1.117.0): resistência, fraqueza e Condição na aba Origem. */
+.nihility-sheet .origin-hchip.origin-def-weak { border-color: rgba(255,92,92,.55); color: var(--nihility-danger); background: rgba(255,92,92,.06); }
+.nihility-sheet .origin-hchip.origin-def-resist { border-color: rgba(110,231,160,.5); color: var(--nihility-ok); background: rgba(110,231,160,.06); }
+.nihility-sheet .origin-hchip.origin-def-immune { border-color: rgba(110,231,255,.5); color: var(--nihility-accent); background: rgba(110,231,255,.06); }
+.nihility-sheet .origin-hchip.origin-def-condition { border-color: rgba(110,231,255,.5); color: var(--nihility-accent); background: rgba(110,231,255,.06); }
+.nihility-species-editor .se-tr.se-res { grid-template-columns: minmax(0, 1fr) 110px 84px 16px; }
+.nihility-species-editor .se-restag { font-size: 11px; padding: 1px 7px; border-radius: 10px; border: 1px solid var(--nihility-border); text-align: center; white-space: nowrap; }
+.nihility-species-editor .se-restag.ok { border-color: #2f6b48; color: var(--nihility-ok); }
+.nihility-species-editor .se-restag.weak { border-color: #7a3a3a; color: var(--nihility-danger); }

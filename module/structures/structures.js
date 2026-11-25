@@ -55,7 +55,12 @@ import {
   structureLetsPass,
   structureRegenStep,
   antimagicStructureOutcome,
-  areaTouchesStructure
+  areaTouchesStructure,
+  shiftCoords,
+  shiftSegments,
+  movementDelta,
+  followsToken,
+  fieldAffectsActor
 } from "./structure-geometry.js";
 import { structureSideFactor, centeredStructurePoints } from "../skills/combined-rules.js";
 import { normalizeArea, tokenDocCenter } from "../combat/area-geometry.js";
@@ -68,6 +73,8 @@ import { grantSkillUseXp, vitalBase } from "../skills/skill-xp.js";
 import { skillLevelBonuses, effectiveSkillCost, isEnergyPoolEnabled } from "../core/config.js";
 import { energyValuePath, currentEnergyValue } from "../skills/skill-state.js";
 import { isShipLike } from "../starship/ship-damage.js";
+import { mechAreaSize, structureAreaSize, clampAreaSize, stepAreaSize, MIN_AREA_SIZE } from "../combat/area-size-rules.js";
+import { showPlacementHint } from "../combat/placement-hint.js";
 
 /** A Skill que ergueu a Estrutura (uuid), pra XP por uso. Null em registros sem Skill. */
 function structureSkillUuid(instance) {
@@ -95,6 +102,14 @@ const MAX_POINTS = 60;
 /** A Estrutura do catálogo, ou `null`. */
 export function getStructure(id) {
   return getStructures().find(s => s.id === id) ?? null;
+}
+
+/**
+ * A Estrutura do catálogo com o TAMANHO do nível de quem a ergue (1.118.0): o do catálogo + "+ por nível" ×
+ * (nível − 1). É o máximo daquele nível; a colocação ainda pode diminuí-lo (Ctrl+roda). `mech` = a Skill ou Sub-Skill.
+ */
+export function structureForUse(structure, mech) {
+  return structure ? { ...structure, size: structureAreaSize(structure.size, mech) } : structure;
 }
 
 /** Força do investimento de Mana recebida de outro cliente, limitada a uma faixa sã. */
@@ -134,7 +149,10 @@ function snap(point, free) {
 export async function pickStructurePlacement(structure, reach = null) {
   if (!canvas?.ready || !canvas.scene) return null;
   const scene = canvas.scene;
-  const sizePx = metersToPx(scene, structure.size);
+  // Tamanho (1.118.0): `structure.size` é o máximo do nível; o Ctrl+roda diminui de 1 em 1 m, até 1 m. O escolhido vale.
+  const maxSize = Number(structure.size) || 0;
+  let size = maxSize;
+  const currentPx = () => metersToPx(scene, size);
   const shape = structure.shape;
   const color = Number(foundry.utils.Color?.from?.(structure.color) ?? 0x9aa1c2);
 
@@ -147,12 +165,14 @@ export async function pickStructurePlacement(structure, reach = null) {
     free: `clique ponto a ponto (até ${structure.size} m) · Enter termina · Backspace desfaz`
   };
   ui.notifications.info(`${structure.label}: ${hints[shape]} · Esc cancela.`);
+  const hint = showPlacementHint({ size, max: maxSize });
 
   const points = [];
   let cursor = null;
   let worstVia = null;
 
   const draw = () => {
+    const sizePx = currentPx();
     graphics.clear();
     if (reach && reach.rangePx > 0) {
       graphics.lineStyle(2, color, 0.35).beginFill(color, 0.04).drawCircle(reach.anchor.x, reach.anchor.y, reach.rangePx).endFill();
@@ -165,6 +185,13 @@ export async function pickStructurePlacement(structure, reach = null) {
       if (shape === "circle") graphics.drawCircle(cursor[0], cursor[1], sizePx);
       else graphics.drawRect(cursor[0] - sizePx / 2, cursor[1] - sizePx / 2, sizePx, sizePx);
       graphics.endFill();
+      // O máximo do nível, fraco, quando o escolhido é menor.
+      if (size < maxSize) {
+        const maxPx = metersToPx(scene, maxSize);
+        graphics.lineStyle(1.5, color, 0.35);
+        if (shape === "circle") graphics.drawCircle(cursor[0], cursor[1], maxPx);
+        else graphics.drawRect(cursor[0] - maxPx / 2, cursor[1] - maxPx / 2, maxPx, maxPx);
+      }
       return;
     }
     const capped = capPolyline(shape === "line" ? preview.slice(0, 2) : preview, sizePx);
@@ -187,10 +214,21 @@ export async function pickStructurePlacement(structure, reach = null) {
       canvas.stage.off("mousemove", onMove);
       canvas.stage.off("mousedown", onDown);
       canvas.app.view.removeEventListener("contextmenu", onCancel);
+      canvas.app.view.removeEventListener("wheel", onWheel);
       document.removeEventListener("keydown", onKey, true);
+      hint.remove();
       resolve(value);
     };
-    const done = () => finish({ sceneId: scene.id, shape, points: points.slice(0, MAX_POINTS), viaMark: viaMarkFrom(worstVia, reach) });
+    const done = () => finish({ sceneId: scene.id, shape, points: points.slice(0, MAX_POINTS), size, viaMark: viaMarkFrom(worstVia, reach) });
+    // Ctrl+roda: o tamanho (de 1 m até o máximo do nível).
+    const onWheel = event => {
+      if (!event.ctrlKey || !(maxSize > MIN_AREA_SIZE)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      size = stepAreaSize(size, event.deltaY, maxSize);
+      hint.update({ size });
+      draw();
+    };
 
     const onMove = event => {
       const local = event.data.getLocalPosition(canvas.stage);
@@ -214,7 +252,7 @@ export async function pickStructurePlacement(structure, reach = null) {
       if (shape === "circle" || shape === "rect") return done();
       if (shape === "line" && points.length >= 2) return done();
       // Forma livre acaba sozinha quando o comprimento acaba.
-      if (shape === "free" && capPolyline(points, sizePx).length < points.length) return done();
+      if (shape === "free" && capPolyline(points, currentPx()).length < points.length) return done();
       draw();
     };
     const onCancel = event => {
@@ -238,6 +276,7 @@ export async function pickStructurePlacement(structure, reach = null) {
     canvas.stage.on("mousemove", onMove);
     canvas.stage.on("mousedown", onDown);
     canvas.app.view.addEventListener("contextmenu", onCancel);
+    canvas.app.view.addEventListener("wheel", onWheel, { passive: false });
     document.addEventListener("keydown", onKey, true);
   });
 
@@ -255,7 +294,7 @@ export async function pickStructurePlacement(structure, reach = null) {
 export function structurePlacementAround(structure, center) {
   const scene = canvas?.scene;
   if (!canvas?.ready || !scene || !center) return null;
-  return { sceneId: scene.id, shape: structure.shape, points: centeredStructurePoints(structure.shape, center, metersToPx(scene, structure.size)), viaMark: null };
+  return { sceneId: scene.id, shape: structure.shape, points: centeredStructurePoints(structure.shape, center, metersToPx(scene, structure.size)), size: Number(structure.size) || 0, viaMark: null };
 }
 
 /* ------------------------------------------------------------------ Criar (Mestre) */
@@ -285,6 +324,8 @@ export async function requestStructure({ sourceActor, skillId, subSkillIndex = n
     sceneId: placement.sceneId,
     shape: placement.shape,
     points: placement.points,
+    // O tamanho escolhido na colocação (m); o Mestre limita ao máximo do nível, lido na ficha (nunca confia no cliente).
+    size: placement.size ?? null,
     structureId,
     sourceActorUuid: sourceActor.uuid,
     skillId,
@@ -340,7 +381,15 @@ export async function createStructureAsGm(payload) {
     .slice(0, MAX_POINTS)
     .map(p => [Number(p?.[0]), Number(p?.[1])])
     .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
-  const segments = structureSegments(structure.shape, points, metersToPx(scene, structure.size));
+  // Nível, "+ por nível" e "Segue quem lançou" lidos na ficha de quem usou, nunca do payload; o tamanho escolhido na
+  // colocação só vale até o máximo do nível.
+  const skillItem = source.items?.get(String(payload.skillId ?? ""));
+  const subIndex = Number.isInteger(payload.subSkillIndex) ? payload.subSkillIndex : null;
+  const skillMech = subIndex !== null ? skillItem?.system?.subSkills?.[subIndex] : skillItem?.system;
+  const level = Math.max(0, Math.round(Number(skillMech?.level) || 0));
+  const maxSize = structureAreaSize(structure.size, { areaPerLevel: skillMech?.areaPerLevel, level });
+  const size = clampAreaSize(payload.size, maxSize);
+  const segments = structureSegments(structure.shape, points, metersToPx(scene, size));
   if (!segments.length) return refuse("a forma desenhada ficou sem tamanho");
 
   const S = wallSenseTypes();
@@ -358,12 +407,8 @@ export async function createStructureAsGm(payload) {
       flags: { [SYSTEM_ID]: { structureInstance: id } }
     }))
   );
-  const lights = structure.light ? await createStructureLights(scene, structure, segments, id) : [];
+  const lights = structure.light ? await createStructureLights(scene, { ...structure, size }, segments, id) : [];
 
-  // Nível da Skill (ou Sub-Skill) lido na ficha de quem usou, nunca do payload.
-  const skillItem = source.items?.get(String(payload.skillId ?? ""));
-  const subIndex = Number.isInteger(payload.subSkillIndex) ? payload.subSkillIndex : null;
-  const level = Math.max(0, Math.round(Number(subIndex !== null ? skillItem?.system?.subSkills?.[subIndex]?.level : skillItem?.system?.level) || 0));
   // Disposição de quem ergueu: define quem a barreira etérea deixa passar (aliados).
   const casterDisposition = actorToken(source)?.document?.disposition ?? source.prototypeToken?.disposition;
 
@@ -381,6 +426,11 @@ export async function createStructureAsGm(payload) {
     manaBarrier: Boolean(structure.manaPowered),
     material: structure.material,
     level,
+    // Tamanho de fato (m) e a aura que anda com quem a ergueu (1.118.0).
+    size,
+    follows: Boolean(skillMech?.structureFollows),
+    // O Token de quem ergueu (se há vários do mesmo Ator, é este que a aura segue).
+    casterTokenId: actorToken(source)?.id ?? null,
     disposition: Number.isFinite(Number(casterDisposition)) ? Number(casterDisposition) : null,
     // Mana variável: a Vida da Estrutura segue a força do investimento (o payload vem de outro
     // cliente — fica limitado a uma faixa sã). Barreira de mana (Vida 0) não muda.
@@ -614,12 +664,32 @@ export function anchorFieldsAtPoint(scene, point) {
     .map(f => ({ kind: "structure", level: f.info.anchorLevel, label: f.instance.label || "um Campo de Âncora" }));
 }
 
-/** Campos do tipo `kind` da Cena, com os segmentos. */
-function antimagicFields(scene, kind = "magic") {
+/**
+ * Campos do tipo `kind` da Cena, com os segmentos. `exceptOwner` (uuid de Ator): quem lançou não é afetado pelo próprio
+ * campo (1.118.0) — os campos erguidos por esse Ator ficam de fora da conta dele (aliados e inimigos dentro, sim).
+ */
+function antimagicFields(scene, kind = "magic", { exceptOwner = null } = {}) {
   const key = FIELD_KINDS[kind].levelKey;
   return structuresOnScene(scene)
     .map(instance => ({ instance, info: instanceInfo(instance), segments: structureSegmentsOf(scene, instance) }))
-    .filter(f => f.info[key] > 0 && f.segments.length);
+    .filter(f => f.info[key] > 0 && f.segments.length && fieldAffectsActor(f.instance.sourceActorUuid, exceptOwner));
+}
+
+/**
+ * Esta Skill (ou Sub-Skill) sustenta um campo de Antimagia/Interferência de pé em alguma Cena? A Antimagia nunca desliga
+ * a Skill que sustenta o próprio campo (1.118.0), nem pelo campo de outro, nem pela manutenção.
+ */
+export function sustainsOwnField(actor, skillId, subSkillIndex = null) {
+  if (!actor?.uuid || !skillId) return false;
+  for (const scene of game.scenes ?? []) {
+    for (const instance of structuresOnScene(scene)) {
+      if (instance.sourceActorUuid !== actor.uuid || instance.skillId !== skillId) continue;
+      if ((instance.subSkillIndex ?? null) !== (subSkillIndex ?? null)) continue;
+      const info = instanceInfo(instance);
+      if (info.antimagicLevel > 0 || info.interferenceLevel > 0) return true;
+    }
+  }
+  return false;
 }
 
 /** Nível do campo neste ponto (dentro de uma forma fechada). */
@@ -658,7 +728,7 @@ export function antimagicBetween(attacker, target, { origin = null, kind = "magi
   const key = FIELD_KINDS[kind].levelKey;
   const hits = [...sealSources(attacker, kind), { level: actorSealLevel(attacker, kind), skillUuid: null }];
   const scene = canvas?.scene;
-  const fields = canvas?.ready && scene ? antimagicFields(scene, kind) : [];
+  const fields = canvas?.ready && scene ? antimagicFields(scene, kind, { exceptOwner: attacker?.uuid }) : [];
   if (fields.length) {
     const from = origin ?? actorToken(attacker, canvas.tokens?.controlled ?? [])?.center;
     // O "alvo" pode ser um ponto do mapa ({point}): onde uma Estrutura ou Zona vai nascer.
@@ -685,7 +755,7 @@ export function antimagicLevelAt(actor, kind = "magic") {
   if (!canvas?.ready || !scene) return level;
   const token = actorToken(actor, []);
   if (!token) return level;
-  return Math.max(level, fieldLevelAt(antimagicFields(scene, kind), [token.center.x, token.center.y], kind));
+  return Math.max(level, fieldLevelAt(antimagicFields(scene, kind, { exceptOwner: actor?.uuid }), [token.center.x, token.center.y], kind));
 }
 
 /** Campo em volta do Token (só por documentos, sem canvas): nível e Skills responsáveis. */
@@ -698,7 +768,7 @@ export function antimagicFieldLevelAtToken(tokenDoc, position = null, kind = "ma
     ? { x: Number(position.x), y: Number(position.y), width: tokenDoc.width, height: tokenDoc.height }
     : tokenDoc;
   const center = tokenDocCenter(at, scene.grid?.size);
-  const inside = antimagicFields(scene, kind).filter(f => f.info.closed && pointInSegments([center.x, center.y], f.segments));
+  const inside = antimagicFields(scene, kind, { exceptOwner: tokenDoc.actor?.uuid }).filter(f => f.info.closed && pointInSegments([center.x, center.y], f.segments));
   const level = Math.max(0, ...inside.map(f => f.info[key]));
   return { level, sources: [...new Set(inside.filter(f => f.info[key] === level).map(f => structureSkillUuid(f.instance)).filter(Boolean))] };
 }
@@ -879,7 +949,8 @@ async function enforceFieldsOnStructures(scene, kind, { charge = true } = {}) {
     const info = instanceInfo(instance);
     if (isAnyField(info)) continue;
     const segments = structureSegmentsOf(scene, instance);
-    const touching = fields.filter(f => segmentsCross(segments, f.segments) || (f.info.closed && segments.some(([x, y]) => pointInSegments([x, y], f.segments))));
+    // Os campos do próprio dono da Estrutura não a desfazem (quem lançou não é afetado pelo próprio campo).
+    const touching = fields.filter(f => fieldAffectsActor(f.instance.sourceActorUuid, instance.sourceActorUuid) && (segmentsCross(segments, f.segments) || (f.info.closed && segments.some(([x, y]) => pointInSegments([x, y], f.segments)))));
     const level = Math.max(0, ...touching.map(f => f.info[levelKey]));
     if (!level) continue;
 
@@ -942,7 +1013,7 @@ export async function antimagicStructuresAsGm(payload, skill) {
   if (isInterferenceEnabled() && (mech?.effects ?? []).some(e => e.target === "emp")) kinds.push("tech");
   if (!mech || mech.targetType !== "emission" || !kinds.length) return refuse("isso não é uma Antimagia ou um PEM em área");
   const pxPerUnit = (Number(scene.grid?.size) || 100) / (Number(scene.grid?.distance) || 1);
-  if (area.shape !== mech.areaShape || area.radius > (Number(mech.areaDistance) || 0) * pxPerUnit * 1.05 + 1) return refuse("a área não é a da Skill");
+  if (area.shape !== mech.areaShape || area.radius > mechAreaSize(mech) * pxPerUnit * 1.05 + 1) return refuse("a área não é a da Skill");
   const { antimagicReachLevel } = await import("../skills/dispel.js");
   const reach = antimagicReachLevel(mech.level);
   const lines = [];
@@ -1048,6 +1119,52 @@ export async function tickStructureContact(combatant) {
     const info = instanceInfo(instance);
     if (tokenTouchesStructure(scene, tokenDocument, center, instance, info)) await applyStructureContactAsGm(tokenDocument, instance, info);
   }
+}
+
+/* ------------------------------------------------------------------ Aura que segue quem lançou (1.118.0) */
+
+/** Fila por instância: dois movimentos seguidos não se atropelam. */
+const followQueue = new Map();
+
+/** Anda com a Estrutura: Paredes, luzes e registro da Cena. Cada Parede/luz parte da própria posição (a ordem de criação não importa). */
+async function moveStructureInstance(scene, instance, dx, dy) {
+  const walls = (instance.wallIds ?? []).map(id => scene.walls?.get(id)).filter(Boolean);
+  if (walls.length) await scene.updateEmbeddedDocuments("Wall", walls.map(w => ({ _id: w.id, c: shiftCoords(w.c, dx, dy) })));
+  const lights = (instance.lightIds ?? []).map(id => scene.lights?.get(id)).filter(Boolean);
+  if (lights.length) await scene.updateEmbeddedDocuments("AmbientLight", lights.map(l => ({ _id: l.id, x: Number(l.x) + dx, y: Number(l.y) + dy })));
+  await scene.setFlag(SYSTEM_ID, `${FLAG}.${instance.id}.segments`, shiftSegments(structureSegmentsOf(scene, instance), dx, dy));
+}
+
+/**
+ * "Segue quem lançou": quando o Token de quem ergueu uma Estrutura com `follows` se move, a instância anda o mesmo
+ * tanto. Só o Mestre designado; no `moveToken` o documento ainda está na posição ANTIGA, então a diferença é
+ * `destino − origem` do movimento (achados-foundry). Um campo que andou refaz a Supressão de quem entrou ou saiu.
+ */
+export function registerStructureFollow() {
+  Hooks.on("moveToken", async (document, movement) => {
+    if (!isDesignatedGm()) return;
+    const scene = document.parent;
+    const actorUuid = document.actor?.uuid;
+    if (!scene || !actorUuid) return;
+    const followers = structuresOnScene(scene).filter(i => followsToken(i, { actorUuid, tokenId: document.id }));
+    if (!followers.length) return;
+    const delta = movementDelta(movement?.origin, movement?.destination);
+    if (!delta || (!delta.dx && !delta.dy)) return;
+    for (const instance of followers) {
+      const previous = followQueue.get(instance.id) ?? Promise.resolve();
+      const next = previous.then(async () => {
+        const fresh = scene.getFlag(SYSTEM_ID, FLAG)?.[instance.id];
+        if (!fresh) return;
+        await moveStructureInstance(scene, fresh, delta.dx, delta.dy);
+        const info = instanceInfo(fresh);
+        if (info.antimagicLevel > 0 || info.interferenceLevel > 0) {
+          const { endMagicInsideFields } = await import("../combat/antimagic.js");
+          for (const token of scene.tokens) if (token.actor?.type === "character") await endMagicInsideFields(token);
+        }
+      }).catch(err => reportError("Falha ao mover a Estrutura que segue quem lançou.", err, { gmOnly: true }));
+      followQueue.set(instance.id, next);
+    }
+  });
 }
 
 /**

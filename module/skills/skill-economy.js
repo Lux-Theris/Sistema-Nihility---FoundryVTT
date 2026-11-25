@@ -300,6 +300,8 @@ export async function evolveSkill(actor, sourceItemId, newSkillData) {
       strikeRequiresWeapon: newSkillData.strikeRequiresWeapon ?? true,
       onlyIf: newSkillData.onlyIf ?? source.system.onlyIf ?? { kind: "", value: "", threshold: 50 },
       structurePlace: newSkillData.structurePlace ?? "click",
+      areaPerLevel: newSkillData.areaPerLevel ?? 0,
+      structureFollows: Boolean(newSkillData.structureFollows),
       endsWhenTargetFalls: Boolean(newSkillData.endsWhenTargetFalls),
       intruderRule: newSkillData.intruderRule ?? "",
       rerollWho: newSkillData.rerollWho ?? "own",

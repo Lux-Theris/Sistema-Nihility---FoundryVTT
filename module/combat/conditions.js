@@ -21,6 +21,7 @@ import {
 } from "../core/config.js";
 import { applyManualCondition } from "../skills/effects-apply.js";
 import { escapeHtml } from "../helpers/html.js";
+import { warnManualOverride } from "./condition-guard.js";
 
 const { DialogV2 } = foundry.applications.api;
 
@@ -103,6 +104,8 @@ export function interceptManualCondition(effect, data, options, userId) {
 
   // Fire-and-forget: o hook não pode ser async, então o diálogo segue por fora e a criação
   // original morre aqui.
+  // Marcar à mão aplica mesmo assim, mas avisa quando a origem do Ator diria não (condition-guard.js).
+  warnManualOverride(actor, conditionId);
   promptManualCondition(actor, conditionId);
   return false;
 }
@@ -224,7 +227,7 @@ async function promptManualCondition(actor, conditionId) {
       modifierType: "flat",
       icon: "",
       hitDamage: data.hitDamage
-    });
+    }, { force: true });
     return;
   }
 
@@ -259,5 +262,5 @@ async function promptManualCondition(actor, conditionId) {
     damageElements: [],
     modifierType: "flat",
     icon: ""
-  });
+  }, { force: true });
 }

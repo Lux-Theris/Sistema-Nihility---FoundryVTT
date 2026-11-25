@@ -9,6 +9,7 @@
  */
 import { ATTRIBUTE_PERCENT_TARGETS } from "../economy/consumable-rules.js";
 import { sanitizeRerollFields } from "../skills/reroll-rules.js";
+import { normalizeOriginConditions } from "../species/species-rules.js";
 import { clampTimeFactor, isTimeFactorActive } from "../combat/time-rate-rules.js";
 import {
   NIHILITY,
@@ -109,6 +110,8 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
   out.range = clampInt(m.range, 0, 10000, 0);
   out.areaOrigin = ["caster", "free"].includes(m.areaOrigin) ? m.areaOrigin : "free";
   out.areaFreeLevel = clampInt(m.areaFreeLevel, 0, 99, 0);
+  // "+ por nível" (1.118.0): metros por nível da área (Emissão, Zona ou Estrutura).
+  out.areaPerLevel = Math.min(50, Math.max(0, Math.round((Number(m.areaPerLevel) || 0) * 2) / 2));
   out.areaAffects = ["all", "notCaster", "allies", "enemies", "othersExceptTarget"].includes(m.areaAffects) ? m.areaAffects : "all";
   // Duelo (8c.2): só numa Skill Ativa; a IA não monta Combinadas (sem Sub-Skills).
   if (out.hasUpkeep) {
@@ -123,6 +126,8 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
     out.structureRegen = out.hasUpkeep ? clampInt(m.structureRegen, 0, 9999, 0) : 0;
     out.structureRegenCost = out.hasUpkeep ? clampInt(m.structureRegenCost, 0, 9999, 0) : 0;
     out.structurePlace = ["click", "caster", "target"].includes(m.structurePlace) ? m.structurePlace : "click";
+    // "Segue quem lançou" (aura): só faz sentido numa Skill Ativa.
+    out.structureFollows = out.hasUpkeep ? Boolean(m.structureFollows) : false;
   }
 
   // Rerrolar (8d.2): usada no chat; não é Ativa nem tem Preparo.
@@ -357,11 +362,13 @@ export function originGuide(catalogs = {}, { kind = "species" } = {}) {
     '  "traits": [ids de Traço], ' + (heritage ? '"removesTraits": [ids de Traço que a Herança TIRA], ' : "") + '"elements": [ids de elemento do corpo, normalmente vazio],',
     '  "parts": [{"label": nome da parte, "slot": "head"|"torso"|"arm"|"leg"|"tail"|"wing"|"core"|"body"|outro, "hpPercent": % da Vida máxima do personagem (cabeça 30, tronco 50, braço 20, perna 25, cauda 15), "functions": [ids de Função]}],',
     heritage ? '  "replacesSlots": [slots cujas partes da Espécie esta Herança substitui; vazio se não mexe no corpo],' : '  "lineages": [{"label", "description", "elements": [ids], "skills": [Skills como abaixo], "replacesSkills": [nomes de Skills da Espécie que esta Linhagem substitui]}] (0 a 3),',
-    '  "resistances": [{"target": "general" ou id de elemento, "amount": 5–30}],',
+    '  "resistances": [{"target": "general" ou id de elemento, "amount": 5–30 resiste; −5 a −30 é FRAQUEZA (leva mais dano), use 0 a 2 fraquezas que façam sentido}],',
+    '  "conditions": [{"conditionId": id de Condição, "mode": "resist" (amount 10–50, %) ou "immune"}] (0 a 3; Condições que o corpo da criatura torna absurdas, como Sangramento num slime),',
     `  "skills": [{"name", "description", "level": 1, "mechanics": objeto}] (1 a 3; Skills ${heritage ? "da Herança" : "Raciais"})`,
     "}",
     `Traços: ${list(catalogs.traits)}`,
     `Elementos: ${list(catalogs.elements)}`,
+    `Condições: ${list(catalogs.conditions)}`,
     `Funções de parte: ${list(catalogs.bodyFunctions)}`,
     "Bônus de atributo NÃO existem aqui. Uma criatura humanoide comum tem cabeça, tronco, dois braços e duas pernas.",
     mechanicsGuide(catalogs)
@@ -402,9 +409,13 @@ export function sanitizeOriginEntry(raw = {}, catalogs = {}, { kind = "species",
     };
   });
   const skills = (Array.isArray(r.skills) ? r.skills.slice(0, 4) : []).map(skillOf);
-  const resistances = (Array.isArray(r.resistances) ? r.resistances.slice(0, 3) : [])
-    .filter(x => x?.target === "general" || elements.has(x?.target))
-    .map(x => ({ target: x.target, amount: clampInt(x.amount, 1, 50, 10) }));
+  // Resistência positiva ou FRAQUEZA (negativa, 1.117.0); 0 não diz nada.
+  const resistances = (Array.isArray(r.resistances) ? r.resistances.slice(0, 4) : [])
+    .filter(x => (x?.target === "general" || elements.has(x?.target)) && Math.round(Number(x?.amount)) !== 0)
+    .map(x => ({ target: x.target, amount: clampInt(x.amount, -50, 50, 10) }));
+  // Condições da origem: só ids que existem, no máximo 3.
+  const validConditions = ids(catalogs.conditions);
+  const conditions = normalizeOriginConditions((Array.isArray(r.conditions) ? r.conditions : []).filter(c => validConditions.has(c?.conditionId))).slice(0, 3);
   const entry = {
     label,
     group: groups.includes(r.group) ? r.group : "",
@@ -413,7 +424,7 @@ export function sanitizeOriginEntry(raw = {}, catalogs = {}, { kind = "species",
     elements: pickIds(r.elements, elements, 2),
     parts,
     skills,
-    passives: resistances.length ? { resistances } : {}
+    passives: { ...(resistances.length ? { resistances } : {}), ...(conditions.length ? { conditions } : {}) }
   };
   if (kind === "heritage") {
     entry.removesTraits = pickIds(r.removesTraits, traits, 3);

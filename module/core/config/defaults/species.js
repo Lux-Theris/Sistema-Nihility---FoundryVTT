@@ -30,7 +30,7 @@ export const DEFAULT_SPECIES_PRESETS = {
     lineages: [
       { id: "alto", label: "Alto Elfo", description: "Cidades de pedra branca e magia antiga.", skills: [{ key: "afinidade_arcana", name: "Afinidade Arcana", description: "Sente a presença de magia por perto e reconhece runas antigas.", level: 1, cost: 0 }] },
       { id: "floresta", label: "Elfo da Floresta", description: "Rápido e silencioso entre as árvores.", movement: { percent: 10 } },
-      { id: "sombrio", label: "Elfo Sombrio", description: "Criado no subterrâneo, longe do sol.", passives: { resistances: [{ target: "dark", amount: 20 }] }, skills: [{ key: "visao_nas_sombras", name: "Visão nas Sombras", description: "Enxerga no escuro total como se fosse penumbra.", level: 1, cost: 0 }] }
+      { id: "sombrio", label: "Elfo Sombrio", description: "Criado no subterrâneo, longe do sol.", passives: { resistances: [{ target: "dark", amount: 20 }, { target: "holy", amount: -10 }] }, skills: [{ key: "visao_nas_sombras", name: "Visão nas Sombras", description: "Enxerga no escuro total como se fosse penumbra.", level: 1, cost: 0 }] }
     ],
     parts: [
       { key: "head", label: "Cabeça", slot: "head", hpMax: 8, tags: ["vital"] },
@@ -47,6 +47,7 @@ export const DEFAULT_SPECIES_PRESETS = {
   },
   anao: {
     label: "Anão",
+    passives: { resistances: [{ target: "blunt", amount: 10 }, { target: "fire", amount: 10 }], conditions: [{ conditionId: "poison", mode: "resist", amount: 30 }] },
     group: "fantasia",
     traits: ["organic"],
     availableAtCreation: true,
@@ -83,6 +84,7 @@ export const DEFAULT_SPECIES_PRESETS = {
   },
   goblin: {
     label: "Goblin",
+    passives: { resistances: [{ target: "acid", amount: 10 }] },
     group: "fantasia",
     traits: ["organic"],
     availableAtCreation: true,
@@ -101,6 +103,7 @@ export const DEFAULT_SPECIES_PRESETS = {
   },
   halfling: {
     label: "Pequenino",
+    passives: { conditions: [{ conditionId: "fear", mode: "resist", amount: 30 }] },
     group: "fantasia",
     traits: ["organic"],
     availableAtCreation: true,
@@ -119,6 +122,7 @@ export const DEFAULT_SPECIES_PRESETS = {
   },
   slime: {
     label: "Slime",
+    passives: { resistances: [{ target: "blunt", amount: 30 }, { target: "acid", amount: 30 }, { target: "fire", amount: -20 }], conditions: [{ conditionId: "bleeding", mode: "immune", amount: 100 }] },
     group: "isekai",
     traits: ["organic"],
     availableAtCreation: true,
@@ -139,9 +143,9 @@ export const DEFAULT_SPECIES_PRESETS = {
     availableAtCreation: true,
     lineageRequired: true,
     lineages: [
-      { id: "fogo", label: "Linhagem do Fogo", description: "Escamas rubras; o sopro queima.", elements: ["fire"], passives: { resistances: [{ target: "fire", amount: 20 }] } },
+      { id: "fogo", label: "Linhagem do Fogo", description: "Escamas rubras; o sopro queima.", elements: ["fire"], passives: { resistances: [{ target: "fire", amount: 20 }, { target: "ice", amount: -20 }] } },
       {
-        id: "gelo", label: "Linhagem do Gelo", description: "Escamas azuladas; o sopro congela.", elements: ["ice"], passives: { resistances: [{ target: "ice", amount: 20 }] },
+        id: "gelo", label: "Linhagem do Gelo", description: "Escamas azuladas; o sopro congela.", elements: ["ice"], passives: { resistances: [{ target: "ice", amount: 20 }, { target: "fire", amount: -20 }] },
         skills: [{ key: "sopro_gelido", name: "Sopro Gélido", description: "Exala gelo num cone à frente.", level: 1, cost: 20, effectType: "damage", damageFormula: "3d6", damageElements: ["ice"], targetType: "emission", areaShape: "cone", areaDistance: 6, areaAngle: 53 }],
         replaces: { skills: ["sopro_draconico"] }
       },
@@ -169,6 +173,7 @@ export const DEFAULT_SPECIES_PRESETS = {
   },
   ogro: {
     label: "Ogro",
+    passives: { resistances: [{ target: "blunt", amount: 10 }], conditions: [{ conditionId: "poison", mode: "resist", amount: 30 }] },
     group: "isekai",
     traits: ["organic"],
     availableAtCreation: true,
@@ -188,6 +193,8 @@ export const DEFAULT_SPECIES_PRESETS = {
   },
   lobo_tempestade: {
     label: "Lobo Tempestade",
+    passives: { resistances: [{ target: "lightning", amount: 30 }] },
+    elements: ["lightning"],
     group: "isekai",
     traits: ["organic", "beast"],
     availableAtCreation: true,
@@ -207,6 +214,7 @@ export const DEFAULT_SPECIES_PRESETS = {
   },
   harpia: {
     label: "Harpia",
+    passives: { resistances: [{ target: "lightning", amount: -10 }] },
     group: "isekai",
     traits: ["organic", "flying"],
     availableAtCreation: true,
@@ -225,6 +233,7 @@ export const DEFAULT_SPECIES_PRESETS = {
   },
   ciborgue: {
     label: "Ciborgue",
+    passives: { resistances: [{ target: "radiation", amount: 20 }, { target: "lightning", amount: -10 }], conditions: [{ conditionId: "bleeding", mode: "resist", amount: 30 }] },
     group: "scifi",
     traits: ["organic", "mechanical"],
     availableAtCreation: true,
@@ -242,6 +251,7 @@ export const DEFAULT_SPECIES_PRESETS = {
   },
   androide: {
     label: "Androide",
+    passives: { resistances: [{ target: "radiation", amount: 50 }, { target: "lightning", amount: -20 }], conditions: [{ conditionId: "poison", mode: "immune", amount: 100 }, { conditionId: "bleeding", mode: "immune", amount: 100 }] },
     group: "scifi",
     traits: ["mechanical"],
     availableAtCreation: true,
@@ -265,6 +275,7 @@ export const DEFAULT_SPECIES_PRESETS = {
   },
   mutante: {
     label: "Mutante",
+    passives: { resistances: [{ target: "radiation", amount: 30 }] },
     group: "scifi",
     traits: ["organic"],
     availableAtCreation: true,
@@ -283,6 +294,7 @@ export const DEFAULT_SPECIES_PRESETS = {
   },
   simbionte: {
     label: "Simbionte",
+    passives: { resistances: [{ target: "acid", amount: 10 }] },
     group: "scifi",
     traits: ["organic"],
     availableAtCreation: true,
@@ -307,7 +319,7 @@ export const DEFAULT_SPECIES_PRESETS = {
     traits: ["organic"],
     elements: ["dark"],
     availableAtCreation: false,
-    passives: { statModifiers: { hp: 0, energy: 100 } },
+    passives: { statModifiers: { hp: 0, energy: 100 }, resistances: [{ target: "dark", amount: 30 }, { target: "blunt", amount: 30 }, { target: "acid", amount: 30 }, { target: "holy", amount: -20 }], conditions: [{ conditionId: "bleeding", mode: "immune", amount: 100 }, { conditionId: "poison", mode: "immune", amount: 100 }] },
     parts: [
       { key: "core", label: "Núcleo", slot: "core", hpMax: 60, tags: ["vital", "regenerative"] },
       { key: "mass", label: "Massa Gelatinosa", slot: "body", hpMax: 80, hpPercent: 100, tags: ["amorphous", "regenerative"] }
@@ -323,7 +335,7 @@ export const DEFAULT_SPECIES_PRESETS = {
     description: "Um Ogro que recebeu um Nome: menor, mais rápido, com chifres e mana desperta.",
     traits: ["organic"],
     availableAtCreation: false,
-    passives: { resistances: [{ target: "physical", amount: 10 }] },
+    passives: { resistances: [{ target: "physical", amount: 10 }], conditions: [{ conditionId: "poison", mode: "resist", amount: 30 }] },
     parts: [
       { key: "head", label: "Cabeça", slot: "head", hpMax: 16, tags: ["vital"] },
       { key: "torso", label: "Tronco", slot: "torso", hpMax: 34, tags: ["vital"] },
@@ -359,6 +371,7 @@ export const DEFAULT_SPECIES_PRESETS = {
   },
   lobo_gigante: {
     label: "Lobo Gigante",
+    passives: { resistances: [{ target: "ice", amount: 10 }] },
     group: "besta",
     traits: ["organic", "beast"],
     availableAtCreation: false,
@@ -378,6 +391,7 @@ export const DEFAULT_SPECIES_PRESETS = {
   },
   grifo: {
     label: "Grifo",
+    passives: { resistances: [{ target: "lightning", amount: -10 }] },
     group: "besta",
     traits: ["organic", "beast", "flying"],
     availableAtCreation: false,
@@ -398,6 +412,7 @@ export const DEFAULT_SPECIES_PRESETS = {
   },
   inseto_de_carga: {
     label: "Inseto de Carga",
+    passives: { resistances: [{ target: "acid", amount: 10 }, { target: "fire", amount: -20 }], conditions: [{ conditionId: "poison", mode: "resist", amount: 20 }] },
     group: "besta",
     traits: ["organic", "beast"],
     availableAtCreation: false,
@@ -445,7 +460,7 @@ export const DEFAULT_HERITAGES = [
     id: "vampirizado", label: "Vampirizado", group: "fantasia", acquired: "acquired",
     description: "Mordido e transformado: imortal, faminto, avesso à luz do sol.",
     traits: ["undead"], removesTraits: ["organic"], elements: ["dark"],
-    passives: { resistances: [{ target: "dark", amount: 30 }], attributeBonuses: [{ attribute: "strength", amount: 1 }] },
+    passives: { resistances: [{ target: "dark", amount: 30 }], conditions: [{ conditionId: "poison", mode: "immune", amount: 100 }], attributeBonuses: [{ attribute: "strength", amount: 1 }] },
     skills: [{ key: "dreno_vital", name: "Dreno Vital", level: 1, cost: 10, effectType: "damage", damageFormula: "1d8", damageElements: ["dark"], isMagicDamage: true, description: "Morde e drena a vida do alvo." }],
     excludes: ["abencoado"], allowedSpecies: { mode: "any", list: [] }
   },
@@ -460,7 +475,7 @@ export const DEFAULT_HERITAGES = [
     id: "possuido", label: "Possuído", group: "fantasia", acquired: "acquired",
     description: "Algo mora com você. Às vezes ajuda, às vezes cobra.",
     traits: [], elements: ["dark"],
-    passives: { attributeBonuses: [{ attribute: "magic", amount: 2 }], statModifiers: { hp: -10 } },
+    passives: { attributeBonuses: [{ attribute: "magic", amount: 2 }], statModifiers: { hp: -10 }, resistances: [{ target: "dark", amount: 20 }, { target: "holy", amount: -20 }], conditions: [{ conditionId: "fear", mode: "resist", amount: 30 }] },
     skills: [{ key: "voz_interior", name: "Voz Interior", level: 1, cost: 0, effectType: "none", description: "A entidade sussurra o que viu. O Mestre decide o preço." }],
     allowedSpecies: { mode: "any", list: [] }
   },
@@ -468,14 +483,14 @@ export const DEFAULT_HERITAGES = [
     id: "abencoado", label: "Abençoado", group: "fantasia", acquired: "both",
     description: "Marcado por uma divindade.",
     traits: [], elements: ["holy"],
-    passives: { resistances: [{ target: "dark", amount: 20 }] },
+    passives: { resistances: [{ target: "dark", amount: 20 }, { target: "holy", amount: 20 }], conditions: [{ conditionId: "fear", mode: "resist", amount: 30 }] },
     skills: [], excludes: ["vampirizado"], allowedSpecies: { mode: "any", list: [] }
   },
   {
     id: "convertido_ciborgue", label: "Convertido em Ciborgue", group: "scifi", acquired: "acquired",
     description: "Partes do corpo trocadas por máquina.",
     traits: ["mechanical"], elements: [],
-    passives: { statModifiers: { hp: 20 } },
+    passives: { statModifiers: { hp: 20 }, resistances: [{ target: "radiation", amount: 20 }, { target: "lightning", amount: -10 }], conditions: [{ conditionId: "bleeding", mode: "resist", amount: 30 }] },
     parts: [
       { key: "cyber_left_arm", label: "Braço Cibernético Esquerdo", slot: "arm", hpMax: 20, tags: ["manipulacao"] },
       { key: "cyber_right_arm", label: "Braço Cibernético Direito", slot: "arm", hpMax: 20, tags: ["manipulacao"] }
@@ -488,7 +503,7 @@ export const DEFAULT_HERITAGES = [
     id: "mutacao_radioativa", label: "Mutação Radioativa", group: "scifi", acquired: "acquired",
     description: "A radiação reescreveu o corpo: mais resistente, nem sempre mais bonito.",
     traits: [], elements: ["acid"],
-    passives: { statModifiers: { hp: 30 }, resistances: [{ target: "acid", amount: 25 }] },
+    passives: { statModifiers: { hp: 30 }, resistances: [{ target: "radiation", amount: 40 }, { target: "acid", amount: 10 }] },
     skills: [], excludes: ["convertido_ciborgue"], allowedSpecies: { mode: "any", list: [] }
   },
   {

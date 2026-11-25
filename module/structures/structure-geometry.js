@@ -271,3 +271,44 @@ export function areaTouchesStructure(area, segments, closed = false) {
   if (poly.length >= 6) edges.push([poly[poly.length - 2], poly[poly.length - 1], poly[0], poly[1]]);
   return segmentsCross(segments, edges);
 }
+
+/* ------------------------------------------------------------------ Aura que segue (1.118.0) */
+
+/** Desloca a coordenada de uma parede `[x1, y1, x2, y2]` (ou de qualquer lista de pares x, y) por `dx`, `dy`. */
+export function shiftCoords(coords, dx, dy) {
+  return (coords ?? []).map((v, i) => Number(v) + (i % 2 === 0 ? Number(dx) || 0 : Number(dy) || 0));
+}
+
+/** Desloca todos os segmentos de uma Estrutura. */
+export function shiftSegments(segments, dx, dy) {
+  return (segments ?? []).map(seg => shiftCoords(seg, dx, dy));
+}
+
+/** Para onde o Token foi, em pixels de cena: destino − origem do movimento (cada um `{x, y}`); `null` sem os dois. */
+export function movementDelta(origin, destination) {
+  const ox = Number(origin?.x);
+  const oy = Number(origin?.y);
+  const dx = Number(destination?.x);
+  const dy = Number(destination?.y);
+  if (![ox, oy, dx, dy].every(Number.isFinite)) return null;
+  return { dx: dx - ox, dy: dy - oy };
+}
+
+/**
+ * Esta Estrutura (registro da Cena) anda com o Token que acabou de se mover? Só as que pedem "Segue quem
+ * lançou" e só com o Token de quem as ergueu (o `casterTokenId` guardado; sem ele, qualquer Token do mesmo Ator,
+ * comparado por uuid — registro sem o id).
+ */
+export function followsToken(instance, { actorUuid, tokenId }) {
+  if (!instance?.follows || !actorUuid || instance.sourceActorUuid !== actorUuid) return false;
+  return instance.casterTokenId ? instance.casterTokenId === tokenId : true;
+}
+
+/**
+ * O campo (dono `ownerUuid`) vale para `actorUuid`? Quem lançou nunca é afetado pelo próprio campo (Antimagia ou
+ * Interferência): aliados e inimigos dentro, sim. Sem dono guardado (registro antigo), vale para todos.
+ */
+export function fieldAffectsActor(ownerUuid, actorUuid) {
+  if (!ownerUuid || !actorUuid) return true;
+  return ownerUuid !== actorUuid;
+}

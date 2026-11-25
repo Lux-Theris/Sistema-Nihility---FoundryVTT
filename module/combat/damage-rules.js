@@ -56,7 +56,13 @@ export function resolveDamageParts({ parts, magicDefense = 0, general = 0, resis
     const raw = base * (1 + bonus) * (Number.isFinite(reactionFactor) ? reactionFactor : 1);
 
     const penetration = Math.min(1, Math.max(0, Number(part.penetration) || 0));
-    const elementResist = part.elementId ? Math.max(0, Number(resistanceFor(part.elementId)) || 0) : 0;
+    // Resistência final do elemento: pode ser NEGATIVA (fraqueza da origem, sem piso). Quem chama
+    // já descontou as fraquezas da melhor resistência (`netResistance`); ≥ 1 continua sendo Imunidade.
+    const elementNet = part.elementId ? (Number(resistanceFor(part.elementId)) || 0) : 0;
+    const elementResist = Math.max(0, elementNet);
+    const elementWeak = Math.max(0, -elementNet);
+    const generalResist = Math.max(0, Number(general) || 0);
+    const generalWeak = Math.max(0, -(Number(general) || 0));
     if (elementResist >= 1) {
       return { elementId: part.elementId, base, raw, final: 0, beforeAffinity: 0, blockedGeneral: 0, blockedElement: raw, immune: true, applied: { bonus, immune: true } };
     }
@@ -64,15 +70,21 @@ export function resolveDamageParts({ parts, magicDefense = 0, general = 0, resis
     const soften = value => Math.min(1, Math.max(0, value)) * (1 - penetration);
     let remaining = raw * (1 - soften(magicDefense));
     const beforeGeneral = remaining;
-    remaining *= 1 - soften(general);
+    remaining *= 1 - soften(generalResist);
     const blockedGeneral = beforeGeneral - remaining;
+    // Fraqueza: leva a mais. A Penetração não mexe nela (só suaviza defesa) e ela nunca conta como
+    // "bloqueio" (não rende XP de Resistência).
+    if (generalWeak > 0) remaining *= 1 + generalWeak;
     const beforeElement = remaining;
     remaining *= 1 - soften(elementResist);
     const blockedElement = beforeElement - remaining;
+    if (elementWeak > 0) remaining *= 1 + elementWeak;
 
     // `applied`: o quanto cada defesa valeu de fato (já suavizada pela Penetração) — insumo do
     // rastro de dano que só o Mestre vê (describeDamageParts).
-    const applied = { bonus, penetration, magicDefense: soften(magicDefense), general: soften(general), element: soften(elementResist), affinity };
+    const applied = { bonus, penetration, magicDefense: soften(magicDefense), general: soften(generalResist), element: soften(elementResist), affinity };
+    if (generalWeak > 0) applied.generalWeak = generalWeak;
+    if (elementWeak > 0) applied.elementWeak = elementWeak;
     if (part.reaction && reactionFactor !== 1) applied.reaction = { factor: reactionFactor, label: String(part.reaction.label ?? "Reação") };
     return { elementId: part.elementId, base, raw, final: remaining * affinity, beforeAffinity: remaining, blockedGeneral, blockedElement, applied };
   });
@@ -93,7 +105,7 @@ const shortNumber = value => String(Math.round((Number(value) || 0) * 10) / 10);
  * @param {{elementLabel?:(id:string)=>string, generalLabel?:string, elementSourceLabel?:(id:string)=>string}} [labels]
  * @returns {Array<{label:string, value:string, kind?:string}>}
  */
-export function describeDamageParts(parts, { elementLabel = id => id, generalLabel = "Resistência Geral", elementSourceLabel = () => "" } = {}) {
+export function describeDamageParts(parts, { elementLabel = id => id, generalLabel = "Resistência Geral", elementSourceLabel = () => "", weaknessSourceLabel = () => "" } = {}) {
   const rows = [];
   const list = parts ?? [];
   for (const part of list) {
@@ -111,9 +123,14 @@ export function describeDamageParts(parts, { elementLabel = id => id, generalLab
         if (a.penetration > 0) rows.push({ label: "Penetração (suaviza cada defesa)", value: percent(a.penetration) });
         if (a.magicDefense > 0) rows.push({ label: "Defesa Mágica", value: `−${percent(a.magicDefense)}` });
         if (a.general > 0) rows.push({ label: generalLabel, value: `−${percent(a.general)}` });
+        if (a.generalWeak > 0) rows.push({ label: `Fraqueza geral${weaknessSourceLabel("general") ? ` (${weaknessSourceLabel("general")})` : ""}`, value: `+${percent(a.generalWeak)}`, kind: "weak" });
         if (a.element > 0) {
           const source = elementSourceLabel(part.elementId);
           rows.push({ label: `Resistência a ${name}${source ? ` (${source})` : ""}`, value: `−${percent(a.element)}` });
+        }
+        if (a.elementWeak > 0) {
+          const source = weaknessSourceLabel(part.elementId);
+          rows.push({ label: `Fraqueza a ${name}${source ? ` (${source})` : ""}`, value: `+${percent(a.elementWeak)}`, kind: "weak" });
         }
         if (a.affinity !== undefined && a.affinity !== 1) rows.push({ label: "Vantagem contra o elemento do corpo", value: `×${shortNumber(a.affinity)}` });
       }

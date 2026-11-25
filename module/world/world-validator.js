@@ -145,6 +145,8 @@ export function checkMechanic(mech, idx, prefix = "") {
   checkRefs(issues, idx, at(prefix, "Elementos de dano"), "elements", mech.damageElements);
   if (mech.effectType === "structure" || mech.targetType === "structure" || mech.structureId) {
     checkRef(issues, idx, at(prefix, "Estrutura"), "structures", mech.structureId);
+    // Aura que segue (1.118.0): sem Skill Ativa ninguém a mantém.
+    if (mech.structureFollows && !mech.hasUpkeep) issues.push({ where: at(prefix, "Estrutura"), catalog: "structures", ref: mech.structureId ?? "", message: "\"Segue quem lançou\" sem Habilidade Ativa: a aura anda mas ninguém a mantém" });
   }
   if (mech.effectType === "form") {
     if (!mech.formActorUuid) issues.push({ where: at(prefix, "Forma"), catalog: "forms", ref: "", message: "a Mecânica Forma não tem ficha de forma" });
@@ -393,6 +395,38 @@ export function validateTimeSetup({ timelines = [], scenes = [], activeModules =
  * Traço/elemento/Skill Racial, Estrutura → elemento, Escala por Porte, faixa e vagas das Classes.
  * @returns {Array<{catalog:string, entry:string, where:string, message:string}>}
  */
+/**
+ * Condições que o PRÓPRIO sistema usa para segurar alguém (Âncora, Domínio/Preso, Antimagia/PEM, Vida 0, Dormindo,
+ * selos): Imunidade ou Resistência da origem a elas faz o Domínio, a Âncora ou a Antimagia falharem em silêncio.
+ */
+export function isSystemHoldingCondition(condition) {
+  if (!condition) return false;
+  return Boolean(Number(condition.anchorLevel) > 0 || condition.suppressesMagic || condition.suppressesTech || condition.incapacitates || Number(condition.antimagicLevel) > 0 || Number(condition.interferenceLevel) > 0);
+}
+
+/**
+ * Defesas de uma origem (Espécie, Linhagem ou Herança): alvos de Resistência/fraqueza que não existem, Condições que não
+ * existem e Imunidade/Resistência a uma Condição que o próprio sistema usa para segurar alguém (1.117.0). Pura.
+ * @param {object} entry - a entrada do catálogo (usa `passives.resistances` e `passives.conditions`)
+ * @param {object} idx - `buildCatalogIndex`
+ * @param {Array} [conditions] - o catálogo de Condições (para reconhecer as do sistema)
+ * @param {string} [prefix]
+ */
+export function originDefenseIssues(entry, idx, conditions = [], prefix = "") {
+  const issues = [];
+  (entry?.passives?.resistances ?? []).forEach((r, i) => checkResistanceTarget(issues, idx, at(prefix, `Resistência ${i + 1}`), r?.target));
+  (entry?.passives?.conditions ?? []).forEach((c, i) => {
+    const where = at(prefix, `Condição ${i + 1}`);
+    checkRef(issues, idx, where, "conditions", c?.conditionId);
+    const condition = (conditions ?? []).find(x => x?.id === c?.conditionId);
+    if (isSystemHoldingCondition(condition)) {
+      const how = c?.mode === "immune" || Number(c?.amount) >= 100 ? "Imunidade" : `Resistência ${Number(c?.amount) || 0}%`;
+      issues.push({ where, catalog: "conditions", ref: c.conditionId, message: `${how} a "${condition.label ?? condition.id}", que o próprio sistema usa para segurar alguém (Âncora, Domínio, Antimagia, Vida 0): essas regras podem falhar nesta origem` });
+    }
+  });
+  return issues;
+}
+
 export function validateCatalogs(catalogs, idx = buildCatalogIndex(catalogs)) {
   const issues = [];
   const push = (catalog, entry, list) => list.forEach(issue => issues.push({ ...issue, catalog, entry }));
@@ -456,6 +490,8 @@ export function validateCatalogs(catalogs, idx = buildCatalogIndex(catalogs)) {
     checkRefs(list, idx, "Traços", "traits", preset?.traits);
     checkRefs(list, idx, "Elementos", "elements", preset?.elements);
     (preset?.skills ?? []).forEach((skill, i) => list.push(...checkMechanic(skill, idx, `Skill Racial ${i + 1}${skill?.name ? ` (${skill.name})` : ""}`)));
+    list.push(...originDefenseIssues(preset, idx, catalogs.conditions));
+    for (const lineage of preset?.lineages ?? []) list.push(...originDefenseIssues(lineage, idx, catalogs.conditions, `Linhagem ${lineage?.label ?? lineage?.id}`));
     push("species", preset?.label ?? key, list);
   }
 
@@ -467,6 +503,7 @@ export function validateCatalogs(catalogs, idx = buildCatalogIndex(catalogs)) {
     checkRefs(list, idx, "Não convive com", "heritages", heritage.excludes);
     checkRefs(list, idx, "Espécies permitidas", "species", heritage.allowedSpecies?.list);
     (heritage.skills ?? []).forEach((skill, i) => list.push(...checkMechanic(skill, idx, `Skill ${i + 1}${skill?.name ? ` (${skill.name})` : ""}`)));
+    list.push(...originDefenseIssues(heritage, idx, catalogs.conditions));
     push("heritages", heritage.label ?? heritage.id, list);
   }
 

@@ -5,7 +5,7 @@ import { useBlockReason } from "./preparation.js";
 import { strikeBlockReason } from "../combat/weapon-mastery.js";
 import { useSkillEffect } from "./skill-effects.js";
 import { skillUseMode } from "./skill-use-mode.js";
-import { getStructure, pickStructurePlacement, structurePlacementAround } from "../structures/structures.js";
+import { getStructure, structureForUse, pickStructurePlacement, structurePlacementAround } from "../structures/structures.js";
 import { areaEffectsSupported, pickAreaTargets, pickZonePlacement, pickAreaPlacement, reshapeAreaPlacement, casterAreaPlacement, resolveAreaTargets, zonePlacementFrom } from "../combat/area-effects.js";
 import { isCombinedSkill, combinedPlan, combinedPartMech, isCasterBoundCircle } from "./combined-rules.js";
 import { rollOptionsFromEvent } from "../apps/roll-options-dialog.js";
@@ -152,7 +152,7 @@ async function useStructure({ actor, skill, mech, subSkillIndex, manaInvested, u
     let viaMark = null;
     let pickedTarget = null;
     if (canvas?.ready && canvas.scene) {
-      const structure = getStructure(mech.structureId);
+      const structure = structureForUse(getStructure(mech.structureId), mech);
       if (!structure) {
         ui.notifications.warn(`${skill.name} não tem uma Estrutura escolhida.`);
         return;
@@ -372,7 +372,7 @@ async function useCombinedFlow(actor, skill, { event, pickTarget, useSkill }) {
           parts[index] = { structurePlacement: null };
           continue;
         }
-        const structure = getStructure(part.structureId);
+        const structure = structureForUse(getStructure(part.structureId), partMech);
         if (!structure) {
           ui.notifications.warn(`${skill.name} — ${part.name} não tem uma Estrutura escolhida.`);
           return;

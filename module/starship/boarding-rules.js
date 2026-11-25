@@ -80,13 +80,13 @@ export function dragOutcome({ mover = 0, resister = 0, margin = 4 } = {}) {
 }
 
 /**
- * O dano de arrancar um pedaço: `percentPerPoint`% (1) do Casco máximo (sem Casco, da Integridade) por ponto de diferença,
+ * O dano de arrancar um pedaço: `percentPerPoint`% (2, dono 24/11) do Casco máximo (sem Casco, da Integridade) por ponto de diferença,
  * e a mesma fração da Vida máxima do Módulo do ponto de acoplamento.
  * @returns {{casco:number, module:number}}
  */
-export function dragDamage({ diff = 0, cascoMax = 0, hullMax = 0, moduleHpMax = 0, percentPerPoint = 1 } = {}) {
+export function dragDamage({ diff = 0, cascoMax = 0, hullMax = 0, moduleHpMax = 0, percentPerPoint = 2 } = {}) {
   const points = Math.abs(Math.round(num(diff)));
-  const pct = Math.max(0, num(percentPerPoint, 1)) / 100;
+  const pct = Math.max(0, num(percentPerPoint, 2)) / 100;
   const base = num(cascoMax) > 0 ? num(cascoMax) : num(hullMax);
   return { casco: Math.round(base * pct * points), module: Math.round(Math.max(0, num(moduleHpMax)) * pct * points) };
 }

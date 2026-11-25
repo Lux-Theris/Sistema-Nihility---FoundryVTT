@@ -206,6 +206,14 @@ function usageFields() {
      * "caster" = sem clique, o centro é quem usa; "target" = sem clique, o centro é o alvo escolhido.
      */
     structurePlace: new fields.StringField({ required: false, initial: "click", choices: ["click", "caster", "target"] }),
+    /**
+     * "+ por nível" (1.118.0): metros que a área (Emissão, Zona ou Estrutura) ganha a cada nível da Skill além do
+     * primeiro. Tamanho efetivo = base + por nível × (nível − 1); a base é `areaDistance` (Emissão/Zona) ou o tamanho
+     * do catálogo (Estrutura). 0 = o tamanho não cresce (tudo salvo antes).
+     */
+    areaPerLevel: new fields.NumberField({ required: false, initial: 0, min: 0 }),
+    /** Estrutura: "Segue quem lançou" — a instância anda junto com o Token de quem a ergueu (aura). */
+    structureFollows: new fields.BooleanField({ required: false, initial: false }),
     /** Ativa: desliga quando o alvo escolhido ao ligar cai (Caído, Inconsciente, morto). Quem usa cair já desliga. */
     endsWhenTargetFalls: new fields.BooleanField({ required: false, initial: false }),
     /**

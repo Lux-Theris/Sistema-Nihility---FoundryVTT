@@ -15,6 +15,7 @@ import { clampTimeFactor, describeTimeFactor } from "../combat/time-rate-rules.j
 import { spaceSentence } from "../combat/space-rules.js";
 import { strikeSentence } from "../combat/weapon-mastery-rules.js";
 import { isSenseTarget, SENSE_LABELS, describeSenseRange, senseRangeValue } from "../combat/senses-rules.js";
+import { perLevelText } from "../combat/area-size-rules.js";
 
 const SHAPE_WORDS = { circle: "círculo", cone: "cone", ray: "linha" };
 
@@ -97,9 +98,22 @@ function describeMechanic(mech, ctx) {
     const regen = Number(mech.structureRegen) || 0;
     const regenCost = Number(mech.structureRegenCost) || 0;
     const regenText = regen > 0 ? `, regenera ${regen}/rodada${regenCost ? ` (−${regenCost} ${ctx.energyLabel || "Mana"})` : ""}` : "";
-    return `ergue ${ctx.structures?.[mech.structureId] ?? "Estrutura"}${regenText}`;
+    const size = ctx.structureSizes?.[mech.structureId];
+    const sizeText = size ? ` de ${meterText(size)} m${perLevelText(mech.areaPerLevel) ? ` (${perLevelText(mech.areaPerLevel)})` : ""}` : "";
+    const follows = mech.structureFollows ? ", segue quem lançou" : "";
+    const aura = mech.structureFollows && ctx.fieldStructures?.[mech.structureId] ? "; quem lançou não é afetado" : "";
+    return `ergue ${ctx.structures?.[mech.structureId] ?? "Estrutura"}${sizeText}${regenText}${follows}${aura}`;
   }
   return null;
+}
+
+const meterText = value => String(Math.round(Number(value) * 100) / 100).replace(".", ",");
+
+/** "3 m" ou "3 m (+1 m por nível)": o tamanho base e o que cresce por nível. */
+function areaSizeText(mech) {
+  const base = `${meterText(Number(mech.areaDistance) || 0)} m`;
+  const per = perLevelText(mech.areaPerLevel);
+  return per ? `${base} (${per})` : base;
 }
 
 /** "num alvo", "em si", "cone de 6 m", "zona de 4 m por 3 rod.". */
@@ -108,9 +122,9 @@ function describeReach(mech) {
     case "self":
       return "em si";
     case "emission":
-      return SHAPE_WORDS[mech.areaShape] ? `${SHAPE_WORDS[mech.areaShape]} de ${Number(mech.areaDistance) || 0} m` : "área";
+      return SHAPE_WORDS[mech.areaShape] ? `${SHAPE_WORDS[mech.areaShape]} de ${areaSizeText(mech)}` : "área";
     case "zone": {
-      const size = SHAPE_WORDS[mech.areaShape] ? ` de ${Number(mech.areaDistance) || 0} m` : "";
+      const size = SHAPE_WORDS[mech.areaShape] ? ` de ${areaSizeText(mech)}` : "";
       return `zona${size}${mech.hasUpkeep ? "" : ` por ${Number(mech.zoneRounds) || 1} rod.`}`;
     }
     default:

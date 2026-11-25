@@ -26,6 +26,7 @@ import { skillStateUpdate } from "./skill-state.js";
 import { SUPPRESSION_FLAG, TECH_SUPPRESSION_FLAG, suppressionLevel, techSuppressionLevel } from "../core/suppression.js";
 import { applyEmpShutdown, releaseEmpShutdown } from "../combat/incapacitation.js";
 import { applyEmpToShip } from "../starship/starship-power.js";
+import { sustainsOwnField } from "../structures/structures.js";
 
 export { SUPPRESSION_FLAG, TECH_SUPPRESSION_FLAG, suppressionLevel, techSuppressionLevel };
 
@@ -166,6 +167,8 @@ async function applyDispel(target, kind, { level = 0, rounds = 0, reach: fixedRe
       const sys = source.subSkillIndex != null ? source.skill.system.subSkills?.[source.subSkillIndex] : source.skill.system;
       const nature = skillLevelNature({ ...sys, tier: source.skill.system.tier }, target);
       if (!nature[natureKey] || nature.level > reach) continue;
+      // A Antimagia nunca desliga a Skill que sustenta o próprio campo (1.118.0).
+      if (sustainsOwnField(target, source.skill.id, source.subSkillIndex ?? null)) continue;
       await source.skill.update(skillStateUpdate(source.skill, source.subSkillIndex, { active: false }));
       await removeUpkeepLinkedEffects(source.skill, source.subSkillIndex);
       off.push(source.label);

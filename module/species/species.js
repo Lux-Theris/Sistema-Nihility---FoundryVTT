@@ -9,11 +9,11 @@
  * `flags.<sistema>.speciesArchive`).
  */
 import { SYSTEM_ID, getActiveSpeciesPresets, getActiveHeritages, isAnatomyEnabled, isFeatureEnabled, getActiveTraits, getDamageElement } from "../core/config.js";
-import { resolveSpeciesTemplate, speciesDiff, racialSkillSystem, normalizeSpeciesEntry, normalizeSpeciesCatalog, isSpeciesLocked, heritageConflicts, evolutionOptions, evolutionResistanceUpgrades } from "./species-rules.js";
+import { originProtectionRows, resolveSpeciesTemplate, speciesDiff, racialSkillSystem, normalizeSpeciesEntry, normalizeSpeciesCatalog, isSpeciesLocked, heritageConflicts, evolutionOptions, evolutionResistanceUpgrades } from "./species-rules.js";
 import { getHeritageEntry } from "./origin.js";
 import { originSenseRows } from "../combat/senses-rules.js";
 import { legacyFunctionsFor } from "./anatomy-rules.js";
-import { getActiveBodyFunctions } from "../core/config.js";
+import { getActiveBodyFunctions, getActiveStatusConditions } from "../core/config.js";
 
 /** Funções de uma parte do molde (as tags do catálogo; tags antigas viram Funções pelo slot). */
 const functionsOf = p => legacyFunctionsFor(p.tags ?? [], p.slot, getActiveBodyFunctions().map(f => f.id));
@@ -370,6 +370,8 @@ export function originContext(actor) {
     lineageAdds: lineage ? [...(lineage.elements ?? []).map(elementLabel), ...(lineage.traits ?? []).map(traitLabel), ...(lineage.skills ?? []).map(s => s.name)].join(" · ") : "",
     lineageReplaces: lineage ? (lineage.replaces?.skills ?? []).map(k => entry.skills.find(s => s.key === k)?.name ?? k).join(", ") : "",
     history,
+    // Defesas da origem (1.117.0): resistências, fraquezas e Condições, cada uma com o ⓘ "De onde vem".
+    protections: originProtectionRows(system.originLayers ?? [], { elementLabel: id => (id === "general" ? "Geral" : elementLabel(id)), conditionLabel: id => getActiveStatusConditions().find(c => c.id === id)?.label ?? id }),
     heritages: (system.heritages ?? []).map(h => {
       const e = getHeritageEntry(h.id);
       const gives = e

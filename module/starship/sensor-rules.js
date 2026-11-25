@@ -13,7 +13,7 @@
  */
 
 /** Assinatura base (%) por `rank` do Porte (0 Mini … 4 Capital). Médio (2) = 100. */
-export const SIGNATURE_BY_RANK = [60, 80, 100, 125, 150];
+export const SIGNATURE_BY_RANK = [40, 70, 100, 140, 200];
 
 /** Afinação padrão (as opções do bloco `shipSensors` sobrescrevem). */
 export const SENSOR_DEFAULTS = Object.freeze({

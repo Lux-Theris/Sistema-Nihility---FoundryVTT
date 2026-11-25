@@ -15,8 +15,8 @@ const seq = (...values) => {
 test("Assinatura: base pelo Porte, energia no ativo e no passivo, disparo e Camuflagem", () => {
   assert.equal(SIGNATURE_BY_RANK.length, 5);
   assert.equal(baseSignature(2), 100);
-  assert.equal(baseSignature(99), 150, "fora da tabela usa a ponta");
-  assert.equal(baseSignature(-3), 60);
+  assert.equal(baseSignature(99), 200, "fora da tabela usa a ponta");
+  assert.equal(baseSignature(-3), 40);
   // consumo no teto da geração = +20 ativo / +4 passivo; metade = metade
   assert.equal(energyBonus({ consumption: 400, supply: 400, mode: "active" }), 20);
   assert.equal(energyBonus({ consumption: 400, supply: 400, mode: "passive" }), 4);

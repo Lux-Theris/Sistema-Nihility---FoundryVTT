@@ -109,6 +109,7 @@
           </div>
         </div>
         <label class="fld"><span class="fld-label">Distância <span class="help" title="Raio do Círculo, ou alcance do Cone/Linha, em unidades de grid.">?</span></span><input class="num" type="number" name="system.areaDistance" value="{{system.areaDistance}}" min="0"/></label>
+        <label class="fld"><span class="fld-label">+ por nível <span class="help" title="Metros que a área ganha a cada nível além do primeiro. Tamanho no nível = Distância + este valor × (nível − 1). Na hora de usar dá para diminuir (Ctrl+roda).">?</span></span><span class="suffix"><input type="number" name="system.areaPerLevel" value="{{system.areaPerLevel}}" min="0" step="0.5" aria-label="Mais por nível"/><span>m</span></span></label>
         {{#if (eq system.areaShape "cone")}}
         <label class="fld"><span class="fld-label">Ângulo (°)</span><input class="num" type="number" name="system.areaAngle" value="{{system.areaAngle}}" min="1" max="360"/></label>
         {{/if}}
@@ -139,6 +140,10 @@
           <label class="seg-opt {{#if opt.checked}}on{{/if}}" title="{{opt.title}}"><input type="radio" name="system.structurePlace" value="{{opt.value}}" {{#if opt.checked}}checked{{/if}}/>{{opt.label}}</label>
           {{/each}}
         </div>
+      </div>
+      <div class="g2">
+        <label class="fld"><span class="fld-label">+ por nível <span class="help" title="Metros que a Estrutura ganha a cada nível da Skill além do primeiro (o tamanho base vem do catálogo). Tamanho no nível = base + este valor × (nível − 1). Na hora de pôr dá para diminuir (Ctrl+roda).">?</span></span><span class="suffix"><input type="number" name="system.areaPerLevel" value="{{system.areaPerLevel}}" min="0" step="0.5" aria-label="Mais por nível"/><span>m</span></span></label>
+        <label class="fld"><span class="fld-label">Segue quem lançou <span class="help" title="O campo anda junto com o Token. Quem lançou fica de fora do próprio campo; aliados e inimigos dentro dele, não. A Antimagia nunca desliga a Skill que sustenta o próprio campo. Costuma ser uma Skill Ativa.">?</span></span><input type="checkbox" name="system.structureFollows" {{#if system.structureFollows}}checked{{/if}}/></label>
       </div>
       {{#if skillRangeOn}}
       <label class="fld"><span class="fld-label">Alcance <span class="help" title="Até onde a Estrutura pode ser posta, em metros (0 = sem limite). Fora dele, só pela Marca de quem usa (custo × (distância ÷ alcance)²).">?</span></span><span class="suffix"><input type="number" name="system.range" value="{{system.range}}" min="0" step="0.5" aria-label="Alcance"/><span>m</span></span></label>

@@ -11,6 +11,7 @@ import { NIHILITY } from "../core/config/constants.js";
 import { complexityVerdict } from "./skill-complexity-rules.js";
 import { combinedIssues } from "./combined-rules.js";
 import { rerollLint } from "./reroll-rules.js";
+import { mechAreaSize } from "../combat/area-size-rules.js";
 
 /** Alvos em que "Periódico" funciona (o mesmo do editor). */
 export const PERIODIC_TARGETS = ["hp", "energy", "shipCasco", "shipHull"];
@@ -146,7 +147,7 @@ export function lintSkill(mech, ctx = {}) {
   });
 
   // --- Mecânica
-  if (usesTarget && isArea && !(Number(m.areaDistance) > 0)) push("areaZero", "hard", "mechanic", `${m.targetType === "zone" ? "Zona" : "Área"} com distância 0: ninguém fica dentro.`);
+  if (usesTarget && isArea && !(mechAreaSize(m) > 0)) push("areaZero", "hard", "mechanic", `${m.targetType === "zone" ? "Zona" : "Área"} com distância 0: ninguém fica dentro.`);
   if (usesTarget && m.targetType === "zone" && !active && !(Number(m.zoneRounds) > 0)) push("zoneRounds", "hard", "mechanic", "Zona sem rodadas: some antes de bater em alguém.");
 
   if (effectType === "damage") {
@@ -163,6 +164,8 @@ export function lintSkill(mech, ctx = {}) {
     if (!m.structureId) push("noStructure", "hard", "mechanic", "Mecânica Estrutura sem Estrutura escolhida: usar não ergue nada.");
     else if (ctx.structures && !has(ctx.structures, m.structureId)) push("unknownStructure", "hard", "mechanic", `Estrutura "${m.structureId}" não existe mais no catálogo.`);
     if ((Number(m.structureRegen) > 0 || Number(m.structureRegenCost) > 0) && !active) push("structureRegenNotActive", "hard", "mechanic", "Regeneração da Estrutura só vale em Habilidade Ativa.");
+    // "Segue quem lançou" (1.118.0): uma aura que anda sem Habilidade Ativa não tem manutenção — fica até acabar o prazo ou cair.
+    if (m.structureFollows && !active) push("structureFollowsNotActive", "soft", "mechanic", "\"Segue quem lançou\" sem Habilidade Ativa: a aura anda com quem a ergueu mas ninguém a mantém. Costuma ser uma Skill Ativa, com manutenção por rodada.");
   }
 
   // Análise e Predação (7b): uso na hora, sempre num alvo único.

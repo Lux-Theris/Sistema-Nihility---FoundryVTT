@@ -208,16 +208,33 @@
         </div>
       </div>
       <div class="se-sec">
-        <div class="se-sh">Resistências <span class="se-sp"></span><a class="se-add" data-action="addRow" data-list="passives.resistances" data-template="resistance">+ Resistência</a></div>
+        <div class="se-sh">Resistências e fraquezas <span class="se-sp"></span><a class="se-add" data-action="addRow" data-list="passives.resistances" data-template="resistance">+ Resistência</a></div>
+        <p class="se-dim" style="margin:0">Positivo protege; negativo é fraqueza: −20 = leva 20% a mais. Piso −100 (o dobro).</p>
         <div class="se-table">
           {{#each sel.resistances as |r|}}
-          <div class="se-tr se-pair">
+          <div class="se-tr se-pair se-res">
             <select data-path="passives.resistances.{{r.index}}.target">{{#each @root.resistanceTargets as |t|}}<option value="{{t.id}}" {{#if (eq t.id r.target)}}selected{{/if}}>{{t.label}}</option>{{/each}}</select>
-            <input type="number" data-path="passives.resistances.{{r.index}}.amount" data-kind="int" value="{{r.amount}}" aria-label="Percentual"/>
+            <input type="number" data-path="passives.resistances.{{r.index}}.amount" data-kind="int" data-render="1" value="{{r.amount}}" aria-label="Percentual (negativo = fraqueza)"/>
+            <span class="se-restag {{#if r.weak}}weak{{else}}ok{{/if}}">{{r.tag}}</span>
             <a class="se-x" data-action="removeRow" data-list="passives.resistances" data-index="{{r.index}}" title="Remover"><i class="fas fa-times"></i></a>
           </div>
           {{/each}}
         </div>
+      </div>
+      <div class="se-sec">
+        <div class="se-sh">Condições <span class="se-badge live">novo</span><span class="se-sp"></span><a class="se-add" data-action="addRow" data-list="passives.conditions" data-template="condition">+ Condição</a></div>
+        <p class="se-dim" style="margin:0">Imune: a Condição nunca pega. Resistência X%: cada vez que ela iria pegar, rola d100; até X, não pega.</p>
+        <div class="se-table">
+          {{#each sel.conditions as |c|}}
+          <div class="se-tr se-pair se-res">
+            <select data-path="passives.conditions.{{c.index}}.conditionId">{{#each @root.conditionOptions as |o|}}<option value="{{o.id}}" {{#if (eq o.id c.conditionId)}}selected{{/if}}>{{o.label}}</option>{{/each}}</select>
+            <select data-path="passives.conditions.{{c.index}}.mode" data-render="1"><option value="resist" {{#unless c.immune}}selected{{/unless}}>Resistência</option><option value="immune" {{#if c.immune}}selected{{/if}}>Imune</option></select>
+            {{#if c.immune}}<span class="se-restag ok">sempre</span>{{else}}<input type="number" min="0" max="100" data-path="passives.conditions.{{c.index}}.amount" data-kind="int" value="{{c.amount}}" aria-label="Percentual de resistência"/>{{/if}}
+            <a class="se-x" data-action="removeRow" data-list="passives.conditions" data-index="{{c.index}}" title="Remover"><i class="fas fa-times"></i></a>
+          </div>
+          {{/each}}
+        </div>
+        <p class="se-dim" style="margin:0">Resistências de Skill, Título e Item continuam valendo: conta a melhor delas, e as fraquezas da origem descontam por cima. Ex.: Skill Resistência a Fogo 30% + Slime −20% = 10%.</p>
       </div>
       {{#if sensesOn}}
       <div class="se-sec">
@@ -268,6 +285,12 @@
           <label class="se-f span2"><span class="se-l">Descrição</span><input type="text" data-path="lineages.{{l.index}}.description" value="{{l.description}}"/></label>
           <div class="se-f"><span class="se-l">Soma Traços</span><div class="element-field se-picker" data-picker="lineages.{{l.index}}.traits" data-kind="traits" data-selected="{{l.traitsJson}}"></div></div>
           <div class="se-f"><span class="se-l">Soma Elemento</span><div class="element-field se-picker" data-picker="lineages.{{l.index}}.elements" data-kind="elements" data-selected="{{l.elementsJson}}"></div></div>
+          <div class="se-f span2"><span class="se-l">Resistências e fraquezas <a class="se-add" data-action="addRow" data-list="lineages.{{l.index}}.passives.resistances" data-template="resistance">+ Resistência</a> <span class="se-q" title="Positivo protege; negativo é fraqueza (−20 = leva 20% a mais).">?</span></span>
+            <div class="se-table">{{#each l.resistances as |r|}}<div class="se-tr se-pair se-res"><select data-path="lineages.{{l.index}}.passives.resistances.{{r.index}}.target">{{#each @root.resistanceTargets as |t|}}<option value="{{t.id}}" {{#if (eq t.id r.target)}}selected{{/if}}>{{t.label}}</option>{{/each}}</select><input type="number" data-path="lineages.{{l.index}}.passives.resistances.{{r.index}}.amount" data-kind="int" data-render="1" value="{{r.amount}}"/><span class="se-restag {{#if r.weak}}weak{{else}}ok{{/if}}">{{r.tag}}</span><a class="se-x" data-action="removeRow" data-list="lineages.{{l.index}}.passives.resistances" data-index="{{r.index}}" title="Remover"><i class="fas fa-times"></i></a></div>{{/each}}</div>
+          </div>
+          <div class="se-f span2"><span class="se-l">Condições <a class="se-add" data-action="addRow" data-list="lineages.{{l.index}}.passives.conditions" data-template="condition">+ Condição</a></span>
+            <div class="se-table">{{#each l.conditions as |c|}}<div class="se-tr se-pair se-res"><select data-path="lineages.{{l.index}}.passives.conditions.{{c.index}}.conditionId">{{#each @root.conditionOptions as |o|}}<option value="{{o.id}}" {{#if (eq o.id c.conditionId)}}selected{{/if}}>{{o.label}}</option>{{/each}}</select><select data-path="lineages.{{l.index}}.passives.conditions.{{c.index}}.mode" data-render="1"><option value="resist" {{#unless c.immune}}selected{{/unless}}>Resistência</option><option value="immune" {{#if c.immune}}selected{{/if}}>Imune</option></select>{{#if c.immune}}<span class="se-restag ok">sempre</span>{{else}}<input type="number" min="0" max="100" data-path="lineages.{{l.index}}.passives.conditions.{{c.index}}.amount" data-kind="int" value="{{c.amount}}"/>{{/if}}<a class="se-x" data-action="removeRow" data-list="lineages.{{l.index}}.passives.conditions" data-index="{{c.index}}" title="Remover"><i class="fas fa-times"></i></a></div>{{/each}}</div>
+          </div>
           <div class="se-f span2"><span class="se-l">Substitui Skills Raciais da Espécie <span class="se-q" title="Na ficha, a Skill substituída dá lugar à da Linhagem.">?</span></span>
             <div class="se-checks">{{#each l.replaceOptions as |o|}}<label><input type="checkbox" data-path="lineages.{{l.index}}.replaces.skills" data-kind="listToggle" value="{{o.key}}" {{#if o.checked}}checked{{/if}}/> {{o.name}}</label>{{else}}<span class="se-dim">A Espécie não tem Skills Raciais.</span>{{/each}}</div>
           </div>

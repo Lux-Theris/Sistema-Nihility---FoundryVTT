@@ -98,3 +98,22 @@ export function explainVital({ pair = [], multiplier = 1, floor = 0, permanent =
     max: Math.max(min, raw)
   };
 }
+
+/**
+ * "De onde vem" de uma Resistência (1.117.0): a melhor Skill, a melhor fonte de Título/origem, as
+ * fraquezas da origem e o total (sem piso; Imunidade vale antes da fraqueza). Pura: recebe as parcelas
+ * já achadas (`resistanceBreakdown`, combat/resistance.js) e só as ordena e conta.
+ * @param {{skill:{name:string,level:number,value:number}|null, other:{name:string,value:number}|null, weaknesses:Array<{label:string,value:number}>}} input
+ * @returns {{rows:Array<{label:string, value:number, kind:string}>, resist:number, weakness:number, net:number, immune:boolean}}
+ */
+export function explainResistance({ skill = null, other = null, weaknesses = [] } = {}) {
+  const rows = [];
+  if (skill) rows.push({ label: `${skill.name} Nv ${skill.level}`, value: skill.value, kind: "skill" });
+  if (other) rows.push({ label: other.name, value: other.value, kind: "resist" });
+  const resist = (skill?.value ?? 0) + (other?.value ?? 0);
+  const weakness = weaknesses.reduce((sum, w) => sum + (Number(w.value) || 0), 0);
+  const immune = resist >= 1;
+  if (!immune) for (const w of weaknesses) rows.push({ label: `${w.label} (fraqueza)`, value: -(Number(w.value) || 0), kind: "weak" });
+  const net = immune ? resist : resist - weakness;
+  return { rows, resist, weakness, net, immune };
+}

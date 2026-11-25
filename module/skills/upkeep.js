@@ -12,7 +12,7 @@ import { worldActors, actorsFromUuids } from "../helpers/world-actors.js";
 import { escapeHtml } from "../helpers/html.js";
 import { removeZonesFor } from "../combat/area-effects.js";
 import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
-import { removeStructuresFor, antimagicLevelAt, regenerateSustainedStructures } from "../structures/structures.js";
+import { removeStructuresFor, antimagicLevelAt, regenerateSustainedStructures, sustainsOwnField } from "../structures/structures.js";
 import { manaDensityFor } from "../environment/environment.js";
 import { densitySustainsMagic } from "../environment/environment-rules.js";
 import { isShipLike } from "../starship/ship-damage.js";
@@ -400,6 +400,8 @@ export async function tickActorUpkeepSkills(actor, { steps = 1, notes = null } =
       for (const source of [...sources]) {
         const mech = source.subSkillIndex != null ? source.skill.system.subSkills?.[source.subSkillIndex] : source.skill.system;
         if (!(kind === "magic" ? isMagicUse(mech, actor) : isTechUse(mech, actor))) continue;
+        // A Skill que sustenta o próprio campo nunca é desligada nem cobrada pelo campo (1.118.0).
+        if (sustainsOwnField(actor, source.skill.id, source.subSkillIndex ?? null)) continue;
         const outcome = fieldUseOutcome({ inside: true, kind, manipulationLevel: manipulation.level, fieldLevel: level, baseCost: source.upkeepCost, zeroMultiplier: getHealingRules().zeroMultiplier });
         if (outcome.action === "blocked") {
           await deactivateUpkeepSource(source);

@@ -10,6 +10,7 @@ import { magazineState } from "../economy/consumable-rules.js";
 import { blockIfIncapacitated } from "./incapacitation.js";
 import { applyAdvantageToFormula, applyRollModifiers, describeRollOptions, normalizeRollOptions } from "../core/roll-modifiers.js";
 import { applyLuckToFormula, luckOf } from "./luck-rules.js";
+import { netResistance } from "../species/species-rules.js";
 import { splitDamageParts, resolveDamageParts, describeDamageParts, scaleMultiplier, rollChance, elementVsDefender, chainedResistance, inheritedElementEffects } from "./damage-rules.js";
 import { affinityElementsExcluding } from "./reaction-rules.js";
 import { reactionState, reactionForPart, pickedFactor, reactionRecord, cardReactions, reactionLabel, conductReactions, conductionLabel } from "./reactions.js";
@@ -115,7 +116,8 @@ export function applyDamageReductions(rawTotal, mech, targetActor, options = {})
   // Resistência condicional de quem defende ("+20% contra Dracônicos"): o oponente é quem atacou.
   const situational = element =>
     targetActor ? conditionalBonus(targetActor, options.attacker ?? null, "resistancePercent", { elements: mech.damageElements, element }) / 100 : 0;
-  const generalPercent = general.percent + situational("general");
+  // Fraqueza geral da origem (valor negativo no alvo "general"): desconta da melhor resistência, sem piso.
+  const generalPercent = netResistance(general.percent + situational("general"), general.weakness ?? 0);
   // Hierarquia de elementos: a parte passa pela Resistência do próprio elemento e pela de cada
   // ancestral (Cortante: Resistência a Cortante e Resistência Física), uma depois da outra.
   const elementSources = new Map();
@@ -127,8 +129,12 @@ export function applyDamageReductions(rawTotal, mech, targetActor, options = {})
       const layers = ids.map(id => ({ id, ...resistanceSourceFor(targetActor, id) }));
       // A Skill que aprende com o bloqueio: a do próprio elemento, senão a do ancestral mais próximo.
       const skill = layers.find(l => l.skill)?.skill ?? null;
-      const percent = chainedResistance(layers.map(l => l.percent + situational(l.id)));
-      elementSources.set(elementId, { percent, skill, names: layers.filter(l => l.skill).map(l => l.skill.name) });
+      const resisted = chainedResistance(layers.map(l => l.percent + situational(l.id)));
+      // Fraquezas da origem de cada camada da cadeia (Cortante + Físico) somam; Imunidade vale antes.
+      const weakness = layers.reduce((sum, l) => sum + (l.weakness ?? 0), 0);
+      const percent = netResistance(resisted, weakness);
+      const weaknessNames = [...new Set(layers.flatMap(l => (l.weaknessRows ?? []).map(r => r.label)))];
+      elementSources.set(elementId, { percent, skill, names: layers.filter(l => l.skill).map(l => l.skill.name), weaknessNames });
     }
     return elementSources.get(elementId).percent;
   };
@@ -138,7 +144,8 @@ export function applyDamageReductions(rawTotal, mech, targetActor, options = {})
   const traceRows = describeDamageParts(result.parts, {
     elementLabel: id => getDamageElement(id)?.label ?? id,
     generalLabel: `Resistência Geral${general.skill ? ` (${general.skill.name})` : ""}${situational("general") ? " + Quando → Então" : ""}`,
-    elementSourceLabel: id => [...(elementSources.get(id)?.names ?? []), situational(id) ? "Quando → Então" : ""].filter(Boolean).join(" + ")
+    elementSourceLabel: id => [...(elementSources.get(id)?.names ?? []), ...(elementSources.get(id)?.percent > 0 ? (elementSources.get(id)?.weaknessNames ?? []).map(n => `${n} (fraqueza)`) : []), situational(id) ? "Quando → Então" : ""].filter(Boolean).join(" + "),
+    weaknessSourceLabel: id => (id === "general" ? (general.weaknessRows ?? []).map(r => r.label) : (elementSources.get(id)?.weaknessNames ?? [])).join(" + ")
   });
 
   // Quem de fato abateu dano, e quanto — insumo do XP de Resistência (a Skill aprende apanhando).

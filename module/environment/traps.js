@@ -155,7 +155,7 @@ export async function handleTrapEnter(behavior, tokenDocument) {
       const condition = getActiveStatusConditions().find(c => c.id === trap.conditionId);
       if (condition) {
         const { applyCondition } = await import("./environment.js");
-        await applyCondition(actor, condition, damage);
+        await applyCondition(actor, condition, damage, { guard: true });
       }
     }
   } catch (err) {

@@ -81,6 +81,18 @@
     <p class="origin-empty">Sem Espécie. Escolha no cabeçalho.</p>
     {{/if}}
 
+    {{#if origin.protections.length}}
+    <div class="origin-layer defenses">
+      <div class="origin-layer-head"><b>Defesas da origem</b></div>
+      <ul class="origin-heritages">
+        {{#each origin.protections as |p|}}
+        <li><span class="origin-hchip origin-def-{{p.tone}}">{{p.text}}</span><span class="origin-hgives">{{p.from}}</span>
+          {{#if p.target}}<a class="stat-explain" data-action="explainStat" data-stat="resist:{{p.target}}" title="De onde vem"><i class="fas fa-circle-info"></i></a>{{/if}}</li>
+        {{/each}}
+      </ul>
+    </div>
+    {{/if}}
+
     {{#if (or origin.heritages.length origin.isGM)}}
     <div class="origin-layer heritage">
       <div class="origin-layer-head"><b>Heranças</b>

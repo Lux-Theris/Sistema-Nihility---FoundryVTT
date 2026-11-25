@@ -22,6 +22,7 @@ import { isDesignatedGm } from "../helpers/gm-relay.js";
 import { desiredEnvironmentConditions, environmentDiff, resolveManaDensity, normalizeHazard, normalizeDensity, wantedSceneFx, sceneFxPlan, fxPresetLabel } from "./environment-rules.js";
 import { reportError } from "../helpers/report.js";
 import { sceneField, sceneConfigChanged } from "./scene-config.js";
+import { checkOriginCondition } from "../combat/condition-guard.js";
 
 export const BEHAVIOR_TYPE = "nihilityEnvironment";
 const FLAG = "environment";
@@ -89,16 +90,22 @@ export function manaDensityFor(actor, tokenDoc = null) {
   });
 }
 
-/** Aplica a Condição com o efeito padrão dela (ou só a marca) e devolve os efeitos criados. */
-export async function applyCondition(actor, condition, hitDamage = 0) {
+/**
+ * Aplica a Condição com o efeito padrão dela (ou só a marca) e devolve os efeitos criados.
+ * `guard: true` (Armadilha de Região) consulta a Imunidade/Resistência da origem (condition-guard.js); o ambiente da
+ * cena e a Âncora/o Domínio não, porque são sincronizados a cada passo e rolariam sem parar.
+ */
+export async function applyCondition(actor, condition, hitDamage = 0, { guard = false } = {}) {
   const before = new Set(actor.effects.map(e => e.id));
   if (condition.effect?.kind) {
     const { applyManualCondition } = await import("../skills/effects-apply.js");
     await applyManualCondition(actor, condition.id, {
       target: "hp", amount: 0, durationRounds: 0, periodic: false, tickUnit: "combatRound",
       damageElements: [], modifierType: "flat", icon: "", hitDamage: Number(hitDamage) || 0
-    });
+    }, { force: !guard });
   } else {
+    // Armadilha (guard): a Imunidade/Resistência da origem vale também para a Condição que é só marca.
+    if (guard && !(await checkOriginCondition(actor, condition.id)).lands) return [];
     await actor.createEmbeddedDocuments(
       "ActiveEffect",
       [{ name: condition.label, img: condition.icon, statuses: [condition.id], flags: { [SYSTEM_ID]: { conditionId: condition.id } } }],

@@ -19,6 +19,7 @@ import { luckMean } from "../combat/luck-rules.js";
 import { isSenseTarget } from "../combat/senses-rules.js";
 import { clampTimeFactor } from "../combat/time-rate-rules.js";
 import { hasOnlyIf, ONLY_IF_COST_FACTOR } from "./only-if-rules.js";
+import { mechAreaSize } from "../combat/area-size-rules.js";
 
 /** Pesos da conta. Ficam aqui (e não em settings) para a conta ser legível linha a linha. */
 export const COST_WEIGHTS = {
@@ -255,10 +256,12 @@ export function suggestSkillCost(mech, ctx = {}) {
   }
 
   if (isArea) {
-    const factor = areaFactor(m.areaShape, m.areaDistance);
+    // Tamanho efetivo no nível (base + por nível × (nível − 1)): o custo sugerido usa o que a área mede de fato.
+    const size = mechAreaSize(m);
+    const factor = areaFactor(m.areaShape, size);
     const shapeName = { cone: "cone", ray: "linha" }[m.areaShape] ?? "círculo";
     points *= factor;
-    rows.push({ label: `Área: ${shapeName} de ${Number(m.areaDistance) || 0} m`, value: `× ${fmt(factor)}` });
+    rows.push({ label: `Área: ${shapeName} de ${size} m`, value: `× ${fmt(factor)}` });
     if (m.targetType === "zone") {
       const rounds = active ? w.activeTicks : Math.max(1, Number(m.zoneRounds) || 1);
       const zf = 1 + (rounds - 1) * 0.5;

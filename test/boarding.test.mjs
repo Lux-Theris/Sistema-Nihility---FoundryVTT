@@ -43,9 +43,9 @@ test("Mover acoplada: diferença até 4 arrasta; 5 ou mais arranca pedaço de qu
   assert.equal(dragOutcome({ mover: 16, resister: 11 }).kind, "tear", "5 já arranca");
   assert.equal(dragOutcome({ mover: 5, resister: 14 }).loser, "mover", "quem se move e perde por muito é quem se rasga");
   assert.equal(dragOutcome({ mover: 16, resister: 11, margin: 6 }).kind, "drag", "a margem é afinável");
-  // dano: 1% do Casco por ponto (Casco 800, diferença 11 = 88, como no mockup) e o mesmo no Módulo do ponto
-  assert.deepEqual(dragDamage({ diff: 11, cascoMax: 800, moduleHpMax: 200 }), { casco: 88, module: 22 });
-  assert.deepEqual(dragDamage({ diff: -6, cascoMax: 0, hullMax: 300 }), { casco: 18, module: 0 }, "sem Casco usa a Integridade");
+  // dano: 2% do Casco por ponto (dono, 24/11: Casco 800, diferença 11 = 176) e o mesmo no Módulo do ponto
+  assert.deepEqual(dragDamage({ diff: 11, cascoMax: 800, moduleHpMax: 200 }), { casco: 176, module: 44 });
+  assert.deepEqual(dragDamage({ diff: -6, cascoMax: 0, hullMax: 300 }), { casco: 36, module: 0 }, "sem Casco usa a Integridade");
   assert.deepEqual(dragDamage({ diff: 5, cascoMax: 800, percentPerPoint: 2 }), { casco: 80, module: 0 });
 });
 

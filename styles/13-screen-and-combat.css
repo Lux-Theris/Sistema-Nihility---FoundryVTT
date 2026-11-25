@@ -319,3 +319,22 @@ details.adv > .adv-body > .span-all { grid-column: 1 / -1; }
 .nihility-environment-config .env-copy-row label { color: var(--nihility-text); }
 .nihility-scene-copy { color: var(--nihility-text); }
 .nihility-scene-copy li { color: var(--nihility-text); }
+
+/* Barra de dica da colocação de áreas e Estruturas (1.118.0): "Ctrl+roda: tamanho 4 / 6 m · Roda: gira · Clique: confirma · Esc: cancela". */
+.nihility-placement-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  z-index: 100;
+  max-width: 90vw;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--nihility-border);
+  background: rgba(16, 18, 26, 0.92);
+  color: var(--nihility-text);
+  font-size: 13px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.nihility-placement-hint b { color: var(--nihility-gold); font-family: "JetBrains Mono", monospace; }

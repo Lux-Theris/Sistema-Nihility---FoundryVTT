@@ -53,10 +53,11 @@ import { registerReroll, renderRerollControls } from "./skills/reroll.js";
 import { registerMovementLimit } from "./combat/movement.js";
 import { registerConditionalRefresh } from "./combat/conditional-context.js";
 import { registerFieldAntimagic } from "./combat/antimagic.js";
-import { collapseStructuresOfCaster, renderStructureControls, registerStructureContact } from "./structures/structures.js";
+import { collapseStructuresOfCaster, renderStructureControls, registerStructureContact, registerStructureFollow } from "./structures/structures.js";
 import { registerStructureRendering } from "./structures/structure-render.js";
 import { registerFloatingNumbers } from "./combat/floating-numbers.js";
 import { registerReactionFloats } from "./combat/reactions.js";
+import { registerConditionFloats } from "./combat/condition-guard.js";
 import { registerEffectBadges, registerSystemEffectIcons } from "./combat/effect-badges.js";
 import { registerVoiceBanner } from "./core/voice-banner.js";
 import { registerEndCombat } from "./apps/end-combat.js";
@@ -228,6 +229,7 @@ Hooks.once("init", () => {
   registerShieldPoolReconcile();
   registerShieldAdaptationReset();
   registerStructureContact();
+  registerStructureFollow();
   registerModuleInstallRules();
   // Lojas (G2): reabastecer pelo relógio do mundo e redesenhar a vitrine/avaliação abertas.
   registerShops();
@@ -237,6 +239,7 @@ Hooks.once("init", () => {
   registerFieldAntimagic();
   registerFloatingNumbers();
   registerReactionFloats();
+  registerConditionFloats();
   registerVoiceBanner();
   registerEndCombat();
   registerSkillUndo();

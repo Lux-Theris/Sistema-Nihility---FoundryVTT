@@ -23,6 +23,7 @@ import { resistanceSourceFor } from "./resistance.js";
 import { isDead } from "./incapacitation.js";
 import { normalizeSpread, contagionChance, withinRadius, immuneByTrait } from "./contagion-rules.js";
 import { escapeHtml } from "../helpers/html.js";
+import { checkOriginCondition } from "./condition-guard.js";
 
 /** A melhor Resistência do Ator entre os elementos da Condição (cada um com a cadeia de "pais"). */
 function elementResistance(actor, elementIds) {
@@ -42,7 +43,7 @@ async function infect(actor, condition) {
     await applyManualCondition(actor, condition.id, {
       target: "hp", amount: 0, durationRounds: 0, periodic: false, tickUnit: "combatRound",
       damageElements: [], modifierType: "flat", icon: "", hitDamage: 0
-    });
+    }, { force: true }); // a origem já foi consultada em tickContagion
     return;
   }
   await actor.createEmbeddedDocuments(
@@ -93,6 +94,11 @@ export async function tickContagion(combatant) {
       // Sorte (8d.1): a VÍTIMA se beneficia — a sorte dela empurra o d100 para cima (= não pega).
       const roll = await new Roll(applyLuckToFormula("1d100", luckOf(actor, "chances"))).evaluate();
       const caught = roll.total <= chance;
+      // Imunidade/Resistência da origem (condition-guard.js) vale também para o contágio.
+      if (caught && !(await checkOriginCondition(actor, condition.id)).lands) {
+        rows.push(`<li>${escapeHtml(token.name)}: resistiu pela origem (${roll.total} ≤ ${chance}%)</li>`);
+        continue;
+      }
       if (caught) await infect(actor, condition);
       rows.push(`<li>${escapeHtml(token.name)}: ${caught ? "<strong>pegou</strong>" : "resistiu"} (${roll.total} ${caught ? "≤" : ">"} ${chance}%)</li>`);
     }

@@ -31,6 +31,8 @@ export function skillSummariesFor(actor) {
     traits: byId(getActiveTraits()),
     targets: getEffectTargetLabels(),
     structures: byId(getStructures()),
+    structureSizes: Object.fromEntries(getStructures().map(s => [s.id, s.size])),
+    fieldStructures: Object.fromEntries(getStructures().map(s => [s.id, Number(s.antimagicLevel) > 0 || Number(s.interferenceLevel) > 0])),
     formName: uuid => {
       try {
         return uuid ? fromUuidSync(uuid)?.name ?? null : null;

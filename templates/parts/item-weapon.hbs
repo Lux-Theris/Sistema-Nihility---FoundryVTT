@@ -55,6 +55,7 @@
         </select>
       </label>
       <label class="toggle span-all"><input type="checkbox" name="system.weapon.isMagicDamage" {{#if system.weapon.isMagicDamage}}checked{{/if}}/><span class="toggle-track"></span><span>Dano Mágico</span></label>
+      <label class="fld"><span class="fld-label">Cura quem usa (% do dano) <span class="help" title="Cura quem usou o golpe com este % do dano que realmente entrou na Vida do alvo (depois de resistências, fraquezas e Escudo). A cura sai quando o Mestre clica Aplicar no card, e o Desfazer do card desfaz a cura junto. 0 = não cura.">?</span></span><input class="num" type="number" name="system.weapon.lifeSteal" value="{{system.weapon.lifeSteal}}" min="0" max="100"/></label>
       <label class="toggle span-all"><input type="checkbox" name="system.weapon.isAbsoluteDamage" {{#if system.weapon.isAbsoluteDamage}}checked{{/if}}/><span class="toggle-track"></span><span>Dano Absoluto</span><span class="help" title="Não pode ser resistido (Defesa Mágica, Resistências, Imunidade, Escudo pessoal). Contra Nave, a Evasão ainda vale.">?</span></label>
       {{#if scaleEnabled}}
       <label class="fld"><span class="fld-label">Escala do golpe <span class="help" title="Uma bazuca anti-tanque pode ser Veículo mesmo na mão de uma pessoa.">?</span></span>

@@ -223,7 +223,7 @@
       </div>
       <div class="se-sec">
         <div class="se-sh">Condições <span class="se-badge live">novo</span><span class="se-sp"></span><a class="se-add" data-action="addRow" data-list="passives.conditions" data-template="condition">+ Condição</a></div>
-        <p class="se-dim" style="margin:0">Imune: a Condição nunca pega. Resistência X%: cada vez que ela iria pegar, rola d100; até X, não pega.</p>
+        <p class="se-dim" style="margin:0">Imune: a Condição nunca pega. Resistência X%: cada exposição conta (1 − X) e a Condição pega ao somar 1 (30% pega na 2ª, 75% na 4ª, 90% na 10ª); quando pega, a força e a duração saem reduzidas em X%.</p>
         <div class="se-table">
           {{#each sel.conditions as |c|}}
           <div class="se-tr se-pair se-res">

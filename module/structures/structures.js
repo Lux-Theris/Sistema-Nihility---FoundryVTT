@@ -73,7 +73,7 @@ import { grantSkillUseXp, vitalBase } from "../skills/skill-xp.js";
 import { skillLevelBonuses, effectiveSkillCost, isEnergyPoolEnabled } from "../core/config.js";
 import { energyValuePath, currentEnergyValue } from "../skills/skill-state.js";
 import { isShipLike } from "../starship/ship-damage.js";
-import { mechAreaSize, structureAreaSize, clampAreaSize, stepAreaSize, MIN_AREA_SIZE } from "../combat/area-size-rules.js";
+import { resolveMechArea, resolveStructureArea, fieldLevelWithShift, stepAreaSize, MIN_AREA_SIZE } from "../combat/area-size-rules.js";
 import { showPlacementHint } from "../combat/placement-hint.js";
 
 /** A Skill que ergueu a Estrutura (uuid), pra XP por uso. Null em registros sem Skill. */
@@ -105,11 +105,14 @@ export function getStructure(id) {
 }
 
 /**
- * A Estrutura do catálogo com o TAMANHO do nível de quem a ergue (1.118.0): o do catálogo + "+ por nível" ×
- * (nível − 1). É o máximo daquele nível; a colocação ainda pode diminuí-lo (Ctrl+roda). `mech` = a Skill ou Sub-Skill.
+ * A Estrutura do catálogo com o TAMANHO PADRÃO do nível de quem a ergue (1.118.0, 1.119.0): o "Raio base" da Skill (ou o
+ * do catálogo, se vazio) + "+ por nível" × (nível − 1). A colocação muda o tamanho (Ctrl+roda, a concentração) e troca
+ * tamanho por potência sem custo; `span` leva padrão, máximo e nível para a colocação. `mech` = a Skill ou Sub-Skill.
  */
 export function structureForUse(structure, mech) {
-  return structure ? { ...structure, size: structureAreaSize(structure.size, mech) } : structure;
+  if (!structure) return structure;
+  const span = resolveStructureArea(structure.size, mech);
+  return { ...structure, size: span.defaultSize, span, catalogSize: structure.size };
 }
 
 /** Força do investimento de Mana recebida de outro cliente, limitada a uma faixa sã. */
@@ -149,9 +152,19 @@ function snap(point, free) {
 export async function pickStructurePlacement(structure, reach = null) {
   if (!canvas?.ready || !canvas.scene) return null;
   const scene = canvas.scene;
-  // Tamanho (1.118.0): `structure.size` é o máximo do nível; o Ctrl+roda diminui de 1 em 1 m, até 1 m. O escolhido vale.
-  const maxSize = Number(structure.size) || 0;
-  let size = maxSize;
+  // Concentração (1.119.0): `structure.size` é o padrão do nível; o Ctrl+roda muda de 1 em 1 m (de 1 m ao máximo, onde o
+  // nível efetivo chega a 1), sem custo: cada metro a menos é +1 nível do efeito (do campo, numa Antimagia/Interferência).
+  const span = structure.span ?? { defaultSize: Number(structure.size) || 0, maxSize: Number(structure.size) || 0, level: 1 };
+  const maxSize = span.maxSize;
+  let size = span.defaultSize;
+  const isField = Number(structure.antimagicLevel) > 0 || Number(structure.interferenceLevel) > 0;
+  const hintInfo = () => {
+    const shift = Math.round(span.defaultSize - size);
+    const catalogField = Math.max(Number(structure.antimagicLevel) || 0, Number(structure.interferenceLevel) || 0);
+    const level = isField ? catalogField : span.level;
+    const effLevel = isField ? fieldLevelWithShift(catalogField, shift) : Math.max(1, span.level + shift);
+    return { size, max: maxSize, def: span.defaultSize, level, effLevel, levelWord: isField ? "campo" : "efeito" };
+  };
   const currentPx = () => metersToPx(scene, size);
   const shape = structure.shape;
   const color = Number(foundry.utils.Color?.from?.(structure.color) ?? 0x9aa1c2);
@@ -165,7 +178,7 @@ export async function pickStructurePlacement(structure, reach = null) {
     free: `clique ponto a ponto (até ${structure.size} m) · Enter termina · Backspace desfaz`
   };
   ui.notifications.info(`${structure.label}: ${hints[shape]} · Esc cancela.`);
-  const hint = showPlacementHint({ size, max: maxSize });
+  const hint = showPlacementHint(hintInfo());
 
   const points = [];
   let cursor = null;
@@ -219,14 +232,14 @@ export async function pickStructurePlacement(structure, reach = null) {
       hint.remove();
       resolve(value);
     };
-    const done = () => finish({ sceneId: scene.id, shape, points: points.slice(0, MAX_POINTS), size, viaMark: viaMarkFrom(worstVia, reach) });
+    const done = () => finish({ sceneId: scene.id, shape, points: points.slice(0, MAX_POINTS), size, effectiveLevel: Math.max(1, span.level + Math.round(span.defaultSize - size)), viaMark: viaMarkFrom(worstVia, reach) });
     // Ctrl+roda: o tamanho (de 1 m até o máximo do nível).
     const onWheel = event => {
       if (!event.ctrlKey || !(maxSize > MIN_AREA_SIZE)) return;
       event.preventDefault();
       event.stopPropagation();
       size = stepAreaSize(size, event.deltaY, maxSize);
-      hint.update({ size });
+      hint.update(hintInfo());
       draw();
     };
 
@@ -294,7 +307,7 @@ export async function pickStructurePlacement(structure, reach = null) {
 export function structurePlacementAround(structure, center) {
   const scene = canvas?.scene;
   if (!canvas?.ready || !scene || !center) return null;
-  return { sceneId: scene.id, shape: structure.shape, points: centeredStructurePoints(structure.shape, center, metersToPx(scene, structure.size)), size: Number(structure.size) || 0, viaMark: null };
+  return { sceneId: scene.id, shape: structure.shape, points: centeredStructurePoints(structure.shape, center, metersToPx(scene, structure.size)), size: Number(structure.size) || 0, effectiveLevel: structure.span?.level ?? null, viaMark: null };
 }
 
 /* ------------------------------------------------------------------ Criar (Mestre) */
@@ -387,8 +400,11 @@ export async function createStructureAsGm(payload) {
   const subIndex = Number.isInteger(payload.subSkillIndex) ? payload.subSkillIndex : null;
   const skillMech = subIndex !== null ? skillItem?.system?.subSkills?.[subIndex] : skillItem?.system;
   const level = Math.max(0, Math.round(Number(skillMech?.level) || 0));
-  const maxSize = structureAreaSize(structure.size, { areaPerLevel: skillMech?.areaPerLevel, level });
-  const size = clampAreaSize(payload.size, maxSize);
+  // Concentração (1.119.0): o Mestre refaz o tamanho e o nível efetivo na ficha (nunca no payload): Raio base da Skill,
+  // "+ por nível", nível e o tamanho escolhido, preso entre 1 m e o máximo (onde o nível efetivo chega a 1).
+  const span = resolveStructureArea(structure.size, { structureSize: skillMech?.structureSize, areaPerLevel: skillMech?.areaPerLevel, level }, payload.size);
+  const size = span.size;
+  const shift = span.shift;
   const segments = structureSegments(structure.shape, points, metersToPx(scene, size));
   if (!segments.length) return refuse("a forma desenhada ficou sem tamanho");
 
@@ -426,8 +442,9 @@ export async function createStructureAsGm(payload) {
     manaBarrier: Boolean(structure.manaPowered),
     material: structure.material,
     level,
-    // Tamanho de fato (m) e a aura que anda com quem a ergueu (1.118.0).
+    // Tamanho de fato (m), o nível efetivo da concentração (1.119.0) e a aura que anda com quem a ergueu (1.118.0).
     size,
+    effectiveLevel: span.effectiveLevel,
     follows: Boolean(skillMech?.structureFollows),
     // O Token de quem ergueu (se há vários do mesmo Ator, é este que a aura segue).
     casterTokenId: actorToken(source)?.id ?? null,
@@ -443,8 +460,10 @@ export async function createStructureAsGm(payload) {
     elements: structure.elements,
     magic: structure.magic,
     tech: structure.tech,
-    antimagicLevel: structure.antimagicLevel,
-    interferenceLevel: structure.interferenceLevel,
+    // O nível do campo de Antimagia/Interferência sobe um por metro a menos que o padrão e desce um por metro a mais
+    // (nunca abaixo de 1); a Âncora e o resto não mudam.
+    antimagicLevel: fieldLevelWithShift(structure.antimagicLevel, shift),
+    interferenceLevel: fieldLevelWithShift(structure.interferenceLevel, shift),
     anchorLevel: structure.anchorLevel,
     contactDamage: structure.contactDamage,
     // O duelo (8c.2): copiados na criacao como o resto.
@@ -1013,9 +1032,11 @@ export async function antimagicStructuresAsGm(payload, skill) {
   if (isInterferenceEnabled() && (mech?.effects ?? []).some(e => e.target === "emp")) kinds.push("tech");
   if (!mech || mech.targetType !== "emission" || !kinds.length) return refuse("isso não é uma Antimagia ou um PEM em área");
   const pxPerUnit = (Number(scene.grid?.size) || 100) / (Number(scene.grid?.distance) || 1);
-  if (area.shape !== mech.areaShape || area.radius > mechAreaSize(mech) * pxPerUnit * 1.05 + 1) return refuse("a área não é a da Skill");
+  // A área cabe no máximo da concentração (1.119.0); o alcance da Antimagia usa o nível efetivo daquele tamanho, refeito aqui.
+  const span = resolveMechArea(mech, area.radius / pxPerUnit);
+  if (area.shape !== mech.areaShape || area.radius > span.maxSize * pxPerUnit * 1.05 + 1) return refuse("a área não é a da Skill");
   const { antimagicReachLevel } = await import("../skills/dispel.js");
-  const reach = antimagicReachLevel(mech.level);
+  const reach = antimagicReachLevel(span.effectiveLevel);
   const lines = [];
   for (const instance of structuresOnScene(scene)) {
     if (!areaTouchesStructure(area, structureSegmentsOf(scene, instance), instanceInfo(instance).closed)) continue;

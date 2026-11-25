@@ -20,7 +20,7 @@ export const AREA_SHAPES = ["circle", "cone", "ray"];
 const MAX_AREA_ELEVATION = 10000;
 
 import { areaReaches3d } from "./forced-movement-rules.js";
-import { mechAreaSize, clampAreaSize } from "./area-size-rules.js";
+import { resolveMechArea } from "./area-size-rules.js";
 
 const EPSILON = 1e-6;
 
@@ -34,8 +34,8 @@ function angleGap(a, b) {
 
 /**
  * Monta a área a partir dos campos da Skill (`areaShape`/`areaDistance`/`areaAngle`).
- * O tamanho é o EFETIVO do nível (`areaDistance` + `areaPerLevel` × (nível − 1), area-size-rules.js); `size` (m)
- * é o tamanho escolhido na colocação (Ctrl+roda), sempre até o máximo do nível.
+ * O tamanho padrão é o do nível (`areaDistance` + `areaPerLevel` × (nível − 1), area-size-rules.js); `size` (m) é o
+ * tamanho escolhido na colocação (Ctrl+roda, a concentração), preso entre 1 m e o máximo do nível. Sem `size`, o padrão.
  * @param {{areaShape:string, areaDistance:number, areaPerLevel?:number, level?:number, areaAngle?:number}} mech
  * @param {{x:number, y:number}} origin - ponto em pixels
  * @param {{pxPerUnit:number, cellPx:number, direction?:number, elevation?:number}} grid - px por metro (unidade da cena),
@@ -48,7 +48,7 @@ export function areaFromSkill(mech, origin, { pxPerUnit, cellPx, direction = 0, 
     shape,
     x: origin.x,
     y: origin.y,
-    radius: clampAreaSize(size, mechAreaSize(mech)) * (Number(pxPerUnit) || 1),
+    radius: resolveMechArea(mech, size).size * (Number(pxPerUnit) || 1),
     angle: shape === "cone" ? Number(mech.areaAngle) || 53 : 0,
     direction,
     width: shape === "ray" ? Number(cellPx) || 100 : 0,

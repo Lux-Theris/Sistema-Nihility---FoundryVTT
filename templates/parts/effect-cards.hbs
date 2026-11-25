@@ -127,6 +127,9 @@
                 </select>
               </label>
               <label class="fld"><span class="fld-label">Ícone</span><input type="text" class="skill-effect-input" data-effect-field="icon" value="{{eff.icon}}" placeholder="herdado da Condição"/></label>
+              {{#if eff.hasCondition}}
+              <label class="toggle span-all" title="Pega mesmo em quem é imune (faz sangrar o que não sangra) e sem a demora da Resistência. Vale por efeito, não pela Skill inteira."><input type="checkbox" class="skill-effect-input" data-effect-field="piercesCondition" {{#if eff.piercesCondition}}checked{{/if}}/><span class="toggle-track"></span><span>Fura imunidade e resistência a Condição</span></label>
+              {{/if}}
               {{/if}}
               {{#if eff.acceptsPeriodic}}
               <label class="toggle"><input type="checkbox" class="skill-effect-input" data-effect-field="periodic" {{#if eff.periodic}}checked{{/if}}/><span class="toggle-track"></span><span>Periódico</span></label>

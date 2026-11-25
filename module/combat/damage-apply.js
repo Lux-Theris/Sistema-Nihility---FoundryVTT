@@ -22,7 +22,9 @@
 import { SYSTEM_ID } from "../core/config.js";
 import { absorbLayer, consumeShieldPools, hitAffinityFactor, shieldBlockCredits } from "./damage-rules.js";
 import { getElementAffinityMatrix, getAffinityConfig } from "../core/config.js";
-import { damageBodyPart, restoreBodyPart } from "../species/anatomy.js";
+import { damageBodyPart, restoreBodyPart, partsBeforeAll } from "../species/anatomy.js";
+import { lifeStealAmount, lifeStealNote, lifeStealResultText } from "./life-steal-rules.js";
+import { escapeHtml } from "../helpers/html.js";
 import { formCarryUpdate, FORM_CARRY_PATH } from "../skills/forms.js";
 import { isTimeStopped } from "./time-stop-state.js";
 import { STOP_DAMAGE_FLAG, stopDamageAdd, stopDamageRemove, stopDamageFactor } from "./time-stop-rules.js";
@@ -64,7 +66,7 @@ function hpPath(actor) {
  * @param {{absolute?: boolean, shieldExtra?: number, triggeredConditions?: object[], label?: string}} [options]
  *   - Dano Absoluto não passa pelo Escudo pessoal
  */
-export function damageApplyFlags(targetActor, finalDamage, { absolute = false, shieldExtra = 0, shieldMultiplier = 1, shieldPenetration = 0, triggeredConditions = [], label = "", shieldBase = null, elementIds = [], sever = false, bodyPart = null, noBodyPart = false, reactions = [], surface = null } = {}) {
+export function damageApplyFlags(targetActor, finalDamage, { absolute = false, shieldExtra = 0, shieldMultiplier = 1, shieldPenetration = 0, triggeredConditions = [], label = "", shieldBase = null, elementIds = [], sever = false, bodyPart = null, noBodyPart = false, reactions = [], surface = null, lifeSteal = null } = {}) {
   if (!targetActor || !hpPath(targetActor)) return {};
   // Corpo imune ao elemento (vantagem ×0) ainda pode gastar um Escudo de outro elemento: o card vale
   // se sobrar dano pro Escudo.
@@ -90,6 +92,8 @@ export function damageApplyFlags(targetActor, finalDamage, { absolute = false, s
         shieldBase: Math.round(base),
         bodyFactor: base > 0 ? Math.max(0, finalDamage / base) : 1,
         elementIds: Array.isArray(elementIds) ? elementIds : [],
+        // Roubo de vida (1.119.0): quem usou e o % do que entrar na Vida; a cura sai no Aplicar e o Desfazer a desfaz.
+        ...(lifeSteal?.percent > 0 && lifeSteal.healerUuid ? { lifeSteal: { percent: Math.min(100, Math.round(lifeSteal.percent)), healerUuid: String(lifeSteal.healerUuid), level: Math.max(0, Number(lifeSteal.level) || 0) } } : {}),
         // Ferimentos por parte: a parte mirada (senão o Aplicar sorteia) e se o golpe decepa.
         bodyPartId: bodyPart?.id ?? "",
         sever: Boolean(sever),
@@ -175,7 +179,18 @@ function describeApplied(applied) {
   const hit = applied.bodyPart;
   if (hit) parts.push(`${hit.name} ${hit.from} → ${hit.to}${hit.lost ? " (perdida)" : hit.to === 0 ? " (inutilizada)" : ""}`);
   if (applied.reactionNames?.length) parts.push(applied.reactionNames.join(", "));
+  if (applied.lifeSteal?.text) parts.push(applied.lifeSteal.text);
   return parts.join(" · ");
+}
+
+/** " (Kaito)": quem vai ser curado, para a nota do card antes do Aplicar. */
+function healerSuffix(steal) {
+  try {
+    const name = fromUuidSync(steal.healerUuid)?.name;
+    return name ? ` (${name})` : "";
+  } catch {
+    return "";
+  }
 }
 
 /** O alvo deste golpe está Parado no tempo agora? (leitura síncrona; qualquer falha = não) */
@@ -192,14 +207,16 @@ function buildControls(state) {
   if (state.applied) {
     return (
       '<div class="nihility-damage-controls">' +
-      `<span class="damage-applied${state.applied.accumulated ? " is-accumulated" : ""}">✓ ${describeApplied(state.applied)}</span>` +
+      `<span class="damage-applied${state.applied.accumulated ? " is-accumulated" : ""}">✓ ${escapeHtml(describeApplied(state.applied))}</span>` +
       '<button type="button" class="damage-undo">↩ Desfazer</button>' +
       "</div>"
     );
   }
   const stopped = targetIsStopped(state);
+  const steal = state.lifeSteal ? `<span class="damage-lifesteal-note">${escapeHtml(lifeStealNote(state.lifeSteal.percent))}${escapeHtml(healerSuffix(state.lifeSteal))}</span>` : "";
   return (
     '<div class="nihility-damage-controls">' +
+    steal +
     (stopped ? '<span class="damage-accumulated-note">Acumulado: o alvo está parado no tempo. O dano cai quando o tempo voltar.</span>' : "") +
     `<button type="button" class="damage-apply" data-factor="1">Aplicar ${state.amount}${stopped ? " (guardar)" : ""}</button>` +
     '<button type="button" class="damage-apply" data-factor="0.5">Metade</button>' +
@@ -400,6 +417,9 @@ async function applyHit(state, factor, { where = null, release = false } = {}) {
     surfaces = await applyHitSurfaces(actor, state);
   }
 
+  // Roubo de vida (1.119.0): o que entrou na Vida (não o que o Escudo absorveu) volta a quem usou.
+  const lifeSteal = state.lifeSteal ? await applyLifeSteal(state.lifeSteal, toHp) : null;
+
   // Guarda os valores ANTERIORES, não o aplicado: desfazer restaura o estado exato, sem depender
   // de nada mais ter mexido no HP/Escudo nesse meio-tempo.
   return {
@@ -411,6 +431,7 @@ async function applyHit(state, factor, { where = null, release = false } = {}) {
     previousPools,
     createdEffectIds,
     bodyPart,
+    ...(lifeSteal ? { lifeSteal } : {}),
     ...(surfaces && (surfaces.created.length || surfaces.removed.length) ? { surfacesCreated: surfaces.created, surfacesRemoved: surfaces.removed } : {}),
     ...(reaction ? { reactionNames: reaction.names, reactionConsumed: reaction.consumed, reactionRemoved: reaction.removed, at: Date.now() } : {})
   };
@@ -432,6 +453,31 @@ async function creditShieldBlocks(actor, before, after) {
     if (!mech?.hasUpkeep) continue;
     await grantSkillUseXp(skill, [{ value: credit.blocked, base: vitalBase(actor), block: true }]);
   }
+}
+
+/**
+ * Roubo de vida (1.119.0): cura quem usou com o % do que entrou na Vida. Cura do tipo "cura" (respeita bloqueio de cura
+ * e o teto das partes, como a cura instantânea de Skill). Devolve `{healed, healerUuid, text, partsBefore}` para o
+ * Desfazer, ou null se nada a fazer (quem usou sumiu, não é Personagem ou nada entrou na Vida).
+ */
+async function applyLifeSteal(steal, toHp) {
+  const requested = lifeStealAmount(toHp, steal.percent);
+  if (!requested) return null;
+  const healer = await fromUuid(steal.healerUuid);
+  if (!healer || healer.type !== "character") return null;
+  const partsBefore = partsBeforeAll(healer);
+  const { restoreVital } = await import("../skills/effects-apply.js");
+  const { change } = await restoreVital(healer, "hp", requested, { level: steal.level });
+  return { healed: change, healerUuid: healer.uuid, partsBefore, text: lifeStealResultText({ healed: change, healerName: healer.name, requested }) };
+}
+
+/** Desfaz a cura do roubo de vida: tira o que foi curado (nunca abaixo de 0) e devolve as partes do corpo. */
+async function undoLifeSteal(record) {
+  const healer = await fromUuid(record.healerUuid);
+  if (!healer) return;
+  const current = foundry.utils.getProperty(healer, "system.attributes.hp.value") ?? 0;
+  await healer.update({ "system.attributes.hp.value": Math.max(0, current - record.healed) }, { nihilityUndo: true });
+  for (const before of record.partsBefore ?? []) await restoreBodyPart(healer, before);
 }
 
 /** Desfaz o golpe de um alvo, restaurando os valores guardados em `state.applied`. */
@@ -467,6 +513,8 @@ async function undoHit(state, where = null) {
     const { undoReactionOutcome } = await import("./reactions.js");
     await undoReactionOutcome(actor, state.applied);
   }
+  // A cura do roubo de vida sai junto (pelo que foi curado, não pelo valor absoluto: outras curas no meio ficam).
+  if (state.applied.lifeSteal?.healed > 0) await undoLifeSteal(state.applied.lifeSteal);
   // As superfícies que este Aplicar criou saem, e as que ele tirou voltam.
   if (state.applied.surfacesCreated?.length || state.applied.surfacesRemoved?.length) {
     const { undoHitSurfaces } = await import("../environment/surfaces.js");

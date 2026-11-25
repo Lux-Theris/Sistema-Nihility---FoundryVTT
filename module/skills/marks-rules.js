@@ -9,7 +9,7 @@
 export const ON_HIT_WHEN = ["always", "on", "off"];
 export const ON_HIT_WHEN_LABELS = { always: "Sempre", on: "Só ligada", off: "Só desligada" };
 
-/** `{conditionId, chance, rounds, when}` limpo, ou `null` (sem "ao acertar"). */
+/** `{conditionId, chance, rounds, when, pierce}` limpo, ou `null` (sem "ao acertar"). */
 export function normalizeOnHit(raw) {
   const conditionId = String(raw?.conditionId ?? "").trim();
   if (!conditionId) return null;
@@ -18,7 +18,8 @@ export function normalizeOnHit(raw) {
     conditionId,
     chance: Number.isFinite(chance) ? Math.min(100, Math.max(0, chance)) : 100,
     rounds: Math.max(0, Math.floor(Number(raw?.rounds)) || 0),
-    when: ON_HIT_WHEN.includes(raw?.when) ? raw.when : "always"
+    when: ON_HIT_WHEN.includes(raw?.when) ? raw.when : "always",
+    pierce: Boolean(raw?.pierce)
   };
 }
 
@@ -42,7 +43,7 @@ export function onHitPicks(skills, roll) {
     if (!onHitApplies(skill?.onHit, skill)) continue;
     const clean = normalizeOnHit(skill.onHit);
     if (!roll(clean.chance)) continue;
-    picks.push({ conditionId: clean.conditionId, rounds: clean.rounds, level: Math.max(1, Number(skill.level) || 1), magic: Boolean(skill.magic), skillName: skill.name ?? "" });
+    picks.push({ conditionId: clean.conditionId, rounds: clean.rounds, level: Math.max(1, Number(skill.level) || 1), magic: Boolean(skill.magic), skillName: skill.name ?? "", pierce: clean.pierce });
   }
   return picks;
 }

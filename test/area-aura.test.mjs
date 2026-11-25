@@ -6,7 +6,7 @@ import "./setup.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { effectiveAreaSize, mechAreaSize, structureAreaSize, clampAreaSize, stepAreaSize, areaSizeLabel, placementHintText, perLevelText } from "../module/combat/area-size-rules.js";
+import { effectiveAreaSize, mechAreaSize, structureAreaSize, clampAreaSize, stepAreaSize, areaSizeLabel, placementHintText, perLevelText, areaMaxSize, areaLevelShift, resolveAreaSize, resolveMechArea, resolveStructureArea, fieldLevelWithShift, concentrationNote } from "../module/combat/area-size-rules.js";
 import { areaFromSkill } from "../module/combat/area-geometry.js";
 import { shiftCoords, shiftSegments, movementDelta, followsToken, fieldAffectsActor } from "../module/structures/structure-geometry.js";
 import { skillSummary } from "../module/skills/skill-summary.js";
@@ -42,12 +42,53 @@ test("barra de dica do quadro 5", () => {
   assert.equal(perLevelText(0), "");
 });
 
-test("a área usa o tamanho do nível e o escolhido (nunca acima do máximo)", () => {
+test("concentração: máximo = onde o nível efetivo chega a 1; cada metro a menos é +1 nível, a mais −1; piso de 1 m e do nível", () => {
+  // Quadro 8: Vazio Arcano, nível 4, base 3 + 1 por nível = padrão 6 m, máximo 6 + 3 = 9 m.
+  const mech = { areaDistance: 3, areaPerLevel: 1, level: 4 };
+  const base = resolveMechArea(mech);
+  assert.deepEqual([base.defaultSize, base.maxSize, base.size, base.effectiveLevel], [6, 9, 6, 4]);
+  const small = resolveMechArea(mech, 2);
+  assert.deepEqual([small.size, small.shift, small.effectiveLevel], [2, 4, 8], "2 m: nível do efeito 8 (+4)");
+  const big = resolveMechArea(mech, 9);
+  assert.deepEqual([big.size, big.shift, big.effectiveLevel], [9, -3, 1], "9 m: o máximo, nível do efeito 1 (−3)");
+  assert.equal(resolveMechArea(mech, 50).size, 9, "nunca acima do máximo");
+  assert.equal(resolveMechArea(mech, 0).size, 1, "piso de 1 m");
+  assert.equal(resolveMechArea(mech, "x").size, 6, "sem escolha vale o padrão");
+  // Máximo = min(5× o padrão, padrão + (nível − 1)).
+  assert.equal(areaMaxSize(2, 30), 10, "5× o padrão limita");
+  assert.equal(areaMaxSize(6, 4), 9);
+  assert.equal(areaMaxSize(6, 1), 6, "nível 1: não cresce");
+  assert.equal(areaLevelShift(6, 2), 4);
+  assert.equal(resolveAreaSize({ base: 3, perLevel: 0, level: 1, size: 1 }).effectiveLevel, 3, "nível 1, 3 m → 1 m = nível 3");
+  assert.equal(resolveAreaSize({ base: 0, level: 5 }).maxSize, 0, "sem área, sem concentração");
+  // Raio base da Skill substitui o do catálogo; vazio = catálogo.
+  assert.equal(resolveStructureArea(3, { level: 1 }).defaultSize, 3);
+  assert.equal(resolveStructureArea(3, { structureSize: 5, areaPerLevel: 1, level: 3 }).defaultSize, 7);
+  assert.equal(structureAreaSize(3, { structureSize: 5 }), 5);
+  // Campo de Antimagia: o nível do campo sobe/desce com o desvio, nunca abaixo de 1; 0 não é campo.
+  assert.equal(fieldLevelWithShift(3, 4), 7);
+  assert.equal(fieldLevelWithShift(3, -9), 1);
+  assert.equal(fieldLevelWithShift(0, 4), 0);
+  assert.match(concentrationNote(base), /Padrão no nível 4: 6 m\. Na hora de usar vai de 1 m até 9 m/);
+  assert.equal(concentrationNote(null), "");
+});
+
+test("barra de dica do quadro 8 (concentração)", () => {
+  assert.equal(
+    placementHintText({ size: 2, max: 9, def: 6, level: 4, effLevel: 8 }),
+    "Ctrl+roda: tamanho 2 m (padrão 6, máx. 9) · nível do efeito 8 (+4) · sem custo · Clique: confirma · Esc: cancela"
+  );
+  assert.match(placementHintText({ size: 9, max: 9, def: 6, level: 4, effLevel: 1 }), /nível do efeito 1 \(−3\)/);
+  assert.match(placementHintText({ size: 6, max: 9, def: 6, level: 4, effLevel: 4, levelWord: "campo" }), /nível do campo 4 · sem custo/);
+});
+
+test("a área usa o tamanho do nível e o escolhido (até o máximo da concentração)", () => {
   const mech = { areaShape: "circle", areaDistance: 3, areaPerLevel: 1, level: 4 };
   const grid = { pxPerUnit: 10, cellPx: 100 };
   assert.equal(areaFromSkill(mech, { x: 0, y: 0 }, grid).radius, 60);
   assert.equal(areaFromSkill(mech, { x: 0, y: 0 }, { ...grid, size: 4 }).radius, 40);
-  assert.equal(areaFromSkill(mech, { x: 0, y: 0 }, { ...grid, size: 50 }).radius, 60);
+  assert.equal(areaFromSkill(mech, { x: 0, y: 0 }, { ...grid, size: 50 }).radius, 90, "o máximo do nível 4 é 9 m");
+  assert.equal(areaFromSkill(mech, { x: 0, y: 0 }, { ...grid, size: 8 }).radius, 80, "maior que o padrão: nível efetivo menor");
   assert.equal(areaFromSkill({ areaShape: "circle", areaDistance: 3 }, { x: 0, y: 0 }, grid).radius, 30);
 });
 

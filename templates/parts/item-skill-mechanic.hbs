@@ -110,6 +110,7 @@
         </div>
         <label class="fld"><span class="fld-label">Distância <span class="help" title="Raio do Círculo, ou alcance do Cone/Linha, em unidades de grid.">?</span></span><input class="num" type="number" name="system.areaDistance" value="{{system.areaDistance}}" min="0"/></label>
         <label class="fld"><span class="fld-label">+ por nível <span class="help" title="Metros que a área ganha a cada nível além do primeiro. Tamanho no nível = Distância + este valor × (nível − 1). Na hora de usar dá para diminuir (Ctrl+roda).">?</span></span><span class="suffix"><input type="number" name="system.areaPerLevel" value="{{system.areaPerLevel}}" min="0" step="0.5" aria-label="Mais por nível"/><span>m</span></span></label>
+        {{#if areaNote}}<div class="strip dim span-all">{{areaNote}}</div>{{/if}}
         {{#if (eq system.areaShape "cone")}}
         <label class="fld"><span class="fld-label">Ângulo (°)</span><input class="num" type="number" name="system.areaAngle" value="{{system.areaAngle}}" min="1" max="360"/></label>
         {{/if}}
@@ -142,9 +143,11 @@
         </div>
       </div>
       <div class="g2">
-        <label class="fld"><span class="fld-label">+ por nível <span class="help" title="Metros que a Estrutura ganha a cada nível da Skill além do primeiro (o tamanho base vem do catálogo). Tamanho no nível = base + este valor × (nível − 1). Na hora de pôr dá para diminuir (Ctrl+roda).">?</span></span><span class="suffix"><input type="number" name="system.areaPerLevel" value="{{system.areaPerLevel}}" min="0" step="0.5" aria-label="Mais por nível"/><span>m</span></span></label>
+        <label class="fld"><span class="fld-label">Raio base <span class="help" title="Tamanho de partida da Estrutura desta Skill (m). Em branco (0), vale o do catálogo de Estruturas. Tamanho no nível = Raio base + por nível × (nível − 1).">?</span></span><span class="suffix"><input type="number" name="system.structureSize" value="{{system.structureSize}}" min="0" step="0.5" aria-label="Raio base"/><span>m</span></span></label>
+        <label class="fld"><span class="fld-label">+ por nível <span class="help" title="Metros que a Estrutura ganha a cada nível da Skill além do primeiro (o tamanho base é o Raio base, ou o do catálogo). Tamanho no nível = base + este valor × (nível − 1). Na hora de pôr dá para mudar o tamanho (Ctrl+roda): menor é mais potente, maior é menos, sem custo.">?</span></span><span class="suffix"><input type="number" name="system.areaPerLevel" value="{{system.areaPerLevel}}" min="0" step="0.5" aria-label="Mais por nível"/><span>m</span></span></label>
         <label class="fld"><span class="fld-label">Segue quem lançou <span class="help" title="O campo anda junto com o Token. Quem lançou fica de fora do próprio campo; aliados e inimigos dentro dele, não. A Antimagia nunca desliga a Skill que sustenta o próprio campo. Costuma ser uma Skill Ativa.">?</span></span><input type="checkbox" name="system.structureFollows" {{#if system.structureFollows}}checked{{/if}}/></label>
       </div>
+      {{#if areaNote}}<div class="strip dim">{{areaNote}}</div>{{/if}}
       {{#if skillRangeOn}}
       <label class="fld"><span class="fld-label">Alcance <span class="help" title="Até onde a Estrutura pode ser posta, em metros (0 = sem limite). Fora dele, só pela Marca de quem usa (custo × (distância ÷ alcance)²).">?</span></span><span class="suffix"><input type="number" name="system.range" value="{{system.range}}" min="0" step="0.5" aria-label="Alcance"/><span>m</span></span></label>
       {{/if}}
@@ -191,6 +194,7 @@
       </label>
       <label class="toggle span-all"><input type="checkbox" name="system.isMagicDamage" {{#if system.isMagicDamage}}checked{{/if}}/><span class="toggle-track"></span><span>Dano Mágico</span><span class="help" title="Só esta opção decide se a Defesa Mágica reduz o dano. Os elementos são independentes dela.">?</span></label>
       <div class="fld span-all"><span class="fld-label">Elemento(s)</span>{{> nihility.elementChips field=skillElementField path="system.damageElements" editable=editable}}</div>
+      <label class="fld"><span class="fld-label">Cura quem usa (% do dano) <span class="help" title="Cura quem usou o golpe com este % do dano que realmente entrou na Vida do alvo (depois de resistências, fraquezas e Escudo). A cura sai quando o Mestre clica Aplicar no card, e o Desfazer do card desfaz a cura junto. 0 = não cura.">?</span></span><input class="num" type="number" name="system.lifeSteal" value="{{system.lifeSteal}}" min="0" max="100"/></label>
       {{#if weaponMasteryOn}}
       <label class="fld span-all"><span class="fld-label">Golpe de arma <span class="help" title="Arte marcial: a Skill conta como um ataque deste tipo (Desarmado = golpe desarmado). A Maestria que o cobre multiplica o dano, rende XP e conta para aprender pela prática. Uma Sub-Skill com o campo vazio herda o da Skill-mãe. O tipo é fixo: itens e o efeito 'Desarmado vira tipo' não o mudam.">?</span></span>
         <select name="system.weaponStrike">

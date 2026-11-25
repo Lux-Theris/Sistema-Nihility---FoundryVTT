@@ -27,6 +27,7 @@ import { onHitPicks } from "../skills/marks-rules.js";
 import { magicDefenseReduction, resistanceSourceFor, grantResistanceXp, registerResistanceExposure } from "./resistance.js";
 import { isShipLike, applyShipWeaponBonus, applyStarshipDamageCascade } from "../starship/ship-damage.js";
 import { escapeHtml } from "../helpers/html.js";
+import { normalizeLifeSteal } from "./life-steal-rules.js";
 import { currentSkillUseId } from "../skills/skill-use-context.js";
 import { weaponMasteryHit, afterWeaponAttack, strikeMasteryBonus } from "./weapon-mastery.js";
 import { masteryFactor, masteryTraceRow, formatMasteryPercent } from "./weapon-mastery-rules.js";
@@ -251,6 +252,7 @@ export function onHitConditionsFor(attacker, hitDamage) {
     level: pick.level,
     magic: pick.magic,
     rounds: pick.rounds,
+    pierce: Boolean(pick.pierce),
     appliedBy: attacker.uuid
   }));
 }
@@ -347,6 +349,7 @@ export async function applyTriggeredConditions(targetActor, triggered, { label =
       // Duração do efeito de elemento ("Molhado por 2 rodadas"); 0 = a que a própria Condição tem.
       durationRounds: Math.max(0, Math.round(Number(hit.rounds) || 0)),
       conditionId: hit.conditionId,
+      piercesCondition: Boolean(hit.pierce),
       damageElements: hit.elementId ? [hit.elementId] : [],
       hitDamage: Math.max(0, (Number(hit.hitDamage) || 0) * factor),
       // Condição com "Impede cura" na parte atingida: prende-se à parte que levou o golpe.
@@ -408,6 +411,17 @@ export function triggeredLabel(triggered) {
 export function surfaceOrigin(mech, attacker) {
   if (!isSurfacesEnabled()) return null;
   return { magic: isMagicUse(mech, attacker), useId: currentSkillUseId() };
+}
+
+/**
+ * "Roubo de vida" (1.119.0): quem usou e quanto do dano que entrar na Vida volta em cura, guardado no card de dano
+ * (a cura sai no Aplicar). `null` sem percentual ou sem alguém que possa receber (só Personagem tem Vida para curar).
+ * @returns {{percent:number, healerUuid:string, level:number}|null}
+ */
+export function lifeStealFor(mech, attacker) {
+  const percent = normalizeLifeSteal(mech?.lifeSteal);
+  if (!percent || attacker?.type !== "character") return null;
+  return { percent, healerUuid: attacker.uuid, level: Math.max(0, Number(mech.level) || 0) };
 }
 
 export function damageEntryFrom(actor, reduction, mech, label, extra = {}) {
@@ -611,6 +625,7 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
     reactions: cardReactions(reduction?.reactions),
     surface: surfaceOrigin(mech, actor),
     bodyPart: aimedPart,
+    lifeSteal: lifeStealFor(mech, actor),
     label
   });
   // Com quem a reação conduziu: o card vira um card de vários alvos (o principal e os conduzidos).
@@ -672,6 +687,7 @@ export async function useWeaponAttack(sourceActor, weaponItem, targetActor = nul
       scalingAttribute: weapon.scalingAttribute,
       isMagicDamage: weapon.isMagicDamage || (bonuses.forceMagic ?? 0) > 0,
       isAbsoluteDamage: weapon.isAbsoluteDamage || Boolean(ammo?.isAbsoluteDamage) || (bonuses.absolute ?? 0) > 0,
+      lifeSteal: Number(weapon.lifeSteal) || 0,
       damageScale: weapon.damageScale,
       damageElements: override ? [override] : ammo?.damageElements?.length ? ammo.damageElements : weapon.damageElements,
       weaponBonus: { flat: Number(bonuses.damageFlat) || 0, multiplier: bonuses.damageMultiplier ?? 1 },
@@ -816,7 +832,7 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
       // Botões por alvo no card (Aplicar / em todos / aos selecionados — ver damage-apply.js): o
       // número de cada um já sai com as defesas dele, e as Condições disparadas só valem quando o
       // Mestre aplica, como no alvo único. Área não cai em parte do corpo (`noBodyPart`).
-      const hit = damageEntryFrom(targetActor, reduction, mech, label, { noBodyPart: true, surface: surfaceOrigin(mech, actor) });
+      const hit = damageEntryFrom(targetActor, reduction, mech, label, { noBodyPart: true, surface: surfaceOrigin(mech, actor), lifeSteal: lifeStealFor(mech, actor) });
       if (hit) applyEntries.push({ ...hit, name: targetActor.name });
       hits.push({ actor: targetActor, damage: reduction.finalDamage });
       rows.push(`<li><strong>${escapeHtml(targetActor.name)}</strong>: ${reduction.finalDamage}${reactionLabel(reduction.reactions)}${triggeredLabel(reduction.triggeredConditions)}</li>`);

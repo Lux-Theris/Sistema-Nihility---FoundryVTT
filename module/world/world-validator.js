@@ -104,6 +104,8 @@ export function checkMechanic(mech, idx, prefix = "") {
   (mech.effects ?? []).forEach((entry, i) => {
     const where = at(prefix, `Efeito ${i + 1}`);
     checkRef(issues, idx, at(where, "Condição"), "conditions", entry?.conditionId);
+    // "Fura imunidade e resistência a Condição" (1.119.0) sem Condição no efeito não faz nada.
+    if (entry?.piercesCondition && !entry?.conditionId) issues.push({ where: at(where, "Condição"), catalog: "conditions", ref: "", message: "\"Fura imunidade e resistência a Condição\" num efeito sem Condição: não faz nada" });
     checkRef(issues, idx, at(where, "Elemento"), "elements", entry?.elementId);
     checkRefs(issues, idx, at(where, "Elementos"), "elements", entry?.damageElements);
     // Empurrar/Puxar: os Traços que não saem do lugar.
@@ -135,6 +137,8 @@ export function checkMechanic(mech, idx, prefix = "") {
     // Desarmado vira tipo de arma.
     if (entry?.target === "unarmedType") checkRef(issues, idx, at(where, "Tipo de arma"), "weaponTypes", entry?.weaponTypeId);
   });
+  // Roubo de vida (1.119.0): só o dano cura quem usa.
+  if (Number(mech.lifeSteal) > 0 && mech.effectType !== "damage") issues.push({ where: at(prefix, "Cura quem usa"), catalog: "skills", ref: "", message: "\"Cura quem usa (% do dano)\" numa Skill que não causa dano: o campo não faz nada" });
   // "Só se…" da Skill inteira e "ao acertar" (8c.1).
   if (mech.onlyIf?.kind === "otherCondition" || mech.onlyIf?.kind === "otherConditionMine" || mech.onlyIf?.kind === "selfCondition") checkRef(issues, idx, at(prefix, "Só se… da Skill › Condição"), "conditions", mech.onlyIf.value);
   if (mech.onlyIf?.kind === "otherTrait") checkRef(issues, idx, at(prefix, "Só se… da Skill › Traço"), "traits", mech.onlyIf.value);

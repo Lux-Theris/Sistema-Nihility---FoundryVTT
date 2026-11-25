@@ -92,17 +92,18 @@ export function manaDensityFor(actor, tokenDoc = null) {
 
 /**
  * Aplica a Condição com o efeito padrão dela (ou só a marca) e devolve os efeitos criados.
- * `guard: true` (Armadilha de Região) consulta a Imunidade/Resistência da origem (condition-guard.js); o ambiente da
- * cena e a Âncora/o Domínio não, porque são sincronizados a cada passo e rolariam sem parar.
+ * `guard: true` (Armadilha de Região) consulta a Imunidade/Resistência da origem (condition-guard.js). O ambiente da
+ * cena consulta por fora, uma exposição por rodada (`syncNow`), e manda `originResist` (0-1) para reduzir a força e a
+ * duração; a Âncora/o Domínio nunca são resistidos.
  */
-export async function applyCondition(actor, condition, hitDamage = 0, { guard = false } = {}) {
+export async function applyCondition(actor, condition, hitDamage = 0, { guard = false, originResist = 0 } = {}) {
   const before = new Set(actor.effects.map(e => e.id));
   if (condition.effect?.kind) {
     const { applyManualCondition } = await import("../skills/effects-apply.js");
     await applyManualCondition(actor, condition.id, {
       target: "hp", amount: 0, durationRounds: 0, periodic: false, tickUnit: "combatRound",
       damageElements: [], modifierType: "flat", icon: "", hitDamage: Number(hitDamage) || 0
-    }, { force: !guard });
+    }, { force: !guard, originResist });
   } else {
     // Armadilha (guard): a Imunidade/Resistência da origem vale também para a Condição que é só marca.
     if (guard && !(await checkOriginCondition(actor, condition.id)).lands) return [];
@@ -152,7 +153,11 @@ async function syncNow(tokenDoc, actor) {
   for (const conditionId of add) {
     const condition = catalog.find(c => c.id === conditionId);
     if (!condition) continue;
-    const created = await applyCondition(actor, condition);
+    // Resistência a Condição (1.119.0): o ambiente conta UMA exposição por rodada (não a cada passo). Não pegou = a
+    // próxima sincronização da rodada seguinte tenta de novo; pegou = força e duração saem × (1 − X).
+    const outcome = await checkOriginCondition(actor, conditionId, { dedupe: true });
+    if (!outcome.lands) continue;
+    const created = await applyCondition(actor, condition, 0, { originResist: outcome.kind === "resist" ? 1 - outcome.factor : 0 });
     for (const effect of created) {
       // Enquanto estiver no lugar: sem prazo, e o periódico ancorado (não acaba sozinho).
       const update = { ...effectRoundsUpdate(0), [`flags.${SYSTEM_ID}.${FLAG}`]: { sceneId } };

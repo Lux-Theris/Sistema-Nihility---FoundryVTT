@@ -26,7 +26,7 @@ import { clampToRange, filterByReach, markCostFactor, pointDistance } from "./ra
 import { pointReach, viaMarkFrom, casterTokenOf } from "./range.js";
 import { isDead } from "./incapacitation.js";
 import { tokenElevation } from "./elevation.js";
-import { mechAreaSize, stepAreaSize, MIN_AREA_SIZE } from "./area-size-rules.js";
+import { resolveMechArea, stepAreaSize, MIN_AREA_SIZE } from "./area-size-rules.js";
 import { showPlacementHint } from "./placement-hint.js";
 
 /**
@@ -83,11 +83,13 @@ function localPoint(event) {
 /**
  * Deixa o usuário posicionar a forma da Skill no canvas — segue o mouse, roda do mouse gira
  * Cone/Linha (Shift = passo fino), clique esquerdo confirma, clique direito ou Esc cancela.
- * Devolve `{area, via, size}` (`area-geometry.js`; `via` = a Marca usada, ou null; `size` = o tamanho escolhido, m) ou null se cancelado.
+ * Devolve `{area, via, size, effectiveLevel}` (`area-geometry.js`; `via` = a Marca usada, ou null; `size` = o tamanho
+ * escolhido, m; `effectiveLevel` = o nível do efeito dessa área) ou null se cancelado.
  *
- * **Tamanho (1.118.0):** a forma nasce no tamanho máximo do nível (`areaDistance` + `areaPerLevel` × (nível − 1)) e o
- * Ctrl+roda a diminui de 1 em 1 m, até 1 m; o tracejado fraco mostra o máximo. O tamanho escolhido é o que vale
- * (o custo não muda). A barra de dica do pé da tela mostra "Ctrl+roda: tamanho 4 / 6 m · …".
+ * **Concentração (1.119.0):** a forma nasce no tamanho padrão do nível (`areaDistance` + `areaPerLevel` × (nível − 1)) e o
+ * Ctrl+roda a muda de 1 em 1 m, de 1 m até o máximo (onde o nível efetivo chega a 1). Cada metro a menos que o padrão
+ * é +1 nível efetivo do efeito, cada metro a mais, −1, sem custo (area-size-rules.js). O tracejado fraco mostra o
+ * padrão; a barra de dica do pé da tela mostra "Ctrl+roda: tamanho 2 m (padrão 6, máx. 9) · nível do efeito 8 (+4) · sem custo".
  *
  * `reach` (range.js, opcional; sem ele a forma é livre como sempre foi):
  *  - forma PRESA (`reach.free` falso): sai do Token de quem lança e só gira com a roda; com Marcas, a
@@ -135,8 +137,13 @@ async function placeArea(mech, reach = null, { caster = null } = {}) {
   // O centro da área fica na altura de quem lança (ou do Marcado, se a forma sai dele); sem Token, 0.
   const casterElevation = isElevationEnabled() && caster ? tokenElevation(actorToken(caster, canvas.tokens?.controlled ?? [])) : 0;
   const currentElevation = () => (!isElevationEnabled() ? 0 : via ? elevationOfActorUuid(via.uuid) : casterElevation);
-  const maxSize = mechAreaSize(mech);
-  let size = maxSize;
+  const span = resolveMechArea(mech);
+  const maxSize = span.maxSize;
+  let size = span.defaultSize;
+  const hintInfo = () => {
+    const now = resolveMechArea(mech, size);
+    return { size: now.size, max: now.maxSize, def: now.defaultSize, level: now.level, effLevel: now.effectiveLevel };
+  };
   const current = () => areaFromSkill(mech, origin, { ...scale, direction, elevation: currentElevation(), size });
 
   const graphics = new PIXI.Graphics();
@@ -149,9 +156,9 @@ async function placeArea(mech, reach = null, { caster = null } = {}) {
       graphics.lineStyle(2, color, 0.35).beginFill(color, 0.04).drawCircle(reach.anchor.x, reach.anchor.y, reach.rangePx).endFill();
       for (const m of reach.centers) graphics.lineStyle(2, 0xffd36b, 0.35).beginFill(0xffd36b, 0.04).drawCircle(m.point.x, m.point.y, reach.rangePx).endFill();
     }
-    // O máximo do nível, fraco, quando o tamanho escolhido é menor (mockup: tracejado = máximo; cheio = escolhido).
-    if (size < maxSize) {
-      const full = areaFromSkill(mech, origin, { ...scale, direction, elevation: currentElevation(), size: maxSize });
+    // O tamanho padrão do nível, fraco, quando o escolhido é outro (mockup: tracejado = referência; cheio = escolhido).
+    if (size !== span.defaultSize) {
+      const full = areaFromSkill(mech, origin, { ...scale, direction, elevation: currentElevation(), size: span.defaultSize });
       graphics.lineStyle(1.5, color, 0.35);
       if (full.shape === "circle") graphics.drawCircle(full.x, full.y, full.radius);
       else graphics.drawPolygon(areaPolygon(full));
@@ -164,7 +171,7 @@ async function placeArea(mech, reach = null, { caster = null } = {}) {
   draw();
 
   const heldExtras = held ? ["sai de quem lança", anchors.length > 1 ? "M troca para uma Marca" : ""] : [];
-  const hint = showPlacementHint({ size, max: maxSize, turn: needsDirection(mech.areaShape), extras: heldExtras });
+  const hint = showPlacementHint({ ...hintInfo(), turn: needsDirection(mech.areaShape), extras: heldExtras });
 
   const placement = await new Promise(resolve => {
     let moveTime = 0;
@@ -184,7 +191,7 @@ async function placeArea(mech, reach = null, { caster = null } = {}) {
         event.preventDefault();
         event.stopPropagation();
         size = stepAreaSize(size, event.deltaY, maxSize);
-        hint.update({ size });
+        hint.update(hintInfo());
         draw();
         return;
       }
@@ -199,7 +206,7 @@ async function placeArea(mech, reach = null, { caster = null } = {}) {
     const onConfirm = event => {
       if ((event.button ?? event.data?.button) !== 0) return;
       event.stopPropagation();
-      finish({ area: current(), via, size });
+      finish({ area: current(), via, size, effectiveLevel: resolveMechArea(mech, size).effectiveLevel });
     };
 
     const onCancel = event => {
@@ -290,6 +297,9 @@ export function resolveAreaTargets(mech, placed, reach = null, { caster = null, 
   actors.origin = { x: area.x, y: area.y };
   // A área inteira também (Antimagia em Emissão desfaz as Estruturas que ela toca).
   actors.area = area;
+  // Concentração (1.119.0): o tamanho escolhido e o nível efetivo do efeito desta área (o custo continua o do nível real).
+  actors.size = placed.size ?? null;
+  actors.effectiveLevel = placed.effectiveLevel ?? null;
   return actors;
 }
 
@@ -307,7 +317,9 @@ export function reshapeAreaPlacement(mech, placed, { caster = null } = {}) {
   const scale = sceneScale(canvas.scene);
   const origin = { x: placed.area.x, y: placed.area.y };
   const elevation = Number(placed.area.elevation) || 0;
-  return { area: areaFromSkill(mech, origin, { ...scale, direction: placed.area.direction ?? 0, elevation, size: placed.size ?? null }), via: placed.via ?? null, size: placed.size ?? null };
+  // O tamanho escolhido vale para a parte, cada uma no próprio limite (e com o próprio nível efetivo).
+  const span = resolveMechArea(mech, placed.size ?? null);
+  return { area: areaFromSkill(mech, origin, { ...scale, direction: placed.area.direction ?? 0, elevation, size: span.size }), via: placed.via ?? null, size: span.size, effectiveLevel: span.effectiveLevel };
 }
 
 /**
@@ -319,7 +331,7 @@ export function casterAreaPlacement(mech, caster) {
   if (!areaEffectsSupported() || !token?.center) return null;
   const scale = sceneScale(canvas.scene);
   const elevation = isElevationEnabled() ? tokenElevation(token) : 0;
-  return { area: areaFromSkill(mech, { x: token.center.x, y: token.center.y }, { ...scale, direction: 0, elevation }), via: null };
+  return { area: areaFromSkill(mech, { x: token.center.x, y: token.center.y }, { ...scale, direction: 0, elevation }), via: null, size: resolveMechArea(mech).size, effectiveLevel: resolveMechArea(mech).effectiveLevel };
 }
 
 /* -------------------------------------------- */
@@ -336,7 +348,7 @@ export async function pickZonePlacement(skill, reach = null, { caster = null } =
 
 /** A colocação de Zona a partir de uma área já posicionada (a Combinada põe a área uma vez). */
 export function zonePlacementFrom(placed, reach = null) {
-  return placed?.area ? { area: placed.area, color: userColorCss(), viaMark: viaMarkFrom(placed.via ?? null, reach) } : null;
+  return placed?.area ? { area: placed.area, color: userColorCss(), viaMark: viaMarkFrom(placed.via ?? null, reach), size: placed.size ?? null, effectiveLevel: placed.effectiveLevel ?? null } : null;
 }
 
 /**
@@ -349,11 +361,13 @@ export function zonePlacementFrom(placed, reach = null) {
  *   como criada (o Mestre pode só ter demorado), igual às Estruturas.
  */
 export async function createZone(placement, { sourceActor, skillId, subSkillIndex, label, rounds, untilDeactivated = false }) {
+  // O tamanho escolhido (m) viaja no payload; o Mestre refaz o nível efetivo na ficha, nunca confia no cliente.
   if (!canvas?.scene || !placement?.area) return false;
   const outcome = await runAsGm("createZone", {
     sceneId: canvas.scene.id,
     area: placement.area,
     color: placement.color,
+    size: placement.size ?? null,
     zone: {
       sourceUuid: sourceActor.uuid,
       skillId,
@@ -438,7 +452,7 @@ export const RELAY_HANDLERS = {
    * vem do cliente de quem lançou, então passa por `normalizeArea` (formas e números limitados),
    * e quem pede tem de ser dono de quem lançou.
    */
-  async createZone({ sceneId, area, color, zone }, user) {
+  async createZone({ sceneId, area, color, zone, size }, user) {
     const scene = game.scenes.get(sceneId);
     const source = await ownedDoc(zone?.sourceUuid, user);
     const clean = normalizeArea(area);
@@ -447,6 +461,12 @@ export const RELAY_HANDLERS = {
     if (!clean) return refuse("a área da Zona ficou inválida");
 
     const label = String(zone.label ?? "").trim() || "Zona"; // Region recusa nome vazio
+    // Concentração (1.119.0): nível e "+ por nível" lidos na ficha de quem lançou; o tamanho do payload só vale até o
+    // máximo do nível, e o nível efetivo da Zona sai daí.
+    const skillItem = source.items?.get(String(zone.skillId ?? ""));
+    const subIndex = Number.isInteger(zone.subSkillIndex) ? zone.subSkillIndex : null;
+    const zoneMech = subIndex !== null ? skillItem?.system?.subSkills?.[subIndex] : skillItem?.system;
+    const effectiveLevel = zoneMech ? resolveMechArea(zoneMech, size).effectiveLevel : null;
     const { documentName, data } = zoneDocumentData(clean, {
       generation: foundryGeneration(),
       pxPerUnit: sceneScale(scene).pxPerUnit,
@@ -463,6 +483,7 @@ export const RELAY_HANDLERS = {
             untilDeactivated: Boolean(zone.untilDeactivated),
             roundsRemaining: Math.min(Math.max(Number(zone.roundsRemaining) || 1, 1), 100),
             area: clean,
+            ...(effectiveLevel ? { effectiveLevel } : {}),
             useId: String(zone.useId ?? "").slice(0, 32),
             casterDisposition: Number.isInteger(zone.casterDisposition) ? zone.casterDisposition : null
           }

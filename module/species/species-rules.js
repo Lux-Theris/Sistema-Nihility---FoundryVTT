@@ -523,30 +523,6 @@ export function originConditionRule(layers, conditionId) {
   return { immune, resist: immune ? 100 : resist, sources };
 }
 
-/**
- * A Condição pega? Imune nunca; Resistência X% rola d100 e até X (inclusive) não pega. `roll` é o
- * d100 já rolado (quem chama aplica a Sorte da vítima). Pura.
- * @returns {{lands:boolean, kind:"none"|"immune"|"resist", amount:number, roll:number|null}}
- */
-export function conditionLands(rule, roll = null) {
-  if (!rule || (!rule.immune && !(rule.resist > 0))) return { lands: true, kind: "none", amount: 0, roll: null };
-  if (rule.immune) return { lands: false, kind: "immune", amount: 100, roll: null };
-  const r = Number(roll);
-  if (!Number.isFinite(r)) return { lands: true, kind: "resist", amount: rule.resist, roll: null };
-  return { lands: !(r <= rule.resist), kind: "resist", amount: rule.resist, roll: r };
-}
-
-/** A frase do chat quando a Condição não pegou: "Veneno não pegou em Anão: resiste 30% (d100 = 12)". */
-export function conditionBlockText({ conditionLabel, actorName, outcome }) {
-  if (outcome.kind === "immune") return `${conditionLabel} não pegou em ${actorName}: imune`;
-  return `${conditionLabel} não pegou em ${actorName}: resiste ${outcome.amount}% (d100 = ${outcome.roll})`;
-}
-
-/** O texto que sobe do Token: "Imune: X" / "Resistiu: X". */
-export function conditionFloatText(kind, conditionLabel) {
-  return kind === "immune" ? `Imune: ${conditionLabel}` : `Resistiu: ${conditionLabel}`;
-}
-
 /** "Quando → Então" das camadas, agrupados pela camada (para "De onde vem"). */
 export function originConditionalSources(layers) {
   return (layers ?? [])

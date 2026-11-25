@@ -17,7 +17,7 @@ export function showPlacementHint(info = {}) {
     const text = placementHintText(current);
     // `textContent` só: nada do documento entra como HTML. O tamanho em negrito é montado à parte.
     element.textContent = "";
-    const match = /^(Ctrl\+roda: tamanho )(.+? m)( · .*)$/.exec(text);
+    const match = /^(Ctrl\+roda: tamanho )(\S+ m)( .*)$/.exec(text);
     if (match) {
       const strong = document.createElement("b");
       strong.textContent = match[2];

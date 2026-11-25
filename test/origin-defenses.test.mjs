@@ -15,9 +15,6 @@ import {
   normalizeOriginConditions,
   normalizeSpeciesEntry,
   originConditionRule,
-  conditionLands,
-  conditionBlockText,
-  conditionFloatText,
   originProtectionRows
 } from "../module/species/species-rules.js";
 import { resolveDamageParts, describeDamageParts } from "../module/combat/damage-rules.js";
@@ -102,23 +99,6 @@ test("Condições na origem: normaliza, imune vence, resistência é a melhor", 
   assert.deepEqual(originConditionRule(layers, "stun"), { immune: false, resist: 0, sources: [] });
   // Resistência de 100% é Imunidade.
   assert.equal(originConditionRule([layer("species", "X", { conditions: [{ conditionId: "burn", mode: "resist", amount: 100 }] })], "burn").immune, true);
-});
-
-test("Condição: d100 até X não pega; acima pega; imune nunca; sem regra sempre", () => {
-  const rule = { immune: false, resist: 30, sources: [] };
-  assert.deepEqual(conditionLands(rule, 12), { lands: false, kind: "resist", amount: 30, roll: 12 });
-  assert.equal(conditionLands(rule, 30).lands, false, "até X inclusive");
-  assert.equal(conditionLands(rule, 31).lands, true);
-  assert.equal(conditionLands({ immune: true, resist: 100, sources: [] }, 99).lands, false);
-  assert.equal(conditionLands({ immune: false, resist: 0, sources: [] }, 1).kind, "none");
-  assert.equal(conditionLands(null).lands, true);
-});
-
-test("textos de Condição que não pegou (chat e flutuante)", () => {
-  assert.equal(conditionBlockText({ conditionLabel: "Veneno", actorName: "Anão", outcome: { kind: "resist", amount: 30, roll: 12 } }), "Veneno não pegou em Anão: resiste 30% (d100 = 12)");
-  assert.equal(conditionBlockText({ conditionLabel: "Sangramento", actorName: "Slime", outcome: { kind: "immune" } }), "Sangramento não pegou em Slime: imune");
-  assert.equal(conditionFloatText("immune", "Sangramento"), "Imune: Sangramento");
-  assert.equal(conditionFloatText("resist", "Veneno"), "Resistiu: Veneno");
 });
 
 test("normalizeSpeciesEntry limpa as Condições da origem (também nas Linhagens)", () => {

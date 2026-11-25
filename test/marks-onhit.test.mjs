@@ -62,8 +62,9 @@ test("conditionIdsPostedBy lê appliedBy", () => {
 
 test("ao acertar: normaliza, respeita o estado e rola a chance", () => {
   assert.equal(normalizeOnHit({ conditionId: "" }), null);
-  assert.deepEqual(normalizeOnHit({ conditionId: "duel", chance: 150, rounds: -2, when: "x" }), { conditionId: "duel", chance: 100, rounds: 0, when: "always" });
+  assert.deepEqual(normalizeOnHit({ conditionId: "duel", chance: 150, rounds: -2, when: "x" }), { conditionId: "duel", chance: 100, rounds: 0, when: "always", pierce: false });
   assert.equal(normalizeOnHit({ conditionId: "duel", chance: 0 }).chance, 0);
+  assert.equal(normalizeOnHit({ conditionId: "duel", pierce: true }).pierce, true, "fura imunidade e resistência a Condição");
   const on = { conditionId: "duel", when: "on" };
   const off = { conditionId: "duel", when: "off" };
   assert.equal(onHitApplies(on, { hasUpkeep: true, active: true }), true);

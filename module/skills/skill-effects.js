@@ -559,6 +559,10 @@ async function dispatchMechanic({ sourceActor, skill, skillId, mech, label, opti
   }
 
   const isEmission = mech.targetType === "emission";
+  // Concentração (1.119.0): numa Emissão, o nível EFETIVO do tamanho escolhido vale para o dano, a cura e os efeitos
+  // desta área (Poder do nível; o alcance da Antimagia). O custo já foi pago pelo nível real.
+  const areaLevel = isEmission ? Number(options.targetActors?.effectiveLevel) || 0 : 0;
+  if (areaLevel > 0 && areaLevel !== mech.level) mech = { ...plainMech(mech), level: areaLevel };
 
   if (mech.effectType === "damage") {
     const result = isEmission

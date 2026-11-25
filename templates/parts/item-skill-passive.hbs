@@ -26,6 +26,7 @@
       {{#if skillOnHit.set}}
       <label class="fld"><span class="fld-label">Chance</span><span class="suffix"><input type="number" name="system.onHit.chance" value="{{skillOnHit.chance}}" min="0" max="100" aria-label="Chance"/><span>%</span></span></label>
       <label class="fld"><span class="fld-label">Rodadas <span class="help" title="0 = a duração que a própria Condição tem.">?</span></span><input class="num" type="number" name="system.onHit.rounds" value="{{skillOnHit.rounds}}" min="0" aria-label="Rodadas"/></label>
+      <label class="toggle span-all" title="A Condição pega mesmo em quem é imune e sem a demora da Resistência."><input type="checkbox" name="system.onHit.pierce" {{#if skillOnHit.pierce}}checked{{/if}}/><span class="toggle-track"></span><span>Fura imunidade e resistência a Condição</span></label>
       {{#if skillOnHit.showWhen}}
       <div class="fld">
         <span class="fld-label">Vale</span>

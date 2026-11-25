@@ -65,6 +65,8 @@ export function gatherTableRules() {
     movement: features.movement
       ? { base: getFeatureOption("movement", "movementBase"), step: getFeatureOption("movement", "movementStep"), cap: getFeatureOption("movement", "movementCap") }
       : null,
+    // Resistência a Condição (1.119.0): quantas rodadas sem exposição zeram a conta.
+    conditionResistResetRounds: getFeatureOption("environment", "conditionResistResetRounds"),
     incapacitation: features.incapacitation
       ? { deathRounds: getFeatureOption("incapacitation", "deathRounds"), wakeRounds: getFeatureOption("incapacitation", "wakeRounds"), npcDies: getFeatureOption("incapacitation", "npcDiesAtZero") }
       : null,

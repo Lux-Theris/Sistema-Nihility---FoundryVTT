@@ -210,7 +210,16 @@ export const FEATURES = {
     setting: "environmentEnabled",
     name: "Ambiente da cena e densidade de mana",
     hint: "Perigos de ambiente (vácuo, radiação, gravidade alta…): Condições que a cena inteira ou uma área desenhada (Region com o comportamento 'Ambiente (Nihility)') mantém em quem está lá, com Traços que imunizam e, na cena, visual opcional do FXMaster. E a densidade de mana do lugar, que multiplica a potência das Skills mágicas e a regeneração de Mana (0 = magia não funciona ali).",
-    default: true
+    default: true,
+    options: {
+      conditionResistResetRounds: {
+        label: "Resistência a Condição: rodadas sem exposição para zerar",
+        hint: "Quem resiste a uma Condição vai acumulando exposição (cada uma soma 1 − Resistência; pega ao chegar a 1). Passadas estas rodadas sem nova exposição a conta recomeça. Fora de combate vale o relógio real (6 s por rodada). Vale para Skills, ambiente, Contágio e Armadilhas, mesmo com este bloco desligado.",
+        type: "number",
+        default: 3,
+        min: 1
+      }
+    }
   },
   sceneFolders: {
     setting: "sceneFoldersEnabled",

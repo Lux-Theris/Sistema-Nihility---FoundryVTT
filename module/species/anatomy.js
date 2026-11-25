@@ -172,6 +172,11 @@ function partBefore(part) {
   return { id: part.id, hpValue: part.system._source?.hp?.value ?? part.system.hp.value, integrity: part.system.integrity ?? 1, lost: Boolean(part.system.lost) };
 }
 
+/** O estado atual de todas as partes do corpo, para o Desfazer de uma cura que mexeu nelas (roubo de vida). */
+export function partsBeforeAll(actor) {
+  return (actor?.items ?? []).filter(item => item.type === "body_part").map(partBefore);
+}
+
 /**
  * Bloqueios de cura ativos no Ator ("Impede cura" das Condições — Fogo/Ácido, Maldições): o que
  * bloqueiam (`kinds`: "regen" | "all"), onde (`scope`: "body" | "part" + `partId`) e o nível de quem

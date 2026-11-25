@@ -18,7 +18,8 @@ import { healBodyParts, healPlan } from "../species/anatomy.js";
 import { skillIsMagic, skillIsTech } from "../core/magic-rules.js";
 import { suppressionLevel, techSuppressionLevel } from "./dispel.js";
 import { applyCurse } from "./curses.js";
-import { checkOriginCondition } from "../combat/condition-guard.js";
+import { checkOriginCondition, announceConditionLanded } from "../combat/condition-guard.js";
+import { scaleEntryByResistance } from "../combat/condition-resist-rules.js";
 import { effectMeasuresFor, vitalBase, grantSkillUseXp } from "./skill-xp.js";
 import { resolveEffectAmount, resolveAttributePercent, ATTRIBUTE_PERCENT_TARGETS } from "../economy/consumable-rules.js";
 import { hasOnlyIf, onlyIfOutcome } from "./only-if-rules.js";
@@ -155,17 +156,25 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
       summary.push(`${getEffectTargetLabels()[entry.target] ?? entry.target}: sem efeito (${targetActor.name} está Suprimido)`);
       continue;
     }
-    // Condições na origem (1.117.0): Imunidade/Resistência da Espécie, Linhagem ou Herança. Ponto único por onde
-    // uma Condição pega (Skill, elemento por chance, "ao acertar", reação, superfície, duelo, Armadilha). A marca à
-    // mão do Mestre (`ignoreOriginConditions`) aplica mesmo assim.
+    // Condições na origem (1.117.0, por exposição desde a 1.119.0): Imunidade/Resistência da Espécie, Linhagem ou
+    // Herança. Ponto único por onde uma Condição pega (Skill, elemento por chance, "ao acertar", reação, superfície,
+    // duelo, Armadilha). A marca à mão do Mestre (`ignoreOriginConditions`) aplica mesmo assim; quem já checou por
+    // fora (ambiente, Contágio) manda a resistência em `mech.originResist` (fração 0-1) e aqui só se reduz.
+    let resistFraction = 0;
+    let renewal = false;
     if (entry.conditionId && !mech.ignoreOriginConditions) {
-      const outcome = await checkOriginCondition(targetActor, entry.conditionId);
+      const outcome = await checkOriginCondition(targetActor, entry.conditionId, { pierce: Boolean(entry.piercesCondition) });
       if (!outcome.lands) {
         const name = getActiveStatusConditions().find(c => c.id === entry.conditionId)?.label ?? entry.conditionId;
-        summary.push(`${name}: ${outcome.kind === "immune" ? "imune" : `resistiu (${outcome.amount}%, d100 = ${outcome.roll})`}`);
+        summary.push(`${name}: ${outcome.kind === "immune" ? "imune" : `resistindo (${outcome.hits}/${outcome.needed})`}`);
         continue;
       }
+      resistFraction = outcome.kind === "resist" ? 1 - outcome.factor : 0;
+      renewal = Boolean(outcome.renewal);
+    } else if (entry.conditionId && Number(mech.originResist) > 0) {
+      resistFraction = Math.min(1, Number(mech.originResist));
     }
+    // Pegou resistindo: força e duração × (1 − X). Roda depois do padrão da Condição (abaixo), com o número final.
     // Ritmo do tempo, Marcar, Dissipar, Antimagia e PEM (ver effect-target-handlers.js, estágio "pre").
     if (await runTargetHandler("pre", entry, ctx) === HANDLED) continue;
     const condition = entry.conditionId ? getActiveStatusConditions().find(c => c.id === entry.conditionId) : null;
@@ -188,6 +197,11 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
         attributeTotal: key => targetActor.system?.attributes?.combat?.[key]?.total ?? 0
       });
       if (resolved) entry = { ...entry, ...resolved };
+    }
+    if (resistFraction > 0) {
+      const before = { amount: Number(entry.amount) || 0, rounds: Number(entry.durationRounds) || 0 };
+      entry = scaleEntryByResistance(entry, resistFraction);
+      if (!renewal) await announceConditionLanded(targetActor, entry.conditionId, { resistPercent: Math.round(resistFraction * 100), before, after: { amount: entry.amount, rounds: entry.durationRounds }, periodic: isPeriodicEntry(entry) });
     }
     const view = {
       condition,
@@ -703,15 +717,16 @@ async function rememberAnchoredTarget(holder, anchor, targetUuid) {
  * @param {Actor} actor
  * @param {string} conditionId - id de getActiveStatusConditions()
  * @param {object} entry - uma entrada no formato de `effectEntrySchema` (ver data/item-models.js)
- * @param {{force?: boolean}} [options] - `force: true` não consulta Imunidade/Resistência da origem
+ * @param {{force?: boolean, originResist?: number}} [options] - `force: true` não consulta Imunidade/Resistência da origem;
+ *   `originResist` (0-1) é a resistência que quem chamou já contou (ambiente, Contágio): força e duração saem × (1 − X)
  */
-export async function applyManualCondition(actor, conditionId, entry, { force = false } = {}) {
+export async function applyManualCondition(actor, conditionId, entry, { force = false, originResist = 0 } = {}) {
   const condition = getActiveStatusConditions().find(c => c.id === conditionId);
   if (!condition) return [];
 
   const origin = { id: `manual:${conditionId}`, img: condition.icon, uuid: undefined };
   // `force`: marcada à mão pelo Mestre, ou posta pelo ambiente/Domínio — não consulta a origem (ver condition-guard.js).
-  return applyEffectsToActor({ effects: [{ ...entry, conditionId }], hasUpkeep: false, ignoreOriginConditions: force }, condition.label, origin, actor, null);
+  return applyEffectsToActor({ effects: [{ ...entry, conditionId }], hasUpkeep: false, ignoreOriginConditions: force, originResist }, condition.label, origin, actor, null);
 }
 
 /**

@@ -1,4 +1,5 @@
 import { advancedFold } from "../helpers/advanced-fold.js";
+import { resolveMechArea, resolveStructureArea, concentrationNote } from "../combat/area-size-rules.js";
 import { normalizeItemShop } from "../economy/shop-rules.js";
 import { describeLuck, luckFromScopes } from "../combat/luck-rules.js";
 import { ONLY_IF_KINDS, ONLY_IF_LABELS, onlyIfNeeds, normalizeOnlyIf, hasOnlyIf, onlyIfClause } from "../skills/only-if-rules.js";
@@ -855,6 +856,10 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const structures = getStructures();
     context.skillStructureOptions = structures.map(st => ({ value: st.id, label: st.label, selected: st.id === sys.structureId }));
     const structure = structures.find(st => st.id === sys.structureId);
+    // Concentração (1.119.0): o padrão do nível e o intervalo de tamanhos na hora de usar (quadro "Tamanho e concentração").
+    context.areaNote = concentrationNote(
+      sys.effectType === "structure" ? (structure ? resolveStructureArea(structure.size, sys) : null) : ["emission", "zone"].includes(sys.targetType) ? resolveMechArea(sys) : null
+    );
     if (structure) {
       const life = structure.manaPowered ? `barreira de mana (o dano sai da ${context.energyLabel} de quem ergueu)` : `Vida ${structure.hp}`;
       const material = structure.material === "ethereal" ? "etérea" : "física";
@@ -927,6 +932,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       conditionOptions: [{ value: "", label: "— nenhuma —", selected: !onHit.conditionId }].concat(getActiveStatusConditions().map(c => ({ value: c.id, label: c.label, selected: c.id === onHit.conditionId }))),
       chance: sys.onHit?.chance ?? 100,
       rounds: onHit.rounds,
+      pierce: Boolean(onHit.pierce),
       whenSeg: seg(ON_HIT_WHEN.map(w => [w, ON_HIT_WHEN_LABELS[w]]), onHit.when),
       showWhen: Boolean(sys.hasUpkeep)
     };
@@ -1040,6 +1046,8 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         onlyIfTraitOptions: getActiveTraits().map(t => ({ value: t.id, label: t.label, selected: t.id === onlyIfNow.value })),
         index,
         amount,
+        hasCondition: Boolean(condition),
+        piercesCondition: Boolean(entry.piercesCondition),
         durationRounds: entry.durationRounds,
         ...effectDurationUnit(entry, { hasUpkeep: sys.hasUpkeep, periodic }),
         isAntimagic: ["antimagic", "emp"].includes(entry.target),

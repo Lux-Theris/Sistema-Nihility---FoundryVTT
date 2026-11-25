@@ -212,6 +212,13 @@ function usageFields() {
      * do catálogo (Estrutura). 0 = o tamanho não cresce (tudo salvo antes).
      */
     areaPerLevel: new fields.NumberField({ required: false, initial: 0, min: 0 }),
+    /** "Raio base" da Estrutura (1.119.0): o tamanho de partida desta Skill; 0 = o do catálogo de Estruturas. */
+    structureSize: new fields.NumberField({ required: false, initial: 0, min: 0 }),
+    /**
+     * "Roubo de vida" (1.119.0): % do dano que entrou na Vida do alvo que volta, em cura, para quem usou (0 = nada).
+     * Sai no Aplicar do card de dano e o Desfazer o desfaz. Ver combat/life-steal-rules.js.
+     */
+    lifeSteal: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0, max: 100 }),
     /** Estrutura: "Segue quem lançou" — a instância anda junto com o Token de quem a ergueu (aura). */
     structureFollows: new fields.BooleanField({ required: false, initial: false }),
     /** Ativa: desliga quando o alvo escolhido ao ligar cai (Caído, Inconsciente, morto). Quem usa cair já desliga. */
@@ -348,6 +355,12 @@ function effectEntrySchema() {
      * só para esta Skill ("" = o que a Maldição do catálogo diz). Ver curse-rules.js.
      */
     curseOnUnpaid: new fields.StringField({ required: false, initial: "", blank: true }),
+    /**
+     * "Fura imunidade e resistência a Condição" (1.119.0): só quando o efeito tem Condição. A Condição pega mesmo em
+     * quem é Imune e sem a demora e a redução da Resistência (a Skill que faz sangrar o que não sangra). Vale por
+     * efeito, não pela Skill inteira. Ver combat/condition-guard.js.
+     */
+    piercesCondition: new fields.BooleanField({ required: false, initial: false }),
     /**
      * Só no alvo "push" (Empurrar/Puxar, J1): `amount` são METROS; "push" afasta de quem usou (ou do
      * centro da área), "pull" aproxima, "choose" pergunta ao usar. `immuneTraits`: Traços (ids) de
@@ -573,7 +586,9 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
         conditionId: new fields.StringField({ required: false, initial: "", blank: true }),
         chance: new fields.NumberField({ required: false, initial: 100, min: 0, max: 100 }),
         rounds: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
-        when: new fields.StringField({ required: false, initial: "always", blank: true })
+        when: new fields.StringField({ required: false, initial: "always", blank: true }),
+        /** "Fura imunidade e resistência a Condição" (1.119.0): a Condição do "ao acertar" ignora Imune e a Resistência. */
+        pierce: new fields.BooleanField({ required: false, initial: false })
       }),
 
       /**
@@ -1158,6 +1173,8 @@ export class GenericItemDataModel extends foundry.abstract.TypeDataModel {
         scalingAttribute: new fields.StringField({ required: false, initial: "", blank: true }),
         isMagicDamage: new fields.BooleanField({ required: false, initial: false }),
         isAbsoluteDamage: new fields.BooleanField({ required: false, initial: false }),
+        /** "Roubo de vida" (1.119.0): % do dano que entrou na Vida do alvo que cura quem atacou. 0 = nada. */
+        lifeSteal: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0, max: 100 }),
         /** Escala do golpe; vazio = a de quem ataca (uma bazuca anti-tanque pode ser "Veículo"). */
         damageScale: new fields.StringField({ required: false, initial: "", blank: true }),
         damageElements: new fields.ArrayField(new fields.StringField(), { required: false, initial: [] }),

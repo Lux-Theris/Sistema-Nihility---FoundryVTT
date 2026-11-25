@@ -68,7 +68,9 @@ function describeEffectCore(entry, ctx) {
     const range = describeSenseRange(senseRangeValue(entry.amount));
     return `${SENSE_LABELS[entry.target].toLowerCase()} ${range === "sem limite" ? "(sem limite)" : range.replace(".", ",")}`;
   }
-  const condition = entry.conditionId ? ctx.conditions?.[entry.conditionId] ?? entry.conditionId : "";
+  const conditionName = entry.conditionId ? ctx.conditions?.[entry.conditionId] ?? entry.conditionId : "";
+  // "Fura imunidade e resistência a Condição" (1.119.0).
+  const condition = conditionName && entry.piercesCondition ? `${conditionName}, fura imunidade` : conditionName;
   const amount = Number(entry.amount) || 0;
   if (!amount) return condition || ctx.targets?.[entry.target] || entry.target || "";
   const target = ctx.targets?.[entry.target] ?? entry.target;
@@ -98,7 +100,7 @@ function describeMechanic(mech, ctx) {
     const regen = Number(mech.structureRegen) || 0;
     const regenCost = Number(mech.structureRegenCost) || 0;
     const regenText = regen > 0 ? `, regenera ${regen}/rodada${regenCost ? ` (−${regenCost} ${ctx.energyLabel || "Mana"})` : ""}` : "";
-    const size = ctx.structureSizes?.[mech.structureId];
+    const size = Number(mech.structureSize) > 0 ? Number(mech.structureSize) : ctx.structureSizes?.[mech.structureId];
     const sizeText = size ? ` de ${meterText(size)} m${perLevelText(mech.areaPerLevel) ? ` (${perLevelText(mech.areaPerLevel)})` : ""}` : "";
     const follows = mech.structureFollows ? ", segue quem lançou" : "";
     const aura = mech.structureFollows && ctx.fieldStructures?.[mech.structureId] ? "; quem lançou não é afetado" : "";
@@ -188,7 +190,7 @@ export function skillSummaryParts(mech, ctx = {}) {
   if (onHit) {
     const name = ctx.conditions?.[onHit.conditionId] ?? onHit.conditionId;
     const when = onHit.when === "on" ? " enquanto ligada" : onHit.when === "off" ? " enquanto desligada" : "";
-    parts.push(`seus golpes põem ${name}${onHit.chance < 100 ? ` (${onHit.chance}%)` : ""}${when}`);
+    parts.push(`seus golpes põem ${name}${onHit.chance < 100 ? ` (${onHit.chance}%)` : ""}${when}${onHit.pierce ? ", furando imunidade e resistência" : ""}`);
   }
   // O duelo (8c.2): quando a Skill Ativa desliga sozinha.
   if (mech.hasUpkeep && mech.endsWhenTargetFalls) parts.push("desliga se o alvo cair");

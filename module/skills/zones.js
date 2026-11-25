@@ -78,16 +78,19 @@ export async function tickZonesForCombatant(combatant) {
       disposition: tokenDoc.disposition ?? null
     })) continue;
     const label = zone.label;
+    // Concentração (1.119.0): a Zona nasceu com um tamanho que trocou potência por área; o nível efetivo dele vale a cada
+    // turno (o Mestre o refez na ficha ao criar). Zona de antes não tem o campo e usa o nível da Skill.
+    const effectiveLevel = Number(zone.effectiveLevel) || 0;
+    const tickMech = effectiveLevel > 0 && effectiveLevel !== mech.level ? { ...(typeof mech.toObject === "function" ? mech.toObject() : mech), level: effectiveLevel } : mech;
 
     if (mech.effectType === "damage") {
       // XP por uso: o que a Zona fez neste turno vai pra Skill que a criou (efeitos já creditam
       // dentro de applySkillEffects).
-      const result = await rollSkillDamage(sourceActor, mech, label, targetActor);
+      const result = await rollSkillDamage(sourceActor, tickMech, label, targetActor);
       await grantSkillUseXp(skill, damageXpMeasures(result, targetActor));
     } else if (mech.effectType === "temporary") {
       const zoned = {
-        ...mech,
-        level: mech.level,
+        ...tickMech,
         effects: (mech.effects ?? []).map(e => (e.periodic ? e : { ...e, durationRounds: 1 }))
       };
       await applySkillEffects(sourceActor, skill, zoned, label, targetActor, zone.subSkillIndex ?? null);

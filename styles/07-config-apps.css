@@ -522,6 +522,16 @@
 .nihility-damage-controls button:first-child { border-color: var(--nihility-accent); color: var(--nihility-accent); }
 .nihility-damage-controls button:hover { box-shadow: 0 0 0 1px rgba(110, 231, 255, 0.25); }
 
+.nihility-damage-controls .damage-lifesteal-note {
+  display: block;
+  margin: 2px 0 4px;
+  font-size: 0.78rem;
+  color: var(--nihility-ok);
+  /* Fundo próprio, como o "aplicado": o verde claro some no card claro do tema padrão da V14. */
+  background: var(--nihility-bg-panel-alt);
+  border-radius: 4px;
+  padding: 2px 8px;
+}
 .nihility-damage-controls .damage-applied {
   font-size: 0.78rem;
   color: var(--nihility-ok);

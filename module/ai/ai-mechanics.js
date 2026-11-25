@@ -112,6 +112,8 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
   out.areaFreeLevel = clampInt(m.areaFreeLevel, 0, 99, 0);
   // "+ por nível" (1.118.0): metros por nível da área (Emissão, Zona ou Estrutura).
   out.areaPerLevel = Math.min(50, Math.max(0, Math.round((Number(m.areaPerLevel) || 0) * 2) / 2));
+  // "Roubo de vida" (1.119.0): % do dano que cura quem usa; só vale numa Skill de dano (abaixo).
+  out.lifeSteal = 0;
   out.areaAffects = ["all", "notCaster", "allies", "enemies", "othersExceptTarget"].includes(m.areaAffects) ? m.areaAffects : "all";
   // Duelo (8c.2): só numa Skill Ativa; a IA não monta Combinadas (sem Sub-Skills).
   if (out.hasUpkeep) {
@@ -128,6 +130,8 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
     out.structurePlace = ["click", "caster", "target"].includes(m.structurePlace) ? m.structurePlace : "click";
     // "Segue quem lançou" (aura): só faz sentido numa Skill Ativa.
     out.structureFollows = out.hasUpkeep ? Boolean(m.structureFollows) : false;
+    // "Raio base" da própria Skill (1.119.0); 0 = o do catálogo.
+    out.structureSize = Math.min(100, Math.max(0, Math.round((Number(m.structureSize) || 0) * 2) / 2));
   }
 
   // Rerrolar (8d.2): usada no chat; não é Ativa nem tem Preparo.
@@ -159,6 +163,7 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
       if (typeof m.isMagic === "boolean") out.isMagic = m.isMagic;
       if (typeof m.isTech === "boolean") out.isTech = m.isTech;
       out.damageElements = pickIds(m.damageElements, elements);
+      out.lifeSteal = Math.min(100, Math.max(0, Math.round(Number(m.lifeSteal) || 0)));
       out.scalingAttribute = attributes.has(m.scalingAttribute) ? m.scalingAttribute : "";
       // Golpe de arma (arte marcial): só um tipo que existe neste mundo.
       out.weaponStrike = weaponTypes.has(m.weaponStrike) ? m.weaponStrike : "";

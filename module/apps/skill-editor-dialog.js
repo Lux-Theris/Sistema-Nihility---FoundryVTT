@@ -118,6 +118,9 @@ function buildEffectRowHtml(entry) {
       <input type="text" class="se-effect-icon" value="${escapeHtml(entry.icon ?? "")}" placeholder="herdar ícone"
              title="Ícone deste efeito. Em branco herda o da Condição (e, sem Condição, o da própria Skill)."
              ${conditionsEnabled ? "" : 'style="display:none"'}/>
+      <label class="checkbox-line small se-effect-pierce-line" title="Pega mesmo em quem é imune (faz sangrar o que não sangra) e sem a demora da Resistência. Vale por efeito, não pela Skill inteira." style="display:${entry.conditionId ? "inline-flex" : "none"};">
+        <input type="checkbox" class="se-effect-pierce" ${entry.piercesCondition ? "checked" : ""}/> Fura imunidade e resistência a Condição
+      </label>
       <label class="checkbox-line small se-effect-periodic-line" style="display:${periodicVisible ? "inline-flex" : "none"};">
         <input type="checkbox" class="se-effect-periodic" ${entry.periodic ? "checked" : ""}/> Periódico
       </label>
@@ -226,6 +229,7 @@ function buildEditorData(initialData, { lockTier, offerTemplates }) {
     // Duelo (8c.2): a ficha da Skill edita; aqui passam intactos até o Salvar (a colocação da Estrutura é visível abaixo).
     structurePlace: initialData.structurePlace ?? "click",
     areaPerLevel: Number(initialData.areaPerLevel) || 0,
+    structureSize: Math.max(0, Number(initialData.structureSize) || 0),
     structureFollows: Boolean(initialData.structureFollows),
     endsWhenTargetFalls: Boolean(initialData.endsWhenTargetFalls),
     intruderRule: initialData.intruderRule ?? "",
@@ -254,6 +258,7 @@ function buildEditorData(initialData, { lockTier, offerTemplates }) {
     scalingAttribute: initialData.scalingAttribute ?? "",
     isMagicDamage: Boolean(initialData.isMagicDamage),
     isAbsoluteDamage: Boolean(initialData.isAbsoluteDamage),
+    lifeSteal: Math.min(100, Math.max(0, Math.round(Number(initialData.lifeSteal) || 0))),
     damageScale: initialData.damageScale ?? "",
     damageElements: Array.isArray(initialData.damageElements) ? initialData.damageElements : [],
     effects: Array.isArray(initialData.effects) ? foundry.utils.deepClone(initialData.effects) : [],
@@ -561,7 +566,11 @@ function buildStructurePanelHtml(data, ctx) {
         </div>
         <div class="form-group" title="Clicar no mapa: você põe a Estrutura. Em volta de quem usa ou do alvo: sem clique, o centro é ele (forma e tamanho do catálogo)."><label>De onde sai</label><select name="structurePlace">${STRUCTURE_PLACE_OPTIONS.map(([v, l]) => `<option value="${v}" ${v === data.structurePlace ? "selected" : ""}>${l}</option>`).join("")}</select></div>
         <div class="row-2">
-          <div class="form-group" title="Metros que a Estrutura ganha a cada nível da Skill além do primeiro (o tamanho base vem do catálogo). Na hora de pôr dá para diminuir (Ctrl+roda)."><label>+ por nível <span class="hint-inline" style="display:inline;">(m)</span></label><input type="number" name="areaPerLevel" value="${data.areaPerLevel}" min="0" step="0.5"/></div>
+          <div class="form-group" title="Tamanho de partida da Estrutura desta Skill (m). Em branco (0), vale o do catálogo de Estruturas. Tamanho no nível = Raio base + por nível × (nível − 1)."><label>Raio base <span class="hint-inline" style="display:inline;">(m, 0 = o do catálogo)</span></label><input type="number" name="structureSize" value="${data.structureSize}" min="0" step="0.5"/></div>
+        </div>
+        <div class="hint-inline" style="display:block;">Na hora de pôr, o Ctrl+roda muda o tamanho de 1 m até onde o nível do efeito chega a 1 (no máximo 5× o padrão), sem custo: cada metro a menos é +1 nível do efeito, cada metro a mais é −1.</div>
+        <div class="row-2">
+          <div class="form-group" title="Metros que a Estrutura ganha a cada nível da Skill além do primeiro (o tamanho base é o Raio base, ou o do catálogo). Na hora de pôr dá para mudar o tamanho (Ctrl+roda): menor é mais potente, maior é menos, sem custo."><label>+ por nível <span class="hint-inline" style="display:inline;">(m)</span></label><input type="number" name="areaPerLevel" value="${data.areaPerLevel}" min="0" step="0.5"/></div>
           <label class="checkbox-line" title="O campo anda junto com o Token. Quem lançou fica de fora do próprio campo; aliados e inimigos dentro dele, não. A Antimagia nunca desliga a Skill que sustenta o próprio campo."><input type="checkbox" name="structureFollows" ${data.structureFollows ? "checked" : ""}/> Segue quem lançou</label>
         </div>
         ${rangeOn ? `<div class="form-group" title="Até onde a Estrutura pode ser posta, em metros (0 = sem limite)."><label>Alcance <span class="hint-inline" style="display:inline;">(metros, 0 = sem limite)</span></label><input type="number" name="structureRange" value="${data.range}" min="0" step="0.5"/></div>` : `<input type="hidden" name="structureRange" value="${data.range}"/>`}
@@ -610,6 +619,7 @@ function buildDamagePanelHtml(data, ctx) {
         </div>
         <label class="checkbox-line"><input type="checkbox" name="isMagicDamage" ${data.isMagicDamage ? "checked" : ""}/> Dano Mágico</label>
         <div class="form-group"><label>Elemento(s)</label>${pickerFieldHtml(data.damageElements, "se-damage-elements")}</div>
+        <div class="form-group" title="Cura quem usou o golpe com este % do dano que realmente entrou na Vida do alvo (depois de resistências, fraquezas e Escudo). A cura sai quando o Mestre clica Aplicar no card, e o Desfazer do card desfaz a cura junto. 0 = não cura."><label>Cura quem usa (% do dano)</label><input type="number" name="lifeSteal" min="0" max="100" value="${Math.round(Number(data.lifeSteal) || 0)}"/><span class="hint-inline">Sai quando o Mestre clica Aplicar, sobre o dano que entrou de verdade na Vida (depois de resistências e Escudo). Desfazer desfaz os dois.</span></div>
         ${masteryOn
           ? `<div class="form-group" title="Arte marcial: a Skill conta como um ataque deste tipo (Desarmado = golpe desarmado). Sub-Skill vazia herda a da Skill-mãe."><label>Golpe de arma</label><select name="weaponStrike">
               <option value="" ${data.weaponStrike ? "" : "selected"}>— nenhum —</option>
@@ -1124,6 +1134,7 @@ function wireEffectRowTarget(li) {
   li.querySelector(".se-effect-condition")?.addEventListener("change", event => {
     const isCurse = Boolean(getActiveStatusConditions().find(c => c.id === event.target.value)?.curse?.enabled);
     li.querySelector(".se-effect-curse-unpaid").style.display = isCurse ? "inline-block" : "none";
+    li.querySelector(".se-effect-pierce-line").style.display = event.target.value ? "inline-flex" : "none";
   });
 }
 
@@ -1338,6 +1349,7 @@ function readSkillEditorForm(root, lockTier) {
     structureRegenCost: effectType === "structure" && hasUpkeep ? Math.max(0, Number(root.querySelector('[name="structureRegenCost"]')?.value) || 0) : 0,
     areaShape: isEmission ? root.querySelector('[name="areaShape"]').value : "",
     areaDistance: isEmission ? Number(root.querySelector('[name="areaDistance"]').value) || 0 : 0,
+    structureSize: effectType === "structure" ? Math.max(0, Number(root.querySelector('[name="structureSize"]')?.value) || 0) : 0,
     areaPerLevel: (isEmission || effectType === "structure") ? Math.max(0, Number(root.querySelector('[name="areaPerLevel"]')?.value) || 0) : 0,
     structureFollows: effectType === "structure" ? Boolean(root.querySelector('[name="structureFollows"]')?.checked) : false,
     areaAngle: isEmission ? Number(root.querySelector('[name="areaAngle"]').value) || 53 : 53,
@@ -1346,6 +1358,7 @@ function readSkillEditorForm(root, lockTier) {
     scalingAttribute: effectType === "damage" ? scalingAttribute : "",
     isMagicDamage: effectType === "damage" && root.querySelector('[name="isMagicDamage"]').checked,
     isAbsoluteDamage: effectType === "damage" && Boolean(root.querySelector('[name="isAbsoluteDamage"]')?.checked),
+    lifeSteal: effectType === "damage" ? Math.min(100, Math.max(0, Math.round(Number(root.querySelector('[name="lifeSteal"]')?.value) || 0))) : 0,
     damageScale: effectType === "damage" ? root.querySelector('[name="damageScale"]')?.value ?? "" : "",
     weaponStrike: effectType === "damage" ? root.querySelector('[name="weaponStrike"]')?.value ?? "" : "",
     strikeRequiresWeapon: (() => {
@@ -1371,6 +1384,7 @@ function readSkillEditorForm(root, lockTier) {
             tickUnit: row.querySelector(".se-effect-tick-unit").value,
             healKind: row.querySelector(".se-effect-heal-kind")?.value || "cura",
             curseOnUnpaid: row.querySelector(".se-effect-curse-unpaid")?.value || "",
+            piercesCondition: Boolean(row.querySelector(".se-effect-condition")?.value) && Boolean(row.querySelector(".se-effect-pierce")?.checked),
             onlyIf: (() => {
               if (row.querySelector(".se-effect-target").value === "push") return { kind: "", value: "", threshold: 50 };
               const kind = row.querySelector(".se-effect-onlyif-kind")?.value ?? "";

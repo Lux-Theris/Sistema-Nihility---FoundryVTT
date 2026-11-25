@@ -37,13 +37,13 @@ function elementResistance(actor, elementIds) {
 }
 
 /** Passa a Condição: com o efeito padrão dela, ou só a marca se ela não tiver efeito. */
-async function infect(actor, condition) {
+async function infect(actor, condition, originResist = 0) {
   if (condition.effect?.kind) {
     const { applyManualCondition } = await import("../skills/effects-apply.js");
     await applyManualCondition(actor, condition.id, {
       target: "hp", amount: 0, durationRounds: 0, periodic: false, tickUnit: "combatRound",
       damageElements: [], modifierType: "flat", icon: "", hitDamage: 0
-    }, { force: true }); // a origem já foi consultada em tickContagion
+    }, { force: true, originResist }); // a origem já foi consultada em tickContagion
     return;
   }
   await actor.createEmbeddedDocuments(
@@ -94,12 +94,14 @@ export async function tickContagion(combatant) {
       // Sorte (8d.1): a VÍTIMA se beneficia — a sorte dela empurra o d100 para cima (= não pega).
       const roll = await new Roll(applyLuckToFormula("1d100", luckOf(actor, "chances"))).evaluate();
       const caught = roll.total <= chance;
-      // Imunidade/Resistência da origem (condition-guard.js) vale também para o contágio.
-      if (caught && !(await checkOriginCondition(actor, condition.id)).lands) {
-        rows.push(`<li>${escapeHtml(token.name)}: resistiu pela origem (${roll.total} ≤ ${chance}%)</li>`);
+      // Imunidade/Resistência da origem (condition-guard.js) vale também para o contágio: cada contágio que iria pegar é
+      // uma exposição (1 − X); ao pegar, a força e a duração saem × (1 − X).
+      const origin = caught ? await checkOriginCondition(actor, condition.id) : null;
+      if (caught && !origin.lands) {
+        rows.push(`<li>${escapeHtml(token.name)}: ${origin.kind === "immune" ? "imune" : `resistindo (${origin.hits}/${origin.needed})`} (${roll.total} ≤ ${chance}%)</li>`);
         continue;
       }
-      if (caught) await infect(actor, condition);
+      if (caught) await infect(actor, condition, origin.kind === "resist" ? 1 - origin.factor : 0);
       rows.push(`<li>${escapeHtml(token.name)}: ${caught ? "<strong>pegou</strong>" : "resistiu"} (${roll.total} ${caught ? "≤" : ">"} ${chance}%)</li>`);
     }
     if (!rows.length) continue;

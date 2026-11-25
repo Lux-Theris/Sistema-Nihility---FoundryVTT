@@ -4,6 +4,8 @@
  * `core/config.js`. Separado em 1.68.0 sem mudar nenhum valor.
  */
 
+import { dragoideElementLineages, dragoideDarkLineage, slimeElementLineages, SLIME_COMMON_LINEAGE } from "./species-elements.js";
+
 export const DEFAULT_SPECIES_PRESETS = {
   humano: {
     label: "Humano",
@@ -30,7 +32,7 @@ export const DEFAULT_SPECIES_PRESETS = {
     lineages: [
       { id: "alto", label: "Alto Elfo", description: "Cidades de pedra branca e magia antiga.", skills: [{ key: "afinidade_arcana", name: "Afinidade Arcana", description: "Sente a presença de magia por perto e reconhece runas antigas.", level: 1, cost: 0 }] },
       { id: "floresta", label: "Elfo da Floresta", description: "Rápido e silencioso entre as árvores.", movement: { percent: 10 } },
-      { id: "sombrio", label: "Elfo Sombrio", description: "Criado no subterrâneo, longe do sol.", passives: { resistances: [{ target: "dark", amount: 20 }, { target: "holy", amount: -10 }] }, skills: [{ key: "visao_nas_sombras", name: "Visão nas Sombras", description: "Enxerga no escuro total como se fosse penumbra.", level: 1, cost: 0 }] }
+      { id: "sombrio", label: "Elfo Sombrio", description: "Criado no subterrâneo, longe do sol.", passives: { resistances: [{ target: "dark", amount: 20 }, { target: "light", amount: -10 }] }, skills: [{ key: "visao_nas_sombras", name: "Visão nas Sombras", description: "Enxerga no escuro total como se fosse penumbra.", level: 1, cost: 0 }] }
     ],
     parts: [
       { key: "head", label: "Cabeça", slot: "head", hpMax: 8, tags: ["vital"] },
@@ -122,10 +124,13 @@ export const DEFAULT_SPECIES_PRESETS = {
   },
   slime: {
     label: "Slime",
-    passives: { resistances: [{ target: "blunt", amount: 30 }, { target: "acid", amount: 30 }, { target: "fire", amount: -20 }], conditions: [{ conditionId: "bleeding", mode: "immune", amount: 100 }] },
+    // A fraqueza a Fogo (−20) mora na Linhagem Slime Comum desde a 1.121.0; Contundente 30, Ácido 30 e Imune a Sangramento ficam aqui.
+    passives: { resistances: [{ target: "blunt", amount: 30 }, { target: "acid", amount: 30 }], conditions: [{ conditionId: "bleeding", mode: "immune", amount: 100 }] },
     group: "isekai",
     traits: ["organic"],
     availableAtCreation: true,
+    lineageRequired: true,
+    lineages: [SLIME_COMMON_LINEAGE, ...slimeElementLineages()],
     // Cadeia de evolução estilo Tensura (aba Evolução do editor; botão "Evoluir…" do Mestre).
     evolvesTo: [{ species: "slime_demoniaco", minLevel: 10, hint: "Ao receber um Nome de um Lorde Demônio.", keepLineage: true, resistancesToImmunity: true }],
     parts: [
@@ -153,7 +158,10 @@ export const DEFAULT_SPECIES_PRESETS = {
         id: "raio", label: "Linhagem do Raio", description: "Escamas que estalam; o sopro é um relâmpago.", elements: ["lightning"], passives: { resistances: [{ target: "lightning", amount: 20 }] },
         skills: [{ key: "sopro_eletrico", name: "Sopro Elétrico", description: "Exala um relâmpago em linha reta.", level: 1, cost: 20, effectType: "damage", damageFormula: "3d6", damageElements: ["lightning"], targetType: "emission", areaShape: "ray", areaDistance: 8 }],
         replaces: { skills: ["sopro_draconico"] }
-      }
+      },
+      // Uma Linhagem por elemento (1.121.0): Água, Ácido, Terra, Vento, Luz, Sagrado, Demoníaco e os nove de ficção científica; e o Dragão de Trevas.
+      ...dragoideElementLineages(),
+      dragoideDarkLineage()
     ],
     parts: [
       { key: "head", label: "Cabeça", slot: "head", hpMax: 14, tags: ["vital"] },
@@ -317,9 +325,9 @@ export const DEFAULT_SPECIES_PRESETS = {
     group: "isekai",
     description: "Um Slime que recebeu um Nome: a massa ganhou vontade e fome de Mana.",
     traits: ["organic"],
-    elements: ["dark"],
+    elements: ["demonic"],
     availableAtCreation: false,
-    passives: { statModifiers: { hp: 0, energy: 100 }, resistances: [{ target: "dark", amount: 30 }, { target: "blunt", amount: 30 }, { target: "acid", amount: 30 }, { target: "holy", amount: -20 }], conditions: [{ conditionId: "bleeding", mode: "immune", amount: 100 }, { conditionId: "poison", mode: "immune", amount: 100 }] },
+    passives: { statModifiers: { hp: 0, energy: 100 }, resistances: [{ target: "demonic", amount: 30 }, { target: "blunt", amount: 30 }, { target: "acid", amount: 30 }, { target: "holy", amount: -20 }], conditions: [{ conditionId: "bleeding", mode: "immune", amount: 100 }, { conditionId: "poison", mode: "immune", amount: 100 }] },
     parts: [
       { key: "core", label: "Núcleo", slot: "core", hpMax: 60, tags: ["vital", "regenerative"] },
       { key: "mass", label: "Massa Gelatinosa", slot: "body", hpMax: 80, hpPercent: 100, tags: ["amorphous", "regenerative"] }
@@ -458,11 +466,20 @@ export const DEFAULT_SPECIES_PRESETS = {
 export const DEFAULT_HERITAGES = [
   {
     id: "vampirizado", label: "Vampirizado", group: "fantasia", acquired: "acquired",
-    description: "Mordido e transformado: imortal, faminto, avesso à luz do sol.",
+    description: "Mordido e transformado (a forma natural): imortal, faminto, avesso à luz do sol. O corpo é de Trevas, então a Luz o fere mais.",
     traits: ["undead"], removesTraits: ["organic"], elements: ["dark"],
     passives: { resistances: [{ target: "dark", amount: 30 }], conditions: [{ conditionId: "poison", mode: "immune", amount: 100 }], attributeBonuses: [{ attribute: "strength", amount: 1 }] },
     skills: [{ key: "dreno_vital", name: "Dreno Vital", level: 1, cost: 10, effectType: "damage", damageFormula: "1d8", damageElements: ["dark"], isMagicDamage: true, description: "Morde e drena a vida do alvo." }],
-    excludes: ["abencoado"], allowedSpecies: { mode: "any", list: [] }
+    excludes: ["abencoado", "vampirizado_demonio"], allowedSpecies: { mode: "any", list: [] }
+  },
+  {
+    // 1.121.0: o vampiro feito por um demônio. O corpo é Demoníaco (fraco ao Sagrado pela tabela), não de Trevas.
+    id: "vampirizado_demonio", label: "Vampirizado por Demônio", group: "fantasia", acquired: "acquired",
+    description: "Transformado por um demônio: imortal e faminto como o vampiro natural, mas o corpo é Demoníaco, então o Sagrado o fere mais.",
+    traits: ["undead"], removesTraits: ["organic"], elements: ["demonic"],
+    passives: { resistances: [{ target: "demonic", amount: 30 }], conditions: [{ conditionId: "poison", mode: "immune", amount: 100 }], attributeBonuses: [{ attribute: "strength", amount: 1 }] },
+    skills: [{ key: "dreno_vital_demonio", name: "Dreno Vital", level: 1, cost: 10, effectType: "damage", damageFormula: "1d8", damageElements: ["demonic"], isMagicDamage: true, description: "Morde e drena a vida do alvo." }],
+    excludes: ["abencoado", "vampirizado"], allowedSpecies: { mode: "any", list: [] }
   },
   {
     id: "meio_dragao", label: "Meio-Dragão", group: "fantasia", acquired: "birth",
@@ -474,8 +491,8 @@ export const DEFAULT_HERITAGES = [
   {
     id: "possuido", label: "Possuído", group: "fantasia", acquired: "acquired",
     description: "Algo mora com você. Às vezes ajuda, às vezes cobra.",
-    traits: [], elements: ["dark"],
-    passives: { attributeBonuses: [{ attribute: "magic", amount: 2 }], statModifiers: { hp: -10 }, resistances: [{ target: "dark", amount: 20 }, { target: "holy", amount: -20 }], conditions: [{ conditionId: "fear", mode: "resist", amount: 30 }] },
+    traits: [], elements: ["demonic"],
+    passives: { attributeBonuses: [{ attribute: "magic", amount: 2 }], statModifiers: { hp: -10 }, resistances: [{ target: "demonic", amount: 20 }, { target: "holy", amount: -20 }], conditions: [{ conditionId: "fear", mode: "resist", amount: 30 }] },
     skills: [{ key: "voz_interior", name: "Voz Interior", level: 1, cost: 0, effectType: "none", description: "A entidade sussurra o que viu. O Mestre decide o preço." }],
     allowedSpecies: { mode: "any", list: [] }
   },
@@ -484,7 +501,7 @@ export const DEFAULT_HERITAGES = [
     description: "Marcado por uma divindade.",
     traits: [], elements: ["holy"],
     passives: { resistances: [{ target: "dark", amount: 20 }, { target: "holy", amount: 20 }], conditions: [{ conditionId: "fear", mode: "resist", amount: 30 }] },
-    skills: [], excludes: ["vampirizado"], allowedSpecies: { mode: "any", list: [] }
+    skills: [], excludes: ["vampirizado", "vampirizado_demonio"], allowedSpecies: { mode: "any", list: [] }
   },
   {
     id: "convertido_ciborgue", label: "Convertido em Ciborgue", group: "scifi", acquired: "acquired",

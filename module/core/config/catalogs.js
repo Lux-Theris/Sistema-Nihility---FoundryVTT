@@ -366,6 +366,16 @@ export function getPredationAttrPercent() {
   }
 }
 
+/** Predação "Só formas": % dos pontos de atributo que ela dá em relação à Predação normal (Regras da Mesa, padrão 50). */
+export function getPredationFormsPercent() {
+  try {
+    const value = Number(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.predationFormsPercent));
+    return Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : 50;
+  } catch (err) {
+    return 50;
+  }
+}
+
 /** Predação: quanto cada nível de diferença entre a Skill alvo e a Predação muda a chance (Regras da Mesa, padrão 5). */
 export function getPredationLevelStep() {
   try {

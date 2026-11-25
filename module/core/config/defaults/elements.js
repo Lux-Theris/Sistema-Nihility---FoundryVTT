@@ -51,6 +51,18 @@ export const DEFAULT_ELEMENT_SURFACES = {
   ice: { enabled: true, label: "Gelo no chão", chance: 50, radius: 2, damageFormula: "", conditionId: "slow", conditionRounds: 1, height: 0, nature: "origin", rounds: 3, minutes: 10, immuneTraits: [] }
 };
 
+/**
+ * Luz, Demoníaco, Terra e Vento: os elementos novos da 1.120.0 (Trevas é o antigo Sombrio com outro rótulo, mesmo id `dark`).
+ * Fora do objeto porque a migração `newElements` acrescenta exatamente estes num catálogo de Tipos de Dano já salvo.
+ * Afinidades: Trevas ↔ Luz e Sagrado ↔ Demoníaco fortes um contra o outro; ciclo Terra › Raio › Vento › Terra.
+ */
+export const FANTASY_ELEMENTS_1120 = [
+  { id: "light", label: "Luz", color: "#fff1a8", group: "Fantasia", effects: [{ type: "condition", conditionId: "blindness", chance: 25 }], affinity: { dark: 1 } },
+  { id: "demonic", label: "Demoníaco", color: "#c2185b", group: "Fantasia", effects: [{ type: "condition", conditionId: "fear", chance: 25 }], affinity: { holy: 1 } },
+  { id: "earth", label: "Terra", color: "#a1887f", group: "Fantasia", effects: [{ type: "condition", conditionId: "slow", chance: 25 }], affinity: { lightning: 1 } },
+  { id: "wind", label: "Vento", color: "#b2dfdb", group: "Fantasia", effects: [{ type: "condition", conditionId: "unbalanced", chance: 25 }], affinity: { earth: 1 } }
+];
+
 /** Água e Óleo: os elementos novos da 1.97.0 (a marca vem da Condição que o golpe aplica). */
 export const REACTION_ELEMENTS = [
   { id: "water", label: "Água", color: "#5aa9ff", group: "Fantasia", effects: [{ type: "condition", conditionId: "wet", chance: 100, rounds: 2 }], reactions: DEFAULT_ELEMENT_REACTIONS.water, surface: DEFAULT_ELEMENT_SURFACES.water },
@@ -74,10 +86,12 @@ export const DEFAULT_DAMAGE_ELEMENTS = [
   // Fogo e Ácido cauterizam: a Regeneração não age por 2 rodadas (o troll só morre assim).
   { id: "fire", label: "Fogo", color: "#ff7043", group: "Fantasia", effects: [{ type: "condition", conditionId: "burn", chance: 25 }, { type: "blockRegen", chance: 100, rounds: 2 }], affinity: { ice: 1 }, reactions: DEFAULT_ELEMENT_REACTIONS.fire, surface: DEFAULT_ELEMENT_SURFACES.fire },
   { id: "ice", label: "Gelo", color: "#6ee7ff", group: "Fantasia", effects: [{ type: "condition", conditionId: "slow", chance: 25 }], affinity: { fire: -1 }, reactions: DEFAULT_ELEMENT_REACTIONS.ice, surface: DEFAULT_ELEMENT_SURFACES.ice },
-  { id: "lightning", label: "Elétrico", color: "#ffe066", group: "Fantasia", effects: [], reactions: DEFAULT_ELEMENT_REACTIONS.lightning },
+  { id: "lightning", label: "Elétrico", color: "#ffe066", group: "Fantasia", effects: [], affinity: { wind: 1 }, reactions: DEFAULT_ELEMENT_REACTIONS.lightning },
   { id: "acid", label: "Ácido", color: "#8bc34a", group: "Fantasia", effects: [{ type: "blockRegen", chance: 100, rounds: 2 }] },
-  { id: "dark", label: "Sombrio", color: "#7b5ea7", group: "Fantasia", effects: [], affinity: { holy: 1 } },
-  { id: "holy", label: "Sagrado", color: "#e8c170", group: "Fantasia", effects: [], affinity: { dark: 1 } },
+  // Trevas (o antigo Sombrio, mesmo id) ↔ Luz e Sagrado ↔ Demoníaco; Terra › Raio › Vento › Terra (1.120.0).
+  { id: "dark", label: "Trevas", color: "#7b5ea7", group: "Fantasia", effects: [], affinity: { light: 1 } },
+  { id: "holy", label: "Sagrado", color: "#e8c170", group: "Fantasia", effects: [], affinity: { demonic: 1 } },
+  ...FANTASY_ELEMENTS_1120,
   // Água e Óleo (8.1): o golpe deixa a marca Molhado/Oleado; as reações do Fogo/Gelo/Elétrico a leem.
   ...REACTION_ELEMENTS
 ];

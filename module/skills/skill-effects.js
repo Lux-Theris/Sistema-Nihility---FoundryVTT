@@ -506,7 +506,7 @@ async function dispatchMechanic({ sourceActor, skill, skillId, mech, label, opti
     await postAntimagicPaid(sourceActor, label, am.note);
     return mech.effectType === "analysis"
       ? useAnalysis(sourceActor, skill, mech, label, target)
-      : usePredation(sourceActor, skill, mech, label, target, { bypass: Boolean(options.predationBypass) });
+      : usePredation(sourceActor, skill, mech, label, target, { bypass: Boolean(options.predationBypass), subSkillIndex: options.subSkillIndex ?? null });
   }
 
   if (isStructureMechanic(mech)) {

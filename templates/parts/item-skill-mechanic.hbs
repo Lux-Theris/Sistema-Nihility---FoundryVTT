@@ -116,6 +116,7 @@
         {{/if}}
         {{#if (eq system.targetType "zone")}}
         <label class="fld"><span class="fld-label">Duração da Zona <span class="help" title="Rodadas de combate: só avança em combate. O Mestre pode apagar a área antes.">?</span></span><span class="suffix"><input type="number" name="system.zoneRounds" value="{{system.zoneRounds}}" min="1" aria-label="Duração da Zona"/><span>rod.</span></span></label>
+        <label class="toggle span-all"><input type="checkbox" name="system.zoneDarkens" {{#if system.zoneDarkens}}checked{{/if}}/><span class="toggle-track"></span><span>Escurece o mapa</span><span class="help" title="A Zona escurece o mapa de verdade: uma luz negativa do Foundry no lugar dela, apagada junto com a Zona. Quem está dentro conta como no escuro (Quando → Então 'Está escuro onde estou' e 'Só se estou no escuro'), com a escuridão no máximo.">?</span></label>
         {{/if}}
       </div>
       {{/if}}
@@ -179,6 +180,30 @@
   <div class="strip dim">Análise: ao usar, pede um alvo (Personagem). A margem = nível da Skill − (nível do alvo + a Ocultação dele) + a diferença de Percepção × Furtividade ÷ o degrau. Quanto maior, mais da ficha do alvo o card revela (só para quem analisou e o Mestre). Skill mágica perde nível pela Defesa Mágica do alvo; tecnológica não.</div>
   {{/if}}
   {{#if (eq skillMechanicType "predation")}}
+  <div class="fld">
+    <span class="fld-label">O que a Predação leva <span class="help" title="Tudo: as Skills do alvo (d100 por Skill), os pontos de atributo e a forma (só com uma Skill de Forma própria). Só formas: não rola Skills; a própria Skill guarda o DNA do alvo (uma Sub-Skill de Forma por criatura) e transforma por ela; ganha só uma fração dos pontos (Regra da Mesa, padrão metade).">?</span></span>
+    <div class="seg" role="radiogroup" aria-label="O que a Predação leva">
+      {{#each predationTakesSeg as |opt|}}
+      <label class="seg-opt {{#if opt.checked}}on{{/if}}"><input type="radio" name="system.predationTakes" value="{{opt.value}}" {{#if opt.checked}}checked{{/if}}/>{{opt.label}}</label>
+      {{/each}}
+    </div>
+  </div>
+  {{#if predationFormsOnly}}
+  <div class="sec">
+    <div class="sec-head">Formas guardadas (na Skill)</div>
+    <div class="sec-body">
+      {{#each predationStoredForms as |form|}}
+      <div class="strip">
+        <strong>{{form.name}}</strong>{{#if form.active}} <span class="dim">(transformado)</span>{{/if}}
+        {{#if form.canUse}}<button type="button" data-action="useStoredForm" data-index="{{form.index}}">{{#if form.active}}Voltar{{else}}Transformar{{/if}}</button>{{/if}}
+      </div>
+      {{else}}
+      <div class="strip dim">Nenhuma forma guardada ainda: cada Predação confirmada pelo Mestre guarda a do alvo aqui.</div>
+      {{/each}}
+      <div class="strip dim">Transformar segue as regras de Forma de sempre (o que vem do molde, duração, custo). A lista fica na própria Skill de Predação.</div>
+    </div>
+  </div>
+  {{/if}}
   <div class="strip dim">Predação: ao usar, pede um alvo derrotado (morto, Caído ou Inconsciente). Rola um d100 por Skill do alvo (chance = 50% + 25% por Tier de vantagem do Tier desta Skill) e o Mestre confirma. Quem preda ganha as Skills no nível 1, pontos de atributo (uma parte dos do alvo, só na 1ª, 5ª, 10ª, 20ª… criatura da mesma Espécie) e, se tiver uma Skill de Forma, a forma do corpo.</div>
   {{/if}}
 

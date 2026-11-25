@@ -304,6 +304,8 @@ export async function evolveSkill(actor, sourceItemId, newSkillData) {
       structureSize: newSkillData.structureSize ?? 0,
       lifeSteal: newSkillData.lifeSteal ?? 0,
       structureFollows: Boolean(newSkillData.structureFollows),
+      zoneDarkens: Boolean(newSkillData.zoneDarkens),
+      predationTakes: newSkillData.predationTakes ?? "all",
       endsWhenTargetFalls: Boolean(newSkillData.endsWhenTargetFalls),
       intruderRule: newSkillData.intruderRule ?? "",
       rerollWho: newSkillData.rerollWho ?? "own",

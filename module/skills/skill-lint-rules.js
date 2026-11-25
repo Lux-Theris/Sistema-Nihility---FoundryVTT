@@ -169,6 +169,11 @@ export function lintSkill(mech, ctx = {}) {
   }
 
   // Análise e Predação (7b): uso na hora, sempre num alvo único.
+  // Zona que escurece o mapa (1.120.0): sem as luzes do Foundry ou sem Zona, o campo não faz nada.
+  if (m.zoneDarkens && m.targetType !== "zone") push("zoneDarkensNoZone", "soft", "mechanic", "\"Escurece o mapa\" só vale numa Zona: o Tipo de Alvo não é Zona e o campo não faz nada.");
+  // Predação "Só formas": não rola Skills; a Skill guarda as formas (Sub-Skills de Forma Ativas).
+  if (effectType === "predation" && m.predationTakes === "forms" && m.hasUpkeep) push("predationFormsActive", "hard", "mechanic", "Predação \"Só formas\" é de uso na hora: as formas guardadas são as Sub-Skills Ativas, a Skill em si não pode ser Ativa.");
+
   if (effectType === "analysis" || effectType === "predation") {
     const name = effectType === "analysis" ? "Análise" : "Predação";
     if (active) push("analysisPredationActive", "hard", "mechanic", `Mecânica ${name} é de uso na hora: numa Habilidade Ativa ela liga e desliga em vez de agir.`);

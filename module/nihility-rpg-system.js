@@ -91,6 +91,7 @@ import { registerPredation } from "./skills/predation.js";
 import { registerEnvironmentSceneMenu } from "./apps/environment-config.js";
 import { registerSceneFolders } from "./environment/scene-config-apply.js";
 import { registerShieldLightHooks } from "./combat/lights.js";
+import { registerZoneDarkness } from "./combat/zone-darkness.js";
 import { registerShieldPoolReconcile } from "./combat/shield-pools.js";
 import { registerStatusConditions, interceptManualCondition } from "./combat/conditions.js";
 import { registerModuleInstallRules } from "./starship/module-install.js";
@@ -226,6 +227,7 @@ Hooks.once("init", () => {
   registerCompendiumCreateDefaults();
   registerStructureRendering();
   registerShieldLightHooks();
+  registerZoneDarkness();
   registerShieldPoolReconcile();
   registerShieldAdaptationReset();
   registerStructureContact();

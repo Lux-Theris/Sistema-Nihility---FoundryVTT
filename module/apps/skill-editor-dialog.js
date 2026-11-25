@@ -231,6 +231,8 @@ function buildEditorData(initialData, { lockTier, offerTemplates }) {
     areaPerLevel: Number(initialData.areaPerLevel) || 0,
     structureSize: Math.max(0, Number(initialData.structureSize) || 0),
     structureFollows: Boolean(initialData.structureFollows),
+    zoneDarkens: Boolean(initialData.zoneDarkens),
+    predationTakes: initialData.predationTakes === "forms" ? "forms" : "all",
     endsWhenTargetFalls: Boolean(initialData.endsWhenTargetFalls),
     intruderRule: initialData.intruderRule ?? "",
     rerollWho: REROLL_WHO.includes(initialData.rerollWho) ? initialData.rerollWho : "own",
@@ -522,6 +524,7 @@ function buildRangeSectionHtml(data, ctx) {
           </div>` : `<input type="hidden" name="areaOrigin" value="${data.areaOrigin}"/><input type="hidden" name="areaFreeLevel" value="${data.areaFreeLevel}"/>`}
           <div class="form-group" title="Quem dentro da área sofre o efeito. Aliado = mesma disposição do Token (amigo/neutro/hostil) de quem lança. Morto nunca é atingido por área."><label>Quem a área atinge</label><select name="areaAffects">${AREA_AFFECTS_OPTIONS.map(([v, l]) => `<option value="${v}" ${data.areaAffects === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>
           <div class="form-group se-zone-rounds-field"><label>Duração da Zona <span class="hint-inline" style="display:inline;">(rodadas de combate)</span></label><input type="number" name="zoneRounds" value="${data.zoneRounds}" min="1"/></div>
+          <label class="checkbox-line se-zone-darkens-field" title="A Zona escurece o mapa de verdade (uma luz negativa do Foundry no lugar dela, apagada junto com a Zona). Quem está dentro conta como no escuro (Quando → Então e Só se estou no escuro)."><input type="checkbox" name="zoneDarkens" ${data.zoneDarkens ? "checked" : ""}/> Escurece o mapa</label>
           <div class="form-group"><label>Formato de Área</label><select name="areaShape">${areaShapeOptions}</select></div>
           <div class="row-2">
             <div class="form-group"><label>Distância <span class="hint-inline" style="display:inline;">(unidades de grid)</span></label><input type="number" name="areaDistance" value="${data.areaDistance}" min="0"/></div>
@@ -549,6 +552,20 @@ function buildFormPanelHtml(data) {
   return `<div class="mechanic-panel se-form-panel">
         <div class="form-group"><label>Ficha da forma</label><input type="text" name="formActorUuid" value="${escapeHtml(data.formActorUuid)}" placeholder="Arraste a ficha-molde para cá">
           <span class="hint-inline">Um Personagem marcado como "Molde de forma". Precisa ser Habilidade Ativa: desligar volta ao normal.</span>
+        </div>
+      </div>`;
+}
+
+
+/** Painel de Predação (1.120.0): o que ela leva. */
+function buildPredationPanelHtml(data) {
+  return `<div class="mechanic-panel se-predation-panel">
+        <div class="form-group"><label>O que a Predação leva</label>
+          <select name="predationTakes">
+            <option value="forms" ${data.predationTakes === "forms" ? "selected" : ""}>Só formas</option>
+            <option value="all" ${data.predationTakes !== "forms" ? "selected" : ""}>Tudo</option>
+          </select>
+          <span class="hint-inline"><strong>Tudo</strong>: Skills, pontos e a forma (só com Skill de Forma própria). <strong>Só formas</strong>: guarda o DNA na própria Skill (uma Sub-Skill de Forma por criatura) e transforma por ela; sem Skills; metade dos pontos de atributo (Regra da Mesa).</span>
         </div>
       </div>`;
 }
@@ -697,6 +714,8 @@ export async function openSkillEditorDialog(initialData = {}, options = {}) {
       ${buildRerollPanelHtml(data)}
 
       ${buildFormPanelHtml(data)}
+
+      ${buildPredationPanelHtml(data)}
 
       ${buildStructurePanelHtml(data, ctx)}
 
@@ -868,6 +887,7 @@ function setupMechanic(root) {
   const tempPanel = root.querySelector(".se-temp-panel");
   const structurePanel = root.querySelector(".se-structure-panel");
   const formPanel = root.querySelector(".se-form-panel");
+  const predationPanel = root.querySelector(".se-predation-panel");
   const rerollPanel = root.querySelector(".se-reroll-panel");
   const formInput = root.querySelector('[name="formActorUuid"]');
   if (formInput) {
@@ -889,6 +909,7 @@ function setupMechanic(root) {
     if (targetTypeField) targetTypeField.style.display = fixedTarget ? "none" : "";
     structurePanel.style.display = value === "structure" ? "flex" : "none";
     if (formPanel) formPanel.style.display = value === "form" ? "flex" : "none";
+    if (predationPanel) predationPanel.style.display = value === "predation" ? "flex" : "none";
     if (rerollPanel) rerollPanel.style.display = value === "reroll" ? "flex" : "none";
     damagePanel.style.display = value === "damage" ? "flex" : "none";
     tempPanel.style.display = value === "temporary" ? "flex" : "none";
@@ -916,6 +937,8 @@ function setupTargetArea(root) {
     const freeLevel = root.querySelector(".se-free-level-field");
     if (originSelect && freeLevel) freeLevel.style.display = originSelect.value === "caster" ? "flex" : "none";
     root.querySelector(".se-zone-rounds-field").style.display = targetTypeSelect.value === "zone" ? "flex" : "none";
+    const darkensField = root.querySelector(".se-zone-darkens-field");
+    if (darkensField) darkensField.style.display = targetTypeSelect.value === "zone" ? "flex" : "none";
   }
   function applyAreaShape() {
     angleField.style.display = areaShapeSelect.value === "cone" ? "flex" : "none";
@@ -1352,6 +1375,8 @@ function readSkillEditorForm(root, lockTier) {
     structureSize: effectType === "structure" ? Math.max(0, Number(root.querySelector('[name="structureSize"]')?.value) || 0) : 0,
     areaPerLevel: (isEmission || effectType === "structure") ? Math.max(0, Number(root.querySelector('[name="areaPerLevel"]')?.value) || 0) : 0,
     structureFollows: effectType === "structure" ? Boolean(root.querySelector('[name="structureFollows"]')?.checked) : false,
+    zoneDarkens: targetType === "zone" ? Boolean(root.querySelector('[name="zoneDarkens"]')?.checked) : false,
+    predationTakes: effectType === "predation" && root.querySelector('[name="predationTakes"]')?.value === "forms" ? "forms" : "all",
     areaAngle: isEmission ? Number(root.querySelector('[name="areaAngle"]').value) || 53 : 53,
     zoneRounds: targetType === "zone" ? Math.max(1, Number(root.querySelector('[name="zoneRounds"]').value) || 3) : 3,
     damageFormula: effectType === "damage" ? root.querySelector('[name="damageFormula"]').value.trim() : "",

@@ -463,3 +463,131 @@ test("XP do Escudo mantido: quanto cada camada segurou, por Skill", () => {
   assert.deepEqual(shieldBlockCredits([{ id: "z", value: 9 }], []), [], "sem Skill (avulso de outro jeito): nada");
   assert.deepEqual(shieldBlockCredits(before, before), [], "nada segurado");
 });
+
+/* -------------------------------------------- */
+/*  1.120.0: elementos novos, escala do Quando → Então                  */
+/* -------------------------------------------- */
+
+import { levelScaleCount, ruleValue, ruleScaleText, contextDarkness } from "../module/combat/conditional-modifiers.js";
+import { planElementMigration, elementKeptNotice, NEW_ELEMENT_IDS } from "../module/combat/element-migration-rules.js";
+import { onlyIfOutcome, onlyIfClause, normalizeOnlyIf, ONLY_IF_KINDS } from "../module/skills/only-if-rules.js";
+
+test("elementos de fábrica: Trevas ↔ Luz, Sagrado ↔ Demoníaco, ciclo Terra › Raio › Vento › Terra", () => {
+  const list = NIHILITY.DEFAULT_DAMAGE_ELEMENTS;
+  const byId = Object.fromEntries(list.map(el => [el.id, el]));
+  assert.equal(byId.dark.label, "Trevas");
+  for (const id of ["light", "demonic", "earth", "wind"]) assert.ok(byId[id], id);
+  const m = buildAffinityMatrix(list);
+  assert.equal(affinityLevel(m, "dark", "light"), 1);
+  assert.equal(affinityLevel(m, "light", "dark"), 1);
+  assert.equal(affinityLevel(m, "holy", "demonic"), 1);
+  assert.equal(affinityLevel(m, "demonic", "holy"), 1);
+  assert.equal(affinityLevel(m, "dark", "holy"), 0);
+  assert.equal(affinityLevel(m, "holy", "dark"), 0);
+  assert.equal(affinityLevel(m, "earth", "lightning"), 1);
+  assert.equal(affinityLevel(m, "lightning", "wind"), 1);
+  assert.equal(affinityLevel(m, "wind", "earth"), 1);
+  // O ciclo não volta: Raio não é forte contra Terra.
+  assert.equal(affinityLevel(m, "lightning", "earth"), 0);
+});
+
+test("elementos novos: efeito ao acertar pelos ids de Condição que existem", () => {
+  const conds = new Set(NIHILITY.DEFAULT_STATUS_CONDITIONS.map(c => c.id));
+  const byId = Object.fromEntries(NIHILITY.DEFAULT_DAMAGE_ELEMENTS.map(el => [el.id, el]));
+  const cond = id => byId[id].effects.find(e => e.type === "condition")?.conditionId;
+  assert.equal(cond("light"), "blindness");
+  assert.equal(cond("demonic"), "fear");
+  assert.equal(cond("earth"), "slow");
+  assert.equal(cond("wind"), "unbalanced");
+  for (const id of ["light", "demonic", "earth", "wind"]) assert.ok(conds.has(cond(id)), id);
+});
+
+const OLD_ELEMENTS = () => [
+  { id: "physical", label: "Físico" },
+  { id: "fire", label: "Fogo", affinity: { ice: 1 } },
+  { id: "lightning", label: "Elétrico", effects: [] },
+  { id: "dark", label: "Sombrio", effects: [], affinity: { holy: 1 } },
+  { id: "holy", label: "Sagrado", effects: [], affinity: { dark: 1 } },
+  { id: "water", label: "Água" }
+];
+
+test("migração dos elementos: acrescenta os novos e troca só o que ainda é de fábrica", () => {
+  const plan = planElementMigration(OLD_ELEMENTS(), NIHILITY.DEFAULT_DAMAGE_ELEMENTS);
+  const byId = Object.fromEntries(plan.list.map(el => [el.id, el]));
+  assert.deepEqual(plan.added.sort(), ["Demoníaco", "Luz", "Terra", "Vento"].sort());
+  for (const id of NEW_ELEMENT_IDS) assert.ok(byId[id], id);
+  assert.equal(byId.dark.label, "Trevas");
+  assert.deepEqual(byId.dark.affinity, { light: 1 });
+  assert.deepEqual(byId.holy.affinity, { demonic: 1 });
+  assert.deepEqual(byId.lightning.affinity, { wind: 1 });
+  assert.deepEqual(plan.kept, []);
+  // Os novos entram logo depois de Sagrado.
+  const ids = plan.list.map(el => el.id);
+  assert.equal(ids[ids.indexOf("holy") + 1], "light");
+});
+
+test("migração dos elementos: o que o Mestre editou fica e entra no aviso; rodar de novo não muda nada", () => {
+  const saved = OLD_ELEMENTS();
+  saved[3].label = "Sombra";            // renomeado à mão
+  saved[4].affinity = { dark: 2 };       // afinidade editada
+  const plan = planElementMigration(saved, NIHILITY.DEFAULT_DAMAGE_ELEMENTS);
+  const byId = Object.fromEntries(plan.list.map(el => [el.id, el]));
+  assert.equal(byId.dark.label, "Sombra");
+  assert.deepEqual(byId.holy.affinity, { dark: 2 });
+  assert.equal(plan.kept.length, 2);
+  assert.match(elementKeptNotice(plan.kept), /ficaram como estavam/);
+  const again = planElementMigration(plan.list, NIHILITY.DEFAULT_DAMAGE_ELEMENTS);
+  assert.deepEqual(again.added, []);
+  assert.equal(elementKeptNotice([]), "");
+});
+
+test("migração dos elementos: catálogo só de ficção científica não ganha elementos de fantasia", () => {
+  const plan = planElementMigration([{ id: "kinetic", label: "Cinético" }, { id: "phaser", label: "Phaser" }], NIHILITY.DEFAULT_DAMAGE_ELEMENTS);
+  assert.deepEqual(plan.added, []);
+  assert.equal(plan.list.length, 2);
+});
+
+test("a cada N níveis da Skill: 1 + ⌊(nível − 1) ÷ N⌋; sem N ou sem nível conta 1", () => {
+  assert.equal(levelScaleCount(5, 1), 1);
+  assert.equal(levelScaleCount(5, 4), 1);
+  assert.equal(levelScaleCount(5, 5), 1);
+  assert.equal(levelScaleCount(5, 9), 2);
+  assert.equal(levelScaleCount(5, 10), 2);
+  assert.equal(levelScaleCount(5, 12), 3);
+  assert.equal(levelScaleCount(5, 15), 3);
+  assert.equal(levelScaleCount(0, 30), 1);
+  assert.equal(levelScaleCount(5, undefined), 1);
+  assert.equal(levelScaleCount(5, null), 1);
+  assert.equal(levelScaleCount(1, 7), 7);
+});
+
+test("vezes a escuridão: multiplica pela escuridão da cena e arredonda no fim", () => {
+  const mod = { when: { kind: "selfDark" }, then: { kind: "attributeFlat", target: "stealth", value: 1 }, perLevels: 5, sourceLevel: 15, timesDarkness: true };
+  assert.equal(ruleValue(mod, { darkness: 1 }), 3);
+  assert.equal(ruleValue(mod, { darkness: 0.6 }), 2);   // 1,8 → 2
+  assert.equal(ruleValue(mod, { darkness: 0 }), 0);
+  assert.equal(ruleValue(mod, {}), 0);                    // sem o dado, escuridão nenhuma
+  assert.equal(contextDarkness({ darkness: 7 }), 1);
+  // Sem timesDarkness, a escuridão não entra.
+  assert.equal(ruleValue({ ...mod, timesDarkness: false }, { darkness: 0.1 }), 3);
+  // Soma pelas regras: a escala entra no total do "Então".
+  assert.equal(sumConditionalModifiers([mod], "attributeFlat", { isDark: true, darkness: 0.6 }, { attribute: "stealth" }), 2);
+  // Regra de fonte sem nível (Título): "a cada N níveis" conta 1.
+  assert.equal(ruleValue({ ...mod, sourceLevel: undefined }, { darkness: 1 }), 1);
+});
+
+test("a conta da escala em texto (De onde vem)", () => {
+  const mod = { then: { value: 1 }, perLevels: 5, sourceLevel: 12, timesDarkness: true };
+  assert.equal(ruleScaleText(mod, { darkness: 0.6 }), "× 3 (nível 12 ÷ 5) × 60% de escuridão = 2");
+  assert.equal(ruleScaleText({ then: { value: 1 } }, {}), "");
+});
+
+test("Só se estou no escuro: selfDark em ONLY_IF_KINDS, com o mesmo critério do Quando → Então", () => {
+  assert.ok(ONLY_IF_KINDS.includes("selfDark"));
+  assert.equal(normalizeOnlyIf({ kind: "selfDark" })?.kind, "selfDark");
+  assert.equal(onlyIfOutcome({ kind: "selfDark" }, { isDark: true }).ok, true);
+  const refused = onlyIfOutcome({ kind: "selfDark" }, { isDark: false });
+  assert.equal(refused.ok, false);
+  assert.match(refused.reason, /não está no escuro/);
+  assert.match(onlyIfClause({ kind: "selfDark" }), /no escuro/);
+});

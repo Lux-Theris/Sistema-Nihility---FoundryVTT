@@ -30,8 +30,11 @@ export function conditionalModifierSources(actor) {
     if (item.type === "item" && !item.system.equipped) continue;
     if (!["title", "item", "skill"].includes(item.type)) continue;
     // Skill Ativa: cada regra vale ligada ("on", o padrão), desligada ("off") ou sempre (item 8c.1).
+    // "A cada N níveis da Skill" (1.120.0) precisa do nível da fonte: a regra com N ganha uma cópia com `sourceLevel`.
     const mods = item.type === "skill"
-      ? list.filter(mod => ruleActiveStateAllows(mod.activeState, { hasUpkeep: item.system.hasUpkeep, active: item.system.active }))
+      ? list
+        .filter(mod => ruleActiveStateAllows(mod.activeState, { hasUpkeep: item.system.hasUpkeep, active: item.system.active }))
+        .map(mod => (Number(mod.perLevels) > 0 ? { ...mod, sourceLevel: Number(item.system.level) || 1 } : mod))
       : list;
     if (!mods.length) continue;
     // Antimagia: Skill/Item mágico suprimido não conta.

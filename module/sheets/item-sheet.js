@@ -69,6 +69,7 @@ import { isCombinedSkill, combinedHint, STRUCTURE_PLACE_OPTIONS, INTRUDER_RULE_O
 import { getDragEventData } from "../helpers/foundry-compat.js";
 import { formTemplateOf } from "../skills/forms.js";
 import { requestForm } from "../skills/form-request.js";
+import { useSkillFlow } from "../skills/skill-use-flow.js";
 import {
   WHEN_KINDS,
   WHEN_LABELS,
@@ -314,7 +315,7 @@ function tabsFor(item) {
 }
 
 /** Linhas prontas do editor de Bônus Condicionais (opções já com `selected`). */
-function conditionalModifierRows(list, { activeSkill = false } = {}) {
+function conditionalModifierRows(list, { activeSkill = false, isSkill = false } = {}) {
   const pickList = (pairs, current) => pairs.map(([value, label]) => ({ value, label, selected: String(value) === String(current ?? "") }));
   const traits = getActiveTraits().map(t => [t.id, t.label]);
   const conditions = getActiveStatusConditions().map(c => [c.id, c.label]);
@@ -340,6 +341,10 @@ function conditionalModifierRows(list, { activeSkill = false } = {}) {
       targetOptions,
       value: mod.then?.value ?? 0,
       perEachOptions: pickList(PER_EACH_KINDS.map(k => [k, PER_EACH_LABELS[k]]), mod.perEach ?? ""),
+      // Escala (1.120.0): "a cada N níveis da Skill" só numa Skill (a fonte precisa de nível); "vezes a escuridão" em qualquer fonte.
+      showPerLevels: isSkill,
+      perLevels: Number(mod.perLevels) || 0,
+      timesDarkness: Boolean(mod.timesDarkness),
       // Só numa Skill Ativa (8c.1): vale ligada (o padrão), desligada ou sempre.
       activeStateOptions: activeSkill ? pickList([["on", "só ligada"], ["off", "só desligada"], ["always", "sempre"]], mod.activeState || "on") : null,
       // Bônus contínuo de atributo não sabe quem é o oponente nem qual o elemento.
@@ -463,6 +468,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       deleteModAttrBonus: NihilityItemSheet.#onModAttrBonusDelete,
       levelUpSkill: NihilityItemSheet.#onLevelUpSkill,
       requestForm: NihilityItemSheet.#onRequestForm,
+      useStoredForm: NihilityItemSheet.#onUseStoredForm,
       spendPointLevelUp: NihilityItemSheet.#onSpendPointLevelUp,
       addTitleResistance: NihilityItemSheet.#onTitleResistanceAdd,
       deleteTitleResistance: NihilityItemSheet.#onTitleResistanceDelete,
@@ -671,7 +677,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       );
     }
     if (["title", "skill", "item"].includes(item.type)) {
-      context.conditionalRows = conditionalModifierRows(sys.conditionalModifiers ?? [], { activeSkill: item.type === "skill" && Boolean(sys.hasUpkeep) });
+      context.conditionalRows = conditionalModifierRows(sys.conditionalModifiers ?? [], { activeSkill: item.type === "skill" && Boolean(sys.hasUpkeep), isSkill: item.type === "skill" });
     }
 
     context.headerChips = headerChipsFor(item);
@@ -851,6 +857,16 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       context.skillFormName = template?.name ?? "";
       context.skillFormMissing = Boolean(sys.formActorUuid) && !template;
       context.skillFormCanRequest = !game.user.isGM && isFormsEnabled();
+    }
+
+    // Predação (1.120.0): "O que ela leva" e, em "Só formas", as formas guardadas (Sub-Skills de Forma) com Transformar/Voltar.
+    if (mechanicType === "predation") {
+      context.predationTakesSeg = seg([["all", "Tudo"], ["forms", "Só formas"]], sys.predationTakes === "forms" ? "forms" : "all");
+      context.predationFormsOnly = sys.predationTakes === "forms";
+      context.predationStoredForms = (sys.subSkills ?? [])
+        .map((sub, index) => ({ sub, index }))
+        .filter(({ sub }) => sub?.effectType === "form")
+        .map(({ sub, index }) => ({ index, name: String(sub.name ?? "").replace(/^Forma:s*/, "") || "Forma", active: Boolean(sub.active), canUse: Boolean(this.item.parent) }));
     }
 
     const structures = getStructures();
@@ -1980,6 +1996,15 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const actor = this.document.parent;
     if (!actor) return;
     await requestForm(actor, this.document, null);
+  }
+
+  /** "Transformar"/"Voltar" de uma forma guardada na Predação "Só formas": usa a Sub-Skill de Forma (liga ou desliga) pelo fluxo de sempre. */
+  static async #onUseStoredForm(event, target) {
+    event.preventDefault();
+    const actor = this.document.parent;
+    const index = Number(target.dataset.index);
+    if (!actor || !Number.isInteger(index)) return;
+    await useSkillFlow(actor, this.document.id, { event, pickTarget: async () => null, subSkillIndex: index });
   }
 
   static async #onLevelUpSkill(event, target) {

@@ -6,7 +6,7 @@ import { SYSTEM_ID, NIHILITY, getActiveStatusConditions, getActiveTraits, getEff
 import { makeAnchor, addAnchor, effectAnchors, finiteRemaining, serializeFinite, durationRemaining, refreshFiniteRounds, PERMANENT, ANCHORED_TARGETS_FLAG, recordAnchoredTarget } from "../combat/effect-anchors.js";
 import { escapeHtml } from "../helpers/html.js";
 import { applyStructuralDamage, damageCasco, repairModules } from "../starship/starship-power.js";
-import { resolveConditionEffect, refreshReapplication } from "../combat/damage-rules.js";
+import { resolveConditionEffect, refreshReapplication, rollChance } from "../combat/damage-rules.js";
 import { buildEffectChanges, createActiveEffects, foundryGeneration, readEffectChanges, effectDurationRounds, effectStartRound, effectRoundsUpdate } from "../helpers/foundry-compat.js";
 import { isSenseTarget, SENSE_LABELS, describeSenseRange, senseRangeValue } from "../combat/senses-rules.js";
 import { applyDamageReductions, averageElementContext } from "../combat/damage-roll.js";
@@ -151,6 +151,13 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
         summary.push(`${getEffectTargetLabels()[entry.target] ?? entry.target}: ${gate.reason}`);
         continue;
       }
+    }
+    // Chance (1.121.0): um efeito de Condição com `chance` abaixo de 100 só pega nessa porcentagem das vezes (a Zona de breu
+    // do Dragão de Trevas: chance de Cegueira). O padrão é 100, então nada que já existia muda.
+    if (entry.conditionId && entry.target !== "magicDampen" && Number(entry.chance) > 0 && Number(entry.chance) < 100 && !rollChance(entry.chance)) {
+      const name = getActiveStatusConditions().find(c => c.id === entry.conditionId)?.label ?? entry.conditionId;
+      summary.push(`${name}: não pegou (${Math.round(Number(entry.chance))}% de chance)`);
+      continue;
     }
     if (ctx.shielded(entry)) {
       summary.push(`${getEffectTargetLabels()[entry.target] ?? entry.target}: sem efeito (${targetActor.name} está Suprimido)`);

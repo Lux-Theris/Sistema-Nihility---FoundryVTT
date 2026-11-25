@@ -30,8 +30,10 @@ import { skillOnlyIfBlock } from "./skill-only-if.js";
  * @param {object} [options]
  * @param {Event|{shiftKey: boolean}|null} [options.event]  Só para o Shift (modificadores de rolagem).
  * @param {() => Promise<Actor|null>} options.pickTarget  O seletor de alvo da ficha (`_promptSkillTarget`).
+ * @param {number|null} [options.subSkillIndex]  A Sub-Skill já escolhida (os botões "Transformar"/"Voltar" das formas guardadas
+ *   da Predação "Só formas" pulam a pergunta "Qual componente disparar?").
  */
-export async function useSkillFlow(actor, itemId, { event = null, pickTarget, borrowedSkill = null, borrowedVia = null } = {}) {
+export async function useSkillFlow(actor, itemId, { event = null, pickTarget, borrowedSkill = null, borrowedVia = null, subSkillIndex: presetSubSkill = null } = {}) {
   // Skill emprestada (7a): a Skill é a do DONO (o Item vem de `borrowedSkill`), e quem lança é `actor`.
   const skill = borrowedSkill ?? actor?.items.get(itemId);
   if (!skill) return;
@@ -66,7 +68,7 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget, bo
   let subSkillIndex = null;
   let mech = skill.system;
   if (subSkills.length) {
-    subSkillIndex = await promptSubSkillChoice(skill, subSkills);
+    subSkillIndex = Number.isInteger(presetSubSkill) && subSkills[presetSubSkill] ? presetSubSkill : await promptSubSkillChoice(skill, subSkills);
     if (subSkillIndex === null) return; // cancelou
     mech = subSkills[subSkillIndex];
     if (incapacitatedCheck && !isOnToggle(mech) && blockIfIncapacitated(actor, "usar Habilidades")) return;
@@ -455,7 +457,7 @@ function investFor(actor, mech) {
  * Skills Únicas do Tensura. Devolve o índice em `subSkills`, ou `null` se cancelado.
  */
 export async function promptSubSkillChoice(skill, subSkills) {
-  const kindLabel = sub => (sub.effectType === "damage" ? "Dano" : sub.effectType === "temporary" ? "Efeito Temporário" : "Descritiva");
+  const kindLabel = sub => (sub.effectType === "damage" ? "Dano" : sub.effectType === "temporary" ? "Efeito Temporário" : sub.effectType === "form" ? (sub.active ? "Forma (voltar)" : "Forma (transformar)") : sub.effectType === "predation" ? "Predação" : "Descritiva");
   const options = subSkills
     .map((sub, i) => `<option value="${i}">${escapeHtml(sub.name)} — ${kindLabel(sub)}</option>`)
     .join("");

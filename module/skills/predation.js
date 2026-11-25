@@ -1,5 +1,5 @@
 import {
-  SYSTEM_ID, NIHILITY, isPredationEnabled, getPredationAttrPercent, getPredationLevelStep, getAttributeLabel, actorToken
+  SYSTEM_ID, NIHILITY, isPredationEnabled, getPredationAttrPercent, getPredationFormsPercent, getPredationLevelStep, getAttributeLabel, actorToken
 } from "../core/config.js";
 import { applyLuckToFormula, luckOf } from "../combat/luck-rules.js";
 import { escapeHtml } from "../helpers/html.js";
@@ -9,8 +9,10 @@ import { autoSnapshot } from "../world/auto-snapshot.js";
 import { isDead, isIncapacitated, countsAsNpc } from "../combat/incapacitation.js";
 import { grantSkillUseXp } from "./skill-xp.js";
 import { attachFormTemplate, ensureFolder } from "./form-request.js";
+import { buildSubSkillsFromSources } from "./skill-snapshot.js";
 import {
-  tierRank, predationCandidates, ownedIndex, predationWins, predationMilestone, predationCounterKey, predationAttrGain, addPoints, predationSkillData, hasFormMechanic, normalizeSkillName
+  tierRank, predationCandidates, ownedIndex, predationWins, predationMilestone, predationCounterKey, predationAttrGain, addPoints, predationSkillData, hasFormMechanic, normalizeSkillName,
+  predationFormsGain, predationTakesOf, withStoredForm
 } from "./predation-rules.js";
 
 /**
@@ -100,16 +102,19 @@ function targetToken(target) {
  * Nada é aplicado aqui. Devolve true (saiu) ou false (alvo recusado).
  * @param {object} [options]
  * @param {boolean} [options.bypass] - o Mestre passou por cima de "ainda de pé"
+ * @param {number|null} [options.subSkillIndex] - a Sub-Skill de Predação usada (a Skill de "Só formas" com formas guardadas)
  */
-export async function usePredation(sourceActor, skill, mech, label, targetActor, { bypass = false } = {}) {
+export async function usePredation(sourceActor, skill, mech, label, targetActor, { bypass = false, subSkillIndex = null } = {}) {
   const block = predationBlockReason(sourceActor, targetActor);
   if (block && !(block.soft && bypass && game.user.isGM)) {
     ui.notifications?.warn(block.text);
     return false;
   }
+  // "O que a Predação leva" (1.120.0): "Só formas" não rola Skills, guarda a forma na própria Skill e dá uma fração dos pontos.
+  const formsOnly = predationTakesOf(mech) === "forms";
   const owned = ownedIndex(sourceActor.items.filter(i => i.type === "skill").map(i => ({ name: i.name, key: i.getFlag(SYSTEM_ID, "speciesGrant")?.key })));
   const predatorRank = tierRank(mech.tier ?? skill.system.tier);
-  const { eligible, skipped } = predationCandidates(targetActor.items.filter(i => i.type === "skill").map(skillSnapshot), predatorRank, owned, {
+  const { eligible, skipped } = formsOnly ? { eligible: [], skipped: [] } : predationCandidates(targetActor.items.filter(i => i.type === "skill").map(skillSnapshot), predatorRank, owned, {
     predatorLevel: Number(mech.level ?? skill.system.level) || 1,
     levelStep: getPredationLevelStep()
   });
@@ -123,7 +128,8 @@ export async function usePredation(sourceActor, skill, mech, label, targetActor,
 
   const key = counterKeyFor(targetActor);
   const count = predationCountOf(sourceActor, key) + 1;
-  const attrGain = predationAttrGain(attrTotals(targetActor), getPredationAttrPercent());
+  const fullGain = predationAttrGain(attrTotals(targetActor), getPredationAttrPercent());
+  const attrGain = formsOnly ? predationFormsGain(fullGain, getPredationFormsPercent()) : fullGain;
   const data = {
     predatorUuid: sourceActor.uuid,
     targetUuid: targetActor.uuid,
@@ -135,7 +141,10 @@ export async function usePredation(sourceActor, skill, mech, label, targetActor,
     attrGain,
     results,
     skipped: skipped.map(s => ({ name: s.name, reason: s.reason })),
-    formOptions: formSkillOptions(sourceActor),
+    formOptions: formsOnly ? [] : formSkillOptions(sourceActor),
+    takes: formsOnly ? "forms" : "all",
+    skillId: skill.id,
+    subSkillIndex: Number.isInteger(subSkillIndex) ? subSkillIndex : null,
     label,
     status: "pending"
   };
@@ -176,6 +185,19 @@ function attrLine(attrGain) {
 }
 
 function cardHtml(data, predator, label) {
+  // "Só formas" (1.120.0): sem Skills do alvo; o card mostra a forma que fica guardada e os pontos.
+  if (data.takes === "forms") {
+    const points = Object.keys(data.attrGain ?? {}).length
+      ? `<p>Pontos de atributo (metade): ${data.milestone ? `<strong>${escapeHtml(attrLine(data.attrGain))}</strong> (é a ${data.count}ª criatura desta Espécie)` : `nenhum desta vez (a ${data.count}ª criatura da Espécie; só a 1ª, 5ª, 10ª, 20ª, 40ª… dão pontos)`}.</p>`
+      : "<p>Pontos de atributo: nenhum.</p>";
+    return `<div class="nihility-predation">
+    <p><strong>${escapeHtml(predator.name)}</strong> preda <strong>${escapeHtml(data.targetName)}</strong> (${escapeHtml(label)}) · <em>Só formas</em>.</p>
+    <p>Forma guardada: <strong>${escapeHtml(data.targetName)}</strong>. Fica na Skill como uma Sub-Skill de Forma ("Forma: …"): Transformar liga, Voltar desliga.</p>
+    ${points}
+    <p class="hint-inline">Skills do alvo: não rola (Só formas).</p>
+    <div class="predation-controls"></div>
+  </div>`;
+  }
   const rows = data.results
     .map(r => `<li><span class="pred-skill-name" data-won="${r.won ? 1 : 0}">${escapeHtml(r.name)}</span> <em>(${escapeHtml(NIHILITY.SKILL_TIER_LABELS[r.tier] ?? r.tier)})</em> — chance ${r.chance}% · d100 = ${r.roll} · <strong>${r.won ? "✓ absorvida" : "✗ não absorvida"}</strong></li>`)
     .join("");
@@ -265,6 +287,20 @@ function renderPredationCard(message, html) {
 
 /* ------------------------------------------------------------------ Confirmar (Mestre) */
 
+/**
+ * Guarda a forma na própria Skill de Predação ("Só formas", 1.120.0): a mecânica de Predação vira a Sub-Skill "Predar" na
+ * primeira vez e cada forma é uma Sub-Skill de Forma Ativa (o motor de Forma de sempre: Transformar = ligar, Voltar = desligar).
+ */
+async function storeFormInPredation(predator, skillId, template) {
+  const skill = predator.items.get(String(skillId ?? ""));
+  if (!skill) return false;
+  const current = foundry.utils.deepClone(skill._source.system.subSkills ?? []);
+  const predateSub = current.length ? null : buildSubSkillsFromSources([skill])[0];
+  const { subs, added } = withStoredForm(current, predateSub, { uuid: template.uuid, name: template.name });
+  if (added) await skill.update({ "system.subSkills": subs });
+  return true;
+}
+
 /** Cria a ficha-molde a partir do alvo e a liga à Skill de Forma escolhida. Devolve o molde ou null. */
 async function createFormTemplate(predator, target, tokenDoc) {
   const data = target.toObject();
@@ -344,8 +380,14 @@ export async function confirmPredation(message, choice) {
     lines.push(`Atributos: ${attrLine(data.attrGain)}`);
   }
 
-  // A forma do corpo, antes de apagar o Token (um Token não vinculado leva a ficha dele junto).
-  if (choice.form && choice.formSkillId) {
+  // "Só formas" (1.120.0): a forma é guardada na própria Skill de Predação (uma Sub-Skill de Forma), sem escolher Skill de Forma.
+  if (data.takes === "forms") {
+    const template = await createFormTemplate(predator, target, tokenDoc);
+    if (template) {
+      const stored = await storeFormInPredation(predator, data.skillId, template);
+      lines.push(stored ? `Forma guardada na Skill: ${template.name}` : `Forma criada (${template.name}), mas a Skill de Predação não foi achada`);
+    }
+  } else if (choice.form && choice.formSkillId) {
     const template = await createFormTemplate(predator, target, tokenDoc);
     if (template) {
       const linked = await attachFormTemplate(predator, choice.formSkillId, template);

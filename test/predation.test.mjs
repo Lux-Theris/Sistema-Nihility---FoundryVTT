@@ -136,3 +136,46 @@ test("predationChance: diferença de nível (dono, 17/11)", () => {
   assert.equal(predationChance(1, 1, { predatorLevel: 10, skillLevel: 10, bonus: 20 }), 70);
   assert.equal(predationChance(1, 1, { predatorLevel: 1, skillLevel: 3, levelStep: 0 }), 50);
 });
+
+/* -------------------------------------------- */
+/*  1.120.0: Predação "Só formas"                                       */
+/* -------------------------------------------- */
+
+import { predationFormsGain, predationTakesOf, withStoredForm } from "../module/skills/predation-rules.js";
+
+test("Só formas: metade dos pontos (Regra da Mesa), arredondada para baixo; o que chega a 0 some", () => {
+  assert.deepEqual(predationFormsGain({ strength: 2, agility: 1, magic: 4 }, 50), { strength: 1, magic: 2 });
+  assert.deepEqual(predationFormsGain({ strength: 3 }, 100), { strength: 3 });
+  assert.deepEqual(predationFormsGain({ strength: 3 }, 0), {});
+  assert.deepEqual(predationFormsGain({ strength: 3 }, 500), { strength: 3 });
+});
+
+test("Só formas: o modo lido da mecânica; tudo salvo antes é Tudo", () => {
+  assert.equal(predationTakesOf({ predationTakes: "forms" }), "forms");
+  assert.equal(predationTakesOf({ predationTakes: "all" }), "all");
+  assert.equal(predationTakesOf({}), "all");
+  assert.equal(predationTakesOf(null), "all");
+});
+
+test("Só formas: a primeira forma transforma a mecânica em Sub-Skill Predar e acrescenta a Sub-Skill de Forma; não duplica", () => {
+  const predate = { name: "Genetic Dysphoria", tier: "unique", effectType: "predation", predationTakes: "forms", upkeepCost: 3, range: 5 };
+  const first = withStoredForm([], predate, { uuid: "Actor.lobo", name: "Lobo Gigante" });
+  assert.equal(first.added, true);
+  assert.equal(first.subs.length, 2);
+  assert.equal(first.subs[0].name, "Predar");
+  assert.equal(first.subs[0].effectType, "predation");
+  assert.equal(first.subs[0].range, 5);
+  assert.equal(first.subs[1].name, "Forma: Lobo Gigante");
+  assert.equal(first.subs[1].effectType, "form");
+  assert.equal(first.subs[1].formActorUuid, "Actor.lobo");
+  assert.equal(first.subs[1].hasUpkeep, true);
+  assert.equal(first.subs[1].active, false);
+  const second = withStoredForm(first.subs, predate, { uuid: "Actor.harpia", name: "Harpia" });
+  assert.equal(second.subs.length, 3);
+  assert.equal(second.subs[0].name, "Predar");
+  const dup = withStoredForm(second.subs, predate, { uuid: "Actor.lobo", name: "Lobo Gigante" });
+  assert.equal(dup.added, false);
+  assert.equal(dup.subs.length, 3);
+  // Não muda a lista de entrada.
+  assert.equal(first.subs.length, 2);
+});

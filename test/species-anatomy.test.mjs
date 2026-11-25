@@ -607,3 +607,194 @@ test("Espécie: a Skill Racial é uma cópia funda do catálogo (não muda o cac
   sys.effects[0].amountMode = "flat";
   assert.equal(catalogSkill.effects[0].amountMode, undefined);
 });
+
+/* -------------------------------------------- */
+/*  1.121.0: Linhagens por elemento, Slime Comum, Dragão de Trevas      */
+/* -------------------------------------------- */
+
+import { planOriginElementMigration, originElementKeptNotice, OLD_FACTORY_1119 } from "../module/species/origin-element-migration-rules.js";
+import { newLineageIds } from "../module/core/config/defaults/species-elements.js";
+
+const SPECIES_1121 = NIHILITY.DEFAULT_SPECIES_PRESETS;
+const HERITAGES_1121 = NIHILITY.DEFAULT_HERITAGES;
+const SCIFI_IDS = ["kinetic", "phaser", "disruptor", "plasma", "polaron", "tetryon", "antiproton", "transphasic", "radiation"];
+const lineageOf = (species, id) => SPECIES_1121[species].lineages.find(l => l.id === id);
+
+test("Dragoide: uma Linhagem por elemento de fantasia (sem Óleo), os 9 de sci-fi e o Dragão de Trevas", () => {
+  const ids = SPECIES_1121.dragoide.lineages.map(l => l.id);
+  for (const id of ["fogo", "gelo", "raio", "water", "acid", "earth", "wind", "light", "holy", "demonic", "trevas"]) assert.ok(ids.includes(id), id);
+  for (const el of SCIFI_IDS) assert.ok(ids.includes("sf_" + el), el);
+  assert.ok(!ids.some(id => id.includes("oil")));
+  assert.equal(new Set(ids).size, ids.length);
+  for (const l of SPECIES_1121.dragoide.lineages) {
+    assert.equal(l.elements.length, 1, l.id);
+    assert.ok(l.passives.resistances.some(r => r.target === l.elements[0] && r.amount === 20), l.id);
+  }
+});
+
+test("Dragoide sci-fi: corpo do elemento + Traço Mecânico; o sopro é do elemento; o de Terra/Ácido/Água segue o quadro", () => {
+  const plasma = lineageOf("dragoide", "sf_plasma");
+  assert.deepEqual(plasma.traits, ["mechanical"]);
+  assert.equal(plasma.skills[0].damageFormula, "3d6");
+  assert.deepEqual(plasma.skills[0].damageElements, ["plasma"]);
+  assert.equal(lineageOf("dragoide", "water").skills[0].areaShape, "ray");
+  assert.equal(lineageOf("dragoide", "acid").skills[0].areaShape, "cone");
+  assert.equal(lineageOf("dragoide", "light").skills[0].areaShape, "ray");
+  // A fraqueza ao oposto vem da tabela: sem número a mais onde o corpo já resolve.
+  assert.deepEqual(lineageOf("dragoide", "light").passives.resistances, [{ target: "light", amount: 20 }]);
+});
+
+test("Dragoide do Vento: Combinada com dano em cone e o efeito Empurrar de sempre", () => {
+  const skill = lineageOf("dragoide", "wind").skills[0];
+  assert.equal(skill.combined, true);
+  assert.equal(skill.subSkills[0].damageFormula, "3d6");
+  assert.equal(skill.subSkills[1].effects[0].target, "push");
+});
+
+test("Dragão de Trevas (quadro 12): Escamas de Breu, Sopro de Breu e Passo de Sombra", () => {
+  const dark = lineageOf("dragoide", "trevas");
+  assert.deepEqual(dark.elements, ["dark"]);
+  assert.deepEqual(dark.passives.resistances, [{ target: "dark", amount: 20 }]);
+  const [scales, breath, step] = dark.skills;
+  assert.equal(scales.conditionalModifiers.length, 2);
+  for (const mod of scales.conditionalModifiers) {
+    assert.equal(mod.when.kind, "selfDark");
+    assert.equal(mod.perLevels, 5);
+    assert.equal(mod.timesDarkness, true);
+    assert.equal(mod.then.value, 1);
+  }
+  assert.deepEqual(scales.conditionalModifiers.map(m => m.then.target).sort(), ["defense", "stealth"]);
+  assert.equal(breath.combined, true);
+  assert.equal(breath.subSkills[0].damageFormula, "2d6");
+  assert.deepEqual(breath.subSkills[0].damageElements, ["dark"]);
+  assert.equal(breath.subSkills[0].areaDistance, 6);
+  const zone = breath.subSkills[1];
+  assert.equal(zone.targetType, "zone");
+  assert.equal(zone.zoneRounds, 2);
+  assert.equal(zone.zoneDarkens, true);
+  assert.equal(zone.effects[0].conditionId, "blindness");
+  assert.ok(zone.effects[0].chance > 0 && zone.effects[0].chance < 100);
+  assert.equal(step.unlockLevel, 10);
+  assert.equal(step.onlyIf.kind, "selfDark");
+  assert.equal(step.effects[0].target, "space");
+  assert.equal(step.effects[0].spaceMode, "jump");
+  assert.deepEqual(dark.replaces.skills, ["sopro_draconico"]);
+});
+
+test("Slime: Slime Comum é a Linhagem padrão com a fraqueza a Fogo; uma Linhagem por elemento", () => {
+  assert.equal(SPECIES_1121.slime.lineageRequired, true);
+  assert.equal(SPECIES_1121.slime.lineages[0].id, "comum");
+  assert.deepEqual(SPECIES_1121.slime.lineages[0].passives.resistances, [{ target: "fire", amount: -20 }]);
+  // Contundente 30, Ácido 30 e Imune a Sangramento ficam na Espécie.
+  assert.deepEqual(SPECIES_1121.slime.passives.resistances, [{ target: "blunt", amount: 30 }, { target: "acid", amount: 30 }]);
+  assert.deepEqual(SPECIES_1121.slime.passives.conditions, [{ conditionId: "bleeding", mode: "immune", amount: 100 }]);
+  const ids = SPECIES_1121.slime.lineages.map(l => l.id);
+  for (const id of ["fire", "ice", "lightning", "water", "acid", "earth", "wind", "dark", "light", "holy", "demonic"]) assert.ok(ids.includes(id), id);
+  for (const el of SCIFI_IDS) assert.ok(ids.includes("sf_" + el), el);
+  for (const l of SPECIES_1121.slime.lineages.filter(l => l.id !== "comum")) {
+    assert.ok(l.passives.resistances.some(r => r.target === l.elements[0] && r.amount === 30), l.id);
+    assert.equal(l.skills.length, 1);
+    assert.equal(l.skills[0].effectType, "damage");
+  }
+  assert.deepEqual(lineageOf("slime", "sf_phaser").traits, ["mechanical"]);
+});
+
+test("Linhagens novas: elemento, Condição e chave de Skill existem e não repetem", () => {
+  const elementIds = new Set([...NIHILITY.DEFAULT_DAMAGE_ELEMENTS, ...NIHILITY.SCIFI_DAMAGE_ELEMENTS].map(e => e.id));
+  const conditionIds = new Set(NIHILITY.DEFAULT_STATUS_CONDITIONS.map(c => c.id));
+  for (const speciesId of ["dragoide", "slime"]) {
+    const keys = new Set();
+    for (const l of SPECIES_1121[speciesId].lineages) {
+      for (const el of l.elements ?? []) assert.ok(elementIds.has(el), l.id + ": " + el);
+      for (const r of l.passives?.resistances ?? []) assert.ok(elementIds.has(r.target), l.id + ": " + r.target);
+      for (const skill of l.skills ?? []) {
+        assert.ok(!keys.has(skill.key), "chave repetida: " + skill.key);
+        keys.add(skill.key);
+        for (const sub of [skill, ...(skill.subSkills ?? [])]) {
+          for (const el of sub.damageElements ?? []) assert.ok(elementIds.has(el), l.id + ": " + el);
+          for (const e of sub.effects ?? []) if (e.conditionId) assert.ok(conditionIds.has(e.conditionId), l.id + ": " + e.conditionId);
+        }
+      }
+    }
+  }
+});
+
+test("Espécies e Heranças (quadro 10): Elfo Sombrio fraco a Luz, corpos Demoníaco e as duas Vampirizado", () => {
+  assert.deepEqual(lineageOf("elfo", "sombrio").passives.resistances, [{ target: "dark", amount: 20 }, { target: "light", amount: -10 }]);
+  assert.deepEqual(SPECIES_1121.slime_demoniaco.elements, ["demonic"]);
+  assert.ok(SPECIES_1121.slime_demoniaco.passives.resistances.some(r => r.target === "holy" && r.amount === -20));
+  const her = id => HERITAGES_1121.find(h => h.id === id);
+  assert.deepEqual(her("possuido").elements, ["demonic"]);
+  assert.ok(her("possuido").passives.resistances.some(r => r.target === "holy" && r.amount === -20));
+  assert.deepEqual(her("vampirizado").elements, ["dark"]);
+  assert.deepEqual(her("vampirizado_demonio").elements, ["demonic"]);
+  assert.deepEqual(her("vampirizado_demonio").traits, ["undead"]);
+  assert.deepEqual(her("abencoado").elements, ["holy"]);
+  // Os dois vampiros e o Abençoado se excluem nos dois sentidos.
+  assert.ok(her("vampirizado").excludes.includes("vampirizado_demonio"));
+  assert.ok(her("vampirizado_demonio").excludes.includes("vampirizado"));
+  assert.ok(her("abencoado").excludes.includes("vampirizado_demonio"));
+  assert.ok(her("vampirizado_demonio").excludes.includes("abencoado"));
+});
+
+/** O catálogo salvo "da fábrica de 1.119.0": a fábrica nova com os valores antigos de volta e sem o que a 1.121.0 acrescentou. */
+function savedBefore1121() {
+  const clone = v => JSON.parse(JSON.stringify(v));
+  const species = clone(SPECIES_1121);
+  const heritages = clone(HERITAGES_1121).filter(h => h.id !== "vampirizado_demonio");
+  for (const h of heritages) if (h.excludes) h.excludes = h.excludes.filter(id => id !== "vampirizado_demonio");
+  const ids = newLineageIds();
+  for (const [id, list] of Object.entries(ids)) species[id].lineages = (species[id].lineages ?? []).filter(l => !list.includes(l.id));
+  delete species.slime.lineageRequired;
+  species.slime.passives.resistances = clone(OLD_FACTORY_1119["species:slime"].resistances);
+  species.elfo.lineages.find(l => l.id === "sombrio").passives.resistances = clone(OLD_FACTORY_1119["lineage:elfo:sombrio"].resistances);
+  species.slime_demoniaco.passives.resistances = clone(OLD_FACTORY_1119["species:slime_demoniaco"].resistances);
+  species.slime_demoniaco.elements = ["dark"];
+  const possuido = heritages.find(h => h.id === "possuido");
+  possuido.passives.resistances = clone(OLD_FACTORY_1119["heritage:possuido"].resistances);
+  possuido.elements = ["dark"];
+  return { species, heritages };
+}
+
+test("migração das origens: catálogo da 1.119.0 recebe as Linhagens, a Herança nova e os corpos novos", () => {
+  const saved = savedBefore1121();
+  const plan = planOriginElementMigration({ ...saved, factory: { species: SPECIES_1121, heritages: HERITAGES_1121 }, newLineages: newLineageIds() });
+  assert.deepEqual(plan.kept, []);
+  assert.equal(plan.species.slime.lineages[0].id, "comum");
+  assert.equal(plan.species.slime.lineageRequired, true);
+  assert.deepEqual(plan.species.slime.passives.resistances, [{ target: "blunt", amount: 30 }, { target: "acid", amount: 30 }]);
+  assert.ok(plan.species.dragoide.lineages.some(l => l.id === "trevas"));
+  assert.equal(plan.species.dragoide.lineages.length, SPECIES_1121.dragoide.lineages.length);
+  assert.equal(plan.species.slime.lineages.length, SPECIES_1121.slime.lineages.length);
+  assert.deepEqual(plan.species.elfo.lineages.find(l => l.id === "sombrio").passives.resistances, [{ target: "dark", amount: 20 }, { target: "light", amount: -10 }]);
+  assert.deepEqual(plan.species.slime_demoniaco.elements, ["demonic"]);
+  assert.deepEqual(plan.heritages.find(h => h.id === "possuido").elements, ["demonic"]);
+  assert.ok(plan.heritages.some(h => h.id === "vampirizado_demonio"));
+  assert.ok(plan.heritages.find(h => h.id === "vampirizado").excludes.includes("vampirizado_demonio"));
+  // Não mexe na entrada de entrada.
+  assert.equal(saved.species.slime.lineages.length, 0);
+  // Rodar de novo não muda nada.
+  const again = planOriginElementMigration({ species: plan.species, heritages: plan.heritages, factory: { species: SPECIES_1121, heritages: HERITAGES_1121 }, newLineages: newLineageIds() });
+  assert.deepEqual(again.changed, []);
+  assert.deepEqual(again.added, []);
+  assert.deepEqual(again.kept, []);
+});
+
+test("migração das origens: o que o Mestre editou fica e entra no aviso", () => {
+  const saved = savedBefore1121();
+  saved.species.slime.passives.resistances = [{ target: "fire", amount: -50 }];
+  saved.species.slime_demoniaco.elements = ["dark", "fire"];
+  const plan = planOriginElementMigration({ ...saved, factory: { species: SPECIES_1121, heritages: HERITAGES_1121 }, newLineages: newLineageIds() });
+  assert.deepEqual(plan.species.slime.passives.resistances, [{ target: "fire", amount: -50 }]);
+  assert.deepEqual(plan.species.slime_demoniaco.elements, ["dark", "fire"]);
+  assert.equal(plan.kept.length, 2);
+  assert.match(originElementKeptNotice(plan.kept), /ficaram como estavam/);
+  assert.equal(originElementKeptNotice([]), "");
+});
+
+test("migração das origens: catálogo sem Dragoide e sem Slime não ganha Linhagens; Herança nova entra", () => {
+  const plan = planOriginElementMigration({ species: { humano: { label: "Humano" } }, heritages: [{ id: "abencoado", label: "Abençoado", excludes: ["vampirizado"] }], factory: { species: SPECIES_1121, heritages: HERITAGES_1121 }, newLineages: newLineageIds() });
+  assert.equal(plan.species.dragoide, undefined);
+  assert.ok(plan.heritages.some(h => h.id === "vampirizado_demonio"));
+  assert.ok(plan.heritages.find(h => h.id === "abencoado").excludes.includes("vampirizado_demonio"));
+});

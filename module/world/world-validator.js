@@ -137,6 +137,9 @@ export function checkMechanic(mech, idx, prefix = "") {
     // Desarmado vira tipo de arma.
     if (entry?.target === "unarmedType") checkRef(issues, idx, at(where, "Tipo de arma"), "weaponTypes", entry?.weaponTypeId);
   });
+  // Zona que escurece o mapa e Predação "Só formas" (1.120.0): só fazem sentido na própria mecânica.
+  if (mech.zoneDarkens && mech.targetType !== "zone") issues.push({ where: at(prefix, "Escurece o mapa"), catalog: "skills", ref: "", message: "\"Escurece o mapa\" numa Skill que não é Zona: o campo não faz nada" });
+  if (mech.predationTakes === "forms" && mech.effectType !== "predation") issues.push({ where: at(prefix, "Predação"), catalog: "skills", ref: "", message: "\"Só formas\" numa Skill que não é Predação: o campo não faz nada" });
   // Roubo de vida (1.119.0): só o dano cura quem usa.
   if (Number(mech.lifeSteal) > 0 && mech.effectType !== "damage") issues.push({ where: at(prefix, "Cura quem usa"), catalog: "skills", ref: "", message: "\"Cura quem usa (% do dano)\" numa Skill que não causa dano: o campo não faz nada" });
   // "Só se…" da Skill inteira e "ao acertar" (8c.1).
@@ -164,7 +167,7 @@ export function checkMechanic(mech, idx, prefix = "") {
 }
 
 /** "Quando → Então": o `value` do Quando e o `target` do Então apontam para catálogos. */
-export function checkConditionals(modifiers, idx, prefix = "") {
+export function checkConditionals(modifiers, idx, prefix = "", { isSkill = false } = {}) {
   const issues = [];
   (modifiers ?? []).forEach((mod, i) => {
     const where = at(prefix, `Quando → Então ${i + 1}`);
@@ -172,6 +175,8 @@ export function checkConditionals(modifiers, idx, prefix = "") {
     if (kind === "otherTrait") checkRef(issues, idx, at(where, "Traço"), "traits", mod.when.value);
     if (kind === "otherCondition" || kind === "otherConditionMine" || kind === "selfCondition") checkRef(issues, idx, at(where, "Condição"), "conditions", mod.when.value);
     if (kind === "element") checkRef(issues, idx, at(where, "Elemento"), "elements", mod.when.value);
+    // Escala (1.120.0): "a cada N níveis da Skill" precisa de uma Skill (a fonte tem nível); em Título/Item conta 1 vez.
+    if (Number(mod?.perLevels) > 0 && !isSkill) issues.push({ where: at(where, "A cada N níveis"), catalog: "skills", ref: "", message: "\"a cada N níveis da Skill\" fora de uma Skill: a fonte não tem nível e a regra conta 1 vez" });
     const then = mod?.then ?? {};
     if (then.kind === "resistancePercent") checkResistanceTarget(issues, idx, at(where, "Resistência"), then.target);
     if ((then.kind === "rollFlat" || then.kind === "attributeFlat" || then.kind === "attributePercent") && then.target !== "any") {
@@ -198,7 +203,7 @@ export function validateItem(item, idx) {
   switch (item?.type) {
     case "skill":
       issues.push(...checkMechanic(s, idx));
-      issues.push(...checkConditionals(s.conditionalModifiers, idx));
+      issues.push(...checkConditionals(s.conditionalModifiers, idx, "", { isSkill: true }));
       break;
     case "item":
       issues.push(...checkGrant(s.grantsSkill, idx, ""));

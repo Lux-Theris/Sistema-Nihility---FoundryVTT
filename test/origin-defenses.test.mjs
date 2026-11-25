@@ -117,7 +117,7 @@ test("linhas da aba Origem: resistência, fraqueza e Condição", () => {
 
 const species = NIHILITY.DEFAULT_SPECIES_PRESETS;
 const heritages = NIHILITY.DEFAULT_HERITAGES;
-const elementIds = new Set([...NIHILITY.DEFAULT_DAMAGE_ELEMENTS.map(e => e.id), RADIATION_ELEMENT.id, "general"]);
+const elementIds = new Set([...NIHILITY.DEFAULT_DAMAGE_ELEMENTS.map(e => e.id), ...NIHILITY.SCIFI_DAMAGE_ELEMENTS.map(e => e.id), RADIATION_ELEMENT.id, "general"]);
 const conditionIds = new Set(NIHILITY.DEFAULT_STATUS_CONDITIONS.map(c => c.id));
 const defenseOf = entry => ({
   res: Object.fromEntries((entry.passives?.resistances ?? []).map(r => [r.target, r.amount])),
@@ -134,9 +134,10 @@ test("fábrica: todo elemento e toda Condição citados existem nos catálogos d
 
 test("fábrica: a tabela aprovada (amostra de cada tipo de linha)", () => {
   assert.deepEqual(defenseOf(species.anao), { res: { blunt: 10, fire: 10 }, cond: { poison: 30 } });
-  assert.deepEqual(defenseOf(species.slime), { res: { blunt: 30, acid: 30, fire: -20 }, cond: { bleeding: "imune" } });
+  // 1.121.0: a fraqueza a Fogo do Slime saiu da Espécie e mora na Linhagem Slime Comum.
+  assert.deepEqual(defenseOf(species.slime), { res: { blunt: 30, acid: 30 }, cond: { bleeding: "imune" } });
   assert.deepEqual(defenseOf(species.androide), { res: { radiation: 50, lightning: -20 }, cond: { poison: "imune", bleeding: "imune" } });
-  assert.deepEqual(defenseOf(species.slime_demoniaco).res, { dark: 30, blunt: 30, acid: 30, holy: -20 });
+  assert.deepEqual(defenseOf(species.slime_demoniaco).res, { demonic: 30, blunt: 30, acid: 30, holy: -20 });
   assert.deepEqual(defenseOf(species.inseto_de_carga), { res: { acid: 10, fire: -20 }, cond: { poison: 20 } });
   assert.deepEqual(defenseOf(species.halfling), { res: {}, cond: { fear: 30 } });
   assert.deepEqual(defenseOf(species.humano), { res: {}, cond: {} });
@@ -144,13 +145,13 @@ test("fábrica: a tabela aprovada (amostra de cada tipo de linha)", () => {
   assert.deepEqual(species.lobo_tempestade.elements, ["lightning"]);
   assert.deepEqual(defenseOf(species.lobo_tempestade).res, { lightning: 30 });
   const lineage = (s, id) => defenseOf(species[s].lineages.find(l => l.id === id));
-  assert.deepEqual(lineage("elfo", "sombrio").res, { dark: 20, holy: -10 });
+  assert.deepEqual(lineage("elfo", "sombrio").res, { dark: 20, light: -10 });
   assert.deepEqual(lineage("dragoide", "fogo").res, { fire: 20, ice: -20 });
   assert.deepEqual(lineage("dragoide", "gelo").res, { ice: 20, fire: -20 });
   assert.deepEqual(lineage("dragoide", "raio").res, { lightning: 20 });
   const heritage = id => defenseOf(heritages.find(h => h.id === id));
   assert.deepEqual(heritage("vampirizado"), { res: { dark: 30 }, cond: { poison: "imune" } });
-  assert.deepEqual(heritage("possuido"), { res: { dark: 20, holy: -20 }, cond: { fear: 30 } });
+  assert.deepEqual(heritage("possuido"), { res: { demonic: 20, holy: -20 }, cond: { fear: 30 } });
   assert.deepEqual(heritage("abencoado"), { res: { dark: 20, holy: 20 }, cond: { fear: 30 } });
   assert.deepEqual(heritage("convertido_ciborgue"), { res: { radiation: 20, lightning: -10 }, cond: { bleeding: 30 } });
   assert.deepEqual(heritage("mutacao_radioativa").res, { radiation: 40, acid: 10 });
@@ -184,7 +185,7 @@ test("migração: catálogo igual à fábrica anterior recebe a tabela nova inte
   const plan = planOriginDefenseMigration({ ...saved, factory: { species, heritages } });
   assert.deepEqual(plan.kept, []);
   assert.ok(plan.changed.length > 20);
-  assert.deepEqual(defenseOf(plan.species.slime), { res: { blunt: 30, acid: 30, fire: -20 }, cond: { bleeding: "imune" } });
+  assert.deepEqual(defenseOf(plan.species.slime), { res: { blunt: 30, acid: 30 }, cond: { bleeding: "imune" } });
   assert.deepEqual(plan.species.lobo_tempestade.elements, ["lightning"]);
   assert.deepEqual(defenseOf(plan.species.dragoide.lineages.find(l => l.id === "fogo")).res, { fire: 20, ice: -20 });
   assert.deepEqual(defenseOf(plan.heritages.find(h => h.id === "mutacao_radioativa")).res, { radiation: 40, acid: 10 });

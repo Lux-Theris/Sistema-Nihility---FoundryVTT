@@ -9,7 +9,7 @@
 import { matchesWhen } from "../combat/conditional-modifiers.js";
 
 /** Tipos oferecidos no menu "Só se…" (os do Quando que fazem sentido para um efeito). */
-export const ONLY_IF_KINDS = ["otherCondition", "otherConditionMine", "otherAnyMark", "otherAnyMarkMine", "otherTrait", "otherIsShip", "otherHpBelow", "selfCondition", "selfHpBelow", "selfInCombat"];
+export const ONLY_IF_KINDS = ["otherCondition", "otherConditionMine", "otherAnyMark", "otherAnyMarkMine", "otherTrait", "otherIsShip", "otherHpBelow", "selfCondition", "selfHpBelow", "selfInCombat", "selfDark"];
 
 export const ONLY_IF_LABELS = {
   otherCondition: "O alvo tem a Condição",
@@ -21,7 +21,8 @@ export const ONLY_IF_LABELS = {
   otherHpBelow: "A Vida do alvo está abaixo de (%)",
   selfCondition: "Quem usou tem a Condição",
   selfHpBelow: "A Vida de quem usou está abaixo de (%)",
-  selfInCombat: "Quem usou está em combate"
+  selfInCombat: "Quem usou está em combate",
+  selfDark: "Quem usou está no escuro"
 };
 
 /** O que cada tipo precisa escolher: Condição, Traço ou um limite em %. */
@@ -64,6 +65,7 @@ function phrases(onlyIf, labelOf) {
     case "selfCondition": return [`quem usou estiver ${name}`, `quem usou não está ${name}`];
     case "selfHpBelow": return [`a Vida de quem usou estiver abaixo de ${pct}%`, `a Vida de quem usou não está abaixo de ${pct}%`];
     case "selfInCombat": return ["quem usou estiver em combate", "quem usou não está em combate"];
+    case "selfDark": return ["quem usou estiver no escuro", "quem usou não está no escuro"];
     default: return ["", ""];
   }
 }

@@ -36,9 +36,12 @@ import {
   sleepUntil, shouldWake, groupSleepState, groupRestSeconds, skipLabel, restHours, SECONDS_PER_HOUR
 } from "./world-clock-rules.js";
 import { escapeHtml } from "../helpers/html.js";
+import { zoneDarkensToken } from "../combat/zone-darkness.js";
 
 const SLEEP_ID = "sleeping";
 const CLOCK_WHEN = new Set(["selfDark", "isDay", "isNight"]);
+/** A regra lê o relógio ou a escuridão? ("vezes a escuridão" também: o valor muda com a escuridão da cena.) */
+const readsClock = mod => CLOCK_WHEN.has(mod?.when?.kind) || Boolean(mod?.timesDarkness);
 
 /* ------------------------------------------------------------------ Leitura */
 
@@ -102,19 +105,26 @@ export function tokenDarkness(tokenDoc, scene = tokenDoc?.parent ?? null) {
  * (uma regra "É noite" nunca vale).
  */
 export function worldClockContext(actor) {
-  if (!isWorldClockEnabled()) return { isDay: false, isNight: false, isDark: false };
+  if (!isWorldClockEnabled()) return { isDay: false, isNight: false, isDark: false, darkness: 0 };
   const config = clockConfig();
   // J9b: dia e noite pela hora LOCAL da linha onde o Ator está (uma cena 500 anos atrás pode estar de noite).
   const day = isDayAt(localNowForActor(actor), config);
   let dark = false;
+  let darkness = 0;
   try {
     const token = tokenDocFor(actor);
     const scene = token?.parent ?? canvas?.scene ?? null;
-    if (scene) dark = isDarkLevel(token ? tokenDarkness(token, scene) : sceneDarkness(scene), config.darkThreshold);
+    if (scene) {
+      darkness = token ? tokenDarkness(token, scene) : sceneDarkness(scene);
+      // Zona que escurece o mapa (1.120.0): quem está dentro dela conta como no escuro, com a escuridão no máximo.
+      if (token && zoneDarkensToken(token)) darkness = 1;
+      dark = isDarkLevel(darkness, config.darkThreshold);
+    }
   } catch (err) {
     dark = false;
+    darkness = 0;
   }
-  return { isDay: day, isNight: !day, isDark: dark };
+  return { isDay: day, isNight: !day, isDark: dark, darkness: Math.min(1, Math.max(0, Number(darkness) || 0)) };
 }
 
 /* ------------------------------------------------------------------ Passar o tempo (Mestre) */
@@ -175,8 +185,8 @@ function clockAwareActors() {
   };
   for (const actor of game.actors) push(actor);
   for (const token of canvas?.scene?.tokens ?? []) if (!token.actorLink) push(token.actor);
-  return out.filter(actor => (actor.items ?? []).some(item => (item.system?.conditionalModifiers ?? []).some(m => CLOCK_WHEN.has(m?.when?.kind))) ||
-    (actor.system?.originLayers ?? []).some(layer => (layer.entry?.passives?.conditionalModifiers ?? []).some(m => CLOCK_WHEN.has(m?.when?.kind))));
+  return out.filter(actor => (actor.items ?? []).some(item => (item.system?.conditionalModifiers ?? []).some(readsClock)) ||
+    (actor.system?.originLayers ?? []).some(layer => (layer.entry?.passives?.conditionalModifiers ?? []).some(readsClock)));
 }
 
 /** Reprepara os Atores cujo "dia/noite/escuro" mudou desde a última conferência (neste cliente). */
@@ -184,7 +194,7 @@ export function refreshClockActors() {
   if (!isWorldClockEnabled()) return;
   for (const actor of clockAwareActors()) {
     const ctx = worldClockContext(actor);
-    const key = `${ctx.isDay}|${ctx.isDark}`;
+    const key = `${ctx.isDay}|${ctx.isDark}|${ctx.darkness.toFixed(2)}`;
     const previous = lastKeys.get(actor.uuid);
     lastKeys.set(actor.uuid, key);
     if (previous === undefined || previous === key) continue;
@@ -377,6 +387,14 @@ export function registerWorldClock() {
   const regionChanged = behavior => {
     if (behavior.type === "adjustDarknessLevel") scheduleRefresh();
   };
+  // Zona que escurece o mapa nasce ou some: quem está dentro muda de "escuro".
+  const zoneDocChanged = doc => {
+    if (doc?.getFlag?.(SYSTEM_ID, "zone")?.darkens) scheduleRefresh();
+  };
+  Hooks.on("createRegion", zoneDocChanged);
+  Hooks.on("deleteRegion", zoneDocChanged);
+  Hooks.on("createMeasuredTemplate", zoneDocChanged);
+  Hooks.on("deleteMeasuredTemplate", zoneDocChanged);
   Hooks.on("createRegionBehavior", regionChanged);
   Hooks.on("updateRegionBehavior", regionChanged);
   Hooks.on("deleteRegionBehavior", regionChanged);

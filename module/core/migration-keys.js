@@ -21,5 +21,7 @@ export const MIGRATION_KEYS = [
   "luckDefaults",
   "spaceDefaults",
   "spaceDomainDefaults",
-  "originDefenses"
+  "originDefenses",
+  "newElements",
+  "originElements"
 ];

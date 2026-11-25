@@ -112,6 +112,51 @@ export function predationAttrGain(totals = {}, percent = 5) {
   return out;
 }
 
+/**
+ * Pontos da Predação "Só formas" (1.120.0): a fração (Regra da Mesa, padrão 50%) dos pontos que a Predação normal daria,
+ * arredondada para baixo, por atributo; o que chega a 0 some. Pura. @param {Record<string, number>} gain
+ */
+export function predationFormsGain(gain = {}, percent = 50) {
+  const pct = Math.min(100, Math.max(0, Number(percent) || 0));
+  const out = {};
+  for (const [key, value] of Object.entries(gain)) {
+    const half = Math.floor(((Number(value) || 0) * pct) / 100);
+    if (half > 0) out[key] = half;
+  }
+  return out;
+}
+
+/** O modo da Predação: "forms" (só formas) ou "all" (tudo, o padrão e o de toda Skill salva antes). */
+export const predationTakesOf = mech => (mech?.predationTakes === "forms" ? "forms" : "all");
+
+/**
+ * As Sub-Skills de uma Skill de Predação "Só formas" depois de guardar uma forma nova (1.120.0). Uma Skill com
+ * Sub-Skills só usa as Sub-Skills, então a primeira vez a mecânica de Predação da Skill vira a Sub-Skill "Predar"
+ * (`predateSub`, o snapshot dela) e a forma entra como Sub-Skill de Forma ("Forma: X", Ativa, o molde em `formActorUuid`).
+ * Uma forma que já está guardada (mesmo molde) não duplica. Pura.
+ * @param {object[]} subs - as Sub-Skills de agora
+ * @param {object} predateSub - o snapshot da mecânica de Predação da Skill
+ * @param {{uuid: string, name: string}} template
+ * @returns {{subs: object[], added: boolean}}
+ */
+export function withStoredForm(subs = [], predateSub, template) {
+  const list = JSON.parse(JSON.stringify(Array.isArray(subs) ? subs : []));
+  if (list.some(s => s?.effectType === "form" && s.formActorUuid === template?.uuid)) return { subs: list, added: false };
+  if (!list.length && predateSub) list.push({ ...JSON.parse(JSON.stringify(predateSub)), name: "Predar", effectType: "predation", predationTakes: "forms" });
+  list.push({
+    name: `Forma: ${template?.name ?? "?"}`,
+    tier: predateSub?.tier ?? "normal",
+    effectType: "form",
+    formActorUuid: template?.uuid ?? "",
+    hasUpkeep: true,
+    upkeepCost: Number(predateSub?.upkeepCost) || 0,
+    cost: 0,
+    targetType: "self",
+    active: false
+  });
+  return { subs: list, added: true };
+}
+
 /** Soma dois mapas de pontos. */
 export function addPoints(current = {}, gain = {}) {
   const out = { ...current };

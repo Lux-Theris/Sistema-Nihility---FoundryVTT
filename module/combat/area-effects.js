@@ -483,6 +483,8 @@ export const RELAY_HANDLERS = {
             untilDeactivated: Boolean(zone.untilDeactivated),
             roundsRemaining: Math.min(Math.max(Number(zone.roundsRemaining) || 1, 1), 100),
             area: clean,
+            // Escurece o mapa (1.120.0): lido da ficha de quem lançou, nunca do payload.
+            ...(zoneMech?.zoneDarkens ? { darkens: true } : {}),
             ...(effectiveLevel ? { effectiveLevel } : {}),
             useId: String(zone.useId ?? "").slice(0, 32),
             casterDisposition: Number.isInteger(zone.casterDisposition) ? zone.casterDisposition : null
@@ -490,6 +492,12 @@ export const RELAY_HANDLERS = {
         }
       }
     });
-    await scene.createEmbeddedDocuments(documentName, [data]);
+    const [created] = await scene.createEmbeddedDocuments(documentName, [data]);
+    // Zona que escurece o mapa: a luz negativa nasce junto e o id fica na Zona (apagada com ela).
+    if (created && zoneMech?.zoneDarkens) {
+      const { createZoneDarkness } = await import("./zone-darkness.js");
+      const lightIds = await createZoneDarkness(scene, clean, label);
+      if (lightIds.length) await created.setFlag(SYSTEM_ID, "zone", { ...created.getFlag(SYSTEM_ID, "zone"), lightIds });
+    }
   }
 };

@@ -739,6 +739,15 @@ function registerNamingAndPredationSettings() {
     default: 5
   });
 
+  game.settings.register(SYSTEM_ID, S.predationFormsPercent, {
+    name: "Predação (Só formas) — % dos pontos de atributo",
+    hint: "Numa Predação marcada como \"Só formas\", quem preda ganha esta porcentagem dos pontos de atributo que a Predação normal daria (arredondada para baixo), sem rolar Skills. Padrão 50 (metade); 0 não dá pontos.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 50
+  });
+
   game.settings.register(SYSTEM_ID, S.predationLevelStep, {
     name: "Predação — pontos de chance por nível de diferença",
     hint: "A chance de absorver uma Skill começa em 50% no mesmo Tier e no mesmo nível. Cada nível que a Skill alvo está acima da Predação tira estes pontos; cada nível abaixo soma. Padrão 5.",

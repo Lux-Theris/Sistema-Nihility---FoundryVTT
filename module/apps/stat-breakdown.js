@@ -15,7 +15,7 @@ import { NPC_TIER_LABELS } from "../npc/npc-generator-rules.js";
 import { readEffectChanges, effectModes } from "../helpers/foundry-compat.js";
 import { titleBonusSources, itemAttributeSources, statModifierSources, originBonusSources } from "../data/character-model.js";
 import { conditionalModifierSources, buildModifierContext } from "../combat/conditional-context.js";
-import { sumConditionalModifiers, percentOfTotal } from "../combat/conditional-modifiers.js";
+import { sumConditionalModifiers, percentOfTotal, ruleScaleText, matchesWhen } from "../combat/conditional-modifiers.js";
 import { explainAttribute, explainVital, explainResistance } from "../combat/stat-explain.js";
 import { resistanceBreakdown } from "../combat/resistance.js";
 import { regenExplainRows } from "../combat/regeneration.js";
@@ -61,7 +61,9 @@ function conditionalSources(actor, key) {
     const total = actor.system.attributes.combat?.[key]?.total ?? 0;
     const value = sumConditionalModifiers(mods, "attributeFlat", ctx, { attribute: key })
       + percentOfTotal(sumConditionalModifiers(mods, "attributePercent", ctx, { attribute: key }), total);
-    if (value) list.push({ label: item.name, value, uuid: item.uuid, kind: "conditional" });
+    // Escala (1.120.0): "a cada N níveis" e "vezes a escuridão" mostram a conta de cada regra que vale agora.
+    const detail = mods.filter(mod => matchesWhen(mod.when, ctx) && (mod.timesDarkness || Number(mod.perLevels) > 0)).map(mod => ruleScaleText(mod, ctx)).filter(Boolean).join("; ");
+    if (value) list.push({ label: item.name, detail, value, uuid: item.uuid, kind: "conditional" });
   }
   return list;
 }

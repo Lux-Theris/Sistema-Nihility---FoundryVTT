@@ -112,3 +112,42 @@ test("Mana interna: densidade não impede lançar, só reforça; Ativa mágica n
   assert.equal(densitySustainsMagic(0.2), true);
   assert.equal(densitySustainsMagic(3), true);
 });
+
+/* -------------------------------------------- */
+/*  1.120.0: Zona que escurece o mapa                                   */
+/* -------------------------------------------- */
+
+import { zoneLightPlan, negativeLightConfig, zoneLightData } from "../module/combat/zone-darkness-rules.js";
+
+test("Zona que escurece: círculo = centro e raio da Zona, em unidades da cena", () => {
+  const plan = zoneLightPlan({ shape: "circle", x: 500, y: 300, radius: 200 }, 100);
+  assert.deepEqual(plan, { x: 500, y: 300, radiusUnits: 2 });
+});
+
+test("Zona que escurece: cone e linha põem a luz no meio do eixo", () => {
+  const cone = zoneLightPlan({ shape: "cone", x: 0, y: 0, radius: 600, direction: 0, angle: 53 }, 100);
+  assert.equal(Math.round(cone.x), 300);
+  assert.equal(Math.round(cone.y), 0);
+  assert.equal(cone.radiusUnits, 3);
+  const south = zoneLightPlan({ shape: "cone", x: 0, y: 0, radius: 600, direction: 90, angle: 53 }, 100);
+  assert.equal(Math.round(south.x), 0);
+  assert.equal(Math.round(south.y), 300);
+  const ray = zoneLightPlan({ shape: "ray", x: 0, y: 0, radius: 200, direction: 0, width: 600 }, 100);
+  assert.equal(ray.radiusUnits, 3); // a largura manda quando passa da metade do comprimento
+  assert.equal(zoneLightPlan(null, 100), null);
+  assert.equal(zoneLightPlan({ shape: "circle", x: 0, y: 0, radius: 0 }, 100), null);
+});
+
+test("Zona que escurece: a luz é negativa e leva a marca da Zona", () => {
+  const config = negativeLightConfig(6, { generation: 13 });
+  assert.equal(config.negative, true);
+  assert.equal(config.dim, 6);
+  assert.ok(config.bright <= config.dim);
+  assert.deepEqual(negativeLightConfig(6, { generation: 14 }), config);
+  const data = zoneLightData({ shape: "circle", x: 10, y: 20, radius: 300 }, "abc", { pxPerUnit: 100, generation: 14, systemId: "sys" });
+  assert.equal(data.x, 10);
+  assert.equal(data.config.negative, true);
+  assert.equal(data.config.dim, 3);
+  assert.equal(data.flags.sys.zoneLight, "abc");
+  assert.equal(zoneLightData(null, "x"), null);
+});

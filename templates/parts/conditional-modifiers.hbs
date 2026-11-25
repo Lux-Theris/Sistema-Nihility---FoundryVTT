@@ -32,6 +32,14 @@
     <select name="system.conditionalModifiers.{{row.index}}.perEach" title="Multiplica o valor pela contagem">
       {{#each row.perEachOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}
     </select>
+    {{#if row.showPerLevels}}
+    <span class="conditional-word" title="Quantas vezes a regra conta = nível da Skill ÷ N (arredondado para baixo), no mínimo 1. Ex.: N = 5 → níveis 1–9 contam 1 vez, 10–14 contam 2. 0 = sem escala.">a cada</span>
+    <input type="number" min="0" step="1" style="width:3.5em" name="system.conditionalModifiers.{{row.index}}.perLevels" value="{{row.perLevels}}" title="N níveis da Skill (0 = sem escala)"/>
+    <span class="conditional-word">níveis da Skill</span>
+    {{/if}}
+    <label class="conditional-word" title="Multiplica o valor pela escuridão da cena onde o Token está (0 a 100%) e arredonda no fim. Cena clara = 0.">
+      <input type="checkbox" name="system.conditionalModifiers.{{row.index}}.timesDarkness" {{#if row.timesDarkness}}checked{{/if}}/> vezes a escuridão
+    </label>
     {{#if row.activeStateOptions}}
     <select name="system.conditionalModifiers.{{row.index}}.activeState" title="Em que estado da Skill Ativa esta regra vale. &quot;Só desligada&quot; é o debuff que some quando a Skill liga.">
       {{#each row.activeStateOptions as |opt|}}<option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}

@@ -56,6 +56,7 @@ function grantedSkillSchema() {
  *  - `then.kind`: THEN_KINDS; `then.target`: atributo ("any" = qualquer) ou alvo de Resistência
  *    ("general"/id de elemento); `then.value`: número
  *  - `perEach`: multiplica pelo número de Condições no oponente/em si mesmo
+ *  - `perLevels`/`timesDarkness`: escala (1.120.0), ver combat/conditional-modifiers.js
  *  - `activeState`: só numa Skill Ativa — "on" (ligada, o padrão), "off" (desligada) ou "always"
  */
 function conditionalModifiersSchema() {
@@ -72,6 +73,10 @@ function conditionalModifiersSchema() {
         value: new fields.NumberField({ required: false, initial: 10 })
       }),
       perEach: new fields.StringField({ required: false, initial: "", blank: true }),
+      /** "A cada N níveis da Skill" (1.120.0): vezes = ⌊nível ÷ N⌋, mínimo 1. 0 = sem escala. Só conta em Skill (a fonte tem nível). */
+      perLevels: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+      /** "Vezes a escuridão" (1.120.0): multiplica o valor pela escuridão da cena do Token (0–1) e arredonda no fim. */
+      timesDarkness: new fields.BooleanField({ required: false, initial: false }),
       /** Skill Ativa (8c.1): "on" só ligada, "off" só desligada, "always"; vazio = "on" (como sempre foi). */
       activeState: new fields.StringField({ required: false, initial: "", blank: true })
     }),
@@ -219,6 +224,10 @@ function usageFields() {
      * Sai no Aplicar do card de dano e o Desfazer o desfaz. Ver combat/life-steal-rules.js.
      */
     lifeSteal: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0, max: 100 }),
+    /** Zona (1.120.0): a Zona escurece o mapa de verdade (luz negativa do Foundry no lugar dela, apagada com ela); quem está dentro conta como "no escuro". */
+    zoneDarkens: new fields.BooleanField({ required: false, initial: false }),
+    /** Predação (1.120.0): "all" = Skills, pontos e forma (como sempre); "forms" = só formas (a Skill guarda o molde como Sub-Skill de Forma, sem rolar Skills, metade dos pontos). */
+    predationTakes: new fields.StringField({ required: false, initial: "all", choices: ["all", "forms"] }),
     /** Estrutura: "Segue quem lançou" — a instância anda junto com o Token de quem a ergueu (aura). */
     structureFollows: new fields.BooleanField({ required: false, initial: false }),
     /** Ativa: desliga quando o alvo escolhido ao ligar cai (Caído, Inconsciente, morto). Quem usa cair já desliga. */

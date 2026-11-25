@@ -144,6 +144,7 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
   // Forma (H5): a ficha-molde é do Mestre; a IA não inventa uma. Mecânica Forma vira Descritiva.
   if (effectType === "form") effectType = "none";
   // Análise e Predação (7b): mecânicas do Mestre; a IA não as inventa (vira Descritiva).
+  // (`predationTakes` nunca sai da IA: sem Predação, fica no padrão "all".)
   if (effectType === "analysis" || effectType === "predation") effectType = "none";
 
   const targetType = ["targeted", "self", "emission", "zone"].includes(m.targetType) ? m.targetType : "targeted";
@@ -152,7 +153,11 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
     out.areaShape = ["circle", "cone", "ray"].includes(m.areaShape) ? m.areaShape : "circle";
     out.areaDistance = clampInt(m.areaDistance, 1, 30, 3);
     out.areaAngle = clampInt(m.areaAngle, 10, 360, 53);
-    if (targetType === "zone") out.zoneRounds = clampInt(m.zoneRounds, 1, 20, 3);
+    if (targetType === "zone") {
+      out.zoneRounds = clampInt(m.zoneRounds, 1, 20, 3);
+      // Escurece o mapa (1.120.0): a Zona cria uma luz negativa; só numa Zona.
+      out.zoneDarkens = Boolean(m.zoneDarkens);
+    }
   }
 
   if (effectType === "damage") {

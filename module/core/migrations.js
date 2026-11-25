@@ -24,6 +24,9 @@ import { mergeSurfaceDefaults } from "../environment/surface-rules.js";
 import { addMissingById } from "../skills/combined-rules.js";
 import { normalizeSpeciesCatalog } from "../species/species-rules.js";
 import { planOriginDefenseMigration, originDefenseKeptNotice } from "../species/origin-defense-migration-rules.js";
+import { planElementMigration, elementKeptNotice } from "../combat/element-migration-rules.js";
+import { planOriginElementMigration, originElementKeptNotice } from "../species/origin-element-migration-rules.js";
+import { newLineageIds } from "./config/defaults/species-elements.js";
 import { escapeHtml } from "../helpers/html.js";
 
 /**
@@ -281,6 +284,64 @@ async function migrateOriginDefenses() {
   }
 }
 
+/**
+ * 1.120.0: Trevas (o antigo Sombrio), Luz, Demoníaco, Terra e Vento. O catálogo SALVO de Tipos de Dano ganha os
+ * elementos novos e troca rótulo/afinidades só onde ainda estão como os de fábrica anteriores (`planElementMigration`,
+ * pura); o que o Mestre editou fica e entra num aviso único, sussurrado aos Mestres. Catálogo nunca salvo usa o padrão novo.
+ */
+async function migrateNewElements() {
+  const raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.damageElementsData);
+  if (!raw) return;
+  let list;
+  try {
+    list = typeof raw === "string" ? JSON.parse(raw) : raw;
+  } catch (err) {
+    return;
+  }
+  if (!Array.isArray(list)) return;
+  const plan = planElementMigration(list, NIHILITY.DEFAULT_DAMAGE_ELEMENTS);
+  if (plan.added.length || plan.changed.length) {
+    await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.damageElementsData, JSON.stringify(plan.list, null, 2));
+    console.log(`${SYSTEM_ID} | Elementos novos: acrescentados ${plan.added.join(", ") || "nenhum"}; atualizados ${plan.changed.join("; ") || "nenhum"}.`);
+  }
+  const notice = elementKeptNotice(plan.kept);
+  if (notice) await ChatMessage.create({ whisper: game.users.filter(u => u.isGM).map(u => u.id), content: `<p>${escapeHtml(notice)}</p>` });
+}
+
+/**
+ * 1.121.0: Linhagens por elemento, Slime Comum, Dragão de Trevas, Herança "Vampirizado por Demônio" e os corpos/fraquezas
+ * novos. Como a `originDefenses`: acrescenta ao catálogo SALVO o que falta (pelo id) e troca um campo só onde ainda é o de
+ * fábrica anterior (`planOriginElementMigration`, pura); o que o Mestre editou fica e vira um aviso único.
+ */
+async function migrateOriginElements() {
+  const parse = raw => {
+    if (!raw || (typeof raw === "string" && !raw.trim())) return null;
+    try {
+      return typeof raw === "string" ? JSON.parse(raw) : raw;
+    } catch (err) {
+      return null;
+    }
+  };
+  const savedSpecies = parse(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.speciesPresetsData));
+  const savedHeritages = parse(game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.heritagesData));
+  const hasSpecies = savedSpecies && typeof savedSpecies === "object" && !Array.isArray(savedSpecies);
+  const hasHeritages = Array.isArray(savedHeritages);
+  if (!hasSpecies && !hasHeritages) return;
+  const plan = planOriginElementMigration({
+    species: hasSpecies ? savedSpecies : {},
+    heritages: hasHeritages ? savedHeritages : [],
+    factory: { species: NIHILITY.DEFAULT_SPECIES_PRESETS, heritages: NIHILITY.DEFAULT_HERITAGES },
+    newLineages: newLineageIds()
+  });
+  if (plan.changed.length || plan.added.length) {
+    if (hasSpecies) await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.speciesPresetsData, JSON.stringify(plan.species, null, 2));
+    if (hasHeritages) await game.settings.set(SYSTEM_ID, NIHILITY.SETTINGS.heritagesData, JSON.stringify(plan.heritages, null, 2));
+    console.log(`${SYSTEM_ID} | Elementos nas Espécies: acrescentado ${plan.added.join("; ") || "nada"}; atualizado ${plan.changed.join("; ") || "nada"}.`);
+  }
+  const notice = originElementKeptNotice(plan.kept);
+  if (notice) await ChatMessage.create({ whisper: game.users.filter(u => u.isGM).map(u => u.id), content: `<p>${escapeHtml(notice)}</p>` });
+}
+
 async function migrateSpaceDomainDefaults() {
   const raw = game.settings.get(SYSTEM_ID, NIHILITY.SETTINGS.statusConditionsData);
   if (!raw) return;
@@ -475,7 +536,9 @@ const MIGRATION_FUNCTIONS = {
   luckDefaults: migrateLuckDefaults,
   spaceDefaults: migrateSpaceDefaults,
   spaceDomainDefaults: migrateSpaceDomainDefaults,
-  originDefenses: migrateOriginDefenses
+  originDefenses: migrateOriginDefenses,
+  newElements: migrateNewElements,
+  originElements: migrateOriginElements
 };
 
 /** As migrações na ordem em que rodam: `[chave estável, função]`. */

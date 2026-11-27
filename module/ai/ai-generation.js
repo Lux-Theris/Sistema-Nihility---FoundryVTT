@@ -20,6 +20,7 @@ import { announceVoiceOfTheWorld } from "../core/voice-of-the-world.js";
 import { changeActorSpecies } from "../species/species.js";
 import { mechanicsGuide, sanitizeSkillMechanics, sanitizeWeapon, sanitizeItemBonuses, currentAICatalogs, foundryFormulaCheck, originGuide, sanitizeOriginEntry } from "./ai-mechanics.js";
 import { escapeHtml } from "../helpers/html.js";
+import { itemSetGuide, sanitizeAISet } from "../economy/item-set-rules.js";
 
 /* -------------------------------------------- */
 /*  Núcleo genérico de geração via IA            */
@@ -652,6 +653,24 @@ export async function ingestExternalSkillJSON(actor, json, options = {}) {
 /* -------------------------------------------- */
 /*  Espécie e Herança via IA (rework de Espécies) */
 /* -------------------------------------------- */
+
+/**
+ * Gera um Conjunto (J12) e o devolve já limpo — NÃO grava: o catálogo de Conjuntos o põe na lista de trabalho e o Mestre
+ * arrasta os Itens reais para as peças e Salva. A IA só propõe; `sanitizeAISet` tira o que não existe neste mundo.
+ * @param {string} prompt
+ * @param {{forKind?: "character"|"vessel", existingIds?: Set<string>}} [options]
+ */
+export async function generateItemSetFromAI(prompt, { forKind = "character", existingIds = new Set() } = {}) {
+  const catalogs = currentAICatalogs();
+  const parsed = await generateJSON("Você é o motor de regras de um RPG de Foundry VTT, em português do Brasil.\n" + itemSetGuide(catalogs, forKind), prompt);
+  const set = sanitizeAISet({ ...parsed, for: forKind }, {
+    attributeKeys: new Set(catalogs.attributes.map(a => a.id)),
+    elementIds: new Set(catalogs.elements.map(e => e.id)),
+    existingIds
+  });
+  if (!set) throw new Error("A IA não devolveu um conjunto utilizável.");
+  return set;
+}
 
 /**
  * Gera uma Espécie (ou Herança) e grava no catálogo do mundo. A IA só propõe: tudo passa por

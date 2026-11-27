@@ -17,6 +17,7 @@ import {
   getActiveCurrencies,
   getActiveSpeciesPresets,
   getActiveHeritages,
+  getActiveItemSets,
   getActiveNpcArchetypes,
   getActiveSkillTemplates,
   getActiveBodyFunctions,
@@ -148,6 +149,10 @@ const MENU_ACTIONS = new Map([
   ["ammo-types-config", vesselCatalogAction(apps => apps.AmmoTypesConfigApp)],
   ["vehicle-sizes-config", vesselCatalogAction(apps => apps.VehicleSizesConfigApp)],
   ["crew-roles-config", vesselCatalogAction(apps => apps.CrewRolesConfigApp)],
+  ["item-sets-config", async () => {
+    const { openItemSetsConfig } = await import("./item-sets-config.js");
+    openItemSetsConfig();
+  }],
   ["weapon-types-config", async () => {
     const { WeaponTypesConfigApp } = await import("./weapon-types-config.js");
     new WeaponTypesConfigApp().render(true);
@@ -637,6 +642,7 @@ export class NihilityMenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
           { action: "heritages-config", icon: "fas fa-droplet", title: "Heranças", desc: "O que pode acontecer com qualquer Espécie: Vampirizado, Meio-Dragão, Convertido em Ciborgue…", state: count(getActiveHeritages().length, "herança", "heranças") },
           { action: "traits-config", icon: "fas fa-tags", title: "Traços", desc: "Dracônico, Voador, Orgânico… usados por Elementos e bônus condicionais.", state: count(getActiveTraits().length, "traço", "traços") },
           { action: "economy-config", icon: "fas fa-coins", title: "Moedas", desc: "Moedas, valores e conversão.", state: count(getActiveCurrencies().length, "moeda", "moedas"), feature: "economy" },
+          { action: "item-sets-config", icon: "fas fa-layer-group", title: "Conjuntos", desc: "Armadura do Dragão 3/4: peças que, juntas, dão bônus por faixa (2, 3, 4 peças). Arraste Itens para virar peça.", state: count(getActiveItemSets().length, "conjunto", "conjuntos"), feature: "itemSets" },
           { action: "titles-config", icon: "fas fa-crown", title: "Compêndio de Títulos", desc: "Títulos do mundo.", feature: "titles" },
           { action: "items-compendium", icon: "fas fa-suitcase", title: "Compêndio de Itens", desc: "Armas, equipamentos e itens gerais." }
         ]

@@ -27,6 +27,17 @@
     </div>
   </div>
 
+  {{#if itemSetsEnabled}}
+  <div class="sec">
+    <div class="sec-head">Conjunto</div>
+    <div class="sec-body">
+      <label class="fld"><span class="fld-label">Conjunto <span class="help" title="Escolher o conjunto aqui é o mesmo que arrastar este Item para o catálogo: ele vira peça. Equipado (ou instalado, se for implante), conta para a faixa do conjunto: 2, 3, 4 peças dão bônus que somam. A mesma peça duas vezes conta uma. Peça suprimida (Antimagia/PEM) não conta.">?</span></span>
+        <select name="system.itemSet">{{#each itemSetOptions as |opt|}}<option value="{{opt.id}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>{{/each}}</select></label>
+      {{#if isGM}}<div class="row"><button type="button" data-action="createSetFromItem"><i class="fas fa-layer-group"></i> Criar conjunto com este Item…</button></div>{{/if}}
+    </div>
+  </div>
+  {{/if}}
+
   <div class="sec">
     <div class="sec-head">Contêiner</div>
     <div class="sec-body g3">

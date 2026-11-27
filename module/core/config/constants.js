@@ -13,6 +13,7 @@ import { DEFAULT_NPC_ARCHETYPES, NPC_NAME_TABLES, NPC_ARCHETYPE_GROUP_LABELS } f
 import { DEFAULT_SKILL_TEMPLATES, SKILL_TEMPLATE_GROUP_LABELS } from "./defaults/skill-templates.js";
 import { CORE_SKILL_DEFS } from "./defaults/core-skills.js";
 import { DEFAULT_WEAPON_TYPES } from "./defaults/weapons.js";
+import { DEFAULT_ITEM_SETS, DEFAULT_ITEM_SET_PIECES } from "./defaults/item-sets.js";
 export { PHYSICAL_SUBTYPES, FANTASY_ELEMENTS_1120, RADIATION_ELEMENT, DEFAULT_ELEMENT_REACTIONS, DEFAULT_ELEMENT_SURFACES, REACTION_ELEMENTS, REACTION_CONDITIONS } from "./defaults/elements.js";
 
 export const SYSTEM_ID = "nihility-rpg-system";
@@ -70,6 +71,8 @@ export const NIHILITY = {
     shipClassesData: "shipClassesData",
     shipSizesData: "shipSizesData",
     ammoTypesData: "ammoTypesData",
+    // Conjuntos (J12, 1.122.0): o catálogo de conjuntos de Itens/Módulos. Termina em "Data": viaja no Exportar/Importar.
+    itemSetsData: "itemSetsData",
     vehicleSizesData: "vehicleSizesData",
     vehicleClassesData: "vehicleClassesData",
     crewRolesData: "crewRolesData",
@@ -744,6 +747,9 @@ export const NIHILITY = {
   CORE_SKILL_DEFS,
   // Tipos de arma (defaults/weapons.js).
   DEFAULT_WEAPON_TYPES,
+  // Conjuntos de fábrica e as peças deles (defaults/item-sets.js).
+  DEFAULT_ITEM_SETS,
+  DEFAULT_ITEM_SET_PIECES,
 
   SPECIES_GROUP_LABELS: {
     fantasia: "Fantasia",

@@ -894,6 +894,8 @@ export class StarshipModuleDataModel extends foundry.abstract.TypeDataModel {
        * a Função da Categoria (`moduleRole`), não o id.
        */
       category: new fields.StringField({ required: true, initial: "utility" }),
+      /** Conjunto (J12): id de um conjunto de Nave/Veículo do catálogo; vazio = nenhum. O Módulo instalado conta para a faixa. */
+      itemSet: new fields.StringField({ required: false, initial: "", blank: true }),
       description: new fields.HTMLField({ required: false, initial: "" }),
       powerConsumption: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),
       status: new fields.StringField({
@@ -1105,6 +1107,11 @@ export class GenericItemDataModel extends foundry.abstract.TypeDataModel {
       quantity: new fields.NumberField({ required: true, integer: true, initial: 1, min: 0 }),
       weight: new fields.NumberField({ required: true, initial: 0, min: 0 }),
       equipped: new fields.BooleanField({ required: false, initial: false }),
+      /**
+       * Conjunto (J12): o id de um conjunto do catálogo (`getActiveItemSets`); vazio = não é peça de nenhum. É assim que a
+       * ficha reconhece a peça (a cópia no Ator leva o campo). Equipado (ou implante instalado) conta para a faixa.
+       */
+      itemSet: new fields.StringField({ required: false, initial: "", blank: true }),
       /** Mágico: a Antimagia suprime os bônus deste Item (e do implante feito dele) enquanto durar. */
       magic: new fields.BooleanField({ required: false, initial: false }),
       /**

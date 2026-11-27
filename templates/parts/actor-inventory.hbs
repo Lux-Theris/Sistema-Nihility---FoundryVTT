@@ -40,6 +40,8 @@
       {{/if}}
     </div>
 
+    {{> nihility.setStrips}}
+
     <div class="inventory-toolbar">
       <input type="search" class="inventory-search" placeholder="Buscar item…" aria-label="Buscar item"/>
       <select class="inventory-filter" aria-label="Filtrar">{{#each inventory.filters as |f|}}<option value="{{f.id}}" {{#if f.selected}}selected{{/if}}>{{f.label}}</option>{{/each}}</select>

@@ -23,5 +23,6 @@ export const MIGRATION_KEYS = [
   "spaceDomainDefaults",
   "originDefenses",
   "newElements",
-  "originElements"
+  "originElements",
+  "itemSetsFactory"
 ];

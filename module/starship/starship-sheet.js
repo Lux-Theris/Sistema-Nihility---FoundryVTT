@@ -32,6 +32,7 @@ import { registerItemInCompendium } from "../core/compendium.js";
 import { createGrantedSkill, removeGrantedSkill } from "../skills/skill-economy.js";
 import { useSkillFlow } from "../skills/skill-use-flow.js";
 import { reportError } from "../helpers/report.js";
+import { setStripsFor } from "../economy/item-sets.js";
 import { escapeHtml } from "../helpers/html.js";
 import { markVisibleEditorParts, refreshEditorOnTabShow } from "../helpers/sheet-tabs.js";
 import { fireStarshipWeapon } from "./ship-damage.js";
@@ -1183,6 +1184,8 @@ class TabbedActorSheetV2 extends HandlebarsApplicationMixin(ActorSheetV2) {
   /** Aba Sistemas (Grid de Energia, Ações da Nave, Módulos, Porão/Peças) — a parte `sistemas`. */
   _prepareSistemasContext(context) {
     const actor = this.actor;
+    // Conjuntos (J12): a faixa dos conjuntos de Módulos instalados (Evasão, Assinatura, Escudo, energia…).
+    context.setStrips = setStripsFor(actor);
     const buildRow = this._moduleRowBuilder();
 
     // Módulos de sistema (toda Função menos Arma e Utilidade) ganham um bloco próprio — podem ser

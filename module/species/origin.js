@@ -5,6 +5,7 @@
  */
 import { getActiveSpeciesPresets, getActiveHeritages } from "../core/config.js";
 import { normalizeSpeciesEntry, originLayers } from "./species-rules.js";
+import { actorSetLayers } from "../economy/item-set-state.js";
 
 /** Entrada de Herança do catálogo (normalizada), ou null. */
 export function getHeritageEntry(id) {
@@ -22,5 +23,8 @@ export function actorOriginLayers(actorOrSystem) {
   const heritages = (system.heritages ?? [])
     .map(h => ({ id: h.id, entry: getHeritageEntry(h.id) }))
     .filter(h => h.entry);
-  return originLayers({ species, lineage, heritages });
+  // Conjuntos (J12): as faixas ligadas entram como camadas "Conjunto" e são lidas pelos mesmos leitores da origem
+  // (Vida/Mana, Resistência, Sorte, Quando → Então). O bônus de atributo do conjunto sai por fora (itemAttributeSources).
+  const actor = actorOrSystem?.items ? actorOrSystem : actorOrSystem?.parent;
+  return [...originLayers({ species, lineage, heritages }), ...actorSetLayers(actor)];
 }

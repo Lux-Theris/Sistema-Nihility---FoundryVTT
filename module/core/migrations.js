@@ -309,6 +309,17 @@ async function migrateNewElements() {
 }
 
 /**
+ * 1.122.0 (J12, Conjuntos): semeia nos Compêndios os Itens e Módulos das peças dos conjuntos de fábrica. O catálogo de
+ * conjuntos em si não precisa de migração: sem nada salvo, o leitor devolve os de fábrica (e "Trazer do padrão" no
+ * catálogo acrescenta os que faltarem, sem sobrescrever edições). Não apaga nem reescreve nada.
+ */
+async function migrateItemSetsFactory() {
+  const { ensureFactorySetItems } = await import("../economy/item-sets.js");
+  const created = await ensureFactorySetItems();
+  if (created) console.log(`${SYSTEM_ID} | Conjuntos de fábrica: ${created} peça(s) nos Compêndios.`);
+}
+
+/**
  * 1.121.0: Linhagens por elemento, Slime Comum, Dragão de Trevas, Herança "Vampirizado por Demônio" e os corpos/fraquezas
  * novos. Como a `originDefenses`: acrescenta ao catálogo SALVO o que falta (pelo id) e troca um campo só onde ainda é o de
  * fábrica anterior (`planOriginElementMigration`, pura); o que o Mestre editou fica e vira um aviso único.
@@ -538,7 +549,8 @@ const MIGRATION_FUNCTIONS = {
   spaceDomainDefaults: migrateSpaceDomainDefaults,
   originDefenses: migrateOriginDefenses,
   newElements: migrateNewElements,
-  originElements: migrateOriginElements
+  originElements: migrateOriginElements,
+  itemSetsFactory: migrateItemSetsFactory
 };
 
 /** As migrações na ordem em que rodam: `[chave estável, função]`. */

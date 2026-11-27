@@ -95,6 +95,7 @@ import { registerZoneDarkness } from "./combat/zone-darkness.js";
 import { registerShieldPoolReconcile } from "./combat/shield-pools.js";
 import { registerStatusConditions, interceptManualCondition } from "./combat/conditions.js";
 import { registerModuleInstallRules } from "./starship/module-install.js";
+import { registerItemSets } from "./economy/item-sets.js";
 import { registerShops } from "./economy/shops.js";
 import { registerLoot } from "./economy/loot.js";
 import { runPendingMigrations } from "./core/migrations.js";
@@ -233,6 +234,8 @@ Hooks.once("init", () => {
   registerStructureContact();
   registerStructureFollow();
   registerModuleInstallRules();
+  // Conjuntos (J12): a Habilidade concedida por faixa nasce e some quando a faixa liga e desliga.
+  registerItemSets();
   // Lojas (G2): reabastecer pelo relógio do mundo e redesenhar a vitrine/avaliação abertas.
   registerShops();
   // Saque, pilhas no mapa, depósito de entregas e troca entre jogadores (G2, lote B).
@@ -295,7 +298,8 @@ Hooks.once("init", () => {
     "nihility.effectCards": `systems/${SYSTEM_ID}/templates/parts/effect-cards.hbs`,
     "nihility.advSummary": `systems/${SYSTEM_ID}/templates/parts/adv-summary.hbs`,
     "nihility.skillWarnings": `systems/${SYSTEM_ID}/templates/parts/skill-warnings.hbs`,
-    "nihility.itemShop": `systems/${SYSTEM_ID}/templates/parts/item-shop.hbs`
+    "nihility.itemShop": `systems/${SYSTEM_ID}/templates/parts/item-shop.hbs`,
+    "nihility.setStrips": `systems/${SYSTEM_ID}/templates/parts/set-strips.hbs`
   });
 
   // Deslocamento por rodada (ver module/movement.js). Instala a classe de Token e os hooks no

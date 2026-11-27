@@ -58,7 +58,10 @@ import { getAntimagicReach,
   getActiveSkillTemplates,
   isFeatureEnabled,
   isTimeManipulationEnabled,
+  isItemSetsEnabled,
+  getActiveItemSets,
 } from "../core/config.js";
+import { setFitsItemType } from "../economy/item-set-rules.js";
 import { skillAssist, costChipHtml } from "../skills/skill-assist.js";
 import { ATTRIBUTE_PERCENT_TARGETS, PERCENT_AMOUNT_TARGETS } from "../economy/consumable-rules.js";
 import { normalizeOnHit, ON_HIT_WHEN, ON_HIT_WHEN_LABELS } from "../skills/marks-rules.js";
@@ -479,7 +482,8 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       editGrantedSubSkill: NihilityItemSheet.#onEditGrantedSubSkill,
       deleteGrantedSubSkill: NihilityItemSheet.#onDeleteGrantedSubSkill,
       scrollToEffect: NihilityItemSheet.#onScrollToEffect,
-      saveAsTemplate: NihilityItemSheet.#onSaveAsTemplate
+      saveAsTemplate: NihilityItemSheet.#onSaveAsTemplate,
+      createSetFromItem: NihilityItemSheet.#onCreateSetFromItem
     }
   };
 
@@ -605,6 +609,14 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     ui.notifications.info(`"${this.item.name}" virou um Modelo de Skill (Configurações Gerais › Personagem › Modelos de Skill).`);
   }
 
+  /** "Criar conjunto com este Item…" (Mestre): abre o catálogo de Conjuntos já com esta peça num conjunto novo. */
+  static async #onCreateSetFromItem(event) {
+    event.preventDefault();
+    if (!game.user.isGM) return;
+    const { openItemSetsConfig } = await import("../apps/item-sets-config.js");
+    openItemSetsConfig({ fromItem: this.item });
+  }
+
   /** Clique no retrato abre o FilePicker de imagem — precisa de action explícita no ApplicationV2. */
   static async #onEditImage(event, target) {
     const field = target.dataset.edit || "img";
@@ -658,6 +670,17 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         ],
         this.#advOpen.get("shop")
       );
+    }
+    // Conjuntos (J12): o campo "Conjunto" do Item Geral e do Módulo (escolher aqui = ser peça do conjunto).
+    context.itemSetsEnabled = isItemSetsEnabled() && ["item", "starship_module"].includes(item.type);
+    if (context.itemSetsEnabled) {
+      const current = String(sys.itemSet ?? "");
+      const sets = getActiveItemSets().filter(set => setFitsItemType(set, item.type));
+      context.itemSetOptions = [
+        { id: "", label: "(nenhum)", selected: !current },
+        ...sets.map(set => ({ id: set.id, label: set.label, selected: set.id === current })),
+        ...(current && !sets.some(set => set.id === current) ? [{ id: current, label: `${current} (não existe no catálogo)`, selected: true }] : [])
+      ];
     }
     context.energyAbbr = getStarshipEnergyAbbr();
     // Seletores de bônus de Atributo (Título, Item, Modificação) usam os rótulos e a

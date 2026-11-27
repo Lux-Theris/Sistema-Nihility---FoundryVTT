@@ -156,7 +156,7 @@ export function shipSignatureInfo(ship) {
     mode: info.mode,
     fire: recentFireSignature(ship),
     camouflage: camoTarget === null ? null : { active: true, target: camoTarget },
-    extra: Number(sys?.combatBonuses?.signaturePercent) || 0,
+    extra: sys?.signatureExtraPercent ?? (Number(sys?.combatBonuses?.signaturePercent) || 0),
     tuning: getSensorTuning()
   });
 }

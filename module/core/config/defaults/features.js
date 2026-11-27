@@ -459,6 +459,13 @@ export const FEATURES = {
       carryPerDefense: { label: "Carga por ponto de Defesa (kg)", hint: "Quanto cada ponto de Defesa (total) soma à carga.", type: "number", default: 0.5, min: 0 }
     }
   },
+  itemSets: {
+    setting: "itemSetsEnabled",
+    parent: "inventory",
+    name: "Conjuntos de Itens",
+    hint: "Itens e Módulos do mesmo conjunto dão bônus por faixa de peças (2, 3, 4…; as faixas somam): atributo, Vida/Mana, Resistência, Sorte, Quando → Então e Habilidade concedida; no conjunto de Nave, Evasão, Assinatura, Escudo, Casco e energia. Conta peça equipada (implante instalado também) ou Módulo instalado, sem repetir a mesma peça e sem as suprimidas (Antimagia/PEM). Catálogo em Configurações Gerais › Conjuntos. Desligar só para de contar e esconde a faixa; nada salvo se perde.",
+    default: true
+  },
   encumbrance: {
     setting: "encumbranceEnabled",
     parent: "inventory",
@@ -576,6 +583,7 @@ const FEATURE_LAYOUT = {
   speciesEvolution: ["character", "A Espécie pode evoluir para outra (estilo Tensura)."],
   inventory: ["character", "Espaços, contêineres e quanto cada um carrega."],
   encumbrance: ["character", "Carregar demais reduz o Deslocamento.", true],
+  itemSets: ["character", "Armadura do Dragão 3/4: peças do mesmo conjunto dão bônus por faixa."],
   skillUseXp: ["character", "A Skill ganha XP pelo que faz quando é usada."],
   statusConditions: ["combat", "Condições como Veneno e Lentidão, também pelo HUD do Token."],
   resistances: ["combat", "Skills e Títulos que reduzem dano de um tipo, até a Imunidade."],

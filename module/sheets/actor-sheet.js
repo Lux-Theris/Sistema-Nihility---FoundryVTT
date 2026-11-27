@@ -82,6 +82,7 @@ import { pickImageFile } from "../helpers/foundry-compat.js";
 import { canUploadImages, canUseGallery, uploadDocumentImage, wireUploadButton, wireGalleryButton } from "../helpers/image-upload.js";
 
 import { handleItemDrop, splitStack, toggleEquipped, inventoryContext } from "../economy/inventory.js";
+import { setStripsFor } from "../economy/item-sets.js";
 import { EffectsListApp } from "../apps/effects-list.js";
 import { enableHotbarDrag, enableUnarmedHotbarDrag } from "../core/hotbar.js";
 import { skillSummariesFor } from "../skills/skill-summary-ui.js";
@@ -875,6 +876,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
   /** Aba Inventário: encaixes, peso, contêineres. */
   #prepareInventoryContext(context) {
     if (context.inventoryEnabled) context.inventory = inventoryContext(this.actor, { filter: this.inventoryFilter, sort: this.inventorySort });
+    // Conjuntos (J12): "Armadura do Dragão 3/4" com as faixas ligadas e a próxima esmaecida.
+    context.setStrips = context.inventoryEnabled ? setStripsFor(this.actor) : [];
   }
 
   /** Aba Anatomia (board 5): Funções, implantes e o que as partes perdidas estão causando. */

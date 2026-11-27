@@ -21,7 +21,17 @@ import {
   isEncumbranceEnabled
 } from "../core/config.js";
 
+import { actorShipSetBonuses } from "../economy/item-set-state.js";
+
 const fields = foundry.data.fields;
+
+/** Qual bônus de conjunto (J12) soma em qual melhoria em % (`combatBonuses.*Percent`). */
+const SET_BONUS_OF_FIELD = {
+  shieldCapacityPercent: "shieldCapacity",
+  shieldRegenPercent: "shieldRegen",
+  reactorOutputPercent: "reactorOutput",
+  propulsionPercent: "propulsion"
+};
 
 /**
  * Fração (0-1) do desempenho que um Módulo ainda entrega, dada a Vida dele — a regra de que
@@ -396,7 +406,13 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
 
   /** Fator de uma melhoria temporária em % (`combatBonuses.*Percent`): +20 → 1.2; nunca negativo. */
   bonusFactor(field) {
-    return Math.max(0, 1 + (Number(this.combatBonuses?.[field]) || 0) / 100);
+    const fromSet = Number(this.setBonuses?.[SET_BONUS_OF_FIELD[field]]) || 0;
+    return Math.max(0, 1 + ((Number(this.combatBonuses?.[field]) || 0) + fromSet) / 100);
+  }
+
+  /** Assinatura somada (%) das melhorias de Skill e dos conjuntos (J12); é o `extra` da Assinatura da nave. */
+  get signatureExtraPercent() {
+    return (Number(this.combatBonuses?.signaturePercent) || 0) + (Number(this.setBonuses?.signature) || 0);
   }
 
   /** Casas por rodada em combate: base do Porte × razão da Aceleração. 0 sem Motor. */
@@ -416,7 +432,10 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
     if (!isShipManeuverEnabled()) return 0;
     const config = getShipManeuverConfig();
     const base = this.vesselSize.evasion * (this.vesselClass?.evasionMultiplier ?? 1);
-    return shipEvasionFraction(base, this.engineRatioFor("rotation"), config.evasionCap);
+    const fraction = shipEvasionFraction(base, this.engineRatioFor("rotation"), config.evasionCap);
+    // Conjunto de Nave (J12): pontos percentuais a mais, ainda sob o teto de Evasão.
+    const extra = (Number(this.setBonuses?.evasion) || 0) / 100;
+    return extra ? Math.min(Math.max(0, fraction + extra), Math.max(0, config.evasionCap) / 100) : fraction;
   }
 
   // "O" Módulo de cada Função — o primeiro instalado. A ficha mostra o nome dele; as contas usam
@@ -455,8 +474,8 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
     const armor = this.armorModule;
     if (!armor) return 0;
     const base = (armor.system.armorReduction ?? 0) / 100;
-    // "Resistência baixa" (efeito de elemento tipo Disruptor) tira pontos da Redução também.
-    return Math.clamp(base * this.integrityRatioFor(armor) - this.systemEffectPercent("resistanceDown") / 100, 0, 1);
+    // "Resistência baixa" (efeito de elemento tipo Disruptor) tira pontos da Redução também; o conjunto de Nave (J12) soma pontos.
+    return Math.clamp(base * this.integrityRatioFor(armor) + (Number(this.setBonuses?.armor) || 0) / 100 - this.systemEffectPercent("resistanceDown") / 100, 0, 1);
   }
 
   /**
@@ -684,6 +703,8 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
   }
 
   prepareDerivedData() {
+    // Conjuntos de Nave (J12): os bônus das faixas ligadas, lidos antes de qualquer conta que os use (não é salvo).
+    this.setBonuses = actorShipSetBonuses(this.parent);
     // 1ª invalidação: os dados podem ter mudado desde a última preparação.
     this.#invalidatePowerCache();
 

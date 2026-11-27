@@ -15,6 +15,7 @@ import { pocketSlots, POCKET_DEFAULTS, pocketEntryOf, PRESO_CONDITION_ID } from 
 import { weaponTypeCatalogIssues } from "../combat/weapon-mastery-rules.js";
 import { shopSetupIssues, normalizeItemShop } from "../economy/shop-rules.js";
 import { moduleSensorIssues, shipSensorIssues } from "../starship/sensor-rules.js";
+import { itemSetIssues, itemSetRefIssues } from "../economy/item-set-rules.js";
 
 const ids = list => new Set((list ?? []).map(entry => (typeof entry === "string" ? entry : entry?.id ?? entry?.key)).filter(Boolean));
 
@@ -45,6 +46,9 @@ export function buildCatalogIndex(catalogs = {}) {
     vehicleSizes: ids(catalogs.vehicleSizes),
     shipClasses: catalogs.shipClasses ?? [],
     vehicleClasses: catalogs.vehicleClasses ?? [],
+    // Conjuntos (J12): o catálogo inteiro (para o tipo do conjunto) e os ids. Sem `itemSets`, o campo do Item não é conferido.
+    itemSets: ids(catalogs.itemSets),
+    itemSetList: Array.isArray(catalogs.itemSets) ? catalogs.itemSets : null,
     sizeLists: { starship: catalogs.shipSizes ?? [], vehicle: catalogs.vehicleSizes ?? [] },
     // Forma (H5): (uuid) => o molde existe e está marcado; ausente = não confere.
     formTemplateOk: typeof catalogs.formTemplateOk === "function" ? catalogs.formTemplateOk : null
@@ -69,7 +73,8 @@ const CATALOG_LABELS = {
   shipSizes: "Portes de Nave",
   vehicleSizes: "Portes de Veículo",
   shipClasses: "Classes de Nave",
-  vehicleClasses: "Classes de Veículo"
+  vehicleClasses: "Classes de Veículo",
+  itemSets: "Conjuntos"
 };
 
 /** Junta trechos de caminho ("Sub-Skill 2 › Efeito 1 › Condição"), ignorando os vazios. */
@@ -200,6 +205,12 @@ function checkGrant(grant, idx, prefix) {
 export function validateItem(item, idx) {
   const s = item?.system ?? {};
   const issues = [];
+  // Conjunto (J12): o Item aponta para um conjunto que não existe (ou que é de outro tipo de ficha).
+  if (idx.itemSetList && s.itemSet && ["item", "starship_module"].includes(item?.type)) {
+    for (const problem of itemSetRefIssues([{ label: item.name ?? "", type: item.type, setId: s.itemSet }], idx.itemSetList)) {
+      issues.push({ where: "Conjunto", catalog: "itemSets", ref: s.itemSet, message: problem.text });
+    }
+  }
   switch (item?.type) {
     case "skill":
       issues.push(...checkMechanic(s, idx));
@@ -439,6 +450,11 @@ export function originDefenseIssues(entry, idx, conditions = [], prefix = "") {
 export function validateCatalogs(catalogs, idx = buildCatalogIndex(catalogs)) {
   const issues = [];
   const push = (catalog, entry, list) => list.forEach(issue => issues.push({ ...issue, catalog, entry }));
+
+  // Conjuntos (J12): sem peças, faixa maior que o número de peças, faixa sem bônus, alvo que não existe.
+  for (const problem of itemSetIssues(catalogs.itemSets ?? [], { elementIds: idx.elements, attributeKeys: idx.attributes })) {
+    issues.push({ catalog: "itemSets", entry: problem.label, where: "Conjunto", ref: problem.setId, message: problem.text });
+  }
 
   // Tipos de arma: pai desconhecido, de si mesmo ou em ciclo.
   for (const problem of weaponTypeCatalogIssues(catalogs.weaponTypes)) {

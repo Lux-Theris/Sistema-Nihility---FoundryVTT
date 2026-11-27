@@ -1,0 +1,129 @@
+<div class="is-root">
+  <div class="is-cols">
+    <div class="is-list">
+      {{#each sets as |s|}}
+      <a class="is-it {{#if s.selected}}on{{/if}}" data-action="selectSet" data-id="{{s.id}}" title="{{s.forLabel}}">{{s.label}}</a>
+      {{/each}}
+      <button type="button" data-action="addSet">+ Novo conjunto</button>
+      <button type="button" data-action="aiSet" {{#unless aiOn}}disabled title="O Assistente de IA está desligado."{{/unless}}>Criar com IA…</button>
+      <button type="button" data-action="importDefaults" title="Acrescenta os conjuntos de fábrica que faltam, sem tocar nos seus.">Trazer do padrão…</button>
+    </div>
+    <div class="is-main">
+      {{#if sel}}
+      <div class="is-sec">
+        <div class="is-g3">
+          <label class="is-f">Nome<input type="text" data-path="label" value="{{sel.label}}"/></label>
+          <label class="is-f">Para<select data-path="for" data-render="1">{{#each sel.forOptions as |o|}}<option value="{{o.id}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>{{/each}}</select></label>
+          <label class="is-f">Peças no total<input type="text" value="{{sel.total}}" disabled/></label>
+        </div>
+        <div class="is-row">
+          <label class="is-f is-grow">Id <span class="is-dim">(é o que os Itens guardam{{#if sel.locked}}; já salvo, não muda{{/if}})</span><input type="text" data-path="id" value="{{sel.id}}" {{#if sel.locked}}disabled{{/if}}/></label>
+          <button type="button" class="is-dng" data-action="removeSet">Tirar conjunto</button>
+        </div>
+      </div>
+
+      <div class="is-sec">
+        <h4>Peças</h4>
+        {{#each sel.pieces as |p|}}
+        <div class="is-piece">
+          <span class="is-grow">{{p.name}}</span>
+          <input class="is-kind" type="text" data-path="pieces.{{p.index}}.kind" value="{{p.kind}}" aria-label="Etiqueta" placeholder="etiqueta"/>
+          <a class="is-x" data-action="removePiece" data-index="{{p.index}}" title="Tirar a peça do catálogo"><i class="fas fa-times"></i></a>
+        </div>
+        {{else}}
+        <div class="is-dim">Nenhuma peça ainda.</div>
+        {{/each}}
+        <div class="is-drop">arraste um Item aqui (do mundo ou de um compêndio) para ele virar peça</div>
+      </div>
+
+      <div class="is-sec">
+        <div class="is-row"><h4 class="is-grow">Bônus por faixa</h4><span class="is-dim">as faixas somam: com 4 peças valem as de 2, 3 e 4</span></div>
+        {{#each sel.tiers as |t|}}
+        <div class="is-tier">
+          <div class="is-tcount"><input type="number" min="1" data-path="tiers.{{t.index}}.count" data-kind="int" value="{{t.count}}" aria-label="Peças"/><span>peças</span></div>
+          <div class="is-tbody">
+            <div class="is-tsum">{{t.summary}}
+              <a class="is-add" data-action="toggleTier" data-index="{{t.index}}">{{#if t.open}}fechar{{else}}+ bônus{{/if}}</a>
+              <a class="is-x" data-action="removeTier" data-index="{{t.index}}" title="Tirar a faixa"><i class="fas fa-trash"></i></a>
+            </div>
+            {{#if t.overflow}}<div class="is-warn">Esta faixa é maior que o número de peças: nunca liga.</div>{{/if}}
+            {{#if t.open}}
+            <div class="is-edit">
+              {{#if @root.sel.vessel}}
+              <div class="is-sh">Bônus da Nave <a class="is-add" data-action="addRow" data-list="tiers.{{t.index}}.bonuses.ship" data-template="ship">+ bônus</a></div>
+              {{#each t.ship as |s|}}
+              <div class="is-tr">
+                <select data-path="tiers.{{t.index}}.bonuses.ship.{{s.index}}.target">{{#each s.options as |o|}}<option value="{{o.id}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>{{/each}}</select>
+                <input type="number" step="any" data-path="tiers.{{t.index}}.bonuses.ship.{{s.index}}.amount" data-kind="number" value="{{s.amount}}" aria-label="%"/><span class="is-dim">% (Evasão, Casco: pontos)</span>
+                <a class="is-x" data-action="removeRow" data-list="tiers.{{t.index}}.bonuses.ship" data-index="{{s.index}}" title="Remover"><i class="fas fa-times"></i></a>
+              </div>
+              {{/each}}
+              {{else}}
+              <div class="is-sh">Atributos <a class="is-add" data-action="addRow" data-list="tiers.{{t.index}}.bonuses.attributeBonuses" data-template="attribute">+ atributo</a></div>
+              {{#each t.attributes as |a|}}
+              <div class="is-tr">
+                <select data-path="tiers.{{t.index}}.bonuses.attributeBonuses.{{a.index}}.attribute">{{#each a.options as |o|}}<option value="{{o.id}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>{{/each}}</select>
+                <input type="number" data-path="tiers.{{t.index}}.bonuses.attributeBonuses.{{a.index}}.amount" data-kind="int" value="{{a.amount}}" aria-label="Valor"/><span class="is-dim">por fora, na rolagem (não entra na Vida/Mana)</span>
+                <a class="is-x" data-action="removeRow" data-list="tiers.{{t.index}}.bonuses.attributeBonuses" data-index="{{a.index}}" title="Remover"><i class="fas fa-times"></i></a>
+              </div>
+              {{/each}}
+              <div class="is-sh">Vida e Mana máximas</div>
+              <div class="is-tr">
+                <label>Vida <input type="number" data-path="tiers.{{t.index}}.bonuses.statModifiers.hp" data-kind="int" value="{{t.hp}}"/></label>
+                <label>Mana <input type="number" data-path="tiers.{{t.index}}.bonuses.statModifiers.energy" data-kind="int" value="{{t.energy}}"/></label>
+              </div>
+              <div class="is-sh">Resistência <a class="is-add" data-action="addRow" data-list="tiers.{{t.index}}.bonuses.resistances" data-template="resistance">+ resistência</a></div>
+              {{#each t.resistances as |r|}}
+              <div class="is-tr">
+                <select data-path="tiers.{{t.index}}.bonuses.resistances.{{r.index}}.target">{{#each r.options as |o|}}<option value="{{o.id}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>{{/each}}</select>
+                <input type="number" min="-300" max="100" data-path="tiers.{{t.index}}.bonuses.resistances.{{r.index}}.amount" data-kind="int" value="{{r.amount}}" aria-label="%"/><span class="is-dim">% (negativo = fraqueza)</span>
+                <a class="is-x" data-action="removeRow" data-list="tiers.{{t.index}}.bonuses.resistances" data-index="{{r.index}}" title="Remover"><i class="fas fa-times"></i></a>
+              </div>
+              {{/each}}
+              <div class="is-sh">Sorte (% — negativo = azar)</div>
+              <div class="is-tr">
+                <label>Atributos <input type="number" data-path="tiers.{{t.index}}.bonuses.luck.attributes" data-kind="number" value="{{t.luck.attributes}}"/></label>
+                <label>Dano <input type="number" data-path="tiers.{{t.index}}.bonuses.luck.damage" data-kind="number" value="{{t.luck.damage}}"/></label>
+                <label>Chances <input type="number" data-path="tiers.{{t.index}}.bonuses.luck.chances" data-kind="number" value="{{t.luck.chances}}"/></label>
+              </div>
+              <div class="is-sh">Quando → Então <a class="is-add" data-action="addRow" data-list="tiers.{{t.index}}.bonuses.conditionalModifiers" data-template="rule">+ regra</a></div>
+              {{#each t.rules as |r|}}
+              <div class="is-tr is-rule">
+                <select data-path="tiers.{{t.index}}.bonuses.conditionalModifiers.{{r.index}}.when.kind" data-render="1">{{#each @root.whenKinds as |k|}}<option value="{{k.key}}" {{#if (eq k.key r.whenKind)}}selected{{/if}}>{{k.label}}</option>{{/each}}</select>
+                {{#if r.valueOptions}}<select data-path="tiers.{{t.index}}.bonuses.conditionalModifiers.{{r.index}}.when.value"><option value="">—</option>{{#each r.valueOptions as |o|}}<option value="{{o.id}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>{{/each}}</select>{{/if}}
+                {{#if r.needsThreshold}}<input type="number" data-path="tiers.{{t.index}}.bonuses.conditionalModifiers.{{r.index}}.when.threshold" data-kind="int" value="{{r.threshold}}" aria-label="%"/>{{/if}}
+                <span class="is-dim">→</span>
+                <input type="number" data-path="tiers.{{t.index}}.bonuses.conditionalModifiers.{{r.index}}.then.value" data-kind="number" value="{{r.amount}}" aria-label="Valor"/>
+                <select data-path="tiers.{{t.index}}.bonuses.conditionalModifiers.{{r.index}}.then.kind" data-render="1">{{#each @root.thenKinds as |k|}}<option value="{{k.key}}" {{#if (eq k.key r.thenKind)}}selected{{/if}}>{{k.label}}</option>{{/each}}</select>
+                <select data-path="tiers.{{t.index}}.bonuses.conditionalModifiers.{{r.index}}.then.target">{{#each r.targetOptions as |o|}}<option value="{{o.id}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>{{/each}}</select>
+                <a class="is-x" data-action="removeRow" data-list="tiers.{{t.index}}.bonuses.conditionalModifiers" data-index="{{r.index}}" title="Remover"><i class="fas fa-times"></i></a>
+              </div>
+              {{/each}}
+              <div class="is-sh">Habilidade concedida</div>
+              <div class="is-tr">
+                {{#if t.skillName}}<b>{{t.skillName}}</b>
+                <button type="button" data-action="editSkill" data-index="{{t.index}}">Editar…</button>
+                <button type="button" data-action="clearSkill" data-index="{{t.index}}">Tirar</button>
+                {{else}}<span class="is-dim">nenhuma</span><button type="button" data-action="editSkill" data-index="{{t.index}}">Criar…</button>{{/if}}
+              </div>
+              {{/if}}
+            </div>
+            {{/if}}
+          </div>
+        </div>
+        {{/each}}
+        <div class="is-row"><a class="is-add" data-action="addTier">+ faixa</a></div>
+        <div class="is-dim">“+ bônus” abre o mesmo vocabulário do “enquanto equipado” do Item: atributo, Vida/Mana, Resistência, Habilidade concedida, Quando → Então, Sorte. No conjunto de Nave, os bônus são os da própria nave.</div>
+      </div>
+      {{else}}
+      <p class="is-dim">Nenhum conjunto. "+ Novo conjunto", "Criar com IA…" ou "Trazer do padrão…".</p>
+      {{/if}}
+    </div>
+  </div>
+  <footer class="is-foot">
+    <span class="is-dirty {{#unless dirty}}hidden{{/unless}}">Mudanças não salvas</span>
+    <span class="is-grow"></span>
+    <button type="button" data-action="cancel">Descartar</button>
+    <button type="button" class="is-pri" data-action="save">Salvar</button>
+  </footer>
+</div>

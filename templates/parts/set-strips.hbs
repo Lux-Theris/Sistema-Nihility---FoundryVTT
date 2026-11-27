@@ -1,0 +1,8 @@
+{{#each setStrips as |s|}}
+<div class="nihility-setbar" data-set-id="{{s.id}}">
+  <div class="sb-head"><b class="sb-name">{{s.label}}</b><span class="sb-pips">{{#each s.pips as |p|}}<i class="sb-pip {{#unless p.on}}off{{/unless}}"></i>{{/each}}</span><b class="sb-count">{{s.count}}/{{s.total}}</b></div>
+  {{#each s.tiers as |t|}}
+  <div class="sb-tier {{#unless t.on}}off{{/unless}}"><span class="{{#if t.on}}sb-dot{{/if}}">{{#if t.on}}●{{else}}○{{/if}}</span><span>{{t.count}}: {{t.text}}</span></div>
+  {{/each}}
+</div>
+{{/each}}

@@ -14,6 +14,7 @@ import { structureMaterial, structureManaPowered } from "../../structures/struct
 import { createRawCache, memoByObject } from "./cache.js";
 import { normalizeArchetype } from "../../npc/npc-generator-rules.js";
 import { normalizeSkillTemplate } from "../../skills/skill-template-rules.js";
+import { normalizeItemSets } from "../../economy/item-set-rules.js";
 
 const rawCache = createRawCache();
 
@@ -548,6 +549,28 @@ export function moduleCategoryLabel(categoryId) {
 }
 
 /* ------------------------------------------------------------------ Inventário */
+
+/**
+ * Catálogo de Conjuntos (J12): `{id, label, for, pieces, tiers}`, normalizado (setting > de fábrica). O que volta é o
+ * mesmo objeto para todo mundo: não altere (`deepClone` antes de editar).
+ */
+export function getActiveItemSets() {
+  return cachedCatalog("itemSetsData", raw => {
+    // Setting vazia (nunca salva) = os de fábrica; uma lista salva, mesmo vazia, é a do Mestre.
+    try {
+      const parsed = typeof raw === "string" ? (raw.trim() ? JSON.parse(raw) : null) : raw;
+      if (Array.isArray(parsed)) return normalizeItemSets(parsed);
+    } catch (err) {
+      console.warn(`${SYSTEM_ID} | JSON de Conjuntos inválido, usando os de fábrica.`, err);
+    }
+    return normalizeItemSets(NIHILITY.DEFAULT_ITEM_SETS);
+  });
+}
+
+/** Um Conjunto pelo id, ou null. */
+export function getItemSet(id) {
+  return id ? getActiveItemSets().find(s => s.id === id) ?? null : null;
+}
 
 /** Catálogo de Tipos de Munição. */
 export function getAmmoTypes() {

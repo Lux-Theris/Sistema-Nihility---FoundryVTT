@@ -825,7 +825,7 @@ function registerScaleAndVesselSettings() {
   });
 
   // Catálogos de Nave (vazio = padrão do código; ver readCatalog).
-  for (const key of ["moduleCategoriesData", "shipClassesData", "vehicleClassesData", "shipSizesData", "vehicleSizesData", "ammoTypesData", "crewRolesData", "structuresData", "weaponTypesData"]) {
+  for (const key of ["moduleCategoriesData", "shipClassesData", "vehicleClassesData", "shipSizesData", "vehicleSizesData", "ammoTypesData", "crewRolesData", "structuresData", "weaponTypesData", "itemSetsData"]) {
     game.settings.register(SYSTEM_ID, S[key], { scope: "world", config: false, type: String, default: "" });
   }
 }

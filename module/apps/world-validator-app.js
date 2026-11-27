@@ -15,6 +15,7 @@ import {
   getActiveTraits,
   getActiveSpeciesPresets,
   getActiveHeritages,
+  getActiveItemSets,
   getActiveBodyFunctions,
   getAmmoTypes,
   getActiveWeaponTypes,
@@ -56,6 +57,7 @@ function readCatalogs() {
     moduleCategories: getModuleCategories(),
     shipSizes: getVesselSizes("starship"),
     vehicleSizes: getVesselSizes("vehicle"),
+    itemSets: getActiveItemSets(),
     shipClasses: getVesselClasses("starship"),
     vehicleClasses: getVesselClasses("vehicle"),
     formTemplateOk: uuid => {

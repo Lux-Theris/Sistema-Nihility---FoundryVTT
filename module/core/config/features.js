@@ -317,6 +317,11 @@ export function isInterferenceEnabled() {
 export function isEnvironmentEnabled() {
   return isFeatureEnabled("environment");
 }
+/** Conjuntos (J12): bônus por faixa de peças do mesmo conjunto. Filho do Inventário. Desligado: nenhuma faixa conta. */
+export function isItemSetsEnabled() {
+  return isFeatureEnabled("itemSets");
+}
+
 /** Lojas (G2): a aba Loja da ficha e a Vitrine. Filho da Economia. */
 export function isShopsEnabled() {
   return isFeatureEnabled("shops");

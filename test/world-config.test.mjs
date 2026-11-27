@@ -228,7 +228,7 @@ test("J9b: as linhas do tempo (estado do mundo) não entram no arquivo importado
 
 import { MIGRATION_KEYS } from "../module/core/migration-keys.js";
 
-test("migrações: as 21 chaves e a ordem estão congeladas, sem repetida", () => {
+test("migrações: as 22 chaves e a ordem estão congeladas, sem repetida", () => {
   // Trocar uma chave faz a migração rodar de novo em todo mundo: mude aqui só ao ACRESCENTAR no fim.
   assert.deepEqual(MIGRATION_KEYS, [
     "tierCommonToNormal",
@@ -251,7 +251,8 @@ test("migrações: as 21 chaves e a ordem estão congeladas, sem repetida", () =
     "originDefenses",
     "newElements",
     "originElements",
-    "itemSetsFactory"
+    "itemSetsFactory",
+    "itemSetsSensorPiece"
   ]);
   assert.equal(new Set(MIGRATION_KEYS).size, MIGRATION_KEYS.length);
 });

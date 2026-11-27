@@ -38,7 +38,8 @@ export function boardingTabContext(ship) {
   const docked = dockInfo(ship);
   const nearby = docked ? [] : nearbyShips(ship);
   const partner = ship.system.dock?.withUuid ? fromUuidSync(ship.system.dock.withUuid) : null;
-  const groupHosts = [ship, partner].filter(h => h && isShipLike(h) && (h.system.boarders ?? []).length);
+  // A nave acoplada sempre pode abrir o grupo (a tripulação entra por lá, mesmo sem ninguém a bordo ainda).
+  const groupHosts = [ship, partner].filter(h => h && isShipLike(h) && (h === partner || (h.system.boarders ?? []).length));
   const teleporters = modulesWithFunction(ship, "teleporter").map(module => {
     const targets = game.scenes
       .flatMap(scene => scene.tokens.filter(t => t.actor && isShipLike(t.actor) && t.actor.uuid !== ship.uuid && sharedScene(ship, t.actor)?.scene === scene).map(t => t.actor))
@@ -59,7 +60,7 @@ export function boardingTabContext(ship) {
     docked,
     hasNearby: nearby.length > 0,
     nearby,
-    groupHosts: groupHosts.map(h => ({ uuid: h.uuid, name: h.name, count: (h.system.boarders ?? []).length, own: h.uuid === ship.uuid })),
+    groupHosts: groupHosts.map(h => ({ uuid: h.uuid, name: h.name, count: (h.system.boarders ?? []).length, empty: !(h.system.boarders ?? []).length, own: h.uuid === ship.uuid })),
     ownBoarders: (ship.system.boarders ?? []).map(b => ({ name: fromUuidSync(b.actorUuid)?.name ?? "(apagado)", room: ship.items.get(b.moduleId)?.name ?? "Corredor" })),
     teleporters,
     hasTeleporters: teleporters.length > 0,

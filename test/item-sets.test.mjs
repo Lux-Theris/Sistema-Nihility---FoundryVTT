@@ -3,6 +3,7 @@
  * plano de Habilidades concedidas, textos e Validar Mundo. Tudo puro (sem Ator).
  */
 import "./setup.mjs";
+import { NIHILITY } from "../module/core/config.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 
@@ -163,4 +164,15 @@ test("IA: só atributo e elemento que existem, faixa dentro do nº de peças", (
   assert.deepEqual(set.tiers[0].bonuses.resistances, [{ target: "fire", amount: 60 }]);
   assert.equal(sanitizeAISet({ label: "" }, ctx), null);
   assert.match(itemSetGuide({ attributes: [{ key: "defense", label: "Defesa" }], elements: [] }), /defense/);
+});
+
+test("isBareSensorPiece: só a versão vazia de fábrica do Sensor de Caça é consertada", async () => {
+  const { isBareSensorPiece } = await import("../module/economy/item-set-rules.js");
+  assert.equal(isBareSensorPiece({ functions: [], sensorRange: 0, sensorResolution: 0 }), true);
+  assert.equal(isBareSensorPiece({}), true);
+  assert.equal(isBareSensorPiece({ functions: ["sensor"], sensorRange: 0 }), false);
+  assert.equal(isBareSensorPiece({ functions: [], sensorRange: 12 }), false);
+  const piece = NIHILITY.DEFAULT_ITEM_SET_PIECES.find(p => p.key === "sensor_de_caca");
+  assert.equal(isBareSensorPiece(piece.system), false);
+  assert.ok(piece.system.functions.includes("sensor") && piece.system.sensorRange > 0 && piece.system.sensorResolution > 0);
 });

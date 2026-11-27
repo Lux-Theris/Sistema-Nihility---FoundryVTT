@@ -264,6 +264,14 @@ export const AREA_AFFECTS_OPTIONS = [
 ];
 
 /**
+ * Ator que a área nunca atinge (1.122.1): pilha/depósito (`pile`: é cenário, não alguém) e loja aberta (um NPC que só
+ * vende). O Mestre ainda pode escolher uma loja como alvo ÚNICO de uma Skill (o seletor); só a área a deixa de fora. Pura.
+ */
+export function isAreaNonCombatant({ type = "", isShop = false } = {}) {
+  return type === "pile" || Boolean(isShop);
+}
+
+/**
  * Este Ator dentro da área sofre o efeito? Pura.
  *  - morto nunca (curar ou ferir um corpo não faz nada de útil e inflava a XP por uso);
  *  - "notCaster": todos menos quem lançou;
@@ -273,8 +281,8 @@ export const AREA_AFFECTS_OPTIONS = [
  * caem em "todos menos quem lançou" — melhor atingir a mais que sumir com o efeito.
  * @param {{affects?: string, isCaster: boolean, dead?: boolean, casterDisposition?: number|null, disposition?: number|null}} p
  */
-export function areaAffectsTarget({ affects = "all", isCaster, isTarget = false, dead = false, casterDisposition = null, disposition = null }) {
-  if (dead) return false;
+export function areaAffectsTarget({ affects = "all", isCaster, isTarget = false, dead = false, nonCombatant = false, casterDisposition = null, disposition = null }) {
+  if (dead || nonCombatant) return false;
   // "Todos menos quem usa e o alvo da Skill" (8c.2): o alvo escolhido fica de fora junto de quem lançou.
   if (affects === "othersExceptTarget") return !isCaster && !isTarget;
   const mode = AREA_AFFECTS.includes(affects) ? affects : "all";

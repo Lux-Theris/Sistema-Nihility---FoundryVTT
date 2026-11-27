@@ -19,7 +19,7 @@ import { afterSkillStrike, strikeBlockReason } from "../combat/weapon-mastery.js
 import { resolveWeaponStrike } from "../combat/weapon-mastery-rules.js";
 import { blockIfIncapacitated, knockUnconscious } from "../combat/incapacitation.js";
 import { blockIfTimeStopped } from "../combat/time-stop-state.js";
-import { skillOnlyIfBlock } from "./skill-only-if.js";
+import { skillOnlyIfBlock, reportOnlyIfRefusal } from "./skill-only-if.js";
 import { useBlockReason, startPreparation, applyCooldownAfterUse, inStartedCombat, settleTimersByReserve } from "./preparation.js";
 import { prepCoveredByReserve, spendReserve, noteReservePrep } from "../combat/time-rate.js";
 import { packUseOptions, preparationPayments, overdrawInfo, investCeiling } from "./cooldown-rules.js";
@@ -227,7 +227,7 @@ async function checkUseBlocks(ctx) {
   if (!options.prepaid) {
     const onlyIfMessage = skillOnlyIfBlock(sourceActor, mech, options.targetActor ?? null);
     if (onlyIfMessage) {
-      ui.notifications?.warn(`${label}: ${onlyIfMessage}.`);
+      reportOnlyIfRefusal(sourceActor, label, onlyIfMessage);
       return stopUse(null);
     }
   }

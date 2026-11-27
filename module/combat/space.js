@@ -602,8 +602,23 @@ export function portalDestinationPoints(source, destScene) {
   return points;
 }
 
-/** Pergunta a cena de destino e o ponto (uma lista só, sem script na janela). `null` = cancelou. */
-async function chooseDestination({ label, scene, source }) {
+let destinationAsk = null;
+
+/**
+ * Pergunta a cena de destino e o ponto (uma lista só, sem script na janela). `null` = cancelou. Só uma pergunta fica aberta
+ * por vez (1.122.1): um segundo pedido enquanto a janela está aberta (clique duplo em Usar, dois caminhos de uso) espera a
+ * mesma resposta em vez de abrir uma janela repetida (a sessão 7 viu o diálogo duplicado).
+ */
+function chooseDestination(input) {
+  if (!destinationAsk) {
+    destinationAsk = askDestination(input).finally(() => {
+      destinationAsk = null;
+    });
+  }
+  return destinationAsk;
+}
+
+async function askDestination({ label, scene, source }) {
   const options = [{ value: "here", text: "Esta cena (clicar no mapa)" }];
   for (const other of game.scenes) {
     if (other.id === scene.id) continue;

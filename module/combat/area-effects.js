@@ -17,11 +17,11 @@
  */
 
 import { currentSkillUseId } from "../skills/skill-use-context.js";
-import { SYSTEM_ID, actorToken, isElevationEnabled } from "../core/config.js";
+import { SYSTEM_ID, actorToken, isElevationEnabled, isShopsEnabled } from "../core/config.js";
 import { runAsGm, mayActFor, ownedDoc } from "../helpers/gm-relay.js";
 import { RELAY_REASONS, refuse, relayFailureMessage } from "../helpers/gm-relay-rules.js";
 import { foundryGeneration } from "../helpers/foundry-compat.js";
-import { areaFromSkill, areaContains, areaContains3d, areaPolygon, normalizeArea, tokenDocCenter, areaFromTemplateData, areaAffectsTarget, zoneDocumentData } from "./area-geometry.js";
+import { areaFromSkill, areaContains, areaContains3d, areaPolygon, normalizeArea, tokenDocCenter, areaFromTemplateData, areaAffectsTarget, isAreaNonCombatant, zoneDocumentData } from "./area-geometry.js";
 import { clampToRange, filterByReach, markCostFactor, pointDistance } from "./range-rules.js";
 import { pointReach, viaMarkFrom, casterTokenOf } from "./range.js";
 import { isDead } from "./incapacitation.js";
@@ -286,6 +286,7 @@ export function resolveAreaTargets(mech, placed, reach = null, { caster = null, 
       isCaster: Boolean(caster) && token.actor.uuid === caster.uuid,
       isTarget: Boolean(target) && token.actor.uuid === target.uuid,
       dead: isDead(token.actor),
+      nonCombatant: isAreaNonCombatant({ type: token.actor.type, isShop: token.actor.type === "character" && isShopsEnabled() && Boolean(token.actor.system?.shop?.enabled) }),
       casterDisposition,
       disposition: token.document?.disposition ?? null
     }))

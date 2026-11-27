@@ -23,10 +23,11 @@ import {
 import { sceneField } from "../environment/scene-config.js";
 import { isDesignatedGm } from "../helpers/gm-relay.js";
 import { escapeHtml } from "../helpers/html.js";
+import { canvasElement } from "../helpers/foundry-compat.js";
 import { isShipLike } from "./ship-damage.js";
 import { antimagicFieldLevelAtToken } from "../structures/structures.js";
 import {
-  signatureBreakdown, sensorRangeNow, sensorResolutionNow, detects, detectLimit, sensorBlindReason, strongestBlock, scanQuality,
+  signatureBreakdown, tokenShownName, sensorRangeNow, sensorResolutionNow, detects, detectLimit, sensorBlindReason, strongestBlock, scanQuality,
   buildScanReading, analysisResolution, nextPicture, ageContacts, samePicture, shipHiddenBySensors, contactStatus, lastContactText,
   fireSignatureActive
 } from "./sensor-rules.js";
@@ -209,7 +210,7 @@ export function computePicture(scene, previous = null, { age = false } = {}) {
       const always = Boolean(target.actor.system?.alwaysDetected);
       if (always || detects({ distance: tokenDistance(observer, target), range: info.range, signature: sig })) {
         const c = tokenCenterPx(target);
-        now[target.id] = { x: Math.round(c.x), y: Math.round(c.y), name: target.name || target.actor.name, img: target.texture?.src ?? "" };
+        now[target.id] = { x: Math.round(c.x), y: Math.round(c.y), name: tokenShownName(target.name, target.actor.name), img: target.texture?.src ?? "" };
       }
     }
     const prev = previous?.observers?.[observer.id];
@@ -351,7 +352,7 @@ export function refreshShipVisibility() {
 let markerRoot = null;
 
 function ensureMarkerRoot() {
-  const host = canvas?.app?.canvas?.parentElement ?? document.getElementById("board")?.parentElement;
+  const host = canvasElement()?.parentElement;
   if (!host) return null;
   if (markerRoot && markerRoot.isConnected) return markerRoot;
   markerRoot = document.createElement("div");
@@ -374,9 +375,9 @@ export function drawContactMarkers() {
     const size = Number(canvas.scene.grid?.size) || 100;
     const transform = canvas.stage.worldTransform;
     const scale = canvas.stage.scale?.x ?? 1;
-    const canvasEl = canvas.app.canvas;
-    const offsetX = canvasEl.offsetLeft ?? 0;
-    const offsetY = canvasEl.offsetTop ?? 0;
+    const canvasEl = canvasElement();
+    const offsetX = canvasEl?.offsetLeft ?? 0;
+    const offsetY = canvasEl?.offsetTop ?? 0;
     root.replaceChildren(
       ...contacts.map(c => {
         const el = document.createElement("div");
@@ -530,8 +531,8 @@ export async function scanWithSensor(observerToken, targetToken) {
   const info = shipSensorInfo(observerToken.actor, observerToken);
   const reading = scanShipReading(targetToken.actor, { resolution: info.resolution, passive: info.mode === "passive" });
   await showScanReading(reading, {
-    observerName: observerToken.name || observerToken.actor.name,
-    targetName: game.user.isGM ? targetToken.name : targetToken.name || "Contato",
+    observerName: tokenShownName(observerToken.name, observerToken.actor.name),
+    targetName: game.user.isGM ? tokenShownName(targetToken.name, targetToken.actor.name) : tokenShownName(targetToken.name, "") || "Contato",
     via: info.modules.map(m => m.name).join(", ")
   });
 }
@@ -568,7 +569,7 @@ export function sensorsTabContext(ship) {
       const interdicted = target.actor.system?.modules?.some(m => Number(m.system.interdictRange) > 0 && m.system.status === "online");
       rows.push({
         tokenUuid: target.uuid,
-        name: target.name || target.actor.name,
+        name: tokenShownName(target.name, target.actor.name),
         distance: dist,
         signature: isGM || seen ? `${targetSig}%` : "?",
         limit: isGM || seen ? detectLimit(info.range, targetSig) : "—",

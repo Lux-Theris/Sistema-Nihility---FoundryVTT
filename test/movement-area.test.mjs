@@ -367,3 +367,12 @@ test("skillSummary diz quem a área atinge", async () => {
   assert.match(skillSummary({ ...base, areaAffects: "allies" }), /só aliados/);
   assert.doesNotMatch(skillSummary({ ...base, areaAffects: "all" }), /poupa|só /);
 });
+
+test("área nunca atinge pilha/depósito nem loja (nonCombatant); morto continua de fora", async () => {
+  const { areaAffectsTarget, isAreaNonCombatant } = await import("../module/combat/area-geometry.js");
+  assert.equal(isAreaNonCombatant({ type: "pile" }), true);
+  assert.equal(isAreaNonCombatant({ type: "character", isShop: true }), true);
+  assert.equal(isAreaNonCombatant({ type: "character" }), false);
+  assert.equal(areaAffectsTarget({ affects: "all", isCaster: false, nonCombatant: true }), false);
+  assert.equal(areaAffectsTarget({ affects: "all", isCaster: false, nonCombatant: false }), true);
+});

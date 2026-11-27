@@ -798,3 +798,15 @@ test("migração das origens: catálogo sem Dragoide e sem Slime não ganha Linh
   assert.ok(plan.heritages.some(h => h.id === "vampirizado_demonio"));
   assert.ok(plan.heritages.find(h => h.id === "abencoado").excludes.includes("vampirizado_demonio"));
 });
+
+test("layerPassives/layerLabel: camada de origem (passives direto) e camada de Conjunto (entry)", async () => {
+  const { layerPassives, layerLabel } = await import("../module/species/species-rules.js");
+  const origin = originLayers({ species: { label: "Humano", passives: { regen: { hpPercent: 5 }, luck: { attributes: 10 } } } });
+  assert.equal(layerPassives(origin[0]).regen.hpPercent, 5);
+  assert.equal(layerPassives(origin[0]).luck.attributes, 10);
+  assert.equal(layerLabel(origin[0]), "Humano");
+  const set = { kind: "set", id: "x", entry: { label: "Armadura 2/4", passives: { regen: { hpPercent: 1 } } } };
+  assert.equal(layerPassives(set).regen.hpPercent, 1);
+  assert.equal(layerLabel(set), "Armadura 2/4");
+  assert.deepEqual(layerPassives(null), {});
+});

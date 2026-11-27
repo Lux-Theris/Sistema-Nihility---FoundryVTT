@@ -99,6 +99,15 @@ export function fireSignatureActive(shot, { round = null, now = Date.now(), pers
 
 /* ------------------------------------------------------------------ Alcance e detecção */
 
+/**
+ * O nome que um Token mostra nos sensores (1.122.1): o do Token, ou o da ficha quando o do Token está vazio ou é o "no name"
+ * que o núcleo põe num Token sem nome. Pura.
+ */
+export function tokenShownName(tokenName, actorName = "") {
+  const name = String(tokenName ?? "").trim();
+  return name && name.toLowerCase() !== "no name" ? name : String(actorName ?? "");
+}
+
 /** O alcance do sensor agora: modo passivo e Interferência cortam; cego vale 0. */
 export function sensorRangeNow({ range = 0, mode = "active", interference = 0, blind = false, tuning } = {}) {
   if (blind) return 0;
@@ -106,6 +115,17 @@ export function sensorRangeNow({ range = 0, mode = "active", interference = 0, b
   const modeFactor = mode === "passive" ? Math.max(0, t.passiveFactor) / 100 : 1;
   const cut = 1 - Math.min(100, Math.max(0, num(interference))) / 100;
   return Math.max(0, Math.round(num(range) * modeFactor * cut));
+}
+
+/**
+ * O consumo do Sensor em modo passivo (1.122.1). Com o campo "Consumo passivo" preenchido vale ele; com 0 (não preenchido)
+ * vale o mesmo fator do alcance (padrão 50%) do consumo ativo, para o modo passivo nunca custar o mesmo que o ativo sem
+ * ninguém ter escolhido isso. Pura.
+ */
+export function sensorPassiveDemand({ active = 0, passive = 0, tuning } = {}) {
+  if (num(passive) > 0) return num(passive);
+  const t = tuned(tuning);
+  return Math.max(0, num(active)) * Math.max(0, t.passiveFactor) / 100;
 }
 
 /** A Resolução do sensor agora: no passivo cai pelo mesmo fator do alcance (arredonda para baixo). */

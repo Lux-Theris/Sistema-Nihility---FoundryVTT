@@ -34,7 +34,7 @@ import { conditionAnchorSources, placeAnchorSources } from "../combat/space.js";
 import { moveTokenForced } from "../combat/forced-movement.js";
 import { unarmedWeaponItem } from "../combat/weapon-mastery.js";
 import {
-  tokensTouching, dockVerdict, dockViaLabel, propulsionBonus, dragOutcome, dragDamage, addBoarder, removeBoarder, moveBoarder,
+  tokensTouching, dockVerdict, dockViaLabel, propulsionBonus, dragOutcome, dragDamage, addBoarder, removeBoarder, removeDockBoarders, moveBoarder,
   actionAllowed, sabotageDamage, requestCardText, teleportVerdict, DISABLE_ROUNDS, HACK_ROUNDS, BOARDING_ACTIONS
 } from "./boarding-rules.js";
 
@@ -116,7 +116,32 @@ export async function undockShip(ship) {
   const clear = { "system.dock": { withUuid: "", withName: "", ownModuleId: "", otherModuleId: "", via: "", since: 0 } };
   await ship.update(clear);
   const other = otherUuid ? await fromUuid(otherUuid).catch(() => null) : null;
-  if (other?.system?.dock?.withUuid === ship.uuid) await other.update(clear);
+  const otherDocked = other?.system?.dock?.withUuid === ship.uuid;
+  if (otherDocked) await other.update(clear);
+  // Quem passou pela acoplagem sai do grupo de abordagem dos dois lados (teleporte e Região "A bordo" ficam).
+  const left = [];
+  for (const host of [ship, otherDocked ? other : null]) {
+    if (!host) continue;
+    const { kept, removed } = removeDockBoarders(host.system.boarders);
+    if (!removed.length) continue;
+    await host.update({ "system.boarders": kept });
+    for (const b of removed) left.push(`${fromUuidSync(b.actorUuid)?.name ?? "um personagem"} (de ${host.name})`);
+  }
+  if (left.length) ui.notifications.info(`Desacoplou: saíram do grupo de abordagem ${left.join(", ")}.`);
+}
+
+/**
+ * A nave abordável a partir da nave que este personagem tripula (1.122.1): a nave acoplada a ela. O jogador abre o grupo
+ * dela pela aba Acoplagem ou por `game.nihility.openBoarding()`, mesmo sem ninguém a bordo ainda. `null` sem nave acoplada.
+ */
+export function dockedHostForCrew(actor) {
+  if (!actor) return null;
+  for (const ship of game.actors) {
+    if (!isShipLike(ship) || !ship.system.dock?.withUuid) continue;
+    if (!(ship.system.crewMembers ?? []).some(m => m.actorUuid === actor.uuid)) continue;
+    return ship.system.dock.withUuid;
+  }
+  return null;
 }
 
 /** O texto que a aba Acoplagem mostra do par. */
@@ -635,6 +660,11 @@ export function registerBoarding() {
     const before = known.get(actor.uuid);
     known.set(actor.uuid, now);
     if (!before || game.user.isGM || !boardingOn()) return;
+    for (const uuid of before) {
+      if (now.has(uuid)) continue;
+      const left = fromUuidSync(uuid);
+      if (left?.isOwner) ui.notifications.info(`${left.name} saiu do grupo de abordagem de ${actor.name}.`);
+    }
     for (const uuid of now) {
       if (before.has(uuid)) continue;
       const boarder = fromUuidSync(uuid);

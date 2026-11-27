@@ -246,6 +246,15 @@ export function setProgressLabel(progress) {
 }
 
 /**
+ * Uma peça de fábrica semeada na 1.122.0 ainda é a versão antiga e vazia do Sensor de Caça (sem função Sensor, alcance nem
+ * Resolução)? Só então a 1.122.1 a conserta; se o Mestre mexeu em qualquer um desses campos, fica como está. Pura.
+ */
+export function isBareSensorPiece(system) {
+  const functions = system?.functions ?? [];
+  return !functions.length && !(Number(system?.sensorRange) > 0) && !(Number(system?.sensorResolution) > 0);
+}
+
+/**
  * A camada de origem de um conjunto (mesmo formato de `originLayers`), ou `null` sem faixa ligada. Fica SEM
  * `attributeBonuses`: o bônus de atributo da Espécie entra no Total (e na Vida/Mana), o do Item não — o do conjunto
  * é do Item e sai por `setAttributeRows`.

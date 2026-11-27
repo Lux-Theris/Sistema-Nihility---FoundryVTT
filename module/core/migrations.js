@@ -320,6 +320,16 @@ async function migrateItemSetsFactory() {
 }
 
 /**
+ * 1.122.1: o "Sensor de Caça" de fábrica ganha a função Sensor, alcance e Resolução nos Compêndios, só se a peça ainda for
+ * a versão vazia da 1.122.0 (`isBareSensorPiece`). Peça editada pelo Mestre e Módulos já instalados em naves não mudam.
+ */
+async function migrateItemSetsSensorPiece() {
+  const { repairFactorySensorPiece } = await import("../economy/item-sets.js");
+  const fixed = await repairFactorySensorPiece();
+  if (fixed) console.log(`${SYSTEM_ID} | Sensor de Caça de fábrica corrigido nos Compêndios.`);
+}
+
+/**
  * 1.121.0: Linhagens por elemento, Slime Comum, Dragão de Trevas, Herança "Vampirizado por Demônio" e os corpos/fraquezas
  * novos. Como a `originDefenses`: acrescenta ao catálogo SALVO o que falta (pelo id) e troca um campo só onde ainda é o de
  * fábrica anterior (`planOriginElementMigration`, pura); o que o Mestre editou fica e vira um aviso único.
@@ -550,7 +560,8 @@ const MIGRATION_FUNCTIONS = {
   originDefenses: migrateOriginDefenses,
   newElements: migrateNewElements,
   originElements: migrateOriginElements,
-  itemSetsFactory: migrateItemSetsFactory
+  itemSetsFactory: migrateItemSetsFactory,
+  itemSetsSensorPiece: migrateItemSetsSensorPiece
 };
 
 /** As migrações na ordem em que rodam: `[chave estável, função]`. */

@@ -46,7 +46,7 @@
         {{#each bd.groupHosts as |h|}}
         <li class="boarding-row">
           <b>{{#if h.own}}A bordo de {{h.name}}{{else}}A bordo de {{h.name}} (nave acoplada){{/if}}</b>
-          <span class="boarding-tag">{{h.count}} {{#if h.count}}personagem(ns){{/if}}</span>
+          <span class="boarding-tag">{{#if h.count}}{{h.count}} personagem(ns){{else}}ninguém a bordo ainda{{/if}}</span>
           <button type="button" data-action="openBoarding" data-host-uuid="{{h.uuid}}">Abrir grupo de abordagem</button>
         </li>
         {{/each}}

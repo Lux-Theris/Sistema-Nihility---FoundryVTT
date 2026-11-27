@@ -179,3 +179,10 @@ test("Só formas: a primeira forma transforma a mecânica em Sub-Skill Predar e 
   // Não muda a lista de entrada.
   assert.equal(first.subs.length, 2);
 });
+
+test("predationFormsEmptyReason: o card diz por que não há pontos", async () => {
+  const { predationFormsEmptyReason } = await import("../module/skills/predation-rules.js");
+  assert.equal(predationFormsEmptyReason({ strength: 2 }, { strength: 1 }, 50), "");
+  assert.match(predationFormsEmptyReason({}, {}, 50), /baixos demais/);
+  assert.match(predationFormsEmptyReason({ strength: 1 }, {}, 50), /50%/);
+});

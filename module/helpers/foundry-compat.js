@@ -267,6 +267,19 @@ export function wallSenseTypes() {
 }
 
 /* -------------------------------------------- */
+/*  Elemento do canvas (1.122.1)                 */
+/* -------------------------------------------- */
+
+/**
+ * O `<canvas>` do mapa. O PIXI v7 (V13/V14 antigo) expõe `app.view`; o v8 expõe `app.canvas`; `renderer.canvas`/`renderer.view`
+ * e `#board` são os últimos recursos. Na V14.370 `canvas.app.canvas` veio undefined e quebrou o marcador de último contato.
+ */
+export function canvasElement() {
+  const app = globalThis.canvas?.app;
+  return app?.canvas ?? app?.view ?? app?.renderer?.canvas ?? app?.renderer?.view ?? document.getElementById("board") ?? null;
+}
+
+/* -------------------------------------------- */
 /*  Escuridão da cena (J9)                       */
 /* -------------------------------------------- */
 

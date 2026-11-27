@@ -132,8 +132,9 @@ Hooks.once("init", () => {
     openBoarding: async uuid => {
       const { BoardingGroupApp } = await import("./apps/boarding-group.js");
       const { boardingHostsOf } = await import("./starship/boarding.js");
-      const host = uuid ? uuid : boardingHostsOf(game.user.character ?? canvas?.tokens?.controlled?.[0]?.actor)[0];
-      return host ? BoardingGroupApp.open(host) : ui.notifications.info("Seu personagem não está no grupo de abordagem de nenhuma nave.");
+      const mine = game.user.character ?? canvas?.tokens?.controlled?.[0]?.actor;
+      const host = uuid ? uuid : boardingHostsOf(mine)[0] ?? (await import("./starship/boarding.js")).dockedHostForCrew(mine);
+      return host ? BoardingGroupApp.open(host) : ui.notifications.info("Seu personagem não está no grupo de abordagem de nenhuma nave, nem tripula uma nave acoplada.");
     },
     // Macro criada ao arrastar uma Skill/arma da ficha para a hotbar (ver core/hotbar.js).
     useItem: uuid => useItemFromHotbar(uuid),
@@ -435,6 +436,9 @@ function defaultPrototypeToken(type) {
 
 Hooks.on("preCreateActor", (actor, data, options, userId) => {
   if (!data.prototypeToken) actor.updateSource(defaultPrototypeToken(data.type));
+  // Token sem nome (1.122.1): uma ficha criada por script ou pela IA podia ficar com o Token "no name" (o texto do núcleo).
+  const protoName = String(actor.prototypeToken?.name ?? "").trim();
+  if ((!protoName || protoName.toLowerCase() === "no name") && (data.name || actor.name)) actor.updateSource({ "prototypeToken.name": data.name || actor.name });
 
   // Naves/Veículos desligados pela campanha (ver NIHILITY.FEATURES) não podem ser CRIADOS —
   // mas as que já existem continuam abrindo e funcionando normalmente. Desligar um bloco nunca

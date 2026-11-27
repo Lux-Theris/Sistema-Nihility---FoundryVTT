@@ -10,6 +10,7 @@
  */
 import { SYSTEM_ID, getActiveTraits, getActiveStatusConditions, getFeatureOption, isLuckEnabled } from "../core/config.js";
 import { actorTraits } from "../core/config/actors.js";
+import { layerPassives, layerLabel } from "../species/species-rules.js";
 import { emptyLuck, hasLuck, luckFromScopes, normalizeLuck, sumLuck } from "./luck-rules.js";
 
 /** @returns {Array<{label:string, attributes:number, damage:number, chances:number}>} */
@@ -22,7 +23,7 @@ export function collectLuckSources(actor) {
   for (const item of actor.items ?? []) if (item.type === "title") add(`Título: ${item.name}`, item.system?.luck);
   const kindLabel = { species: "Espécie", lineage: "Linhagem", heritage: "Herança" };
   for (const layer of actor.system?.originLayers ?? []) {
-    add(`${kindLabel[layer.kind] ?? "Origem"}: ${layer.entry?.label ?? layer.id}`, layer.entry?.passives?.luck);
+    add(`${kindLabel[layer.kind] ?? "Origem"}: ${layerLabel(layer) || layer.id}`, layerPassives(layer).luck);
   }
   const catalog = getActiveTraits();
   for (const id of actorTraits(actor)) {

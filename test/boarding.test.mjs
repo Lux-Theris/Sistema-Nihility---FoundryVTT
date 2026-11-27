@@ -129,3 +129,16 @@ test("Validar Mundo: Região \"A bordo\" sem nave, com nave apagada ou com sala 
   assert.equal(aboardRegionIssues({ shipUuid: "Actor.x", roomName: "", roomFound: false }).length, 0, "sem sala é corredor, sem problema");
   assert.equal(aboardRegionIssues({ shipUuid: "Actor.x", roomName: "Reator", roomFound: true }).length, 0);
 });
+
+test("removeDockBoarders: desacoplar tira só quem entrou por acoplagem", async () => {
+  const { removeDockBoarders } = await import("../module/starship/boarding-rules.js");
+  const list = [
+    { actorUuid: "a", source: "dock" },
+    { actorUuid: "b", source: "teleport" },
+    { actorUuid: "c", source: "region" }
+  ];
+  const { kept, removed } = removeDockBoarders(list);
+  assert.deepEqual(removed.map(b => b.actorUuid), ["a"]);
+  assert.deepEqual(kept.map(b => b.actorUuid), ["b", "c"]);
+  assert.deepEqual(removeDockBoarders(null), { kept: [], removed: [] });
+});

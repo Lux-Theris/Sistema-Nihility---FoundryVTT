@@ -19,6 +19,7 @@ import { manaDensityFor } from "../environment/environment.js";
 import { isInCombat } from "./conditional-context.js";
 import { healPlan, healBodyParts, partsSnapshot, partWrite } from "../species/anatomy.js";
 import { escapeHtml } from "../helpers/html.js";
+import { layerPassives, layerLabel } from "../species/species-rules.js";
 
 /**
  * As fontes de regeneração por rodada de um Personagem (para o tick e para o "De onde vem").
@@ -48,9 +49,9 @@ export function collectRegenSources(actor) {
   }
   const kindLabel = { species: "Espécie", lineage: "Linhagem", heritage: "Herança" };
   for (const layer of actor.system.originLayers ?? []) {
-    const regen = layer.entry?.passives?.regen;
+    const regen = layerPassives(layer).regen;
     if (!regen || (!regen.energyPercent && !regen.hpPercent)) continue;
-    sources.push({ label: `${kindLabel[layer.kind] ?? "Origem"}: ${layer.entry.label ?? layer.id}`, ...normalizeRegen(regen), level: 0, power: 1 });
+    sources.push({ label: `${kindLabel[layer.kind] ?? "Origem"}: ${layerLabel(layer) || layer.id}`, ...normalizeRegen(regen), level: 0, power: 1 });
   }
   return sources;
 }

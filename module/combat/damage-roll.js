@@ -609,7 +609,7 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
       flavor += conductionLabel(conducted.notes);
     }
     // Ferimentos por parte: quem ataca pode mirar numa parte (senão o Aplicar sorteia uma).
-    if (aim && targetActor && finalDamage > 0) aimedPart = await promptTargetBodyPart(targetActor, mech.weaponShot ? { used: "O ataque já foi feito" } : undefined);
+    if (aim && targetActor && finalDamage > 0) aimedPart = await promptTargetBodyPart(targetActor, mech.weaponShot ? { used: "A rolagem do ataque já saiu" } : undefined);
     if (aimedPart) flavor += ` (mirando: ${escapeHtml(aimedPart.name)})`;
   }
 

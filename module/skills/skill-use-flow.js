@@ -18,7 +18,7 @@ import { isWeaponMasteryEnabled } from "../combat/weapon-mastery.js";
 import { formUseBlock, formUseCheck } from "./forms.js";
 import { analysisBlockReason } from "./analysis.js";
 import { predationBlockReason } from "./predation.js";
-import { skillOnlyIfBlock } from "./skill-only-if.js";
+import { skillOnlyIfBlock, reportOnlyIfRefusal } from "./skill-only-if.js";
 
 /**
  * "Usar Habilidade" — o MESMO caminho para a ficha de Personagem, a de Nave/Veículo e a hotbar.
@@ -87,7 +87,7 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget, bo
   // quem usa; com alvo (único ou "Si mesmo") é conferido logo depois de escolhê-lo. Desligar nunca é barrado.
   const refuseOnlyIf = target => {
     const message = skillOnlyIfBlock(actor, mech, target);
-    if (message) ui.notifications.warn(`${skill.name}: ${message}.`);
+    if (message) reportOnlyIfRefusal(actor, skill.name, message);
     return Boolean(message);
   };
   if (!["deactivate", "plain", "self", "targeted"].includes(mode) && refuseOnlyIf(null)) return;
@@ -299,7 +299,7 @@ async function useCombinedFlow(actor, skill, { event, pickTarget, useSkill }) {
 
   const refuseOnlyIf = target => {
     const message = skillOnlyIfBlock(actor, system, target);
-    if (message) ui.notifications.warn(`${skill.name}: ${message}.`);
+    if (message) reportOnlyIfRefusal(actor, skill.name, message);
     return Boolean(message);
   };
 

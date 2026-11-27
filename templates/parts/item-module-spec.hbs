@@ -194,7 +194,7 @@
       <label class="fld"><span class="fld-label">Alcance <span class="help" title="Em unidades da cena. Uma nave de Assinatura 100% é vista até este alcance.">?</span></span><span class="suffix"><input type="number" name="system.sensorRange" value="{{system.sensorRange}}" min="0" aria-label="Alcance"/><span>unidades</span></span></label>
       <label class="fld"><span class="fld-label">Resolução <span class="help" title="0 a 10. Resolução menos o Bloqueio de leitura do alvo: 3 ou mais lê limpo, de 0 a 2 distorce, abaixo de 0 só dá o Porte.">?</span></span><input class="num" type="number" name="system.sensorResolution" value="{{system.sensorResolution}}" min="0" max="10"/></label>
       <label class="fld"><span class="fld-label">Consumo passivo</span><span class="suffix"><input type="number" name="system.sensorPassiveConsumption" value="{{system.sensorPassiveConsumption}}" min="0" aria-label="Consumo passivo"/><span>{{energyAbbr}}/rodada</span></span></label>
-      <p class="hint-inline span-all">O consumo ativo é o Consumo de Energia lá em cima. Sempre ativo. No modo passivo vale alcance × 50%, Resolução menor e o consumo passivo. Sem energia, desligado, sob PEM ou em Interferência o sensor fica cego.</p>
+      <p class="hint-inline span-all">O consumo ativo é o Consumo de Energia lá em cima. Sempre ativo. No modo passivo vale alcance × 50%, Resolução menor e o consumo passivo (0 = metade do ativo). Sem energia, desligado, sob PEM ou em Interferência o sensor fica cego.</p>
     </div>
   </div>
   {{/if}}

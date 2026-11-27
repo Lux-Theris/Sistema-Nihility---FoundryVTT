@@ -127,6 +127,6 @@ export const DEFAULT_ITEM_SET_PIECES = [
   { set: "traje_tatico_kestrel", key: "otica_kestrel", type: "item", name: "Ótica Kestrel", system: { weight: 0.1, tech: true, value: { amount: 500, currency: "gold" }, description: "<p>Implante ocular com mira assistida.</p>", implant: { enabled: true, kind: "implant", fitsSlots: [], location: "Olho", functions: [], hpMode: "percent", hp: 10 } } },
 
   { set: "kit_de_caca", key: "propulsor_de_caca", type: "starship_module", name: "Propulsor de Caça", system: { category: "engine", moduleSize: "compact", powerConsumption: 10, description: "<p>Propulsor ágil do Kit de Caça.</p>" } },
-  { set: "kit_de_caca", key: "sensor_de_caca", type: "starship_module", name: "Sensor de Caça", system: { category: "utility", moduleSize: "compact", powerConsumption: 4, description: "<p>Sensor leve do Kit de Caça.</p>" } },
+  { set: "kit_de_caca", key: "sensor_de_caca", type: "starship_module", name: "Sensor de Caça", system: { category: "utility", moduleSize: "compact", powerConsumption: 4, functions: ["sensor"], sensorRange: 30, sensorResolution: 4, sensorPassiveConsumption: 2, description: "<p>Sensor leve do Kit de Caça.</p>" } },
   { set: "kit_de_caca", key: "canhao_de_caca", type: "starship_module", name: "Canhão de Caça", system: { category: "weapon", moduleSize: "compact", powerConsumption: 8, description: "<p>Canhão rápido do Kit de Caça.</p>" } }
 ];

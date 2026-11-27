@@ -115,6 +115,21 @@ export function removeBoarder(list, actorUuid) {
   return (list ?? []).filter(b => b?.actorUuid !== actorUuid).map(b => ({ ...b }));
 }
 
+/**
+ * Desacoplar (1.122.1): tira do grupo quem entrou por acoplagem (`source: "dock"`); quem entrou por teleporte ou por Região
+ * "A bordo" fica (não depende de as naves estarem coladas). Devolve a lista que fica e quem saiu.
+ */
+export function removeDockBoarders(list) {
+  const kept = [];
+  const removed = [];
+  for (const b of list ?? []) {
+    if (!b) continue;
+    if (b.source === "dock") removed.push({ ...b });
+    else kept.push({ ...b });
+  }
+  return { kept, removed };
+}
+
 /** Muda a sala (Módulo) de um personagem do grupo ("" = corredor). */
 export function moveBoarder(list, actorUuid, moduleId) {
   return (list ?? []).map(b => (b?.actorUuid === actorUuid ? { ...b, moduleId: String(moduleId ?? "") } : { ...b }));

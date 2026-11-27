@@ -12,7 +12,7 @@ import { attachFormTemplate, ensureFolder } from "./form-request.js";
 import { buildSubSkillsFromSources } from "./skill-snapshot.js";
 import {
   tierRank, predationCandidates, ownedIndex, predationWins, predationMilestone, predationCounterKey, predationAttrGain, addPoints, predationSkillData, hasFormMechanic, normalizeSkillName,
-  predationFormsGain, predationTakesOf, withStoredForm
+  predationFormsGain, predationFormsEmptyReason, predationTakesOf, withStoredForm
 } from "./predation-rules.js";
 
 /**
@@ -139,6 +139,7 @@ export async function usePredation(sourceActor, skill, mech, label, targetActor,
     count,
     milestone: predationMilestone(count),
     attrGain,
+    attrEmptyReason: formsOnly ? predationFormsEmptyReason(fullGain, attrGain, getPredationFormsPercent()) : "",
     results,
     skipped: skipped.map(s => ({ name: s.name, reason: s.reason })),
     formOptions: formsOnly ? [] : formSkillOptions(sourceActor),
@@ -189,7 +190,7 @@ function cardHtml(data, predator, label) {
   if (data.takes === "forms") {
     const points = Object.keys(data.attrGain ?? {}).length
       ? `<p>Pontos de atributo (metade): ${data.milestone ? `<strong>${escapeHtml(attrLine(data.attrGain))}</strong> (é a ${data.count}ª criatura desta Espécie)` : `nenhum desta vez (a ${data.count}ª criatura da Espécie; só a 1ª, 5ª, 10ª, 20ª, 40ª… dão pontos)`}.</p>`
-      : "<p>Pontos de atributo: nenhum.</p>";
+      : `<p>Pontos de atributo: nenhum${data.attrEmptyReason ? ` (${escapeHtml(data.attrEmptyReason)})` : ""}.</p>`;
     return `<div class="nihility-predation">
     <p><strong>${escapeHtml(predator.name)}</strong> preda <strong>${escapeHtml(data.targetName)}</strong> (${escapeHtml(label)}) · <em>Só formas</em>.</p>
     <p>Forma guardada: <strong>${escapeHtml(data.targetName)}</strong>. Fica na Skill como uma Sub-Skill de Forma ("Forma: …"): Transformar liga, Voltar desliga.</p>

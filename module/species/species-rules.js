@@ -407,6 +407,19 @@ export function originLayers({ species = null, lineage = null, heritages = [] } 
   return layers;
 }
 
+/**
+ * Os passivos de uma camada de origem. As camadas de Espécie/Linhagem/Herança trazem `passives` direto; só as de
+ * Conjunto (1.122.0) trazem também `entry`. Quem lê as camadas passa por aqui, nunca por `layer.entry` (1.122.1).
+ */
+export function layerPassives(layer) {
+  return layer?.passives ?? layer?.entry?.passives ?? {};
+}
+
+/** O rótulo de uma camada de origem (mesma regra de `layerPassives`). */
+export function layerLabel(layer) {
+  return layer?.label ?? layer?.entry?.label ?? layer?.id ?? "";
+}
+
 /** Bônus de atributo das camadas (entra no Total, como Título): linhas com a fonte. */
 export function originAttributeRows(layers, attribute) {
   const rows = [];

@@ -126,6 +126,17 @@ export function predationFormsGain(gain = {}, percent = 50) {
   return out;
 }
 
+/**
+ * Por que os pontos da Predação "Só formas" saíram vazios (1.122.1), para o card dizer em vez de só "nenhum": o alvo é fraco
+ * demais até para a Predação normal (o % do total arredonda para 0), ou só a metade é que arredonda para 0. "" quando há
+ * pontos. Pura.
+ */
+export function predationFormsEmptyReason(fullGain = {}, formsGain = {}, percent = 50) {
+  if (Object.keys(formsGain ?? {}).length) return "";
+  if (!Object.keys(fullGain ?? {}).length) return "o alvo tem atributos baixos demais: até a Predação normal arredondaria tudo para 0";
+  return `a fração de ${Math.min(100, Math.max(0, Number(percent) || 0))}% dos pontos normais arredonda para 0 (arredonda para baixo, por atributo)`;
+}
+
 /** O modo da Predação: "forms" (só formas) ou "all" (tudo, o padrão e o de toda Skill salva antes). */
 export const predationTakesOf = mech => (mech?.predationTakes === "forms" ? "forms" : "all");
 

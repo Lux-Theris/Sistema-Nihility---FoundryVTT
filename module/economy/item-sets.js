@@ -21,7 +21,7 @@ import {
   isItemSetsEnabled
 } from "../core/config.js";
 import { actorSetProgress } from "./item-set-state.js";
-import { grantedSkillPlan, setStripView, SET_SKILL_PREFIX, pieceKindOf, setFitsItemType } from "./item-set-rules.js";
+import { grantedSkillPlan, setStripView, SET_SKILL_PREFIX, pieceKindOf, setFitsItemType, isBareSensorPiece } from "./item-set-rules.js";
 import { createGrantedSkill, removeGrantedSkill } from "../skills/skill-economy.js";
 import { getCompendiumForItemType } from "../core/compendium.js";
 
@@ -160,6 +160,33 @@ export async function ensureFactorySetItems() {
     created += missing.length;
   }
   return created;
+}
+
+/**
+ * 1.122.1: o "Sensor de Caça" semeado na 1.122.0 não tinha a função Sensor. Atualiza a peça nos Compêndios só se ela
+ * ainda for a versão vazia de fábrica (`isBareSensorPiece`); peça que o Mestre editou não é tocada. Só o Mestre.
+ */
+export async function repairFactorySensorPiece() {
+  if (!game.user.isGM) return 0;
+  const pack = getCompendiumForItemType("starship_module");
+  if (!pack) return 0;
+  const factory = NIHILITY.DEFAULT_ITEM_SET_PIECES.find(p => p.set === "kit_de_caca" && p.key === "sensor_de_caca");
+  if (!factory) return 0;
+  const documents = await pack.getDocuments();
+  const updates = documents
+    .filter(d => d.flags?.[SYSTEM_ID]?.factoryPiece === "kit_de_caca:sensor_de_caca" && isBareSensorPiece(d.system))
+    .map(d => ({
+      _id: d.id,
+      system: {
+        functions: foundry.utils.deepClone(factory.system.functions),
+        sensorRange: factory.system.sensorRange,
+        sensorResolution: factory.system.sensorResolution,
+        sensorPassiveConsumption: factory.system.sensorPassiveConsumption
+      }
+    }));
+  if (!updates.length) return 0;
+  await pack.documentClass.updateDocuments(updates, { pack: pack.collection });
+  return updates.length;
 }
 
 /** Os atributos que os conjuntos conhecem (para o Validar Mundo e a IA). */

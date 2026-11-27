@@ -24,5 +24,6 @@ export const MIGRATION_KEYS = [
   "originDefenses",
   "newElements",
   "originElements",
-  "itemSetsFactory"
+  "itemSetsFactory",
+  "itemSetsSensorPiece"
 ];

@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {
   SIGNATURE_BY_RANK, baseSignature, energyBonus, signatureBreakdown, sensorRangeNow, sensorResolutionNow, detectLimit, detects,
   sensorBlindReason, strongestBlock, scanQuality, scanMaxStep, bandOf, buildScanReading, analysisResolution, nextPicture, ageContacts,
-  samePicture, shipHiddenBySensors, lastContactText, contactStatus, wrongModuleState, fireSignatureActive, moduleSensorIssues, shipSensorIssues
+  samePicture, tokenShownName, shipHiddenBySensors, lastContactText, contactStatus, wrongModuleState, fireSignatureActive, moduleSensorIssues, shipSensorIssues
 } from "../module/starship/sensor-rules.js";
 
 const seq = (...values) => {
@@ -208,4 +208,19 @@ test("Validar Mundo: Módulos e naves com sensores incoerentes", () => {
   assert.equal(shipSensorIssues({ sensorMode: "passive" }, { hasSensor: true }).length, 0);
   assert.match(shipSensorIssues({ dock: { withUuid: "Actor.x" } }, { dockExists: false })[0].message, /não existe mais/);
   assert.equal(shipSensorIssues({ boarders: [{ actorUuid: "Actor.k" }] }, { boarderExists: () => false }).length, 1);
+});
+
+test("sensorPassiveDemand: campo preenchido vale; com 0 vale metade do ativo (fator do alcance)", async () => {
+  const { sensorPassiveDemand } = await import("../module/starship/sensor-rules.js");
+  assert.equal(sensorPassiveDemand({ active: 4, passive: 3 }), 3);
+  assert.equal(sensorPassiveDemand({ active: 4, passive: 0 }), 2);
+  assert.equal(sensorPassiveDemand({ active: 4, passive: 0, tuning: { passiveFactor: 25 } }), 1);
+  assert.equal(sensorPassiveDemand({ active: 0, passive: 0 }), 0);
+});
+
+test("tokenShownName: Token sem nome ou \"no name\" usa o nome da ficha", () => {
+  assert.equal(tokenShownName("Falcão", "Nave A"), "Falcão");
+  assert.equal(tokenShownName("no name", "Nave Sem Nome"), "Nave Sem Nome");
+  assert.equal(tokenShownName("", "Nave Sem Nome"), "Nave Sem Nome");
+  assert.equal(tokenShownName(undefined, ""), "");
 });

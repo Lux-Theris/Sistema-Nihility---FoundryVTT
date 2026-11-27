@@ -18,8 +18,10 @@ import {
   cargoSlotsFor,
   inventoryLoad,
   cargoMassFactor,
-  isEncumbranceEnabled
+  isEncumbranceEnabled,
+  getSensorTuning
 } from "../core/config.js";
+import { sensorPassiveDemand } from "./sensor-rules.js";
 
 import { actorShipSetBonuses } from "../economy/item-set-state.js";
 
@@ -295,7 +297,7 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
   moduleDemand(module) {
     const sys = module?.system ?? {};
     const passive = this.sensorMode === "passive" && (sys.functions ?? []).includes("sensor");
-    const base = passive ? sys.sensorPassiveConsumption ?? 0 : sys.powerConsumption ?? 0;
+    const base = passive ? sensorPassiveDemand({ active: sys.powerConsumption ?? 0, passive: sys.sensorPassiveConsumption ?? 0, tuning: getSensorTuning() }) : sys.powerConsumption ?? 0;
     return base * ((sys.powerAllocationPercent ?? 100) / 100);
   }
 

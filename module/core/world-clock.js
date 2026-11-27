@@ -36,6 +36,7 @@ import {
   sleepUntil, shouldWake, groupSleepState, groupRestSeconds, skipLabel, restHours, SECONDS_PER_HOUR
 } from "./world-clock-rules.js";
 import { escapeHtml } from "../helpers/html.js";
+import { layerPassives } from "../species/species-rules.js";
 import { zoneDarkensToken } from "../combat/zone-darkness.js";
 
 const SLEEP_ID = "sleeping";
@@ -186,7 +187,7 @@ function clockAwareActors() {
   for (const actor of game.actors) push(actor);
   for (const token of canvas?.scene?.tokens ?? []) if (!token.actorLink) push(token.actor);
   return out.filter(actor => (actor.items ?? []).some(item => (item.system?.conditionalModifiers ?? []).some(readsClock)) ||
-    (actor.system?.originLayers ?? []).some(layer => (layer.entry?.passives?.conditionalModifiers ?? []).some(readsClock)));
+    (actor.system?.originLayers ?? []).some(layer => (layerPassives(layer).conditionalModifiers ?? []).some(readsClock)));
 }
 
 /** Reprepara os Atores cujo "dia/noite/escuro" mudou desde a última conferência (neste cliente). */

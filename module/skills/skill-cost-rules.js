@@ -15,6 +15,8 @@
  * A Mana de quem tem a Skill NÃO entra na sugestão (o mesmo poder sugere o mesmo custo para
  * todos); ela só aparece numa linha à parte (`holderLine`).
  */
+import { drainKindOf } from "./drain-rules.js";
+import { strikeCount } from "./strikes-rules.js";
 import { luckMean } from "../combat/luck-rules.js";
 import { isSenseTarget } from "../combat/senses-rules.js";
 import { clampTimeFactor } from "../combat/time-rate-rules.js";
@@ -62,6 +64,14 @@ export const COST_WEIGHTS = {
   predationFlat: 10,
   rerollFlat: 6,
   dispelFlat: 6,
+  // Peças de magia (1.123.0): Purificar, Reviver, Refletir, Ver pela Marca, Drenar (o dreno vale a mais) e o roubo de vida.
+  purifyFlat: 6,
+  reviveFlat: 8,
+  reflectPerPercentRound: 0.12,
+  scryFlat: 5,
+  drainFactor: 1.5,
+  lifeStealPerPercent: 0.005,
+  chainFactor: 0.9,
   upkeepShare: 0.25,
   percentTarget: 0.1
 };
@@ -150,6 +160,20 @@ export function suggestSkillCost(mech, ctx = {}) {
       if (target === "dispelMagic") {
         p = w.dispelFlat;
         text = "Dissipar";
+      } else if (target === "purify") {
+        p = w.purifyFlat;
+        text = "Purificar Condições";
+      } else if (target === "revive") {
+        p = w.reviveFlat + amount * w.heal;
+        text = `Reviver com ${raw}${e?.amountMode === "percentMax" ? "% da Vida" : " de Vida"}`;
+      } else if (target === "reflect") {
+        const rounds = active ? w.activeTicks : Math.max(1, Math.min(w.maxRounds, Number(e?.durationRounds) || w.foreverRounds));
+        p = Math.min(100, raw) * rounds * w.reflectPerPercentRound;
+        text = `Refletir ${Math.min(100, raw)}% por ${active ? "rodada ativa" : `${rounds} rodada(s)`}`;
+      } else if (target === "scry") {
+        const rounds = active ? w.activeTicks : Math.max(1, Math.min(w.maxRounds, Number(e?.durationRounds) || w.foreverRounds));
+        p = w.scryFlat + rounds * 0.25 + raw * 0.05;
+        text = `Ver pela Marca por ${active ? "rodada ativa" : `${rounds} rodada(s)`}`;
       } else if (target === "antimagic" || target === "emp" || target === "mark") {
         p = w.antimagic;
         text = target === "emp" ? "PEM" : target === "mark" ? "Marca" : "Antimagia";
@@ -220,6 +244,16 @@ export function suggestSkillCost(mech, ctx = {}) {
         p = amount * rounds * w.attributePerRound;
         text = `${name} ${Number(e?.amount) > 0 ? "+" : "−"}${raw}${e?.amountMode === "percentMax" || PERCENT_VALUE_TARGETS.includes(target) ? "%" : ""} por ${active ? "rodada ativa" : `${rounds} rodada(s)`}`;
       }
+      // Drenar: o que o alvo perde também enche quem usa, então pesa mais. Chance abaixo de 100: pesa na proporção.
+      if (p && drainKindOf(e)) {
+        p *= w.drainFactor;
+        text += " (drena para quem usa)";
+      }
+      const entryChance = Number(e?.chance);
+      if (p && target !== "magicDampen" && entryChance > 0 && entryChance < 100) {
+        p *= entryChance / 100;
+        text += ` (${Math.round(entryChance)}% de chance)`;
+      }
       if (p) {
         points += p;
         rows.push({ label: text, value: fmt(p) });
@@ -253,6 +287,20 @@ export function suggestSkillCost(mech, ctx = {}) {
     rows.push({ label: `Estrutura com ${hp} de Vida`, value: fmt(points) });
   } else {
     rows.push({ label: "Descritiva: o Mestre julga", value: "—" });
+  }
+
+  // Roubo de vida / Drenar Vida: o que volta a quem usa pesa um pouco mais.
+  if (effectType === "damage" && Number(m.lifeSteal) > 0 && points > 0) {
+    const f = 1 + Number(m.lifeSteal) * w.lifeStealPerPercent;
+    points *= f;
+    rows.push({ label: `Drenar Vida ${Math.round(Number(m.lifeSteal))}% do dano`, value: `× ${fmt(f)}` });
+  }
+  // Golpes N: o mesmo efeito N vezes; a corrente (Saltar entre alvos) dá um desconto pelo risco de parar.
+  const strikes = (effectType === "damage" || effectType === "temporary") ? strikeCount(m) : 1;
+  if (strikes > 1 && points > 0) {
+    const f = strikes * (Number(m.chainChance) > 0 ? w.chainFactor : 1);
+    points *= f;
+    rows.push({ label: `${strikes} golpes${Number(m.chainChance) > 0 ? " em corrente" : ""}`, value: `× ${fmt(f)}` });
   }
 
   if (isArea) {

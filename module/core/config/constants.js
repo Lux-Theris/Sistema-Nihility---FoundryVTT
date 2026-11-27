@@ -120,6 +120,8 @@ export const NIHILITY = {
     skillDiscountPerLevel: "skillDiscountPerLevel",
     skillCyclePower: "skillCyclePower",
     skillCycleDiscount: "skillCycleDiscount",
+    skillCycleChance: "skillCycleChance",
+    skillChancePoints: "skillChancePoints",
     skillCostFloorPercent: "skillCostFloorPercent",
     resistanceXpFactor: "resistanceXpFactor",
     resistanceLearnThreshold: "resistanceLearnThreshold",
@@ -572,7 +574,11 @@ export const NIHILITY = {
     "senseInvisible",
     "senseTrue",
     "senseAll",
-    "unarmedType"
+    "unarmedType",
+    "reflect",
+    "purify",
+    "revive",
+    "scry"
   ],
 
   EFFECT_TARGET_LABELS: {
@@ -593,6 +599,10 @@ export const NIHILITY = {
     senseTrue: "Visão verdadeira (alcance em m)",
     senseAll: "Sentir tudo (alcance em m)",
     unarmedType: "Desarmado vira tipo de arma",
+    reflect: "Refletir (devolve % do dano a quem atacou)",
+    purify: "Purificar (tira Condições até o nível da Skill)",
+    revive: "Reviver (só em quem está morto: Vida X)",
+    scry: "Ver pela Marca (raio em m; precisa de uma Marca sua)",
     strength: "Força",
     defense: "Defesa",
     magic: "Magia",
@@ -635,13 +645,14 @@ export const NIHILITY = {
     { label: "Vitais", actor: "character", targets: ["heal", "restoreEnergy", "hp", "energy", "shield", "movement"] },
     { label: "Arma", actor: "any", targets: ["weaponDamage", "weaponElement", "weaponMagic", "weaponAbsolute", "unarmedType"] },
     { label: "Elemento", actor: "any", targets: ["bodyElement"] },
-    { label: "Magia", actor: "character", targets: ["antimagic", "dispelMagic", "mark", "magicDampen"] },
+    { label: "Magia", actor: "character", targets: ["antimagic", "dispelMagic", "mark", "magicDampen", "scry"] },
     { label: "Sorte", actor: "character", targets: ["luck"] },
     { label: "Tempo", actor: "character", targets: ["timeRate"] },
     { label: "Espaço", actor: "character", targets: ["space"] },
     { label: "Movimento", actor: "character", targets: ["push", "flight", "burrow"] },
     { label: "Terreno", actor: "any", targets: ["createSurface"] },
     { label: "Sentidos", actor: "character", targets: ["senseTremor", "senseInvisible", "senseTrue", "senseAll"] },
+    { label: "Cura e defesa", actor: "character", targets: ["purify", "revive", "reflect"] },
     { label: "Tecnologia", actor: "any", targets: ["emp"] },
     { label: "Nave", actor: "ship", targets: ["shipWeaponDamage", "shipWeaponPenetration", "shipShieldCapacity", "shipShieldRegen", "shipReactorOutput", "shipPropulsion", "shipSignature", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"] }
   ],

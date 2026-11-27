@@ -98,7 +98,7 @@ function usabilityReason(actor, skill, subSkillIndex, mech) {
   if (actor.type === "character" && isIncapacitated(actor)) return "incapacitado";
   const chargesEnergy = isShipLike(actor) || isEnergyPoolEnabled();
   if (chargesEnergy) {
-    const cost = effectiveSkillCost(mech.cost, mech.level);
+    const cost = effectiveSkillCost(mech.cost, mech);
     if (cost > 0 && currentEnergyValue(actor) < cost) return "sem energia";
   }
   if (actor.type === "character") {

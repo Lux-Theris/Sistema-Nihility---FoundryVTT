@@ -111,7 +111,7 @@ export async function useSkillFlow(actor, itemId, { event = null, pickTarget, bo
   // fora quem investe (o diálogo trata), Mana variável, Preparo (paga em partes), Nave e desligar uma Ativa.
   if (mode !== "deactivate" && mode !== "plain" && mode !== "emissionNoCanvas" && !isShipLike(actor) && isEnergyPoolEnabled()
     && !mech.variableMana && manaInvested == null && !(Number(mech.prepTurns) > 0)) {
-    const needed = effectiveSkillCost(mech.cost, mech.level);
+    const needed = effectiveSkillCost(mech.cost, mech);
     if (needed > 0 && currentEnergyValue(actor) < needed) {
       await warnInsufficientEnergy(actor, subSkillIndex != null ? `${skill.name} — ${mech.name}` : skill.name, needed);
       return;
@@ -317,7 +317,7 @@ async function useCombinedFlow(actor, skill, { event, pickTarget, useSkill }) {
 
   // Sem energia para o Custo: avisa antes de pedir qualquer escolha.
   if (!isShipLike(actor) && isEnergyPoolEnabled() && !system.variableMana && manaInvested == null) {
-    const needed = effectiveSkillCost(system.cost, system.level);
+    const needed = effectiveSkillCost(system.cost, system);
     if (needed > 0 && currentEnergyValue(actor) < needed) {
       await warnInsufficientEnergy(actor, skill.name, needed);
       return;
@@ -437,7 +437,7 @@ function areaReach(actor, mech) {
 /** O Custo normal da Skill (o que a Marca multiplica), para mostrar nos avisos. */
 function baseCostOf(actor, mech) {
   if (!isShipLike(actor) && !isEnergyPoolEnabled()) return 0;
-  return effectiveSkillCost(mech.cost, mech.level);
+  return effectiveSkillCost(mech.cost, mech);
 }
 
 /**
@@ -446,7 +446,7 @@ function baseCostOf(actor, mech) {
  */
 function investFor(actor, mech) {
   if (isShipLike(actor) || !isEnergyPoolEnabled() || mech.variableMana) return null;
-  const cost = effectiveSkillCost(mech.cost, mech.level);
+  const cost = effectiveSkillCost(mech.cost, mech);
   if (!(cost > 0)) return null;
   const energy = actor.system?.attributes?.energy ?? {};
   return { cost, current: Number(energy.value) || 0, max: Number(energy.max) || 0, energyLabel: getEnergyLabelForActor(actor) };

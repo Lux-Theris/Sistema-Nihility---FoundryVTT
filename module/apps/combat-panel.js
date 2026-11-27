@@ -9,6 +9,7 @@ import { SYSTEM_ID, isFeatureEnabled, getNpcTierConfig } from "../core/config.js
 import { badgeFor } from "../combat/effect-badges.js";
 import { preparationsOf } from "../skills/preparation.js";
 import { collectActiveUpkeepSources } from "../skills/upkeep.js";
+import { scryLinesFor } from "../combat/scry.js";
 import { NPC_TIER_LABELS } from "../npc/npc-generator-rules.js";
 import { actorTimeFactor, reserveOf, adjustReserve } from "../combat/time-rate.js";
 import { isTimeStopped, stopInfoOf } from "../combat/time-stop-state.js";
@@ -115,7 +116,9 @@ export class CombatPanelApp extends HandlebarsApplicationMixin(ApplicationV2) {
         actives: actor
           ? [
               ...(ship ? [] : collectActiveUpkeepSources(actor).map(s => ({ label: s.label, cost: s.upkeepCost, prep: null }))),
-              ...preparationsOf(actor).map(e => ({ label: `preparando ${e.label}`, cost: null, prep: e.turnsLeft }))
+              ...preparationsOf(actor).map(e => ({ label: `preparando ${e.label}`, cost: null, prep: e.turnsLeft })),
+              // Ver pela Marca (1.123.0): só o Mestre vê "Kael vê e ouve pela Marca do batedor".
+              ...(game.user.isGM ? scryLinesFor(actor).map(line => ({ label: line, cost: null, prep: null })) : [])
             ]
           : [],
         movement: movementOn && total > 0 ? `${Math.round(used * 10) / 10}/${dash ? total * 2 : total} m${dash ? " (correndo)" : ""}` : ""

@@ -29,6 +29,10 @@ import { stopRoundsFor, STOP_FLAG } from "../combat/time-stop-rules.js";
 import { applyTimeRewindEntry } from "../combat/time-rewind.js";
 import { clampTimeFactor, isTimeFactorActive, timeStrength, weakenTimeFactor, timeStateLabel, allowedTicks, simulateTicks } from "../combat/time-rate-rules.js";
 import { runTargetHandler, HANDLED } from "./effect-target-handlers.js";
+import { drainKindOf } from "./drain-rules.js";
+import { effectiveChance, chanceBonusOf } from "./chance-rules.js";
+import { reflectSentence } from "../combat/reflect-rules.js";
+import { createDrainGain, drainGiveBack } from "./magic-pieces.js";
 
 /** Nome curto dos efeitos de movimento (J4), para o Active Effect e o resumo. */
 const MOVEMENT_MODE_NAMES = { flight: "Voando", burrow: "Escavando" };
@@ -127,8 +131,15 @@ export function onlyIfLabelOf(kind, value) {
   return getActiveStatusConditions().find(c => c.id === value)?.label ?? value;
 }
 
+/** A chance de um efeito em uso: a base mais os pontos que a progressão por chance deu a este efeito (por id estável). */
+export function entryChanceOf(entry, mech) {
+  const base = Number(entry?.chance);
+  if (!(base > 0 && base < 100)) return base;
+  return effectiveChance(base, entry.id ? chanceBonusOf(mech?.chanceBonus, `effect:${entry.id}`) : 0);
+}
+
 /** Alvos de Efeito que aceitam "% do máximo do alvo". */
-const PERCENT_TARGETS = ["hp", "energy", "shield", "heal", "restoreEnergy"];
+const PERCENT_TARGETS = ["hp", "energy", "shield", "heal", "restoreEnergy", "revive"];
 
 export async function applyEffectsToActor(mech, label, originSkill, targetActor, subSkillIndex = null) {
   const rawEntries = mech.effects ?? [];
@@ -152,11 +163,14 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
         continue;
       }
     }
-    // Chance (1.121.0): um efeito de Condição com `chance` abaixo de 100 só pega nessa porcentagem das vezes (a Zona de breu
-    // do Dragão de Trevas: chance de Cegueira). O padrão é 100, então nada que já existia muda.
-    if (entry.conditionId && entry.target !== "magicDampen" && Number(entry.chance) > 0 && Number(entry.chance) < 100 && !rollChance(entry.chance)) {
-      const name = getActiveStatusConditions().find(c => c.id === entry.conditionId)?.label ?? entry.conditionId;
-      summary.push(`${name}: não pegou (${Math.round(Number(entry.chance))}% de chance)`);
+    // Chance (1.121.0, para todo efeito desde a 1.123.0): um efeito com `chance` abaixo de 100 só pega nessa porcentagem das
+    // vezes (a Zona de breu do Dragão de Trevas: chance de Cegueira; "40% de deixar Atordoado"). O padrão é 100, então nada
+    // que já existia muda. A Magia enfraquecida usa o mesmo campo com outro sentido e fica de fora.
+    // A progressão por chance (1.124.0) soma os pontos ganhos por id do efeito (`chanceBonus`, guardado na Skill-mãe).
+    const entryChance = entryChanceOf(entry, mech);
+    if (entry.target !== "magicDampen" && entryChance > 0 && entryChance < 100 && !rollChance(entryChance)) {
+      const name = entry.conditionId ? getActiveStatusConditions().find(c => c.id === entry.conditionId)?.label ?? entry.conditionId : getEffectTargetLabels()[entry.target] ?? entry.target;
+      summary.push(`${name}: não pegou (${entryChance}% de chance)`);
       continue;
     }
     if (ctx.shielded(entry)) {
@@ -169,7 +183,9 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
     // fora (ambiente, Contágio) manda a resistência em `mech.originResist` (fração 0-1) e aqui só se reduz.
     let resistFraction = 0;
     let renewal = false;
-    if (entry.conditionId && !mech.ignoreOriginConditions) {
+    // Purificar e Dissipar usam o campo da Condição para ESCOLHER o que tirar, não para pôr: a resistência não conta.
+    const removesCondition = entry.target === "purify" || entry.target === "dispelMagic";
+    if (entry.conditionId && !mech.ignoreOriginConditions && !removesCondition) {
       const outcome = await checkOriginCondition(targetActor, entry.conditionId, { pierce: Boolean(entry.piercesCondition) });
       if (!outcome.lands) {
         const name = getActiveStatusConditions().find(c => c.id === entry.conditionId)?.label ?? entry.conditionId;
@@ -178,7 +194,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
       }
       resistFraction = outcome.kind === "resist" ? 1 - outcome.factor : 0;
       renewal = Boolean(outcome.renewal);
-    } else if (entry.conditionId && Number(mech.originResist) > 0) {
+    } else if (entry.conditionId && !removesCondition && Number(mech.originResist) > 0) {
       resistFraction = Math.min(1, Number(mech.originResist));
     }
     // Pegou resistindo: força e duração × (1 − X). Roda depois do padrão da Condição (abaixo), com o número final.
@@ -218,7 +234,14 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
     // Curar/Recuperar Mana na hora e Escudo (estágio "post").
     if (await runTargetHandler("post", entry, ctx, view) === HANDLED) continue;
 
+    // Drenar atributo (1.123.0): os dois efeitos ligados levam o mesmo `drainId`; o ganho de quem usa nasce logo depois da perda.
+    const drainsAttribute = drainKindOf(entry) === "attribute" && Boolean(originSkill?.parent);
+    if (drainsAttribute) entry = { ...entry, drainId: foundry.utils.randomID() };
     await applyActiveEffectEntry(entry, ctx, view);
+    if (drainsAttribute && targetActor.effects.some(e => e.flags?.[SYSTEM_ID]?.drainId === entry.drainId)) {
+      const line = await createDrainGain(entry, { caster: originSkill.parent, targetActor, origin: ctx.origin, mech, subSkillIndex, label, sourceLevel: ctx.sourceLevel, sourceMagic: ctx.sourceMagic, sourceTech: ctx.sourceTech, appliedBy: ctx.appliedBy });
+      if (line) summary.push(line);
+    }
   }
 
   summary.xp = xp;
@@ -234,7 +257,7 @@ export async function applyEffectsToActor(mech, label, originSkill, targetActor,
 function buildEffectContext(mech, label, originSkill, targetActor, subSkillIndex) {
   // O Poder do nível também vale pros valores de Efeito — um buff/veneno de Skill nível 10 é
   // mais forte que o mesmo de nível 1, igual acontece com o dano.
-  const levelPower = skillLevelBonuses(mech.level).power * (mech.investPower ?? 1);
+  const levelPower = skillLevelBonuses(mech).power * (mech.investPower ?? 1);
 
   // Condição aplicada por elemento (sem Skill de origem) — ícone e origem vêm da própria Condição.
   const origin = originSkill ?? { id: null, uuid: null, img: null };
@@ -271,7 +294,7 @@ function scaleEntriesByLevelPower(rawEntries, levelPower) {
     ? rawEntries
     : rawEntries.map(entry =>
         // Sentido: o alcance em metros não cresce com o Poder do nível nem com o investimento.
-        entry.modifierType === "multiplier" || isSenseTarget(entry.target) || entry.target === "magicDampen" || entry.target === "timeRate"
+        entry.modifierType === "multiplier" || isSenseTarget(entry.target) || ["magicDampen", "timeRate", "reflect", "purify", "scry"].includes(entry.target)
           ? entry
           : {
               ...entry,
@@ -333,7 +356,7 @@ async function applyActiveEffectEntry(entry, ctx, { condition, targetLabel, sign
       return;
     }
     const isMultiplier = change.isMultiplier;
-    if (change.movementMode || change.magicDampen || change.luck) xp.push({ flat: true });
+    if (change.movementMode || change.magicDampen || change.luck || change.reflect) xp.push({ flat: true });
 
     const periodic = isPeriodicEntry(entry);
     // Periódico conta a cada tick (tickPeriodicEffect); aqui só a Condição, se houver.
@@ -356,7 +379,9 @@ async function applyActiveEffectEntry(entry, ctx, { condition, targetLabel, sign
       // Magia enfraquecida: um efeito por quem pôs (reaplicar renova com os valores novos, não duplica).
       // Sorte: um efeito por quem pôs (reaplicar renova com os valores novos).
       ?? (change.luck ? targetActor.effects.find(e => e.flags?.[SYSTEM_ID]?.luck && (e.flags[SYSTEM_ID].appliedBy ?? "") === appliedBy) ?? null : null)
-      ?? (change.magicDampen ? targetActor.effects.find(e => e.flags?.[SYSTEM_ID]?.magicDampen && (e.flags[SYSTEM_ID].appliedBy ?? "") === appliedBy) ?? null : null);
+      ?? (change.magicDampen ? targetActor.effects.find(e => e.flags?.[SYSTEM_ID]?.magicDampen && (e.flags[SYSTEM_ID].appliedBy ?? "") === appliedBy) ?? null : null)
+      // Refletir (1.123.0): um efeito por quem pôs; reaplicar renova com o % novo.
+      ?? (change.reflect ? targetActor.effects.find(e => e.flags?.[SYSTEM_ID]?.reflect && (e.flags[SYSTEM_ID].appliedBy ?? "") === appliedBy && (e.flags[SYSTEM_ID].sourceSkillId ?? null) === (origin.id ?? null)) ?? null : null);
 
     if (existing) {
       const existingFlags = existing.flags[SYSTEM_ID];
@@ -369,6 +394,7 @@ async function applyActiveEffectEntry(entry, ctx, { condition, targetLabel, sign
 
       if (change.magicDampen) await existing.update({ [`flags.${SYSTEM_ID}.magicDampen`]: change.magicDampen });
       if (change.luck) await existing.update({ [`flags.${SYSTEM_ID}.luck`]: change.luck });
+      if (change.reflect) await existing.update({ [`flags.${SYSTEM_ID}.reflect`]: change.reflect });
 
       // Sentido já ativo: fica o MAIOR alcance (sem limite vence), como o resto reaplicado só renova.
       if (change.senseMode) {
@@ -448,6 +474,8 @@ async function applyActiveEffectEntry(entry, ctx, { condition, targetLabel, sign
               conditionId: entry.conditionId || "",
               tickTarget: entry.target,
               tickAmount: entry.amount,
+              // Drenar por rodada (1.123.0): o que o tick tira do alvo volta, a cada tick, para quem usou.
+              drain: drainKindOf(entry)?.startsWith("tick-") ?? false,
               tickUnit: entry.tickUnit || "combatRound",
               // Uma aplicação "Ativa" começa com 0 de duração própria (nunca infla o contador) —
               // só existe indefinidamente porque `activeAnchors` não está vazio (ver
@@ -480,7 +508,7 @@ async function applyActiveEffectEntry(entry, ctx, { condition, targetLabel, sign
 
     await createActiveEffects(targetActor, [
       {
-        name: condition?.label ?? (change.luck ? `${label}: ${describeLuck(luckFromScopes(change.luck.value, change.luck.scopes))}` : change.magicDampen ? `${label}: Magia enfraquecida` : change.senseMode ? `${label}: ${SENSE_LABELS[change.senseMode]}` : change.movementMode ? `${label}: ${MOVEMENT_MODE_NAMES[change.movementMode]}` : change.bodyElement ? `${label}: ${getDamageElement(change.bodyElement)?.label ?? change.bodyElement}` : `${label}: ${targetLabel} ${sign}${entry.amount}`),
+        name: condition?.label ?? (change.luck ? `${label}: ${describeLuck(luckFromScopes(change.luck.value, change.luck.scopes))}` : change.reflect ? `${label}: ${reflectSentence(change.reflect.percent, change.reflect.shieldOnly)}` : change.magicDampen ? `${label}: Magia enfraquecida` : change.senseMode ? `${label}: ${SENSE_LABELS[change.senseMode]}` : change.movementMode ? `${label}: ${MOVEMENT_MODE_NAMES[change.movementMode]}` : change.bodyElement ? `${label}: ${getDamageElement(change.bodyElement)?.label ?? change.bodyElement}` : `${label}: ${targetLabel} ${sign}${entry.amount}`),
         img: entry.icon || condition?.icon || origin.img || "icons/svg/aura.svg",
         origin: origin.uuid ?? undefined,
         statuses: entry.conditionId ? [entry.conditionId] : [],
@@ -500,6 +528,9 @@ async function applyActiveEffectEntry(entry, ctx, { condition, targetLabel, sign
             senseMode: change.senseMode ?? "",
             magicDampen: change.magicDampen ?? null,
             luck: change.luck ?? null,
+            reflect: change.reflect ?? null,
+            // Drenar atributo (1.123.0): o lado que perde; o lado que ganha nasce em `createDrainGain`.
+            ...(entry.drainId ? { drainId: entry.drainId, drainRole: "loss", drainCasterUuid: originSkill?.parent?.uuid ?? "", drainTargetUuid: targetActor.uuid } : {}),
             sourceLevel,
             magic: sourceMagic,
             tech: sourceTech,
@@ -513,13 +544,14 @@ async function applyActiveEffectEntry(entry, ctx, { condition, targetLabel, sign
       ["weaponElement", "bodyElement"].includes(entry.target) ? `→ ${getDamageElement(entry.elementId)?.label ?? entry.elementId}`
       : change.luck ? describeLuck(luckFromScopes(change.luck.value, change.luck.scopes))
       : change.magicDampen ? `${change.magicDampen.chance}% das magias saem com ${change.magicDampen.percent}% da força`
+      : change.reflect ? reflectSentence(change.reflect.percent, change.reflect.shieldOnly)
       : change.senseMode ? describeSenseRange(Number(change.value))
       : entry.target === "unarmedType" ? `→ ${getWeaponType(entry.weaponTypeId)?.label ?? entry.weaponTypeId}`
       : ["weaponMagic", "weaponAbsolute"].includes(entry.target) || change.movementMode ? ""
       : isMultiplier ? `×${(1 + entry.amount / 100).toFixed(2)}`
       : `${sign}${entry.amount}${SHIP_PERCENT_PATHS[entry.target] || entry.target === "movement" ? "%" : ""}`;
     // Só a Condição (valor 0): o texto é o nome dela, sem "Destreza +0".
-    const head = change.luck ? `Sorte: ${valueText}` : change.magicDampen ? `Magia enfraquecida: ${valueText}` : change.senseMode ? `${SENSE_LABELS[change.senseMode]} ${valueText}` : condition?.label && !Number(entry.amount) && !valueText.replace(/[+\-0%]/g, "").trim() ? condition.label : `${targetLabel} ${valueText}`;
+    const head = change.luck ? `Sorte: ${valueText}` : change.reflect ? `Refletir: ${valueText}` : change.magicDampen ? `Magia enfraquecida: ${valueText}` : change.senseMode ? `${SENSE_LABELS[change.senseMode]} ${valueText}` : condition?.label && !Number(entry.amount) && !valueText.replace(/[+\-0%]/g, "").trim() ? condition.label : `${targetLabel} ${valueText}`;
     summary.push(
       tiedToActive
         ? `${head} (até desativar)`
@@ -706,7 +738,7 @@ export async function applyMark(targetActor, caster, { rounds = 0, level = 0, te
  * (Zona ticando), então a escrita é permitida; se não for, não anota — e aí não há como garantir a
  * lista, mas também nenhum caminho de hoje chega aqui assim.
  */
-async function rememberAnchoredTarget(holder, anchor, targetUuid) {
+export async function rememberAnchoredTarget(holder, anchor, targetUuid) {
   if (!holder || !anchor?.skillUuid || !targetUuid || !holder.isOwner) return;
   const { records, changed } = recordAnchoredTarget(holder.getFlag(SYSTEM_ID, ANCHORED_TARGETS_FLAG), anchor, targetUuid);
   if (changed) await holder.setFlag(SYSTEM_ID, ANCHORED_TARGETS_FLAG, records);
@@ -849,6 +881,14 @@ export async function tickPeriodicEffect(actor, effect, { steps = 1 } = {}) {
   const displayTicks = anchored && ticksRemaining <= 0 ? null : ticksRemaining;
   if (ticks > 1) delta = newValue - attr.value;
   if (delta && xpSource) await grantSkillUseXp(xpSource, [{ value: delta, base: attr.max }]);
+
+  // Drenar por rodada (1.123.0): o que o tick tirou do alvo (Vida ou Mana) entra em quem usou.
+  if (flags.drain && delta < 0) {
+    const casterUuid = flags.appliedBy || "";
+    const caster = casterUuid ? await fromUuid(casterUuid) : null;
+    const line = await drainGiveBack({ key: attrKey, lost: -delta, caster, kind: attrKey === "energy" ? "mana" : "life", level: Number(flags.sourceLevel) || 0 });
+    if (line) note = [note, line].filter(Boolean).join(" · ");
+  }
 
   return { attrKey, delta, newValue, ticksRemaining: displayTicks, expired, effectName: effect.name, appliedReductions, note, ticks: done };
 }

@@ -4,6 +4,7 @@
  * refactor) — nada aqui fala com IA diretamente, exceto `fuseSkills` no modo "auto" (Skill
  * Única/Ultimate), que delega pra `requestAISpecialSkill` em ai-generation.js.
  */
+import { snapshotChances, carryChancesOver } from "./chance-progression.js";
 import { SYSTEM_ID, NIHILITY, getComplexityCaps } from "../core/config.js";
 import { complexityVerdict } from "./skill-complexity-rules.js";
 import { ensureSystemCompendiums, getCompendiumForItemType, registerItemInCompendium } from "../core/compendium.js";
@@ -206,8 +207,10 @@ export async function fuseSkills(actor, sourceItemIds, options = {}) {
     }
   }
 
+  const chanceSnapshots = snapshotChances(sources);
   await actor.deleteEmbeddedDocuments("Item", sources.map(s => s.id));
   const [createdOnActor] = await actor.createEmbeddedDocuments("Item", [fusedItemData]);
+  await carryChancesOver(chanceSnapshots, createdOnActor);
 
   if (!reused) await registerItemInCompendium(createdOnActor.toObject());
 
@@ -303,6 +306,10 @@ export async function evolveSkill(actor, sourceItemId, newSkillData) {
       areaPerLevel: newSkillData.areaPerLevel ?? 0,
       structureSize: newSkillData.structureSize ?? 0,
       lifeSteal: newSkillData.lifeSteal ?? 0,
+      strikes: newSkillData.strikes ?? 1,
+      chainChance: newSkillData.chainChance ?? 0,
+      chainRadius: newSkillData.chainRadius ?? 0,
+      chainRepeat: Boolean(newSkillData.chainRepeat),
       structureFollows: Boolean(newSkillData.structureFollows),
       zoneDarkens: Boolean(newSkillData.zoneDarkens),
       predationTakes: newSkillData.predationTakes ?? "all",
@@ -322,8 +329,10 @@ export async function evolveSkill(actor, sourceItemId, newSkillData) {
     evolvedItemData.system.isMagic = false;
   }
 
+  const chanceSnapshots = snapshotChances([source]);
   await actor.deleteEmbeddedDocuments("Item", [source.id]);
   const [createdOnActor] = await actor.createEmbeddedDocuments("Item", [evolvedItemData]);
+  await carryChancesOver(chanceSnapshots, createdOnActor);
   await registerItemInCompendium(createdOnActor.toObject());
 
   await announceVoiceOfTheWorld(actor, {

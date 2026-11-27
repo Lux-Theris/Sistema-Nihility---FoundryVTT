@@ -1,4 +1,4 @@
-import { NIHILITY, getXpForNextLevel, migrateStructureTarget } from "../core/config.js";
+import { NIHILITY, getXpForNextLevel, migrateStructureTarget, skillAtMaxLevel } from "../core/config.js";
 
 const fields = foundry.data.fields;
 
@@ -224,6 +224,16 @@ function usageFields() {
      * Sai no Aplicar do card de dano e o Desfazer o desfaz. Ver combat/life-steal-rules.js.
      */
     lifeSteal: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0, max: 100 }),
+    /**
+     * Golpes N (1.123.0): o dano/efeito sai N vezes no mesmo uso (1 a 10), sem pagar de novo; cada golpe é uma rolagem e um card.
+     * `chainChance`/`chainRadius`/`chainRepeat` ligam a corrente "Saltar entre alvos": depois de cada golpe, cada alvo até
+     * `chainRadius` m do último rola a chance e o raio salta para o mais perto que passou (`chainRepeat`: o mesmo alvo de novo
+     * entra na disputa). 0 = sem corrente. Ver skills/strikes-rules.js.
+     */
+    strikes: new fields.NumberField({ required: false, integer: true, initial: 1, min: 1, max: 10 }),
+    chainChance: new fields.NumberField({ required: false, initial: 0, min: 0, max: 100 }),
+    chainRadius: new fields.NumberField({ required: false, initial: 0, min: 0 }),
+    chainRepeat: new fields.BooleanField({ required: false, initial: false }),
     /** Zona (1.120.0): a Zona escurece o mapa de verdade (luz negativa do Foundry no lugar dela, apagada com ela); quem está dentro conta como "no escuro". */
     zoneDarkens: new fields.BooleanField({ required: false, initial: false }),
     /** Predação (1.120.0): "all" = Skills, pontos e forma (como sempre); "forms" = só formas (a Skill guarda o molde como Sub-Skill de Forma, sem rolar Skills, metade dos pontos). */
@@ -295,6 +305,19 @@ function luckSchema() {
 
 function effectEntrySchema() {
   return new fields.SchemaField({
+    /**
+     * Id estável do efeito (1.124.0): a progressão por chance guarda os pontos por id, nunca por posição na lista
+     * (reordenar ou apagar um efeito não troca de dono as chances dos outros). Vazio até a primeira gravação da Skill
+     * (`withStableIds`, skills/chance-rules.js); copiado junto com o efeito.
+     */
+    id: new fields.StringField({ required: false, initial: "", blank: true }),
+    /**
+     * "Drenar" (1.123.0): num efeito negativo de Vida/Mana (na hora ou periódico) ou de um atributo de combate, quem usa
+     * recebe o que o alvo perdeu (atributo: o mesmo X pelo mesmo tempo, dois efeitos ligados). Ver skills/drain-rules.js.
+     */
+    drain: new fields.BooleanField({ required: false, initial: false }),
+    /** Só no alvo "reflect" (Refletir, 1.123.0): `amount` = % devolvido; marcado, só o que o Escudo segurou conta. Ver combat/reflect-rules.js. */
+    reflectShieldOnly: new fields.BooleanField({ required: false, initial: false }),
     /** Só no alvo "luck" (Sorte, 8d.1): `amount` = % de sorte (negativo = azar); estes são os escopos onde vale. */
     luckScopes: new fields.SchemaField({
       attributes: new fields.BooleanField({ required: false, initial: false }),
@@ -450,6 +473,8 @@ function subSkillSchema() {
  */
 function skillMechanicsFields() {
   return {
+    /** Id estável da Sub-Skill (1.124.0): chave das chances guardadas na Skill-mãe (`chanceBonus`). Vazio até a primeira gravação. */
+    uid: new fields.StringField({ required: false, initial: "", blank: true }),
     name: new fields.StringField({ required: true, initial: "" }),
     tier: new fields.StringField({ required: false, initial: "normal", choices: NIHILITY.SKILL_TIERS }),
     level: new fields.NumberField({ required: false, integer: true, initial: 1, min: 1 }),
@@ -511,7 +536,9 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
     const max = getXpForNextLevel(this.level);
     this.xpMax = max;
     this.xp = Math.clamp(this.xp ?? 0, 0, max);
-    this.xpReady = this.xp >= max;
+    // Nível máximo (1.124.0): no máximo o XP para de entrar, como na Maestria evoluída (só a Evolução continua).
+    this.atMaxLevel = !this.resistanceTarget && !this.weaponMastery && skillAtMaxLevel(this);
+    this.xpReady = this.xp >= max && !this.atMaxLevel;
     this.xpPercent = max > 0 ? Math.round((this.xp / max) * 100) : 0;
   }
 
@@ -531,6 +558,18 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
        * pagos adiantados.
        */
       xp: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+
+      /**
+       * Progressão por chance (1.124.0): os pontos de chance que o Chance do ciclo de níveis já deu, por chave estável
+       * (`jump`, `effect:<id>`, `sub:<uid>:effect:<id>`, `element:<id>:<n>`…). ESTADO (como o `xp`): fica fora de todas
+       * as listas de cópia; a Evolução e a Fusão recomeçam do melhor que existia (skills/chance-rules.js).
+       */
+      chanceBonus: new fields.ObjectField({ required: false, initial: {} }),
+      /**
+       * "Sem limite" (1.124.0, só o Mestre marca): a Skill não tem nível máximo; passado o que seria o máximo, todo nível
+       * é Poder. Também fora de todas as listas de cópia (como `coreSkill`): Fusão e Evolução não herdam.
+       */
+      unlimitedLevel: new fields.BooleanField({ required: false, initial: false }),
 
       /** Custo de Energia pra "Usar" a skill (não confundir com o Ponto de Habilidade gasto pra criá-la — esse é fixo em 1, ver skill-economy.js). */
       cost: new fields.NumberField({ required: true, integer: true, initial: 0, min: 0 }),

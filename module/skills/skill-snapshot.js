@@ -64,6 +64,10 @@ export function buildSubSkillsFromSources(sources) {
         areaPerLevel: source.system.areaPerLevel ?? 0,
         structureSize: source.system.structureSize ?? 0,
         lifeSteal: source.system.lifeSteal ?? 0,
+        strikes: source.system.strikes ?? 1,
+        chainChance: source.system.chainChance ?? 0,
+        chainRadius: source.system.chainRadius ?? 0,
+        chainRepeat: Boolean(source.system.chainRepeat),
         structureFollows: Boolean(source.system.structureFollows),
         zoneDarkens: Boolean(source.system.zoneDarkens),
         predationTakes: source.system.predationTakes ?? "all",
@@ -81,7 +85,7 @@ export function buildSubSkillsFromSources(sources) {
 const GRANTED_MECHANIC_FIELDS = [
   "level", "cost", "hasUpkeep", "upkeepCost", "variableMana", "cooldown", "prepTurns", "magicTag", "isMagic", "isTech", "animationPath", "description", "resistanceTarget",
   "effectType", "damageFormula", "scalingAttribute", "isMagicDamage", "isAbsoluteDamage", "damageScale", "damageElements", "effects",
-  "targetType", "structureId", "structureRegen", "structureRegenCost", "formActorUuid", "areaShape", "areaDistance", "areaAngle", "zoneRounds", "range", "areaOrigin", "areaFreeLevel", "areaAffects", "weaponStrike", "strikeRequiresWeapon", "onlyIf", "structurePlace", "areaPerLevel", "structureSize", "lifeSteal", "structureFollows", "zoneDarkens", "predationTakes", "endsWhenTargetFalls", "intruderRule", "rerollWho", "rerollKeep", "rerollKinds", "subSkills"
+  "targetType", "structureId", "structureRegen", "structureRegenCost", "formActorUuid", "areaShape", "areaDistance", "areaAngle", "zoneRounds", "range", "areaOrigin", "areaFreeLevel", "areaAffects", "weaponStrike", "strikeRequiresWeapon", "onlyIf", "structurePlace", "areaPerLevel", "structureSize", "lifeSteal", "strikes", "chainChance", "chainRadius", "chainRepeat", "structureFollows", "zoneDarkens", "predationTakes", "endsWhenTargetFalls", "intruderRule", "rerollWho", "rerollKeep", "rerollKinds", "subSkills"
 ];
 
 /**

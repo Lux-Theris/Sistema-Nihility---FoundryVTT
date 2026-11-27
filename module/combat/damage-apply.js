@@ -24,6 +24,7 @@ import { absorbLayer, consumeShieldPools, hitAffinityFactor, shieldBlockCredits 
 import { getElementAffinityMatrix, getAffinityConfig } from "../core/config.js";
 import { damageBodyPart, restoreBodyPart, partsBeforeAll } from "../species/anatomy.js";
 import { lifeStealAmount, lifeStealNote, lifeStealResultText } from "./life-steal-rules.js";
+import { reflectedAmount, reflectLabel, reflectResultText } from "./reflect-rules.js";
 import { escapeHtml } from "../helpers/html.js";
 import { formCarryUpdate, FORM_CARRY_PATH } from "../skills/forms.js";
 import { isTimeStopped } from "./time-stop-state.js";
@@ -66,7 +67,7 @@ function hpPath(actor) {
  * @param {{absolute?: boolean, shieldExtra?: number, triggeredConditions?: object[], label?: string}} [options]
  *   - Dano Absoluto não passa pelo Escudo pessoal
  */
-export function damageApplyFlags(targetActor, finalDamage, { absolute = false, shieldExtra = 0, shieldMultiplier = 1, shieldPenetration = 0, triggeredConditions = [], label = "", shieldBase = null, elementIds = [], sever = false, bodyPart = null, noBodyPart = false, reactions = [], surface = null, lifeSteal = null } = {}) {
+export function damageApplyFlags(targetActor, finalDamage, { absolute = false, shieldExtra = 0, shieldMultiplier = 1, shieldPenetration = 0, triggeredConditions = [], label = "", shieldBase = null, elementIds = [], sever = false, bodyPart = null, noBodyPart = false, reactions = [], surface = null, lifeSteal = null, attackerUuid = "", reflected = false } = {}) {
   if (!targetActor || !hpPath(targetActor)) return {};
   // Corpo imune ao elemento (vantagem ×0) ainda pode gastar um Escudo de outro elemento: o card vale
   // se sobrar dano pro Escudo.
@@ -94,6 +95,10 @@ export function damageApplyFlags(targetActor, finalDamage, { absolute = false, s
         elementIds: Array.isArray(elementIds) ? elementIds : [],
         // Roubo de vida (1.119.0): quem usou e o % do que entrar na Vida; a cura sai no Aplicar e o Desfazer a desfaz.
         ...(lifeSteal?.percent > 0 && lifeSteal.healerUuid ? { lifeSteal: { percent: Math.min(100, Math.round(lifeSteal.percent)), healerUuid: String(lifeSteal.healerUuid), level: Math.max(0, Number(lifeSteal.level) || 0) } } : {}),
+        // Refletir (1.123.0): quem atacou (para o reflexo voltar a ele no Aplicar) e a marca de que ESTE card já é um reflexo
+        // (um reflexo nunca reflete de novo).
+        ...(attackerUuid ? { attackerUuid: String(attackerUuid) } : {}),
+        ...(reflected ? { reflected: true } : {}),
         // Ferimentos por parte: a parte mirada (senão o Aplicar sorteia) e se o golpe decepa.
         bodyPartId: bodyPart?.id ?? "",
         sever: Boolean(sever),
@@ -180,6 +185,7 @@ function describeApplied(applied) {
   if (hit) parts.push(`${hit.name} ${hit.from} → ${hit.to}${hit.lost ? " (perdida)" : hit.to === 0 ? " (inutilizada)" : ""}`);
   if (applied.reactionNames?.length) parts.push(applied.reactionNames.join(", "));
   if (applied.lifeSteal?.text) parts.push(applied.lifeSteal.text);
+  if (applied.reflect?.text) parts.push(applied.reflect.text);
   return parts.join(" · ");
 }
 
@@ -420,6 +426,9 @@ async function applyHit(state, factor, { where = null, release = false } = {}) {
   // Roubo de vida (1.119.0): o que entrou na Vida (não o que o Escudo absorveu) volta a quem usou.
   const lifeSteal = state.lifeSteal ? await applyLifeSteal(state.lifeSteal, toHp) : null;
 
+  // Refletir (1.123.0): quem reflete devolve a parte do dano a quem atacou, num card novo com Aplicar/Desfazer.
+  const reflect = !state.reflected && state.attackerUuid ? await applyReflect(actor, state, { toShield, toHp }) : null;
+
   // Guarda os valores ANTERIORES, não o aplicado: desfazer restaura o estado exato, sem depender
   // de nada mais ter mexido no HP/Escudo nesse meio-tempo.
   return {
@@ -432,6 +441,7 @@ async function applyHit(state, factor, { where = null, release = false } = {}) {
     createdEffectIds,
     bodyPart,
     ...(lifeSteal ? { lifeSteal } : {}),
+    ...(reflect ? { reflect } : {}),
     ...(surfaces && (surfaces.created.length || surfaces.removed.length) ? { surfacesCreated: surfaces.created, surfacesRemoved: surfaces.removed } : {}),
     ...(reaction ? { reactionNames: reaction.names, reactionConsumed: reaction.consumed, reactionRemoved: reaction.removed, at: Date.now() } : {})
   };
@@ -469,6 +479,41 @@ async function applyLifeSteal(steal, toHp) {
   const { restoreVital } = await import("../skills/effects-apply.js");
   const { change } = await restoreVital(healer, "hp", requested, { level: steal.level });
   return { healed: change, healerUuid: healer.uuid, partsBefore, text: lifeStealResultText({ healed: change, healerName: healer.name, requested }) };
+}
+
+/**
+ * Refletir (1.123.0): se quem apanhou tem um efeito `reflect` ligado, posta um card de dano contra quem atacou com o % do que
+ * entrou (Escudo + Vida; só o Escudo, se o efeito diz assim). O reflexo passa pelas defesas de quem atacou e pela Escala, e
+ * continua Absoluto se o golpe era Absoluto. Devolve `{messageId, amount, attackerUuid, text}` para o Desfazer, ou null.
+ */
+async function applyReflect(holder, state, hit) {
+  const flagsList = holder.effects.filter(e => !e.disabled && e.flags?.[SYSTEM_ID]?.reflect).map(e => e.flags[SYSTEM_ID].reflect);
+  if (!flagsList.length) return null;
+  const amount = reflectedAmount(flagsList, hit);
+  if (!amount) return null;
+  const attacker = await fromUuid(state.attackerUuid);
+  if (!attacker || attacker.type !== "character" || attacker.uuid === holder.uuid) return null;
+  const { applyDamageReductions, damageScaleFor, damageEntryFrom } = await import("./damage-roll.js");
+  const mech = { damageElements: state.elementIds ?? [], isAbsoluteDamage: Boolean(state.absolute), isMagicDamage: false, damageScale: "" };
+  const reduction = applyDamageReductions(amount * damageScaleFor(holder, mech, attacker), mech, attacker, { attacker: holder, triggerConditions: false, noReactions: true, skipMagicDefense: true });
+  const entry = damageEntryFrom(attacker, reduction, mech, reflectLabel(state.label), { noBodyPart: true, reflected: true, attackerUuid: holder.uuid });
+  const text = reflectResultText({ amount: reduction.finalDamage, attackerName: attacker.name });
+  if (!entry) return { messageId: null, amount: 0, attackerUuid: attacker.uuid, text: `${attacker.name} resistiu ao reflexo` };
+  const message = await ChatMessage.create({
+    speaker: ChatMessage.getSpeaker({ actor: holder }),
+    content: `<p><strong>${escapeHtml(holder.name)}</strong> reflete o golpe: <strong>${escapeHtml(attacker.name)}</strong> recebe ${reduction.finalDamage}.</p>`,
+    flags: { [SYSTEM_ID]: { damageApply: { ...entry, name: attacker.name } } }
+  });
+  return { messageId: message?.id ?? null, amount: reduction.finalDamage, attackerUuid: attacker.uuid, text };
+}
+
+/** Desfaz o reflexo: se o card dele já foi aplicado, desfaz; o card some junto. */
+async function undoReflect(record) {
+  const message = record?.messageId ? game.messages.get(record.messageId) : null;
+  if (!message) return;
+  const state = message.getFlag(SYSTEM_ID, "damageApply");
+  if (state?.applied) await undoHit(state, { messageId: message.id, index: null });
+  await message.delete();
 }
 
 /** Desfaz a cura do roubo de vida: tira o que foi curado (nunca abaixo de 0) e devolve as partes do corpo. */
@@ -515,6 +560,8 @@ async function undoHit(state, where = null) {
   }
   // A cura do roubo de vida sai junto (pelo que foi curado, não pelo valor absoluto: outras curas no meio ficam).
   if (state.applied.lifeSteal?.healed > 0) await undoLifeSteal(state.applied.lifeSteal);
+  // O reflexo (e o que ele já tirou de quem atacou) sai junto.
+  if (state.applied.reflect?.messageId) await undoReflect(state.applied.reflect);
   // As superfícies que este Aplicar criou saem, e as que ele tirou voltam.
   if (state.applied.surfacesCreated?.length || state.applied.surfacesRemoved?.length) {
     const { undoHitSurfaces } = await import("../environment/surfaces.js");

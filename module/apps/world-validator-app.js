@@ -26,6 +26,7 @@ import {
   isShopsEnabled
 } from "../core/config.js";
 import { buildCatalogIndex, validateActor, validateItem, validateCatalogs, validateTrap, validateTimeSetup, CATALOG_LABELS } from "../world/world-validator.js";
+import { skillMaxLevel } from "../core/config.js";
 import { syncPreviewFor } from "../species/species.js";
 import { getRawTimelines, sceneTimeFlag, listChambers } from "../core/world-time.js";
 import { folderOwn, sceneOwnValues } from "../environment/scene-config.js";
@@ -60,6 +61,7 @@ function readCatalogs() {
     itemSets: getActiveItemSets(),
     shipClasses: getVesselClasses("starship"),
     vehicleClasses: getVesselClasses("vehicle"),
+    skillMaxLevel: mech => skillMaxLevel(mech),
     formTemplateOk: uuid => {
       try {
         const doc = fromUuidSync(uuid);

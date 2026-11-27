@@ -394,11 +394,31 @@ function registerSkillLevelAndXpSettings() {
 
   game.settings.register(SYSTEM_ID, S.skillCycleDiscount, {
     name: "Nível de Skill — Níveis de Desconto no ciclo",
-    hint: "Quantos níveis seguidos dão Desconto antes de o ciclo recomeçar. Padrão 2. Com o custo já no piso, esses níveis viram Poder.",
+    hint: "Quantos níveis seguidos dão Desconto antes de o ciclo recomeçar. Padrão 2. Com o custo já no piso, esses níveis vão para a Chance (se a Skill tem alguma); com tudo no fim, a Skill chegou ao nível máximo.",
     scope: "world",
     config: true,
     type: Number,
     default: 2,
+    requiresReload: true
+  });
+
+  game.settings.register(SYSTEM_ID, S.skillCycleChance, {
+    name: "Nível de Skill — Níveis de Chance no ciclo",
+    hint: "Só vale para Skills que têm alguma chance (corrente de golpes, um efeito com Chance, as chances do elemento daquela Skill). Quantos níveis seguidos dão pontos de Chance depois do Desconto. Padrão 1. Skill sem chance sobe como sempre.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 1,
+    requiresReload: true
+  });
+
+  game.settings.register(SYSTEM_ID, S.skillChancePoints, {
+    name: "Nível de Skill — Pontos de Chance por nível",
+    hint: "Cada nível de Chance dá este tanto de pontos percentuais, sorteados um a um entre as chances da Skill que ainda estão abaixo de 100%. Padrão 10.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 10,
     requiresReload: true
   });
 

@@ -12,15 +12,17 @@ import { complexityVerdict } from "./skill-complexity-rules.js";
 import { combinedIssues } from "./combined-rules.js";
 import { rerollLint } from "./reroll-rules.js";
 import { mechAreaSize } from "../combat/area-size-rules.js";
+import { drainLint } from "./drain-rules.js";
+import { strikesLint } from "./strikes-rules.js";
 
 /** Alvos em que "Periódico" funciona (o mesmo do editor). */
 export const PERIODIC_TARGETS = ["hp", "energy", "shipCasco", "shipHull"];
 
 /** Alvos que agem na hora e não ficam "para sempre" sem duração. */
-const INSTANT_TARGETS = ["heal", "restoreEnergy", "shield", "antimagic", "emp", "mark", "dispelMagic", "push", "space", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"];
+const INSTANT_TARGETS = ["heal", "restoreEnergy", "shield", "antimagic", "emp", "mark", "dispelMagic", "purify", "revive", "push", "space", "shipShieldRestore", "shipCasco", "shipHull", "shipDamageReduction"];
 
 /** Alvos em que o valor não importa (liga/desliga, troca de elemento, Antimagia pelo nível). */
-const VALUELESS_TARGETS = ["weaponElement", "bodyElement", "weaponMagic", "weaponAbsolute", "unarmedType", "antimagic", "emp", "mark", "dispelMagic", "magicDampen", "luck", "timeRate", "space", "flight", "burrow", "createSurface", "senseTremor", "senseInvisible", "senseTrue", "senseAll"];
+const VALUELESS_TARGETS = ["weaponElement", "bodyElement", "weaponMagic", "weaponAbsolute", "unarmedType", "antimagic", "emp", "mark", "dispelMagic", "purify", "magicDampen", "luck", "timeRate", "space", "flight", "burrow", "createSurface", "senseTremor", "senseInvisible", "senseTrue", "senseAll"];
 
 const groupTargets = actor => new Set(NIHILITY.EFFECT_TARGET_GROUPS.filter(g => g.actor === actor).flatMap(g => g.targets));
 
@@ -146,6 +148,9 @@ export function lintSkill(mech, ctx = {}) {
     if (e?.target === "magicDampen" && Number(e.chance ?? 100) <= 0) push("magicDampenNever", "hard", "mechanic", "Magia enfraquecida com chance 0%: nunca pega.", i);
   });
 
+  // --- Golpes N e a corrente (1.123.0)
+  if (usesTarget) for (const w of strikesLint(m)) push(w.code, w.level, "mechanic", w.text);
+
   // --- Mecânica
   if (usesTarget && isArea && !(mechAreaSize(m) > 0)) push("areaZero", "hard", "mechanic", `${m.targetType === "zone" ? "Zona" : "Área"} com distância 0: ninguém fica dentro.`);
   if (usesTarget && m.targetType === "zone" && !active && !(Number(m.zoneRounds) > 0)) push("zoneRounds", "hard", "mechanic", "Zona sem rodadas: some antes de bater em alguém.");
@@ -202,6 +207,15 @@ export function lintSkill(mech, ctx = {}) {
       if (target === "push" && !(Number(e?.amount) > 0)) push("pushZero", "hard", "mechanic", `${n}: Empurrar/Puxar com 0 metros — não move ninguém.`, i);
       if (target === "push" && Number(e?.amount) > 0 && m.targetType === "self") push("pushSelf", "soft", "mechanic", `${n}: Empurrar/Puxar numa Skill "Si mesmo" — quem usa é a origem, então ninguém se move.`, i);
       if (!Number(e?.amount) && !e?.conditionId && !VALUELESS_TARGETS.includes(target) && target !== "push") push("zeroEffect", "hard", "mechanic", `${n}: valor 0 e sem Condição — não muda nada.`, i);
+      // Peças de magia (1.123.0).
+      for (const w of drainLint(e)) push(w.code, w.level, "mechanic", `${n}: ${w.text}`, i);
+      if (target === "reflect" && Number(e?.amount) > 100) push("reflectOver", "soft", "mechanic", `${n}: Refletir acima de 100% vale 100%.`, i);
+      if (target === "revive" && ["emission", "zone"].includes(m.targetType)) push("reviveArea", "hard", "mechanic", `${n}: Reviver numa área nunca alcança o morto (área nunca atinge os mortos): use "Alvo único".`, i);
+      if (target === "revive" && m.targetType === "self") push("reviveSelf", "soft", "mechanic", `${n}: Reviver em "Si mesmo": quem está morto não usa Skill.`, i);
+      if (target === "scry" && m.targetType === "self") push("scrySelf", "hard", "mechanic", `${n}: Ver pela Marca precisa de um alvo (o Marcado): use "Alvo único".`, i);
+      if (target === "scry" && ["emission", "zone"].includes(m.targetType)) push("scryArea", "hard", "mechanic", `${n}: Ver pela Marca vale para um alvo, não para área.`, i);
+      if (target === "scry" && !active && !(Number(e?.durationRounds) > 0)) push("scryForever", "soft", "mechanic", `${n}: Ver pela Marca sem duração numa Skill que não é Ativa: a visão fica aberta até a Marca sumir. Era isso?`, i);
+      if (target === "purify" && e?.conditionId && ctx.conditions && !has(ctx.conditions, e.conditionId)) push("purifyUnknown", "hard", "mechanic", `${n}: a Condição "${e.conditionId}" que Purificar tiraria não existe mais no catálogo.`, i);
       if (target === "dispelMagic" && e?.dispelScope === "condition" && !e?.conditionId) push("dispelNoCondition", "hard", "mechanic", `${n}: Dissipar "só uma Condição" sem Condição escolhida: não desfaz nada.`, i);
       if (e?.conditionId && ctx.conditions && !has(ctx.conditions, e.conditionId)) push("unknownCondition", "hard", "mechanic", `${n}: a Condição "${e.conditionId}" não existe mais no catálogo.`, i);
       for (const id of e?.damageElements ?? []) {

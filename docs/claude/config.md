@@ -63,3 +63,7 @@ Separately, permanent `statModifiers.{hp,energy}` (present on Skill, equipped It
 `FEATURES.calendar` (filho de `worldClock`, `isCalendarEnabled()`); settings `calendarData` (catálogo, entra no Exportar/Importar) e `timelines` (estado do mundo, fora do Exportar/Importar: `transferableSettings` e `EXCLUDED_KEYS` o pulam). Leitores `getCalendar()`/`getTimelines()` ficam em `core/world-time.js` (memo pelo texto salvo), não em `config.js`; nunca altere o que devolvem. Ver [mundo.md](mundo.md).
 
 - **1.120.0–1.121.0:** `core/config/defaults/species-elements.js` (puro, sem imports) tem os geradores das Linhagens por elemento do Dragoide/Slime, o Dragão de Trevas e o Slime Comum; `FANTASY_ELEMENTS_1120` (`defaults/elements.js`) tem Luz, Demoníaco, Terra e Vento; Regra da Mesa nova `predationFormsPercent` (`getPredationFormsPercent`). Migrações novas, no fim da lista: `newElements` e `originElements`.
+
+## Ciclo de níveis com Chance (1.124.0)
+
+`skillLevelBonuses`, `effectiveSkillCost`, `skillMaxLevel`, `skillAtMaxLevel`, `skillNextStep` e `skillChances` (core/config/progression.js) leem as settings `skillCycleChance` e `skillChancePoints` além das de sempre. As contas puras estão em `skills/chance-rules.js` e recebem a configuração como argumento. Detalhes e decisões em [skills.md](skills.md), seção "Progressão por chance".

@@ -695,10 +695,10 @@ class ShipSystemsDataModel extends foundry.abstract.TypeDataModel {
       // Mesmo desconto por nível que `tickActorUpkeepSkills` aplica (ver effectiveSkillCost) —
       // os dois precisam concordar, senão o Reator reservaria um valor e o tick cobraria outro.
       if (skill.system.hasUpkeep && skill.system.active) {
-        sum += effectiveSkillCost(skill.system.upkeepCost, skill.system.level);
+        sum += effectiveSkillCost(skill.system.upkeepCost, skill.system);
       }
       for (const sub of skill.system.subSkills ?? []) {
-        if (sub.hasUpkeep && sub.active) sum += effectiveSkillCost(sub.upkeepCost, sub.level);
+        if (sub.hasUpkeep && sub.active) sum += effectiveSkillCost(sub.upkeepCost, sub);
       }
     }
     return sum;

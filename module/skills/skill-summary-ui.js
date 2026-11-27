@@ -57,10 +57,11 @@ export function skillSummariesFor(actor) {
     }
     out[skill.id] = skillSummary(sys, {
       ...base,
-      cost: effectiveSkillCost(sys.cost, sys.level),
-      upkeep: effectiveSkillCost(sys.upkeepCost, sys.level),
+      cost: effectiveSkillCost(sys.cost, sys),
+      upkeep: effectiveSkillCost(sys.upkeepCost, sys),
       resistance,
-      mastery: masterySentenceFor(sys)
+      mastery: masterySentenceFor(sys),
+      chanceBonus: sys.chanceBonus ?? {}
     });
   }
   return out;

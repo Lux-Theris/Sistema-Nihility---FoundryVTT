@@ -16,6 +16,13 @@ import { spaceSentence } from "../combat/space-rules.js";
 import { strikeSentence } from "../combat/weapon-mastery-rules.js";
 import { isSenseTarget, SENSE_LABELS, describeSenseRange, senseRangeValue } from "../combat/senses-rules.js";
 import { perLevelText } from "../combat/area-size-rules.js";
+import { reflectSentence } from "../combat/reflect-rules.js";
+import { purifySentence } from "./purify-rules.js";
+import { reviveSentence } from "./revive-rules.js";
+import { scrySentence } from "../combat/scry-rules.js";
+import { drainKindOf, drainSentence } from "./drain-rules.js";
+import { strikesSentence, chainChance, strikeCount } from "./strikes-rules.js";
+import { effectiveChance, chanceBonusOf } from "./chance-rules.js";
 
 const SHAPE_WORDS = { circle: "círculo", cone: "cone", ray: "linha" };
 
@@ -23,7 +30,12 @@ const signed = n => (n > 0 ? `+${n}` : `−${Math.abs(n)}`);
 
 /** "Força +3", "Vida −5/rodada", "Envenenado", "Escudo +20". */
 function describeEffect(entry, ctx) {
-  const text = describeEffectCore(entry, ctx);
+  let text = describeEffectCore(entry, ctx);
+  // Chance do efeito, com os pontos que a progressão por chance já deu ("Atordoado, 46% de chance").
+  const base = Number(entry.chance);
+  if (text && entry.target !== "magicDampen" && base > 0 && base < 100) {
+    text += `, ${effectiveChance(base, entry.id ? chanceBonusOf(ctx.chanceBonus, `effect:${entry.id}`) : 0)}% de chance`;
+  }
   // "Só se…" (8.1a): "Atordoa, só se o alvo estiver Molhado".
   const clause = text ? onlyIfClause(entry.onlyIf, (kind, value) => ctx.conditions?.[value] ?? ctx.traits?.[value] ?? value) : "";
   return clause ? `${text}, só se ${clause}` : text;
@@ -42,6 +54,12 @@ function describeEffectCore(entry, ctx) {
     return `deixa ${label} no chão${meters > 0 ? ` (raio ${String(meters).replace(".", ",")} m)` : ""}`;
   }
   if (entry.target === "flight") return "voo";
+  // Peças de magia (1.123.0).
+  if (entry.target === "reflect") return reflectSentence(entry.amount, entry.reflectShieldOnly);
+  if (entry.target === "purify") return purifySentence({ max: Math.abs(Number(entry.amount) || 0), conditionLabel: entry.conditionId ? ctx.conditions?.[entry.conditionId] ?? entry.conditionId : "", level: Number(ctx.level) || 0 });
+  if (entry.target === "revive") return reviveSentence(entry);
+  if (entry.target === "scry") return scrySentence(entry);
+  if (drainKindOf(entry)) return drainSentence(entry, { targetLabel: ctx.targets?.[entry.target], energyLabel: ctx.energyLabel });
   // Espaço (8f): "teleporta quem usa até 10 m, atravessando paredes" / "troca de lugar com o alvo".
   if (entry.target === "space") return spaceSentence(entry, { range: ctx.range });
   // Ritmo do tempo (8e): "Acelerado ×3 (3 de tempo por turno, Deslocamento ×3)" / "Desacelerado ×½".
@@ -84,10 +102,11 @@ function describeMechanic(mech, ctx) {
     const formula = mech.damageFormula?.trim() || "dano sem fórmula";
     const elements = (mech.damageElements ?? []).map(id => ctx.elements?.[id] ?? id);
     const kind = mech.isAbsoluteDamage ? " absoluto" : mech.isMagicDamage ? " mágico" : "";
-    return `${formula}${elements.length ? ` de ${elements.join(" + ")}` : ""}${kind}`;
+    const drain = Number(mech.lifeSteal) > 0 ? `, drena ${Math.round(Number(mech.lifeSteal))}% como Vida` : "";
+    return `${formula}${elements.length ? ` de ${elements.join(" + ")}` : ""}${kind}${drain}`;
   }
   if (mech.effectType === "temporary") {
-    const effects = (mech.effects ?? []).map(e => describeEffect(e, { ...ctx, range: Number(mech.range) || 0 })).filter(Boolean);
+    const effects = (mech.effects ?? []).map(e => describeEffect(e, { ...ctx, range: Number(mech.range) || 0, level: Number(mech.level) || 0, chanceBonus: mech.chanceBonus ?? ctx.chanceBonus })).filter(Boolean);
     if (!effects.length) return "efeito";
     const shown = effects.slice(0, 2).join(" e ");
     return effects.length > 2 ? `${shown} +${effects.length - 2}` : shown;
@@ -178,6 +197,8 @@ export function skillSummaryParts(mech, ctx = {}) {
       parts.push(mechanic);
       if (mech.effectType !== "structure" && mech.targetType !== "structure" && mech.effectType !== "form" && mech.effectType !== "reroll") parts.push(describeReach(mech));
       if (ctx.skillRange !== false) parts.push(...describeRange(mech));
+      // Golpes N e a corrente (1.123.0), com a chance atual da progressão por chance.
+      if (["damage", "temporary"].includes(mech.effectType) && strikeCount(mech) > 1) parts.push(strikesSentence(mech, chainChance(mech, chanceBonusOf(mech.chanceBonus, "chain"))));
       // Golpe de arma (H6): "golpe desarmado" / "golpe de Lâminas".
       if (mech.effectType === "damage" && mech.weaponStrike && ctx.strikesOn) parts.push(strikeSentence(mech.weaponStrike, ctx.weaponTypes?.[mech.weaponStrike]) + (mech.weaponStrike !== "unarmed" && mech.strikeRequiresWeapon !== false ? " (com a arma)" : ""));
     }

@@ -370,7 +370,7 @@ function resolvePushSpec(item, payload) {
   const setting = normalizePushDirection(entry.pushDirection);
   const direction = setting === "choose" ? (payload.direction === "pull" ? "pull" : payload.direction === "push" ? "push" : null) : setting;
   if (!direction) return { error: "faltou a direção" };
-  const levelPower = item.type === "skill" ? skillLevelBonuses(mech.level).power : 1;
+  const levelPower = item.type === "skill" ? skillLevelBonuses(mech).power : 1;
   return {
     label,
     meters: Math.max(0, Number(entry.amount) * levelPower * clampPower),

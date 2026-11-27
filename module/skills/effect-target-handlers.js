@@ -24,6 +24,9 @@ import { applyAntimagic, applyEmp, applyDissipate } from "./dispel.js";
 import { protectingStructureKinds } from "../structures/structures.js";
 import { vitalBase } from "./skill-xp.js";
 import { applyTimeRateEntry, applyMark, restoreVital } from "./effects-apply.js";
+import { applyPurifyEntry, applyReviveEntry, drainVitalEntry } from "./magic-pieces.js";
+import { drainKindOf } from "./drain-rules.js";
+import { openScryFor } from "../combat/scry.js";
 
 export const HANDLED = "continue";
 export const FALLTHROUGH = "fallthrough";
@@ -62,6 +65,27 @@ async function handleDispelMagic(entry, ctx) {
   return HANDLED;
 }
 
+/** Purificar (1.123.0): tira Condições de nível até o da Skill, mágicas ou não, e zera a exposição delas. */
+async function handlePurify(entry, ctx) {
+  const { targetActor, sourceLevel, summary, xp } = ctx;
+  summary.push(await applyPurifyEntry(entry, { targetActor, sourceLevel, xp }));
+  return HANDLED;
+}
+
+/** Reviver (1.123.0): só em quem está morto; tira o "morto" e põe a Vida em X. */
+async function handleRevive(entry, ctx) {
+  const { targetActor, summary, xp } = ctx;
+  summary.push(await applyReviveEntry(entry, { targetActor, xp }));
+  return HANDLED;
+}
+
+/** Ver pela Marca (1.123.0): abre a visão de quem usa pela Marca dele no alvo. O efeito mora em quem olha. */
+async function handleScry(entry, ctx) {
+  const { mech, label, originSkill, origin, targetActor, subSkillIndex, sourceLevel, sourceMagic, sourceTech, appliedBy, summary, xp } = ctx;
+  summary.push(await openScryFor(entry, { mech, label, originSkill, origin, targetActor, subSkillIndex, sourceLevel, sourceMagic, sourceTech, appliedBy, xp }));
+  return HANDLED;
+}
+
 /**
  * Antimagia (prancha 8) e PEM: cortam, desligam e suprimem — com o nível desta Skill. Camada do
  * tipo oposto (Escudo, ou Estrutura no caminho/em volta) protege o alvo.
@@ -88,12 +112,21 @@ async function handleAntimagicOrEmp(entry, ctx) {
  * bloqueios de cura e reparte nas Partes do Corpo, como o tick periódico.
  */
 async function handleHealOrRestore(entry, ctx, view) {
-  const { targetActor, sourceLevel, summary, xp } = ctx;
+  const { targetActor, sourceLevel, summary, xp, originSkill } = ctx;
   const { targetLabel } = view;
   const key = entry.target === "heal" ? "hp" : "energy";
   const attr = targetActor.system?.attributes?.[key];
   if (targetActor.type !== "character" || !attr) {
     summary.push(`${targetLabel}: não se aplica a ${targetActor.name}`);
+    return HANDLED;
+  }
+  // Drenar Vida/Mana (1.123.0): o que o alvo perde entra em quem usa.
+  if (["life", "mana"].includes(drainKindOf(entry))) {
+    const line = await drainVitalEntry(entry, { targetActor, caster: originSkill?.parent ?? null, sourceLevel });
+    if (line) {
+      summary.push(line);
+      xp.push({ flat: true });
+    }
     return HANDLED;
   }
   const { change, note } = await restoreVital(targetActor, key, Number(entry.amount) || 0, { level: sourceLevel, focusPartId: entry.focusPartId || null });
@@ -161,6 +194,9 @@ export const EFFECT_TARGET_HANDLERS = {
   timeRate: { stage: "pre", run: handleTimeRate },
   mark: { stage: "pre", run: handleMark },
   dispelMagic: { stage: "pre", run: handleDispelMagic },
+  purify: { stage: "pre", run: handlePurify },
+  revive: { stage: "pre", run: handleRevive },
+  scry: { stage: "pre", run: handleScry },
   antimagic: { stage: "pre", run: handleAntimagicOrEmp },
   emp: { stage: "pre", run: handleAntimagicOrEmp },
   heal: { stage: "post", run: handleHealOrRestore },

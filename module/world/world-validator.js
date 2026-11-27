@@ -11,6 +11,9 @@
  * `game.*` — quem coleta é apps/world-validator-app.js.
  */
 import { sizeFitsClass } from "../core/config.js";
+import { drainLint } from "../skills/drain-rules.js";
+import { strikesLint } from "../skills/strikes-rules.js";
+import { collectChances, entryHasChance } from "../skills/chance-rules.js";
 import { pocketSlots, POCKET_DEFAULTS, pocketEntryOf, PRESO_CONDITION_ID } from "../combat/space-rules.js";
 import { weaponTypeCatalogIssues } from "../combat/weapon-mastery-rules.js";
 import { shopSetupIssues, normalizeItemShop } from "../economy/shop-rules.js";
@@ -51,7 +54,8 @@ export function buildCatalogIndex(catalogs = {}) {
     itemSetList: Array.isArray(catalogs.itemSets) ? catalogs.itemSets : null,
     sizeLists: { starship: catalogs.shipSizes ?? [], vehicle: catalogs.vehicleSizes ?? [] },
     // Forma (H5): (uuid) => o molde existe e está marcado; ausente = não confere.
-    formTemplateOk: typeof catalogs.formTemplateOk === "function" ? catalogs.formTemplateOk : null
+    formTemplateOk: typeof catalogs.formTemplateOk === "function" ? catalogs.formTemplateOk : null,
+    skillMaxLevel: typeof catalogs.skillMaxLevel === "function" ? catalogs.skillMaxLevel : null
   };
 }
 
@@ -139,6 +143,12 @@ export function checkMechanic(mech, idx, prefix = "") {
     if (entry?.conditionId && idx.anchorConditions?.has(entry.conditionId) && !(Number(entry.durationRounds) > 0) && !mech.hasUpkeep) {
       issues.push({ where, catalog: "space", ref: entry.conditionId, message: "Âncora sem duração: quem a recebe fica Ancorado até o Mestre tirar" });
     }
+    // Peças de magia (1.123.0) e Chance (1.124.0).
+    for (const w of drainLint(entry)) issues.push({ where, catalog: "skills", ref: "", message: w.text });
+    if (entry?.target === "purify" && entry.conditionId) checkRef(issues, idx, at(where, "Purificar › Condição"), "conditions", entry.conditionId);
+    if (entry?.target === "revive" && ["emission", "zone"].includes(mech.targetType)) issues.push({ where, catalog: "skills", ref: "", message: "Reviver numa área nunca alcança o morto: o uso não faz nada" });
+    if (entry?.target === "scry" && ["self", "emission", "zone"].includes(mech.targetType)) issues.push({ where, catalog: "skills", ref: "", message: "Ver pela Marca precisa de um alvo único (o Marcado)" });
+    if (entryHasChance(entry) && !entry.id) issues.push({ where, catalog: "skills", ref: "", message: "efeito com Chance sem id estável: salve a Skill de novo para a progressão por chance contar" });
     // Desarmado vira tipo de arma.
     if (entry?.target === "unarmedType") checkRef(issues, idx, at(where, "Tipo de arma"), "weaponTypes", entry?.weaponTypeId);
   });
@@ -147,6 +157,18 @@ export function checkMechanic(mech, idx, prefix = "") {
   if (mech.predationTakes === "forms" && mech.effectType !== "predation") issues.push({ where: at(prefix, "Predação"), catalog: "skills", ref: "", message: "\"Só formas\" numa Skill que não é Predação: o campo não faz nada" });
   // Roubo de vida (1.119.0): só o dano cura quem usa.
   if (Number(mech.lifeSteal) > 0 && mech.effectType !== "damage") issues.push({ where: at(prefix, "Cura quem usa"), catalog: "skills", ref: "", message: "\"Cura quem usa (% do dano)\" numa Skill que não causa dano: o campo não faz nada" });
+  // Golpes N e corrente (1.123.0).
+  for (const w of strikesLint(mech)) if (w.code === "chainNoStrikes") issues.push({ where: at(prefix, "Golpes"), catalog: "skills", ref: "", message: w.text });
+  // Progressão por chance (1.124.0): pontos de uma chance que não existe mais, e Skill acima do nível máximo.
+  if (mech.chanceBonus && typeof mech.chanceBonus === "object") {
+    const live = new Set(collectChances(mech).map(c => c.key));
+    const dead = Object.keys(mech.chanceBonus).filter(k => !k.includes("element:") && !live.has(k));
+    if (dead.length) issues.push({ where: at(prefix, "Chances"), catalog: "skills", ref: dead.join(", "), message: "pontos de chance guardados de um efeito que não existe mais (ficam sem uso; se a chave voltar com outro sentido, confira)" });
+  }
+  if (typeof idx.skillMaxLevel === "function" && !prefix && !mech.resistanceTarget && !mech.weaponMastery) {
+    const max = idx.skillMaxLevel(mech);
+    if (Number.isFinite(max) && Number(mech.level) > max) issues.push({ where: at(prefix, "Nível"), catalog: "skills", ref: "", message: `nível ${mech.level} acima do nível máximo automático (${max}): a Skill não sobe mais; marque "Sem limite" ou deixe como está (só a Evolução continua)` });
+  }
   // "Só se…" da Skill inteira e "ao acertar" (8c.1).
   if (mech.onlyIf?.kind === "otherCondition" || mech.onlyIf?.kind === "otherConditionMine" || mech.onlyIf?.kind === "selfCondition") checkRef(issues, idx, at(prefix, "Só se… da Skill › Condição"), "conditions", mech.onlyIf.value);
   if (mech.onlyIf?.kind === "otherTrait") checkRef(issues, idx, at(prefix, "Só se… da Skill › Traço"), "traits", mech.onlyIf.value);

@@ -146,7 +146,7 @@ export function rewindEnergyShortfall(sourceActor, mech, targets, paid) {
   if (!charges) return 0;
   const partners = countBondPartners(targets ?? []);
   if (!partners) return 0;
-  const unit = effectiveSkillCost(mech.cost, mech.level);
+  const unit = effectiveSkillCost(mech.cost, mech);
   const need = Math.max(0, Number(paid) || 0) + unit * partners;
   return currentEnergyValue(sourceActor) >= need ? 0 : need;
 }
@@ -286,7 +286,7 @@ export async function applyTimeRewindEntry(entry, { mech, label, originSkill, ta
   let extraPaid = 0;
   if (partnersCount && caster) {
     const charges = isShipLike(caster) || isEnergyPoolEnabled();
-    const cost = bondCost({ unitCost: effectiveSkillCost(mech.cost, mech.level), partners: partnersCount, available: currentEnergyValue(caster), charges });
+    const cost = bondCost({ unitCost: effectiveSkillCost(mech.cost, mech), partners: partnersCount, available: currentEnergyValue(caster), charges });
     if (!cost.ok) return `Reverter: ${targetActor.name} está ligado a ${plan.filter(p => p.bonded).map(p => p.actor.name).join(", ")}; voltar os dois pede mais ${cost.extra} de ${getEnergyLabelForActor(caster)} e faltam ${cost.missing}. Nada foi feito.`;
     if (cost.extra > 0) {
       await caster.update({ [energyValuePath(caster)]: Math.max(0, currentEnergyValue(caster) - cost.extra) });

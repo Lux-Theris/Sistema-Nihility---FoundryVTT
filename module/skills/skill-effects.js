@@ -7,7 +7,7 @@
  *    HP/Mana Máximo mesmo quando o alvo é um atributo); "shield" é somado
  *    direto, sem duração, gasto na mão pelo jogador conforme absorve dano.
  */
-import { SYSTEM_ID, getActiveStatusConditions, getEnergyLabelForActor, isEnergyPoolEnabled, effectiveSkillCost, isStructureMechanic, manaInvestmentPower, getManaInvestConfig, isMagicUse, isTechUse, technomagicFactor, getTechnomagicPower, isInterferenceEnabled } from "../core/config.js";
+import { SYSTEM_ID, actorToken, sameActor, getActiveStatusConditions, getEnergyLabelForActor, isEnergyPoolEnabled, effectiveSkillCost, isStructureMechanic, manaInvestmentPower, getManaInvestConfig, isMagicUse, isTechUse, technomagicFactor, getTechnomagicPower, isInterferenceEnabled } from "../core/config.js";
 import { manaDensityFor } from "../environment/environment.js";
 import { castPowerFromDensity, densitySustainsMagic } from "../environment/environment-rules.js";
 import { chargeAntimagic, placementTargets, fieldGate, creditManipulation } from "../combat/antimagic.js";
@@ -17,7 +17,12 @@ import { createZone } from "../combat/area-effects.js";
 import { grantSkillUseXp, vitalBase, withXpBatch } from "./skill-xp.js";
 import { afterSkillStrike, strikeBlockReason } from "../combat/weapon-mastery.js";
 import { resolveWeaponStrike } from "../combat/weapon-mastery-rules.js";
-import { blockIfIncapacitated, knockUnconscious } from "../combat/incapacitation.js";
+import { blockIfIncapacitated, knockUnconscious, isDead } from "../combat/incapacitation.js";
+import { strikeCount, hasChain, chainChance, chainRadius, chainStep } from "./strikes-rules.js";
+import { chanceBonusOf, subChanceBonus } from "./chance-rules.js";
+import { rollChance } from "../combat/damage-rules.js";
+import { luckOf } from "../combat/luck-rules.js";
+import { scryRefusal } from "../combat/scry.js";
 import { blockIfTimeStopped } from "../combat/time-stop-state.js";
 import { skillOnlyIfBlock, reportOnlyIfRefusal } from "./skill-only-if.js";
 import { useBlockReason, startPreparation, applyCooldownAfterUse, inStartedCombat, settleTimersByReserve } from "./preparation.js";
@@ -28,7 +33,7 @@ import { requestStructure, dispelStructuresInArea } from "../structures/structur
 import { promptManaInvestment, confirmOverdraw } from "../apps/mana-invest-dialog.js";
 import { rollSkillDamage, rollSkillDamageArea } from "../combat/damage-roll.js";
 import { markedCost } from "../combat/range-rules.js";
-import { rangeChecksActive } from "../combat/range.js";
+import { rangeChecksActive, measureTokenDistance } from "../combat/range.js";
 import { runSkillPushes, pushOriginFor } from "../combat/forced-movement.js";
 import { planSpaceUse, runSkillSpace } from "../combat/space.js";
 import { spaceEntriesOf } from "../combat/space-rules.js";
@@ -124,7 +129,7 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
   if (!resolved) return null;
   const ctx = { sourceActor, skillId, options, timers, ...resolved };
 
-  for (const step of [toggleOffIfActive, checkUseBlocks, checkPlaceAndField, checkSpacePlan]) {
+  for (const step of [toggleOffIfActive, checkUseBlocks, checkPlaceAndField, checkSpacePlan, checkScryMark]) {
     const stop = await step(ctx);
     if (stop) return stop.value;
   }
@@ -172,6 +177,8 @@ function resolveUsedSkill(sourceActor, skillId, options) {
 
   // Combinada (8c.2): um uso dispara todas as Sub-Skills. A mecânica de Custo, Ativa e nível é a da Skill-mãe.
   const combined = Boolean(options.combined) && options.subSkillIndex == null && isCombinedSkill(skill.system);
+  // Chances que a progressão por chance (1.124.0) deu: guardadas na Skill-mãe; a Sub-Skill lê as dela (chaves com o prefixo tirado).
+  if (options.subSkillIndex != null && mech !== skill.system) mech = { ...(typeof mech.toObject === "function" ? mech.toObject() : mech), chanceBonus: subChanceBonus(skill.system.chanceBonus, mech.uid) };
   return { skill, mech, label, combined };
 }
 
@@ -288,6 +295,20 @@ async function checkSpacePlan(ctx) {
   return null;
 }
 
+/** Ver pela Marca (1.123.0): sem uma Marca de quem usa no alvo (ou com o recurso desligado), o uso é recusado ANTES de pagar. */
+async function checkScryMark(ctx) {
+  const { sourceActor, mech, label, options, combined } = ctx;
+  if (combined || mech.effectType !== "temporary" || !(mech.effects ?? []).some(e => e?.target === "scry")) return null;
+  const target = options.targetActor ?? null;
+  if (!target) return null;
+  const refusal = scryRefusal(sourceActor, target);
+  if (refusal) {
+    ui.notifications?.warn(`${label}: ${refusal}. Nada foi gasto.`);
+    return stopUse(null);
+  }
+  return null;
+}
+
 /**
  * O Custo (com Marca, Preparo e Mana variável): devolve `{ cost, paid, investRatio, overdraw, viaMark, markFactor,
  * investConfig, preparing, prepByReserve }` ou `{ stop: true, value }`. Define `timers.ratio` ao fim, como antes.
@@ -300,7 +321,7 @@ async function resolveCostAndInvestment(ctx) {
   const chargesEnergy = isShipLike(sourceActor) || isEnergyPoolEnabled();
   // O Custo escrito na Skill é o do nível 1; o ciclo de nível vai descontando dele (ver
   // skillLevelBonuses em config.js). Sub-Skill usa o nível dela própria, não o da Skill-mãe.
-  const cost = chargesEnergy ? effectiveSkillCost(mech.cost, mech.level) : 0;
+  const cost = chargesEnergy ? effectiveSkillCost(mech.cost, mech) : 0;
 
   // Mana variável: quem usa escolhe quanto investir (sem teto; mínimo nas Regras da Mesa), e a
   // força da Skill segue `manaInvestmentPower`. Só pra quem paga com Mana (Nave paga com a Bateria).
@@ -564,6 +585,48 @@ async function dispatchMechanic({ sourceActor, skill, skillId, mech, label, opti
   const areaLevel = isEmission ? Number(options.targetActors?.effectiveLevel) || 0 : 0;
   if (areaLevel > 0 && areaLevel !== mech.level) mech = { ...plainMech(mech), level: areaLevel };
 
+  if (mech.effectType === "damage" || mech.effectType === "temporary") return fireStrikes({ sourceActor, skill, mech, label, options, isEmission });
+
+  const upkeepNote = mech.hasUpkeep
+    ? ` (ativada — drena ${effectiveSkillCost(mech.upkeepCost, mech)} de ${escapeHtml(getEnergyLabelForActor(sourceActor))} por rodada)`
+    : "";
+  await ChatMessage.create({
+    speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
+    content: `<p><strong>${escapeHtml(sourceActor.name)}</strong> usou <strong>${escapeHtml(label)}</strong>${upkeepNote}.</p>`
+  });
+  return true;
+}
+
+/**
+ * Golpes N (1.123.0): o dano ou os efeitos saem `strikes` vezes no mesmo uso, sem pagar de novo (cada golpe é uma rolagem e um
+ * card). Com a corrente "Saltar entre alvos", depois de cada golpe cada alvo até X m do último rola a chance e o raio salta
+ * para o mais perto que passou; se ninguém passou, a corrente para. Sem corrente (ou numa área), os golpes caem no mesmo alvo.
+ * Espaço (Saltar/Trocar) não repete: o teleporte é um só. Devolve o primeiro resultado (o que a Recarga e o XP leem).
+ */
+async function fireStrikes({ sourceActor, skill, mech, label, options, isEmission }) {
+  const spatial = mech.effectType === "temporary" && spaceEntriesOf(mech).length > 0;
+  const total = spatial ? 1 : strikeCount(mech);
+  const chain = !isEmission && hasChain(mech) && options.targetActor && mech.targetType !== "self";
+  const results = [];
+  let target = options.targetActor ?? null;
+  for (let strike = 1; strike <= total; strike++) {
+    const strikeOptions = strike === 1 ? options : { ...options, targetActor: target, noAim: true, spacePlan: undefined };
+    const result = await fireOnce({ sourceActor, skill, mech, label: total > 1 ? `${label} (golpe ${strike}/${total})` : label, options: strikeOptions, isEmission });
+    results.push(result);
+    if (strike < total && chain) {
+      const next = await nextChainTarget(sourceActor, skill, mech, target);
+      if (!next) {
+        await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor: sourceActor }), content: `<p><strong>${escapeHtml(label)}</strong>: a corrente parou depois do golpe ${strike} (ninguém no raio passou na chance).</p>` });
+        break;
+      }
+      target = next;
+    }
+  }
+  return results.find(r => r) ?? results[0] ?? null;
+}
+
+/** Um golpe: a rolagem de dano (alvo único ou área) ou os efeitos (alvo ou área), com o XP por uso e a Maestria. */
+async function fireOnce({ sourceActor, skill, mech, label, options, isEmission }) {
   if (mech.effectType === "damage") {
     const result = isEmission
       ? await rollSkillDamageArea(sourceActor, mech, label, options.targetActors ?? [], options.rollOptions ?? null)
@@ -573,22 +636,32 @@ async function dispatchMechanic({ sourceActor, skill, skillId, mech, label, opti
     await afterSkillStrike(sourceActor, mech, result, options.targetActor ?? null);
     return result;
   }
-  if (mech.effectType === "temporary") {
-    // Espaço (8f): o plano escolhido antes do Custo viaja na mecânica até applySkillEffects.
-    if (options.spacePlan) mech = { ...(typeof mech.toObject === "function" ? mech.toObject() : mech), spacePlan: options.spacePlan };
-    return isEmission
-      ? applySkillEffectsArea(sourceActor, skill, mech, label, options.targetActors ?? [], options.subSkillIndex ?? null)
-      : applySkillEffects(sourceActor, skill, mech, label, options.targetActor ?? sourceActor, options.subSkillIndex ?? null);
-  }
+  // Espaço (8f): o plano escolhido antes do Custo viaja na mecânica até applySkillEffects.
+  if (options.spacePlan) mech = { ...(typeof mech.toObject === "function" ? mech.toObject() : mech), spacePlan: options.spacePlan };
+  return isEmission
+    ? applySkillEffectsArea(sourceActor, skill, mech, label, options.targetActors ?? [], options.subSkillIndex ?? null)
+    : applySkillEffects(sourceActor, skill, mech, label, options.targetActor ?? sourceActor, options.subSkillIndex ?? null);
+}
 
-  const upkeepNote = mech.hasUpkeep
-    ? ` (ativada — drena ${effectiveSkillCost(mech.upkeepCost, mech.level)} de ${escapeHtml(getEnergyLabelForActor(sourceActor))} por rodada)`
-    : "";
-  await ChatMessage.create({
-    speaker: ChatMessage.getSpeaker({ actor: sourceActor }),
-    content: `<p><strong>${escapeHtml(sourceActor.name)}</strong> usou <strong>${escapeHtml(label)}</strong>${upkeepNote}.</p>`
-  });
-  return true;
+/**
+ * O próximo alvo da corrente: cada Token vivo até o raio do último alvo (menos quem usa) rola a chance; vence o mais perto
+ * que passou. Sem mapa, ninguém. Mostra uma linha no chat com quem foi.
+ */
+async function nextChainTarget(sourceActor, skill, mech, last) {
+  if (!canvas?.ready || !last) return null;
+  const lastToken = actorToken(last);
+  if (!lastToken) return null;
+  const neighbors = [];
+  for (const token of canvas.tokens?.placeables ?? []) {
+    const actor = token.actor;
+    if (!actor || token.document?.hidden || actor.type !== "character" || isDead(actor) || sameActor(actor, sourceActor)) continue;
+    neighbors.push({ uuid: actor.uuid, actor, distance: token === lastToken ? 0 : measureTokenDistance(lastToken, token) });
+  }
+  const chance = chainChance(mech, chanceBonusOf(mech.chanceBonus, "chain"));
+  const step = chainStep(neighbors, { lastUuid: last.uuid, radius: chainRadius(mech), chance, allowRepeat: Boolean(mech.chainRepeat), roll: c => rollChance(c, Math.random, luckOf(sourceActor, "chances")) });
+  const picked = neighbors.find(n => n.uuid === step.picked)?.actor ?? null;
+  if (picked) await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor: sourceActor }), content: `<p>Corrente: de <strong>${escapeHtml(last.name)}</strong> salta para <strong>${escapeHtml(picked.name)}</strong> (${chance}% por alvo, ${step.passed.length} de ${step.tried} passaram).</p>` });
+  return picked;
 }
 
 /**

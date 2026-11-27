@@ -989,7 +989,7 @@ async function enforceFieldsOnStructures(scene, kind, { charge = true } = {}) {
     const manipulation = kind === "magic" ? actorManipulation(caster) : { skill: null, level: 0 };
     const skillDoc = structureSkillUuid(instance) ? await fromUuid(structureSkillUuid(instance)).catch(() => null) : null;
     const mech = Number.isInteger(instance.subSkillIndex) ? skillDoc?.system?.subSkills?.[instance.subSkillIndex] : skillDoc?.system;
-    const baseCost = mech?.hasUpkeep ? effectiveSkillCost(mech.upkeepCost, mech.level) : 0;
+    const baseCost = mech?.hasUpkeep ? effectiveSkillCost(mech.upkeepCost, mech) : 0;
     const result = fieldUseOutcome({ inside: true, kind, manipulationLevel: manipulation.level, fieldLevel: level, baseCost, zeroMultiplier: getHealingRules().zeroMultiplier });
     const current = currentEnergyValue(caster);
     if (result.action !== "blocked" && current >= result.extra) {

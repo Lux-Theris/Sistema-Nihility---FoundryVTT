@@ -219,7 +219,7 @@
       </label>
       <label class="toggle span-all"><input type="checkbox" name="system.isMagicDamage" {{#if system.isMagicDamage}}checked{{/if}}/><span class="toggle-track"></span><span>Dano Mágico</span><span class="help" title="Só esta opção decide se a Defesa Mágica reduz o dano. Os elementos são independentes dela.">?</span></label>
       <div class="fld span-all"><span class="fld-label">Elemento(s)</span>{{> nihility.elementChips field=skillElementField path="system.damageElements" editable=editable}}</div>
-      <label class="fld"><span class="fld-label">Cura quem usa (% do dano) <span class="help" title="Cura quem usou o golpe com este % do dano que realmente entrou na Vida do alvo (depois de resistências, fraquezas e Escudo). A cura sai quando o Mestre clica Aplicar no card, e o Desfazer do card desfaz a cura junto. 0 = não cura.">?</span></span><input class="num" type="number" name="system.lifeSteal" value="{{system.lifeSteal}}" min="0" max="100"/></label>
+      <label class="fld"><span class="fld-label">Drenar Vida (% do dano) <span class="help" title="Cura quem usou o golpe com este % do dano que realmente entrou na Vida do alvo (depois de resistências, fraquezas e Escudo). A cura sai quando o Mestre clica Aplicar no card, e o Desfazer do card desfaz a cura junto. 0 = não cura.">?</span></span><input class="num" type="number" name="system.lifeSteal" value="{{system.lifeSteal}}" min="0" max="100"/></label>
       {{#if weaponMasteryOn}}
       <label class="fld span-all"><span class="fld-label">Golpe de arma <span class="help" title="Arte marcial: a Skill conta como um ataque deste tipo (Desarmado = golpe desarmado). A Maestria que o cobre multiplica o dano, rende XP e conta para aprender pela prática. Uma Sub-Skill com o campo vazio herda o da Skill-mãe. O tipo é fixo: itens e o efeito 'Desarmado vira tipo' não o mudam.">?</span></span>
         <select name="system.weaponStrike">
@@ -245,10 +245,28 @@
       </div>
     </details>
   </div>
+  <div class="sec">
+    <div class="sec-head">Golpes e corrente <span class="help" title="Golpes: o dano ou os efeitos saem N vezes no mesmo uso, sem pagar de novo (cada golpe é uma rolagem e um card). Corrente (Saltar entre alvos): depois de cada golpe, cada alvo até o raio do último rola a chance e o raio salta para o mais perto que passou; se ninguém passou, a corrente para. A chance sobe nos níveis de Chance da Skill.">?</span></div>
+    <div class="sec-body g3">
+      <label class="fld"><span class="fld-label">Golpes (1 a 10)</span><input class="num" type="number" name="system.strikes" value="{{system.strikes}}" min="1" max="10"/></label>
+      <label class="fld"><span class="fld-label">Corrente: chance (%) <span class="help" title="0 = sem corrente (os golpes caem no mesmo alvo).">?</span></span><input class="num" type="number" name="system.chainChance" value="{{system.chainChance}}" min="0" max="100"/></label>
+      <label class="fld"><span class="fld-label">Raio (m) <span class="help" title="Até onde, a partir do último alvo, a corrente procura. 0 = 5 m.">?</span></span><input class="num" type="number" name="system.chainRadius" value="{{system.chainRadius}}" min="0" step="0.5"/></label>
+      <label class="toggle span-all"><input type="checkbox" name="system.chainRepeat" {{#if system.chainRepeat}}checked{{/if}}/><span class="toggle-track"></span><span>O mesmo alvo pode ser atingido de novo</span></label>
+    </div>
+  </div>
   {{/if}}
 
   {{#if (eq skillMechanicType "temporary")}}
   {{> nihility.effectCards effects=skillEffects hasUpkeep=system.hasUpkeep}}
+  <div class="sec">
+    <div class="sec-head">Golpes e corrente <span class="help" title="Golpes: o dano ou os efeitos saem N vezes no mesmo uso, sem pagar de novo (cada golpe é uma rolagem e um card). Corrente (Saltar entre alvos): depois de cada golpe, cada alvo até o raio do último rola a chance e o raio salta para o mais perto que passou; se ninguém passou, a corrente para. A chance sobe nos níveis de Chance da Skill.">?</span></div>
+    <div class="sec-body g3">
+      <label class="fld"><span class="fld-label">Golpes (1 a 10)</span><input class="num" type="number" name="system.strikes" value="{{system.strikes}}" min="1" max="10"/></label>
+      <label class="fld"><span class="fld-label">Corrente: chance (%) <span class="help" title="0 = sem corrente (os golpes caem no mesmo alvo).">?</span></span><input class="num" type="number" name="system.chainChance" value="{{system.chainChance}}" min="0" max="100"/></label>
+      <label class="fld"><span class="fld-label">Raio (m) <span class="help" title="Até onde, a partir do último alvo, a corrente procura. 0 = 5 m.">?</span></span><input class="num" type="number" name="system.chainRadius" value="{{system.chainRadius}}" min="0" step="0.5"/></label>
+      <label class="toggle span-all"><input type="checkbox" name="system.chainRepeat" {{#if system.chainRepeat}}checked{{/if}}/><span class="toggle-track"></span><span>O mesmo alvo pode ser atingido de novo</span></label>
+    </div>
+  </div>
   {{/if}}
   {{/unless}}
 

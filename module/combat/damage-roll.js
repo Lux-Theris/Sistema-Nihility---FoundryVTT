@@ -28,6 +28,7 @@ import { magicDefenseReduction, resistanceSourceFor, grantResistanceXp, register
 import { isShipLike, applyShipWeaponBonus, applyStarshipDamageCascade } from "../starship/ship-damage.js";
 import { escapeHtml } from "../helpers/html.js";
 import { normalizeLifeSteal } from "./life-steal-rules.js";
+import { effectiveChance, chanceBonusOf } from "../skills/chance-rules.js";
 import { currentSkillUseId } from "../skills/skill-use-context.js";
 import { weaponMasteryHit, afterWeaponAttack, strikeMasteryBonus } from "./weapon-mastery.js";
 import { masteryFactor, masteryTraceRow, formatMasteryPercent } from "./weapon-mastery-rules.js";
@@ -177,8 +178,9 @@ export function applyDamageReductions(rawTotal, mech, targetActor, options = {})
     const reactionPick = parts[index].picked;
     if (reactionPick && reactionPick.source !== "body") shieldExtra += (part.final * reactionPick.reaction.shieldDrain) / 100;
     if (options.triggerConditions === false) return;
-    for (const effect of ctx.conditions) {
-      if (rollChance(effect.chance, Math.random, chancesLuck)) triggeredConditions.push({ conditionId: effect.conditionId, elementId: part.elementId, hitDamage: part.final, level: hitLevel, magic: hitMagic, rounds: effect.rounds, appliedBy: options.attacker?.uuid ?? "" });
+    // Progressão por chance (1.124.0): as chances do elemento NAQUELA Skill sobem (`element:<id>:<n>`); o catálogo não muda.
+    for (const [n, effect] of ctx.conditions.entries()) {
+      if (rollChance(effectiveChance(effect.chance, chanceBonusOf(mech.chanceBonus, `element:${part.elementId}:${n}`)), Math.random, chancesLuck)) triggeredConditions.push({ conditionId: effect.conditionId, elementId: part.elementId, hitDamage: part.final, level: hitLevel, magic: hitMagic, rounds: effect.rounds, appliedBy: options.attacker?.uuid ?? "" });
     }
     for (const chance of ctx.sever) if (rollChance(chance, Math.random, chancesLuck)) sever = true;
     for (const effect of ctx.blockRegen) {
@@ -500,7 +502,7 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
   // Atributo de Escala escolhido, que é o padrão e o estado de todo conteúdo anterior à regra.
   const scaling = damageScalingMultiplier(actor, mech.scalingAttribute);
   // Nível da Skill e Mana investida (Mana variável) multiplicam juntos.
-  const levelPower = skillLevelBonuses(mech.level).power * (mech.investPower ?? 1);
+  const levelPower = skillLevelBonuses(mech).power * (mech.investPower ?? 1);
   const scaledTotal = roll.total * scaling * levelPower;
   // Nave: bônus de arma em `combatBonuses`; arma pessoal: `weaponBonuses` (via useWeaponAttack).
   const weaponBonused = mech.weaponBonus ? scaledTotal * (mech.weaponBonus.multiplier ?? 1) + (mech.weaponBonus.flat ?? 0) : scaledTotal;
@@ -626,6 +628,7 @@ export async function rollSkillDamage(actor, mech, label, targetActor = null, ro
     surface: surfaceOrigin(mech, actor),
     bodyPart: aimedPart,
     lifeSteal: lifeStealFor(mech, actor),
+    attackerUuid: actor?.uuid ?? "",
     label
   });
   // Com quem a reação conduziu: o card vira um card de vários alvos (o principal e os conduzidos).
@@ -748,7 +751,7 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
   // Mesma escala por Atributo do caminho de alvo único — aplicada UMA vez, sobre a rolagem que
   // todos os alvos compartilham (cada alvo ainda aplica as próprias reduções depois).
   const scaling = damageScalingMultiplier(actor, mech.scalingAttribute);
-  const levelPower = skillLevelBonuses(mech.level).power * (mech.investPower ?? 1);
+  const levelPower = skillLevelBonuses(mech).power * (mech.investPower ?? 1);
   const scaledTotal = roll.total * scaling * levelPower;
   // Golpe de arma de Skill (H6): a Maestria que cobre o tipo multiplica, como no alvo único.
   const mastery = strikeMasteryBonus(actor, mech);
@@ -832,7 +835,7 @@ export async function rollSkillDamageArea(actor, mech, label, targetActors, roll
       // Botões por alvo no card (Aplicar / em todos / aos selecionados — ver damage-apply.js): o
       // número de cada um já sai com as defesas dele, e as Condições disparadas só valem quando o
       // Mestre aplica, como no alvo único. Área não cai em parte do corpo (`noBodyPart`).
-      const hit = damageEntryFrom(targetActor, reduction, mech, label, { noBodyPart: true, surface: surfaceOrigin(mech, actor), lifeSteal: lifeStealFor(mech, actor) });
+      const hit = damageEntryFrom(targetActor, reduction, mech, label, { noBodyPart: true, surface: surfaceOrigin(mech, actor), lifeSteal: lifeStealFor(mech, actor), attackerUuid: actor?.uuid ?? "" });
       if (hit) applyEntries.push({ ...hit, name: targetActor.name });
       hits.push({ actor: targetActor, damage: reduction.finalDamage });
       rows.push(`<li><strong>${escapeHtml(targetActor.name)}</strong>: ${reduction.finalDamage}${reactionLabel(reduction.reactions)}${triggeredLabel(reduction.triggeredConditions)}</li>`);

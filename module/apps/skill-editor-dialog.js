@@ -41,6 +41,7 @@ import { REROLL_WHO, REROLL_WHO_LABELS, REROLL_KEEP, REROLL_KEEP_LABELS, REROLL_
 import { DISPEL_SCOPES, DISPEL_SCOPE_LABELS } from "../core/magic-rules.js";
 import { clampTimeFactor } from "../combat/time-rate-rules.js";
 import { liveSpaceModes, normalizeSpaceMode } from "../combat/space-rules.js";
+import { targetAcceptsDrain } from "../skills/drain-rules.js";
 import { skillAssist, warningsBoxHtml, costChipHtml, templateGroups, templateFillSentence, skillFromTemplate } from "../skills/skill-assist.js";
 
 const { DialogV2 } = foundry.applications.api;
@@ -53,6 +54,16 @@ function advSummaryHtml(fold) {
 /** true = alvo aceita "Periódico" (veneno/cura contínua) — só faz sentido pra HP/Energia. */
 function targetAcceptsPeriodic(target) {
   return ["hp", "energy", "shipCasco", "shipHull"].includes(target);
+}
+
+/** Golpes N e a corrente "Saltar entre alvos" (1.123.0); `suffix` separa os nomes dos dois painéis (Dano e Efeitos). */
+function strikesHtml(data, suffix = "") {
+  return `<div class="form-group se-strikes" title="Golpes: o dano ou os efeitos saem N vezes no mesmo uso, sem pagar de novo. Corrente: depois de cada golpe, cada alvo até o raio do último rola a chance e o raio salta para o mais perto que passou; sem corrente os golpes caem no mesmo alvo.">
+    <label>Golpes</label><input type="number" name="strikes${suffix}" min="1" max="10" value="${Math.round(Number(data.strikes) || 1)}" style="width:4em"/>
+    <span class="hint-inline">Corrente (Saltar entre alvos): chance %</span><input type="number" name="chainChance${suffix}" min="0" max="100" value="${Math.round(Number(data.chainChance) || 0)}" style="width:4.2em"/>
+    <span class="hint-inline">raio m</span><input type="number" name="chainRadius${suffix}" min="0" step="0.5" value="${Number(data.chainRadius) || 0}" style="width:4.2em"/>
+    <label class="checkbox-line small"><input type="checkbox" name="chainRepeat${suffix}" ${data.chainRepeat ? "checked" : ""}/> pode repetir o alvo</label>
+  </div>`;
 }
 
 function buildEffectRowHtml(entry) {
@@ -132,6 +143,9 @@ function buildEffectRowHtml(entry) {
     <summary class="adv-summary"></summary>
     <div class="adv-body">
     <div class="effect-row-adv-selects">
+      <label class="checkbox-line small" title="Chance de o efeito pegar (100 = sempre). Sobe nos níveis de Chance da Skill."><input type="number" class="se-effect-chance-all" min="1" max="100" style="width:4.2em" value="${Number(entry.chance) > 0 && Number(entry.chance) < 100 ? Number(entry.chance) : 100}"/> % de chance</label>
+      <label class="checkbox-line small se-effect-drain-line" title="Quem usa recebe o que o alvo perder (Vida/Mana na hora ou por rodada; atributo pelo mesmo tempo). Valor negativo." style="display:${targetAcceptsDrain(entry.target, entry.periodic) ? "inline-flex" : "none"};"><input type="checkbox" class="se-effect-drain" ${entry.drain ? "checked" : ""}/> Drenar</label>
+      <label class="checkbox-line small se-effect-reflect-line" title="Refletir: só o que o Escudo segurou conta." style="display:${entry.target === "reflect" ? "inline-flex" : "none"};"><input type="checkbox" class="se-effect-reflect-shield" ${entry.reflectShieldOnly ? "checked" : ""}/> Só o que o Escudo segura</label>
       <select class="se-effect-curse-unpaid" title="Maldição: quando a vítima não tem Mana para pagar (só para esta Skill)" style="display:${getActiveStatusConditions().find(c => c.id === entry.conditionId)?.curse?.enabled ? "inline-block" : "none"};">${[["", "Como na maldição"], ["hp", "Paga com Vida"], ["sleep", "Dorme"], ["worsen", "Piora"], ["continue", "Continua igual"]].map(([v, l]) => `<option value="${v}" ${v === (entry.curseOnUnpaid ?? "") ? "selected" : ""}>Sem Mana: ${l}</option>`).join("")}</select>
       <select class="se-effect-heal-kind" title="Se o tick for cura (valor positivo): o que ela faz nas Partes do Corpo" style="display:${periodicVisible && entry.periodic && entry.target === "hp" ? "inline-block" : "none"};">${healKindOptions}</select>
     </div>
@@ -261,6 +275,10 @@ function buildEditorData(initialData, { lockTier, offerTemplates }) {
     isMagicDamage: Boolean(initialData.isMagicDamage),
     isAbsoluteDamage: Boolean(initialData.isAbsoluteDamage),
     lifeSteal: Math.min(100, Math.max(0, Math.round(Number(initialData.lifeSteal) || 0))),
+    strikes: Math.min(10, Math.max(1, Math.round(Number(initialData.strikes) || 1))),
+    chainChance: Math.min(100, Math.max(0, Math.round(Number(initialData.chainChance) || 0))),
+    chainRadius: Math.max(0, Number(initialData.chainRadius) || 0),
+    chainRepeat: Boolean(initialData.chainRepeat),
     damageScale: initialData.damageScale ?? "",
     damageElements: Array.isArray(initialData.damageElements) ? initialData.damageElements : [],
     effects: Array.isArray(initialData.effects) ? foundry.utils.deepClone(initialData.effects) : [],
@@ -636,7 +654,8 @@ function buildDamagePanelHtml(data, ctx) {
         </div>
         <label class="checkbox-line"><input type="checkbox" name="isMagicDamage" ${data.isMagicDamage ? "checked" : ""}/> Dano Mágico</label>
         <div class="form-group"><label>Elemento(s)</label>${pickerFieldHtml(data.damageElements, "se-damage-elements")}</div>
-        <div class="form-group" title="Cura quem usou o golpe com este % do dano que realmente entrou na Vida do alvo (depois de resistências, fraquezas e Escudo). A cura sai quando o Mestre clica Aplicar no card, e o Desfazer do card desfaz a cura junto. 0 = não cura."><label>Cura quem usa (% do dano)</label><input type="number" name="lifeSteal" min="0" max="100" value="${Math.round(Number(data.lifeSteal) || 0)}"/><span class="hint-inline">Sai quando o Mestre clica Aplicar, sobre o dano que entrou de verdade na Vida (depois de resistências e Escudo). Desfazer desfaz os dois.</span></div>
+        <div class="form-group" title="Cura quem usou o golpe com este % do dano que realmente entrou na Vida do alvo (depois de resistências, fraquezas e Escudo). A cura sai quando o Mestre clica Aplicar no card, e o Desfazer do card desfaz a cura junto. 0 = não cura."><label>Drenar Vida (% do dano)</label><input type="number" name="lifeSteal" min="0" max="100" value="${Math.round(Number(data.lifeSteal) || 0)}"/><span class="hint-inline">Sai quando o Mestre clica Aplicar, sobre o dano que entrou de verdade na Vida (depois de resistências e Escudo). Desfazer desfaz os dois.</span></div>
+        ${strikesHtml(data)}
         ${masteryOn
           ? `<div class="form-group" title="Arte marcial: a Skill conta como um ataque deste tipo (Desarmado = golpe desarmado). Sub-Skill vazia herda a da Skill-mãe."><label>Golpe de arma</label><select name="weaponStrike">
               <option value="" ${data.weaponStrike ? "" : "selected"}>— nenhum —</option>
@@ -668,6 +687,7 @@ function buildEffectsPanelHtml(data, ctx) {
         <div class="effect-list-header"><span>Alvo</span><span>Quantidade</span><span>Duração (rounds)</span><span></span></div>
         <ol class="sub-list effect-list se-effect-list"></ol>
         <a class="config-add-row se-add-effect">+ Efeito</a>
+        ${strikesHtml(data, "T")}
         <p class="hint-inline">
           Quantidade negativa = debuff/drawback. Escudo ignora Duração (some só ao absorver dano).
           Condição dá ícone reconhecível no token (opcional). "Periódico" (só HP/${energyLabel}) aplica a
@@ -1041,6 +1061,8 @@ function setupEffects(root, data) {
 function createEffectRow(root, rowRefreshers, entry = { target: NIHILITY.EFFECT_TARGETS[0], amount: 1, modifierType: "flat", durationRounds: 1, conditionId: "", periodic: false, tickUnit: "combatRound", damageElements: [] }) {
   const li = document.createElement("li");
   li.className = "effect-row";
+  // O id estável do efeito (progressão por chance) atravessa a edição: sem ele a gravação daria um id novo e perderia os pontos.
+  li.dataset.effectId = entry.id || "";
   li.innerHTML = buildEffectRowHtml(entry);
   li.querySelector(".se-effect-delete").addEventListener("click", event => {
     event.preventDefault();
@@ -1117,6 +1139,10 @@ function wireEffectRowTarget(li) {
   applySpaceModeVisibility();
   targetSelect.addEventListener("change", () => {
     li.querySelector(".se-effect-chance").style.display = targetSelect.value === "magicDampen" ? "inline-block" : "none";
+    const drainLine = li.querySelector(".se-effect-drain-line");
+    if (drainLine) drainLine.style.display = targetAcceptsDrain(targetSelect.value, li.querySelector(".se-effect-periodic")?.checked) ? "inline-flex" : "none";
+    const reflectLine = li.querySelector(".se-effect-reflect-line");
+    if (reflectLine) reflectLine.style.display = targetSelect.value === "reflect" ? "inline-flex" : "none";
   });
   targetSelect.addEventListener("change", applyModifierTypeVisibility);
   // "% do máximo / do total": só nos alvos que aceitam; fora deles volta para pontos.
@@ -1384,6 +1410,14 @@ function readSkillEditorForm(root, lockTier) {
     isMagicDamage: effectType === "damage" && root.querySelector('[name="isMagicDamage"]').checked,
     isAbsoluteDamage: effectType === "damage" && Boolean(root.querySelector('[name="isAbsoluteDamage"]')?.checked),
     lifeSteal: effectType === "damage" ? Math.min(100, Math.max(0, Math.round(Number(root.querySelector('[name="lifeSteal"]')?.value) || 0))) : 0,
+    ...(() => {
+      const suffix = effectType === "damage" ? "" : effectType === "temporary" ? "T" : null;
+      if (suffix === null) return { strikes: 1, chainChance: 0, chainRadius: 0, chainRepeat: false };
+      const num = name => Number(root.querySelector(`[name="${name}${suffix}"]`)?.value) || 0;
+      const strikes = Math.min(10, Math.max(1, Math.round(num("strikes")) || 1));
+      const chainChance = strikes > 1 ? Math.min(100, Math.max(0, Math.round(num("chainChance")))) : 0;
+      return { strikes, chainChance, chainRadius: chainChance > 0 ? Math.max(0, num("chainRadius")) : 0, chainRepeat: chainChance > 0 && Boolean(root.querySelector(`[name="chainRepeat${suffix}"]`)?.checked) };
+    })(),
     damageScale: effectType === "damage" ? root.querySelector('[name="damageScale"]')?.value ?? "" : "",
     weaponStrike: effectType === "damage" ? root.querySelector('[name="weaponStrike"]')?.value ?? "" : "",
     strikeRequiresWeapon: (() => {
@@ -1432,7 +1466,10 @@ function readSkillEditorForm(root, lockTier) {
             pocketBase: row.querySelector(".se-effect-target").value === "space" ? Math.max(0, Math.floor(Number(row.querySelector(".se-effect-pocket-base")?.value ?? 5)) || 0) : 5,
             pocketPerLevel: row.querySelector(".se-effect-target").value === "space" ? Math.max(0, Math.floor(Number(row.querySelector(".se-effect-pocket-per")?.value ?? 5)) || 0) : 5,
             timeFactor: row.querySelector(".se-effect-target").value === "timeRate" ? clampTimeFactor(row.querySelector(".se-effect-time-factor")?.value) : 2,
-            chance: row.querySelector(".se-effect-target").value === "magicDampen" ? Math.min(100, Math.max(0, Number(row.querySelector(".se-effect-chance")?.value))) || (row.querySelector(".se-effect-chance")?.value === "0" ? 0 : 100) : 100,
+            chance: row.querySelector(".se-effect-target").value === "magicDampen" ? Math.min(100, Math.max(0, Number(row.querySelector(".se-effect-chance")?.value))) || (row.querySelector(".se-effect-chance")?.value === "0" ? 0 : 100) : (() => { const c = Math.round(Number(row.querySelector(".se-effect-chance-all")?.value)); return c > 0 && c < 100 ? c : 100; })(),
+            id: row.dataset.effectId || "",
+            drain: Boolean(row.querySelector(".se-effect-drain")?.checked) && targetAcceptsDrain(row.querySelector(".se-effect-target").value, row.querySelector(".se-effect-periodic").checked),
+            reflectShieldOnly: row.querySelector(".se-effect-target").value === "reflect" && Boolean(row.querySelector(".se-effect-reflect-shield")?.checked),
             immuneTraits: row.querySelector(".se-effect-target").value === "push" ? readPickerField(row.querySelector(".se-effect-immune-traits")) : [],
             shieldRegen: row.querySelector(".se-effect-target").value === "shield" ? Math.max(0, Number(row.querySelector(".se-effect-shield-regen")?.value) || 0) : 0,
             shieldCap: row.querySelector(".se-effect-target").value === "shield" ? Math.max(0, Number(row.querySelector(".se-effect-shield-cap")?.value) || 0) : 0,

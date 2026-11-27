@@ -9,6 +9,7 @@
  */
 import { ATTRIBUTE_PERCENT_TARGETS } from "../economy/consumable-rules.js";
 import { sanitizeRerollFields } from "../skills/reroll-rules.js";
+import { drainKindOf } from "../skills/drain-rules.js";
 import { normalizeOriginConditions } from "../species/species-rules.js";
 import { clampTimeFactor, isTimeFactorActive } from "../combat/time-rate-rules.js";
 import {
@@ -68,6 +69,10 @@ export function mechanicsGuide(catalogs = {}) {
     '  Magia enfraquecida (grupo "Magia"): {"target":"magicDampen","amount": % da força que sobra (50 = metade),"chance": % de cada uso mágico do alvo ser enfraquecido,"durationRounds": rodadas}.',
     '  Terreno: {"target":"createSurface","elementId": id de elemento que deixa superfície no chão (só vale se o bloco Superfícies estiver ligado),"amount": raio em metros (0 = o do elemento),"durationRounds": rodadas (0 = as do elemento)}.',
     '  Efeitos de sentido (grupo "Sentidos", só Personagem): {"target":"senseTremor"|"senseInvisible"|"senseTrue"|"senseAll","amount": alcance em metros (0 = sem limite),"durationRounds": rodadas} — Sentido sísmico, Ver o invisível, Visão verdadeira, Sentir tudo.',
+    '  Peças de magia (grupo "Cura e defesa", só Personagem): {"target":"reflect","amount": % do dano recebido que volta a quem atacou (1–100),"reflectShieldOnly": true conta só o que o Escudo segurou,"durationRounds": rodadas}; {"target":"purify","amount": máximo de Condições a tirar (0 = todas),"conditionId": id de Condição (opcional: só ela)} tira Condições de nível até o da Skill; {"target":"revive","amount": Vida com que volta,"amountMode":"flat"|"percentMax"} só age em quem está MORTO.',
+    '  Ver pela Marca (grupo "Sentidos"): {"target":"scry","amount": raio da visão em metros (0 = a visão normal),"durationRounds": rodadas}; o alvo precisa de uma Marca de quem usa.',
+    '  Drenar: num efeito NEGATIVO de heal/restoreEnergy (Vida/Mana na hora), de hp/energy periódico, ou de um atributo de combate, "drain": true faz quem usa receber o que o alvo perdeu (atributo: o mesmo valor, pelo mesmo tempo). Skill de dano: "lifeSteal" (% do dano que volta como Vida, "Drenar Vida").',
+    '  Golpes: "strikes": 1–10 (o dano/efeito sai N vezes no mesmo uso); corrente "Saltar entre alvos": "chainChance": % (0 = desligada), "chainRadius": metros (0 = 5), "chainRepeat": boolean. Em qualquer efeito, "chance": % de o efeito pegar (100 = sempre).',
     '  "resistanceTarget": "" | "general" | id de elemento (Skill passiva de Resistência; 10% por nível),',
     '  "weaponStrike": "" | id de Tipo de arma (só Skill de dano: arte marcial/golpe de arma conta como ataque do tipo; "unarmed" = golpe desarmado),',
     '  "weaponMastery": "" | id de Tipo de arma (Skill passiva de Maestria: +% de dano com armas daquele tipo; sem mecânica de uso),',
@@ -114,6 +119,11 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
   out.areaPerLevel = Math.min(50, Math.max(0, Math.round((Number(m.areaPerLevel) || 0) * 2) / 2));
   // "Roubo de vida" (1.119.0): % do dano que cura quem usa; só vale numa Skill de dano (abaixo).
   out.lifeSteal = 0;
+  // Golpes N e a corrente "Saltar entre alvos" (1.123.0): só em Skill de dano ou de efeitos (abaixo).
+  out.strikes = 1;
+  out.chainChance = 0;
+  out.chainRadius = 0;
+  out.chainRepeat = false;
   out.areaAffects = ["all", "notCaster", "allies", "enemies", "othersExceptTarget"].includes(m.areaAffects) ? m.areaAffects : "all";
   // Duelo (8c.2): só numa Skill Ativa; a IA não monta Combinadas (sem Sub-Skills).
   if (out.hasUpkeep) {
@@ -183,11 +193,12 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
     for (const e of Array.isArray(m.effects) ? m.effects.slice(0, 4) : []) {
       if (!e || !NIHILITY.EFFECT_TARGETS.includes(e.target) || String(e.target).startsWith("ship")) continue;
       const conditionId = conditions.has(e.conditionId) ? e.conditionId : "";
-      const movementOnly = ["flight", "burrow", "unarmedType", "dispelMagic", "timeRate", "space"].includes(e.target);
+      const movementOnly = ["flight", "burrow", "unarmedType", "dispelMagic", "timeRate", "space", "purify"].includes(e.target);
       const surfaceEntry = e.target === "createSurface";
-      const senseOnly = String(e.target).startsWith("sense");
+      const senseOnly = String(e.target).startsWith("sense") || e.target === "scry";
+      const positiveOnly = ["reflect", "revive"].includes(e.target);
       // Empurrar/Puxar: metros, sempre positivos (a direção é o campo pushDirection).
-      const amount = surfaceEntry ? clampInt(e.amount, 0, 30, 0) : e.target === "push" ? clampInt(e.amount, 0, 200, 0) : movementOnly ? 0 : senseOnly ? clampInt(e.amount, 0, 1000, 0) : clampInt(e.amount, -999, 999, 0);
+      const amount = surfaceEntry ? clampInt(e.amount, 0, 30, 0) : e.target === "push" ? clampInt(e.amount, 0, 200, 0) : movementOnly ? (e.target === "purify" ? clampInt(e.amount, 0, 20, 0) : 0) : senseOnly ? clampInt(e.amount, 0, 1000, 0) : positiveOnly ? clampInt(e.amount, 0, e.target === "reflect" ? 100 : 9999, 0) : clampInt(e.amount, -999, 999, 0);
       if (!amount && !conditionId && !movementOnly && !senseOnly && !surfaceEntry) continue;
       const periodic = Boolean(e.periodic) && ["hp", "energy"].includes(e.target);
       const entry = {
@@ -242,6 +253,17 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
         entry.damageElements = pickIds(e.damageElements, elements);
         entry.durationRounds = 0;
       }
+      // Refletir, Purificar e Reviver (1.123.0): a quantidade tem outro sentido em cada um (%, máximo de Condições, Vida).
+      if (e.target === "reflect") entry.reflectShieldOnly = Boolean(e.reflectShieldOnly);
+      if (e.target === "revive") {
+        entry.amountMode = e.amountMode === "percentMax" ? "percentMax" : "flat";
+        entry.durationRounds = 0;
+      }
+      if (e.target === "purify") entry.durationRounds = 0;
+      // Drenar (1.123.0): só com valor negativo e num alvo que drena.
+      if (e.drain && drainKindOf({ ...entry, drain: true })) entry.drain = true;
+      // Chance do efeito (%): 100 = sempre (o padrão, não se grava).
+      if (e.target !== "magicDampen" && Number(e.chance) > 0 && Number(e.chance) < 100) entry.chance = clampInt(e.chance, 1, 99, 100);
       if (periodic && entry.durationRounds === 0) entry.durationRounds = 3;
       // "Só se…": só tipos de alvo, com ids que existem neste mundo; o resto é descartado.
       const onlyIf = e.target !== "push" ? sanitizeOnlyIf(e.onlyIf, { conditions, traits }) : null;
@@ -254,6 +276,15 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
     }
     out.effects = effects;
     if (!effects.length) effectType = "none";
+  }
+
+  if (effectType === "damage" || effectType === "temporary") {
+    out.strikes = clampInt(m.strikes, 1, 10, 1);
+    if (out.strikes > 1) {
+      out.chainChance = clampInt(m.chainChance, 0, 100, 0);
+      out.chainRadius = out.chainChance > 0 ? clampInt(m.chainRadius, 0, 100, 0) : 0;
+      out.chainRepeat = out.chainChance > 0 && Boolean(m.chainRepeat);
+    }
   }
 
   const resistance = m.resistanceTarget === "general" || elements.has(m.resistanceTarget) ? m.resistanceTarget : "";

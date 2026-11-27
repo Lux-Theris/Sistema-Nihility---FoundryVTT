@@ -323,6 +323,12 @@ async function migrateItemSetsFactory() {
  * 1.122.1: o "Sensor de Caça" de fábrica ganha a função Sensor, alcance e Resolução nos Compêndios, só se a peça ainda for
  * a versão vazia da 1.122.0 (`isBareSensorPiece`). Peça editada pelo Mestre e Módulos já instalados em naves não mudam.
  */
+/** 1.124.0: ids estáveis, pontos de chance do nível atual e o aviso único ao Mestre (skills/chance-progression.js). */
+async function migrateSkillChanceCycle() {
+  const { migrateSkillChances } = await import("../skills/chance-progression.js");
+  await migrateSkillChances();
+}
+
 async function migrateItemSetsSensorPiece() {
   const { repairFactorySensorPiece } = await import("../economy/item-sets.js");
   const fixed = await repairFactorySensorPiece();
@@ -561,7 +567,8 @@ const MIGRATION_FUNCTIONS = {
   newElements: migrateNewElements,
   originElements: migrateOriginElements,
   itemSetsFactory: migrateItemSetsFactory,
-  itemSetsSensorPiece: migrateItemSetsSensorPiece
+  itemSetsSensorPiece: migrateItemSetsSensorPiece,
+  skillChanceCycle: migrateSkillChanceCycle
 };
 
 /** As migrações na ordem em que rodam: `[chave estável, função]`. */

@@ -57,12 +57,16 @@ import { getAntimagicReach,
   getActiveBodyFunctions,
   getActiveSkillTemplates,
   isFeatureEnabled,
+  skillMaxLevel,
   isTimeManipulationEnabled,
   isItemSetsEnabled,
   getActiveItemSets,
 } from "../core/config.js";
 import { setFitsItemType } from "../economy/item-set-rules.js";
 import { skillAssist, costChipHtml } from "../skills/skill-assist.js";
+import { targetAcceptsDrain } from "../skills/drain-rules.js";
+import { levelUpChanceUpdate } from "../skills/chance-progression.js";
+import { MAX_LEVEL_TEXT } from "../skills/chance-rules.js";
 import { ATTRIBUTE_PERCENT_TARGETS, PERCENT_AMOUNT_TARGETS } from "../economy/consumable-rules.js";
 import { normalizeOnHit, ON_HIT_WHEN, ON_HIT_WHEN_LABELS } from "../skills/marks-rules.js";
 import { complexityVerdict } from "../skills/skill-complexity-rules.js";
@@ -777,6 +781,11 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.canSpendPointLevel =
       !game.user.isGM && this.item.isOwner && Boolean(owner) && isSkillPointsEnabled() && NIHILITY.SKILL_POINT_TIERS.includes(sys.tier);
     context.levelPointBalance = owner?.system?.skillPoints?.[sys.tier] ?? 0;
+    // Nível máximo automático (1.124.0): no máximo, some o "+ Nível" e a ficha diz qual é o próximo passo.
+    const maxLevel = sys.resistanceTarget || sys.weaponMastery ? Infinity : skillMaxLevel(sys);
+    context.atMaxLevel = Number(sys.level) >= maxLevel;
+    context.maxLevelText = Number.isFinite(maxLevel) ? `${MAX_LEVEL_TEXT} (nível ${maxLevel})` : "";
+    context.canSpendPointLevel = context.canSpendPointLevel && !context.atMaxLevel;
 
     const hasUltimate = owner?.system?.hasUltimateSkill ?? sys.tier === "ultimate";
     const visibleTiers = NIHILITY.SKILL_TIERS.filter(t => t !== "ultimate" || hasUltimate || game.user.isGM);
@@ -1055,11 +1064,15 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       const isShield = entry.target === "shield";
       const hasElements = Boolean(entry.damageElements?.length);
       const isPush = entry.target === "push";
+      const acceptsDrain = targetAcceptsDrain(entry.target, periodic) && amount < 0;
       // "Avançado ▸" do card (K1): Periódico fica à vista (muda o que a Duração quer dizer);
       // vai para dentro só o que poucos Efeitos usam.
       const advFold = advancedFold(
         [
           !isPush ? { label: "Só se…", used: hasOnlyIf(entry.onlyIf) } : null,
+          entry.target !== "magicDampen" ? { label: "Chance", used: Number(entry.chance) > 0 && Number(entry.chance) < 100 } : null,
+          acceptsDrain ? { label: "Drenar", used: Boolean(entry.drain) } : null,
+          entry.target === "reflect" ? { label: "Só o que o Escudo segura", used: Boolean(entry.reflectShieldOnly) } : null,
           periodic ? { label: "Elemento do tick", used: hasElements } : null,
           isPush ? { label: "Elemento do empurrão", used: hasElements } : null,
           isPush ? { label: "Traços que não saem do lugar", used: Boolean(entry.immuneTraits?.length) } : null,
@@ -1085,6 +1098,16 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         onlyIfTraitOptions: getActiveTraits().map(t => ({ value: t.id, label: t.label, selected: t.id === onlyIfNow.value })),
         index,
         amount,
+        // Chance do efeito (1.123.0/1.124.0): vazio/100 = sempre; abaixo, "40% de deixar Atordoado". A progressão por chance a faz subir.
+        chanceShown: entry.target !== "magicDampen",
+        chanceValue: Number(entry.chance) > 0 && Number(entry.chance) < 100 ? Number(entry.chance) : 100,
+        acceptsDrain,
+        drain: Boolean(entry.drain),
+        isReflect: entry.target === "reflect",
+        reflectShieldOnly: Boolean(entry.reflectShieldOnly),
+        isPurify: entry.target === "purify",
+        isRevive: entry.target === "revive",
+        isScry: entry.target === "scry",
         hasCondition: Boolean(condition),
         piercesCondition: Boolean(entry.piercesCondition),
         durationRounds: entry.durationRounds,
@@ -2080,8 +2103,20 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       }
     }
 
+    // Nível máximo (1.124.0): só a Evolução deixa continuar (ou a caixa "Sem limite", do Mestre). O Level Up por Ponto também para aqui.
+    let chanceNote = "";
+    const updates = {};
+    if (!resistanceTarget && !this.item.system.weaponMastery) {
+      const chanceStep = levelUpChanceUpdate(this.item, id => getActiveStatusConditions().find(c => c.id === id)?.label ?? id);
+      if (!chanceStep) {
+        ui.notifications.warn(`${this.item.name} chegou ao nível máximo (${MAX_LEVEL_TEXT}).`);
+        return;
+      }
+      Object.assign(updates, chanceStep.update);
+      chanceNote = chanceStep.announce;
+    }
     const newLevel = currentLevel + 1;
-    const updates = { "system.level": newLevel };
+    updates["system.level"] = newLevel;
     if (resistanceTarget) updates.name = computeResistanceName(resistanceTarget, newLevel);
     if (spendPointFrom) await spendPointFrom.update({ [`system.skillPoints.${tier}`]: balance - 1 });
     await this.item.update(updates);
@@ -2091,7 +2126,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       await announceVoiceOfTheWorld(actor, {
         kind: "skill-level-up",
         title: "Habilidade Evoluiu",
-        body: `${this.item.name} de ${actor.name} subiu para o nível ${newLevel}${spendPointFrom ? " (1 Ponto de Habilidade gasto)" : ""}.`
+        body: `${this.item.name} de ${actor.name} subiu para o nível ${newLevel}${spendPointFrom ? " (1 Ponto de Habilidade gasto)" : ""}.${chanceNote ? ` Chances: ${chanceNote}.` : ""}`
       });
     }
   }

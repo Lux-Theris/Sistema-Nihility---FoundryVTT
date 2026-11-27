@@ -7,6 +7,8 @@
  *
  * Nada é rolado nem gravado. NPCs de Arquétipo entram como Atores TEMPORÁRIOS (não salvos).
  */
+import { strikeCount, hasChain, chainChance } from "../skills/strikes-rules.js";
+import { chanceBonusOf } from "../skills/chance-rules.js";
 import { luckOf, luckPercentText } from "./luck-rules.js";
 import {
   NIHILITY,
@@ -69,7 +71,7 @@ export function attackOptions(actor) {
             mech: { ...parts[0], cooldown: s.cooldown, prepTurns: 0 },
             parts,
             kind: "skill",
-            cost: charges ? effectiveSkillCost(s.cost, s.level) : 0,
+            cost: charges ? effectiveSkillCost(s.cost, s) : 0,
             area: parts.some(p => p.targetType === "emission" || p.targetType === "zone")
           });
         }
@@ -87,7 +89,7 @@ export function attackOptions(actor) {
           label: entry.label,
           mech: m,
           kind: "skill",
-          cost: charges ? effectiveSkillCost(m.cost, m.level) : 0,
+          cost: charges ? effectiveSkillCost(m.cost, m) : 0,
           area: m.targetType === "emission" || m.targetType === "zone"
         });
       }
@@ -138,11 +140,16 @@ function rawAverage(actor, option) {
   const luck = luckOf(actor, "damage");
   const avg = averageRoll(option.mech.damageFormula, luck);
   const scaling = damageScalingMultiplier(actor, option.mech.scalingAttribute);
-  const power = option.kind === "skill" ? skillLevelBonuses(option.mech.level).power : 1;
+  const power = option.kind === "skill" ? skillLevelBonuses(option.mech).power : 1;
   // Tecnomágico (mágico E tecnológico) sai mais forte, como em useSkillEffect.
   const technomagic = option.kind === "skill" ? technomagicFactor(isMagicUse(option.mech, actor), isTechUse(option.mech, actor), getTechnomagicPower()) : 1;
   const mastery = option.mastery ? masteryFactor(option.mastery.percent) : 1;
-  return { avg, luck, scaling, power, technomagic, mastery, raw: avg * scaling * power * technomagic * mastery };
+  // Golpes N (1.123.0): o mesmo dano N vezes no mesmo uso; com a corrente, ela pode parar antes (chance por alvo, no máximo N − 1 saltos),
+  // então a média pesa os saltos pela chance de a corrente seguir (1 − (1 − c)^vizinhos, com 1 vizinho: simplificação do Simulador).
+  const strikes = option.kind === "skill" ? strikeCount(option.mech) : 1;
+  const chain = option.kind === "skill" && hasChain(option.mech) ? chainChance(option.mech, chanceBonusOf(option.mech.chanceBonus, "chain")) / 100 : 1;
+  const strikeFactor = strikes > 1 ? 1 + (strikes - 1) * chain : 1;
+  return { avg, luck, scaling, power, technomagic, mastery, raw: avg * scaling * power * technomagic * mastery * strikeFactor };
 }
 
 /**

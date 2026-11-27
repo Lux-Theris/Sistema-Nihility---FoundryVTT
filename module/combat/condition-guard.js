@@ -100,6 +100,23 @@ async function saveExposure(actor, conditionId, state) {
   }
 }
 
+/**
+ * Zera o contador de exposição (Resistência a Condição) das Condições `conditionIds` em `actor` (Purificar, 1.123.0: a próxima
+ * exposição recomeça do zero). Escreve uma vez só; sem contador nenhum, não escreve.
+ */
+export async function clearConditionExposure(actor, conditionIds) {
+  const stored = foundry.utils.getProperty(actor ?? {}, `flags.${SYSTEM_ID}.${FLAG}`) ?? {};
+  const present = (conditionIds ?? []).filter(id => stored?.[id]);
+  if (!present.length) return;
+  try {
+    const update = {};
+    for (const id of present) Object.assign(update, deleteKeyUpdate(`flags.${SYSTEM_ID}.${FLAG}.${id}`));
+    await actor.update(update);
+  } catch (err) {
+    console.warn(`${SYSTEM_ID} | Não foi possível zerar a exposição em ${actor?.name}.`, err);
+  }
+}
+
 /** A linha de chat e o texto flutuante de uma Condição que não pegou (imunidade ou exposição que ainda não bastou). */
 export async function announceConditionBlock(actor, conditionId, outcome, { chat = true } = {}) {
   const label = conditionLabelOf(conditionId);

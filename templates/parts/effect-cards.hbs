@@ -107,6 +107,10 @@
               <input class="num skill-effect-input" type="number" data-effect-field="amount" value="{{eff.amount}}" aria-label="{{#if eff.isPush}}Metros{{else if eff.isSense}}Alcance em metros{{else}}Quantidade{{/if}}" {{#if eff.isPush}}min="0" title="Metros que o alvo anda"{{/if}}{{#if eff.isSense}}min="0" title="Alcance do sentido em metros (0 = sem limite). Não cresce com o nível. Só na V14, com a visão ligada no Token."{{/if}}/>
               {{#if eff.isPush}}<span class="effect-note">m</span>{{/if}}
               {{#if eff.isSense}}<span class="effect-note">m (0 = sem limite)</span>{{/if}}
+              {{#if eff.isReflect}}<span class="effect-note" title="Parte do dano recebido que volta a quem atacou, no Aplicar do card. Dano Absoluto continua Absoluto; reflexo não reflete de novo.">% do dano volta a quem atacou</span>{{/if}}
+              {{#if eff.isPurify}}<span class="effect-note" title="Tira Condições de nível até o da Skill, mágicas ou não, e zera a exposição delas. 0 = todas; escolha uma Condição em + Condição para tirar só ela.">máx. de Condições (0 = todas)</span>{{/if}}
+              {{#if eff.isRevive}}<span class="effect-note" title="Só age em quem está morto. Tira o morto e põe a Vida neste valor. Corpo predado não revive.">de Vida (só em morto)</span>{{/if}}
+              {{#if eff.isScry}}<span class="effect-note" title="Precisa de uma Marca sua no alvo. Abre a visão em volta do Marcado só na tela de quem usa.">m de raio (0 = a visão normal)</span>{{/if}}
               {{#if eff.acceptsPercent}}
               <select class="skill-effect-input effect-amount-mode" data-effect-field="amountMode" aria-label="Pontos ou %" title="% do máximo: do alvo (Vida máxima para Vida e Escudo, Mana máxima para Mana). % total: do total do atributo do alvo (−100% tira o total inteiro). O Poder do nível escala o percentual.">
                 <option value="flat" {{#unless eff.isPercent}}selected{{/unless}}>pts</option>
@@ -166,6 +170,19 @@
             <details class="adv adv-card" data-adv-key="{{eff.advKey}}" {{#if eff.adv.open}}open{{/if}}>
               {{> nihility.advSummary fold=eff.adv}}
               <div class="adv-body effect-card-extra">
+                {{#if eff.chanceShown}}
+                <div class="fld-row span-all">
+                  <span class="fld-label">Chance <span class="help" title="100 = sempre pega. Abaixo disso o efeito só pega nessa % das vezes. Sobe nos níveis de Chance da Skill.">?</span></span>
+                  <input class="num skill-effect-input" type="number" data-effect-field="chance" value="{{eff.chanceValue}}" min="1" max="100" aria-label="Chance (%)"/>
+                  <span class="effect-note">%</span>
+                </div>
+                {{/if}}
+                {{#if eff.acceptsDrain}}
+                <label class="toggle span-all" title="Quem usa recebe o que o alvo perder: Vida e Mana na hora ou por rodada, e atributo (o mesmo valor, pelo mesmo tempo, terminando junto)."><input type="checkbox" class="skill-effect-input" data-effect-field="drain" {{#if eff.drain}}checked{{/if}}/><span class="toggle-track"></span><span>Drenar (quem usa recebe o que o alvo perde)</span></label>
+                {{/if}}
+                {{#if eff.isReflect}}
+                <label class="toggle span-all" title="Marcado, só o que o Escudo segurou conta para o reflexo."><input type="checkbox" class="skill-effect-input" data-effect-field="reflectShieldOnly" {{#if eff.reflectShieldOnly}}checked{{/if}}/><span class="toggle-track"></span><span>Só o que o Escudo segura</span></label>
+                {{/if}}
                 {{#if eff.onlyIfShown}}
                 <div class="fld-row span-all only-if-row">
                   <span class="fld-label">Só se… <span class="help" title="O efeito só pega se isto vale no alvo (ou em quem usou): por exemplo, só se o alvo estiver Molhado. Falhou: o resumo do uso diz &quot;não aplicado&quot;. Vazio = sempre.">?</span></span>

@@ -6,6 +6,7 @@ import { getEffectTargetLabels } from "../core/config.js";
 import { effectModes } from "../helpers/foundry-compat.js";
 import { isShipLike, shipWeaponPenetration } from "../starship/ship-damage.js";
 import { clampTimeFactor, isTimeFactorActive } from "../combat/time-rate-rules.js";
+import { reflectFlagFrom } from "../combat/reflect-rules.js";
 import { isSenseTarget, senseChangeKeys, senseRangeValue, describeSenseChange } from "../combat/senses-rules.js";
 
 const EFFECT_TARGET_PATHS = {
@@ -125,6 +126,11 @@ export function resolveEffectChange(entry, targetActor) {
       // Magia enfraquecida (8c.2): não mexe em campo; o efeito só carrega o flag `magicDampen` ({chance, percent}),
       // lido em cada uso mágico de quem o tem (useSkillEffect).
       return ship ? null : { key: null, magicDampen: { chance: Math.min(100, Math.max(0, Number(entry.chance ?? 100))), percent: Math.max(0, amount) }, isMultiplier: false };
+    case "reflect": {
+      // Refletir (1.123.0): não mexe em campo; o efeito só carrega o flag `reflect` ({percent, shieldOnly}), lido no Aplicar do dano.
+      const flag = reflectFlagFrom(entry);
+      return ship || !flag ? null : { key: null, reflect: flag, isMultiplier: false };
+    }
     case "bodyElement":
       // Não mexe em campo: o efeito só carrega o flag `bodyElement`, lido por actorElements.
       return entry.elementId ? { key: null, bodyElement: entry.elementId, isMultiplier: false } : null;

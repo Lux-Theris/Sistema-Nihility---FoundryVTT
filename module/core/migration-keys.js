@@ -25,5 +25,6 @@ export const MIGRATION_KEYS = [
   "newElements",
   "originElements",
   "itemSetsFactory",
-  "itemSetsSensorPiece"
+  "itemSetsSensorPiece",
+  "skillChanceCycle"
 ];

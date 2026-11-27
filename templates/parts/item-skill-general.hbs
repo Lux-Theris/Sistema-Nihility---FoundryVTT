@@ -29,7 +29,8 @@
         <span class="fld-row">
           <input class="num narrow" type="number" name="system.level" value="{{system.level}}" min="1" aria-label="Nível" {{#unless isGM}}readonly{{/unless}}{{#if system.isItemGranted}} readonly{{/if}}/>
           {{#unless system.isItemGranted}}
-          {{#if isGM}}<button type="button" class="btn gm" data-action="levelUpSkill" title="Level Up (Voz do Mundo avisa)">+ Nível</button>{{/if}}
+          {{#if atMaxLevel}}<span class="locked-chip" title="O Desconto chegou ao piso e toda chance a 100%. Só a Evolução deixa continuar (ou a caixa Sem limite).">{{maxLevelText}}</span>{{else}}{{#if isGM}}<button type="button" class="btn gm" data-action="levelUpSkill" title="Level Up (Voz do Mundo avisa)">+ Nível</button>{{/if}}{{/if}}
+          {{#if isGM}}<label class="toggle" title="Sem nível máximo: passado o que seria o máximo, todo nível é Poder (para as Skills que o Mestre quer sempre melhorando com o XP)."><input type="checkbox" name="system.unlimitedLevel" {{#if system.unlimitedLevel}}checked{{/if}}/><span class="toggle-track"></span><span>Sem limite</span></label>{{/if}}
           {{#if isGM}}{{#if item.parent}}<button type="button" class="btn gm" data-action="evolveSkill" title="Vira uma Skill nova; fica só o registro histórico">Evoluir</button>{{/if}}{{/if}}
           {{#if canSpendPointLevel}}<button type="button" class="btn" data-action="spendPointLevelUp" title="Gasta 1 Ponto de Habilidade do tier desta Skill ({{levelPointBalance}} disponível)">Subir nível (1 Ponto)</button>{{/if}}
           {{/unless}}

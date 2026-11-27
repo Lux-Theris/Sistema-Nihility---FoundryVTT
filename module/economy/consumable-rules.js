@@ -70,7 +70,7 @@ export function resolveEffectAmount(amount, mode, max) {
 export const ATTRIBUTE_PERCENT_TARGETS = ["strength", "defense", "magic", "magicalDefense", "dexterity", "stealth", "perception", "precision"];
 
 /** Alvos de Efeito que aceitam % (Vida, Mana, Escudo, cura/Mana na hora: % do máximo; atributos: % do total). */
-export const PERCENT_AMOUNT_TARGETS = ["hp", "energy", "shield", "heal", "restoreEnergy", ...ATTRIBUTE_PERCENT_TARGETS];
+export const PERCENT_AMOUNT_TARGETS = ["hp", "energy", "shield", "heal", "restoreEnergy", "revive", ...ATTRIBUTE_PERCENT_TARGETS];
 
 /**
  * "% do total" de um atributo: `round(total × % ÷ 100)`. Nunca tira mais que o total (−100% = o total

@@ -13,6 +13,7 @@ import { structuresOnScene } from "../structures/structures.js";
 import { describeEffectChangeKey } from "../skills/effect-targets.js";
 import { describeSenseChange } from "../combat/senses-rules.js";
 import { collectActiveUpkeepSources } from "../skills/upkeep.js";
+import { scryLinesFor } from "../combat/scry.js";
 import { endShipSystemEffect } from "../starship/starship-power.js";
 import { runAsGm } from "../helpers/gm-relay.js";
 import { effectAnchors, finiteRemaining, anchorLifetime, PERMANENT } from "../combat/effect-anchors.js";
@@ -277,6 +278,10 @@ export class EffectsListApp extends HandlebarsApplicationMixin(ApplicationV2) {
       }
     }
     if (structures.length) sections.push({ title: "Estruturas mantidas", rows: structures });
+
+    // Ver pela Marca (1.123.0): o Mestre vê que a pessoa vê e ouve pela Marca (a mesa narra o que se fala perto).
+    const scries = isGM ? scryLinesFor(actor) : [];
+    if (scries.length) sections.push({ title: "Ver pela Marca", rows: scries.map(line => ({ img: "icons/svg/eye.svg", name: line, lines: ["O Mestre narra o que se fala perto; nada disto aparece para o Marcado."], remaining: "" })) });
 
     const pending = actor.getFlag(SYSTEM_ID, "pendingUpkeepRemoval") ?? [];
     if (pending.length) {

@@ -85,6 +85,8 @@ export function buildTableRulesPages(d) {
     if (d.features.skillPoints) parts.push("<p>Pontos de Habilidade compram Habilidades novas e níveis: o pedido vai para o Mestre aprovar.</p>");
     if (d.features.skillUseXp) parts.push("<p>Usar uma Habilidade dá XP a ela, pelo tamanho do que ela fez.</p>");
     parts.push("<p>Algumas Habilidades e armas <b>curam quem usa</b> (\"roubo de vida\"): quando o Mestre aplica o dano, quem atacou recupera uma % do dano que realmente entrou na Vida do alvo, depois de resistências, fraquezas e Escudo. O Desfazer do card desfaz a cura.</p>");
+    parts.push(`<p>Uma Habilidade que tem alguma <b>chance</b> (corrente de golpes, um efeito com Chance, as chances do elemento daquela Habilidade) ganha ${esc(s.cycleChance)} nível(is) de <b>Chance</b> por ciclo: cada um dá <b>${esc(s.chancePoints)}</b> pontos percentuais, sorteados entre as chances que ainda estão abaixo de 100%. Quando o Desconto chega ao piso e toda chance chega a 100%, a Habilidade está no <b>nível máximo</b>: só a Evolução continua (o Mestre pode marcar "Sem limite"). Habilidade sem chance sobe como sempre.</p>`);
+    parts.push("<p>Peças de magia: <b>Refletir</b> devolve parte do dano a quem atacou, <b>Purificar</b> tira Condições até o nível da Habilidade, <b>Reviver</b> só age em quem está morto, <b>Drenar</b> passa Vida, Mana ou um atributo (por um tempo) do alvo para quem usa, <b>Golpes</b> repete o efeito no mesmo uso (com a corrente, saltando entre alvos) e <b>Ver pela Marca</b> abre a visão de quem usa em volta do alvo marcado.</p>");
     if (d.features.skillFusion) parts.push("<p>O Mestre pode fundir Habilidades numa só, mais forte.</p>");
     pages.push({ key: "skills", name: "Habilidades", html: parts.join("\n") });
   }

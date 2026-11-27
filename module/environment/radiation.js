@@ -76,6 +76,18 @@ export function radiationLevel(actor) {
   return Math.max(0, Number(radiationEffect(actor)?.getFlag(SYSTEM_ID, "radiation")?.level) || 0);
 }
 
+/**
+ * Purificar (dono, 27/11): diminui a irradiação do Ator pelo nível da Skill e devolve o texto do resultado
+ * ("Irradiado 12 → 4", "Irradiado curado" ou vazio). Quem chama já escreve no alvo (mesmo caminho do Purificar).
+ */
+export async function purifyActorRadiation(actor, skillLevel) {
+  const { purifyRadiation, purifyRadiationText } = await import("../skills/purify-rules.js");
+  const perLevel = getFeatureOption("radiation", "radiationPurifyPerLevel") ?? 2;
+  const result = purifyRadiation(radiationLevel(actor), skillLevel, perLevel);
+  if (result.before > 0 && result.after !== result.before) await setRadiationLevel(actor, result.after);
+  return purifyRadiationText(result);
+}
+
 /** Grava a irradiação: cria, renomeia ou apaga o efeito "Irradiado (N)". */
 async function setRadiationLevel(actor, level) {
   const effect = radiationEffect(actor);

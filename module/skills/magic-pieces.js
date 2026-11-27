@@ -44,12 +44,19 @@ export async function applyPurifyEntry(entry, { targetActor, sourceLevel, xp }) 
   const wanted = String(entry.conditionId || "");
   const ids = pickPurified(rows, { level: sourceLevel, max: Math.abs(Number(entry.amount) || 0), conditionId: wanted });
   const blockedByLevel = rows.filter(r => !r.protectedFlag && (!wanted || r.conditionId === wanted) && r.sourceLevel > sourceLevel).length;
-  if (!ids.length) return purifyResultText([], { blockedByLevel });
+  // Irradiado (dono, 27/11): não sai de uma vez; diminui pelo nível da Skill e, se sobrar pouco, cura.
+  let radiationText = "";
+  if (!wanted || wanted === "irradiated") {
+    const { purifyActorRadiation } = await import("../environment/radiation.js");
+    radiationText = await purifyActorRadiation(targetActor, sourceLevel);
+  }
+  const withRadiation = text => (radiationText ? (text && !/^Nada/.test(text) ? `${text} · ${radiationText}` : radiationText) : text);
+  if (!ids.length) return withRadiation(purifyResultText([], { blockedByLevel }));
   const removed = rows.filter(r => ids.includes(r.id));
   await targetActor.deleteEmbeddedDocuments("ActiveEffect", ids);
   await clearConditionExposure(targetActor, exposureToClear(removed));
   xp.push(...removed.map(() => ({ flat: true })).slice(0, 5));
-  return purifyResultText(removed.map(r => catalog.find(c => c.id === r.conditionId)?.label ?? r.name));
+  return withRadiation(purifyResultText(removed.map(r => catalog.find(c => c.id === r.conditionId)?.label ?? r.name)));
 }
 
 /* ------------------------------------------------------------------ Reviver */

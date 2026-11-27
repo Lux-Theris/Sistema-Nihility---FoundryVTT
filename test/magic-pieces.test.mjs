@@ -3,6 +3,7 @@
  * Só as regras puras e os pontos onde elas entram (frase, aviso, custo, IA, listas de cópia, Glossário).
  */
 import "./setup.mjs";
+import { purifyRadiation, purifyRadiationText } from "../module/skills/purify-rules.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { reflectedAmount, reflectFlagFrom, normalizeReflect, reflectSentence, reflectResultText, reflectLabel } from "../module/combat/reflect-rules.js";
@@ -253,4 +254,13 @@ test("Glossário: as peças novas têm verbete", () => {
   const entries = buildGlossary({});
   const keys = new Set(entries.map(e => e.key));
   for (const key of ["reflect", "purify", "revive", "drain", "strikes", "scry", "chanceProgression"]) assert.ok(keys.has(key), key);
+});
+
+test("Purificar diminui o Irradiado pelo nível da Skill e cura quando sobra pouco (dono, 27/11)", () => {
+  assert.deepEqual(purifyRadiation(12, 4, 2), { before: 12, after: 4, cured: false });
+  assert.deepEqual(purifyRadiation(6, 4, 2), { before: 6, after: 0, cured: true });
+  assert.deepEqual(purifyRadiation(0, 4, 2), { before: 0, after: 0, cured: false });
+  assert.equal(purifyRadiationText(purifyRadiation(12, 4, 2)), "Irradiado 12 → 4");
+  assert.equal(purifyRadiationText(purifyRadiation(6, 4, 2)), "Irradiado curado");
+  assert.equal(purifyRadiationText(purifyRadiation(0, 4, 2)), "");
 });

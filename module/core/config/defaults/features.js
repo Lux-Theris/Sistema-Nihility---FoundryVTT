@@ -236,7 +236,8 @@ export const FEATURES = {
     options: {
       radiationGainPercent: { label: "Sobe por rodada (% do nível do lugar)", hint: "Fonte 100 com 20% irradia +20 por rodada até 100.", type: "number", default: 20, min: 1 },
       radiationDecayPercent: { label: "Cai por rodada fora (% da irradiação)", hint: "Irradiação 100 com 10% cai para 90, 81… até zerar (mínimo 1 por rodada).", type: "number", default: 10, min: 1 },
-      radiationDamagePerLevel: { label: "Dano por nível de irradiação", hint: "Dano por rodada = irradiação × este número (antes da Resistência a Radiação).", type: "number", default: 1, min: 0 }
+      radiationDamagePerLevel: { label: "Dano por nível de irradiação", hint: "Dano por rodada = irradiação × este número (antes da Resistência a Radiação).", type: "number", default: 1, min: 0 },
+      radiationPurifyPerLevel: { label: "Purificar: irradiação tirada por nível da Skill", hint: "Uma Purificação diminui a irradiação em nível da Skill × este número; se sobrar 0, o Irradiado sai.", type: "number", default: 2, min: 0 }
     }
   },
   endOfCombat: {

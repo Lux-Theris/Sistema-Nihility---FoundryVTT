@@ -7,7 +7,7 @@
  * para a próxima exposição começar do zero.
  *
  * O que NUNCA se purifica, porque não é "mal" que a Skill cura: Caído/Inconsciente (a Vida 0 tem o seu fluxo),
- * a Marca de quem usa, Parado no tempo, Irradiado e os efeitos de ritmo do tempo. A quantidade do efeito é o máximo de
+ * a Marca de quem usa, Parado no tempo e os efeitos de ritmo do tempo. O Irradiado não sai de uma vez: diminui (ver `purifyRadiation`). A quantidade do efeito é o máximo de
  * Condições a tirar (0 = todas); com uma Condição escolhida no efeito, só ela.
  */
 
@@ -53,6 +53,24 @@ export function purifySentence({ max = 0, conditionLabel = "", level = 0 } = {})
 }
 
 /** A linha do resultado: "Purificou: Veneno, Cegueira" ou "Nada a purificar". */
+/**
+ * Irradiado (dono, 27/11): a Purificação não tira o Irradiado de uma vez, mas **diminui** a irradiação em
+ * `perLevel` × nível da Skill; se sobrar pouco (a redução cobre o que havia), cura de vez (0). Pura.
+ * @returns {{before:number, after:number, cured:boolean}}
+ */
+export function purifyRadiation(current, level, perLevel = 2) {
+  const before = Math.max(0, Math.floor(Number(current) || 0));
+  const cut = Math.max(0, Math.floor(Number(level) || 0)) * Math.max(0, Number(perLevel) || 0);
+  const after = Math.max(0, Math.floor(before - cut));
+  return { before, after, cured: before > 0 && after === 0 };
+}
+
+/** "Irradiado 12 → 4" / "Irradiado curado" (vazio se não havia irradiação). */
+export function purifyRadiationText({ before, after, cured }) {
+  if (!(before > 0) || before === after) return "";
+  return cured ? "Irradiado curado" : `Irradiado ${before} → ${after}`;
+}
+
 export function purifyResultText(names, { blockedByLevel = 0 } = {}) {
   const list = (names ?? []).filter(Boolean);
   if (list.length) return `Purificou: ${list.join(", ")}`;

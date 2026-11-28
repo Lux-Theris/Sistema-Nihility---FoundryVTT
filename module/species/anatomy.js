@@ -43,6 +43,7 @@ export async function installImplant(actor, partId, item) {
   sourceItem.system.quantity = 1;
   const mods = foundry.utils.deepClone(part.system.installedMods ?? []);
   mods.push({
+    uid: foundry.utils.randomID(),
     name: item.name,
     description: item.system.description ?? "",
     grantsSkill: foundry.utils.deepClone(item.system.grantsSkill ?? {}),
@@ -73,6 +74,13 @@ export async function installImplant(actor, partId, item) {
   }
   await part.update(update);
 
+  // Uma placa com programas muda de endereço (de Item para implante instalado): as Habilidades dela vão junto.
+  if (item.system.device?.enabled && item.system.device.programs?.length) {
+    const { rekeyHostGrants } = await import("../economy/devices.js");
+    const { modHostRef } = await import("../economy/device-rules.js");
+    await rekeyHostGrants(actor, item.id, modHostRef(part.id, mods[index].uid), item.system.device.programs, item.system);
+  }
+
   // Saiu do inventário desta ficha (de outro lugar — Diretório, Compêndio — é uma cópia).
   if (item.parent?.uuid === actor.uuid) {
     const quantity = Number(item.system.quantity) || 1;
@@ -101,7 +109,16 @@ export async function uninstallImplant(actor, partId, index) {
     if (!percent) Object.assign(update, { "system.hp.max": natural, "system.hp.value": Math.min(part.system.hp.value, natural) });
   }
   await part.update(update);
-  if (mod.sourceItem) await actor.createEmbeddedDocuments("Item", [mod.sourceItem]);
+  if (mod.sourceItem) {
+    const created = await actor.createEmbeddedDocuments("Item", [mod.sourceItem]);
+    // A placa do implante volta a ser um Item com id novo: as Habilidades dos programas mudam de chave com ela.
+    const programs = mod.sourceItem.system?.device?.programs;
+    if (mod.sourceItem.system?.device?.enabled && programs?.length && created[0]) {
+      const { rekeyHostGrants } = await import("../economy/devices.js");
+      const { modHostRef, modUidOf } = await import("../economy/device-rules.js");
+      await rekeyHostGrants(actor, modHostRef(part.id, modUidOf(mod, index)), created[0].id, programs, mod.sourceItem.system);
+    }
+  }
   return true;
 }
 

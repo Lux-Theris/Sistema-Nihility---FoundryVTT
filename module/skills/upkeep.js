@@ -2,7 +2,7 @@
  * Habilidades Ativas: âncoras ao desligar, dreno por rodada, Mana em 0 e o que some no próximo turno.
  * (Separado de skill-effects.js na reorganização de pastas — mesma lógica de antes.)
  */
-import { SYSTEM_ID, getEnergyLabelForActor, isEnergyPoolEnabled, effectiveSkillCost, combatantIsActor, isMagicUse, isTechUse, isInterferenceEnabled, getHealingRules, actorManipulation } from "../core/config.js";
+import { SYSTEM_ID, isDevicesEnabled, getEnergyLabelForActor, isEnergyPoolEnabled, effectiveSkillCost, combatantIsActor, isMagicUse, isTechUse, isInterferenceEnabled, getHealingRules, actorManipulation } from "../core/config.js";
 import { fieldUseOutcome } from "../core/magic-rules.js";
 import { creditManipulation } from "../combat/antimagic.js";
 import { runAsGm, owns } from "../helpers/gm-relay.js";
@@ -17,6 +17,8 @@ import { manaDensityFor } from "../environment/environment.js";
 import { densitySustainsMagic } from "../environment/environment-rules.js";
 import { isShipLike } from "../starship/ship-damage.js";
 import { skillStateUpdate, energyValuePath, currentEnergyValue } from "./skill-state.js";
+import { deviceSkillHost } from "../economy/device-state.js";
+import { upkeepDeviceStep } from "../economy/device-rules.js";
 import { regenerateSustainedShields, dropSustainedShields } from "./sustained-shields.js";
 
 /** "Agora" para o prazo finito dos efeitos ancorados (ver finiteRemaining em effect-anchors.js). */
@@ -187,7 +189,8 @@ function actorInStartedCombat(actor) {
  * @returns {Promise<string[]>} rótulos das Skills desligadas
  */
 export async function shutdownActiveSkillsOnDepletion(actor) {
-  return shutdownActiveSkills(actor);
+  // Skill de programa paga da Reserva da placa, não da Mana: ela cai sozinha quando a Reserva acaba (drainCharacterUpkeep).
+  return shutdownActiveSkills(actor, { skip: skill => isDevicesEnabled() && Boolean(deviceSkillHost(actor, skill, SYSTEM_ID)) });
 }
 
 /**
@@ -195,9 +198,9 @@ export async function shutdownActiveSkillsOnDepletion(actor) {
  * ver incapacitation.js). Mesma regra de sempre para o que elas seguravam: em combate, some no
  * início do próximo turno; fora, na hora. `reason` vira o texto do aviso.
  */
-export async function shutdownActiveSkills(actor, { reason = null } = {}) {
+export async function shutdownActiveSkills(actor, { reason = null, skip = null } = {}) {
   if (actor?.type !== "character") return [];
-  const sources = collectActiveUpkeepSources(actor);
+  const sources = collectActiveUpkeepSources(actor).filter(source => !skip?.(source.skill));
   if (!sources.length) return [];
 
   const updates = new Map();
@@ -289,6 +292,19 @@ async function deactivateUpkeepSource(source) {
  * inteiro, drena só o que tem (até 0) e desativa a Skill sozinha.
  */
 async function drainCharacterUpkeep(actor, sources, steps = 1) {
+  // Skill Ativa de programa (Lote 9): o custo por rodada sai da Reserva da placa. Tecnomágica completa com a energia
+  // (a diferença); tecnológica sem Reserva — ou com a placa desligada, danificada ou suprimida — desliga a Skill,
+  // como a Mana em 0. O que sobra do pool de energia continua sendo dividido entre as outras, na ordem da ficha.
+  const devices = new Map();
+  const reserves = new Map();
+  const reserveSpent = new Map(sources.map(source => [source, 0]));
+  if (isDevicesEnabled()) {
+    const { deviceUpkeepHost } = await import("../economy/devices.js");
+    for (const source of sources) {
+      const found = deviceUpkeepHost(actor, source.skill);
+      if (found) devices.set(source, found);
+    }
+  }
   // Acelerado (8e.2): `steps` turnos de custo, simulados em memória (as Ativas disputam o mesmo pool, na ordem
   // da ficha, volta a volta) e gravados uma vez; quem não é coberto desliga ali e para de pagar.
   let energy = currentEnergyValue(actor);
@@ -299,6 +315,23 @@ async function drainCharacterUpkeep(actor, sources, steps = 1) {
     let paying = 0;
     for (const source of sources) {
       if (dropped.has(source)) continue;
+      const device = devices.get(source);
+      if (device) {
+        if (device.blocked) {
+          dropped.add(source);
+          continue;
+        }
+        const state = reserves.get(device.host.id) ?? { host: device.host, start: device.device.reserve, reserve: device.device.reserve };
+        reserves.set(device.host.id, state);
+        paying++;
+        const step = upkeepDeviceStep({ cost: source.upkeepCost, reserve: state.reserve, nature: device.device.nature, infinite: device.device.infinite, energy });
+        state.reserve = step.reserve;
+        energy = step.energy;
+        drained.set(source, drained.get(source) + step.spentEnergy);
+        reserveSpent.set(source, reserveSpent.get(source) + step.spentReserve);
+        if (step.dropped) dropped.add(source);
+        continue;
+      }
       if (energy <= 0) {
         dropped.add(source);
         continue;
@@ -312,10 +345,21 @@ async function drainCharacterUpkeep(actor, sources, steps = 1) {
     if (!paying) break;
   }
   if (energy !== start) await actor.update({ [energyValuePath(actor)]: energy });
+  if (reserves.size) {
+    const { commitUpkeepReserve } = await import("../economy/devices.js");
+    for (const state of reserves.values()) await commitUpkeepReserve(state.host, state.reserve, state.start - state.reserve);
+  }
   const results = [];
   for (const source of sources) {
     if (dropped.has(source)) await deactivateUpkeepSource(source);
-    results.push({ label: source.label, drained: drained.get(source), deactivated: dropped.has(source) });
+    const device = devices.get(source);
+    results.push({
+      label: source.label,
+      drained: drained.get(source),
+      reserveDrained: reserveSpent.get(source),
+      hostName: device?.host.name ?? "",
+      deactivated: dropped.has(source)
+    });
   }
   return results;
 }
@@ -434,9 +478,15 @@ export async function tickActorUpkeepSkills(actor, { steps = 1, notes = null } =
   // Nave não "perde" a energia do upkeep — ela fica reservada enquanto a Skill estiver ligada
   // (e volta sozinha ao desligar), então o verbo no chat é outro.
   const rows = results.map(r => {
-    const amount = shipLike ? `${r.drained} ${energyLabel} reservado(s) do Reator` : `-${r.drained} ${energyLabel}${steps > 1 ? ` em ${steps} turnos` : ""}`;
+    const viaReserve = Boolean(r.hostName);
+    const amount = shipLike
+      ? `${r.drained} ${energyLabel} reservado(s) do Reator`
+      : viaReserve
+        ? [r.reserveDrained ? `-${r.reserveDrained} Reserva de ${escapeHtml(r.hostName)}` : "", r.drained ? `-${r.drained} ${energyLabel}` : ""].filter(Boolean).join(", ") || "sem custo"
+        : `-${r.drained} ${energyLabel}${steps > 1 ? ` em ${steps} turnos` : ""}`;
     if (notes && !shipLike && r.drained) notes.push({ label: r.label, text: `−${r.drained} ${getEnergyLabelForActor(actor)}${r.deactivated ? " · desligou" : ""}` });
-    const reason = shipLike ? "Reator não sustenta" : `${energyLabel} insuficiente`;
+    if (notes && !shipLike && r.reserveDrained) notes.push({ label: r.label, text: `−${r.reserveDrained} Reserva${r.deactivated ? " · desligou" : ""}` });
+    const reason = shipLike ? "Reator não sustenta" : viaReserve ? "Reserva ou placa insuficiente" : `${energyLabel} insuficiente`;
     return `<li><strong>${escapeHtml(r.label)}</strong>: ${amount}${r.deactivated ? ` (desativada — ${reason})` : ""}</li>`;
   });
   await ChatMessage.create({
@@ -451,7 +501,9 @@ export async function tickActorUpkeepSkills(actor, { steps = 1, notes = null } =
       body: shipLike
         ? `${r.label} foi desativada automaticamente — o Reator de ${actor.name} não tem geração suficiente pra sustentá-la.`
         // Texto puro (o template da Voz do Mundo já escapa com {{body}}): o rótulo sem escape.
-        : `${r.label} foi desativada automaticamente — ${actor.name} ficou sem ${getEnergyLabelForActor(actor)} suficiente pra mantê-la.`
+        : r.hostName
+          ? `${r.label} foi desativada automaticamente — a placa ${r.hostName} de ${actor.name} não tem Reserva (ou não funciona) para mantê-la.`
+          : `${r.label} foi desativada automaticamente — ${actor.name} ficou sem ${getEnergyLabelForActor(actor)} suficiente pra mantê-la.`
     });
   }
 

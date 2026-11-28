@@ -9,7 +9,8 @@ import {
   defaultDevice, normalizeDevice, reserveState, programCost, payProgramCost, restRecharge, cellRecharge, actionRecharge,
   programFits, slotsFree, deviceWorks, deviceBlockReason, empDrainPercent, empReserveDrain, rollShortCircuit, shortCircuitHit,
   normalizeShortBands, disasterDamageFormula, offExpired, isEnergyCell, deviceSourceKey, parseDeviceSourceKey, canRepairDevice,
-  needsRepair, deviceProgramIssues, programSlots
+  needsRepair, deviceProgramIssues, programSlots, modHostRef, modUidOf, findModIndex, parseHostRef, reservePips, slotLayout,
+  rechargeOptions, programCostTag, skillDeviceStatus, upkeepDeviceStep, restReserveLine
 } from "../module/economy/device-rules.js";
 import { itemIsTech, itemIsMagic, itemNature } from "../module/core/magic-rules.js";
 import { NIHILITY } from "../module/core/config.js";
@@ -186,7 +187,7 @@ test("Célula de energia, chave da Skill concedida e Engenharia", () => {
   assert.equal(isEnergyCell({}), false);
   const key = deviceSourceKey("abc", "u1");
   assert.equal(key, "device:abc:u1");
-  assert.deepEqual(parseDeviceSourceKey(key), { hostItemId: "abc", uid: "u1" });
+  assert.deepEqual(parseDeviceSourceKey(key), { hostItemId: "abc", hostRef: "abc", uid: "u1" });
   assert.equal(parseDeviceSourceKey("abc"), null);
   assert.equal(parseDeviceSourceKey(undefined), null);
   assert.equal(canRepairDevice([{ engineering: false }, { engineering: true }]), true);
@@ -227,4 +228,113 @@ test("Bloco de Placas e programas: desligado por padrão, ligado em Sci-Fi e Mis
   assert.equal(NIHILITY.CAMPAIGN_PRESETS.scifi.features.devices, true);
   assert.equal(NIHILITY.CAMPAIGN_PRESETS.misto.features.devices, true);
   assert.equal(NIHILITY.CAMPAIGN_PRESETS.medieval.features.devices, false);
+});
+
+/* ------------------------------------------------------------------ telas (fase 2) */
+
+test("Endereço da placa: Item pelo id, implante instalado por <parte>~<uid>, a chave device: guarda os dois", () => {
+  assert.equal(modHostRef("part1", "u9"), "part1~u9");
+  assert.deepEqual(parseHostRef("abc123"), { kind: "item", itemId: "abc123" });
+  assert.deepEqual(parseHostRef("part1~u9"), { kind: "mod", partId: "part1", modUid: "u9" });
+  assert.equal(parseHostRef(""), null);
+  assert.equal(parseHostRef(undefined), null);
+  // O ref atravessa a chave da Skill concedida sem confundir com o uid do programa.
+  const key = deviceSourceKey(modHostRef("part1", "u9"), "prog7");
+  assert.deepEqual(parseDeviceSourceKey(key), { hostItemId: "part1~u9", hostRef: "part1~u9", uid: "prog7" });
+  assert.deepEqual(parseHostRef(parseDeviceSourceKey(key).hostRef), { kind: "mod", partId: "part1", modUid: "u9" });
+});
+
+test("Uid da modificação: o gravado vale; a peça antiga cai em idxN; achar pelo uid sobrevive a mudar a ordem", () => {
+  assert.equal(modUidOf({ uid: "a1" }, 3), "a1");
+  assert.equal(modUidOf({}, 2), "idx2");
+  const mods = [{ uid: "a" }, { uid: "b" }, {}];
+  assert.equal(findModIndex(mods, "b"), 1);
+  assert.equal(findModIndex(mods, "idx2"), 2);
+  assert.equal(findModIndex(mods.slice(1), "b"), 0);
+  assert.equal(findModIndex(mods, "zzz"), -1);
+});
+
+test("Pastilhas da Reserva: proporcional, nunca zera com Reserva, só enche quando cheia", () => {
+  assert.deepEqual(reservePips(dev({ reserveMax: 6, reserve: 4 })), { on: 4, total: 6, pips: [true, true, true, true, false, false] });
+  assert.equal(reservePips(dev({ reserveMax: 100, reserve: 1 })).on, 1);
+  assert.equal(reservePips(dev({ reserveMax: 100, reserve: 99 })).on, 9);
+  assert.equal(reservePips(dev({ reserveMax: 100, reserve: 100 })).on, 10);
+  assert.equal(reservePips(dev({ reserveMax: 100, reserve: 0 })).on, 0);
+  assert.equal(reservePips(dev({ reserveMax: 100, reserve: 3, infinite: true })).on, 10);
+});
+
+test("Encaixes: programas com os encaixes que ocupam e os livres para soltar", () => {
+  const entry = (name, slotsUsed) => ({ uid: name, sourceItem: { name, system: { program: prog({ slotsUsed }) } } });
+  const layout = slotLayout(dev({ slots: 3 }), [entry("A", 1), entry("B", 1)]);
+  assert.deepEqual(layout.programs.map(p => [p.name, p.slots]), [["A", 1], ["B", 1]]);
+  assert.equal(layout.free, 1);
+  assert.deepEqual(layout.freeSlots, [0]);
+  assert.equal(slotLayout(dev({ slots: 2 }), [entry("Grande", 2)]).free, 0);
+  assert.equal(slotLayout(dev({ slots: 1 }), [entry("Grande", 2)]).overfull, true);
+});
+
+test("Menu Recarregar: só o que a placa permite e que vale agora", () => {
+  const d = dev({ reserveMax: 6, reserve: 4, rechargeCell: true, rechargeAction: true, actionAmount: 2 });
+  assert.deepEqual(rechargeOptions(d, { cells: 2, inCombat: false }).options.map(o => o.id), ["cell", "action"]);
+  assert.match(rechargeOptions(d, { cells: 2 }).options[0].label, /2 no inventário/);
+  assert.match(rechargeOptions(d, { cells: 2 }).options[1].label, /\+2/);
+  assert.deepEqual(rechargeOptions(d, { cells: 0, inCombat: true }).options, []);
+  assert.match(rechargeOptions(d, { cells: 0, inCombat: true }).reason, /Célula/);
+  assert.deepEqual(rechargeOptions(dev({ reserveMax: 6, reserve: 4, rechargeCell: false }), { cells: 3 }).options, []);
+  assert.equal(rechargeOptions(dev({ reserve: 50, reserveMax: 50 }), { cells: 3 }).reason, "a Reserva já está cheia");
+  assert.equal(rechargeOptions(dev({ infinite: true }), { cells: 3 }).reason, "a Reserva é infinita");
+});
+
+test("Etiqueta do programa e da Habilidade: custo, sem Reserva, tecnomágica e placa parada", () => {
+  assert.equal(programCostTag({ cost: 2 }), "2 de Reserva");
+  assert.equal(programCostTag({ cost: 0 }), "sem custo");
+  assert.equal(programCostTag({ cost: 5, infinite: true }), "sem custo");
+  const ok = skillDeviceStatus({ device: dev({ reserve: 6 }), cost: 2, hostName: "Cyberdeck" });
+  assert.deepEqual([ok.text, ok.tone, ok.disabled], ["2 de Reserva · Cyberdeck", "ok", false]);
+  const empty = skillDeviceStatus({ device: dev({ reserve: 2 }), cost: 3, hostName: "Cyberdeck" });
+  assert.equal(empty.text, "sem Reserva (3) · Cyberdeck");
+  assert.equal(empty.disabled, true);
+  assert.match(empty.reason, /sem Reserva/);
+  const magic = skillDeviceStatus({ device: dev({ nature: "technomagic", reserve: 0 }), cost: 3, hostName: "Pulso", energyLabel: "Mana" });
+  assert.equal(magic.text, "sem Reserva → 3 Mana · Pulso");
+  assert.equal(magic.disabled, false);
+  assert.equal(skillDeviceStatus({ device: dev({ state: "off" }), cost: 1 }).disabled, true);
+  assert.match(skillDeviceStatus({ device: dev({ state: "damaged" }), cost: 1, hostName: "X" }).text, /danificada/);
+  assert.match(skillDeviceStatus({ device: dev(), cost: 1, suppressed: true }).text, /suprimida/);
+});
+
+test("Manutenção de Skill Ativa de programa: sai da Reserva; tecnológica sem Reserva desliga; tecnomágica completa com energia", () => {
+  assert.deepEqual(upkeepDeviceStep({ cost: 2, reserve: 5, energy: 10 }), { reserve: 3, energy: 10, dropped: false, spentReserve: 2, spentEnergy: 0 });
+  const tech = upkeepDeviceStep({ cost: 3, reserve: 1, energy: 10 });
+  assert.equal(tech.dropped, true);
+  assert.equal(tech.reserve, 1);
+  assert.equal(tech.energy, 10);
+  assert.deepEqual(upkeepDeviceStep({ cost: 5, reserve: 2, nature: "technomagic", energy: 10 }), { reserve: 0, energy: 7, dropped: false, spentReserve: 2, spentEnergy: 3 });
+  const broke = upkeepDeviceStep({ cost: 5, reserve: 2, nature: "technomagic", energy: 1 });
+  assert.equal(broke.dropped, true);
+  assert.equal(broke.reserve, 0);
+  assert.equal(broke.energy, 0);
+  const free = upkeepDeviceStep({ cost: 9, reserve: 0, infinite: true, energy: 4 });
+  assert.deepEqual([free.dropped, free.energy], [false, 4]);
+});
+
+test("Descanso: a linha de Reserva só lista as placas que voltam", () => {
+  const hosts = [
+    { name: "Cyberdeck", device: dev({ reserveMax: 6, reserve: 4 }) },
+    { name: "Rifle", device: dev({ reserveMax: 4, reserve: 4 }) },
+    { name: "Bateria", device: dev({ reserveMax: 8, reserve: 1, rechargeRest: false }) },
+    { name: "Eterna", device: dev({ infinite: true, reserve: 0 }) }
+  ];
+  assert.equal(restReserveLine(hosts), "Reserva volta: Cyberdeck 6/6");
+  assert.equal(restReserveLine([]), "");
+});
+
+test("A frase da Skill de programa diz o custo em Reserva da placa", async () => {
+  const { skillSummary } = await import("../module/skills/skill-summary.js");
+  const mech = { effectType: "temporary", targetType: "self", cost: 2, hasUpkeep: false, effects: [] };
+  assert.match(skillSummary(mech, { cost: 2, reserve: { name: "Cyberdeck", cost: 2, infinite: false } }), /custa 2 de Reserva do Cyberdeck/);
+  assert.doesNotMatch(skillSummary(mech, { cost: 2, reserve: { name: "Cyberdeck", cost: 2 } }), /2 Mana/);
+  assert.match(skillSummary(mech, { cost: 2, reserve: { name: "Rifle", cost: 0, infinite: true } }), /Reserva infinita de Rifle/);
+  assert.match(skillSummary({ ...mech, hasUpkeep: true, upkeepCost: 1 }, { cost: 2, upkeep: 1, reserve: { name: "Cyberdeck", cost: 2 } }), /Ativa: −1 de Reserva\/rodada/);
+  assert.match(skillSummary(mech, { cost: 2 }), /2 Mana/);
 });

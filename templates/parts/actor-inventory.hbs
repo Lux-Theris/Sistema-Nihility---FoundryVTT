@@ -42,6 +42,42 @@
 
     {{> nihility.setStrips}}
 
+    {{#if devicePanel}}
+    <div class="block device-panel">
+      <p class="block-title"><i class="fas fa-microchip"></i> Placas <span class="hint-inline">arraste um programa sobre a placa para instalar</span></p>
+      {{#each devicePanel.rows as |dev|}}
+      <div class="device-row {{#if dev.stateTag}}is-down{{/if}}" data-device-ref="{{dev.ref}}">
+        <div class="device-head">
+          <strong class="device-name">{{dev.name}}</strong>
+          <span class="hint-inline">{{dev.where}}</span>
+          {{#if dev.technomagic}}<span class="device-tag tag-violet" title="Tecnomágica: sem Reserva, completa com {{dev.energyLabel}}; a Antimagia também a alcança">tecnomágica</span>{{/if}}
+          {{#if dev.stateTag}}<span class="device-tag tag-bad" title="{{dev.blocked}}">{{dev.stateTag}}</span>{{/if}}
+          <span class="sp"></span>
+          <span class="device-pips" title="Reserva {{dev.reserveText}}">{{#each dev.pips as |pip|}}<span class="pip {{#unless pip.on}}off{{/unless}}"></span>{{/each}}</span>
+          <span class="device-reserve">Reserva {{dev.reserveText}}</span>
+          {{#if dev.canEdit}}{{#unless dev.infinite}}<button type="button" class="skill-use-button" data-action="deviceRecharge" {{#unless dev.canRecharge}}disabled title="{{dev.rechargeReason}}"{{else}}title="Recarregar a Reserva"{{/unless}}>Recarregar ▾</button>{{/unless}}{{/if}}
+          {{#if dev.canShort}}<button type="button" class="skill-use-button" data-action="deviceShort" title="Mestre: rola um curto-circuito nesta placa">Curto</button>{{/if}}
+          {{#if dev.canRepair}}<button type="button" class="skill-use-button" data-action="deviceRepair" title="Consertar a placa (precisa de uma Habilidade com Engenharia)">Consertar…</button>{{/if}}
+        </div>
+        {{#each dev.programs as |prog|}}
+        <div class="device-slot on">
+          <span class="device-slot-name">{{prog.name}}</span>
+          {{#if (gt prog.slots 1)}}<span class="hint-inline">{{prog.slots}} encaixes</span>{{/if}}
+          {{#if prog.passiveTag}}<span class="device-tag tag-accent" title="Bônus enquanto a placa funciona">{{prog.passiveTag}}</span>{{/if}}
+          {{#if prog.costTag}}<span class="device-tag tag-gold" title="O que cada uso tira da Reserva">{{prog.costTag}}</span>{{/if}}
+          <span class="sp"></span>
+          {{#if dev.canEdit}}<button type="button" class="skill-use-button" data-action="deviceUninstall" data-uid="{{prog.uid}}" title="Tirar: o programa volta ao inventário">Tirar</button>{{/if}}
+        </div>
+        {{/each}}
+        {{#each dev.freeSlots}}
+        <div class="device-slot free"><span class="hint-inline">encaixe livre (arraste um programa)</span></div>
+        {{/each}}
+      </div>
+      {{/each}}
+      <p class="hint-inline">Uma placa só funciona equipada (ou instalada num implante), sem curto-circuito e sem PEM. Células de energia no inventário: {{devicePanel.cells}}.</p>
+    </div>
+    {{/if}}
+
     <div class="inventory-toolbar">
       <input type="search" class="inventory-search" placeholder="Buscar item…" aria-label="Buscar item"/>
       <select class="inventory-filter" aria-label="Filtrar">{{#each inventory.filters as |f|}}<option value="{{f.id}}" {{#if f.selected}}selected{{/if}}>{{f.label}}</option>{{/each}}</select>

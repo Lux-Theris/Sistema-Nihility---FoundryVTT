@@ -1,4 +1,5 @@
 import { advancedFold } from "../helpers/advanced-fold.js";
+import { normalizeDevice, slotLayout } from "../economy/device-rules.js";
 import { resolveMechArea, resolveStructureArea, concentrationNote } from "../combat/area-size-rules.js";
 import { normalizeItemShop } from "../economy/shop-rules.js";
 import { describeLuck, luckFromScopes } from "../combat/luck-rules.js";
@@ -52,6 +53,7 @@ import { getAntimagicReach,
   cargoSlotsFor,
   isInventoryEnabled,
   isAnatomyEnabled,
+  isDevicesEnabled,
   getActiveSpeciesPresets,
   getActiveHeritages,
   getActiveBodyFunctions,
@@ -297,6 +299,12 @@ function tabsFor(item) {
         { id: "weapon", label: "Arma", led: true, ledOn: Boolean(sys.weapon?.enabled) },
         { id: "consumable", label: "Consumível", led: true, ledOn: Boolean(sys.consumable?.enabled) },
         ...(isAnatomyEnabled() ? [{ id: "implant", label: "Implante", led: true, ledOn: Boolean(sys.implant?.enabled) }] : []),
+        ...(isDevicesEnabled()
+          ? [
+              { id: "device", label: "Placa", led: true, ledOn: Boolean(sys.device?.enabled) },
+              { id: "program", label: "Programa", led: true, ledOn: Boolean(sys.program?.enabled) }
+            ]
+          : []),
         { id: "equipped", label: sys.implant?.enabled ? "Enquanto instalado" : "Enquanto equipado", count: n(whileEquipped) },
         { id: "description", label: "Descrição" }
       ];
@@ -432,7 +440,7 @@ const tabPart = name => ({ template: itemPart(name), scrollable: [""] });
 /** Peças de cada tipo de Item, na ordem em que entram na janela (cabeçalho, abas, conteúdo). */
 const PARTS_BY_TYPE = {
   skill: ["header", "tabs", "skillGeneral", "skillMechanic", "skillPassive", "skillSubskills", "description"],
-  item: ["header", "tabs", "itemGeneral", "itemWeapon", "itemConsumable", "itemImplant", "itemEquipped", "description"],
+  item: ["header", "tabs", "itemGeneral", "itemWeapon", "itemConsumable", "itemImplant", "itemDevice", "itemProgram", "itemEquipped", "description"],
   starship_module: ["header", "tabs", "moduleSpec", "moduleGrant", "description"],
   body_part: ["header", "tabs", "bodyDetails", "bodyMods", "description"],
   default: ["header", "tabs", "titleDetails", "description"]
@@ -454,6 +462,7 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       toggleAmmoType: NihilityItemSheet.#onToggleAmmoType,
       toggleModuleFunction: NihilityItemSheet.#onToggleModuleFunction,
       toggleImplantList: NihilityItemSheet.#onToggleImplantList,
+      uninstallDeviceProgram: NihilityItemSheet.#onUninstallDeviceProgram,
       removeElement: NihilityItemSheet.#onRemoveElement,
       showEffectCondition: NihilityItemSheet.#onShowEffectCondition,
       editEffectLight: NihilityItemSheet.#onEditEffectLight,
@@ -509,6 +518,8 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     itemWeapon: tabPart("weapon"),
     itemConsumable: tabPart("consumable"),
     itemImplant: tabPart("implant"),
+    itemDevice: tabPart("device"),
+    itemProgram: tabPart("program"),
     itemEquipped: tabPart("equipped"),
     moduleSpec: tabPart("module-spec"),
     moduleGrant: tabPart("module-grant"),
@@ -554,6 +565,11 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const parts = super._configureRenderParts(options);
     const wanted = new Set(PARTS_BY_TYPE[this.item.type] ?? PARTS_BY_TYPE.default);
     for (const id of Object.keys(parts)) if (!wanted.has(id)) delete parts[id];
+    // Placas e programas desligados: as abas somem (os dados guardados ficam como estão).
+    if (!isDevicesEnabled()) {
+      delete parts.itemDevice;
+      delete parts.itemProgram;
+    }
     return parts;
   }
 
@@ -1241,6 +1257,29 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     // Consumível (J6): o mesmo vocabulário da Skill (Efeito/Dano, em si/alvo/área) e o mesmo
     // editor de Efeitos (partial nihility.effectCards, caminho system.consumable.effects).
     const consumable = this.item.system.consumable ?? {};
+    // Placa e Programa (Lote 9). A Reserva atual só o Mestre edita; os programas instalados saem pelo "Tirar" (Item de um Ator).
+    context.devicesEnabled = isDevicesEnabled();
+    if (context.devicesEnabled) {
+      const device = normalizeDevice(this.item.system.device);
+      context.deviceNatureSeg = seg([["tech", "Tecnológica"], ["technomagic", "Tecnomágica"]], device.nature);
+      context.deviceAcceptsSeg = seg([["any", "Qualquer programa"], ["invasion", "Só de Invasão"], ["weapon", "Só de arma"]], device.accepts);
+      context.deviceStateLabel = { normal: "normal", off: "desligada (curto leve)", damaged: "danificada" }[device.state];
+      const layout = slotLayout(device, device.programs);
+      context.devicePrograms = layout.programs;
+      context.deviceSlotsFree = layout.free;
+      context.deviceOwned = Boolean(this.item.parent?.documentName === "Actor");
+      context.deviceIsGM = game.user.isGM;
+      context.programFitsSeg = seg([["any", "Qualquer placa"], ["weapon", "Só de arma"]], this.item.system.program?.fits ?? "any");
+      const invasion = this.item.system.program?.invasion ?? {};
+      context.programInvasionFold = advancedFold(
+        [
+          { label: "Minigame", used: Boolean(invasion.enabled) },
+          { label: "Alvo", used: Boolean(invasion.enabled) },
+          { label: "Preparo", used: Number(invasion.prepRounds) > 0 }
+        ],
+        this.#advOpen.get("invasion")
+      );
+    }
     context.consumableEffectTypeSeg = seg([["temporary", "Efeito"], ["damage", "Dano"]], consumable.effectType ?? "temporary");
     context.consumableTargetSeg = seg(
       [["self", "Em si", "Quem usa"], ["targeted", "Num alvo", "Escolhe o alvo como numa Skill"], ["emission", "Área", "Posiciona a forma no mapa, como uma Emissão"]],
@@ -1734,6 +1773,15 @@ export class NihilityItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     if (list.has(value)) list.delete(value);
     else list.add(value);
     await this.item.update({ [`system.implant.${key}`]: [...list] });
+  }
+
+  /** "Tirar" de um programa instalado na placa deste Item (só se o Item está na ficha de um Ator): o programa volta ao inventário. */
+  static async #onUninstallDeviceProgram(event, target) {
+    event.preventDefault();
+    const actor = this.item.parent;
+    if (!this.isEditable || actor?.documentName !== "Actor") return;
+    const { uninstallProgram } = await import("../economy/devices.js");
+    await uninstallProgram(actor, this.item.id, target.dataset.uid);
   }
 
   /** Arma com carregador: liga/desliga um Tipo de Munição aceito (vazio = aceita qualquer). */

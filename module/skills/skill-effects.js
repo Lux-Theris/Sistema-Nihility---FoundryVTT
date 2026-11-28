@@ -18,6 +18,7 @@ import { grantSkillUseXp, vitalBase, withXpBatch } from "./skill-xp.js";
 import { afterSkillStrike, strikeBlockReason } from "../combat/weapon-mastery.js";
 import { resolveWeaponStrike } from "../combat/weapon-mastery-rules.js";
 import { blockIfIncapacitated, knockUnconscious, isDead } from "../combat/incapacitation.js";
+import { reviveBlockReason } from "./revive-rules.js";
 import { strikeCount, hasChain, chainChance, chainRadius, chainStep } from "./strikes-rules.js";
 import { chanceBonusOf, subChanceBonus } from "./chance-rules.js";
 import { rollChance } from "../combat/damage-rules.js";
@@ -129,7 +130,7 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
   if (!resolved) return null;
   const ctx = { sourceActor, skillId, options, timers, ...resolved };
 
-  for (const step of [toggleOffIfActive, checkUseBlocks, checkPlaceAndField, checkSpacePlan, checkScryMark]) {
+  for (const step of [toggleOffIfActive, checkUseBlocks, checkPlaceAndField, checkSpacePlan, checkScryMark, checkReviveTarget]) {
     const stop = await step(ctx);
     if (stop) return stop.value;
   }
@@ -293,6 +294,22 @@ async function checkSpacePlan(ctx) {
   if (planned.stop) return stopUse(null);
   ctx.options = { ...options, spacePlan: planned.plan, ...(planned.via && !options.viaMark ? { viaMark: planned.via } : {}) };
   return null;
+}
+
+/**
+ * Reviver (sessão 9, 28/11): uma Skill que SÓ revive, num alvo único que não pode reviver (vivo, consumido,
+ * não Personagem), é recusada ANTES de pagar. Com outros efeitos junto, o uso segue e o Reviver só recusa no resumo.
+ */
+async function checkReviveTarget(ctx) {
+  const { mech, label, options, combined } = ctx;
+  const effects = mech.effects ?? [];
+  if (combined || mech.effectType !== "temporary" || !effects.length || !effects.every(e => e?.target === "revive")) return null;
+  const target = options.targetActor ?? null;
+  if (!target) return null;
+  const refusal = reviveBlockReason({ dead: isDead(target), predated: Boolean(target.getFlag?.(SYSTEM_ID, "predated")), isCharacter: target.type === "character" && Boolean(target.system?.attributes?.hp) });
+  if (!refusal) return null;
+  ui.notifications?.warn(`${escapeHtml(label)}: ${escapeHtml(target.name)} ${refusal}. Nada foi gasto.`);
+  return stopUse(null);
 }
 
 /** Ver pela Marca (1.123.0): sem uma Marca de quem usa no alvo (ou com o recurso desligado), o uso é recusado ANTES de pagar. */

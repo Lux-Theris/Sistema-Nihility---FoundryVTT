@@ -811,6 +811,8 @@ export class BodyPartDataModel extends foundry.abstract.TypeDataModel {
        */
       installedMods: new fields.ArrayField(
         new fields.SchemaField({
+          /** Id estável da modificação (gravado ao instalar): é como a placa de um implante é endereçada (`<parte>~<uid>`, ver device-state.js). Peça antiga não tem. */
+          uid: new fields.StringField({ required: false, initial: "", blank: true }),
           name: new fields.StringField({ required: true, initial: "" }),
           description: new fields.HTMLField({ required: false, initial: "" }),
           grantsSkill: grantedSkillSchema(),

@@ -11,7 +11,7 @@ import { makeAnchor } from "../combat/effect-anchors.js";
 import { isDead } from "../combat/incapacitation.js";
 import { clearConditionExposure } from "../combat/condition-guard.js";
 import { resolveEffectChange } from "./effect-targets.js";
-import { PURIFY_PROTECTED_FLAGS, pickPurified, exposureToClear, purifyResultText } from "./purify-rules.js";
+import { PURIFY_PROTECTED_FLAGS, isPurifyProtectedCondition, pickPurified, exposureToClear, purifyResultText } from "./purify-rules.js";
 import { reviveBlockReason, reviveHp, reviveResultText } from "./revive-rules.js";
 import { drainGainAmount, drainGainEntry, drainKindOf, drainResultText, linkedDrainEffects } from "./drain-rules.js";
 import { restoreVital, rememberAnchoredTarget } from "./effects-apply.js";
@@ -38,7 +38,9 @@ export async function applyPurifyEntry(entry, { targetActor, sourceLevel, xp }) 
     .filter(e => !e.disabled)
     .map(e => {
       const flags = e.flags?.[SYSTEM_ID] ?? {};
-      return { id: e.id, name: e.name, conditionId: conditionIdOf(e, catalog), sourceLevel: Number(flags.sourceLevel) || 0, protectedFlag: PURIFY_PROTECTED_FLAGS.some(k => flags[k]) };
+      const conditionId = conditionIdOf(e, catalog);
+      const condition = catalog.find(c => c.id === conditionId);
+      return { id: e.id, name: e.name, conditionId, sourceLevel: Number(flags.sourceLevel) || 0, protectedFlag: PURIFY_PROTECTED_FLAGS.some(k => flags[k]) || isPurifyProtectedCondition(condition) };
     })
     .filter(r => r.conditionId);
   const wanted = String(entry.conditionId || "");

@@ -338,3 +338,84 @@ details.adv > .adv-body > .span-all { grid-column: 1 / -1; }
   pointer-events: none;
 }
 .nihility-placement-hint b { color: var(--nihility-gold); font-family: "JetBrains Mono", monospace; }
+
+/* ------------------------------------------------------------------ Placas e programas (Lote 9) */
+.nihility-sheet .device-panel { display: flex; flex-direction: column; gap: 8px; }
+.nihility-sheet .device-row {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid rgba(110, 231, 255, 0.35);
+  border-radius: 8px;
+  background: rgba(110, 231, 255, 0.04);
+  color: var(--nihility-text);
+}
+.nihility-sheet .device-row.is-down { border-color: rgba(255, 92, 92, 0.45); background: rgba(255, 92, 92, 0.05); }
+.nihility-sheet .device-row.drop-ok { border: 1px dashed var(--nihility-ok); background: rgba(110, 231, 160, 0.07); }
+.nihility-sheet .device-row.drop-no { border: 1px dashed var(--nihility-danger); background: rgba(255, 92, 92, 0.06); }
+.nihility-sheet .device-row.drop-ok::after,
+.nihility-sheet .device-row.drop-no::after {
+  content: attr(data-drop-hint);
+  position: absolute;
+  right: 8px;
+  top: -9px;
+  max-width: 80%;
+  font-size: 10.5px;
+  padding: 0 5px;
+  background: var(--nihility-bg-panel);
+}
+.nihility-sheet .device-row.drop-ok::after { color: var(--nihility-ok); }
+.nihility-sheet .device-row.drop-no::after { color: #ff8a8a; }
+.nihility-sheet .device-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.nihility-sheet .device-head .sp, .nihility-sheet .device-slot .sp { flex: 1; }
+.nihility-sheet .device-name { color: var(--nihility-text); }
+.nihility-sheet .device-reserve { color: var(--nihility-gold); font-family: var(--nihility-font-data); font-size: 12px; }
+.nihility-sheet .device-pips { display: inline-flex; gap: 3px; }
+.nihility-sheet .device-pips .pip { width: 14px; height: 10px; border-radius: 2px; background: var(--nihility-accent); }
+.nihility-sheet .device-pips .pip.off { background: #262b40; }
+.nihility-sheet .device-slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border: 1px dashed var(--nihility-border);
+  border-radius: 6px;
+  color: var(--nihility-text);
+}
+.nihility-sheet .device-slot.on { border-style: solid; border-color: rgba(110, 231, 255, 0.4); }
+.nihility-sheet .device-slot button { height: auto; min-height: 0; line-height: normal; padding: 2px 8px; }
+.nihility-sheet .device-head button { height: auto; min-height: 0; line-height: normal; padding: 2px 8px; }
+.nihility-sheet .device-tag, .nihility-sheet .device-skill-tag {
+  display: inline-block;
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  border: 1px solid var(--nihility-border);
+  color: var(--nihility-text-dim);
+  white-space: nowrap;
+}
+.nihility-sheet .device-tag.tag-accent { border-color: #2f6b78; color: var(--nihility-accent); }
+.nihility-sheet .device-tag.tag-gold, .nihility-sheet .device-skill-tag.tone-ok { border-color: #7a6638; color: var(--nihility-gold); }
+.nihility-sheet .device-tag.tag-violet { border-color: #5b4a86; color: var(--nihility-accent-2); }
+.nihility-sheet .device-tag.tag-bad, .nihility-sheet .device-skill-tag.tone-bad { border-color: #7a3a3a; color: var(--nihility-danger); }
+.nihility-sheet .device-skill-tag.tone-warn { border-color: #7a6638; color: var(--nihility-warn); }
+.nihility-sheet .device-skill-tag { margin-left: 6px; }
+.nihility-sheet.item-sheet .device-program-row { display: flex; align-items: center; gap: 8px; color: var(--nihility-text); }
+.nihility-sheet.item-sheet .device-program-name { flex: 1; }
+
+/* Cards de chat do curto-circuito e do conserto (prancha 10). */
+.nihility-device-card { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border-radius: 6px; background: #f1ece0; color: #222; font-size: 13px; border-left: 4px solid #9b917c; }
+.nihility-device-card h5 { margin: 0; font-size: 14px; color: #222; }
+.nihility-device-card .ln { display: flex; justify-content: space-between; gap: 10px; padding: 2px 0; border-bottom: 1px dashed #bbb; color: #222; }
+.nihility-device-card.tone-warn { border-left-color: #c79a2b; }
+.nihility-device-card.tone-bad { border-left-color: #c0392b; }
+.nihility-device-card.tone-ok { border-left-color: #2f9e62; }
+.nihility-device-short-controls { margin-top: 4px; }
+.nihility-device-short-controls button { height: auto; min-height: 0; line-height: normal; padding: 3px 10px; }
+.nihility-device-approve { color: var(--nihility-text); }
+/* "Fora de combate, uma ação (+N)": o número fica dentro do label.toggle da aba Placa. */
+.nihility-sheet.item-sheet .toggle input.num { width: 4em; height: 24px; margin: 0 2px; }
+/* Card do conserto: o rótulo da linha não quebra ("Skil/l"). */
+.nihility-device-card .ln > span:first-child { flex: none; white-space: nowrap; }

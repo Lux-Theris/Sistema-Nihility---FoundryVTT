@@ -289,7 +289,7 @@
   cursor: pointer;
   justify-self: start;
 }
-.nihility-sheet.item-sheet .toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.nihility-sheet.item-sheet .toggle input[type=checkbox] { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
 .nihility-sheet.item-sheet .toggle-track {
   position: relative;
   width: 30px;

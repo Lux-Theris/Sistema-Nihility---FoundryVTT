@@ -18,6 +18,14 @@ export const PURIFY_PROTECTED_FLAGS = ["incapacitation", "markedBy", "timeStop",
  * Este efeito (`{conditionId, sourceLevel, flags...}`) pode ser tirado por uma Purificação de nível `level`?
  * @param {{conditionId?: string, sourceLevel?: number, protectedFlag?: boolean}} effect
  */
+/**
+ * Condição do catálogo que Purificar nunca tira (sessão 9, 28/11): as Marcas (`isMark`, ex.: Marca do Duelo)
+ * e as que incapacitam (Caído, Inconsciente), venham de onde vierem.
+ */
+export function isPurifyProtectedCondition(condition) {
+  return Boolean(condition?.isMark || condition?.incapacitates);
+}
+
 export function isPurifiable(effect, level) {
   if (!effect?.conditionId) return false;
   if (effect.protectedFlag) return false;

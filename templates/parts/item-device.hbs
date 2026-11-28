@@ -1,0 +1,55 @@
+<section class="tab sheet-body {{tabs.device.cssClass}}" data-group="primary" data-tab="device">
+  <div class="sec">
+    <div class="sec-body">
+      <label class="toggle"><input type="checkbox" name="system.device.enabled" {{#if system.device.enabled}}checked{{/if}}/><span class="toggle-track"></span><span>Este Item tem placa</span><span class="help" title="Uma placa é um aparelho que roda programas, com encaixes e uma Reserva de energia própria. Qualquer Item Geral, implante ou prótese pode ter placa. Toda placa é tecnológica; a tecnomágica também sofre a Antimagia.">?</span></label>
+    </div>
+  </div>
+  {{#if system.device.enabled}}
+  <div class="sec">
+    <div class="sec-head">Placa (aparelho que roda programas)</div>
+    <div class="sec-body g2">
+      <div class="fld span-all"><span class="fld-label">Natureza <span class="help" title="Tecnológica nunca gasta energia: sem Reserva, o programa não roda. Tecnomágica gasta a Reserva e, sem ela, completa com a energia (Mana).">?</span></span>
+        <div class="seg" role="radiogroup" aria-label="Natureza">
+          {{#each deviceNatureSeg as |opt|}}<label class="seg-opt {{#if opt.checked}}on{{/if}}"><input type="radio" name="system.device.nature" value="{{opt.value}}" {{#if opt.checked}}checked{{/if}}/>{{opt.label}}</label>{{/each}}
+        </div>
+      </div>
+      <label class="fld"><span class="fld-label">Encaixes <span class="help" title="Quantos programas cabem (cada programa ocupa 1 ou mais encaixes).">?</span></span><input class="num" type="number" min="0" name="system.device.slots" value="{{system.device.slots}}"/></label>
+      <label class="fld"><span class="fld-label">Reserva máxima</span><input class="num" type="number" min="0" name="system.device.reserveMax" value="{{system.device.reserveMax}}"/></label>
+      {{#if deviceIsGM}}<label class="fld"><span class="fld-label">Reserva atual <span class="help" title="Só o Mestre ajusta à mão. O uso dos programas, o Descanso, a Célula e o PEM mexem aqui sozinhos.">?</span></span><input class="num" type="number" min="0" name="system.device.reserve" value="{{system.device.reserve}}"/></label>{{/if}}
+      <div class="fld span-all"><span class="fld-label">Aceita</span>
+        <div class="seg" role="radiogroup" aria-label="Aceita">
+          {{#each deviceAcceptsSeg as |opt|}}<label class="seg-opt {{#if opt.checked}}on{{/if}}"><input type="radio" name="system.device.accepts" value="{{opt.value}}" {{#if opt.checked}}checked{{/if}}/>{{opt.label}}</label>{{/each}}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="sec">
+    <div class="sec-head">Como a Reserva volta</div>
+    <div class="sec-body">
+      <label class="toggle"><input type="checkbox" name="system.device.rechargeRest" {{#if system.device.rechargeRest}}checked{{/if}}/><span class="toggle-track"></span><span>No Descanso (tudo)</span></label>
+      <label class="toggle"><input type="checkbox" name="system.device.rechargeCell" {{#if system.device.rechargeCell}}checked{{/if}}/><span class="toggle-track"></span><span>Com uma Célula de energia</span></label>
+      <label class="toggle"><input type="checkbox" name="system.device.rechargeAction" {{#if system.device.rechargeAction}}checked{{/if}}/><span class="toggle-track"></span><span>Fora de combate, uma ação (+</span><input class="num" type="number" min="0" name="system.device.actionAmount" value="{{system.device.actionAmount}}" aria-label="Quanto volta por ação"/><span>)</span></label>
+      <label class="toggle"><input type="checkbox" name="system.device.infinite" {{#if system.device.infinite}}checked{{/if}}/><span class="toggle-track"></span><span>Infinita (nunca gasta)</span></label>
+      <p class="hint-inline">A Célula de energia é um consumível comum (Loja, PAD, saque): marque "Célula de energia" na aba Consumível. Um clique em "Recarregar" na ficha gasta uma e enche a Reserva.</p>
+    </div>
+  </div>
+  <div class="sec">
+    <div class="sec-head">Programas instalados<span class="sp"></span><span class="sec-head-note">{{devicePrograms.length}} · {{deviceSlotsFree}} encaixe(s) livre(s) · placa {{deviceStateLabel}}</span></div>
+    <div class="sec-body tight">
+      {{#each devicePrograms as |program|}}
+      <div class="pair-row device-program-row">
+        <span class="device-program-name">{{program.name}}</span>
+        <span class="hint-inline">{{program.slots}} encaixe(s)</span>
+        {{#if ../deviceOwned}}{{#if ../editable}}<a class="link-add" data-action="uninstallDeviceProgram" data-uid="{{program.uid}}" title="Tirar: o programa volta ao inventário">Tirar</a>{{/if}}{{/if}}
+      </div>
+      {{else}}
+      <p class="hint-inline">Nenhum programa instalado. Na ficha, arraste um programa sobre a placa (aba Inventário).</p>
+      {{/each}}
+      {{#unless deviceOwned}}<p class="hint-inline">Só se instala e se tira programa numa placa que está na ficha de um personagem.</p>{{/unless}}
+    </div>
+  </div>
+  <div class="strip info">Bônus de atributo, Vida/Mana e Habilidade Concedida da própria placa ficam na aba "{{#if system.implant.enabled}}Enquanto instalado{{else}}Enquanto equipado{{/if}}". A placa só funciona equipada (ou instalada, num implante), em estado normal e sem PEM sobre quem a leva.</div>
+  {{else}}
+  <div class="strip dim">Desligado, o Item não tem Reserva nem encaixes. Os valores já salvos continuam guardados.</div>
+  {{/if}}
+</section>

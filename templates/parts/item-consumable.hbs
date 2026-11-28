@@ -65,6 +65,9 @@
       <label class="fld"><span class="fld-label">Alcance base <span class="help" title="Metros sem contar a Força. A Força soma ⌊Força ÷ passo⌋ metros (o passo está em Módulos do Sistema › Alcance de Skill e Marcas).">?</span></span><span class="suffix"><input type="number" name="system.consumable.throwBase" value="{{system.consumable.throwBase}}" min="0" step="0.5" aria-label="Alcance base"/><span>m</span></span></label>
       {{/if}}
       {{/if}}
+      {{#if devicesEnabled}}
+      <label class="toggle span-all" title="Uma Célula de energia enche a Reserva inteira de uma placa que aceita Célula (botão Recarregar da placa, na aba Inventário)."><input type="checkbox" name="system.consumable.energyCell" {{#if system.consumable.energyCell}}checked{{/if}}/><span class="toggle-track"></span><span>Célula de energia</span></label>
+      {{/if}}
       <label class="fld"><span class="fld-label">Cargas por unidade <span class="help" title="Kit médico de 5 usos = 5. Cada Usar gasta 1 carga; ao zerar, sai 1 da pilha e a próxima começa cheia. 0 ou 1 = cada uso gasta uma unidade.">?</span></span><input class="num" type="number" min="0" name="system.consumable.charges" value="{{system.consumable.charges}}"/></label>
       {{#if (gt system.consumable.charges 1)}}
       <label class="fld"><span class="fld-label">Cargas gastas da unidade aberta</span><input class="num" type="number" min="0" name="system.consumable.chargesUsed" value="{{system.consumable.chargesUsed}}"/></label>

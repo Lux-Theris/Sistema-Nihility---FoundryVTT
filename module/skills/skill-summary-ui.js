@@ -17,6 +17,7 @@ import {
 import { computeResistancePercent } from "../combat/resistance.js";
 import { skillSummary } from "./skill-summary.js";
 import { masterySentenceFor, isWeaponMasteryEnabled } from "../combat/weapon-mastery.js";
+import { deviceSentenceContext } from "../economy/devices.js";
 
 const byId = list => Object.fromEntries((list ?? []).map(entry => [entry.id, entry.label]));
 
@@ -61,6 +62,7 @@ export function skillSummariesFor(actor) {
       upkeep: effectiveSkillCost(sys.upkeepCost, sys),
       resistance,
       mastery: masterySentenceFor(sys),
+      reserve: deviceSentenceContext(actor, skill),
       chanceBonus: sys.chanceBonus ?? {}
     });
   }

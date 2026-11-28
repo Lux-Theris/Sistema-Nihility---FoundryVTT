@@ -1,0 +1,36 @@
+<section class="tab sheet-body {{tabs.program.cssClass}}" data-group="primary" data-tab="program">
+  <div class="sec">
+    <div class="sec-body">
+      <label class="toggle"><input type="checkbox" name="system.program.enabled" {{#if system.program.enabled}}checked{{/if}}/><span class="toggle-track"></span><span>Este Item é um programa</span><span class="help" title="Arraste o Item sobre uma placa (aba Inventário da ficha) para instalar. Instalar e tirar é de graça. Passivo: só soma os bônus enquanto está na placa. Ativo: concede uma Habilidade que paga o Custo da Reserva da placa.">?</span></label>
+    </div>
+  </div>
+  {{#if system.program.enabled}}
+  <div class="sec">
+    <div class="sec-head">Programa</div>
+    <div class="sec-body g2">
+      <label class="fld"><span class="fld-label">Ocupa (encaixes)</span><input class="num" type="number" min="1" name="system.program.slotsUsed" value="{{system.program.slotsUsed}}"/></label>
+      <label class="fld"><span class="fld-label">Custo por uso (Reserva) <span class="help" title="0 = usa o Custo da Habilidade que o programa concede. Maior que 0 troca o Custo dela por este valor, tirado da Reserva da placa.">?</span></span><input class="num" type="number" min="0" name="system.program.costPerUse" value="{{system.program.costPerUse}}"/></label>
+      <div class="fld span-all"><span class="fld-label">Instala em</span>
+        <div class="seg" role="radiogroup" aria-label="Instala em">
+          {{#each programFitsSeg as |opt|}}<label class="seg-opt {{#if opt.checked}}on{{/if}}"><input type="radio" name="system.program.fits" value="{{opt.value}}" {{#if opt.checked}}checked{{/if}}/>{{opt.label}}</label>{{/each}}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="strip info">Os bônus passivos (atributo, Vida/Mana, "Quando → Então") e a Habilidade que o programa concede ficam na aba "{{#if system.implant.enabled}}Enquanto instalado{{else}}Enquanto equipado{{/if}}": valem enquanto o programa está numa placa que funciona. Sem Habilidade, é um programa passivo.</div>
+  <div class="sec">
+    <details class="adv" data-adv-key="invasion" {{#if programInvasionFold.open}}open{{/if}}>
+      {{> nihility.advSummary fold=programInvasionFold}}
+      <div class="adv-body g2">
+        <label class="toggle span-all"><input type="checkbox" name="system.program.invasion.enabled" {{#if system.program.invasion.enabled}}checked{{/if}}/><span class="toggle-track"></span><span>Software de Invasão</span><span class="help" title="Marca o programa como software de invasão (uma placa que só aceita Invasão o exige). A Invasão em si, com o minigame, vem no próximo lote: por enquanto os campos só ficam guardados.">?</span></label>
+        <label class="fld"><span class="fld-label">Minigame</span><input type="text" name="system.program.invasion.minigame" value="{{system.program.invasion.minigame}}" placeholder="sequence"/></label>
+        <label class="fld"><span class="fld-label">Alvo</span><input type="text" name="system.program.invasion.target" value="{{system.program.invasion.target}}" placeholder="tech"/></label>
+        <label class="fld"><span class="fld-label">Preparo (upload, em rodadas)</span><input class="num" type="number" min="0" name="system.program.invasion.prepRounds" value="{{system.program.invasion.prepRounds}}"/></label>
+        <p class="hint-inline span-all">A Invasão em si (o minigame) vem no próximo lote. Aqui os campos só ficam guardados.</p>
+      </div>
+    </details>
+  </div>
+  {{else}}
+  <div class="strip dim">Desligado, o Item não pode ser instalado numa placa. Os valores já salvos continuam guardados.</div>
+  {{/if}}
+</section>

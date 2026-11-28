@@ -8,7 +8,8 @@
  * `device.programs` (`{uid, sourceItem}`) e volta ao inventário ao sair. A Habilidade de um programa
  * ativo é concedida com a chave `device:<id da placa>:<uid>`. Sempre se regrava a lista inteira.
  */
-import { SYSTEM_ID, isDevicesEnabled, getFeatureOption, combatantIsActor } from "../core/config.js";
+import { SYSTEM_ID, isDevicesEnabled, getFeatureOption, combatantIsActor, getAttributeLabel, effectiveSkillCost, getEnergyLabelForActor } from "../core/config.js";
+import { floatTextOnActor } from "../combat/floating-numbers.js";
 import { itemIsMagic } from "../core/magic-rules.js";
 import { createGrantedSkill, removeGrantedSkill } from "../skills/skill-economy.js";
 import { isDesignatedGm, mayActFor, ownedDoc, owns, runAsGm } from "../helpers/gm-relay.js";
@@ -19,14 +20,19 @@ import { consumeUse } from "./consumable-rules.js";
 import {
   normalizeDevice, programFits, programCost, payProgramCost, restRecharge, cellRecharge, actionRecharge, empReserveDrain,
   rollShortCircuit, shortCircuitHit, disasterDamageFormula, deviceSourceKey, parseDeviceSourceKey, isEnergyCell, canRepairDevice, needsRepair,
-  normalizeShortBands, DEFAULT_SHORT_BANDS, DEFAULT_CURTO_CHANCE_ON_EMP, OFF_OUT_OF_COMBAT_ROUNDS
+  normalizeShortBands, DEFAULT_SHORT_BANDS, DEFAULT_CURTO_CHANCE_ON_EMP, OFF_OUT_OF_COMBAT_ROUNDS,
+  modHostRef, reserveState, reservePips, slotLayout, rechargeOptions, programCostTag, skillDeviceStatus, restReserveLine
 } from "./device-rules.js";
-import { deviceOf, actorDevices, liveDevice, deviceBlockedReason } from "./device-state.js";
+import { deviceOf, actorDevices, findDeviceHost, hostEquipped, liveDevice, deviceWorksNow, deviceBlockedReason, deviceSkillHost } from "./device-state.js";
+import { sourceSuppressed } from "../core/suppression.js";
 
 const SHORT_FLAG = "deviceShort";
 const PROGRESS_FLAG = "deviceSkillProgress";
 
 const clone = value => foundry.utils.deepClone(value);
+
+/** Opções de um `update` que fazem todo cliente subir um texto sobre o Token ("−2 Reserva"). Um objeto novo a cada escrita. */
+const floatOptions = (text, fill = "#6ee7ff") => ({ nihilityFloat: { text, fill } });
 
 /* ------------------------------------------------------------------ opções */
 
@@ -56,9 +62,9 @@ function programNature(host, programItem) {
  * inventário (se o Item era desta ficha).
  * @returns {Promise<boolean>}
  */
-export async function installProgram(actor, hostItemId, item) {
+export async function installProgram(actor, hostRef, item) {
   if (!isDevicesEnabled()) return false;
-  const host = actor?.items?.get(hostItemId);
+  const host = findDeviceHost(actor, hostRef);
   const device = deviceOf(host);
   if (!device) {
     ui.notifications.warn("Este Item não é uma placa.");
@@ -103,8 +109,8 @@ export async function installProgram(actor, hostItemId, item) {
  * Item devolvido, para reinstalar restaurar) e o Item volta ao inventário.
  * @returns {Promise<boolean>}
  */
-export async function uninstallProgram(actor, hostItemId, uid) {
-  const host = actor?.items?.get(hostItemId);
+export async function uninstallProgram(actor, hostRef, uid) {
+  const host = findDeviceHost(actor, hostRef);
   if (!host?.system?.device) return false;
   const list = clone(host.system.device.programs ?? []);
   const entry = list.find(p => p.uid === uid);
@@ -126,8 +132,34 @@ export async function uninstallProgram(actor, hostItemId, uid) {
 /** A placa foi apagada: as Habilidades dos programas dela saem junto (gancho `preDeleteItem`). */
 export async function removeDeviceGrants(item) {
   const actor = item?.parent;
-  if (!actor || !item.system?.device?.programs?.length) return;
-  for (const entry of item.system.device.programs) await removeGrantedSkill(actor, deviceSourceKey(item.id, entry.uid));
+  if (!actor) return;
+  for (const entry of item.system?.device?.programs ?? []) await removeGrantedSkill(actor, deviceSourceKey(item.id, entry.uid));
+  // Uma Parte do Corpo apagada leva junto as placas dos implantes que tinha.
+  if (item.type === "body_part") {
+    const mods = item.system.installedMods ?? [];
+    for (let index = 0; index < mods.length; index++) {
+      const ref = modHostRef(item.id, mods[index].uid || `idx${index}`);
+      for (const entry of mods[index]?.sourceItem?.system?.device?.programs ?? []) await removeGrantedSkill(actor, deviceSourceKey(ref, entry.uid));
+    }
+  }
+}
+
+/**
+ * A placa mudou de endereço (um Item virou implante instalado, ou o contrário): as Habilidades dos programas dela
+ * saem da chave antiga e voltam na nova, com o nível e a XP que tinham. `hostSystem` = o `system` do Item da placa.
+ */
+export async function rekeyHostGrants(actor, fromRef, toRef, programs, hostSystem = {}) {
+  for (const entry of programs ?? []) {
+    const grants = entry?.sourceItem?.system?.grantsSkill;
+    if (!grants?.name) continue;
+    const oldKey = deviceSourceKey(fromRef, entry.uid);
+    const old = actor.items.find(i => i.type === "skill" && i.flags?.[SYSTEM_ID]?.grantedBySource === oldKey);
+    const progress = old ? { level: Number(old.system.level) || 1, xp: Number(old.system.xp) || 0 } : null;
+    if (old) await removeGrantedSkill(actor, oldKey);
+    const nature = { magic: itemIsMagic(hostSystem) || itemIsMagic(entry.sourceItem.system ?? {}), tech: true };
+    const created = await createGrantedSkill(actor, grants, deviceSourceKey(toRef, entry.uid), nature);
+    if (created && progress) await created.update({ "system.level": progress.level, "system.xp": progress.xp });
+  }
 }
 
 /* ------------------------------------------------------------------ pagar a Reserva */
@@ -142,7 +174,7 @@ export function planDevicePayment(actor, skill, cost) {
   if (!isDevicesEnabled() || skill?.parent?.uuid !== actor?.uuid) return null;
   const key = parseDeviceSourceKey(skill.flags?.[SYSTEM_ID]?.grantedBySource);
   if (!key) return null;
-  const host = actor.items.get(key.hostItemId);
+  const host = findDeviceHost(actor, key.hostRef);
   const device = liveDevice(host);
   if (!device) return null;
   const block = deviceBlockedReason(actor, host);
@@ -163,7 +195,7 @@ export function planDevicePayment(actor, skill, cost) {
 /** Grava o que `planDevicePayment` calculou (só a Reserva; a Mana que faltou sai pelo caminho normal). */
 export async function commitDevicePayment(plan) {
   if (!plan?.ok || plan.reserveSpent <= 0) return;
-  await plan.host.update({ "system.device.reserve": plan.reserveAfter });
+  await plan.host.update({ "system.device.reserve": plan.reserveAfter }, floatOptions(`−${plan.reserveSpent} Reserva`));
 }
 
 /* ------------------------------------------------------------------ recarregar */
@@ -171,19 +203,27 @@ export async function commitDevicePayment(plan) {
 /** Descanso (curto ou completo): enche a Reserva das placas com "Descanso". Devolve quantas encheu. */
 export async function rechargeOnRest(actor) {
   if (!isDevicesEnabled()) return 0;
-  const updates = [];
+  let changed = 0;
+  // Um a um: duas placas do mesmo implante regravam a mesma lista `installedMods`.
   for (const host of actorDevices(actor)) {
     const r = restRecharge(host.system.device);
-    if (r.changed) updates.push({ _id: host.id, "system.device.reserve": r.reserve });
+    if (!r.changed) continue;
+    await host.update({ "system.device.reserve": r.reserve });
+    changed++;
   }
-  if (updates.length) await actor.updateEmbeddedDocuments("Item", updates);
-  return updates.length;
+  return changed;
+}
+
+/** A linha do Descanso: "Reserva volta: Cyberdeck 6/6" (vazia sem placas que recarreguem no Descanso). */
+export function restReserveLineFor(actor) {
+  if (!isDevicesEnabled() || !actor) return "";
+  return restReserveLine(actorDevices(actor).map(host => ({ name: host.name, device: host.system.device })));
 }
 
 /** Gasta 1 Célula de energia do inventário e enche a Reserva da placa. */
-export async function rechargeWithCell(actor, hostItemId) {
+export async function rechargeWithCell(actor, hostRef) {
   if (!isDevicesEnabled()) return false;
-  const host = actor?.items?.get(hostItemId);
+  const host = findDeviceHost(actor, hostRef);
   const check = cellRecharge(host?.system?.device);
   if (!check.ok) {
     ui.notifications.warn(`Não dá para recarregar${host ? ` ${host.name}` : ""}: ${check.reason}.`);
@@ -197,7 +237,8 @@ export async function rechargeWithCell(actor, hostItemId) {
   const left = consumeUse({ quantity: cell.system.quantity ?? 0 });
   if (left.gone) await cell.delete();
   else await cell.update({ "system.quantity": left.quantity });
-  await host.update({ "system.device.reserve": check.reserve });
+  const filled = check.reserve - (Number(host.system.device.reserve) || 0);
+  await host.update({ "system.device.reserve": check.reserve }, floatOptions(`+${filled} Reserva`));
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor }),
     content: `<p><strong>${escapeHtml(actor.name)}</strong> trocou a Célula de energia de <strong>${escapeHtml(host.name)}</strong>: Reserva cheia (${check.reserve}).</p>`
@@ -206,21 +247,36 @@ export async function rechargeWithCell(actor, hostItemId) {
 }
 
 /** Recarga por ação: só fora de combate, soma o valor da placa. */
-export async function rechargeByAction(actor, hostItemId) {
+export async function rechargeByAction(actor, hostRef) {
   if (!isDevicesEnabled()) return false;
-  const host = actor?.items?.get(hostItemId);
+  const host = findDeviceHost(actor, hostRef);
   const inCombat = Boolean(game.combats?.some(c => c.started && c.combatants.some(cb => combatantIsActor(cb, actor))));
   const check = actionRecharge(host?.system?.device, inCombat);
   if (!check.ok) {
     ui.notifications.warn(`Não dá para recarregar${host ? ` ${host.name}` : ""}: ${check.reason}.`);
     return false;
   }
-  await host.update({ "system.device.reserve": check.reserve });
+  const gained = check.reserve - (Number(host.system.device.reserve) || 0);
+  await host.update({ "system.device.reserve": check.reserve }, floatOptions(`+${gained} Reserva`));
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor }),
     content: `<p><strong>${escapeHtml(actor.name)}</strong> recarregou <strong>${escapeHtml(host.name)}</strong>: Reserva ${check.reserve}/${normalizeDevice(host.system.device).reserveMax}.</p>`
   });
   return true;
+}
+
+/* ------------------------------------------------------------------ cards de chat */
+
+const STATE_TEXT = { normal: "normal", off: "desligada", damaged: "danificada" };
+
+/**
+ * O card de Curto / Conserto (prancha 10): título, linhas "rótulo — valor" e o tom (ok / warn / bad). Todo texto
+ * de documento passa por `escapeHtml`. Os botões do Mestre entram depois (renderDeviceShortControls).
+ * @param {{icon:string, title:string, tone?:string, lines?:[string,string][]}} card
+ */
+export function deviceCardHtml({ icon, title, tone = "ok", lines = [] }) {
+  const rows = lines.map(([k, v]) => `<div class="ln"><span>${escapeHtml(k)}</span><b>${escapeHtml(v)}</b></div>`).join("");
+  return `<div class="nihility-device-card tone-${escapeHtml(tone)}"><h5><i class="fa-solid ${escapeHtml(icon)}"></i> ${escapeHtml(title)}</h5>${rows}</div>`;
 }
 
 /* ------------------------------------------------------------------ curto-circuito */
@@ -277,9 +333,9 @@ async function dealDisasterDamage(actor, host, device) {
  * (ou 3 rodadas fora dele); grave e desastre danificam; desastre num implante/prótese dá dano Elétrico em quem veste.
  * Posta um card com "Desfazer" (só o Mestre vê o botão). Devolve o resultado ou null.
  */
-export async function shortCircuit(actor, hostItemId, { roll = null } = {}) {
+export async function shortCircuit(actor, hostRef, { roll = null } = {}) {
   if (!isDevicesEnabled()) return null;
-  const host = actor?.items?.get(hostItemId);
+  const host = findDeviceHost(actor, hostRef);
   const device = deviceOf(host);
   if (!device) return null;
   const d100 = roll ?? (await new Roll("1d100").evaluate()).total;
@@ -300,15 +356,27 @@ export async function shortCircuit(actor, hostItemId, { roll = null } = {}) {
     });
   }
   if (Object.keys(update).length) await host.update(update);
-  const wears = Boolean(host.system.implant?.enabled);
+  // Implante/prótese: o Item com `implant.enabled` ou a placa que já está instalada numa Parte do Corpo.
+  const wears = Boolean(host.isMod || host.system.implant?.enabled);
   let damage = null;
   if (result.disaster && wears) damage = await dealDisasterDamage(actor, host, device);
-  const after = offFields(normalizeDevice(host.system.device));
+  const after = offFields(normalizeDevice(findDeviceHost(actor, host.id)?.system?.device ?? host.system.device));
+  const stopped = (device.programs ?? []).map(p => p.sourceItem?.name).filter(Boolean);
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor }),
-    content: `<p><i class="fa-solid fa-bolt"></i> <strong>${escapeHtml(host.name)}</strong> de <strong>${escapeHtml(actor.name)}</strong> deu <strong>${SEVERITY_TEXT[result.severity]}</strong> (d100 ${d100}): ${result.state === "off" ? "a placa desligou até o fim do combate" : "a placa está danificada até ser consertada"}.${damage !== null ? ` Dano Elétrico de ${damage} em quem veste.` : ""}</p>`,
+    content: deviceCardHtml({
+      icon: "fa-bolt",
+      title: `Curto · ${host.name} de ${actor.name}`,
+      tone: result.state === "off" ? "warn" : "bad",
+      lines: [
+        [`d100 ${d100}`, `${result.severity}: ${result.state === "off" ? "desligou até o fim do combate (fora dele, 3 rodadas)" : "danificada até ser consertada"}`],
+        ...(stopped.length ? [["Programas parados", stopped.join(", ")]] : []),
+        ...(damage !== null ? [["Dano Elétrico em quem veste", String(damage)]] : [])
+      ]
+    }),
     flags: { [SYSTEM_ID]: { [SHORT_FLAG]: { actorUuid: actor.uuid, hostItemId: host.id, before, after, undone: false } } }
   });
+  floatTextOnActor(actor, `Curto: ${host.name}`, { fill: "#ff8a8a", fontSize: 26 });
   return { ...result, d100, damage };
 }
 
@@ -317,7 +385,7 @@ export async function undoShortCircuit(message) {
   const info = message.getFlag(SYSTEM_ID, SHORT_FLAG);
   if (!info || info.undone || !game.user.isGM) return false;
   const actor = await fromUuid(info.actorUuid);
-  const host = actor?.items?.get(info.hostItemId);
+  const host = findDeviceHost(actor, info.hostItemId);
   if (!host) return false;
   const b = info.before ?? {};
   await host.update({
@@ -357,13 +425,13 @@ export async function empHitDevices(actor, { reach = 0 } = {}) {
   const lines = [];
   const chance = curtoChanceOnEmp();
   for (const host of actorDevices(actor)) {
-    if (!host.system.equipped) continue;
+    if (!hostEquipped(host)) continue;
     const device = normalizeDevice(host.system.device);
     const parts = [];
     if (!device.infinite) {
       const drain = empReserveDrain(device.reserve, reach, device.reserveMax);
       if (drain.drained > 0) {
-        await host.update({ "system.device.reserve": drain.reserveAfter });
+        await host.update({ "system.device.reserve": drain.reserveAfter }, floatOptions(`PEM: −${drain.percent}% Reserva`, "#ff8a8a"));
         parts.push(`Reserva −${drain.drained}`);
       }
     }
@@ -382,15 +450,30 @@ export async function empHitDevices(actor, { reach = 0 } = {}) {
 /* ------------------------------------------------------------------ conserto */
 
 /** Conserta a placa direto (Mestre / quem já passou pelo relay): `damaged` ou `off` → `normal`. */
-export async function repairDevice(actor, hostItemId) {
-  const host = actor?.items?.get(hostItemId);
+export async function repairDevice(actor, hostRef, { engineer = null, skill = null } = {}) {
+  const host = findDeviceHost(actor, hostRef);
   if (!deviceOf(host)) return false;
+  const before = liveDevice(host)?.state ?? "normal";
   await host.update({ "system.device.state": "normal", "system.device.offMode": "", "system.device.offCombatId": "" });
   await ChatMessage.create({
-    speaker: ChatMessage.getSpeaker({ actor }),
-    content: `<p><i class="fa-solid fa-screwdriver-wrench"></i> <strong>${escapeHtml(host.name)}</strong> de <strong>${escapeHtml(actor.name)}</strong> foi consertada.</p>`
+    speaker: ChatMessage.getSpeaker({ actor: engineer ?? actor }),
+    content: deviceCardHtml({
+      icon: "fa-screwdriver-wrench",
+      title: engineer ? `Conserto · ${engineer.name} → ${host.name} de ${actor.name}` : `Conserto · ${host.name} de ${actor.name}`,
+      tone: "ok",
+      lines: [
+        ...(skill ? [["Skill", `${skill.name} Nv ${Number(skill.system.level) || 1} (Engenharia)`]] : []),
+        ["Antes → depois", `${STATE_TEXT[before] ?? before} → normal`]
+      ]
+    })
   });
+  floatTextOnActor(actor, `Consertada: ${host.name}`, { fill: "#6ee7a0", fontSize: 26 });
   return true;
+}
+
+/** A Skill de Engenharia que consertou (a de maior nível), para o card. */
+function engineeringSkillOf(actor) {
+  return (actor?.items ?? []).filter(i => i.type === "skill" && i.system.engineering === true).sort((a, b) => (Number(b.system.level) || 1) - (Number(a.system.level) || 1))[0] ?? null;
 }
 
 /** O Ator tem uma Skill com Engenharia? */
@@ -403,12 +486,12 @@ export function actorCanRepair(actor) {
  * Vai ao Mestre pelo relay `deviceRepair`; a placa de outra pessoa pede o aval dele.
  * @returns {Promise<{ok:boolean, reason:string}>}
  */
-export async function requestDeviceRepair(engineer, target, hostItemId) {
+export async function requestDeviceRepair(engineer, target, hostRef) {
   if (!actorCanRepair(engineer)) {
     ui.notifications.warn(`${engineer?.name ?? "Quem conserta"} não tem uma Habilidade de Engenharia.`);
     return { ok: false, reason: "sem Engenharia" };
   }
-  return runAsGm("deviceRepair", { engineerUuid: engineer.uuid, actorUuid: target.uuid, hostItemId }, { reply: true, timeout: 60000 });
+  return runAsGm("deviceRepair", { engineerUuid: engineer.uuid, actorUuid: target.uuid, hostItemId: hostRef }, { reply: true, timeout: 60000 });
 }
 
 /** Lado do Mestre: confere tudo na ficha (nunca no payload), pede o aval se a placa é de outra pessoa e conserta. */
@@ -417,7 +500,7 @@ async function deviceRepairAsGm(payload, user) {
   const target = typeof payload?.actorUuid === "string" ? await fromUuid(payload.actorUuid) : null;
   if (!engineer || !target) return refuse(RELAY_REASONS.invalid);
   if (!(await mayActFor(user, engineer.uuid))) return refuse(RELAY_REASONS.permission);
-  const host = target.items?.get?.(String(payload.hostItemId ?? ""));
+  const host = findDeviceHost(target, String(payload.hostItemId ?? ""));
   if (!deviceOf(host)) return refuse(RELAY_REASONS.invalid);
   if (!actorCanRepair(engineer)) return refuse("sem Engenharia");
   if (!needsRepair(host.system.device) && liveDevice(host)?.state === "normal") return refuse("a placa não precisa de conserto");
@@ -425,12 +508,14 @@ async function deviceRepairAsGm(payload, user) {
   if (!own && !user?.isGM) {
     const approved = await foundry.applications.api.DialogV2.confirm({
       window: { title: "Consertar placa" },
+      yes: { label: "Aprovar", icon: "fa-solid fa-check" },
+      no: { label: "Recusar", icon: "fa-solid fa-xmark" },
       content: `<div class="nihility-device-approve"><p><strong>${escapeHtml(engineer.name)}</strong> quer consertar <strong>${escapeHtml(host.name)}</strong> de <strong>${escapeHtml(target.name)}</strong>. Aprovar?</p></div>`,
       rejectClose: false
     });
     if (!approved) return refuse("o Mestre não aprovou o conserto");
   }
-  const done = await repairDevice(target, host.id);
+  const done = await repairDevice(target, host.id, { engineer, skill: engineeringSkillOf(engineer) });
   return done ? { ok: true } : refuse(RELAY_REASONS.invalid);
 }
 
@@ -438,6 +523,201 @@ async function deviceRepairAsGm(payload, user) {
 export const RELAY_HANDLERS = {
   deviceRepair: (payload, user) => deviceRepairAsGm(payload, user)
 };
+
+/* ------------------------------------------------------------------ painel da ficha (Inventário) e aba Skills */
+
+/** Quantas Células de energia o Ator carrega. */
+function energyCellCount(actor) {
+  return (actor?.items ?? []).filter(i => i.type === "item" && isEnergyCell(i.system)).reduce((sum, i) => sum + (Number(i.system.quantity) || 0), 0);
+}
+
+/** O Ator está num combate começado? */
+function actorInStartedCombat(actor) {
+  return Boolean(game.combats?.some(c => c.started && c.combatants.some(cb => combatantIsActor(cb, actor))));
+}
+
+/** O que um programa passivo dá, em texto curto ("+2 Precisão · +5 Vida"). Vazio se não dá bônus. */
+function passiveBonusText(item) {
+  const sys = item?.system ?? {};
+  const parts = [];
+  for (const b of sys.attributeBonuses ?? []) {
+    const n = Number(b.amount) || 0;
+    if (n) parts.push(`${n > 0 ? "+" : "−"}${Math.abs(n)} ${getAttributeLabel(b.attribute)}`);
+  }
+  if (Number(sys.statModifiers?.hp)) parts.push(`${sys.statModifiers.hp > 0 ? "+" : "−"}${Math.abs(sys.statModifiers.hp)} Vida`);
+  if (Number(sys.statModifiers?.energy)) parts.push(`${sys.statModifiers.energy > 0 ? "+" : "−"}${Math.abs(sys.statModifiers.energy)} ${"energia"}`);
+  if (sys.conditionalModifiers?.length) parts.push(`${sys.conditionalModifiers.length} condicional(is)`);
+  return parts.join(" · ");
+}
+
+/** A Habilidade concedida a um programa instalado, se existir na ficha. */
+function programSkill(actor, hostRef, uid) {
+  const key = deviceSourceKey(hostRef, uid);
+  return (actor?.items ?? []).find(i => i.type === "skill" && i.flags?.[SYSTEM_ID]?.grantedBySource === key) ?? null;
+}
+
+/**
+ * O bloco "Placas" da aba Inventário: uma linha por hospedeiro vestido (Item equipado com placa e placas dentro de
+ * implantes instalados). `null` com o bloco desligado ou sem placas. Tudo é leitura; os botões chamam as ações da ficha.
+ */
+export function devicePanelContext(actor) {
+  if (!isDevicesEnabled() || !actor) return null;
+  const hosts = actorDevices(actor).filter(hostEquipped);
+  if (!hosts.length) return null;
+  const cells = energyCellCount(actor);
+  const inCombat = actorInStartedCombat(actor);
+  const isGM = Boolean(game.user?.isGM);
+  const canEdit = Boolean(actor.isOwner);
+  const myCharacter = game.user?.character;
+  const canRepairHere = isGM || actorCanRepair(actor) || actorCanRepair(myCharacter);
+  const rows = hosts.map(host => {
+    const device = liveDevice(host);
+    const works = deviceWorksNow(actor, host);
+    const block = works ? "" : deviceBlockedReason(actor, host);
+    const reserve = reserveState(device);
+    const pips = reservePips(device);
+    const layout = slotLayout(device, device.programs);
+    const energyLabel = getEnergyLabelForActor(actor);
+    const programs = device.programs.map(entry => {
+      const item = entry.sourceItem ?? {};
+      const skill = programSkill(actor, host.id, entry.uid);
+      const grants = item.system?.grantsSkill;
+      const passive = passiveBonusText(item);
+      let costTag = "";
+      if (grants?.name) {
+        const cost = programCost({ skillCost: skill ? effectiveSkillCost(skill.system.cost, skill.system) : Number(grants.cost) || 0, costPerUse: item.system?.program?.costPerUse });
+        costTag = programCostTag({ cost, infinite: device.infinite });
+      }
+      return {
+        uid: entry.uid,
+        name: item.name || "Programa",
+        img: item.img || "",
+        slots: Math.max(1, Number(item.system?.program?.slotsUsed) || 1),
+        costTag,
+        passiveTag: passive,
+        grantsName: grants?.name ?? ""
+      };
+    });
+    const recharge = rechargeOptions(device, { cells, inCombat });
+    return {
+      ref: host.id,
+      name: host.name,
+      where: host.isMod ? host.where : `${host.system.weapon?.enabled ? "arma" : "equipado"}${host.system.weapon?.enabled ? " · equipada" : ""}`,
+      technomagic: device.nature === "technomagic",
+      stateTag: works ? "" : block.includes("PEM") ? "suprimida" : STATE_TEXT[device.state] ?? "",
+      blocked: block,
+      damaged: device.state === "damaged",
+      off: device.state === "off",
+      infinite: device.infinite,
+      reserveText: device.infinite ? "infinita" : `${reserve.current}/${reserve.max}`,
+      pips: pips.pips.map(on => ({ on })),
+      programs,
+      freeSlots: layout.freeSlots,
+      slotsFree: layout.free,
+      slotsTotal: layout.total,
+      rechargeOptions: recharge.options,
+      rechargeReason: recharge.reason,
+      canRecharge: canEdit && recharge.options.length > 0,
+      canEdit,
+      canShort: isGM,
+      canRepair: canRepairHere && (device.state !== "normal"),
+      energyLabel
+    };
+  });
+  return { rows, cells };
+}
+
+/**
+ * As etiquetas das Habilidades de programa na aba Skills: `{skillId: {text, tone, disabled, reason}}`. Só as Skills
+ * cuja chave `device:` aponta para uma placa viva.
+ */
+export function deviceSkillTagsFor(actor) {
+  const out = {};
+  if (!isDevicesEnabled() || !actor) return out;
+  const energyLabel = getEnergyLabelForActor(actor);
+  for (const skill of actor.items ?? []) {
+    if (skill.type !== "skill") continue;
+    const found = deviceSkillHost(actor, skill, SYSTEM_ID);
+    if (!found) continue;
+    const device = liveDevice(found.host);
+    if (!device) continue;
+    const cost = programCost({ skillCost: effectiveSkillCost(skill.system.cost, skill.system), costPerUse: found.entry?.sourceItem?.system?.program?.costPerUse });
+    out[skill.id] = skillDeviceStatus({ device, cost, hostName: found.host.name, energyLabel, suppressed: sourceSuppressed(actor, found.host) });
+  }
+  return out;
+}
+
+/** Para a frase da Skill: `{name, cost, infinite}` da placa de uma Skill de programa, ou null. */
+export function deviceSentenceContext(actor, skill) {
+  if (!isDevicesEnabled()) return null;
+  const found = deviceSkillHost(actor, skill, SYSTEM_ID);
+  const device = found ? liveDevice(found.host) : null;
+  if (!device) return null;
+  return {
+    name: found.host.name,
+    infinite: device.infinite,
+    cost: programCost({ skillCost: effectiveSkillCost(skill.system.cost, skill.system), costPerUse: found.entry?.sourceItem?.system?.program?.costPerUse })
+  };
+}
+
+/** "Recarregar ▾": o menu com só as opções que valem. Devolve true se recarregou. */
+export async function openRechargeMenu(actor, hostRef) {
+  const host = findDeviceHost(actor, hostRef);
+  if (!host || !actor?.isOwner) return false;
+  const { options, reason } = rechargeOptions(host.system.device, { cells: energyCellCount(actor), inCombat: actorInStartedCombat(actor) });
+  if (!options.length) {
+    ui.notifications.warn(`Não dá para recarregar ${host.name}: ${reason}.`);
+    return false;
+  }
+  const choice = await foundry.applications.api.DialogV2.wait({
+    window: { title: `Recarregar — ${host.name}` },
+    content: `<div class="nihility-device-approve"><p>Como recarregar <strong>${escapeHtml(host.name)}</strong>?</p></div>`,
+    buttons: [
+      ...options.map(o => ({ action: o.id, label: o.label, callback: () => o.id })),
+      { action: "cancel", label: "Cancelar", callback: () => null }
+    ],
+    rejectClose: false
+  });
+  if (choice === "cell") return rechargeWithCell(actor, host.id);
+  if (choice === "action") return rechargeByAction(actor, host.id);
+  return false;
+}
+
+/**
+ * "Consertar…" na ficha: o Mestre conserta direto; quem tem Engenharia (esta ficha ou o personagem do jogador) pede
+ * pelo relay, que confere tudo e pede o aval do Mestre se a placa for de outra pessoa.
+ */
+export async function repairFromSheet(actor, hostRef) {
+  if (game.user.isGM) return repairDevice(actor, hostRef, { engineer: null, skill: null });
+  const engineer = actorCanRepair(actor) && actor.isOwner ? actor : game.user.character;
+  if (!engineer) {
+    ui.notifications.warn("Nenhum personagem com Engenharia para consertar.");
+    return false;
+  }
+  const result = await requestDeviceRepair(engineer, actor, hostRef);
+  if (!result?.ok) ui.notifications.warn(`Conserto recusado${result?.reason ? `: ${result.reason}` : ""}.`);
+  return Boolean(result?.ok);
+}
+
+/* ------------------------------------------------------------------ manutenção de Skill Ativa de programa */
+
+/**
+ * Para a manutenção por rodada (`skills/upkeep.js`): a placa que paga a Skill Ativa `skill`, ou null (não é de
+ * programa → paga a energia como sempre). `{host, blocked, device}`: `blocked` = por que a placa não funciona agora ("" se funciona).
+ */
+export function deviceUpkeepHost(actor, skill) {
+  if (!isDevicesEnabled()) return null;
+  const found = deviceSkillHost(actor, skill, SYSTEM_ID);
+  const device = found ? liveDevice(found.host) : null;
+  if (!device) return null;
+  return { host: found.host, device, blocked: deviceBlockedReason(actor, found.host) };
+}
+
+/** Grava a Reserva que a manutenção gastou (um texto "−N Reserva" sobe do Token). */
+export async function commitUpkeepReserve(host, reserveAfter, spent) {
+  if (!host || spent <= 0) return;
+  await host.update({ "system.device.reserve": reserveAfter }, floatOptions(`−${spent} Reserva`));
+}
 
 /* ------------------------------------------------------------------ ganchos */
 
@@ -457,8 +737,57 @@ async function clearExpiredOff(actors) {
   }
 }
 
+/* ------------------------------------------------------------------ arrastar programa (destaque) */
+
+let draggedProgram = null;
+
+/** Guarda o programa que está sendo arrastado (de qualquer janela) para a ficha destacar onde ele cabe. */
+function registerProgramDragTracking() {
+  document.addEventListener("dragstart", event => {
+    draggedProgram = null;
+    try {
+      const data = JSON.parse(event.dataTransfer?.getData("text/plain") || "null");
+      if (data?.type !== "Item" || !data.uuid) return;
+      const item = fromUuidSync(data.uuid);
+      const program = item?.system?.program;
+      if (program?.enabled) draggedProgram = { name: item.name, program: foundry.utils.deepClone(program) };
+    } catch (err) {
+      draggedProgram = null;
+    }
+  });
+  document.addEventListener("dragend", () => {
+    draggedProgram = null;
+  });
+}
+
+/** O programa arrastado agora (`{name, program}`) ou null. */
+export function currentDraggedProgram() {
+  return draggedProgram;
+}
+
+/**
+ * O programa arrastado cabe nesta placa? `{ok, reason}` com o motivo em pt-BR (o mesmo de `programFits`);
+ * sem programa na mão, `null`.
+ */
+export function dragFitFor(actor, hostRef) {
+  const dragged = currentDraggedProgram();
+  if (!dragged) return null;
+  const host = findDeviceHost(actor, hostRef);
+  if (!host) return { ok: false, reason: "a placa não está mais aí" };
+  const device = host.system.device;
+  const installed = (device.programs ?? []).map(p => p.sourceItem?.system?.program).filter(Boolean);
+  return programFits(device, installed, dragged.program, { hostIsWeapon: Boolean(host.system.weapon?.enabled) });
+}
+
 export function registerDevices() {
+  registerProgramDragTracking();
   Hooks.on("renderChatMessageHTML", (message, html) => renderDeviceShortControls(message, html));
+  // O texto sobre o Token ("−2 Reserva", "PEM: −50% Reserva") viaja nas opções do `update`: todo cliente que vê o Token o mostra.
+  Hooks.on("updateItem", (item, _changes, options) => {
+    const float = options?.nihilityFloat;
+    if (!float?.text || !item.parent) return;
+    floatTextOnActor(item.parent, float.text, { fill: float.fill, fontSize: 28 });
+  });
   // O combate acabou: as placas que desligaram nele voltam (a leitura já conta como normal; isto limpa o dado).
   Hooks.on("deleteCombat", combat => {
     if (!isDevicesEnabled() || !isDesignatedGm()) return;

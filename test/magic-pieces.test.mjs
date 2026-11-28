@@ -264,3 +264,11 @@ test("Purificar diminui o Irradiado pelo nível da Skill e cura quando sobra pou
   assert.equal(purifyRadiationText(purifyRadiation(6, 4, 2)), "Irradiado curado");
   assert.equal(purifyRadiationText(purifyRadiation(0, 4, 2)), "");
 });
+
+test("Purificar nunca tira Marca nem Condição que incapacita (sessão 9)", async () => {
+  const { isPurifyProtectedCondition } = await import("../module/skills/purify-rules.js");
+  assert.equal(isPurifyProtectedCondition({ id: "duel-mark", isMark: true }), true);
+  assert.equal(isPurifyProtectedCondition({ id: "fallen", incapacitates: true }), true);
+  assert.equal(isPurifyProtectedCondition({ id: "poison" }), false);
+  assert.equal(isPurifyProtectedCondition(undefined), false);
+});

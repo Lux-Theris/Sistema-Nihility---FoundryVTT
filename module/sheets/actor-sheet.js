@@ -87,6 +87,7 @@ import { EffectsListApp } from "../apps/effects-list.js";
 import { enableHotbarDrag, enableUnarmedHotbarDrag } from "../core/hotbar.js";
 import { skillSummariesFor } from "../skills/skill-summary-ui.js";
 import { skillTimersFor } from "../skills/preparation.js";
+import { devicePanelContext, deviceSkillTagsFor, installProgram, uninstallProgram, openRechargeMenu, repairFromSheet, dragFitFor, shortCircuit } from "../economy/devices.js";
 import { actorTimeFactor, reserveOf } from "../combat/time-rate.js";
 import { isTimeFactorActive, timeStateLabel } from "../combat/time-rate-rules.js";
 import { useConsumable, reloadWeapon, weaponCanFire } from "../economy/consumables.js";
@@ -264,6 +265,10 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       createPact: NihilityActorSheet.#onCreatePact,
       openNamingBank: NihilityActorSheet.#onOpenNamingBank,
       uninstallImplant: NihilityActorSheet.#onUninstallImplant,
+      deviceUninstall: NihilityActorSheet.#onDeviceUninstall,
+      deviceRecharge: NihilityActorSheet.#onDeviceRecharge,
+      deviceShort: NihilityActorSheet.#onDeviceShort,
+      deviceRepair: NihilityActorSheet.#onDeviceRepair,
       toggleBodyPartLost: NihilityActorSheet.#onToggleBodyPartLost,
       heritageRemove: NihilityActorSheet.#onHeritageRemove,
       splitStack: NihilityActorSheet.#onSplitStack,
@@ -347,7 +352,47 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
         return doc;
       }
     }
+    // Programa solto sobre uma placa (aba Inventário): instala em vez de ir para o inventário.
+    const deviceEl = event?.target?.closest?.("[data-device-ref]");
+    if (deviceEl && this.actor.isOwner) {
+      const doc = item instanceof foundry.abstract.Document ? item : await Item.implementation.fromDropData(item);
+      if (doc?.type === "item" && doc.system?.program?.enabled) {
+        deviceEl.classList.remove("drop-ok", "drop-no");
+        await installProgram(this.actor, deviceEl.dataset.deviceRef, doc);
+        return doc;
+      }
+    }
     return handleItemDrop(this, event, item, () => super._onDropItem(event, item));
+  }
+
+  /** "Tirar" de um programa instalado numa placa: o Item volta ao inventário e a Habilidade dele sai. */
+  static async #onDeviceUninstall(event, target) {
+    event.preventDefault();
+    if (!this.actor.isOwner) return;
+    const ref = target.closest("[data-device-ref]")?.dataset.deviceRef;
+    if (ref) await uninstallProgram(this.actor, ref, target.dataset.uid);
+  }
+
+  /** "Recarregar ▾": o menu com as opções que a placa permite agora. */
+  static async #onDeviceRecharge(event, target) {
+    event.preventDefault();
+    const ref = target.closest("[data-device-ref]")?.dataset.deviceRef;
+    if (ref) await openRechargeMenu(this.actor, ref);
+  }
+
+  /** "Curto" (só o Mestre): rola um curto-circuito na placa. */
+  static async #onDeviceShort(event, target) {
+    event.preventDefault();
+    if (!game.user.isGM) return;
+    const ref = target.closest("[data-device-ref]")?.dataset.deviceRef;
+    if (ref) await shortCircuit(this.actor, ref);
+  }
+
+  /** "Consertar…": o Mestre conserta direto; quem tem Engenharia pede pelo relay. */
+  static async #onDeviceRepair(event, target) {
+    event.preventDefault();
+    const ref = target.closest("[data-device-ref]")?.dataset.deviceRef;
+    if (ref) await repairFromSheet(this.actor, ref);
   }
 
   /** "Trocar com…": o menu dos outros jogadores perto (economy/player-trade.js). */
@@ -850,6 +895,11 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     context.skillSummaries = skillSummariesFor(actor);
     // Recarga e Preparo (H3): a Skill bloqueada mostra o motivo e o botão Usar fica desligado.
     context.skillTimers = skillTimersFor(actor);
+    // Habilidade de programa (Lote 9): a etiqueta "2 de Reserva · Cyberdeck" e, sem Reserva ou com a placa parada, o Usar desligado.
+    const deviceTags = deviceSkillTagsFor(actor);
+    context.deviceTagText = Object.fromEntries(Object.entries(deviceTags).map(([id, t]) => [id, t.text]));
+    context.deviceTagTone = Object.fromEntries(Object.entries(deviceTags).map(([id, t]) => [id, t.tone]));
+    context.deviceBlocks = Object.fromEntries(Object.entries(deviceTags).filter(([, t]) => t.disabled).map(([id, t]) => [id, t.reason]));
     // Maestria de arma (H6): a Skill é passiva (sem Usar). E o ataque desarmado, sempre à mão (Personagem).
     context.masterySkills = Object.fromEntries(actorMasteries(actor).map(m => [m.skill.id, true]));
     // Ocultação (7b): passiva como a Maestria, não se usa.
@@ -878,6 +928,8 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
     if (context.inventoryEnabled) context.inventory = inventoryContext(this.actor, { filter: this.inventoryFilter, sort: this.inventorySort });
     // Conjuntos (J12): "Armadura do Dragão 3/4" com as faixas ligadas e a próxima esmaecida.
     context.setStrips = context.inventoryEnabled ? setStripsFor(this.actor) : [];
+    // Placas e programas (Lote 9): o bloco "Placas" com Reserva, encaixes e botões.
+    context.devicePanel = context.inventoryEnabled ? devicePanelContext(this.actor) : null;
   }
 
   /** Aba Anatomia (board 5): Funções, implantes e o que as partes perdidas estão causando. */
@@ -1094,6 +1146,9 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
 
   _onRender(context, options) {
     super._onRender(context, options);
+    // Ficha só leitura (Observador): o núcleo desliga todo botão do formulário, mas "Consertar…" é justamente
+    // para quem não é dono (o pedido vai ao Mestre pelo relay; `canRepair` já decidiu se o botão aparece).
+    if (!this.isEditable) for (const b of this.element.querySelectorAll('[data-action="deviceRepair"]')) b.disabled = false;
     markVisibleEditorParts(this.element);
     // Partes de abas que deixaram de existir (Anatomia/Inventário escondidos) continuam no DOM: o núcleo não as remove.
     for (const part of this.element.querySelectorAll("[data-application-part]")) {
@@ -1124,6 +1179,19 @@ export class NihilityActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)
       this.element.querySelector(".lineage-select")?.addEventListener("change", this._onLineageChange.bind(this));
     }
     if (rendered("origin")) this._onRenderOriginGrid();
+    // Arrastando um programa: verde na placa onde cabe, vermelho onde não cabe (o motivo aparece na linha).
+    if (rendered("inventory")) this.element.querySelectorAll("[data-device-ref]").forEach(row => {
+      row.addEventListener("dragenter", () => {
+        const fit = dragFitFor(this.actor, row.dataset.deviceRef);
+        if (!fit) return;
+        row.classList.toggle("drop-ok", fit.ok);
+        row.classList.toggle("drop-no", !fit.ok);
+        row.dataset.dropHint = fit.ok ? "soltar: instala" : `não cabe: ${fit.reason}`;
+      });
+      row.addEventListener("dragleave", event => {
+        if (!row.contains(event.relatedTarget)) row.classList.remove("drop-ok", "drop-no");
+      });
+    });
     // Arrastando um implante: verde onde cabe, vermelho onde não cabe (o motivo aparece na linha).
     if (rendered("anatomy")) this.element.querySelectorAll("[data-part-id]").forEach(row => {
       row.addEventListener("dragenter", () => {

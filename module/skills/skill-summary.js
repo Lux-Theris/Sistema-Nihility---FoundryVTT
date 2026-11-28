@@ -225,12 +225,17 @@ export function skillSummaryParts(mech, ctx = {}) {
   if (mech.coreSkill === "concealment") parts.push("dificulta a Análise");
 
   const cost = Number(ctx.cost ?? mech.cost) || 0;
-  if (mech.variableMana) parts.push(`${energy} variável${cost ? ` (base ${cost})` : ""}`);
+  // Habilidade de programa (Lote 9): o Custo sai da Reserva da placa (`ctx.reserve` = {name, cost, infinite}).
+  const reserve = ctx.reserve ?? null;
+  if (reserve) {
+    if (reserve.infinite) parts.push(`usa a Reserva infinita de ${reserve.name}`);
+    else if (Number(reserve.cost) > 0) parts.push(`custa ${Number(reserve.cost)} de Reserva do ${reserve.name}`);
+  } else if (mech.variableMana) parts.push(`${energy} variável${cost ? ` (base ${cost})` : ""}`);
   else if (cost) parts.push(`${cost} ${energy}`);
 
   if (mech.hasUpkeep) {
     const upkeep = Number(ctx.upkeep ?? mech.upkeepCost) || 0;
-    parts.push(upkeep ? `Ativa: −${upkeep}/rodada` : "Ativa");
+    parts.push(upkeep ? `Ativa: −${upkeep}${reserve ? " de Reserva" : ""}/rodada` : "Ativa");
   }
   // Recarga e Preparo (H3): só aparecem quando a Skill os tem.
   const cooldown = Math.floor(Number(mech.cooldown)) || 0;

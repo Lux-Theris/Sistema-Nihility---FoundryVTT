@@ -261,10 +261,140 @@ export function deviceSourceKey(hostItemId, uid) {
   return `device:${hostItemId}:${uid}`;
 }
 
-/** Lê a chave de volta: `{hostItemId, uid}` ou null (não é de placa). */
+/** Lê a chave de volta: `{hostItemId, hostRef, uid}` ou null (não é de placa). `hostRef` é o endereço da placa (ver `parseHostRef`). */
 export function parseDeviceSourceKey(key) {
   const match = /^device:([^:]+):(.+)$/.exec(String(key ?? ""));
-  return match ? { hostItemId: match[1], uid: match[2] } : null;
+  return match ? { hostItemId: match[1], hostRef: match[1], uid: match[2] } : null;
+}
+
+/* ------------------------------------------------------------------ endereço da placa (hospedeiro) */
+
+/** Separador do endereço de uma placa que mora num implante instalado (`<id da parte>~<uid do implante>`); o id de um Item nunca o tem. */
+export const HOST_REF_SEP = "~";
+
+/** O endereço de uma placa dentro da modificação `uid` da Parte do Corpo `partId`. */
+export function modHostRef(partId, uid) {
+  return `${partId}${HOST_REF_SEP}${uid}`;
+}
+
+/** O uid de uma modificação de Parte: o gravado ao instalar, ou `idxN` (peça antiga, sem uid; só vale enquanto a ordem da lista não muda). */
+export function modUidOf(mod, index) {
+  return String(mod?.uid || `idx${index}`);
+}
+
+/** Onde a modificação `uid` está na lista (-1 se saiu). */
+export function findModIndex(mods, uid) {
+  return (mods ?? []).findIndex((m, i) => modUidOf(m, i) === uid);
+}
+
+/**
+ * Lê o endereço de uma placa: `{kind:"item", itemId}` (Item do Ator) ou `{kind:"mod", partId, modUid}` (placa
+ * dentro de um implante/prótese instalado numa Parte do Corpo). Vazio → null.
+ */
+export function parseHostRef(ref) {
+  const text = String(ref ?? "");
+  if (!text) return null;
+  const at = text.indexOf(HOST_REF_SEP);
+  if (at > 0 && at < text.length - 1) return { kind: "mod", partId: text.slice(0, at), modUid: text.slice(at + 1) };
+  return { kind: "item", itemId: text };
+}
+
+/* ------------------------------------------------------------------ o que a ficha mostra */
+
+/** Pastilhas da Reserva (a barra de 10): `{on, total, pips:[bool]}`. Nunca zera enquanto houver Reserva; só enche com a Reserva cheia. */
+export function reservePips(device, total = 10) {
+  const state = reserveState(device);
+  const count = Math.max(1, Math.min(Math.floor(Number(total) || 10), state.max || 1));
+  let on = state.max > 0 ? Math.round((state.current / state.max) * count) : 0;
+  if (state.current > 0 && on === 0) on = 1;
+  if (state.current < state.max && on === count) on = count - 1;
+  return { on, total: count, pips: Array.from({ length: count }, (_, i) => i < on) };
+}
+
+/**
+ * As linhas dos encaixes de uma placa: cada programa instalado (com os encaixes que ocupa) e os encaixes livres.
+ * @param {{uid:string, sourceItem?:object}[]} entries - `device.programs`
+ */
+export function slotLayout(device, entries = []) {
+  const d = normalizeDevice(device);
+  const programs = (entries ?? []).map(entry => ({
+    uid: entry?.uid ?? "",
+    name: entry?.sourceItem?.name || "Programa",
+    slots: programSlots(entry?.sourceItem?.system?.program)
+  }));
+  const used = programs.reduce((sum, p) => sum + p.slots, 0);
+  const free = Math.max(0, d.slots - used);
+  return { programs, used, free, total: d.slots, freeSlots: Array.from({ length: free }, (_, i) => i), overfull: used > d.slots };
+}
+
+/**
+ * As opções do menu "Recarregar ▾": só as que a placa permite e que valem agora. Sem nenhuma, `reason` diz por quê.
+ * @returns {{options:{id:"cell"|"action", label:string}[], reason:string}}
+ */
+export function rechargeOptions(device, { cells = 0, inCombat = false } = {}) {
+  const d = normalizeDevice(device);
+  const options = [];
+  if (!d.enabled) return { options, reason: "não é uma placa" };
+  if (d.infinite) return { options, reason: "a Reserva é infinita" };
+  if (d.reserve >= d.reserveMax) return { options, reason: "a Reserva já está cheia" };
+  if (d.rechargeCell && natural(cells) > 0) options.push({ id: "cell", label: `Usar Célula de energia (${natural(cells)} no inventário)` });
+  if (d.rechargeAction && !inCombat) options.push({ id: "action", label: `Fora de combate, uma ação (+${d.actionAmount})` });
+  if (!options.length) {
+    const hints = [];
+    if (d.rechargeCell) hints.push("sem Célula de energia no inventário");
+    if (d.rechargeAction && inCombat) hints.push("a recarga por ação é só fora de combate");
+    if (!d.rechargeCell && !d.rechargeAction) hints.push("só o Descanso recarrega esta placa");
+    return { options, reason: hints.join("; ") };
+  }
+  return { options, reason: "" };
+}
+
+/** O que o programa custa, em texto de etiqueta: "2 de Reserva", ou "sem custo" (Reserva infinita ou Custo 0). */
+export function programCostTag({ cost = 0, infinite = false } = {}) {
+  if (infinite || natural(cost) <= 0) return "sem custo";
+  return `${natural(cost)} de Reserva`;
+}
+
+/**
+ * A etiqueta de uma Habilidade de programa na aba Skills (e se o Usar fica desligado).
+ * `device` = o `system.device` da placa (já com o estado vivo) e `suppressed` = o PEM sobre quem a leva.
+ * @returns {{text:string, tone:"ok"|"warn"|"bad", disabled:boolean, reason:string}}
+ */
+export function skillDeviceStatus({ device, cost = 0, hostName = "", energyLabel = "Mana", suppressed = false } = {}) {
+  const d = normalizeDevice(device);
+  const host = hostName ? ` · ${hostName}` : "";
+  if (suppressed) return { text: `placa suprimida (PEM)${host}`, tone: "bad", disabled: true, reason: "a tecnologia está suprimida (PEM)" };
+  if (d.state === "off") return { text: `placa desligada${host}`, tone: "bad", disabled: true, reason: "a placa está desligada (curto-circuito leve)" };
+  if (d.state === "damaged") return { text: `placa danificada${host}`, tone: "bad", disabled: true, reason: "a placa está danificada" };
+  const pay = payProgramCost({ cost, reserve: d.reserve, nature: d.nature, infinite: d.infinite });
+  if (!pay.ok) return { text: `sem Reserva (${natural(cost)})${host}`, tone: "bad", disabled: true, reason: `${hostName || "a placa"} está sem Reserva (precisa de ${natural(cost)}, tem ${d.reserve})` };
+  if (pay.reason === "mana") return { text: `sem Reserva → ${pay.manaCost} ${energyLabel}${host}`, tone: "warn", disabled: false, reason: "" };
+  return { text: `${programCostTag({ cost, infinite: d.infinite })}${host}`, tone: "ok", disabled: false, reason: "" };
+}
+
+/**
+ * Um turno de manutenção (Habilidade Ativa de programa) pago pela Reserva da placa. Tecnológica sem Reserva
+ * desliga a Skill (como Mana em 0); tecnomágica gasta o que resta e paga a diferença em energia, e desliga se
+ * a energia também não cobre.
+ * @returns {{reserve:number, energy:number, dropped:boolean, spentReserve:number, spentEnergy:number}}
+ */
+export function upkeepDeviceStep({ cost = 0, reserve = 0, nature = "tech", infinite = false, energy = 0 } = {}) {
+  const have = natural(reserve);
+  const pool = natural(energy);
+  const pay = payProgramCost({ cost, reserve: have, nature, infinite });
+  if (!pay.ok) return { reserve: have, energy: pool, dropped: true, spentReserve: 0, spentEnergy: 0 };
+  if (pay.manaCost > pool) return { reserve: 0, energy: 0, dropped: true, spentReserve: have, spentEnergy: pool };
+  return { reserve: pay.reserveAfter, energy: pool - pay.manaCost, dropped: false, spentReserve: have - pay.reserveAfter, spentEnergy: pay.manaCost };
+}
+
+/** "Reserva volta: Cyberdeck 6/6 · Rifle 4/4" para o Descanso; vazio se nenhuma placa recarrega. `hosts` = `[{name, device}]`. */
+export function restReserveLine(hosts = []) {
+  const parts = [];
+  for (const host of hosts ?? []) {
+    const d = normalizeDevice(host?.device);
+    if (restRecharge(d).changed) parts.push(`${host.name} ${d.reserveMax}/${d.reserveMax}`);
+  }
+  return parts.length ? `Reserva volta: ${parts.join(" · ")}` : "";
 }
 
 /** Quem pode consertar: tem Skill com Engenharia. `skills` = o `system` de cada Skill do Ator. */

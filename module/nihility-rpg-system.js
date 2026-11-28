@@ -579,6 +579,11 @@ Hooks.on("updateItem", (item, changes) => {
 // Limpa a Habilidade Concedida (ver skill-economy.js) quando o Item Geral ou Módulo de
 // Nave que a concedeu é excluído — evita skill "órfã" sobrando na ficha.
 Hooks.on("preDeleteItem", item => {
+  // Parte do Corpo apagada: as placas dos implantes que tinha levam as Habilidades dos programas junto.
+  if (item.type === "body_part" && item.parent) {
+    removeDeviceGrants(item);
+    return;
+  }
   if (!["item", "starship_module"].includes(item.type)) return;
   if (!item.parent) return;
   removeGrantedSkill(item.parent, item.id);

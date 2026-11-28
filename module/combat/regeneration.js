@@ -200,6 +200,10 @@ export async function openRestDialog(actor) {
       </span>
     </label>`;
   const capNote = preview.long.cap < 1 ? `<p class="nihility-rest-note">Partes a 0% seguram a Vida em <b>${Math.round(preview.long.cap * 100)}%</b>: elas só voltam com Cura, Regeneração ou Reparo.</p>` : "";
+  // Placas (Lote 9): o Descanso, curto ou completo, enche a Reserva.
+  const { restReserveLineFor } = await import("../economy/devices.js");
+  const reserveLine = restReserveLineFor(actor);
+  const reserveNote = reserveLine ? `<p class="nihility-rest-note"><i class="fa-solid fa-microchip"></i> ${escapeHtml(reserveLine)}</p>` : "";
   const kind = await foundry.applications.api.DialogV2.wait({
     window: { title: `Descansar — ${actor.name}` },
     classes: ["nihility-rest-dialog"],
@@ -208,7 +212,7 @@ export async function openRestDialog(actor) {
         ${card("short", "Descanso Curto", "Uma pausa: recupera parte da Vida e da energia.", preview.short, true)}
         ${card("long", "Descanso Completo", "Uma noite: Vida e energia ao máximo.", preview.long, false)}
       </div>
-      ${capNote}
+      ${capNote}${reserveNote}
     </div>`,
     render: (event, dialog) => {
       const root = dialog.element ?? event?.target?.element;

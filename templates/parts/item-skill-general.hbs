@@ -80,6 +80,9 @@
         <div class="fld span-all">
           <label class="toggle"><input type="checkbox" name="system.variableMana" {{#if system.variableMana}}checked{{/if}}/><span class="toggle-track"></span><span>Aceita variar a {{energyLabel}}</span><span class="help" title="Ao usar, escolhe quanta {{energyLabel}} investir. Menos que o Custo enfraquece na mesma proporção; mais fortalece sem teto, mas cada {{energyLabel}} a mais rende menos que a anterior (curva e mínimo em Regras da Mesa). Numa Habilidade Ativa, o custo por rodada acompanha o investimento.">?</span></label>
         </div>
+        <div class="fld span-all">
+          <label class="toggle"><input type="checkbox" name="system.engineering" {{#if system.engineering}}checked{{/if}}/><span class="toggle-track"></span><span>Engenharia (Consertar placas)</span><span class="help" title="Quem tem esta Habilidade pode consertar uma placa danificada (curto-circuito grave). Consertar a placa de outra pessoa pede o aval do Mestre.">?</span></label>
+        </div>
         <div class="fld"><span class="fld-label">Natureza <span class="help" title="Mágico: a Antimagia o alcança (e quem usa paga {{energyLabel}} extra ao atravessar um campo antimagia). Tecnológico: o PEM o alcança. As duas = tecnomágico (sofre as duas, mas sai mais forte); nenhuma = analógico, imune aos dois. Sem mexer, vale o automático: mágico quando custa {{energyLabel}} ou tem Dano Mágico.">?</span></span>
           <label class="toggle"><input type="checkbox" name="system.isMagic" {{#if natureMagic}}checked{{/if}}/><span class="toggle-track"></span><span>Mágico</span></label>
           <label class="toggle"><input type="checkbox" name="system.isTech" {{#if natureTech}}checked{{/if}}/><span class="toggle-track"></span><span>Tecnológico</span></label>

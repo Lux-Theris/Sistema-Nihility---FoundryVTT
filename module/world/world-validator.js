@@ -19,6 +19,7 @@ import { weaponTypeCatalogIssues } from "../combat/weapon-mastery-rules.js";
 import { shopSetupIssues, normalizeItemShop } from "../economy/shop-rules.js";
 import { moduleSensorIssues, shipSensorIssues } from "../starship/sensor-rules.js";
 import { itemSetIssues, itemSetRefIssues } from "../economy/item-set-rules.js";
+import { deviceProgramIssues } from "../economy/device-rules.js";
 
 const ids = list => new Set((list ?? []).map(entry => (typeof entry === "string" ? entry : entry?.id ?? entry?.key)).filter(Boolean));
 
@@ -245,6 +246,9 @@ export function validateItem(item, idx) {
         checkRef(issues, idx, "Arma › Atributo de escala", "attributes", s.weapon.scalingAttribute);
         checkRef(issues, idx, "Arma › Escala do dano", "scales", s.weapon.damageScale);
         checkRef(issues, idx, "Arma › Tipo de arma", "weaponTypes", s.weapon.weaponType);
+      }
+      if (s.device?.enabled) {
+        for (const message of deviceProgramIssues(s.device, { hostIsWeapon: Boolean(s.weapon?.enabled) })) issues.push({ where: "Placa", catalog: "items", ref: "", message });
       }
       if (s.implant?.enabled && idx.bodyFunctions?.size) checkRefs(issues, idx, "Implante › Funções", "bodyFunctions", s.implant.functions);
       if (s.ammo?.enabled) {

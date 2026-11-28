@@ -50,6 +50,7 @@ This file holds only what applies to every change. Each subsystem is documented 
 | [dano.md](docs/claude/dano.md) | Damage by element, hierarchy, affinity table, Dano Absoluto, Escala, Traços, "Quando → Então", XP/level/damage-scaling curves, XP por uso, Shift+click roll modifiers |
 | [estruturas.md](docs/claude/estruturas.md) | Estruturas (walls, render, blocking attacks, lights), material and regeneration, magic/tech nature, PEM, Antimagia fields, Manipulação, adaptive shield |
 | [inventario.md](docs/claude/inventario.md) | Inventory, cargo, ammo, consumables, charges, weapon magazine |
+| [placas.md](docs/claude/placas.md) | Placas, Reserva e programas (Lote 9): Item with `device`/`program`, install/uninstall, paying the Reserva instead of Mana, recharge (rest/cell/action), PEM drain and curto-circuito, repair (Engenharia), feature `devices` |
 | [conjuntos.md](docs/claude/conjuntos.md) | Conjuntos de Itens e Módulos (J12): catálogo, contagem de peças, faixas que somam, Habilidade concedida pela faixa, bônus de Nave, fábrica |
 | [lojas.md](docs/claude/lojas.md) | Lojas (G2): ficha-loja, preço base × multiplicador × sorteio, compra e venda, avaliação do Mestre, Desfazer, reposição pelo relógio, o que falta (lotes B e C) |
 | [gm-relay.md](docs/claude/gm-relay.md) | Writing in the GM's name (socket relay), `reply: true`, Skill effects on other people's Actors |

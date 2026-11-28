@@ -141,6 +141,9 @@ async function applyRest(actor, kind, outcome) {
   // Descanso zera a recarga das Habilidades (H3).
   const { clearCooldowns } = await import("../skills/preparation.js");
   await clearCooldowns(actor);
+  // Placas com "Descanso" (Lote 9): a Reserva volta ao máximo, no curto e no completo.
+  const { rechargeOnRest } = await import("../economy/devices.js");
+  await rechargeOnRest(actor);
   if (outcome.healedParts.length) {
     await actor.updateEmbeddedDocuments("Item", outcome.healedParts.map(h => partWrite(actor.items.get(h.id), h.value)).filter(u => u._id));
   }

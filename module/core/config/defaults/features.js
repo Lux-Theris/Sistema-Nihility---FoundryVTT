@@ -486,6 +486,17 @@ export const FEATURES = {
     hint: "O espelho tecnológico da Antimagia: a Skill PEM corta efeitos tecnológicos, desliga Skills Ativas tecnológicas e suprime itens, implantes e próteses Tecnológicos (e desliga Módulos de Nave); Campos e Selos de Interferência fazem o uso tecnológico pagar energia extra. Mágico e Tecnológico são caixas independentes (as duas = tecnomágico, nenhuma = analógico, imune aos dois). Desligar só esconde o alvo PEM e os campos; nada salvo é apagado.",
     default: false
   },
+  devices: {
+    setting: "devicesEnabled",
+    name: "Placas e programas",
+    hint: "Itens tecnológicos com encaixes e uma Reserva de energia própria (placas) que aceitam programas: o passivo dá os bônus enquanto a placa funciona; o ativo concede uma Habilidade que paga o Custo da Reserva, não da Mana (placa tecnomágica completa com Mana). Descanso, Célula de energia ou ação recarregam. O PEM drena a Reserva e pode dar curto-circuito (desliga ou danifica a placa). Desligar só esconde e para de contar; nada salvo é apagado.",
+    default: false,
+    options: {
+      curtoChanceOnEmp: { label: "Chance de curto-circuito por PEM (%)", hint: "Chance, por placa, de dar curto quando um PEM atinge o dono (a Reserva é drenada de qualquer jeito).", type: "number", default: 25, min: 0 },
+      shortLeveMax: { label: "Curto leve: até o d100 (1 a …)", hint: "A placa desliga até o fim do combate (3 rodadas fora de combate). Padrão: 1–60.", type: "number", default: 60, min: 0 },
+      shortGraveMax: { label: "Curto grave: até o d100", hint: "A placa fica danificada até ser consertada. Acima disto é desastre: danifica e, num implante ou prótese, dá dano Elétrico em quem veste. Padrão: 61–95; desastre 96–100.", type: "number", default: 95, min: 0 }
+    }
+  },
   scale: {
     setting: "scaleEnabled",
     name: "Escala (Personagem × Nave)",
@@ -531,7 +542,7 @@ export const CAMPAIGN_PRESETS = {
     features: {
       economy: true, shops: true, titles: true, anatomy: true, vessels: false, skillFusion: true,
       skillPoints: true, attributePool: true, resistances: true, statusConditions: true,
-      areaEffects: true, aiAssistant: true, pad: false, movement: true, shipManeuver: false, scale: false, structures: true, interference: false
+      areaEffects: true, aiAssistant: true, pad: false, movement: true, shipManeuver: false, scale: false, structures: true, interference: false, devices: false
     }
   },
   scifi: {
@@ -544,7 +555,7 @@ export const CAMPAIGN_PRESETS = {
     features: {
       economy: true, shops: true, titles: false, anatomy: true, vessels: true, skillFusion: false,
       skillPoints: true, attributePool: true, resistances: true, statusConditions: true,
-      areaEffects: true, aiAssistant: true, pad: true, movement: true, shipManeuver: true, scale: true, structures: true, interference: true
+      areaEffects: true, aiAssistant: true, pad: true, movement: true, shipManeuver: true, scale: true, structures: true, interference: true, devices: true
     }
   },
   misto: {
@@ -557,7 +568,7 @@ export const CAMPAIGN_PRESETS = {
     features: {
       economy: true, shops: true, titles: true, anatomy: true, vessels: true, skillFusion: true,
       skillPoints: true, attributePool: true, resistances: true, statusConditions: true,
-      areaEffects: true, aiAssistant: true, pad: true, movement: true, shipManeuver: true, scale: true, structures: true, interference: true
+      areaEffects: true, aiAssistant: true, pad: true, movement: true, shipManeuver: true, scale: true, structures: true, interference: true, devices: true
     }
   }
 };
@@ -591,6 +602,7 @@ const FEATURE_LAYOUT = {
   areaEffects: ["combat", "Skills em área: círculo, cone ou linha no mapa, e Zonas."],
   structures: ["combat", "Skills que erguem paredes e barreiras no mapa."],
   interference: ["combat", "PEM: a Antimagia da tecnologia (Skill, campo e selo)."],
+  devices: ["combat", "Placas com Reserva e encaixes: programas dão bônus ou Habilidades; PEM e curto-circuito."],
   movement: ["combat", "Limita quantos metros o Token anda no turno.", true],
   incapacitation: ["combat", "PJ em 0 cai e tem rodadas até a morte; NPC morre direto."],
   scale: ["combat", "Pessoa contra Nave: o dano cresce ou diminui pela Escala.", true],

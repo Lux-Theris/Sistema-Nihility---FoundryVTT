@@ -26,6 +26,7 @@ import { bodyFunctionState, injuredMovement, legacyFunctionsFor, resolvePartVita
 import { originAttributeRows, originStatRows, originMovement, originScale } from "../species/species-rules.js";
 import { sumConditionalModifiers, percentOfTotal } from "../combat/conditional-modifiers.js";
 import { sourceSuppressed, suppressionState } from "../core/suppression.js";
+import { workingPrograms } from "../economy/device-state.js";
 import { actorSetAttributeRows } from "../economy/item-set-state.js";
 import { totalLuck } from "../combat/luck-sources.js";
 import { pocketContainerOf } from "../combat/space-rules.js";
@@ -298,6 +299,8 @@ export function itemAttributeSources(actor, key) {
       for (const mod of item.system.installedMods ?? []) if (!sourceSuppressed(actor, item, mod, suppression)) add(mod.attributeBonuses, `${item.name} › ${mod.name || "Modificação"}`, item.uuid, "mod");
     }
   }
+  // Programas instalados em placas que funcionam (Lote 9): os bônus passivos do programa.
+  for (const program of workingPrograms(actor)) add(program.item.system.attributeBonuses, `${program.host.name} › ${program.item.name}`, program.host.uuid, "item");
   // Conjuntos (J12): o bônus de atributo da faixa é por fora, como o do Item equipado.
   list.push(...actorSetAttributeRows(actor, key));
   return list;
@@ -329,6 +332,7 @@ export function statModifierSources(actor, stat) {
       for (const mod of item.system.installedMods ?? []) if (!sourceSuppressed(actor, item, mod, suppression)) add(mod.statModifiers, `${item.name} › ${mod.name || "Modificação"}`, item.uuid, "mod");
     }
   }
+  for (const program of workingPrograms(actor)) add(program.item.system.statModifiers, `${program.host.name} › ${program.item.name}`, program.host.uuid, "item");
   return list;
 }
 

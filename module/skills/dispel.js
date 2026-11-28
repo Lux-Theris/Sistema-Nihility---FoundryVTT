@@ -194,6 +194,14 @@ async function applyDispel(target, kind, { level = 0, rounds = 0, reach: fixedRe
       xp.push({ flat: true });
     }
   }
+  // 6) Placas do alvo (Lote 9): a Reserva é drenada e pode dar curto-circuito.
+  if (kind === "tech" && target.type === "character") {
+    const { empHitDevices } = await import("../economy/devices.js");
+    const lines = await empHitDevices(target, { reach });
+    summary.push(...lines);
+    changed += lines.length;
+    for (let i = 0; i < lines.length; i++) xp.push({ flat: true });
+  }
   summary.changed = changed;
   return summary;
 }

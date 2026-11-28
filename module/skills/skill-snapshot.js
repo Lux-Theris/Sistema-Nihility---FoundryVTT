@@ -83,7 +83,7 @@ export function buildSubSkillsFromSources(sources) {
 
 /** Campos mecânicos copiados de uma Habilidade Concedida pra Skill criada na ficha. */
 const GRANTED_MECHANIC_FIELDS = [
-  "level", "cost", "hasUpkeep", "upkeepCost", "variableMana", "cooldown", "prepTurns", "magicTag", "isMagic", "isTech", "animationPath", "description", "resistanceTarget",
+  "level", "cost", "hasUpkeep", "upkeepCost", "variableMana", "cooldown", "prepTurns", "magicTag", "isMagic", "isTech", "engineering", "animationPath", "description", "resistanceTarget",
   "effectType", "damageFormula", "scalingAttribute", "isMagicDamage", "isAbsoluteDamage", "damageScale", "damageElements", "effects",
   "targetType", "structureId", "structureRegen", "structureRegenCost", "formActorUuid", "areaShape", "areaDistance", "areaAngle", "zoneRounds", "range", "areaOrigin", "areaFreeLevel", "areaAffects", "weaponStrike", "strikeRequiresWeapon", "onlyIf", "structurePlace", "areaPerLevel", "structureSize", "lifeSteal", "strikes", "chainChance", "chainRadius", "chainRepeat", "structureFollows", "zoneDarkens", "predationTakes", "endsWhenTargetFalls", "intruderRule", "rerollWho", "rerollKeep", "rerollKinds", "subSkills"
 ];

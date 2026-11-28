@@ -73,13 +73,20 @@ export function skillIsTech(sys = {}, actor = null) {
  * aparelho do PAD já são tecnológicos por padrão. Pura.
  */
 export function itemIsTech(sys = {}) {
+  // Placa (Lote 9): sempre tecnológica, mesmo com a caixa desmarcada à mão.
+  if (sys.device?.enabled) return true;
   if (typeof sys.tech === "boolean") return sys.tech;
   return Boolean(sys.implant?.enabled) || Boolean(sys.isPadDevice);
 }
 
+/** Item Geral é mágico? Caixa `magic`, ou placa tecnomágica (Lote 9). Pura. */
+export function itemIsMagic(sys = {}) {
+  return Boolean(sys.magic) || Boolean(sys.device?.enabled && sys.device.nature === "technomagic");
+}
+
 /** Natureza `{magic, tech}` de um Item Geral (para a Skill que ele concede herdar). */
 export function itemNature(sys = {}) {
-  return { magic: Boolean(sys.magic), tech: itemIsTech(sys) };
+  return { magic: itemIsMagic(sys), tech: itemIsTech(sys) };
 }
 
 /** Natureza `{magic, tech}` de uma Skill já criada (para efeitos e escudos que ela deixa). */

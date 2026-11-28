@@ -270,6 +270,7 @@ export async function evolveSkill(actor, sourceItemId, newSkillData) {
       magicTag: newSkillData.magicTag || "auto",
       isMagic: newSkillData.isMagic ?? null,
       isTech: newSkillData.isTech ?? null,
+      engineering: Boolean(newSkillData.engineering ?? source.system.engineering),
       upkeepCost: newSkillData.upkeepCost,
       animationPath: newSkillData.animationPath,
       description: newSkillData.description,

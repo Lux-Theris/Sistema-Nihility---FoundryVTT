@@ -80,6 +80,7 @@ import { registerTimeRate } from "./combat/time-rate.js";
 import { registerTimeRewind, renderTimeRewind } from "./combat/time-rewind.js";
 import { registerTimeStop } from "./combat/time-stop.js";
 import { registerTraps } from "./environment/traps.js";
+import { registerDevices, removeDeviceGrants } from "./economy/devices.js";
 import { registerTimeChamber } from "./core/time-chamber.js";
 import { registerSpace } from "./combat/space.js";
 import { registerWorldClock } from "./core/world-clock.js";
@@ -276,6 +277,8 @@ Hooks.once("init", () => {
   registerRadiation();
   // Armadilhas de Região (I1) e Relógio do mundo (J9).
   registerTraps();
+  // Placas e programas (Lote 9): card do curto-circuito, fim do "off" com o combate ou o relógio.
+  registerDevices();
   registerTimeChamber();
   registerSpace();
   // Superfícies (8.2): entrada por movimento, validade pelo relógio do mundo.
@@ -579,6 +582,8 @@ Hooks.on("preDeleteItem", item => {
   if (!["item", "starship_module"].includes(item.type)) return;
   if (!item.parent) return;
   removeGrantedSkill(item.parent, item.id);
+  // Placa apagada: as Habilidades dos programas dela saem junto.
+  removeDeviceGrants(item);
 });
 
 // Início de turno: ticks, Zonas, regeneração, manutenção etc. Só o Mestre DESIGNADO executa (com

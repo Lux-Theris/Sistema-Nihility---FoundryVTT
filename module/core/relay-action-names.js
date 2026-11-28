@@ -19,6 +19,7 @@ export const RELAY_ACTION_NAMES = Object.freeze([
   "createZone",
   "cutBorrowLink",
   "damageStructure",
+  "deviceRepair",
   "engageTractor",
   "ensureUploadFolder",
   "forcedMove",

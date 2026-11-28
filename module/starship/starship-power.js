@@ -3,6 +3,7 @@ import { splitTargetedStructural, hardenedChance } from "../combat/damage-rules.
 import { deleteKeyUpdate } from "../helpers/foundry-compat.js";
 import { mayActFor } from "../helpers/gm-relay.js";
 import { RELAY_REASONS, refuse } from "../helpers/gm-relay-rules.js";
+import { empDrainPercent } from "../economy/device-rules.js";
 
 /**
  * Reparte `amount` de dano entre Módulos, em pedaços de tamanho ALEATÓRIO e em ordem ALEATÓRIA —
@@ -210,7 +211,7 @@ export async function applyEmpToShip(ship, { reach = 0, rounds = 0 } = {}) {
     const line = await applyShipSystemEffect(ship, { type: "moduleDisable", chance: 100, rounds: duration }, { targetModuleId: module.id, label: "PEM" });
     if (line) lines.push(line);
   }
-  const percent = Math.min(75, Math.max(5, Math.round(Number(reach) || 0) * 5));
+  const percent = empDrainPercent(reach);
   const drain = await applyShipSystemEffect(ship, { type: "energyDrain", chance: 100, percent, rounds: duration }, { label: "PEM" });
   if (drain) lines.push(drain);
   return lines;

@@ -138,7 +138,7 @@ async function runSkillEffect(sourceActor, skillId, options = {}, timers = { rat
   if (paying.stop) return paying.value;
   Object.assign(ctx, paying);
 
-  for (const step of [startPreparationIfNeeded, checkRewindEnergy, payUseCost]) {
+  for (const step of [payDeviceReserve, startPreparationIfNeeded, checkRewindEnergy, payUseCost]) {
     const stop = await step(ctx);
     if (stop) return stop.value;
   }
@@ -383,6 +383,39 @@ async function resolveCostAndInvestment(ctx) {
   return { cost, paid, investRatio, overdraw, viaMark, markFactor, investConfig, preparing, prepByReserve };
 }
 
+/**
+ * Habilidade de um programa instalado numa placa (Lote 9): o Custo sai da Reserva da placa, não da Mana. Placa
+ * tecnomágica sem Reserva suficiente gasta o resto dela e paga a diferença em Mana (que segue o caminho normal);
+ * placa tecnológica sem Reserva, desligada, danificada ou suprimida bloqueia o uso. Roda antes do Preparo e do
+ * pagamento de energia; `ctx.paid` passa a ser só o que falta pagar em Mana. O Desfazer uso devolve a Reserva
+ * (o campo `system.device.reserve` entra na fotografia).
+ */
+async function payDeviceReserve(ctx) {
+  if (ctx.options.prepaid) return null;
+  const { planDevicePayment } = await import("../economy/devices.js");
+  const plan = planDevicePayment(ctx.sourceActor, ctx.skill, ctx.paid);
+  if (!plan) return null;
+  if (!plan.ok) return stopUse(null);
+  if (plan.manaCost > 0 && !ctx.overdraw && currentEnergyValue(ctx.sourceActor) < plan.manaCost) {
+    await warnInsufficientEnergy(ctx.sourceActor, ctx.label, plan.manaCost);
+    return stopUse(null);
+  }
+  // A Reserva só é gravada quando o uso passa pelos outros passos (Preparo, Reverter, Custo): se um deles
+  // parar o uso, nada foi gasto. `commitDevicePayment` sai em `payUseCost` ou no começo do Preparo.
+  ctx.devicePlan = plan;
+  ctx.paid = plan.manaCost;
+  return null;
+}
+
+/** Grava a Reserva da placa planejada em `payDeviceReserve` (uma vez só). */
+async function commitDeviceIfPlanned(ctx) {
+  if (!ctx.devicePlan) return;
+  const plan = ctx.devicePlan;
+  ctx.devicePlan = null;
+  const { commitDevicePayment } = await import("../economy/devices.js");
+  await commitDevicePayment(plan);
+}
+
 /** Preparo (H3): paga só a 1ª parte, guarda o uso e acaba (o disparo vem nos turnos seguintes). */
 async function startPreparationIfNeeded(ctx) {
   const { sourceActor, skill, mech, label, options, timers, paid, investRatio } = ctx;
@@ -399,6 +432,7 @@ async function startPreparationIfNeeded(ctx) {
     return stopUse(null);
   }
   if (firstDue > 0) await sourceActor.update({ [energyValuePath(sourceActor)]: current - firstDue });
+  await commitDeviceIfPlanned(ctx);
   if (prepGate.resisted) await creditManipulation(prepGate.skill);
   await startPreparation({ actor: sourceActor, skill, subSkillIndex: options.subSkillIndex ?? null, payments, investRatio, options: packUseOptions(options) });
   timers.skip = true;
@@ -435,6 +469,7 @@ async function payUseCost(ctx) {
     await sourceActor.update({ [energyValuePath(sourceActor)]: Math.max(0, current - paid - hold.extra) });
     timers.overdraw = overdraw;
   }
+  await commitDeviceIfPlanned(ctx);
   if (hold.resisted) {
     await creditManipulation(hold.skill);
     if (hold.extra > 0) await postAntimagicPaid(sourceActor, label, ` — Manipulação no campo: +${hold.extra} ${getEnergyLabelForActor(sourceActor)}`);

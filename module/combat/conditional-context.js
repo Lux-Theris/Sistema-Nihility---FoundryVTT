@@ -14,6 +14,7 @@ import { sumConditionalModifiers, ruleActiveStateAllows } from "./conditional-mo
 import { originConditionalSources } from "../species/species-rules.js";
 import { conditionIdsPostedBy } from "../skills/marks-rules.js";
 import { worldClockContext } from "../core/world-clock.js";
+import { workingPrograms } from "../economy/device-state.js";
 
 /** Todas as regras das fontes ativas do Ator. */
 export function collectConditionalModifiers(actor) {
@@ -40,6 +41,11 @@ export function conditionalModifierSources(actor) {
     // Antimagia: Skill/Item mágico suprimido não conta.
     if (sourceSuppressed(actor, item, null, suppression)) continue;
     sources.push({ item, mods });
+  }
+  // Programas instalados em placas que funcionam (Lote 9): a regra vale como se fosse da placa.
+  for (const program of workingPrograms(actor)) {
+    const mods = program.item.system?.conditionalModifiers;
+    if (mods?.length) sources.push({ item: program.host, mods });
   }
   // "Quando → Então" da Espécie/Linhagem/Heranças (passivos ao vivo).
   sources.push(...originConditionalSources(actor?.system?.originLayers ?? []));

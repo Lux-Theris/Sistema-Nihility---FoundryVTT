@@ -109,6 +109,8 @@ export function sanitizeSkillMechanics(raw = {}, catalogs = {}, { isValidFormula
 
   out.cost = clampInt(m.cost, 0, 9999, 0);
   out.hasUpkeep = Boolean(m.hasUpkeep);
+  // Engenharia (Lote 9): "Consertar…" placas; a IA só liga se pedir de propósito.
+  if (typeof m.engineering === "boolean") out.engineering = m.engineering;
   out.upkeepCost = out.hasUpkeep ? clampInt(m.upkeepCost, 0, 9999, 0) : 0;
   out.cooldown = clampInt(m.cooldown, 0, 99, 0);
   out.prepTurns = clampInt(m.prepTurns, 0, 20, 0);

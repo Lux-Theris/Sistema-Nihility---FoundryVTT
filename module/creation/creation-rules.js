@@ -12,7 +12,7 @@ import { resolveSpeciesTemplate } from "../species/species-rules.js";
  * (Sub-Skills, linhagem) e o que a aprovação decide sozinha (Nível 1, desligada, sem XP).
  */
 export const REQUEST_MECHANIC_FIELDS = [
-  "cost", "hasUpkeep", "upkeepCost", "variableMana", "cooldown", "prepTurns", "magicTag", "isMagic", "isTech", "animationPath", "description", "resistanceTarget", "weaponMastery",
+  "cost", "hasUpkeep", "upkeepCost", "variableMana", "cooldown", "prepTurns", "magicTag", "isMagic", "isTech", "engineering", "animationPath", "description", "resistanceTarget", "weaponMastery",
   "effectType", "damageFormula", "scalingAttribute", "isMagicDamage", "isAbsoluteDamage", "damageScale", "damageElements", "effects",
   "targetType", "structureId", "structureRegen", "structureRegenCost", "formActorUuid", "areaShape", "areaDistance", "areaAngle", "zoneRounds", "range", "areaOrigin", "areaFreeLevel", "areaAffects", "weaponStrike", "strikeRequiresWeapon", "onlyIf", "onHit", "structurePlace", "areaPerLevel", "structureSize", "lifeSteal", "strikes", "chainChance", "chainRadius", "chainRepeat", "structureFollows", "zoneDarkens", "predationTakes", "endsWhenTargetFalls", "intruderRule", "rerollWho", "rerollKeep", "rerollKinds"
 ];

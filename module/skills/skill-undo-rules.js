@@ -16,7 +16,7 @@ export const UNDO_VITAL_PATHS = {
 };
 
 /** Campos de cada Item fotografados (Skill ligada, XP, Vida de parte/Módulo…). */
-export const UNDO_ITEM_PATHS = ["system.active", "system.xp", "system.hp.value", "system.integrity", "system.lost", "system.status", "system.cooldownRemaining"];
+export const UNDO_ITEM_PATHS = ["system.active", "system.xp", "system.hp.value", "system.integrity", "system.lost", "system.status", "system.cooldownRemaining", "system.device.reserve"];
 
 /** Flags do sistema no Ator que um uso pode mexer e que voltam inteiras. */
 export const UNDO_FLAG_KEYS = ["sustainedShields", "shipEffects", "preparing", "timeReserve"];

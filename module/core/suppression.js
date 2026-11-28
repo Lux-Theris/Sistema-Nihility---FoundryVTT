@@ -12,7 +12,7 @@
  * implante marcados Mágico param de contar. Título, Espécie e partes naturais nunca.
  */
 import { SYSTEM_ID } from "./config.js";
-import { skillIsMagic, skillIsTech, itemIsTech, isSuppressedBy } from "./magic-rules.js";
+import { skillIsMagic, skillIsTech, itemIsTech, itemIsMagic, isSuppressedBy } from "./magic-rules.js";
 
 export const SUPPRESSION_FLAG = "suppression";
 export const TECH_SUPPRESSION_FLAG = "techSuppression";
@@ -64,6 +64,6 @@ export function sourceSuppressed(actor, item, mod = null, state = undefined) {
     const level = item.system.level;
     return Boolean(magicHit(skillIsMagic(item.system), level) || techHit(skillIsTech(item.system), level));
   }
-  if (item?.type === "item") return Boolean(magicHit(item.system?.magic, 0) || techHit(itemIsTech(item.system), 0));
+  if (item?.type === "item") return Boolean(magicHit(itemIsMagic(item.system), 0) || techHit(itemIsTech(item.system), 0));
   return false;
 }

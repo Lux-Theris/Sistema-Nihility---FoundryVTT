@@ -314,6 +314,10 @@ export function isStatusConditionsEnabled() {
 export function isInterferenceEnabled() {
   return isFeatureEnabled("interference");
 }
+/** Placas e programas (Lote 9). Desligado: Reserva, programas e curto-circuito não contam; nada salvo é apagado. */
+export function isDevicesEnabled() {
+  return isFeatureEnabled("devices");
+}
 export function isEnvironmentEnabled() {
   return isFeatureEnabled("environment");
 }

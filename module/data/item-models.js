@@ -172,6 +172,11 @@ function usageFields() {
     isMagic: new fields.BooleanField({ required: false, nullable: true, initial: null }),
     isTech: new fields.BooleanField({ required: false, nullable: true, initial: null }),
     /**
+     * Engenharia (Lote 9): quem tem esta Skill pode "Consertar…" uma placa danificada (a dele ou, com o
+     * aval do Mestre, a de outra pessoa). Configuração da Skill, não estado: vai nas listas de cópia.
+     */
+    engineering: new fields.BooleanField({ required: false, initial: false }),
+    /**
      * Estado de uso: Mana investida ÷ Custo na última vez que a Skill foi LIGADA (Habilidade
      * Ativa). O Custo por rodada é cobrado vezes esta razão enquanto ela estiver ligada.
      */
@@ -1286,7 +1291,60 @@ export class GenericItemDataModel extends foundry.abstract.TypeDataModel {
         chargesUsed: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
         /** Arremessável (granada, H4): o alcance é `throwBase` m + ⌊Força ÷ passo⌋ (só nos modos Num alvo e Área). */
         thrown: new fields.BooleanField({ required: false, initial: false }),
-        throwBase: new fields.NumberField({ required: false, initial: 10, min: 0 })
+        throwBase: new fields.NumberField({ required: false, initial: 10, min: 0 }),
+        /** Célula de energia (Lote 9): gastar 1 destas enche a Reserva de uma placa que aceita Célula (ver device-rules.js). */
+        energyCell: new fields.BooleanField({ required: false, initial: false })
+      }),
+
+      /**
+       * Placa (Lote 9, ver device-rules.js): este Item tem encaixes para programas e uma Reserva própria.
+       * Sempre tecnológica (`nature: "technomagic"` = também mágica). `programs` guarda os programas
+       * instalados (`{uid, sourceItem}`, o Item inteiro para voltar ao inventário); regrave a lista inteira.
+       * `state`: normal | off (curto leve) | damaged (curto grave/desastre, até consertar).
+       */
+      device: new fields.SchemaField({
+        enabled: new fields.BooleanField({ required: false, initial: false }),
+        nature: new fields.StringField({ required: false, initial: "tech", choices: ["tech", "technomagic"] }),
+        slots: new fields.NumberField({ required: false, integer: true, initial: 2, min: 0 }),
+        reserveMax: new fields.NumberField({ required: false, integer: true, initial: 50, min: 0 }),
+        reserve: new fields.NumberField({ required: false, integer: true, initial: 50, min: 0 }),
+        accepts: new fields.StringField({ required: false, initial: "any", choices: ["any", "invasion", "weapon"] }),
+        rechargeRest: new fields.BooleanField({ required: false, initial: true }),
+        rechargeCell: new fields.BooleanField({ required: false, initial: true }),
+        rechargeAction: new fields.BooleanField({ required: false, initial: false }),
+        actionAmount: new fields.NumberField({ required: false, integer: true, initial: 10, min: 0 }),
+        infinite: new fields.BooleanField({ required: false, initial: false }),
+        state: new fields.StringField({ required: false, initial: "normal", choices: ["normal", "off", "damaged"] }),
+        /** Como o "off" acaba: "combat" (no fim do combate `offCombatId`) ou "time" (`offRounds` rodadas depois de `offSince`, em segundos do relógio do mundo). */
+        offMode: new fields.StringField({ required: false, initial: "", blank: true }),
+        offCombatId: new fields.StringField({ required: false, initial: "", blank: true }),
+        offSince: new fields.NumberField({ required: false, initial: 0 }),
+        offRounds: new fields.NumberField({ required: false, integer: true, initial: 3, min: 1 }),
+        programs: new fields.ArrayField(
+          new fields.SchemaField({
+            uid: new fields.StringField({ required: true, blank: false }),
+            sourceItem: new fields.ObjectField({ required: false, nullable: true, initial: null })
+          }),
+          { required: false, initial: [] }
+        )
+      }),
+
+      /**
+       * Programa (Lote 9): instalado numa placa, dá os bônus deste Item (passivo) e/ou a Habilidade Concedida
+       * (ativo), que paga o Custo da Reserva da placa. `costPerUse` > 0 troca o Custo da Habilidade por esse valor
+       * de Reserva. `invasion` fica guardado para o lote da Invasão.
+       */
+      program: new fields.SchemaField({
+        enabled: new fields.BooleanField({ required: false, initial: false }),
+        slotsUsed: new fields.NumberField({ required: false, integer: true, initial: 1, min: 1 }),
+        costPerUse: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 }),
+        fits: new fields.StringField({ required: false, initial: "any", choices: ["any", "weapon"] }),
+        invasion: new fields.SchemaField({
+          enabled: new fields.BooleanField({ required: false, initial: false }),
+          minigame: new fields.StringField({ required: false, initial: "sequence", blank: true }),
+          target: new fields.StringField({ required: false, initial: "tech", blank: true }),
+          prepRounds: new fields.NumberField({ required: false, integer: true, initial: 0, min: 0 })
+        })
       }),
 
       /**
